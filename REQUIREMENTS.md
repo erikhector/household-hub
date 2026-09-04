@@ -127,11 +127,86 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 ## Theming
 
 The app is dark-only (no light-mode toggle) with a fixed background of
-`radial-gradient(circle, #180828, #000000)` (set on `body` in
+`radial-gradient(circle, #180828, #0a0414)` (set on `body` in
 `globals.css`) and `dark` forced on `<html>` in the root layout so the
 existing shadcn dark color tokens (card/popover/border/etc.) apply. Don't
 reintroduce a plain `bg-background` on `body` — it would paint over the
-gradient with a flat color.
+gradient with a flat color. The gradient's outer stop is a near-black
+purple, not literal `#000000` — because the background uses
+`background-attachment: fixed`, it's recentered on the viewport at every
+scroll position, so on a page taller than one screen (the landing page,
+mainly) content near the top/bottom edge of a scrolled viewport sits in the
+gradient's outer stop; a true black there made `bg-card` surfaces nearly
+invisible. Keep the outer stop dark-but-non-black for this reason rather
+than reverting to `#000000`.
+
+The look is deliberately playful, not corporate-neutral — colorful, rounded,
+a little bouncy. Keep new UI consistent with this rather than reverting to
+flat grayscale:
+
+- **Fonts**: `Nunito` (`--font-nunito`, mapped to `--font-sans`) is the body
+  font; `Baloo 2` (`--font-baloo`, mapped to both `--font-heading` and
+  `--font-display`) is the rounded, chunky display font for headings. Both
+  are loaded via `next/font/google` in `src/app/layout.tsx`. `CardTitle` and
+  `DialogTitle` already apply `font-heading` — any new heading-style text
+  should use the `font-heading` (or `font-display` for large hero copy)
+  utility rather than the default body font, so headings stay visually
+  distinct app-wide. `Geist_Mono` (`--font-mono`) is unchanged.
+- **Color**: the neutral tokens (`card`, `popover`, `secondary`, `muted`,
+  `accent`, `sidebar*`) carry a subtle violet tint (`oklch(... 290)` /
+  `oklch(... 300)`) instead of pure grayscale, so surfaces read as part of
+  the same purple-toned world as the background gradient. `--primary`,
+  `--ring`, and `--sidebar-primary` all share one vivid violet/magenta hue
+  (`oklch(0.66 0.22 300)`) so buttons, focus rings, and the active sidebar
+  item feel like one consistent brand color rather than three different
+  accents. `--chart-1..5` are a small rainbow (pink/amber/teal/violet/green)
+  for future charts. Amber (`bg-amber-500`, see `inventory-table.tsx`) is
+  reserved for the "low stock" semantic and shouldn't be reused as a generic
+  accent color. When adding new colored UI, pick from these existing tokens
+  before introducing a new ad-hoc color.
+- **Radius**: `--radius` is `0.9rem` (bumped up from shadcn's default
+  `0.625rem`) — this is the single lever for the app's rounded, friendly
+  corners on buttons/inputs/cards/dialogs/badges. Change it there, not per
+  component, to keep rounding consistent.
+- **Icons**: `lucide-react` is already a dependency and used throughout nav
+  (`nav-items.ts`). Prefer adding a leading `lucide-react` icon to primary
+  buttons and form inputs where it reinforces meaning (see
+  `login-form.tsx`/`signup-form.tsx` for the input pattern: a `relative`
+  wrapper, an absolutely-positioned icon at `left-2.5`, and `pl-8` on the
+  `Input`). Don't add icons purely for decoration where they don't clarify
+  the action.
+- **Buttons/inputs**: `Button`'s default variant carries a colored shadow and
+  a small lift-on-hover/press-down-on-active motion; `Input` has a slightly
+  thicker (`border-2`) border that tints toward `--ring` on hover. These are
+  defined once in `src/components/ui/button.tsx` / `input.tsx` — every usage
+  inherits them automatically, so don't override with one-off `shadow-none`
+  or `border` tweaks unless a specific screen genuinely needs a quieter
+  control.
+
+## Access control (landing / auth pages vs. the app)
+
+`src/proxy.ts` (Auth.js's edge middleware, run for every non-API request —
+see the matcher there) is the single source of truth for this and should
+stay that way rather than re-adding per-page redirect checks:
+
+- **Logged out**: only `/`, `/login`, `/signup`, and `/join/[token]` are
+  reachable. Anything under `/dashboard` redirects to `/login`. There is no
+  other page — the app doesn't have a public marketing section beyond the
+  landing page.
+- **Logged in**: `/`, `/login`, and `/signup` all redirect to `/dashboard` —
+  a logged-in user can never see the landing/marketing page or the auth
+  forms via any navigation path (typing the URL, a stale bookmark, browser
+  back, a `<Link href="/">`, etc.), since the redirect happens in middleware
+  before the page renders.
+- **Exception**: `/join/[token]` is reachable both logged in (shows
+  `AcceptInviteForm`) and logged out (shows `JoinSignupForm`, which creates
+  the account) — see "Sharing" above. It's intentionally excluded from the
+  logged-in redirect rule because it's a distinct action (accept/join a
+  specific household), not the generic landing/auth flow.
+- Because middleware already redirects logged-in visitors away from `/`,
+  `src/app/page.tsx` does **not** duplicate that check with its own
+  `auth()` call — don't re-add one there; it'd be a second session lookup
+  for a redirect that can never fire.
 
 ## Navigation & responsive layout
 
