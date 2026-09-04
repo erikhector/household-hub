@@ -7,9 +7,9 @@ import { requireHousehold } from "@/lib/session";
 export default async function DashboardOverviewPage() {
   const { household, userId } = await requireHousehold();
 
-  const [items, activeList, memberCount] = await Promise.all([
+  const [items, activeLists, memberCount] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
-    prisma.shoppingList.findFirst({
+    prisma.shoppingList.findMany({
       where: { householdId: household.id, status: "ACTIVE" },
       include: { _count: { select: { items: { where: { purchased: false } } } } },
     }),
@@ -17,6 +17,8 @@ export default async function DashboardOverviewPage() {
       where: { householdId: household.id, userId: { not: userId } },
     }),
   ]);
+
+  const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
 
   const lowStock = items.filter((item) => item.quantity <= item.lowStockThreshold);
   const outOfStock = lowStock.filter((item) => item.quantity <= 0);
@@ -61,19 +63,20 @@ export default async function DashboardOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Shopping list
+              Shopping lists
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold">
-              {activeList?._count.items ?? 0}
+            <p className="text-3xl font-semibold">{pendingShoppingItems}</p>
+            <p className="text-sm text-muted-foreground">
+              items to buy across {activeLists.length} active{" "}
+              {activeLists.length === 1 ? "list" : "lists"}
             </p>
-            <p className="text-sm text-muted-foreground">items to buy</p>
             <Link
               href="/dashboard/shopping-list"
               className="text-sm underline underline-offset-4"
             >
-              View shopping list
+              View shopping lists
             </Link>
           </CardContent>
         </Card>

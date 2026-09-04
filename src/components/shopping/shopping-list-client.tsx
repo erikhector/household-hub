@@ -1,16 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useTransition } from "react";
-import { Trash2 } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   addAdHocItemAction,
+  archiveShoppingListAction,
   completeShoppingListAction,
+  deleteShoppingListAction,
   deleteShoppingListItemAction,
   generateFromLowStockAction,
   togglePurchasedAction,
+  unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
 
@@ -25,15 +29,17 @@ type ShoppingListItemRow = {
 type ShoppingListData = {
   id: string;
   name: string;
+  status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
   items: ShoppingListItemRow[];
 };
 
 const initialState: ActionState = {};
 
-function AddItemForm() {
+function AddItemForm({ listId }: { listId: string }) {
   const [state, formAction, pending] = useActionState(addAdHocItemAction, initialState);
   return (
     <form action={formAction} className="flex items-end gap-2">
+      <input type="hidden" name="listId" value={listId} />
       <div className="flex flex-col gap-1">
         <Input name="name" placeholder="Item name" required className="w-48" />
       </div>
@@ -53,30 +59,47 @@ function AddItemForm() {
   );
 }
 
-export function ShoppingListClient({ list }: { list: ShoppingListData | null }) {
+const statusLabel: Record<ShoppingListData["status"], string> = {
+  ACTIVE: "Active",
+  COMPLETED: "Completed",
+  ARCHIVED: "Archived",
+};
+
+export function ShoppingListClient({ list }: { list: ShoppingListData }) {
   const [isPending, startTransition] = useTransition();
 
-  const pendingItems = list?.items.filter((item) => !item.purchased) ?? [];
-  const purchasedItems = list?.items.filter((item) => item.purchased) ?? [];
+  const pendingItems = list.items.filter((item) => !item.purchased);
+  const purchasedItems = list.items.filter((item) => item.purchased);
+  const isActive = list.status === "ACTIVE";
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        href="/dashboard/shopping-list"
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" />
+        All shopping lists
+      </Link>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Shopping list</h1>
-          <p className="text-sm text-muted-foreground">
-            {list ? list.name : "No active list yet"}
-          </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">{list.name}</h1>
+            {!isActive && <Badge variant="secondary">{statusLabel[list.status]}</Badge>}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            disabled={isPending}
-            onClick={() => startTransition(() => generateFromLowStockAction())}
-          >
-            Add low-stock items
-          </Button>
-          {list && list.items.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {isActive && (
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => startTransition(() => generateFromLowStockAction(list.id))}
+            >
+              Add low-stock items
+            </Button>
+          )}
+          {isActive && list.items.length > 0 && (
             <Button
               variant="secondary"
               disabled={isPending}
@@ -85,21 +108,53 @@ export function ShoppingListClient({ list }: { list: ShoppingListData | null }) 
               Complete list
             </Button>
           )}
+          {list.status === "ARCHIVED" ? (
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => startTransition(() => unarchiveShoppingListAction(list.id))}
+            >
+              <ArchiveRestore className="size-4" />
+              Unarchive
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              disabled={isPending}
+              onClick={() => startTransition(() => archiveShoppingListAction(list.id))}
+            >
+              <Archive className="size-4" />
+              Archive
+            </Button>
+          )}
+          <Button
+            variant="destructive"
+            disabled={isPending}
+            onClick={() => startTransition(() => deleteShoppingListAction(list.id))}
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
         </div>
       </div>
 
-      <AddItemForm />
+      {isActive && <AddItemForm listId={list.id} />}
 
       <div className="flex flex-col gap-2">
         {pendingItems.length === 0 && purchasedItems.length === 0 ? (
           <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Nothing on the list. Add items manually, or pull in what&apos;s low on
-            stock.
+            Nothing on this list{isActive ? " yet. Add items manually, or pull in what's low on stock." : "."}
           </p>
         ) : (
           <>
             {pendingItems.map((item) => (
-              <ShoppingRow key={item.id} item={item} isPending={isPending} startTransition={startTransition} />
+              <ShoppingRow
+                key={item.id}
+                item={item}
+                editable={isActive}
+                isPending={isPending}
+                startTransition={startTransition}
+              />
             ))}
             {purchasedItems.length > 0 && (
               <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
@@ -107,7 +162,13 @@ export function ShoppingListClient({ list }: { list: ShoppingListData | null }) 
               </p>
             )}
             {purchasedItems.map((item) => (
-              <ShoppingRow key={item.id} item={item} isPending={isPending} startTransition={startTransition} />
+              <ShoppingRow
+                key={item.id}
+                item={item}
+                editable={isActive}
+                isPending={isPending}
+                startTransition={startTransition}
+              />
             ))}
           </>
         )}
@@ -118,10 +179,12 @@ export function ShoppingListClient({ list }: { list: ShoppingListData | null }) 
 
 function ShoppingRow({
   item,
+  editable,
   isPending,
   startTransition,
 }: {
   item: ShoppingListItemRow;
+  editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
 }) {
@@ -131,7 +194,7 @@ function ShoppingRow({
         <input
           type="checkbox"
           checked={item.purchased}
-          disabled={isPending}
+          disabled={isPending || !editable}
           onChange={() => startTransition(() => togglePurchasedAction(item.id))}
           className="size-4"
         />
@@ -140,15 +203,17 @@ function ShoppingRow({
         </span>
         {item.addedAutomatically && <Badge variant="secondary">Low stock</Badge>}
       </label>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 text-muted-foreground hover:text-destructive"
-        disabled={isPending}
-        onClick={() => startTransition(() => deleteShoppingListItemAction(item.id))}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+      {editable && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-destructive"
+          disabled={isPending}
+          onClick={() => startTransition(() => deleteShoppingListItemAction(item.id))}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -45,7 +45,7 @@ easy for AI coding agents to work in correctly:
 ## Multi-tenancy model
 
 - `Household` is the tenant. `User` accounts join one or more households via
-  `HouseholdMember` (role: `OWNER` | `MEMBER`).
+  `HouseholdMember` (role: `OWNER` | `CONTRIBUTOR`).
 - Every domain table is scoped by `householdId`. Every query/mutation is
   scoped server-side via `requireHousehold()` (`src/lib/session.ts`), which
   resolves the caller's household from their session — never trust a
@@ -53,12 +53,32 @@ easy for AI coding agents to work in correctly:
 - Sharing: an `Invitation` (random token, 7-day expiry) generates a
   `/join/[token]` link. Visiting it while logged in joins that household to
   your account; while logged out, it shows a signup form that creates the
-  account and joins in one step. There's currently no email delivery — the
-  link is shown on-screen for the inviter to copy and send manually.
-- Role is not yet enforced beyond storage (any member can invite, edit
-  inventory, etc.) — only ownership of the household membership itself is
-  checked. Tightening this (e.g. only `OWNER` can invite/remove members) is a
-  reasonable follow-up, not yet implemented.
+  account and joins in one step. Anyone joining via invite becomes a
+  `CONTRIBUTOR` — invites can't grant ownership. There's currently no email
+  delivery — the link is shown on-screen for the inviter to copy and send
+  manually.
+- **Roles**: `OWNER` is whoever created the household (`signupAction` /
+  `createHouseholdAction`); everyone who joins later is a `CONTRIBUTOR`. Both
+  roles can fully operate within the household — inventory, shopping lists,
+  inviting new contributors, etc. Two actions are owner-only, enforced
+  server-side in `src/lib/actions/household.ts` (checked against the
+  session's `role`, not trusted from the client):
+  - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
+    (returns `{ error }`) if the caller isn't the owner, the target is the
+    owner, or the caller targets themselves.
+  - `deleteHouseholdAction` — deletes the household and everything in it
+    (cascades through every domain table via `onDelete: Cascade`). Fails if
+    the caller isn't the owner, or if it's the only household they belong to
+    (a user must always have at least one household — see `requireHousehold`'s
+    zero-membership redirect). On success it falls back the caller's
+    `active_household` cookie to another of their households.
+  - There's no ownership-transfer or "leave a household you don't own" flow
+    yet — see "Not yet built".
+  - `src/app/dashboard/household/page.tsx` renders remove-member controls
+    (`MemberList`) and the delete-household danger zone
+    (`DeleteHouseholdDialog`, which requires typing the household's name to
+    confirm) only when `role === "OWNER"`; contributors see the plain member
+    list with no admin controls.
 - **Switching households**: a user can belong to multiple households (e.g.
   their own home + a shared vacation home). The active one is tracked by the
   `active_household` cookie (`src/lib/session.ts`), read (never written) by
@@ -90,19 +110,33 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
-- `ShoppingList` / `ShoppingListItem` — one `ACTIVE` list per household at a
-  time (enforced by app logic, not a DB constraint). **Every shopping list
-  item maps 1:1 to an `InventoryItem`**: adding an ad-hoc item
-  (`addAdHocItemAction`) immediately finds-or-creates a matching
-  `InventoryItem` (case-insensitive name match within the household; created
-  with category `"Uncategorized"`, quantity 0) and links it — there is no
-  such thing as an unlinked shopping list item going forward.
-  `completeShoppingListAction` re-runs that find-or-create for any item that
-  still lacks a link, as a defensive guarantee at the point the user
-  considers the list "done". Marking an item purchased **increments** the
-  linked inventory item's quantity by the purchased amount (and records a
-  `PriceHistory` row if an estimated price was given); un-marking it reverses
-  the increment.
+- `ShoppingList` / `ShoppingListItem` — a household can have any number of
+  shopping lists at once (e.g. a weekly list and a separate big-trip list);
+  there's no longer a "one active list" constraint. Each list has a status:
+  `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`, one-way) or
+  `ACTIVE`/`COMPLETED` → `ARCHIVED` (via `archiveShoppingListAction`,
+  reversible with `unarchiveShoppingListAction`, which always returns to
+  `ACTIVE`). Any list can be permanently removed with
+  `deleteShoppingListAction` (cascades its items; open to any household
+  member, not owner-gated — see "Roles" above for what *is* owner-gated).
+  `/dashboard/shopping-list` (`ShoppingListsOverview`) lists every list
+  grouped into Active/Completed/Archived sections with a "New list" dialog;
+  `/dashboard/shopping-list/[id]` (`ShoppingListClient`) is the detail view
+  for one list — item add/toggle/delete and the "Add low-stock items" /
+  "Complete list" actions are only available while that list is `ACTIVE`
+  (both client-side, hiding the controls, and server-side, the actions
+  no-op/error on a non-`ACTIVE` list). **Every shopping list item maps 1:1 to
+  an `InventoryItem`**: adding an ad-hoc item (`addAdHocItemAction`)
+  immediately finds-or-creates a matching `InventoryItem` (case-insensitive
+  name match within the household; created with category `"Uncategorized"`,
+  quantity 0) and links it — there is no such thing as an unlinked shopping
+  list item going forward. `completeShoppingListAction` re-runs that
+  find-or-create for any item that still lacks a link, as a defensive
+  guarantee at the point the user considers the list "done". Marking an item
+  purchased **increments** the linked inventory item's quantity by the
+  purchased amount (and records a `PriceHistory` row if an estimated price
+  was given); un-marking it reverses the increment. The dashboard overview
+  card sums pending items across every `ACTIVE` list, not just one.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
 
 **Meal planning** (schema only, no UI yet)
@@ -262,7 +296,8 @@ there, not in the sidebar/bottom-nav components directly.
 ## Not yet built
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
-budget expense link, role-gated permissions, email delivery for invites,
-profile email/password/avatar editing, tests. The autonomous agent
-build/improve loop itself is intentionally not set up yet — that's a
-deliberate separate step once there's a real test suite to gate it on.
+budget expense link, ownership transfer / leaving a household you don't own,
+email delivery for invites, profile email/password/avatar editing, tests.
+The autonomous agent build/improve loop itself is intentionally not set up
+yet — that's a deliberate separate step once there's a real test suite to
+gate it on.

@@ -1,15 +1,28 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
+import { ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 
 export default async function ShoppingListPage() {
   const { household } = await requireHousehold();
 
-  const list = await prisma.shoppingList.findFirst({
-    where: { householdId: household.id, status: "ACTIVE" },
+  const lists = await prisma.shoppingList.findMany({
+    where: { householdId: household.id },
     orderBy: { createdAt: "desc" },
-    include: { items: { orderBy: { createdAt: "asc" } } },
+    include: { _count: { select: { items: { where: { purchased: false } } } } },
   });
 
-  return <ShoppingListClient list={list} />;
+  const toSummary = (list: (typeof lists)[number]) => ({
+    id: list.id,
+    name: list.name,
+    status: list.status,
+    pendingItemCount: list._count.items,
+  });
+
+  return (
+    <ShoppingListsOverview
+      active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
+      completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
+      archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
+    />
+  );
 }

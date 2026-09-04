@@ -2,10 +2,12 @@ import { Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { InviteButton } from "@/components/household/invite-button";
-import { Badge } from "@/components/ui/badge";
+import { MemberList } from "@/components/household/member-list";
+import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 
 export default async function HouseholdPage() {
-  const { household, userId } = await requireHousehold();
+  const { household, userId, role } = await requireHousehold();
+  const isOwner = role === "OWNER";
 
   const members = await prisma.householdMember.findMany({
     where: { householdId: household.id },
@@ -30,22 +32,29 @@ export default async function HouseholdPage() {
         </div>
         <InviteButton />
       </div>
-      <div className="flex flex-col gap-2">
-        {members.map((member) => (
-          <div
-            key={member.id}
-            className="flex items-center justify-between rounded-md border px-3 py-2"
-          >
-            <div>
-              <p className="font-medium">{member.user.displayName}</p>
-              <p className="text-sm text-muted-foreground">{member.user.email}</p>
-            </div>
-            <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
-              {member.role === "OWNER" ? "Owner" : "Member"}
-            </Badge>
+      <MemberList
+        isOwner={isOwner}
+        members={members.map((m) => ({
+          id: m.id,
+          role: m.role,
+          displayName: m.user.displayName,
+          email: m.user.email,
+        }))}
+      />
+      {isOwner && (
+        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+          <div>
+            <h2 className="font-heading text-base font-semibold">Danger zone</h2>
+            <p className="text-sm text-muted-foreground">
+              Deleting this household removes it, and everything in it, for every
+              member. There&apos;s no undo.
+            </p>
           </div>
-        ))}
-      </div>
+          <div>
+            <DeleteHouseholdDialog householdName={household.name} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

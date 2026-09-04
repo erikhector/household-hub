@@ -67,7 +67,7 @@ export async function acceptInviteAction(
   if (!alreadyMember) {
     await prisma.$transaction([
       prisma.householdMember.create({
-        data: { householdId: invitation.householdId, userId, role: "MEMBER" },
+        data: { householdId: invitation.householdId, userId, role: "CONTRIBUTOR" },
       }),
       prisma.invitation.update({
         where: { id: invitation.id },
@@ -119,7 +119,7 @@ export async function joinViaInviteSignupAction(
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { email, passwordHash, displayName } });
     await tx.householdMember.create({
-      data: { householdId: invitation.householdId, userId: user.id, role: "MEMBER" },
+      data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
     });
     await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
   });
@@ -183,6 +183,51 @@ export async function createHouseholdAction(
     maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
     path: "/",
   });
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+// --- Owner-only administration -----------------------------------------
+
+export async function removeMemberAction(memberId: string): Promise<ActionState> {
+  const { household, role, userId } = await requireHousehold();
+  if (role !== "OWNER") {
+    return { error: "Only the household owner can remove members" };
+  }
+
+  const member = await prisma.householdMember.findFirst({
+    where: { id: memberId, householdId: household.id },
+  });
+  if (!member) return { error: "Member not found" };
+  if (member.userId === userId) return { error: "You can't remove yourself" };
+  if (member.role === "OWNER") return { error: "The owner can't be removed" };
+
+  await prisma.householdMember.delete({ where: { id: member.id } });
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
+
+export async function deleteHouseholdAction(): Promise<ActionState> {
+  const { household, role, households } = await requireHousehold();
+  if (role !== "OWNER") {
+    return { error: "Only the household owner can delete the household" };
+  }
+  if (households.length <= 1) {
+    return { error: "You can't delete your only household. Create another one first." };
+  }
+
+  await prisma.household.delete({ where: { id: household.id } });
+
+  const fallback = households.find((h) => h.id !== household.id);
+  const cookieStore = await cookies();
+  if (fallback) {
+    cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, fallback.id, {
+      maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+      path: "/",
+    });
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
