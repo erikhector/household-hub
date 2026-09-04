@@ -292,11 +292,36 @@ export const sv = {
   profile: {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
-    email: "E-post",
-    displayName: "Visningsnamn",
-    saved: "Sparat",
-    saving: "Sparar…",
-    save: "Spara ändringar",
+    avatar: {
+      description: "Din avatar genereras automatiskt utifrån dina initialer — ingen uppladdning behövs.",
+    },
+    displayNameForm: {
+      title: "Visningsnamn",
+      label: "Visningsnamn",
+      saved: "Sparat",
+      saving: "Sparar…",
+      save: "Spara ändringar",
+    },
+    emailForm: {
+      title: "E-postadress",
+      description:
+        "Din e-post är det du loggar in med, så du behöver bekräfta med ditt nuvarande lösenord för att ändra den.",
+      currentEmailLabel: "Nuvarande e-post",
+      newEmailLabel: "Ny e-post",
+      currentPasswordLabel: "Nuvarande lösenord",
+      saved: "E-post uppdaterad",
+      saving: "Uppdaterar…",
+      save: "Uppdatera e-post",
+    },
+    passwordForm: {
+      title: "Lösenord",
+      description: "Du loggas ut och behöver logga in igen efter att du har bytt lösenord.",
+      currentPasswordLabel: "Nuvarande lösenord",
+      newPasswordLabel: "Nytt lösenord",
+      confirmPasswordLabel: "Bekräfta nytt lösenord",
+      saving: "Uppdaterar…",
+      save: "Uppdatera lösenord",
+    },
   },
   auth: {
     brand: "Household Hub",

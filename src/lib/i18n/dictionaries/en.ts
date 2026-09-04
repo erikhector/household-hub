@@ -295,11 +295,36 @@ export const en = {
   profile: {
     title: "Profile",
     subtitle: "Your account details.",
-    email: "Email",
-    displayName: "Display name",
-    saved: "Saved",
-    saving: "Saving…",
-    save: "Save changes",
+    avatar: {
+      description: "Your avatar is generated automatically from your initials — no upload needed.",
+    },
+    displayNameForm: {
+      title: "Display name",
+      label: "Display name",
+      saved: "Saved",
+      saving: "Saving…",
+      save: "Save changes",
+    },
+    emailForm: {
+      title: "Email address",
+      description:
+        "Your email is how you log in, so changing it requires your current password to confirm.",
+      currentEmailLabel: "Current email",
+      newEmailLabel: "New email",
+      currentPasswordLabel: "Current password",
+      saved: "Email updated",
+      saving: "Updating…",
+      save: "Update email",
+    },
+    passwordForm: {
+      title: "Password",
+      description: "You'll be signed out and asked to log back in after changing your password.",
+      currentPasswordLabel: "Current password",
+      newPasswordLabel: "New password",
+      confirmPasswordLabel: "Confirm new password",
+      saving: "Updating…",
+      save: "Update password",
+    },
   },
   auth: {
     brand: "Household Hub",
