@@ -1,16 +1,20 @@
 import Link from "next/link";
+import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 
 export default async function DashboardOverviewPage() {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
-  const [items, activeList] = await Promise.all([
+  const [items, activeList, memberCount] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
     prisma.shoppingList.findFirst({
       where: { householdId: household.id, status: "ACTIVE" },
       include: { _count: { select: { items: { where: { purchased: false } } } } },
+    }),
+    prisma.householdMember.count({
+      where: { householdId: household.id, userId: { not: userId } },
     }),
   ]);
 
@@ -25,6 +29,18 @@ export default async function DashboardOverviewPage() {
           What needs your attention right now.
         </p>
       </div>
+      {memberCount > 0 && (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <Users className="size-4 shrink-0" />
+          <span>
+            Shared with {memberCount} other {memberCount === 1 ? "person" : "people"} in{" "}
+            {household.name}
+          </span>
+          <Link href="/dashboard/household" className="ml-auto shrink-0 underline underline-offset-4">
+            Manage
+          </Link>
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>

@@ -68,12 +68,13 @@ easy for AI coding agents to work in correctly:
   run in a Server Action, since cookies can't be set during a Server
   Component render. The header's `HouseholdSwitcher` component is the UI for
   this.
-- **"Shared with" indicator** (planned, not yet built): when a household has
-  more than one member, the household page (`src/app/dashboard/household/page.tsx`)
-  and the dashboard overview (`src/app/dashboard/page.tsx`) should surface
-  that fact — e.g. "Shared with 2 other people" — derived from
-  `requireHousehold()`'s member count (or a dedicated count query), not shown
-  when the household has only the current user.
+- **"Shared with" indicator**: when a household has more than one member, the
+  household page (`src/app/dashboard/household/page.tsx`) and the dashboard
+  overview (`src/app/dashboard/page.tsx`) surface that fact — "Shared with N
+  other person/people" — each deriving the count independently (household
+  page filters its already-fetched member list by `userId`; the overview runs
+  a dedicated `householdMember.count` query since it doesn't otherwise fetch
+  members). Hidden entirely when the household has only the current user.
 
 ## Data model
 
@@ -114,12 +115,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   between modules: completing a shopping list can create a "Groceries"
   expense `Transaction` — otherwise the two modules are independent.
 
-**User profile** (planned, not yet built)
-- A `/dashboard/profile` page for the signed-in user to edit their own
-  `User.displayName`. Email and password are not editable there for now
-  (email is the login identifier and there's no re-verification flow yet;
-  password change is a separate future slice) — deliberately the smallest
-  useful slice, not a placeholder for a fuller form.
+**User profile** (built)
+- A `/dashboard/profile` page (`updateProfileAction` in
+  `src/app/dashboard/profile/actions.ts`) for the signed-in user to edit
+  their own `User.displayName`. Email is shown read-only and password isn't
+  editable there yet (email is the login identifier and there's no
+  re-verification flow; password change is a separate future slice) —
+  deliberately the smallest useful slice, not a placeholder for a fuller
+  form.
 
 ## Theming
 
@@ -132,25 +135,30 @@ gradient with a flat color.
 
 ## Navigation & responsive layout
 
-(Planned, not yet built — currently `DashboardNav` (`src/components/dashboard/nav.tsx`)
-is a flat, wrapping row of text links in the header, same on every screen size.)
+Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,
+Household, Profile) are defined once in `src/components/dashboard/nav-items.ts`
+(icon + href + label) and consumed by both layouts below — add a section
+there, not in the sidebar/bottom-nav components directly.
 
-- **Desktop (`sm` and up)**: the top nav becomes a left sidebar with an icon +
-  label per section (Overview, Inventory, Shopping list, Meal planning,
-  Budget, Household, Profile). Expanded by default (icons + labels visible);
-  a toggle collapses it to an icon-only rail. The chosen state is
-  remembered per user (cookie or `localStorage`) across visits.
-- **Mobile (below `sm`)**: navigation moves to a fixed bottom bar with 5
-  icons: Overview, Inventory, Shopping list, Budget, and a "More" icon. Tapping
-  "More" opens a sheet/menu with the remaining sections (Meal planning,
-  Household, Profile) plus log out. Meal planning and Household are in the
-  overflow rather than the primary bar because they see lower daily use than
-  inventory/shopping/budget.
-- The household switcher, "Shared with" indicator, and log out stay
-  accessible from both layouts (e.g. pinned to the top/bottom of the sidebar
-  on desktop, folded into the "More" sheet on mobile) — exact placement is an
-  implementation detail as long as they're reachable in one tap/click from
-  every dashboard page.
+- **Desktop (`sm` and up)**: `src/components/dashboard/sidebar.tsx` renders a
+  left sidebar with an icon + label per section, the `HouseholdSwitcher` at
+  the top, and log out pinned to the bottom. Expanded by default; a toggle
+  collapses it to an icon-only rail (`w-16` vs `w-56`). The expanded/collapsed
+  state is written to the `sidebar_expanded` cookie (`SIDEBAR_COOKIE` in
+  `nav-items.ts`) on toggle and read server-side in
+  `src/app/dashboard/layout.tsx` so the initial render matches — no
+  client-side flash.
+- **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
+  fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
+  and a "More" dropdown menu holding Meal planning, Household, Profile, and
+  log out (`overflowMobileNavItems`/`primaryMobileNavItems` in
+  `nav-items.ts`). Meal planning and Household are in the overflow rather
+  than the primary bar because they see lower daily use than
+  inventory/shopping/budget. The dashboard `<main>` gets extra bottom padding
+  (`pb-24 sm:pb-8`) so content isn't hidden behind the fixed bar.
+- On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
+  appears in a slim header above the page content (`sm:hidden`), since it
+  isn't part of the bottom bar.
 
 ## Conventions
 
@@ -180,8 +188,6 @@ is a flat, wrapping row of text links in the header, same on every screen size.)
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
 budget expense link, role-gated permissions, email delivery for invites,
-tests. Also newly specced but not yet implemented: the user profile page,
-the "Shared with" indicator, and the responsive sidebar/bottom-nav layout
-(see Navigation & responsive layout above). The autonomous agent
+profile email/password/avatar editing, tests. The autonomous agent
 build/improve loop itself is intentionally not set up yet — that's a
 deliberate separate step once there's a real test suite to gate it on.

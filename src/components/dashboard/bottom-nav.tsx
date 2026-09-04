@@ -1,0 +1,76 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { MoreHorizontal, LogOut } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  primaryMobileNavItems,
+  overflowMobileNavItems,
+  isNavItemActive,
+} from "@/components/dashboard/nav-items";
+import { logoutAction } from "@/lib/actions/auth";
+
+export function BottomNav() {
+  const pathname = usePathname();
+  const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
+      <div className="flex items-stretch justify-around pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        {primaryMobileNavItems.map(({ href, label, icon: Icon }) => {
+          const active = isNavItemActive(pathname, href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium",
+                active ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-5" />
+              {label}
+            </Link>
+          );
+        })}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium",
+                  moreActive ? "text-primary" : "text-muted-foreground",
+                )}
+              />
+            }
+          >
+            <MoreHorizontal className="size-5" />
+            More
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" sideOffset={8}>
+            {overflowMobileNavItems.map(({ href, label, icon: Icon }) => (
+              <DropdownMenuItem key={href} render={<Link href={href} />}>
+                <Icon className="size-4" />
+                {label}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => logoutAction()}>
+              <LogOut className="size-4" />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </nav>
+  );
+}
