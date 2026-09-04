@@ -22,12 +22,12 @@ Branch: `feature/household-lifecycle`
 
 ## Shared / cross-cutting
 
-- [ ] i18n keys added to `en.ts` and `sv.ts` (real Swedish translations, not copies)
-- [ ] REQUIREMENTS.md — new subsection, remove corresponding "Not yet built" line(s)
-- [ ] `npx tsc --noEmit -p tsconfig.json` — zero errors
-- [ ] `npx eslint src` — zero errors/warnings
-- [ ] `npm run build` — succeeds
-- [ ] Final commit with this file fully checked off
+- [x] i18n keys added to `en.ts` and `sv.ts` (real Swedish translations, not copies)
+- [x] REQUIREMENTS.md — new subsection, remove corresponding "Not yet built" line(s)
+- [x] `npx tsc --noEmit -p tsconfig.json` — zero errors
+- [x] `npx eslint src` — zero errors/warnings
+- [x] `npm run build` — succeeds
+- [x] Final commit with this file fully checked off
 
 ## Decisions / notes
 

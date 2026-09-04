@@ -111,9 +111,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `/join/[token]` link. Visiting it while logged in joins that household to
   your account; while logged out, it shows a signup form that creates the
   account and joins in one step. Anyone joining via invite becomes a
-  `CONTRIBUTOR` — invites can't grant ownership. There's currently no email
-  delivery — the link is shown on-screen for the inviter to copy and send
-  manually.
+  `CONTRIBUTOR` — invites can't grant ownership. The link is always shown
+  on-screen for the inviter to copy and send manually; see "Invite email
+  delivery" below for the additional option to have it emailed directly.
 - **Roles**: `OWNER` is whoever created the household (`signupAction` /
   `createHouseholdAction`); everyone who joins later is a `CONTRIBUTOR`. Both
   roles can fully operate within the household — inventory, shopping lists,
@@ -129,13 +129,70 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     (a user must always have at least one household — see `requireHousehold`'s
     zero-membership redirect). On success it falls back the caller's
     `active_household` cookie to another of their households.
-  - There's no ownership-transfer or "leave a household you don't own" flow
-    yet — see "Not yet built".
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
     (`DeleteHouseholdDialog`, which requires typing the household's name to
     confirm) only when `role === "OWNER"`; contributors see the plain member
     list with no admin controls.
+  - See "Ownership transfer and leaving a household" below for what a
+    `CONTRIBUTOR` or the current `OWNER` can do instead of (or before)
+    deleting the household.
+
+### Ownership transfer and leaving a household
+
+Every household must always have exactly one `OWNER`, so leaving and
+ownership hand-off are two separate actions in
+`src/lib/actions/household.ts`, both `MemberList`-driven from
+`src/app/dashboard/household/page.tsx`:
+
+- `leaveHouseholdAction` — a `CONTRIBUTOR` removes their own membership.
+  Mirrors `removeMemberAction`'s shape but is self-targeted (derives the
+  membership to delete from the session, not a client-supplied id), and
+  enforces the same "can't leave your only household" rule
+  `deleteHouseholdAction` enforces for owners. Falls back the caller's
+  `active_household` cookie the same way `deleteHouseholdAction` does. Fails
+  if the caller is the `OWNER` — an owner must `transferOwnershipAction` or
+  `deleteHouseholdAction` instead, never leave outright.
+- `transferOwnershipAction(newOwnerMemberId)` — owner-only. Swaps `OWNER`/
+  `CONTRIBUTOR` between the caller and the target member in one
+  `$transaction`, the same pattern `removeMemberAction`/
+  `deleteHouseholdAction` use for re-deriving both memberships from the
+  session-scoped household rather than trusting anything but the target's
+  id from the client.
+- UI (`MemberList`, `src/components/household/member-list.tsx`): every
+  member sees a leave control on their own row, except the owner — the
+  owner's row never shows "leave" since they must transfer or delete
+  instead. The owner additionally sees a transfer-ownership control on
+  every other (non-owner) row. Both actions confirm in a dialog
+  (`src/components/ui/dialog.tsx`) before running — transfer names the
+  target member, leave states what access is lost — mirroring
+  `DeleteHouseholdDialog`'s confirm-before-destructive-action pattern
+  without requiring the household name to be typed (lower stakes than
+  deleting the household outright, but still not a bare click).
+
+### Invite email delivery
+
+`createInviteAction` (unchanged) still creates the `Invitation` and returns
+its `/join/[token]` URL for the always-shown on-screen copy link — email is
+additive, not a replacement, and the link keeps working even if email
+sending fails or isn't configured. `sendInviteEmailAction(token, email)` is
+a separate action that re-validates the token belongs to the caller's
+household and isn't expired/accepted, then sends the same link via
+`sendHouseholdInviteEmail` (`src/lib/email.ts`), using **Resend** — chosen
+as the least-friction provider for a Next.js app (no SMTP server to run,
+works with just an API key) since nothing in the codebase had an existing
+email provider or preference. Configuration is `RESEND_API_KEY` (required
+to actually send — without it, `sendInviteEmailAction` returns a
+graceful `{ error }` and the UI falls back to "use the link") and optional
+`EMAIL_FROM` (defaults to Resend's shared `onboarding@resend.dev` sender,
+which needs no domain verification; set `EMAIL_FROM` to a verified sending
+address in production) — see `.env.example`. The join URL embedded in the
+email is built server-side from request headers (`x-forwarded-host`/
+`host`, `x-forwarded-proto`), not a client-supplied origin, since a Server
+Action is a POST endpoint reachable by anyone, not just through the UI that
+renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
+adds an email input + send button below the existing link/copy UI, reusing
+the same invitation token the link already points at.
 - **Switching households**: a user can belong to multiple households (e.g.
   their own home + a shared vacation home). The active one is tracked by the
   `active_household` cookie (`src/lib/session.ts`), read (never written) by
@@ -384,8 +441,7 @@ components directly.
 ## Not yet built
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
-budget expense link, ownership transfer / leaving a household you don't own,
-email delivery for invites, profile email/password/avatar editing, tests.
+budget expense link, profile email/password/avatar editing, tests.
 The autonomous agent build/improve loop itself is intentionally not set up
 yet — that's a deliberate separate step once there's a real test suite to
 gate it on.
