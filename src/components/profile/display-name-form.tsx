@@ -7,23 +7,21 @@ import { Label } from "@/components/ui/label";
 import { updateProfileAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type ProfileFormState = { error?: string; success?: boolean };
+type FormState = { error?: string; success?: boolean };
 
-const initialState: ProfileFormState = {};
+const initialState: FormState = {};
 
-export function ProfileForm({
+export function DisplayNameForm({
   displayName,
-  email,
   dict,
 }: {
   displayName: string;
-  email: string;
-  dict: Dictionary["profile"];
+  dict: Dictionary["profile"]["displayNameForm"];
 }) {
   const [state, formAction, pending] = useActionState(async (
-    prevState: ProfileFormState,
+    prevState: FormState,
     formData: FormData,
-  ): Promise<ProfileFormState> => {
+  ): Promise<FormState> => {
     const result = await updateProfileAction(prevState, formData);
     return result.error ? { error: result.error } : { success: true };
   }, initialState);
@@ -31,18 +29,13 @@ export function ProfileForm({
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">{dict.email}</Label>
-        <Input id="email" defaultValue={email} disabled />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="displayName">{dict.displayName}</Label>
+        <Label htmlFor="displayName">{dict.label}</Label>
         <Input
           key={displayName}
           id="displayName"
           name="displayName"
           defaultValue={displayName}
           required
-          autoFocus
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { ProfileForm } from "@/components/profile/profile-form";
+import { UserAvatar } from "@/components/profile/avatar";
+import { DisplayNameForm } from "@/components/profile/display-name-form";
+import { EmailForm } from "@/components/profile/email-form";
+import { PasswordForm } from "@/components/profile/password-form";
 
 export default async function ProfilePage() {
   const [{ userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
@@ -9,12 +12,27 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{dict.profile.title}</h1>
-        <p className="text-sm text-muted-foreground">{dict.profile.subtitle}</p>
+      <div className="flex items-center gap-4">
+        <UserAvatar displayName={user.displayName} seed={user.id} />
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{dict.profile.title}</h1>
+          <p className="text-sm text-muted-foreground">{dict.profile.subtitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{dict.profile.avatar.description}</p>
+        </div>
       </div>
-      <div className="max-w-sm rounded-md border p-4">
-        <ProfileForm displayName={user.displayName} email={user.email} dict={dict.profile} />
+      <div className="flex max-w-md flex-col gap-6">
+        <div className="rounded-md border p-4">
+          <h2 className="mb-3 font-heading text-base font-semibold">
+            {dict.profile.displayNameForm.title}
+          </h2>
+          <DisplayNameForm displayName={user.displayName} dict={dict.profile.displayNameForm} />
+        </div>
+        <div className="rounded-md border p-4">
+          <EmailForm email={user.email} dict={dict.profile.emailForm} />
+        </div>
+        <div className="rounded-md border p-4">
+          <PasswordForm dict={dict.profile.passwordForm} />
+        </div>
       </div>
     </div>
   );
