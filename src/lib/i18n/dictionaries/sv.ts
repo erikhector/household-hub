@@ -42,6 +42,11 @@ export const sv = {
       generating: "Skapar länk…",
       description: "Skicka den här länken till den som ska gå med. Den slutar gälla om 7 dagar.",
       copy: "Kopiera",
+      emailLabel: "Eller skicka den via e-post",
+      emailPlaceholder: "Mottagarens e-postadress",
+      send: "Skicka",
+      sending: "Skickar…",
+      sent: "Inbjudan skickad till {email}",
     },
     title: "Hushåll",
     sharedWith: {
@@ -62,6 +67,24 @@ export const sv = {
       confirmLabel: "Skriv {name} för att bekräfta",
       confirmButton: "Ta bort hushåll",
       deleting: "Tar bort…",
+    },
+    transfer: {
+      ariaLabel: "Gör {name} till ägare",
+      confirmTitle: "Överför ägarskap till {name}?",
+      confirmDescription:
+        "{name} blir ägare och du blir medlem. Bara den nya ägaren kan överföra det tillbaka.",
+      confirmButton: "Överför ägarskap",
+      transferring: "Överför…",
+      cancel: "Avbryt",
+    },
+    leave: {
+      ariaLabel: "Lämna hushållet",
+      confirmTitle: "Lämna det här hushållet?",
+      confirmDescription:
+        "Du förlorar åtkomst till dess skafferi, inköpslistor, matplaner och budgetdata. Du kan gå med igen senare om någon bjuder in dig på nytt.",
+      confirmButton: "Lämna hushållet",
+      leaving: "Lämnar…",
+      cancel: "Avbryt",
     },
   },
   dashboard: {

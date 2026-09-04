@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,13 +10,14 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold } from "@/lib/session";
 import { signIn } from "@/lib/auth";
+import { sendHouseholdInviteEmail } from "@/lib/email";
 import type { ActionState } from "@/lib/actions/auth";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 const INVITE_TTL_DAYS = 7;
 
-export async function createInviteAction(): Promise<{ url?: string; error?: string }> {
+export async function createInviteAction(): Promise<{ url?: string; token?: string; error?: string }> {
   const { household } = await requireHousehold();
 
   const invitation = await prisma.invitation.create({
@@ -28,7 +29,48 @@ export async function createInviteAction(): Promise<{ url?: string; error?: stri
   });
 
   revalidatePath("/dashboard/household");
-  return { url: `/join/${invitation.token}` };
+  return { url: `/join/${invitation.token}`, token: invitation.token };
+}
+
+async function absoluteAppUrl(path: string): Promise<string> {
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}${path}`;
+}
+
+const sendInviteEmailSchema = z.object({
+  token: z.string().min(1),
+  email: z.string().trim().email("Enter a valid email address"),
+});
+
+// Sends the same link the on-screen "copy link" UI already shows for this
+// invite (see InviteButton) — email delivery is additive, not a
+// replacement, so the invite still works via manual copy/paste if this
+// fails or if RESEND_API_KEY isn't configured (see src/lib/email.ts).
+export async function sendInviteEmailAction(token: string, email: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = sendInviteEmailSchema.safeParse({ token, email });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const invitation = await prisma.invitation.findFirst({
+    where: { token: parsed.data.token, householdId: household.id },
+  });
+  if (!invitation || invitation.acceptedAt || invitation.expiresAt < new Date()) {
+    return { error: "This invite link is invalid or has expired" };
+  }
+
+  const inviteUrl = await absoluteAppUrl(`/join/${invitation.token}`);
+  const result = await sendHouseholdInviteEmail({
+    to: parsed.data.email,
+    householdName: household.name,
+    inviteUrl,
+  });
+
+  return result;
 }
 
 async function getValidInvitation(token: string) {
@@ -231,4 +273,75 @@ export async function deleteHouseholdAction(): Promise<ActionState> {
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+// A CONTRIBUTOR leaving removes their own membership — mirrors
+// removeMemberAction's shape but self-targeted, so there's no "target
+// member id" to trust from the client at all. The owner can't use this:
+// they must transferOwnershipAction or deleteHouseholdAction instead,
+// since a household always needs exactly one OWNER.
+export async function leaveHouseholdAction(): Promise<ActionState> {
+  const { household, role, userId, households } = await requireHousehold();
+  if (role === "OWNER") {
+    return { error: "Transfer ownership to another member before leaving, or delete the household instead" };
+  }
+  if (households.length <= 1) {
+    return { error: "You can't leave your only household. Create another one first." };
+  }
+
+  const membership = await prisma.householdMember.findUnique({
+    where: { householdId_userId: { householdId: household.id, userId } },
+  });
+  if (!membership) return { error: "Membership not found" };
+
+  await prisma.householdMember.delete({ where: { id: membership.id } });
+
+  const fallback = households.find((h) => h.id !== household.id);
+  const cookieStore = await cookies();
+  if (fallback) {
+    cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, fallback.id, {
+      maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+      path: "/",
+    });
+  }
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+// Swaps OWNER/CONTRIBUTOR between the caller and the target member in a
+// $transaction, same pattern as removeMemberAction/deleteHouseholdAction:
+// re-derive both memberships from the session-scoped household rather than
+// trusting anything but the target's id from the client.
+export async function transferOwnershipAction(newOwnerMemberId: string): Promise<ActionState> {
+  const { household, role, userId } = await requireHousehold();
+  if (role !== "OWNER") {
+    return { error: "Only the household owner can transfer ownership" };
+  }
+
+  const currentOwnerMembership = await prisma.householdMember.findUnique({
+    where: { householdId_userId: { householdId: household.id, userId } },
+  });
+  if (!currentOwnerMembership) return { error: "Membership not found" };
+
+  const target = await prisma.householdMember.findFirst({
+    where: { id: newOwnerMemberId, householdId: household.id },
+  });
+  if (!target) return { error: "Member not found" };
+  if (target.userId === userId) return { error: "You're already the owner" };
+  if (target.role === "OWNER") return { error: "This member is already the owner" };
+
+  await prisma.$transaction([
+    prisma.householdMember.update({
+      where: { id: currentOwnerMembership.id },
+      data: { role: "CONTRIBUTOR" },
+    }),
+    prisma.householdMember.update({
+      where: { id: target.id },
+      data: { role: "OWNER" },
+    }),
+  ]);
+
+  revalidatePath("/dashboard/household");
+  return {};
 }

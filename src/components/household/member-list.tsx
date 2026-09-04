@@ -1,16 +1,26 @@
 "use client";
 
-import { useTransition } from "react";
-import { UserMinus } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Crown, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { removeMemberAction } from "@/lib/actions/household";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { leaveHouseholdAction, removeMemberAction, transferOwnershipAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Member = {
   id: string;
+  userId: string;
   role: string;
   displayName: string;
   email: string;
@@ -19,13 +29,17 @@ type Member = {
 export function MemberList({
   members,
   isOwner,
+  currentUserId,
   dict,
 }: {
   members: Member[];
   isOwner: boolean;
+  currentUserId: string;
   dict: Dictionary["household"];
 }) {
   const [isPending, startTransition] = useTransition();
+  const [transferTarget, setTransferTarget] = useState<Member | null>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   function handleRemove(memberId: string) {
     startTransition(async () => {
@@ -34,36 +48,126 @@ export function MemberList({
     });
   }
 
+  function handleTransfer() {
+    if (!transferTarget) return;
+    const memberId = transferTarget.id;
+    startTransition(async () => {
+      const result = await transferOwnershipAction(memberId);
+      if (result.error) toast.error(result.error);
+      setTransferTarget(null);
+    });
+  }
+
+  function handleLeave() {
+    startTransition(async () => {
+      const result = await leaveHouseholdAction();
+      if (result.error) {
+        toast.error(result.error);
+        setLeaveOpen(false);
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-2">
-      {members.map((member) => (
-        <div
-          key={member.id}
-          className="flex items-center justify-between rounded-md border px-3 py-2"
-        >
-          <div>
-            <p className="font-medium">{member.displayName}</p>
-            <p className="text-sm text-muted-foreground">{member.email}</p>
+      {members.map((member) => {
+        const isSelf = member.userId === currentUserId;
+        return (
+          <div
+            key={member.id}
+            className="flex items-center justify-between rounded-md border px-3 py-2"
+          >
+            <div>
+              <p className="font-medium">{member.displayName}</p>
+              <p className="text-sm text-muted-foreground">{member.email}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
+                {member.role === "OWNER" ? dict.owner : dict.contributor}
+              </Badge>
+              {isOwner && member.role !== "OWNER" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-primary"
+                  disabled={isPending}
+                  aria-label={format(dict.transfer.ariaLabel, { name: member.displayName })}
+                  onClick={() => setTransferTarget(member)}
+                >
+                  <Crown className="size-3.5" />
+                </Button>
+              )}
+              {isOwner && member.role !== "OWNER" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  disabled={isPending}
+                  aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
+                  onClick={() => handleRemove(member.id)}
+                >
+                  <UserMinus className="size-3.5" />
+                </Button>
+              )}
+              {isSelf && member.role !== "OWNER" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  disabled={isPending}
+                  aria-label={dict.leave.ariaLabel}
+                  onClick={() => setLeaveOpen(true)}
+                >
+                  <LogOut className="size-3.5" />
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
-              {member.role === "OWNER" ? dict.owner : dict.contributor}
-            </Badge>
-            {isOwner && member.role !== "OWNER" && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-destructive"
-                disabled={isPending}
-                aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
-                onClick={() => handleRemove(member.id)}
-              >
-                <UserMinus className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
+
+      <Dialog
+        open={transferTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setTransferTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {transferTarget
+                ? format(dict.transfer.confirmTitle, { name: transferTarget.displayName })
+                : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {transferTarget
+                ? format(dict.transfer.confirmDescription, { name: transferTarget.displayName })
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>{dict.transfer.cancel}</DialogClose>
+            <Button disabled={isPending} onClick={handleTransfer}>
+              {isPending ? dict.transfer.transferring : dict.transfer.confirmButton}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dict.leave.confirmTitle}</DialogTitle>
+            <DialogDescription>{dict.leave.confirmDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>{dict.leave.cancel}</DialogClose>
+            <Button variant="destructive" disabled={isPending} onClick={handleLeave}>
+              {isPending ? dict.leave.leaving : dict.leave.confirmButton}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
