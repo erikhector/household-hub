@@ -39,9 +39,11 @@ export default async function HouseholdPage() {
       </div>
       <MemberList
         isOwner={isOwner}
+        currentUserId={userId}
         dict={dict.household}
         members={members.map((m) => ({
           id: m.id,
+          userId: m.userId,
           role: m.role,
           displayName: m.user.displayName,
           email: m.user.email,

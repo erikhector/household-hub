@@ -45,6 +45,11 @@ export const en = {
       generating: "Generating link…",
       description: "Send this link to whoever should join. It expires in 7 days.",
       copy: "Copy",
+      emailLabel: "Or send it by email",
+      emailPlaceholder: "Their email address",
+      send: "Send",
+      sending: "Sending…",
+      sent: "Invite sent to {email}",
     },
     title: "Household",
     sharedWith: {
@@ -65,6 +70,24 @@ export const en = {
       confirmLabel: "Type {name} to confirm",
       confirmButton: "Delete household",
       deleting: "Deleting…",
+    },
+    transfer: {
+      ariaLabel: "Make {name} the owner",
+      confirmTitle: "Transfer ownership to {name}?",
+      confirmDescription:
+        "{name} will become the owner and you'll become a contributor. Only the new owner can transfer it back.",
+      confirmButton: "Transfer ownership",
+      transferring: "Transferring…",
+      cancel: "Cancel",
+    },
+    leave: {
+      ariaLabel: "Leave household",
+      confirmTitle: "Leave this household?",
+      confirmDescription:
+        "You'll lose access to its inventory, shopping lists, meal plans, and budget data. You can rejoin later if someone invites you again.",
+      confirmButton: "Leave household",
+      leaving: "Leaving…",
+      cancel: "Cancel",
     },
   },
   dashboard: {
