@@ -200,11 +200,73 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
 
-**Budgeting** (schema only, no UI yet)
-- `BudgetCategory` (income/expense), `Transaction` (amount, category, date,
-  `isRecurring` + `recurrenceFrequency`). The intended (not yet built) link
-  between modules: completing a shopping list can create a "Groceries"
-  expense `Transaction` — otherwise the two modules are independent.
+**Budgeting** (built)
+- `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
+  (`amount`, `categoryId`, `date`, `description`, `isRecurring` +
+  `recurrenceFrequency`). UI lives at `/dashboard/budget`
+  (`src/app/dashboard/budget/page.tsx`, a Server Component that fetches and
+  aggregates, composing Client Components from `src/components/budget/` —
+  same split as the household page), with actions in
+  `src/app/dashboard/budget/actions.ts`.
+- **Categories**: managed from a card on the budget page (`CategoryManager`)
+  — add (name + income/expense type) and delete. `Transaction.type` is
+  **not** a separately user-chosen field even though the schema has one on
+  both models: `createTransactionAction`/`updateTransactionAction` always
+  set it from the selected category's `type` server-side, so a transaction
+  can never disagree with its own category about whether it's income or an
+  expense. A category can't be deleted while any `Transaction` still
+  references it (`deleteCategoryAction` checks `_count.transactions` and
+  returns an error instead) — `Transaction.categoryId` is a required
+  relation with no `onDelete` cascade/set-null in the schema, so an
+  unguarded delete would otherwise fail at the database level with a
+  confusing FK error; this way the user gets a clear message instead.
+- **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
+  (householdId: string)`, exported from
+  `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
+  shopping-list → budget expense link (completing a shopping list should
+  create/reuse a "Groceries" expense category and log a `Transaction`
+  against it). Lookup key: name `"Groceries"` (case-insensitive match),
+  `type: "EXPENSE"`, scoped to the household — mirrors
+  `findOrCreateInventoryItem` in
+  `src/app/dashboard/shopping-list/actions.ts` exactly (find first, create
+  if missing). The category name itself (`GROCERIES_CATEGORY_NAME`) is a
+  module-private constant, not exported, because a `"use server"` file may
+  only export async functions — callers that need the name read it off the
+  returned category (`category.name`) rather than importing the constant.
+  Like `findOrCreateInventoryItem`, this helper trusts its `householdId`
+  argument and does no auth check of its own; every caller must resolve
+  that id from its own `requireHousehold()` call first, never from
+  client input.
+- **Transactions**: `TransactionList` shows date, category (badge tinted
+  `text-chart-5`/`text-destructive` for income/expense — the same two
+  tokens the summary and amounts use, so the income/expense meaning stays
+  visually consistent everywhere on the page), description, and a signed,
+  colored amount, with edit/delete per row. Add/edit share one
+  `TransactionDialog` component (category select, amount, date,
+  description, and a recurring toggle) — editing reuses the same dialog
+  with the row's data as `defaultValue`s rather than a second form.
+- **Recurring transactions**: `isRecurring` + `recurrenceFrequency`
+  (`WEEKLY`/`MONTHLY`/`YEARLY`) are metadata and display only — checking
+  "this repeats" on a transaction marks it and shows a "Recurring" badge
+  with its frequency in the list. There's no scheduler that auto-generates
+  future transactions from a recurring one; the schema has no
+  "next occurrence" field to drive that, and it wasn't asked for. Someone
+  logs each occurrence themselves; the flag just documents that it's an
+  expected repeat (e.g. rent, a subscription) for their own reference.
+- **Period summary**: `PeriodSummary` shows the current calendar month
+  (`[monthStart, monthEnd)` computed from `new Date()` server-side) —
+  income/expense/net totals, plus a per-category breakdown for each with a
+  proportional bar cycling through the existing `--chart-1..5` tokens (the
+  "small rainbow ... for future charts" REQUIREMENTS already called out).
+  All aggregation happens in the page's Server Component (grouping the
+  month's transactions by `categoryId`); the summary components themselves
+  are plain presentational functions, not Client Components, since nothing
+  on them is interactive.
+- **No currency symbol**: amounts are formatted with `Intl.NumberFormat`
+  (locale-aware decimal separator, always 2 decimals) but no currency
+  symbol or code, same as `InventoryItem.lastKnownPrice`/
+  `ShoppingListItem.estimatedPrice` elsewhere in the app — there's no
+  household-level currency setting, so a symbol would be a guess.
 
 **User profile** (built)
 - A `/dashboard/profile` page (`updateProfileAction` in
@@ -383,7 +445,7 @@ components directly.
 
 ## Not yet built
 
-Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
+Meal planning UI, cost-analyzer UI, the shopping-list →
 budget expense link, ownership transfer / leaving a household you don't own,
 email delivery for invites, profile email/password/avatar editing, tests.
 The autonomous agent build/improve loop itself is intentionally not set up
