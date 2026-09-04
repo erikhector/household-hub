@@ -35,9 +35,9 @@ export function EmailForm({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="currentEmail">{dict.currentEmailLabel}</Label>
-        <Input id="currentEmail" defaultValue={email} disabled />
+        <Input key={email} id="currentEmail" defaultValue={email} disabled />
       </div>
-      <form action={formAction} className="flex flex-col gap-4">
+      <form key={email} action={formAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="newEmail">{dict.newEmailLabel}</Label>
           <div className="relative">
