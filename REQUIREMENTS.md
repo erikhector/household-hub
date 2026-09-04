@@ -253,7 +253,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   card sums pending items across every `ACTIVE` list, not just one.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
 
-**Meal planning** (schema only, no UI yet)
+**Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
 
@@ -271,6 +271,52 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   re-verification flow; password change is a separate future slice) —
   deliberately the smallest useful slice, not a placeholder for a fuller
   form.
+
+## Meal planning
+
+`/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
+between "Planner" and "Recipes" — no new route needed for the split) covers
+the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
+
+- **Recipes**: full CRUD (`createRecipeAction` / `updateRecipeAction` /
+  `deleteRecipeAction` in `src/app/dashboard/meal-planning/actions.ts`) — a
+  name, optional freeform instructions, and any number of ingredient rows
+  (name + quantity + unit) added/removed client-side in
+  `RecipeFormDialog` before submit. Editing replaces every ingredient row in
+  a `$transaction` (delete-all then recreate) rather than diffing, which is
+  simpler and fine at this scale (a handful of ingredients per recipe).
+- **Ingredient → inventory linking**: mirrors the shopping list exactly —
+  every ingredient with a name gets find-or-create-matched (case-insensitive,
+  scoped to the household) to an `InventoryItem` via a local copy of the
+  `findOrCreateInventoryItem` pattern from
+  `src/app/dashboard/shopping-list/actions.ts` (duplicated rather than
+  imported, since the two features are owned by independent worktrees/tasks
+  and shouldn't be coupled through a shared internal helper). This happens
+  automatically on every save — there's no "link to inventory?" toggle in
+  the UI, same as shopping list items.
+- **Weekly planner**: a Monday-start week grid (one card per day, one slot
+  per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
+  `/dashboard/meal-planning` (default: the Monday of the current week).
+  Every date — the param, `MealPlan.weekStartDate`, and `MealPlanEntry.date`
+  — is normalized to UTC midnight (`src/app/dashboard/meal-planning/date-utils.ts`)
+  so it round-trips through the URL and Postgres without local-timezone
+  drift shifting it to a neighboring day. A `MealPlan` row is created lazily
+  (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
+  constraint) the first time a meal is actually added to that week, not on
+  page view, so browsing to an empty future/past week doesn't write rows.
+- **Assigning a meal**: `addMealEntryAction` assigns either an existing
+  `Recipe` (picked from a `Select`) or a freeform meal name
+  (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
+  chosen) to a date + `MealType` slot. There's no uniqueness constraint on
+  `(date, mealType)` — multiple entries can stack in one slot (e.g. two
+  snacks), matching the schema.
+- **No in-place edit for meal entries** — only add (`addMealEntryAction`)
+  and delete (`deleteMealEntryAction`), consistent with the app's existing
+  simplicity elsewhere (shopping list items are add/toggle/delete too, no
+  edit). Fixing a wrong entry means deleting it and adding the right one.
+- Weekday header labels (Mon–Sun) come from the `mealPlanning` dictionary
+  namespace rather than `Intl`/the browser's locale, so they follow the
+  app's own language toggle instead of the visitor's OS/browser language.
 
 ## Theming
 
@@ -497,8 +543,8 @@ components directly.
 
 ## Not yet built
 
-Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
-budget expense link, profile email/password/avatar editing.
+Cost-analyzer UI, budgeting UI, the shopping-list → budget expense link,
+profile email/password/avatar editing.
 The autonomous agent build/improve loop itself is intentionally not set up
 yet — that's a deliberate separate step now that a real test suite exists
 to gate it on.
