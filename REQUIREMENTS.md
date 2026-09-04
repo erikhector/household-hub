@@ -207,13 +207,49 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   expense `Transaction` — otherwise the two modules are independent.
 
 **User profile** (built)
-- A `/dashboard/profile` page (`updateProfileAction` in
-  `src/app/dashboard/profile/actions.ts`) for the signed-in user to edit
-  their own `User.displayName`. Email is shown read-only and password isn't
-  editable there yet (email is the login identifier and there's no
-  re-verification flow; password change is a separate future slice) —
-  deliberately the smallest useful slice, not a placeholder for a fuller
-  form.
+- `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
+  signed-in user edit their own `displayName`, email, and password, and
+  shows a generated avatar. The page composes three independent forms
+  (`src/components/profile/display-name-form.tsx`,
+  `email-form.tsx`, `password-form.tsx`) rather than one form mixing
+  unrelated submits — the same one-concern-per-`<form>` shape as
+  `login-form.tsx`/`signup-form.tsx` — each backed by its own action in
+  `src/app/dashboard/profile/actions.ts`. All three re-derive `userId` from
+  `requireHousehold()`, never from client input.
+  - **Avatar**: `src/components/profile/avatar.tsx`'s `UserAvatar` renders a
+    circle with the user's initials (from `displayName`) on a background
+    color picked by hashing a stable seed (the `userId`, not the display
+    name, so the color doesn't change when someone edits their name) into
+    the existing `--chart-1..5` tokens. It's entirely computed — no upload,
+    no stored image, no `User.avatarUrl` column, no migration. This was the
+    deliberate choice over real file upload: the codebase has no
+    file/blob-storage integration at all (no S3/Vercel Blob/Cloudinary),
+    and building one would be new infrastructure out of scope for this
+    slice, plus a real risk on serverless deploy targets where local
+    filesystem writes don't persist. A purely computed avatar needs nothing
+    persisted, so there's nothing to keep in sync or migrate.
+  - **Email change** (`updateEmailAction`): email is the login identifier,
+    so a naive, unverified swap would be a real account-takeover path —
+    anyone with a hijacked or left-open session could lock the real owner
+    out just by typing a new address. The action requires the current
+    password (verified with `bcrypt.compare` against `passwordHash`, same
+    as the Credentials provider's `authorize` in `src/lib/auth.ts`) before
+    the email changes, plus the usual format/uniqueness checks. This is the
+    minimum real gate available today: this app has no email-delivery
+    integration anywhere yet (invite links are still copy/paste-only — see
+    "Sharing" above), so a send-a-confirmation-link re-verification flow
+    isn't buildable on top of anything that exists. Re-entering the
+    password re-proves account ownership, not just session possession,
+    which is the realistic threat this guards against. Revisit this if/when
+    email delivery lands (see the household lifecycle follow-ups task) —
+    a confirmation-link flow would be a strictly stronger guarantee.
+  - **Password change** (`updatePasswordAction`): current password + new
+    password + confirmation, hashed with the same `bcryptjs` approach
+    (`bcrypt.hash(newPassword, 12)`) signup already uses in
+    `src/lib/actions/auth.ts` — not a different scheme. On success the
+    action calls `signOut({ redirectTo: "/login" })`, forcing
+    re-authentication with the new password, since rotating a credential
+    should invalidate the session that changed it.
 
 ## Theming
 
@@ -385,7 +421,7 @@ components directly.
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
 budget expense link, ownership transfer / leaving a household you don't own,
-email delivery for invites, profile email/password/avatar editing, tests.
+email delivery for invites, tests.
 The autonomous agent build/improve loop itself is intentionally not set up
 yet — that's a deliberate separate step once there's a real test suite to
 gate it on.
