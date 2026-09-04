@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { removeMemberAction } from "@/lib/actions/household";
+import { format } from "@/lib/i18n/format";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Member = {
   id: string;
@@ -17,9 +19,11 @@ type Member = {
 export function MemberList({
   members,
   isOwner,
+  dict,
 }: {
   members: Member[];
   isOwner: boolean;
+  dict: Dictionary["household"];
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -43,7 +47,7 @@ export function MemberList({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
-              {member.role === "OWNER" ? "Owner" : "Contributor"}
+              {member.role === "OWNER" ? dict.owner : dict.contributor}
             </Badge>
             {isOwner && member.role !== "OWNER" && (
               <Button
@@ -51,7 +55,7 @@ export function MemberList({
                 size="icon-sm"
                 className="text-muted-foreground hover:text-destructive"
                 disabled={isPending}
-                aria-label={`Remove ${member.displayName}`}
+                aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
                 onClick={() => handleRemove(member.id)}
               >
                 <UserMinus className="size-3.5" />

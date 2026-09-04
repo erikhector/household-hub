@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MoreHorizontal, LogOut } from "lucide-react";
+import { Languages, MoreHorizontal, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -17,15 +17,20 @@ import {
   isNavItemActive,
 } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
+import { useThemeCycle } from "@/components/theme/use-theme-cycle";
+import { useLocaleToggle } from "@/components/language/use-locale-toggle";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
-export function BottomNav() {
+export function BottomNav({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const pathname = usePathname();
   const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
+  const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
+  const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
       <div className="flex items-stretch justify-around pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-        {primaryMobileNavItems.map(({ href, label, icon: Icon }) => {
+        {primaryMobileNavItems.map(({ href, key, icon: Icon }) => {
           const active = isNavItemActive(pathname, href);
           return (
             <Link
@@ -37,7 +42,7 @@ export function BottomNav() {
               )}
             >
               <Icon className="size-5" />
-              {label}
+              {dict.nav[key]}
             </Link>
           );
         })}
@@ -54,19 +59,28 @@ export function BottomNav() {
             }
           >
             <MoreHorizontal className="size-5" />
-            More
+            {dict.nav.more}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" sideOffset={8}>
-            {overflowMobileNavItems.map(({ href, label, icon: Icon }) => (
+            {overflowMobileNavItems.map(({ href, key, icon: Icon }) => (
               <DropdownMenuItem key={href} render={<Link href={href} />}>
                 <Icon className="size-4" />
-                {label}
+                {dict.nav[key]}
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={toggleLocale}>
+              <Languages className="size-4" />
+              {nextLocale === "sv" ? dict.language.swedish : dict.language.english}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={cycleTheme}>
+              <ThemeIcon className="size-4" />
+              {dict.theme[themeChoice]}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => logoutAction()}>
               <LogOut className="size-4" />
-              Log out
+              {dict.nav.logOut}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

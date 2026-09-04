@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adjustQuantityAction, deleteInventoryItemAction } from "@/app/dashboard/inventory/actions";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export type InventoryItemRow = {
   id: string;
@@ -32,18 +33,20 @@ export function getStockStatus(quantity: number, threshold: number): StockStatus
   return "in";
 }
 
-function StockBadge({ status }: { status: StockStatus }) {
-  if (status === "out") return <Badge variant="destructive">Out of stock</Badge>;
-  if (status === "low") return <Badge className="bg-amber-500 text-white">Low stock</Badge>;
-  return <Badge variant="secondary">In stock</Badge>;
+function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["inventory"] }) {
+  if (status === "out") return <Badge variant="destructive">{dict.statusOut}</Badge>;
+  if (status === "low") return <Badge className="bg-amber-500 text-white">{dict.statusLow}</Badge>;
+  return <Badge variant="secondary">{dict.statusIn}</Badge>;
 }
 
 export function InventoryTable({
   items,
-  emptyMessage = "No items match your filters.",
+  emptyMessage,
+  dict,
 }: {
   items: InventoryItemRow[];
-  emptyMessage?: string;
+  emptyMessage: string;
+  dict: Dictionary["inventory"];
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -59,11 +62,11 @@ export function InventoryTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Location</TableHead>
-          <TableHead>Quantity</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead>{dict.columnName}</TableHead>
+          <TableHead>{dict.columnCategory}</TableHead>
+          <TableHead>{dict.columnLocation}</TableHead>
+          <TableHead>{dict.columnQuantity}</TableHead>
+          <TableHead>{dict.columnStatus}</TableHead>
           <TableHead className="w-10" />
         </TableRow>
       </TableHeader>
@@ -99,7 +102,7 @@ export function InventoryTable({
               </div>
             </TableCell>
             <TableCell>
-              <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} />
+              <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
             </TableCell>
             <TableCell>
               <Button

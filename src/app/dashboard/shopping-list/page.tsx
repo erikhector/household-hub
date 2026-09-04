@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 
 export default async function ShoppingListPage() {
-  const { household } = await requireHousehold();
+  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
   const lists = await prisma.shoppingList.findMany({
     where: { householdId: household.id },
@@ -20,6 +21,7 @@ export default async function ShoppingListPage() {
 
   return (
     <ShoppingListsOverview
+      dict={dict.shoppingList}
       active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
       completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
       archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}

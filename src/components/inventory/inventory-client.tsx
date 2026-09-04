@@ -15,28 +15,31 @@ import {
   type InventoryItemRow,
   type StockStatus,
 } from "@/components/inventory/inventory-table";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const ALL = "__all__";
-
-const STATUS_LABELS: Record<StockStatus, string> = {
-  in: "In stock",
-  low: "Low stock",
-  out: "Out of stock",
-};
 
 export function InventoryClient({
   items,
   categories,
   locations,
+  dict,
 }: {
   items: InventoryItemRow[];
   categories: string[];
   locations: string[];
+  dict: Dictionary["inventory"];
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState(ALL);
   const [location, setLocation] = useState(ALL);
   const [status, setStatus] = useState(ALL);
+
+  const statusLabels: Record<StockStatus, string> = {
+    in: dict.statusIn,
+    low: dict.statusLow,
+    out: dict.statusOut,
+  };
 
   const filtered = useMemo(() => {
     const nameQuery = name.trim().toLowerCase();
@@ -57,15 +60,15 @@ export function InventoryClient({
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Search by name…"
+          placeholder={dict.searchPlaceholder}
           className="w-48"
         />
         <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
           <SelectTrigger className="w-40">
-            <SelectValue>{(v: string) => (v === ALL ? "All categories" : v)}</SelectValue>
+            <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All categories</SelectItem>
+            <SelectItem value={ALL}>{dict.allCategories}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
@@ -75,10 +78,10 @@ export function InventoryClient({
         </Select>
         <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
           <SelectTrigger className="w-40">
-            <SelectValue>{(v: string) => (v === ALL ? "All locations" : v)}</SelectValue>
+            <SelectValue>{(v: string) => (v === ALL ? dict.allLocations : v)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All locations</SelectItem>
+            <SelectItem value={ALL}>{dict.allLocations}</SelectItem>
             {locations.map((l) => (
               <SelectItem key={l} value={l}>
                 {l}
@@ -89,14 +92,14 @@ export function InventoryClient({
         <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
           <SelectTrigger className="w-40">
             <SelectValue>
-              {(v: string) => (v === ALL ? "All statuses" : STATUS_LABELS[v as StockStatus])}
+              {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
-            {(Object.keys(STATUS_LABELS) as StockStatus[]).map((s) => (
+            <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
+            {(Object.keys(statusLabels) as StockStatus[]).map((s) => (
               <SelectItem key={s} value={s}>
-                {STATUS_LABELS[s]}
+                {statusLabels[s]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -104,11 +107,8 @@ export function InventoryClient({
       </div>
       <InventoryTable
         items={filtered}
-        emptyMessage={
-          items.length === 0
-            ? "No items yet. Add your first item to start tracking inventory."
-            : "No items match your filters."
-        }
+        dict={dict}
+        emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
       />
     </div>
   );

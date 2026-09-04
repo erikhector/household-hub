@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 
 async function findOrCreateInventoryItem(householdId: string, name: string) {
@@ -33,10 +34,13 @@ export async function createShoppingListAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  const dict = await getDictionary();
   const list = await prisma.shoppingList.create({
     data: {
       householdId: household.id,
-      name: parsed.data.name || `Shopping list — ${new Date().toLocaleDateString()}`,
+      name:
+        parsed.data.name ||
+        `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
     },
   });
 

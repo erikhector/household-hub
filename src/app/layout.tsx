@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Nunito, Baloo_2, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { getLocale } from "@/lib/i18n/get-dictionary";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -23,15 +25,20 @@ export const metadata: Metadata = {
   description: "Inventory, shopping, meal planning, and budgeting for your household.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+
   return (
     <html
-      lang="en"
-      className={`dark ${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}
+      lang={locale}
+      suppressHydrationWarning
+      className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <Toaster />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

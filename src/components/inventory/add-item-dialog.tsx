@@ -14,15 +14,18 @@ import {
 } from "@/components/ui/dialog";
 import { createInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import type { ActionState } from "@/lib/actions/auth";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const initialState: ActionState = {};
 
 export function AddItemDialog({
   categories,
   locations,
+  dict,
 }: {
   categories: string[];
   locations: string[];
+  dict: Dictionary["inventory"];
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
@@ -36,24 +39,24 @@ export function AddItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button>Add item</Button>} />
+      <DialogTrigger render={<Button>{dict.addItem}</Button>} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add inventory item</DialogTitle>
+          <DialogTitle>{dict.addDialogTitle}</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{dict.nameLabel}</Label>
             <Input id="name" name="name" required autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{dict.categoryLabel}</Label>
               <Input
                 id="category"
                 name="category"
                 required
-                placeholder="e.g. Dairy"
+                placeholder={dict.categoryPlaceholder}
                 list="category-options"
                 autoComplete="off"
               />
@@ -64,11 +67,11 @@ export function AddItemDialog({
               </datalist>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="location">Location</Label>
+              <Label htmlFor="location">{dict.locationLabel}</Label>
               <Input
                 id="location"
                 name="location"
-                placeholder="e.g. Fridge"
+                placeholder={dict.locationPlaceholder}
                 list="location-options"
                 autoComplete="off"
               />
@@ -81,7 +84,7 @@ export function AddItemDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="quantity">{dict.quantityLabel}</Label>
               <Input
                 id="quantity"
                 name="quantity"
@@ -93,11 +96,11 @@ export function AddItemDialog({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="unit">Unit</Label>
+              <Label htmlFor="unit">{dict.unitLabel}</Label>
               <Input id="unit" name="unit" defaultValue="pcs" />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="lowStockThreshold">Low stock at</Label>
+              <Label htmlFor="lowStockThreshold">{dict.lowStockAtLabel}</Label>
               <Input
                 id="lowStockThreshold"
                 name="lowStockThreshold"
@@ -112,7 +115,7 @@ export function AddItemDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Adding…" : "Add item"}
+              {pending ? dict.adding : dict.addItem}
             </Button>
           </DialogFooter>
         </form>

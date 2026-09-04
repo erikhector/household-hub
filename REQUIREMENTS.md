@@ -41,6 +41,63 @@ easy for AI coding agents to work in correctly:
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
+- **next-themes** drives the light/dark theme toggle; **a hand-rolled
+  cookie + dictionary system** (not a routing library like `next-intl`)
+  drives English/Swedish translation. See "Theming" and
+  "Internationalization" below.
+
+## Internationalization
+
+English and Swedish are both fully supported; there's no locale-prefixed
+routing (no `app/[lang]/...`) — every route stays where it is, and the
+active locale is a `locale` cookie (`src/lib/i18n/locales.ts`), read
+server-side, the same pattern already used for `active_household` and
+`sidebar_expanded`. This was a deliberate simplification over the
+`app/[lang]` structure Next's own i18n guide leads with: this app has no
+SEO/static-export need for locale-prefixed URLs, and restructuring every
+existing route under `[lang]` would have been a much larger, riskier change
+for the same user-facing result. **Don't "fix" this into `[lang]` routing or
+`next/root-params`** without a real reason (e.g. a future requirement for
+locale-specific URLs) — it's a considered tradeoff, not an oversight.
+
+- **Dictionaries**: `src/lib/i18n/dictionaries/en.ts` is the source of
+  truth; `type Dictionary = typeof en`. `sv.ts` is typed
+  `satisfies Dictionary`, so TypeScript fails the build if a key is missing
+  or a nested shape drifts between locales. Values are plain strings (or
+  `{ one, other }` plural pairs) — never functions — so the whole dictionary
+  is serializable and safe to pass as a prop across the Server/Client
+  Component boundary.
+- **Reading the dictionary**: `getDictionary()` / `getLocale()`
+  (`src/lib/i18n/get-dictionary.ts`, `"server-only"`, wrapped in React's
+  `cache()`) read the `locale` cookie. Every Server Component that needs
+  translated text calls `getDictionary()` itself — there's no `[lang]` param
+  to thread through layouts, so `cache()` is what dedupes the repeated
+  `cookies()` read within one request instead.
+- **Passing translations to Client Components**: the convention is to pass
+  the **whole `Dictionary`** (or a named sub-object, e.g.
+  `dict.household.invite`) as a `dict` prop — not to hand-pick individual
+  translated strings as separate props. This keeps every component's prop
+  signature simple and consistent; the payload is trivial (it's just
+  strings). `src/lib/i18n/format.ts` exports `format(template, vars)`
+  (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
+  functions usable from Server or Client Components, for the handful of
+  strings that need a count or a name substituted in.
+- **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
+  the cookie and calls `revalidatePath("/", "layout")`; the client-side
+  `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)
+  calls it then `router.refresh()` so the current tab updates immediately
+  without a full navigation. The toggle lives in the sidebar (desktop) and
+  the bottom nav's "More" menu (mobile) — see "Navigation & responsive
+  layout".
+- **Tradeoff**: because the landing/login/signup pages now read the
+  `locale` cookie (via `getDictionary()`), they're server-rendered on
+  every request instead of statically prerendered (visible in `next build`
+  output — those routes moved from `○ Static` to `ƒ Dynamic`). Acceptable
+  for this app's traffic; worth knowing if performance ever becomes a
+  concern.
+- New user-facing text must be added to **both** `en.ts` and `sv.ts` — the
+  `satisfies Dictionary` check catches a missing key but not a missing
+  translation someone forgot to update.
 
 ## Multi-tenancy model
 
@@ -160,19 +217,40 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 
 ## Theming
 
-The app is dark-only (no light-mode toggle) with a fixed background of
-`radial-gradient(circle, #180828, #0a0414)` (set on `body` in
-`globals.css`) and `dark` forced on `<html>` in the root layout so the
-existing shadcn dark color tokens (card/popover/border/etc.) apply. Don't
-reintroduce a plain `bg-background` on `body` — it would paint over the
-gradient with a flat color. The gradient's outer stop is a near-black
-purple, not literal `#000000` — because the background uses
-`background-attachment: fixed`, it's recentered on the viewport at every
-scroll position, so on a page taller than one screen (the landing page,
-mainly) content near the top/bottom edge of a scrolled viewport sits in the
-gradient's outer stop; a true black there made `bg-card` surfaces nearly
-invisible. Keep the outer stop dark-but-non-black for this reason rather
-than reverting to `#000000`.
+The app supports light, dark, and system themes via **next-themes**
+(`ThemeProvider attribute="class" defaultTheme="dark" enableSystem` in
+`src/app/layout.tsx`), which toggles a `light`/`dark` class on `<html>` and
+handles the flash-of-wrong-theme problem itself (an inline script sets the
+class before first paint, reading its own `localStorage` key — this is the
+same technique, and it's the reason `<html>` has `suppressHydrationWarning`
+and no longer hardcodes a `dark` class). Existing users default to `dark`
+(the app's original look); new visitors can pick any of the three. The
+toggle is `useThemeCycle()` (`src/components/theme/use-theme-cycle.ts`),
+cycling light → dark → system, used in the sidebar (desktop) and bottom
+nav's "More" menu (mobile) — see "Navigation & responsive layout".
+
+Both themes share the same `body` background technique: a
+`radial-gradient(circle, var(--gradient-start), var(--gradient-end))` (set
+in `globals.css`'s `@layer base`), where `--gradient-start`/`--gradient-end`
+are defined per-theme in `:root` (light: soft lavender-white,
+`#f3ecfb` → `#fefcff`) and `.dark` (the original near-black purple,
+`#180828` → `#0a0414`). Don't reintroduce a plain `bg-background` on
+`body` — it would paint over the gradient with a flat color. The dark
+gradient's outer stop is deliberately near-black, not literal `#000000` —
+because the background uses `background-attachment: fixed`, it's recentered
+on the viewport at every scroll position, so on a page taller than one
+screen (the landing page, mainly) content near the top/bottom edge of a
+scrolled viewport sits in the gradient's outer stop; a true black there made
+`bg-card` surfaces nearly invisible. Keep both themes' outer stops
+non-extreme for this reason.
+
+The light palette (`:root` in `globals.css`) isn't shadcn's generic gray
+default — it carries the same violet tint as dark mode (soft
+lavender-tinted neutrals, a slightly darker violet `--primary` for contrast
+against a light background) so the brand reads as one consistent world in
+either theme, not "dark mode with a plain light mode bolted on". When
+adjusting either palette, keep them visually paired (same hue family,
+inverted lightness) rather than tuning one in isolation.
 
 The look is deliberately playful, not corporate-neutral — colorful, rounded,
 a little bouncy. Keep new UI consistent with this rather than reverting to
@@ -246,28 +324,38 @@ stay that way rather than re-adding per-page redirect checks:
 
 Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,
 Household, Profile) are defined once in `src/components/dashboard/nav-items.ts`
-(icon + href + label) and consumed by both layouts below — add a section
-there, not in the sidebar/bottom-nav components directly.
+(icon + href + a `NavKey`, e.g. `"overview"` — **not** a label string; the
+label comes from `dict.nav[key]`, see "Internationalization") and consumed
+by both layouts below — add a section there, not in the sidebar/bottom-nav
+components directly.
 
 - **Desktop (`sm` and up)**: `src/components/dashboard/sidebar.tsx` renders a
   left sidebar with an icon + label per section, the `HouseholdSwitcher` at
-  the top, and log out pinned to the bottom. Expanded by default; a toggle
-  collapses it to an icon-only rail (`w-16` vs `w-56`). The expanded/collapsed
-  state is written to the `sidebar_expanded` cookie (`SIDEBAR_COOKIE` in
-  `nav-items.ts`) on toggle and read server-side in
+  the top, and (bottom to top) the sidebar-collapse toggle, log out, the
+  theme toggle, and the language toggle pinned to the bottom. Expanded by
+  default; a toggle collapses it to an icon-only rail (`w-16` vs `w-56`).
+  The expanded/collapsed state is written to the `sidebar_expanded` cookie
+  (`SIDEBAR_COOKIE` in `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
-  and a "More" dropdown menu holding Meal planning, Household, Profile, and
-  log out (`overflowMobileNavItems`/`primaryMobileNavItems` in
-  `nav-items.ts`). Meal planning and Household are in the overflow rather
-  than the primary bar because they see lower daily use than
-  inventory/shopping/budget. The dashboard `<main>` gets extra bottom padding
-  (`pb-24 sm:pb-8`) so content isn't hidden behind the fixed bar.
+  and a "More" dropdown menu holding Meal planning, Household, Profile, the
+  language toggle, the theme toggle, and log out
+  (`overflowMobileNavItems`/`primaryMobileNavItems` in `nav-items.ts`). Meal
+  planning and Household are in the overflow rather than the primary bar
+  because they see lower daily use than inventory/shopping/budget. The
+  dashboard `<main>` gets extra bottom padding (`pb-24 sm:pb-8`) so content
+  isn't hidden behind the fixed bar.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
   isn't part of the bottom bar.
+- `src/app/dashboard/layout.tsx` is the one place that calls
+  `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
+  `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
+  individual dashboard pages fetch their own `dict` for their own content
+  (see "Internationalization" on why each Server Component fetches
+  independently rather than prop-drilling from one root call).
 
 ## Conventions
 
@@ -283,8 +371,8 @@ there, not in the sidebar/bottom-nav components directly.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
-- UI text is in English (no i18n requirement, unlike some of this household's
-  other projects — don't assume Swedish).
+- All new user-facing text goes through the `dict` prop (English + Swedish)
+  — see "Internationalization". Don't hardcode strings in JSX.
 - Base UI's `<Select.Value>` (`SelectValue` in `src/components/ui/select.tsx`)
   renders the raw selected `value` as text by default — it does **not** look
   up the matching `SelectItem`'s label. Any `Select` whose `value`s aren't

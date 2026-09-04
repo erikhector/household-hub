@@ -11,20 +11,29 @@ import {
 
 export const SIDEBAR_COOKIE = "sidebar_expanded";
 
+export type NavKey =
+  | "overview"
+  | "inventory"
+  | "shoppingList"
+  | "mealPlanning"
+  | "budget"
+  | "household"
+  | "profile";
+
 export type NavItem = {
   href: string;
-  label: string;
+  key: NavKey;
   icon: ComponentType<{ className?: string }>;
 };
 
 export const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/inventory", label: "Inventory", icon: Package },
-  { href: "/dashboard/shopping-list", label: "Shopping list", icon: ShoppingCart },
-  { href: "/dashboard/meal-planning", label: "Meal planning", icon: CalendarDays },
-  { href: "/dashboard/budget", label: "Budget", icon: Wallet },
-  { href: "/dashboard/household", label: "Household", icon: Users },
-  { href: "/dashboard/profile", label: "Profile", icon: User },
+  { href: "/dashboard", key: "overview", icon: LayoutDashboard },
+  { href: "/dashboard/inventory", key: "inventory", icon: Package },
+  { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart },
+  { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays },
+  { href: "/dashboard/budget", key: "budget", icon: Wallet },
+  { href: "/dashboard/household", key: "household", icon: Users },
+  { href: "/dashboard/profile", key: "profile", icon: User },
 ];
 
 // The mobile bottom bar only has room for ~5 icons. These four see the most

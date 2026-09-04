@@ -16,8 +16,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { deleteHouseholdAction } from "@/lib/actions/household";
+import { format } from "@/lib/i18n/format";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-export function DeleteHouseholdDialog({ householdName }: { householdName: string }) {
+export function DeleteHouseholdDialog({
+  householdName,
+  dict,
+}: {
+  householdName: string;
+  dict: Dictionary["household"]["delete"];
+}) {
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -40,19 +48,15 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
         if (!next) setConfirmText("");
       }}
     >
-      <DialogTrigger render={<Button variant="destructive">Delete household</Button>} />
+      <DialogTrigger render={<Button variant="destructive">{dict.trigger}</Button>} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete {householdName}?</DialogTitle>
-          <DialogDescription>
-            This permanently deletes the household and everything in it &mdash;
-            inventory, shopping lists, meal plans, and budget data &mdash; for every
-            member. This can&apos;t be undone.
-          </DialogDescription>
+          <DialogTitle>{format(dict.title, { name: householdName })}</DialogTitle>
+          <DialogDescription>{dict.description}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <Label htmlFor="confirm-household-name">
-            Type <span className="font-semibold">{householdName}</span> to confirm
+            {format(dict.confirmLabel, { name: householdName })}
           </Label>
           <Input
             id="confirm-household-name"
@@ -68,7 +72,7 @@ export function DeleteHouseholdDialog({ householdName }: { householdName: string
             onClick={handleDelete}
           >
             <Trash2 className="size-4" />
-            {isPending ? "Deleting…" : "Delete household"}
+            {isPending ? dict.deleting : dict.confirmButton}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,9 +3,11 @@ import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { format, plural } from "@/lib/i18n/format";
 
 export default async function DashboardOverviewPage() {
-  const { household, userId } = await requireHousehold();
+  const [{ household, userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
   const [items, activeLists, memberCount] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
@@ -26,20 +28,20 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
-        <p className="text-sm text-muted-foreground">
-          What needs your attention right now.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{dict.dashboard.title}</h1>
+        <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
       {memberCount > 0 && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
           <Users className="size-4 shrink-0" />
           <span>
-            Shared with {memberCount} other {memberCount === 1 ? "person" : "people"} in{" "}
-            {household.name}
+            {format(plural(memberCount, dict.dashboard.sharedWithIn), {
+              count: memberCount,
+              name: household.name,
+            })}
           </span>
           <Link href="/dashboard/household" className="ml-auto shrink-0 underline underline-offset-4">
-            Manage
+            {dict.dashboard.manage}
           </Link>
         </div>
       )}
@@ -47,48 +49,53 @@ export default async function DashboardOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Low stock items
+              {dict.dashboard.lowStockItems}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">{lowStock.length}</p>
             {outOfStock.length > 0 && (
-              <p className="text-sm text-destructive">{outOfStock.length} out of stock</p>
+              <p className="text-sm text-destructive">
+                {format(plural(outOfStock.length, dict.dashboard.outOfStock), {
+                  count: outOfStock.length,
+                })}
+              </p>
             )}
             <Link href="/dashboard/inventory" className="text-sm underline underline-offset-4">
-              View inventory
+              {dict.dashboard.viewInventory}
             </Link>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Shopping lists
+              {dict.dashboard.shoppingLists}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">{pendingShoppingItems}</p>
             <p className="text-sm text-muted-foreground">
-              items to buy across {activeLists.length} active{" "}
-              {activeLists.length === 1 ? "list" : "lists"}
+              {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
+                count: activeLists.length,
+              })}
             </p>
             <Link
               href="/dashboard/shopping-list"
               className="text-sm underline underline-offset-4"
             >
-              View shopping lists
+              {dict.dashboard.viewShoppingLists}
             </Link>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total items tracked
+              {dict.dashboard.totalItemsTracked}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-semibold">{items.length}</p>
-            <p className="text-sm text-muted-foreground">in inventory</p>
+            <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
           </CardContent>
         </Card>
       </div>

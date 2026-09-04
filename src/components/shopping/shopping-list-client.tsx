@@ -17,6 +17,7 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type ShoppingListItemRow = {
   id: string;
@@ -33,15 +34,17 @@ type ShoppingListData = {
   items: ShoppingListItemRow[];
 };
 
+type ShoppingListDict = Dictionary["shoppingList"];
+
 const initialState: ActionState = {};
 
-function AddItemForm({ listId }: { listId: string }) {
+function AddItemForm({ listId, dict }: { listId: string; dict: ShoppingListDict }) {
   const [state, formAction, pending] = useActionState(addAdHocItemAction, initialState);
   return (
     <form action={formAction} className="flex items-end gap-2">
       <input type="hidden" name="listId" value={listId} />
       <div className="flex flex-col gap-1">
-        <Input name="name" placeholder="Item name" required className="w-48" />
+        <Input name="name" placeholder={dict.addItemNamePlaceholder} required className="w-48" />
       </div>
       <Input
         name="quantity"
@@ -52,25 +55,26 @@ function AddItemForm({ listId }: { listId: string }) {
         className="w-20"
       />
       <Button type="submit" variant="outline" disabled={pending}>
-        {pending ? "Adding…" : "Add"}
+        {pending ? dict.adding : dict.add}
       </Button>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
 }
 
-const statusLabel: Record<ShoppingListData["status"], string> = {
-  ACTIVE: "Active",
-  COMPLETED: "Completed",
-  ARCHIVED: "Archived",
-};
-
-export function ShoppingListClient({ list }: { list: ShoppingListData }) {
+export function ShoppingListClient({
+  list,
+  dict,
+}: {
+  list: ShoppingListData;
+  dict: ShoppingListDict;
+}) {
   const [isPending, startTransition] = useTransition();
 
   const pendingItems = list.items.filter((item) => !item.purchased);
   const purchasedItems = list.items.filter((item) => item.purchased);
   const isActive = list.status === "ACTIVE";
+  const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
 
   return (
     <div className="flex flex-col gap-6">
@@ -79,14 +83,14 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
-        All shopping lists
+        {dict.backToAll}
       </Link>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{list.name}</h1>
-            {!isActive && <Badge variant="secondary">{statusLabel[list.status]}</Badge>}
+            {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -96,7 +100,7 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
               disabled={isPending}
               onClick={() => startTransition(() => generateFromLowStockAction(list.id))}
             >
-              Add low-stock items
+              {dict.addLowStock}
             </Button>
           )}
           {isActive && list.items.length > 0 && (
@@ -105,7 +109,7 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
               disabled={isPending}
               onClick={() => startTransition(() => completeShoppingListAction(list.id))}
             >
-              Complete list
+              {dict.completeList}
             </Button>
           )}
           {list.status === "ARCHIVED" ? (
@@ -115,7 +119,7 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
               onClick={() => startTransition(() => unarchiveShoppingListAction(list.id))}
             >
               <ArchiveRestore className="size-4" />
-              Unarchive
+              {dict.unarchive}
             </Button>
           ) : (
             <Button
@@ -124,7 +128,7 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
               onClick={() => startTransition(() => archiveShoppingListAction(list.id))}
             >
               <Archive className="size-4" />
-              Archive
+              {dict.archive}
             </Button>
           )}
           <Button
@@ -133,17 +137,17 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
             onClick={() => startTransition(() => deleteShoppingListAction(list.id))}
           >
             <Trash2 className="size-4" />
-            Delete
+            {dict.delete}
           </Button>
         </div>
       </div>
 
-      {isActive && <AddItemForm listId={list.id} />}
+      {isActive && <AddItemForm listId={list.id} dict={dict} />}
 
       <div className="flex flex-col gap-2">
         {pendingItems.length === 0 && purchasedItems.length === 0 ? (
           <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            Nothing on this list{isActive ? " yet. Add items manually, or pull in what's low on stock." : "."}
+            {isActive ? dict.emptyListActive : dict.emptyListOther}
           </p>
         ) : (
           <>
@@ -154,11 +158,12 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
                 editable={isActive}
                 isPending={isPending}
                 startTransition={startTransition}
+                dict={dict}
               />
             ))}
             {purchasedItems.length > 0 && (
               <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                Purchased
+                {dict.purchased}
               </p>
             )}
             {purchasedItems.map((item) => (
@@ -168,6 +173,7 @@ export function ShoppingListClient({ list }: { list: ShoppingListData }) {
                 editable={isActive}
                 isPending={isPending}
                 startTransition={startTransition}
+                dict={dict}
               />
             ))}
           </>
@@ -182,11 +188,13 @@ function ShoppingRow({
   editable,
   isPending,
   startTransition,
+  dict,
 }: {
   item: ShoppingListItemRow;
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
+  dict: ShoppingListDict;
 }) {
   return (
     <div className="flex items-center justify-between rounded-md border px-3 py-2">
@@ -201,7 +209,7 @@ function ShoppingRow({
         <span className={item.purchased ? "text-muted-foreground line-through" : ""}>
           {item.name} × {item.quantity}
         </span>
-        {item.addedAutomatically && <Badge variant="secondary">Low stock</Badge>}
+        {item.addedAutomatically && <Badge variant="secondary">{dict.lowStockBadge}</Badge>}
       </label>
       {editable && (
         <Button

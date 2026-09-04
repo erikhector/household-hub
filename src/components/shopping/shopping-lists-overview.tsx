@@ -22,6 +22,8 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
+import { format, plural } from "@/lib/i18n/format";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type ListSummary = {
   id: string;
@@ -30,9 +32,11 @@ type ListSummary = {
   pendingItemCount: number;
 };
 
+type ShoppingListDict = Dictionary["shoppingList"];
+
 const initialState: ActionState = {};
 
-function NewListDialog() {
+function NewListDialog({ dict }: { dict: ShoppingListDict }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -49,28 +53,28 @@ function NewListDialog() {
         render={
           <Button>
             <Plus className="size-4" />
-            New list
+            {dict.newList}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New shopping list</DialogTitle>
+          <DialogTitle>{dict.newListDialogTitle}</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-list-name">Name</Label>
+            <Label htmlFor="new-list-name">{dict.nameLabel}</Label>
             <Input
               id="new-list-name"
               name="name"
-              placeholder={`Shopping list — ${new Date().toLocaleDateString()}`}
+              placeholder={`${dict.defaultNamePrefix} — ${new Date().toLocaleDateString()}`}
               autoFocus
             />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create list"}
+              {pending ? dict.creating : dict.create}
             </Button>
           </DialogFooter>
         </form>
@@ -79,7 +83,7 @@ function NewListDialog() {
   );
 }
 
-function ListCard({ list }: { list: ListSummary }) {
+function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict }) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -95,10 +99,14 @@ function ListCard({ list }: { list: ListSummary }) {
           <p className="truncate font-medium">{list.name}</p>
           {list.status === "ACTIVE" ? (
             <p className="text-sm text-muted-foreground">
-              {list.pendingItemCount} {list.pendingItemCount === 1 ? "item" : "items"} to buy
+              {format(plural(list.pendingItemCount, dict.itemsToBuy), {
+                count: list.pendingItemCount,
+              })}
             </p>
           ) : (
-            <Badge variant="secondary">{list.status === "COMPLETED" ? "Completed" : "Archived"}</Badge>
+            <Badge variant="secondary">
+              {list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived}
+            </Badge>
           )}
         </div>
       </Link>
@@ -108,7 +116,7 @@ function ListCard({ list }: { list: ListSummary }) {
             variant="ghost"
             size="icon-sm"
             disabled={isPending}
-            aria-label="Archive list"
+            aria-label={dict.archiveAriaLabel}
             onClick={() => startTransition(() => archiveShoppingListAction(list.id))}
           >
             <Archive className="size-3.5" />
@@ -118,7 +126,7 @@ function ListCard({ list }: { list: ListSummary }) {
             variant="ghost"
             size="icon-sm"
             disabled={isPending}
-            aria-label="Unarchive list"
+            aria-label={dict.unarchiveAriaLabel}
             onClick={() => startTransition(() => unarchiveShoppingListAction(list.id))}
           >
             <ArchiveRestore className="size-3.5" />
@@ -129,7 +137,7 @@ function ListCard({ list }: { list: ListSummary }) {
           size="icon-sm"
           className="text-muted-foreground hover:text-destructive"
           disabled={isPending}
-          aria-label="Delete list"
+          aria-label={dict.deleteAriaLabel}
           onClick={() => startTransition(() => deleteShoppingListAction(list.id))}
         >
           <Trash2 className="size-3.5" />
@@ -139,14 +147,22 @@ function ListCard({ list }: { list: ListSummary }) {
   );
 }
 
-function ListSection({ title, lists }: { title: string; lists: ListSummary[] }) {
+function ListSection({
+  title,
+  lists,
+  dict,
+}: {
+  title: string;
+  lists: ListSummary[];
+  dict: ShoppingListDict;
+}) {
   if (lists.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-medium uppercase text-muted-foreground">{title}</p>
       <div className="flex flex-col gap-2">
         {lists.map((list) => (
-          <ListCard key={list.id} list={list} />
+          <ListCard key={list.id} list={list} dict={dict} />
         ))}
       </div>
     </div>
@@ -157,10 +173,12 @@ export function ShoppingListsOverview({
   active,
   completed,
   archived,
+  dict,
 }: {
   active: ListSummary[];
   completed: ListSummary[];
   archived: ListSummary[];
+  dict: ShoppingListDict;
 }) {
   const isEmpty = active.length === 0 && completed.length === 0 && archived.length === 0;
 
@@ -168,23 +186,21 @@ export function ShoppingListsOverview({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Shopping lists</h1>
-          <p className="text-sm text-muted-foreground">
-            Keep separate lists for the weekly shop, a big trip, or anything else.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{dict.title}</h1>
+          <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
         </div>
-        <NewListDialog />
+        <NewListDialog dict={dict} />
       </div>
 
       {isEmpty ? (
         <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No shopping lists yet. Create one to get started.
+          {dict.empty}
         </p>
       ) : (
         <>
-          <ListSection title="Active" lists={active} />
-          <ListSection title="Completed" lists={completed} />
-          <ListSection title="Archived" lists={archived} />
+          <ListSection title={dict.sectionActive} lists={active} dict={dict} />
+          <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
+          <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />
         </>
       )}
     </div>

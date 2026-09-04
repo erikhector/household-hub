@@ -2,8 +2,11 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const dict = await getDictionary();
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
@@ -13,14 +16,14 @@ export default function LoginPage() {
         <span className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
           <Sparkles className="size-4" />
         </span>
-        Household Hub
+        {dict.auth.brand}
       </Link>
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Welcome back!</CardTitle>
+          <CardTitle className="text-xl">{dict.auth.login.welcomeTitle}</CardTitle>
         </CardHeader>
         <CardContent>
-          <LoginForm />
+          <LoginForm dict={dict.auth.login} />
         </CardContent>
       </Card>
     </div>

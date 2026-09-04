@@ -11,8 +11,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createInviteAction } from "@/lib/actions/household";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-export function InviteButton() {
+export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"] }) {
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,20 +35,18 @@ export function InviteButton() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline">Invite member</Button>} />
+      <DialogTrigger render={<Button variant="outline">{dict.button}</Button>} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite a household member</DialogTitle>
+          <DialogTitle>{dict.dialogTitle}</DialogTitle>
         </DialogHeader>
         {isPending && !link && (
-          <p className="text-sm text-muted-foreground">Generating link…</p>
+          <p className="text-sm text-muted-foreground">{dict.generating}</p>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
         {link && (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">
-              Send this link to whoever should join. It expires in 7 days.
-            </p>
+            <p className="text-sm text-muted-foreground">{dict.description}</p>
             <div className="flex gap-2">
               <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
               <Button
@@ -55,7 +54,7 @@ export function InviteButton() {
                 variant="secondary"
                 onClick={() => navigator.clipboard.writeText(link)}
               >
-                Copy
+                {dict.copy}
               </Button>
             </div>
           </div>

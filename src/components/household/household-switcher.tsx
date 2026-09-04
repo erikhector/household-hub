@@ -21,12 +21,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createHouseholdAction, switchHouseholdAction } from "@/lib/actions/household";
 import type { ActionState } from "@/lib/actions/auth";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type HouseholdOption = { id: string; name: string; role: string };
 
 const initialState: ActionState = {};
 
-function CreateHouseholdDialog() {
+function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switcher"] }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -41,24 +42,24 @@ function CreateHouseholdDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="size-7" aria-label="Create household">
+          <Button variant="ghost" size="icon" className="size-7" aria-label={dict.createAriaLabel}>
             <Plus className="size-4" />
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a new household</DialogTitle>
+          <DialogTitle>{dict.createNew}</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="new-household-name">Household name</Label>
+            <Label htmlFor="new-household-name">{dict.nameLabel}</Label>
             <Input id="new-household-name" name="name" required autoFocus />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creating…" : "Create household"}
+              {pending ? dict.creating : dict.create}
             </Button>
           </DialogFooter>
         </form>
@@ -70,11 +71,14 @@ function CreateHouseholdDialog() {
 export function HouseholdSwitcher({
   current,
   households,
+  dict,
 }: {
   current: HouseholdOption;
   households: HouseholdOption[];
+  dict: Dictionary;
 }) {
   const [isPending, startTransition] = useTransition();
+  const switcherDict = dict.household.switcher;
 
   return (
     <div className="flex items-center gap-1">
@@ -82,7 +86,7 @@ export function HouseholdSwitcher({
         <DropdownMenuTrigger
           render={
             <Button variant="ghost" className="h-auto flex-col items-start px-2 py-1">
-              <span className="text-xs font-medium text-muted-foreground">Household</span>
+              <span className="text-xs font-medium text-muted-foreground">{switcherDict.label}</span>
               <span className="flex items-center gap-1 font-semibold">
                 {current.name}
                 <ChevronsUpDown className="size-3.5 text-muted-foreground" />
@@ -99,13 +103,13 @@ export function HouseholdSwitcher({
             >
               {h.name}
               {h.id === current.id && (
-                <span className="ml-auto text-xs text-muted-foreground">Current</span>
+                <span className="ml-auto text-xs text-muted-foreground">{switcherDict.current}</span>
               )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <CreateHouseholdDialog />
+      <CreateHouseholdDialog dict={switcherDict} />
     </div>
   );
 }

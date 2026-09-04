@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Languages, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
+import { useThemeCycle } from "@/components/theme/use-theme-cycle";
+import { useLocaleToggle } from "@/components/language/use-locale-toggle";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -18,13 +21,19 @@ export function Sidebar({
   defaultExpanded,
   current,
   households,
+  dict,
+  locale,
 }: {
   defaultExpanded: boolean;
   current: HouseholdOption;
   households: HouseholdOption[];
+  dict: Dictionary;
+  locale: Locale;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
+  const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
+  const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
 
   function toggle() {
     const next = !expanded;
@@ -41,7 +50,7 @@ export function Sidebar({
     >
       <div className={cn("flex items-center border-b px-2 py-3", !expanded && "justify-center")}>
         {expanded ? (
-          <HouseholdSwitcher current={current} households={households} />
+          <HouseholdSwitcher current={current} households={households} dict={dict} />
         ) : (
           <span
             className="flex size-8 items-center justify-center rounded-md bg-muted text-xs font-semibold"
@@ -52,8 +61,9 @@ export function Sidebar({
         )}
       </div>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, key, icon: Icon }) => {
           const active = isNavItemActive(pathname, href);
+          const label = dict.nav[key];
           return (
             <Link
               key={href}
@@ -74,16 +84,38 @@ export function Sidebar({
         })}
       </nav>
       <div className="flex flex-col gap-1 border-t p-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={toggleLocale}
+          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
+          title={dict.language.toggleLabel}
+        >
+          <Languages className="size-4" />
+          {expanded && (nextLocale === "sv" ? dict.language.swedish : dict.language.english)}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={cycleTheme}
+          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
+          title={dict.theme.toggleLabel}
+        >
+          <ThemeIcon className="size-4" />
+          {expanded && dict.theme[themeChoice]}
+        </Button>
         <form action={logoutAction}>
           <Button
             type="submit"
             variant="ghost"
             size="sm"
             className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-            title={expanded ? undefined : "Log out"}
+            title={expanded ? undefined : dict.nav.logOut}
           >
             <LogOut className="size-4" />
-            {expanded && "Log out"}
+            {expanded && dict.nav.logOut}
           </Button>
         </form>
         <Button
@@ -92,10 +124,10 @@ export function Sidebar({
           size="sm"
           onClick={toggle}
           className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-          aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+          aria-label={expanded ? dict.nav.collapseSidebar : dict.nav.expandSidebar}
         >
           {expanded ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-          {expanded && "Collapse"}
+          {expanded && dict.nav.collapse}
         </Button>
       </div>
     </aside>
