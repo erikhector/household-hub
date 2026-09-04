@@ -53,6 +53,11 @@ vi.mock("@/lib/session", () => ({
   requireHousehold: requireHouseholdMock,
 }));
 vi.mock("@/lib/auth", () => ({ signIn: signInMock }));
+// src/lib/email.ts imports "server-only", which Vitest's Node environment
+// can't resolve outside a Next.js build (same class of issue as the
+// next-auth mock above) — stub it since these tests don't exercise
+// sendInviteEmailAction.
+vi.mock("@/lib/email", () => ({ sendHouseholdInviteEmail: vi.fn() }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
 }));
