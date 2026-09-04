@@ -17,7 +17,13 @@ import type { ActionState } from "@/lib/actions/auth";
 
 const initialState: ActionState = {};
 
-export function AddItemDialog() {
+export function AddItemDialog({
+  categories,
+  locations,
+}: {
+  categories: string[];
+  locations: string[];
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -43,11 +49,34 @@ export function AddItemDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="category">Category</Label>
-              <Input id="category" name="category" required placeholder="e.g. Dairy" />
+              <Input
+                id="category"
+                name="category"
+                required
+                placeholder="e.g. Dairy"
+                list="category-options"
+                autoComplete="off"
+              />
+              <datalist id="category-options">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="location">Location</Label>
-              <Input id="location" name="location" placeholder="e.g. Fridge" />
+              <Input
+                id="location"
+                name="location"
+                placeholder="e.g. Fridge"
+                list="location-options"
+                autoComplete="off"
+              />
+              <datalist id="location-options">
+                {locations.map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">

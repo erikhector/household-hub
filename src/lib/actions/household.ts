@@ -1,15 +1,18 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { requireHousehold } from "@/lib/session";
+import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold } from "@/lib/session";
 import { signIn } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
+
+const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 const INVITE_TTL_DAYS = 7;
 
@@ -73,6 +76,12 @@ export async function acceptInviteAction(
     ]);
   }
 
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, invitation.householdId, {
+    maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+    path: "/",
+  });
+
   redirect("/dashboard");
 }
 
@@ -115,6 +124,12 @@ export async function joinViaInviteSignupAction(
     await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
   });
 
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, invitation.householdId, {
+    maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+    path: "/",
+  });
+
   try {
     await signIn("credentials", { email, password, redirectTo: "/dashboard" });
   } catch (error) {
@@ -124,4 +139,51 @@ export async function joinViaInviteSignupAction(
     throw error;
   }
   return {};
+}
+
+export async function switchHouseholdAction(householdId: string) {
+  const session = await requireHousehold();
+  const isMember = session.households.some((h) => h.id === householdId);
+  if (!isMember) return;
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, householdId, {
+    maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+    path: "/",
+  });
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+const createHouseholdSchema = z.object({
+  name: z.string().trim().min(1, "Household name is required"),
+});
+
+export async function createHouseholdAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { userId } = await requireHousehold();
+
+  const parsed = createHouseholdSchema.safeParse({ name: formData.get("name") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const household = await prisma.household.create({
+    data: {
+      name: parsed.data.name,
+      members: { create: { userId, role: "OWNER" } },
+    },
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, household.id, {
+    maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
+    path: "/",
+  });
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
 }

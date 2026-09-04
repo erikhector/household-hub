@@ -6,6 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 
+async function findOrCreateInventoryItem(householdId: string, name: string) {
+  const existing = await prisma.inventoryItem.findFirst({
+    where: { householdId, name: { equals: name, mode: "insensitive" } },
+  });
+  if (existing) return existing;
+
+  return prisma.inventoryItem.create({
+    data: { householdId, name, category: "Uncategorized", quantity: 0, lowStockThreshold: 0 },
+  });
+}
+
 async function getOrCreateActiveList(householdId: string) {
   const existing = await prisma.shoppingList.findFirst({
     where: { householdId, status: "ACTIVE" },
@@ -71,8 +82,14 @@ export async function addAdHocItemAction(
   }
 
   const list = await getOrCreateActiveList(household.id);
+  const inventoryItem = await findOrCreateInventoryItem(household.id, parsed.data.name);
   await prisma.shoppingListItem.create({
-    data: { shoppingListId: list.id, name: parsed.data.name, quantity: parsed.data.quantity },
+    data: {
+      shoppingListId: list.id,
+      inventoryItemId: inventoryItem.id,
+      name: parsed.data.name,
+      quantity: parsed.data.quantity,
+    },
   });
 
   revalidatePath("/dashboard/shopping-list");
@@ -129,10 +146,27 @@ export async function deleteShoppingListItemAction(itemId: string) {
 export async function completeShoppingListAction(listId: string) {
   const { household } = await requireHousehold();
 
-  await prisma.shoppingList.updateMany({
+  const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id },
+    include: { items: { where: { inventoryItemId: null } } },
+  });
+  if (!list) return;
+
+  // Every shopping list item should map 1:1 to an inventory item — link (or
+  // create) inventory items for anything that slipped through unlinked.
+  for (const item of list.items) {
+    const inventoryItem = await findOrCreateInventoryItem(household.id, item.name);
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: { inventoryItemId: inventoryItem.id },
+    });
+  }
+
+  await prisma.shoppingList.update({
+    where: { id: list.id },
     data: { status: "COMPLETED", completedAt: new Date() },
   });
 
   revalidatePath("/dashboard/shopping-list");
+  revalidatePath("/dashboard/inventory");
 }

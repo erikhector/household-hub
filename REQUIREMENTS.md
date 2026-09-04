@@ -59,6 +59,21 @@ easy for AI coding agents to work in correctly:
   inventory, etc.) — only ownership of the household membership itself is
   checked. Tightening this (e.g. only `OWNER` can invite/remove members) is a
   reasonable follow-up, not yet implemented.
+- **Switching households**: a user can belong to multiple households (e.g.
+  their own home + a shared vacation home). The active one is tracked by the
+  `active_household` cookie (`src/lib/session.ts`), read (never written) by
+  `requireHousehold()`, which falls back to the first membership if the
+  cookie is missing/invalid. Only `src/lib/actions/household.ts`'s
+  `switchHouseholdAction`/`createHouseholdAction` write that cookie — both
+  run in a Server Action, since cookies can't be set during a Server
+  Component render. The header's `HouseholdSwitcher` component is the UI for
+  this.
+- **"Shared with" indicator** (planned, not yet built): when a household has
+  more than one member, the household page (`src/app/dashboard/household/page.tsx`)
+  and the dashboard overview (`src/app/dashboard/page.tsx`) should surface
+  that fact — e.g. "Shared with 2 other people" — derived from
+  `requireHousehold()`'s member count (or a dedicated count query), not shown
+  when the household has only the current user.
 
 ## Data model
 
@@ -67,13 +82,26 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
   location, `lastKnownPrice`. Low stock = `quantity <= lowStockThreshold`.
+  The inventory page (`InventoryClient`) filters client-side (in-memory —
+  fine at household scale) by name substring, category, location, and
+  status (in/low/out of stock); filter dropdown options come from the
+  distinct categories/locations already present in that household's items.
+  Adding an item offers previously-used categories/locations via a native
+  `<datalist>` (see Conventions) rather than a fixed enum, so it stays
+  freeform but self-suggesting.
 - `ShoppingList` / `ShoppingListItem` — one `ACTIVE` list per household at a
-  time (enforced by app logic, not a DB constraint). Items can be linked to
-  an `InventoryItem` or ad-hoc. Marking an item purchased **increments** the
+  time (enforced by app logic, not a DB constraint). **Every shopping list
+  item maps 1:1 to an `InventoryItem`**: adding an ad-hoc item
+  (`addAdHocItemAction`) immediately finds-or-creates a matching
+  `InventoryItem` (case-insensitive name match within the household; created
+  with category `"Uncategorized"`, quantity 0) and links it — there is no
+  such thing as an unlinked shopping list item going forward.
+  `completeShoppingListAction` re-runs that find-or-create for any item that
+  still lacks a link, as a defensive guarantee at the point the user
+  considers the list "done". Marking an item purchased **increments** the
   linked inventory item's quantity by the purchased amount (and records a
   `PriceHistory` row if an estimated price was given); un-marking it reverses
-  the increment. Ad-hoc items (no linked `InventoryItem`) have no inventory
-  side effect.
+  the increment.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
 
 **Meal planning** (schema only, no UI yet)
@@ -85,6 +113,44 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `isRecurring` + `recurrenceFrequency`). The intended (not yet built) link
   between modules: completing a shopping list can create a "Groceries"
   expense `Transaction` — otherwise the two modules are independent.
+
+**User profile** (planned, not yet built)
+- A `/dashboard/profile` page for the signed-in user to edit their own
+  `User.displayName`. Email and password are not editable there for now
+  (email is the login identifier and there's no re-verification flow yet;
+  password change is a separate future slice) — deliberately the smallest
+  useful slice, not a placeholder for a fuller form.
+
+## Theming
+
+The app is dark-only (no light-mode toggle) with a fixed background of
+`radial-gradient(circle, #180828, #000000)` (set on `body` in
+`globals.css`) and `dark` forced on `<html>` in the root layout so the
+existing shadcn dark color tokens (card/popover/border/etc.) apply. Don't
+reintroduce a plain `bg-background` on `body` — it would paint over the
+gradient with a flat color.
+
+## Navigation & responsive layout
+
+(Planned, not yet built — currently `DashboardNav` (`src/components/dashboard/nav.tsx`)
+is a flat, wrapping row of text links in the header, same on every screen size.)
+
+- **Desktop (`sm` and up)**: the top nav becomes a left sidebar with an icon +
+  label per section (Overview, Inventory, Shopping list, Meal planning,
+  Budget, Household, Profile). Expanded by default (icons + labels visible);
+  a toggle collapses it to an icon-only rail. The chosen state is
+  remembered per user (cookie or `localStorage`) across visits.
+- **Mobile (below `sm`)**: navigation moves to a fixed bottom bar with 5
+  icons: Overview, Inventory, Shopping list, Budget, and a "More" icon. Tapping
+  "More" opens a sheet/menu with the remaining sections (Meal planning,
+  Household, Profile) plus log out. Meal planning and Household are in the
+  overflow rather than the primary bar because they see lower daily use than
+  inventory/shopping/budget.
+- The household switcher, "Shared with" indicator, and log out stay
+  accessible from both layouts (e.g. pinned to the top/bottom of the sidebar
+  on desktop, folded into the "More" sheet on mobile) — exact placement is an
+  implementation detail as long as they're reachable in one tap/click from
+  every dashboard page.
 
 ## Conventions
 
@@ -102,11 +168,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   and re-throw everything else (see `src/lib/actions/auth.ts`).
 - UI text is in English (no i18n requirement, unlike some of this household's
   other projects — don't assume Swedish).
+- Base UI's `<Select.Value>` (`SelectValue` in `src/components/ui/select.tsx`)
+  renders the raw selected `value` as text by default — it does **not** look
+  up the matching `SelectItem`'s label. Any `Select` whose `value`s aren't
+  already human-readable (e.g. a sentinel like `"__all__"` for "All
+  categories") needs an explicit `children` render function on `SelectValue`
+  mapping value → label (see `InventoryClient`'s filter selects), or it'll
+  silently render the sentinel/id instead of the intended text.
 
 ## Not yet built
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
 budget expense link, role-gated permissions, email delivery for invites,
-tests. The autonomous agent build/improve loop itself is intentionally not
-set up yet — that's a deliberate separate step once there's a real test
-suite to gate it on.
+tests. Also newly specced but not yet implemented: the user profile page,
+the "Shared with" indicator, and the responsive sidebar/bottom-nav layout
+(see Navigation & responsive layout above). The autonomous agent
+build/improve loop itself is intentionally not set up yet — that's a
+deliberate separate step once there's a real test suite to gate it on.

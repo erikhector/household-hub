@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { adjustQuantityAction, deleteInventoryItemAction } from "@/app/dashboard/inventory/actions";
 
-type InventoryItemRow = {
+export type InventoryItemRow = {
   id: string;
   name: string;
   category: string;
@@ -24,19 +24,33 @@ type InventoryItemRow = {
   location: string | null;
 };
 
-function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
-  if (quantity <= 0) return <Badge variant="destructive">Out of stock</Badge>;
-  if (quantity <= threshold) return <Badge className="bg-amber-500 text-white">Low stock</Badge>;
+export type StockStatus = "out" | "low" | "in";
+
+export function getStockStatus(quantity: number, threshold: number): StockStatus {
+  if (quantity <= 0) return "out";
+  if (quantity <= threshold) return "low";
+  return "in";
+}
+
+function StockBadge({ status }: { status: StockStatus }) {
+  if (status === "out") return <Badge variant="destructive">Out of stock</Badge>;
+  if (status === "low") return <Badge className="bg-amber-500 text-white">Low stock</Badge>;
   return <Badge variant="secondary">In stock</Badge>;
 }
 
-export function InventoryTable({ items }: { items: InventoryItemRow[] }) {
+export function InventoryTable({
+  items,
+  emptyMessage = "No items match your filters.",
+}: {
+  items: InventoryItemRow[];
+  emptyMessage?: string;
+}) {
   const [isPending, startTransition] = useTransition();
 
   if (items.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No items yet. Add your first item to start tracking inventory.
+        {emptyMessage}
       </p>
     );
   }
@@ -85,7 +99,7 @@ export function InventoryTable({ items }: { items: InventoryItemRow[] }) {
               </div>
             </TableCell>
             <TableCell>
-              <StockBadge quantity={item.quantity} threshold={item.lowStockThreshold} />
+              <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} />
             </TableCell>
             <TableCell>
               <Button
