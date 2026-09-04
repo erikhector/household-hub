@@ -381,11 +381,68 @@ components directly.
   mapping value → label (see `InventoryClient`'s filter selects), or it'll
   silently render the sentinel/id instead of the intended text.
 
+## Testing
+
+- **Stack**: **Vitest** — confirmed as the appropriate pick by checking
+  `node_modules/next/dist/docs/01-app/02-guides/testing/` (resolved per
+  AGENTS.md), which ships a Vitest guide and no Jest/Playwright guide for
+  this Next.js version. Installed as `vitest` + `vite-tsconfig-paths` (for
+  the `@/*` import alias) only — `jsdom`, `@testing-library/react`, and
+  `@vitejs/plugin-react` (which the Next.js guide also lists) are
+  deliberately **not** installed yet, since nothing under test today renders
+  a component; add them when a future task writes component tests.
+  `vitest.config.ts` at the repo root sets `test.environment: "node"` and
+  `test.include: ["src/**/*.test.ts"]`.
+- **Running tests**: `npm test` runs `vitest run` (single non-watch run, for
+  CI/agent use); `npm run test:watch` runs plain `vitest` (watch mode, for
+  local development) — the Next.js guide's own example maps `test` to watch
+  mode, but a non-interactive definition-of-done check needs a run that
+  actually exits.
+- **File convention**: tests are colocated `*.test.ts` files next to the
+  source file they test (e.g. `src/lib/i18n/format.test.ts`,
+  `src/lib/actions/auth.test.ts`) — not a separate `src/**/__tests__/` tree.
+  Picked for discoverability (the test sits right next to what it covers)
+  and because it matches how the rest of this codebase colocates related
+  files (e.g. `actions.ts` next to the `page.tsx` that uses it).
+- **What's covered so far** (deliberately scoped to already-stable code that
+  doesn't depend on Wave 1's other in-flight features — see
+  `AGENT_TASKS.md`):
+  - `src/lib/i18n/format.ts` — `format()`/`plural()`, pure functions, no
+    mocking needed.
+  - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
+    (resolve the active household from the `active_household` cookie,
+    falling back to the caller's first membership when the cookie is
+    missing or stale, plus the zero-session/zero-membership redirects).
+  - `src/lib/actions/auth.ts` and `src/lib/actions/household.ts` — the Zod
+    schemas in these files (`signupSchema`, `joinSignupSchema`,
+    `createHouseholdSchema`) are module-private, so they're exercised
+    indirectly through the exported Server Actions that use them
+    (`signupAction`, `loginAction`, `createHouseholdAction`,
+    `joinViaInviteSignupAction`): each schema's validation-error paths, plus
+    one success path per action.
+  - Not covered yet: meal planning, budgeting, profile — out of scope for
+    this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
+    don't exist in a stable form on this branch). Add their tests alongside
+    their own feature work.
+- **Database isolation**: no test in this suite touches the real database.
+  Everything under `src/lib/actions/*.test.ts` and `src/lib/session.test.ts`
+  mocks `@/lib/prisma`, `@/lib/auth`, `@/lib/session`, `next/headers`,
+  `next/navigation`, and `next/cache` with `vi.mock` (and stubs `next-auth`'s
+  `AuthError` locally, since the real `next-auth` package's entrypoint
+  imports `next/server`, which Vitest's Node environment can't resolve
+  outside an actual Next.js build). `npm test` never opens a Postgres
+  connection, so it's safe to run against a worktree with no `DATABASE_URL`
+  set and never touches the shared dev Postgres from `docker-compose.yml`.
+  If a future task adds tests that need real Prisma queries, isolate them
+  behind a separate `DATABASE_URL` (e.g. a second `docker-compose` service)
+  or wrap each test in a rolled-back transaction — don't run them against
+  the shared dev database by default.
+
 ## Not yet built
 
 Meal planning UI, cost-analyzer UI, budgeting UI, the shopping-list →
 budget expense link, ownership transfer / leaving a household you don't own,
-email delivery for invites, profile email/password/avatar editing, tests.
+email delivery for invites, profile email/password/avatar editing.
 The autonomous agent build/improve loop itself is intentionally not set up
-yet — that's a deliberate separate step once there's a real test suite to
-gate it on.
+yet — that's a deliberate separate step now that a real test suite exists
+to gate it on.
