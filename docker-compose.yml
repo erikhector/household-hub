@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: household
+      POSTGRES_PASSWORD: household
+      POSTGRES_DB: household_hub
+    ports:
+      - "5432:5432"
+    volumes:
+      - household-hub-postgres:/var/lib/postgresql/data
+
+volumes:
+  household-hub-postgres:

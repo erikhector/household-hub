@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Accounts & households -------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+
+  memberships HouseholdMember[]
+}
+
+enum HouseholdRole {
+  OWNER
+  MEMBER
+}
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members          HouseholdMember[]
+  invitations      Invitation[]
+  inventoryItems   InventoryItem[]
+  shoppingLists    ShoppingList[]
+  recipes          Recipe[]
+  mealPlans        MealPlan[]
+  budgetCategories BudgetCategory[]
+  transactions     Transaction[]
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String
+  userId      String
+  role        HouseholdRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  householdId String
+  token       String    @unique
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+}
+
+// --- Inventory & shopping ---------------------------------------------------
+
+model InventoryItem {
+  id                String   @id @default(cuid())
+  householdId       String
+  name              String
+  category          String
+  quantity          Float    @default(0)
+  unit              String   @default("pcs")
+  lowStockThreshold Float    @default(1)
+  location          String?
+  lastKnownPrice    Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  updatedByUserId   String?
+
+  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  shoppingListItems ShoppingListItem[]
+  priceHistory      PriceHistory[]
+  recipeIngredients RecipeIngredient[]
+
+  @@index([householdId])
+}
+
+enum ShoppingListStatus {
+  ACTIVE
+  COMPLETED
+}
+
+model ShoppingList {
+  id          String             @id @default(cuid())
+  householdId String
+  name        String
+  status      ShoppingListStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingListItem[]
+
+  @@index([householdId])
+}
+
+model ShoppingListItem {
+  id                 String   @id @default(cuid())
+  shoppingListId     String
+  inventoryItemId    String?
+  name               String
+  quantity           Float    @default(1)
+  estimatedPrice     Float?
+  purchased          Boolean  @default(false)
+  addedAutomatically Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@index([shoppingListId])
+}
+
+model PriceHistory {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  price           Float
+  store           String?
+  date            DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId])
+}
+
+// --- Meal planning -----------------------------------------------------------
+
+model Recipe {
+  id           String   @id @default(cuid())
+  householdId  String
+  name         String
+  instructions String?
+  createdAt    DateTime @default(now())
+
+  household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredients     RecipeIngredient[]
+  mealPlanEntries MealPlanEntry[]
+
+  @@index([householdId])
+}
+
+model RecipeIngredient {
+  id              String  @id @default(cuid())
+  recipeId        String
+  inventoryItemId String?
+  name            String
+  quantity        Float
+  unit            String  @default("pcs")
+
+  recipe        Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@index([recipeId])
+}
+
+model MealPlan {
+  id            String   @id @default(cuid())
+  householdId   String
+  weekStartDate DateTime
+  createdAt     DateTime @default(now())
+
+  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  entries   MealPlanEntry[]
+
+  @@unique([householdId, weekStartDate])
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+model MealPlanEntry {
+  id           String   @id @default(cuid())
+  mealPlanId   String
+  date         DateTime
+  mealType     MealType
+  recipeId     String?
+  freeformName String?
+
+  mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe   Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  @@index([mealPlanId])
+}
+
+// --- Budgeting -----------------------------------------------------------------
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model BudgetCategory {
+  id          String          @id @default(cuid())
+  householdId String
+  name        String
+  type        TransactionType
+  createdAt   DateTime        @default(now())
+
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([householdId])
+}
+
+model Transaction {
+  id                  String               @id @default(cuid())
+  householdId         String
+  categoryId          String
+  amount              Float
+  type                TransactionType
+  description         String?
+  date                DateTime             @default(now())
+  isRecurring         Boolean              @default(false)
+  recurrenceFrequency RecurrenceFrequency?
+  createdByUserId     String?
+  createdAt           DateTime             @default(now())
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  BudgetCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([householdId])
+}
