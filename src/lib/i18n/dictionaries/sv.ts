@@ -145,6 +145,8 @@ export const sv = {
     emptyListOther: "Inget på listan.",
     purchased: "Köpt",
     lowStockBadge: "Lågt lager",
+    expenseLogged: "Loggade {amount} i din budget för Livsmedel",
+    expenseDescription: 'Från "{name}"',
   },
   inventory: {
     title: "Skafferi",
