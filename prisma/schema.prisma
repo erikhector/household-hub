@@ -49,8 +49,10 @@ model HouseholdMember {
   role        HouseholdRole @default(CONTRIBUTOR)
   createdAt   DateTime      @default(now())
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paidTransactions  Transaction[]      @relation("TransactionPaidBy")
+  transactionSplits TransactionSplit[]
 
   @@unique([householdId, userId])
 }
@@ -243,9 +245,41 @@ model Transaction {
   recurrenceFrequency RecurrenceFrequency?
   createdByUserId     String?
   createdAt           DateTime             @default(now())
+  // Expense splitting (opt-in — see REQUIREMENTS.md's "Household expense
+  // splitting" subsection). Null on every transaction that isn't split,
+  // which behaves exactly as it did before this feature.
+  paidByMemberId      String?
 
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category  BudgetCategory @relation(fields: [categoryId], references: [id])
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category      BudgetCategory     @relation(fields: [categoryId], references: [id])
+  // SetNull (not Cascade): if the paying member later leaves the household,
+  // the transaction itself must survive — it just loses the "paid by" note,
+  // the same tradeoff RecipeIngredient.inventoryItemId makes.
+  paidByMember  HouseholdMember?   @relation("TransactionPaidBy", fields: [paidByMemberId], references: [id], onDelete: SetNull)
+  splits        TransactionSplit[]
 
   @@index([householdId])
+}
+
+// One row per household member included in a split transaction's cost
+// share. No householdId column — like PriceHistory/RecipeIngredient, it's
+// scoped through its parent (Transaction.householdId) rather than
+// duplicating the tenant id. `amountOwed` is an absolute currency amount
+// (not a percentage), and the sum of a transaction's splits is validated
+// server-side to equal that transaction's `amount`.
+model TransactionSplit {
+  id                String   @id @default(cuid())
+  transactionId     String
+  householdMemberId String
+  amountOwed        Float
+  createdAt         DateTime @default(now())
+
+  transaction     Transaction     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  // Cascade: an ex-member's own split rows are simply removed with them —
+  // a known simplification for an edge case explicitly out of scope here.
+  householdMember HouseholdMember @relation(fields: [householdMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId, householdMemberId])
+  @@index([transactionId])
+  @@index([householdMemberId])
 }

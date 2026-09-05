@@ -10,11 +10,13 @@ import {
   type ItemPriceTrend,
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
+import { HouseholdBalances } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { computeSafeToSpend } from "./safe-to-spend-calc";
+import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
 
 // An item needs at least this many recorded prices before its trend is
 // considered meaningful enough to show — see REQUIREMENTS.md's "Cost
@@ -25,7 +27,7 @@ const MIN_PRICE_POINTS_FOR_TREND = 3;
 const MAX_SPENDING_MONTHS = 12;
 
 export default async function BudgetPage() {
-  const [{ household }, dict, locale] = await Promise.all([
+  const [{ household, userId }, dict, locale] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
@@ -35,7 +37,7 @@ export default async function BudgetPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [categories, transactions] = await Promise.all([
+  const [categories, transactions, householdMembers] = await Promise.all([
     prisma.budgetCategory.findMany({
       where: { householdId: household.id },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -43,11 +45,23 @@ export default async function BudgetPage() {
     prisma.transaction.findMany({
       where: { householdId: household.id },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { category: true },
+      include: { category: true, splits: true },
+    }),
+    // Fetched for the expense-splitting feature (see REQUIREMENTS.md's
+    // "Household expense splitting" subsection) — the split UI and the
+    // balances tab are both only offered when a household has more than
+    // one member.
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      include: { user: { select: { displayName: true } } },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
+
+  const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
+  const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
 
   const transactionRows = transactions.map((t) => ({
     id: t.id,
@@ -59,7 +73,32 @@ export default async function BudgetPage() {
     date: t.date,
     isRecurring: t.isRecurring,
     recurrenceFrequency: t.recurrenceFrequency,
+    paidByMemberId: t.paidByMemberId,
+    splits: t.splits.map((s) => ({ householdMemberId: s.householdMemberId, amountOwed: s.amountOwed })),
   }));
+
+  // --- Household expense splitting: "who owes whom" -----------------------
+  // See REQUIREMENTS.md's "Household expense splitting" subsection. Only
+  // meaningful once a household has more than one member; all netting/
+  // debt-simplification logic lives in settle-up-calc.ts so it's
+  // unit-testable without Prisma, same convention as safe-to-spend-calc.ts.
+  const settlements =
+    memberOptions.length > 1
+      ? simplifyDebts(
+          computeNetBalances(
+            transactions
+              .filter((t) => t.paidByMemberId && t.splits.length > 0)
+              .map((t) => ({
+                amount: t.amount,
+                paidByMemberId: t.paidByMemberId as string,
+                splits: t.splits.map((s) => ({
+                  householdMemberId: s.householdMemberId,
+                  amountOwed: s.amountOwed,
+                })),
+              })),
+          ),
+        )
+      : [];
 
   const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
 
@@ -158,6 +197,8 @@ export default async function BudgetPage() {
         <TransactionDialog
           dict={dict.budget}
           categories={categoryRows}
+          members={memberOptions}
+          currentMemberId={currentMemberId}
           trigger={
             <Button disabled={categoryRows.length === 0}>{dict.budget.addTransaction}</Button>
           }
@@ -190,6 +231,8 @@ export default async function BudgetPage() {
         <TransactionList
           transactions={transactionRows}
           categories={categoryRows}
+          members={memberOptions}
+          currentMemberId={currentMemberId}
           dict={dict.budget}
           locale={locale}
         />
@@ -215,6 +258,16 @@ export default async function BudgetPage() {
             dict={dict.budget.costAnalyzer}
             locale={locale}
           />
+        }
+        balances={
+          memberOptions.length > 1 ? (
+            <HouseholdBalances
+              settlements={settlements}
+              members={memberOptions}
+              dict={dict.budget.balances}
+              locale={locale}
+            />
+          ) : undefined
         }
       />
     </div>

@@ -273,6 +273,7 @@ export const en = {
     subtitle: "Track household income and expenses, one-time or recurring.",
     tabOverview: "Overview",
     tabCostAnalyzer: "Cost analyzer",
+    tabBalances: "Balances",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
     editTransactionDialogTitle: "Edit transaction",
@@ -345,6 +346,21 @@ export const en = {
       noTrendData:
         "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here.",
       latestPrice: "Latest",
+    },
+    split: {
+      toggleLabel: "Split this expense",
+      paidByLabel: "Paid by",
+      sharesLabel: "Split between",
+      splitEvenlyButton: "Split evenly",
+      mismatchWarning: "The shares add up to {total}, but the transaction is {amount}.",
+      splitBadge: "Split",
+      paidByBadge: "Paid by {name}",
+    },
+    balances: {
+      title: "Who owes whom",
+      subtitle:
+        "Net balances across every split transaction, simplified to the fewest settle-up transfers.",
+      allSettled: "Everyone's settled up — no split expenses are outstanding.",
     },
   },
   export: {

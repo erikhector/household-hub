@@ -18,16 +18,21 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type Tab = "overview" | "costAnalyzer";
+type Tab = "overview" | "costAnalyzer" | "balances";
 
 export function BudgetTabs({
   dict,
   overview,
   costAnalyzer,
+  balances,
 }: {
   dict: Dictionary["budget"];
   overview: ReactNode;
   costAnalyzer: ReactNode;
+  // Only passed when the household has more than one member — see
+  // REQUIREMENTS.md's "Household expense splitting" subsection. Omitted
+  // entirely means no third tab, rather than an empty one.
+  balances?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -50,10 +55,21 @@ export function BudgetTabs({
         >
           {dict.tabCostAnalyzer}
         </Button>
+        {balances && (
+          <Button
+            type="button"
+            variant={tab === "balances" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setTab("balances")}
+          >
+            {dict.tabBalances}
+          </Button>
+        )}
       </div>
 
       <div hidden={tab !== "overview"}>{overview}</div>
       <div hidden={tab !== "costAnalyzer"}>{costAnalyzer}</div>
+      {balances && <div hidden={tab !== "balances"}>{balances}</div>}
     </div>
   );
 }

@@ -462,6 +462,91 @@ unit-tested.
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
 
+### Household expense splitting
+
+Lets a `Transaction` optionally record who paid and how its cost is
+divided among household members (Splitwise's pattern) — opt-in per
+transaction, so a transaction with no split behaves exactly as it always
+has. Two new Prisma models/fields, added via a hand-written migration
+(`prisma/migrations/20260905120000_add_transaction_splits/`) since this is
+a real schema change, unlike the schema-free Wave 1 tasks:
+
+- **`Transaction.paidByMemberId`** (`String?`, `onDelete: SetNull` on its
+  `HouseholdMember` relation) — which member fronted the money. `SetNull`
+  rather than `Cascade`: the transaction itself must survive its payer
+  later leaving the household, the same tradeoff
+  `RecipeIngredient.inventoryItemId` already makes for a similar
+  optional-info relation.
+- **`TransactionSplit`** — one row per member included in a split
+  transaction's cost share (`transactionId`, `householdMemberId`,
+  `amountOwed`), unique per `(transactionId, householdMemberId)`. No
+  `householdId` column — scoped through its parent `Transaction`, the same
+  convention `PriceHistory`/`RecipeIngredient` already use for a
+  household-scoped child row. `amountOwed` is an absolute currency amount,
+  not a percentage/share — the simplest, least-surprising representation,
+  and what the balances view can sum directly. Its `HouseholdMember`
+  relation is `onDelete: Cascade`: an ex-member's own split rows are simply
+  removed with them — a known simplification for an edge case explicitly
+  out of scope for this task (nothing re-normalizes the remaining splits
+  to still sum to the transaction's total if a member with an outstanding
+  split leaves).
+
+**Recording a split** (`TransactionDialog`,
+`src/components/budget/transaction-dialog.tsx`): only offered when the
+household has more than one member (`members.length > 1`, fetched by
+`src/app/dashboard/budget/page.tsx` alongside categories/transactions). A
+"Split this expense" checkbox reveals a "Paid by" select (defaulting to
+the signed-in user's own membership) and one amount input per household
+member, defaulting to an even split of the transaction's amount
+(`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
+unit-tested cents-based helper so the shares always sum exactly to the
+total instead of drifting from naive floating-point division) via a "Split
+evenly" reset button, individually adjustable afterward. The dialog shows
+a live mismatch warning and disables submit whenever the per-member
+amounts don't (yet) sum to the transaction total; `createTransactionAction`/
+`updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
+re-validate the same invariant server-side (`parseSplitFormData`, ±0.01
+floating-point tolerance) plus that every referenced member id actually
+belongs to the caller's household, the same "never trust a client-supplied
+id beyond re-checking it" rule every other action in this file follows.
+Editing an existing split transaction pre-fills every field from its
+current `TransactionSplit` rows and replaces them wholesale on save
+(delete-all then recreate in one `$transaction`), the same convention
+recipe-ingredient editing already uses. `TransactionList`
+(`src/components/budget/transaction-list.tsx`) shows a "Split" badge
+(hover tooltip naming the payer) next to a split transaction's category
+badge.
+
+**"Who owes whom"** (`HouseholdBalances`,
+`src/components/budget/household-balances.tsx`) — a third `BudgetTabs` tab,
+"Balances", shown only when the household has more than one member
+(chosen over the Household page: the view is derived entirely from
+`Transaction`/`TransactionSplit` data the Budget page already scopes and
+fetches, and this keeps the Household page, not a primary file for this
+task, untouched). Like `PeriodSummary`/`CostAnalyzer`/`SafeToSpend`, it's a
+plain presentational component; all netting and debt-simplification logic
+is pure and unit-tested in the colocated
+`src/app/dashboard/budget/settle-up-calc.ts`:
+
+- `computeNetBalances` nets every split transaction to one balance per
+  member — the payer's balance increases by the full amount, every member
+  with a split on that transaction (payer included) has their balance
+  reduced by their own share, so a payer's own share nets out to what
+  they're actually owed by everyone else.
+- `simplifyDebts` then applies Splitwise's debt-simplification pattern
+  (greedily matching the largest debtor against the largest creditor) to
+  reduce those balances to the **minimum number of settle-up transfers**,
+  not a raw list of every individual split — e.g. if Alice paid for
+  everyone and Bob separately paid Carol back for something unrelated, the
+  view nets straight to "Bob owes Alice X", never surfacing Carol at all
+  once her balance is zero.
+- The view is read-only for this pass — no "mark as settled" persistence
+  was added. The task's own scope note describes a manual settle-up action
+  only as an example of what a *future* pass could add ("a note or a
+  zeroing transaction... no payment integration of any kind"), and the
+  feature's actual goal is to *surface* the net balance view; adding a new
+  table/action for recording settlements would be scope creep beyond that.
+
 **User profile** (built)
 - `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
   signed-in user edit their own `displayName`, email, and password, and
@@ -1043,10 +1128,6 @@ subsections, "Notification center", "Data export (CSV)", and Budgeting's
 6. **Barcode scanning** for inventory/shopping-list entry, using the
    browser's camera and a public product-lookup API (no paid service). Cuts
    friction on the highest-frequency user action (adding groceries).
-7. **Household contribution/expense splitting** between members (who paid,
-   who owes) layered on the existing Budget module — the Splitwise pattern,
-   valuable for roommate-shaped households where the current shared ledger
-   doesn't track who fronted what.
 
 ### Deferred — needs an infrastructure or product decision first, not started
 
