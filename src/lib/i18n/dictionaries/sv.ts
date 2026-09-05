@@ -233,6 +233,8 @@ export const sv = {
   budget: {
     title: "Budget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
+    tabOverview: "Översikt",
+    tabCostAnalyzer: "Kostnadsanalys",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -287,6 +289,18 @@ export const sv = {
       expensesByCategory: "Utgifter per kategori",
       noIncome: "Inga inkomster registrerade denna månad.",
       noExpenses: "Inga utgifter registrerade denna månad.",
+    },
+    costAnalyzer: {
+      spendingTitle: "Matinköp över tid",
+      spendingSubtitle:
+        "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
+      noSpendingData:
+        "Inga prissatta matinköp än. Markera en vara som köpt med ett uppskattat pris på en inköpslista för att börja följa utgifterna här.",
+      trendsTitle: "Prisutveckling",
+      trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
+      noTrendData:
+        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här.",
+      latestPrice: "Senaste",
     },
   },
   profile: {

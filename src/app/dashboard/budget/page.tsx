@@ -2,10 +2,24 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
+import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { CategoryManager } from "@/components/budget/category-manager";
+import {
+  CostAnalyzer,
+  type ItemPriceTrend,
+  type MonthlySpendPoint,
+} from "@/components/budget/cost-analyzer";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
+
+// An item needs at least this many recorded prices before its trend is
+// considered meaningful enough to show — see REQUIREMENTS.md's "Cost
+// analyzer" subsection.
+const MIN_PRICE_POINTS_FOR_TREND = 3;
+// Cap the monthly spending chart to the most recent N months so it stays
+// readable once a household has years of price history.
+const MAX_SPENDING_MONTHS = 12;
 
 export default async function BudgetPage() {
   const [{ household }, dict, locale] = await Promise.all([
@@ -65,13 +79,56 @@ export default async function BudgetPage() {
   const income = incomeByCategory.reduce((sum, c) => sum + c.total, 0);
   const expense = expenseByCategory.reduce((sum, c) => sum + c.total, 0);
 
-  return (
+  // --- Cost analyzer aggregation ------------------------------------------
+  // Fed from PriceHistory, populated whenever a shopping list item is marked
+  // purchased with an estimated price (togglePurchasedAction in
+  // src/app/dashboard/shopping-list/actions.ts). All aggregation happens
+  // here in the page's Server Component, same convention as the period
+  // summary above — CostAnalyzer itself is a plain presentational component.
+  const priceHistoryRows = await prisma.priceHistory.findMany({
+    where: { inventoryItem: { householdId: household.id } },
+    include: { inventoryItem: { select: { id: true, name: true } } },
+    orderBy: { date: "asc" },
+  });
+
+  const monthlyTotals = new Map<string, number>();
+  for (const row of priceHistoryRows) {
+    const key = `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, "0")}`;
+    monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + row.price);
+  }
+  const monthlySpending: MonthlySpendPoint[] = [...monthlyTotals.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-MAX_SPENDING_MONTHS)
+    .map(([month, total]) => ({ month, total }));
+
+  const pointsByItem = new Map<string, ItemPriceTrend>();
+  for (const row of priceHistoryRows) {
+    const point = { date: row.date, price: row.price };
+    const existing = pointsByItem.get(row.inventoryItemId);
+    if (existing) {
+      existing.points.push(point);
+    } else {
+      pointsByItem.set(row.inventoryItemId, {
+        id: row.inventoryItemId,
+        name: row.inventoryItem.name,
+        points: [point],
+        changePercent: 0,
+      });
+    }
+  }
+  const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
+    .filter((item) => item.points.length >= MIN_PRICE_POINTS_FOR_TREND)
+    .map((item) => {
+      const first = item.points[0].price;
+      const last = item.points[item.points.length - 1].price;
+      const changePercent = first === 0 ? 0 : ((last - first) / first) * 100;
+      return { ...item, changePercent };
+    })
+    .sort((a, b) => b.points.length - a.points.length);
+
+  const overview = (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{dict.budget.title}</h1>
-          <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
-        </div>
+      <div className="flex justify-end">
         <TransactionDialog
           dict={dict.budget}
           categories={categoryRows}
@@ -105,6 +162,28 @@ export default async function BudgetPage() {
         />
         <CategoryManager categories={categoryRows} dict={dict.budget} />
       </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">{dict.budget.title}</h1>
+        <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
+      </div>
+
+      <BudgetTabs
+        dict={dict.budget}
+        overview={overview}
+        costAnalyzer={
+          <CostAnalyzer
+            monthlySpending={monthlySpending}
+            itemTrends={itemTrends}
+            dict={dict.budget.costAnalyzer}
+            locale={locale}
+          />
+        }
+      />
     </div>
   );
 }
