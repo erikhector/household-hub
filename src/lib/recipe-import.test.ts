@@ -31,6 +31,16 @@ describe("extractJsonLdBlocks", () => {
     expect(extractJsonLdBlocks(html)).toEqual([`{"a":1}`]);
   });
 
+  it("matches an unquoted type attribute (e.g. Yoast SEO on WordPress)", () => {
+    const html = `<script type=application/ld+json class=yoast-schema-graph>{"a":1}</script>`;
+    expect(extractJsonLdBlocks(html)).toEqual([`{"a":1}`]);
+  });
+
+  it("does not match an unquoted attribute value that merely starts with the type", () => {
+    const html = `<script type=application/ld+jsonish>{"a":1}</script>`;
+    expect(extractJsonLdBlocks(html)).toEqual([]);
+  });
+
   it("returns an empty array when there are no ld+json blocks", () => {
     expect(extractJsonLdBlocks("<html><body>no scripts here</body></html>")).toEqual([]);
   });

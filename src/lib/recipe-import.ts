@@ -19,8 +19,15 @@ export type ParsedRecipe = {
 // JSON-LD extraction
 // ---------------------------------------------------------------------------
 
+// The `type` attribute value is usually quoted, but HTML5 also allows an
+// unquoted value when it contains no whitespace/quotes/`=`/`<`/`>` —
+// `application/ld+json` qualifies, and real sites use this (e.g. Yoast
+// SEO's `<script type=application/ld+json class=yoast-schema-graph>`,
+// found on a huge share of WordPress recipe blogs). The lookahead after the
+// unquoted alternative stops it from matching a value that merely starts
+// with `application/ld+json` followed by more non-delimiter characters.
 const JSON_LD_SCRIPT_RE =
-  /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  /<script[^>]*type\s*=\s*(?:["']application\/ld\+json["']|application\/ld\+json(?=[\s/>]))[^>]*>([\s\S]*?)<\/script>/gi;
 
 /** Extract the raw text content of every `<script type="application/ld+json">` block. */
 export function extractJsonLdBlocks(html: string): string[] {
