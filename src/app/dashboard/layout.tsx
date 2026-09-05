@@ -5,13 +5,15 @@ import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { getNotifications } from "@/lib/notifications";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const { household, role, households } = await requireHousehold();
-  const [cookieStore, dict, locale] = await Promise.all([
+  const [cookieStore, dict, locale, notifications] = await Promise.all([
     cookies(),
     getDictionary(),
     getLocale(),
+    getNotifications(household.id),
   ]);
   const sidebarExpanded = cookieStore.get(SIDEBAR_COOKIE)?.value !== "0";
   const current = { id: household.id, name: household.name, role };
@@ -24,6 +26,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         households={households}
         dict={dict}
         locale={locale}
+        notifications={notifications}
       />
       <div className="flex flex-1 flex-col">
         <header className="border-b bg-background px-4 py-3 sm:hidden">
@@ -31,7 +34,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 pb-24 sm:pb-8">{children}</main>
       </div>
-      <BottomNav dict={dict} locale={locale} />
+      <BottomNav dict={dict} locale={locale} notifications={notifications} />
     </div>
   );
 }

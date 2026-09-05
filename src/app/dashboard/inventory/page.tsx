@@ -3,9 +3,23 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { AddItemDialog } from "@/components/inventory/add-item-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
+import type { StockStatus } from "@/lib/stock-status";
 
-export default async function InventoryPage() {
-  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+// Status values the notification bell's low-stock alerts link to (e.g.
+// `/dashboard/inventory?status=low`) — see src/lib/notifications.ts and
+// src/components/notifications/notification-bell.tsx.
+const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
+
+export default async function InventoryPage(props: PageProps<"/dashboard/inventory">) {
+  const [{ household }, dict, searchParams] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    props.searchParams,
+  ]);
+
+  const statusParam = searchParams.status;
+  const statusParamValue = Array.isArray(statusParam) ? statusParam[0] : statusParam;
+  const initialStatus = LINKABLE_STATUSES.find((status) => status === statusParamValue);
 
   const items = await prisma.inventoryItem.findMany({
     where: { householdId: household.id },
@@ -24,7 +38,13 @@ export default async function InventoryPage() {
         </div>
         <AddItemDialog categories={categories} locations={locations} dict={dict.inventory} />
       </div>
-      <InventoryClient items={items} categories={categories} locations={locations} dict={dict.inventory} />
+      <InventoryClient
+        items={items}
+        categories={categories}
+        locations={locations}
+        dict={dict.inventory}
+        initialStatus={initialStatus}
+      />
     </div>
   );
 }

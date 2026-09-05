@@ -24,16 +24,18 @@ export function InventoryClient({
   categories,
   locations,
   dict,
+  initialStatus,
 }: {
   items: InventoryItemRow[];
   categories: string[];
   locations: string[];
   dict: Dictionary["inventory"];
+  initialStatus?: StockStatus;
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState(ALL);
   const [location, setLocation] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
+  const [status, setStatus] = useState<string>(initialStatus ?? ALL);
 
   const statusLabels: Record<StockStatus, string> = {
     in: dict.statusIn,

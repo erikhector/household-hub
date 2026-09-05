@@ -21,6 +21,16 @@ export const sv = {
     system: "System",
     toggleLabel: "Byt tema",
   },
+  notifications: {
+    title: "Aviseringar",
+    bellAriaLabel: "Aviseringar",
+    empty: "Allt är under kontroll!",
+    lowStockOut: "{name} har tagit slut",
+    lowStockLow: "{name} börjar ta slut ({quantity} {unit} kvar)",
+    mealGapToday: "Ingen måltid planerad för idag",
+    mealGapTomorrow: "Ingen måltid planerad för imorgon",
+    mealGapInDays: "Ingen måltid planerad om {count} dagar",
+  },
   language: {
     english: "Engelska",
     swedish: "Svenska",

@@ -628,16 +628,18 @@ components directly.
 - **Desktop (`sm` and up)**: `src/components/dashboard/sidebar.tsx` renders a
   left sidebar with an icon + label per section, the `HouseholdSwitcher` at
   the top, and (bottom to top) the sidebar-collapse toggle, log out, the
-  theme toggle, and the language toggle pinned to the bottom. Expanded by
-  default; a toggle collapses it to an icon-only rail (`w-16` vs `w-56`).
-  The expanded/collapsed state is written to the `sidebar_expanded` cookie
-  (`SIDEBAR_COOKIE` in `nav-items.ts`) on toggle and read server-side in
+  theme toggle, the language toggle, and the notification bell pinned to the
+  bottom (see "Notification center" below). Expanded by default; a toggle
+  collapses it to an icon-only rail (`w-16` vs `w-56`). The expanded/collapsed
+  state is written to the `sidebar_expanded` cookie (`SIDEBAR_COOKIE` in
+  `nav-items.ts`) on toggle and read server-side in
   `src/app/dashboard/layout.tsx` so the initial render matches — no
   client-side flash.
 - **Mobile (below `sm`)**: `src/components/dashboard/bottom-nav.tsx` renders a
   fixed bottom bar with 5 icons: Overview, Inventory, Shopping list, Budget,
   and a "More" dropdown menu holding Meal planning, Household, Profile, the
-  language toggle, the theme toggle, and log out
+  language toggle, the theme toggle, the notification bell (as a nested
+  submenu — see "Notification center" below), and log out
   (`overflowMobileNavItems`/`primaryMobileNavItems` in `nav-items.ts`). Meal
   planning and Household are in the overflow rather than the primary bar
   because they see lower daily use than inventory/shopping/budget. The
@@ -652,6 +654,67 @@ components directly.
   individual dashboard pages fetch their own `dict` for their own content
   (see "Internationalization" on why each Server Component fetches
   independently rather than prop-drilling from one root call).
+
+## Notification center
+
+A bell icon in the nav (desktop sidebar, mobile bottom nav's "More" menu —
+see "Navigation & responsive layout" above) opens a panel of live-computed
+alerts for the active household. There's no `Notification` database table,
+no background job, and no email: `getNotifications(householdId)`
+(`src/lib/notifications.ts`) re-derives the current alert list from
+`InventoryItem` and `MealPlanEntry` on every render, scoped via the
+household id the caller already resolved through `requireHousehold()` (the
+same trust-the-caller contract as `findOrCreateInventoryItem`/
+`findOrCreateGroceriesCategory`). An alert simply stops appearing once its
+underlying condition is resolved — there's no "mark as read" state to keep
+in sync because nothing is stored.
+
+- **Where it's computed**: `src/app/dashboard/layout.tsx` — the one place
+  that already calls `getDictionary()`/`getLocale()` for the whole dashboard
+  shell — also calls `getNotifications(household.id)` once per request and
+  passes the resulting list down into both `Sidebar` and `BottomNav` as a
+  `notifications` prop, the same pattern used for `dict`/`locale`.
+- **Low stock**: every `InventoryItem` where `getStockStatus(quantity,
+  lowStockThreshold)` returns `"low"` or `"out"`. `getStockStatus`
+  (previously defined inline in `inventory-table.tsx`, a `"use client"` file)
+  moved to `src/lib/stock-status.ts` so this Server-Component-only helper
+  could import the exact same predicate instead of duplicating the
+  condition — a Server Component can't safely import a plain function from a
+  `"use client"` module (Next.js turns every export of that module into an
+  opaque client reference, not the real function); `inventory-table.tsx` now
+  re-exports it for its existing consumer (`InventoryClient`) so nothing else
+  had to change.
+- **Meal-plan gaps**: for today and the next 2 days (`MEAL_GAP_LOOKAHEAD_DAYS`
+  in `src/lib/notifications.ts`), any date with zero `MealPlanEntry` rows
+  (any `MealType`) for the household. The window is intentionally short so
+  this stays a cheap, genuinely useful nudge rather than a noisy wall of
+  far-future gaps. The date math reuses `src/app/dashboard/meal-planning/date-utils.ts`
+  (`addDays`, `getWeekStart`, `parseDateKey`, `toDateKey`) rather than
+  re-deriving UTC-midnight date handling — the lookahead window can span a
+  week boundary (e.g. today is the last day of one week and the day after
+  next falls in the following week), so each gap resolves its own
+  `weekStartKey` independently rather than assuming one week for the whole
+  window.
+- **UI**: `src/components/notifications/notification-bell.tsx` exports two
+  presentational shapes sharing one alert-list renderer: `NotificationBell`
+  (a standalone `DropdownMenu` for the sidebar, styled like the theme/language
+  toggle buttons it sits alongside) and `NotificationMenuItem` (a
+  `DropdownMenuSub` nested inside the bottom nav's existing "More" dropdown,
+  at the same tier as the theme/language toggle items there). Both show a
+  small red count badge (`NotificationCountBadge`) on the bell icon when
+  there's at least one alert; the mobile "More" trigger also shows the same
+  badge on its `MoreHorizontal` icon so the count is visible without opening
+  the menu. An empty list shows a "You're all caught up!" message instead of
+  an empty panel.
+- **Clicking an alert navigates**: a low-stock alert links to
+  `/dashboard/inventory?status=low` or `?status=out` (matching that item's
+  own status); a meal-gap alert links to
+  `/dashboard/meal-planning?week={weekStartKey}`, reusing that page's
+  existing `?week=` param. The inventory page/`InventoryClient` gained a
+  small, additive `initialStatus` prop read from the `status` search param
+  (`src/app/dashboard/inventory/page.tsx`) so the status filter can be
+  preset on navigation — the filter itself is unchanged, just given an
+  optional initial value instead of always starting at "All statuses".
 
 ## Conventions
 
@@ -756,10 +819,6 @@ removed from this list when done.
    ingredients against current inventory and push the shortfall onto a
    shopping list. The single most-copied pattern across every meal-planning
    competitor researched (Mealime, Paprika, Plan to Eat, Whisk).
-2. **In-app notification center** — low-stock items and meal-plan gaps
-   (no meal assigned for an upcoming day), computed live, surfaced via a bell
-   icon in the nav. Closes the biggest functional gap found in the analysis:
-   Household Hub currently has zero notifications/reminders of any kind.
 3. **Recipe import from URL** — paste a recipe URL, parse its
    `schema.org/Recipe` JSON-LD (or Microdata) to auto-fill name, ingredients,
    and instructions. Removes the single biggest friction point in the
