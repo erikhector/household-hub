@@ -325,6 +325,54 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `ShoppingListItem.estimatedPrice` elsewhere in the app — there's no
   household-level currency setting, so a symbol would be a guess.
 
+### Cost analyzer
+
+A second tab on `/dashboard/budget` (`BudgetTabs`,
+`src/components/budget/budget-tabs.tsx`) — a client-side pill-button tab
+switch mirroring `MealPlanningView`'s "Planner"/"Recipes" pattern, not a new
+route (`nav-items.ts` is untouched). The page's Server Component renders both
+tab bodies once (the existing Overview content, and the new
+`CostAnalyzer`) and passes them into `BudgetTabs` as props — Server
+Components passed as children/props to a Client Component, per Next's own
+Server/Client Components guide — with `hidden` (not conditional rendering)
+toggling which one shows, so switching tabs is instant and doesn't re-fetch
+anything.
+
+`CostAnalyzer` (`src/components/budget/cost-analyzer.tsx`) surfaces grocery
+cost trends from `PriceHistory`, which is populated whenever a shopping list
+item is marked purchased with an estimated price
+(`togglePurchasedAction`, `src/app/dashboard/shopping-list/actions.ts`). Like
+`PeriodSummary`, it's a plain presentational component — all aggregation
+(grouping `PriceHistory` rows by month and by `inventoryItemId`) happens in
+`src/app/dashboard/budget/page.tsx`'s Server Component, scoped via
+`requireHousehold()` the same way every other query on the page is (through
+`inventoryItem: { householdId }`, since `PriceHistory` itself has no
+`householdId` column).
+
+- **Spending over time**: a per-month total of every priced purchase,
+  shown as a simple bar per month (most recent 12 months). No charting
+  library is installed in this app (checked `package.json` before adding
+  anything), so this is a hand-rolled CSS bar chart — the same
+  proportional-`<div>`-bar technique `PeriodSummary`'s category breakdown
+  already uses — rather than a new dependency.
+- **Price trend per item**: grouped by `inventoryItemId`, an item needs at
+  least 3 recorded `PriceHistory` points before it's considered to have
+  "enough history to be meaningful" and gets a card — fewer than that and
+  a trend line would be noise, not signal. Each qualifying item's card shows
+  a small hand-rolled inline SVG polyline (a sparkline, not a library
+  chart), its latest recorded price and date, and the percent change from
+  its first to its latest recorded price (colored `text-chart-5` when the
+  price has gone down, `text-destructive` when it's gone up — the same
+  green/red semantic the rest of the budget page uses for income/expense).
+- Both charts use only the existing `--chart-1..5` tokens — the monthly bars
+  via `bg-chart-1`, the sparkline via `stroke-chart-4`/`fill-chart-4` — using
+  Tailwind v4's auto-generated utilities for those tokens (already mapped in
+  `globals.css`'s `@theme inline` block), so both theme automatically in
+  light/dark with no new CSS.
+- Empty states (no priced purchases yet; no item with enough history yet)
+  are separate per section, same dashed-border/muted-text treatment as
+  `noCategoriesWarning` elsewhere on the page.
+
 **User profile** (built)
 - `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
   signed-in user edit their own `displayName`, email, and password, and
@@ -641,7 +689,7 @@ components directly.
 
 ## Not yet built
 
-Cost-analyzer UI, the shopping-list → budget expense link.
+The shopping-list → budget expense link.
 The autonomous agent build/improve loop itself is intentionally not set up
 yet — that's a deliberate separate step now that a real test suite exists
 to gate it on.

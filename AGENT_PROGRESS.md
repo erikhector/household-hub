@@ -10,23 +10,31 @@ section/tab on the existing Budget page surfacing `PriceHistory` trends.
 - [x] `npm install` (worktree had no `node_modules` yet).
 - [x] Pick charting approach — see "Decisions" below.
 - [x] Create `feature/cost-analyzer` branch.
-- [ ] Query + aggregate `PriceHistory` in `page.tsx` (monthly totals, per-item
+- [x] Query + aggregate `PriceHistory` in `page.tsx` (monthly totals, per-item
       trend, scoped via `requireHousehold()`).
-- [ ] `src/components/budget/cost-analyzer.tsx` — monthly spending chart
+- [x] `src/components/budget/cost-analyzer.tsx` — monthly spending chart
       (bar) + per-item price trend (sparkline) sections.
-- [ ] `src/components/budget/budget-tabs.tsx` — client tab switch
+- [x] `src/components/budget/budget-tabs.tsx` — client tab switch
       (Overview / Cost analyzer), mirroring `MealPlanningView`'s pill-button
       tab pattern; Server-Component sections passed in as props/children.
-- [ ] Wire into `src/app/dashboard/budget/page.tsx`.
-- [ ] i18n keys in `en.ts` + `sv.ts` (real Swedish translations, not
+- [x] Wire into `src/app/dashboard/budget/page.tsx`.
+- [x] i18n keys in `en.ts` + `sv.ts` (real Swedish translations, not
       copy-pasted English) — `budget.tabOverview`/`tabCostAnalyzer` (mirrors
       `mealPlanning.tabPlanner`/`tabRecipes`) + nested `budget.costAnalyzer.*`.
-- [ ] `REQUIREMENTS.md`: new subsection under "Budgeting", move
+- [x] `REQUIREMENTS.md`: new subsection under "Budgeting", move
       "Cost-analyzer UI" out of "Not yet built".
-- [ ] `npx tsc --noEmit -p tsconfig.json` — zero errors.
-- [ ] `npx eslint src` — zero errors/warnings.
-- [ ] `npm run build` — succeeds.
-- [ ] Final commit on `feature/cost-analyzer`.
+- [x] `npx tsc --noEmit -p tsconfig.json` — zero errors.
+- [x] `npx eslint src` — zero errors/warnings.
+- [x] `npm run build` — succeeds.
+- [x] `npm test` — all 34 existing tests still pass (no test touches this
+      feature; cost analyzer is out of scope for the existing test suite per
+      AGENT_TASKS.md, same as the rest of budgeting).
+- [x] Final commit on `feature/cost-analyzer`.
+
+## Done
+
+All steps complete. Final commit: see `git log` on `feature/cost-analyzer`
+(this file's own commit is the last one).
 
 ## Decisions
 
