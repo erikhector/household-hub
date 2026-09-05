@@ -148,6 +148,8 @@ export const en = {
     emptyListOther: "Nothing on this list.",
     purchased: "Purchased",
     lowStockBadge: "Low stock",
+    expenseLogged: "Logged {amount} to your Groceries budget",
+    expenseDescription: 'From "{name}"',
   },
   inventory: {
     title: "Inventory",

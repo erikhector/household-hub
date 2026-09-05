@@ -373,6 +373,53 @@ item is marked purchased with an estimated price
   are separate per section, same dashed-border/muted-text treatment as
   `noCategoriesWarning` elsewhere on the page.
 
+### Shopping-list → budget expense link
+
+Completing a shopping list (`completeShoppingListAction` in
+`src/app/dashboard/shopping-list/actions.ts`) automatically logs a single
+"Groceries" expense `Transaction` for that list, on top of its existing
+job of link-fixing unlinked items and flipping the list to `COMPLETED`:
+
+- **What gets summed**: every item on the list where `purchased` is true
+  and `estimatedPrice` is set (not `null`) — `estimatedPrice` is added
+  directly to the running total, unmultiplied by `quantity`, the same way
+  `togglePurchasedAction` already treats it when writing a `PriceHistory`
+  row. Items without an estimated price are silently skipped rather than
+  having a price invented for them; if nothing on the list has a price set,
+  no `Transaction` is created at all (there's currently no UI anywhere in
+  the app to set `ShoppingListItem.estimatedPrice` on an item — it's only
+  ever written by this feature's own reads and by `togglePurchasedAction`'s
+  `PriceHistory` write — so in practice this total is 0 unless something
+  sets it directly, e.g. a future "estimated price" field on the add-item
+  form).
+- **Category lookup**: reuses `findOrCreateGroceriesCategory` (see
+  "Groceries category hook for Task 8" above) rather than duplicating that
+  find-or-create logic — the two features share one household-scoped
+  "Groceries" `EXPENSE` category.
+- **The `Transaction` created**: `amount` = the summed total, `type` =
+  `"EXPENSE"`, `date` = the moment the list was completed (not any
+  per-item purchase date, since `ShoppingListItem` doesn't track one),
+  `description` = `From "{list name}"` (translated, built with
+  `format()`), `createdByUserId` = the household member who clicked
+  "Complete list". Not run inside the same `$transaction` as the list's
+  `status` update to `COMPLETED`, since `findOrCreateGroceriesCategory`
+  takes a plain `prisma` client rather than a transaction client and
+  duplicating its lookup just to fit inside one transaction would violate
+  the point of reusing it — matches this file's existing style of doing
+  find-or-create lookups (e.g. `findOrCreateInventoryItem` in
+  `addAdHocItemAction`) as plain sequential calls, not wrapped.
+- **Feedback**: `completeShoppingListAction` returns
+  `{ expenseLoggedMessage?: string }` (a change from its previous `void`
+  return) built server-side from the `shoppingList` dictionary
+  (`expenseLogged`, interpolating a locale-formatted, currency-symbol-free
+  amount via `Intl.NumberFormat` — same convention as the rest of
+  Budgeting) so the client stays dumb. `ShoppingListClient`
+  (`src/components/shopping/shopping-list-client.tsx`) awaits the action
+  inside its existing `useTransition` click handler and shows a `sonner`
+  toast when a message comes back; nothing is shown when the total was 0.
+  No new settings/toggle to disable this — it's the intended default
+  behavior, not optional.
+
 **User profile** (built)
 - `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
   signed-in user edit their own `displayName`, email, and password, and
@@ -689,7 +736,6 @@ components directly.
 
 ## Not yet built
 
-The shopping-list → budget expense link.
-The autonomous agent build/improve loop itself is intentionally not set up
-yet — that's a deliberate separate step now that a real test suite exists
-to gate it on.
+Every feature from the original scope is now built. The autonomous agent
+build/improve loop itself is intentionally not set up yet — that's a
+deliberate separate step now that a real test suite exists to gate it on.

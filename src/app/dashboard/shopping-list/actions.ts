@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { format } from "@/lib/i18n/format";
+import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
 import type { ActionState } from "@/lib/actions/auth";
 
 async function findOrCreateInventoryItem(householdId: string, name: string) {
@@ -211,18 +213,21 @@ export async function deleteShoppingListItemAction(itemId: string) {
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
 }
 
-export async function completeShoppingListAction(listId: string) {
-  const { household } = await requireHousehold();
+export async function completeShoppingListAction(
+  listId: string,
+): Promise<{ expenseLoggedMessage?: string }> {
+  const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
-    include: { items: { where: { inventoryItemId: null } } },
+    include: { items: true },
   });
-  if (!list) return;
+  if (!list) return {};
 
   // Every shopping list item should map 1:1 to an inventory item — link (or
   // create) inventory items for anything that slipped through unlinked.
-  for (const item of list.items) {
+  const unlinkedItems = list.items.filter((item) => item.inventoryItemId === null);
+  for (const item of unlinkedItems) {
     const inventoryItem = await findOrCreateInventoryItem(household.id, item.name);
     await prisma.shoppingListItem.update({
       where: { id: item.id },
@@ -235,7 +240,46 @@ export async function completeShoppingListAction(listId: string) {
     data: { status: "COMPLETED", completedAt: new Date() },
   });
 
+  // Log a "Groceries" expense for whatever purchased items actually have an
+  // estimated price set — never invent/estimate a price for items that
+  // don't. Reuses Task 2's find-or-create category helper rather than
+  // duplicating that lookup here.
+  let groceriesTotal = 0;
+  for (const item of list.items) {
+    if (item.purchased && item.estimatedPrice != null) {
+      groceriesTotal += item.estimatedPrice;
+    }
+  }
+
+  const dict = await getDictionary();
+  let expenseLoggedMessage: string | undefined;
+
+  if (groceriesTotal > 0) {
+    const category = await findOrCreateGroceriesCategory(household.id);
+    await prisma.transaction.create({
+      data: {
+        householdId: household.id,
+        categoryId: category.id,
+        amount: groceriesTotal,
+        type: "EXPENSE",
+        description: format(dict.shoppingList.expenseDescription, { name: list.name }),
+        date: new Date(),
+        createdByUserId: userId,
+      },
+    });
+
+    const locale = await getLocale();
+    const amountLabel = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(groceriesTotal);
+    expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
+  }
+
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/budget");
+
+  return { expenseLoggedMessage };
 }

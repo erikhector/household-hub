@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useTransition } from "react";
+import { toast } from "sonner";
 import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,7 +108,12 @@ export function ShoppingListClient({
             <Button
               variant="secondary"
               disabled={isPending}
-              onClick={() => startTransition(() => completeShoppingListAction(list.id))}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await completeShoppingListAction(list.id);
+                  if (result.expenseLoggedMessage) toast.success(result.expenseLoggedMessage);
+                })
+              }
             >
               {dict.completeList}
             </Button>
