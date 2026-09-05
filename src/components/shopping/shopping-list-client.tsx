@@ -7,6 +7,7 @@ import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ExportCsvButton } from "@/components/export/export-csv-button";
 import {
   addAdHocItemAction,
   archiveShoppingListAction,
@@ -66,9 +67,11 @@ function AddItemForm({ listId, dict }: { listId: string; dict: ShoppingListDict 
 export function ShoppingListClient({
   list,
   dict,
+  exportLabel,
 }: {
   list: ShoppingListData;
   dict: ShoppingListDict;
+  exportLabel: string;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -95,6 +98,7 @@ export function ShoppingListClient({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <ExportCsvButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
           {isActive && (
             <Button
               variant="outline"

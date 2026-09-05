@@ -465,6 +465,57 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
     re-authentication with the new password, since rotating a credential
     should invalidate the session that changed it.
 
+## Data export (CSV)
+
+Three "Export CSV" buttons — inventory, one shopping list, and budget
+transactions — each a plain `<Link>` (styled as a `Button`,
+`src/components/export/export-csv-button.tsx`'s `ExportCsvButton`, shared
+across all three) pointing at a Route Handler that streams that household's
+own scoped data as a `.csv` download. No client-side JS is involved in the
+download itself: the browser's native handling of a
+`Content-Disposition: attachment` response does the work, so the button
+needs no loading state and degrades to a plain link with JS disabled.
+
+- **Route Handlers**: `src/app/dashboard/inventory/export/route.ts`,
+  `src/app/dashboard/shopping-list/[id]/export/route.ts`, and
+  `src/app/dashboard/budget/export/route.ts` each re-derive the household via
+  `requireHousehold()` — never a client-supplied id — the same as every page
+  and Server Action in the app. The shopping list export additionally
+  re-looks-up the list scoped by `householdId` (mirroring the detail page's
+  own query) and 404s via `notFound()` if the `[id]` doesn't belong to the
+  caller's household.
+- **What's exported**: inventory exports every `InventoryItem` (name,
+  category, quantity, unit, location, low-stock threshold, last known
+  price); a shopping list export is that list's items (name, quantity,
+  estimated price, purchased yes/no); the budget export is every
+  `Transaction` in the **current calendar month** — the same
+  `[monthStart, monthEnd)` window `PeriodSummary` already computes on the
+  budget page, not the household's full transaction history — with date,
+  category, type, amount, description, and recurring (yes/no).
+- **CSV building**: `src/lib/csv.ts` (`buildCsv`/`csvResponse`) is a small
+  hand-rolled helper — no library needed for this shape of data, and none
+  was already installed for CSV per ground rule 9. `buildCsv` quotes/escapes
+  a field (doubling internal quotes) only when it contains a comma, quote,
+  or newline, and joins rows with CRLF per RFC 4180. **Numeric fields are
+  never run through `Intl.NumberFormat`/locale formatting** — unlike the
+  rest of the app's currency-symbol-free `Intl.NumberFormat` convention,
+  several locales this app supports (Swedish) use a comma as the decimal
+  separator, which would collide with CSV's own comma delimiter and corrupt
+  the file; plain `.`-decimal numbers keep the export parseable by any
+  spreadsheet tool regardless of the viewer's locale. `buildCsv`/
+  `escapeCsvField` are pure and unit-tested in `src/lib/csv.test.ts`.
+- **Filenames**: `Content-Disposition: attachment; filename="..."` uses a
+  translated prefix (`dict.export.<area>.fileNamePrefix`) plus a date/list
+  slug for uniqueness — e.g. `inventory-2026-09-05.csv`,
+  `shopping-list-weekly-groceries.csv` (slugified from the list's name),
+  `budget-transactions-2026-09.csv`.
+- **Column headers and the "Export CSV" button label are translated**
+  (`dict.export` in both `en.ts`/`sv.ts`) like all other user-facing text —
+  even though a CSV's headers aren't rendered UI, they're still text a
+  person reads when they open the file.
+- **Out of scope** (per the roadmap item): no PDF export, and no CSV import
+  back into the app — this is export-only, one direction.
+
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
@@ -764,9 +815,6 @@ removed from this list when done.
    `schema.org/Recipe` JSON-LD (or Microdata) to auto-fill name, ingredients,
    and instructions. Removes the single biggest friction point in the
    meal-planning flow today (fully manual entry).
-4. **Data export (CSV)** for inventory, a shopping list, and budget
-   transactions. A near-zero-risk trust-builder (removes lock-in fear) that
-   several competitors (HomeZada, YNAB, Splitwise) offer as baseline.
 5. **Budget "safe to spend" stat** — a prominent hero number on the Budget
    page (this month's income minus expenses so far, minus any recurring
    expense categories that haven't posted yet this month) — the PocketGuard
