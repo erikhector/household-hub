@@ -39,7 +39,12 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         </div>
         <div className="flex items-center gap-2">
           <ExportCsvButton href="/dashboard/inventory/export" label={dict.export.button} />
-          <AddItemDialog categories={categories} locations={locations} dict={dict.inventory} />
+          <AddItemDialog
+            categories={categories}
+            locations={locations}
+            dict={dict.inventory}
+            barcodeDict={dict.barcodeScanner}
+          />
         </div>
       </div>
       <InventoryClient
