@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
-import type { MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
+import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Tab = "planner" | "recipes";
@@ -14,11 +14,13 @@ export function MealPlanningView({
   weekStartKey,
   recipes,
   entries,
+  activeShoppingLists,
 }: {
   dict: Dictionary["mealPlanning"];
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
+  activeShoppingLists: ActiveShoppingListOption[];
 }) {
   const [tab, setTab] = useState<Tab>("planner");
 
@@ -49,7 +51,13 @@ export function MealPlanningView({
       </div>
 
       {tab === "planner" ? (
-        <WeekPlanner dict={dict} weekStartKey={weekStartKey} recipes={recipes} entries={entries} />
+        <WeekPlanner
+          dict={dict}
+          weekStartKey={weekStartKey}
+          recipes={recipes}
+          entries={entries}
+          activeShoppingLists={activeShoppingLists}
+        />
       ) : (
         <RecipeManager dict={dict} recipes={recipes} />
       )}

@@ -11,3 +11,8 @@ export type MealType = (typeof MEAL_TYPES)[number];
 // pattern already used for InventoryClient's filter selects (see
 // REQUIREMENTS.md's Conventions section).
 export const CUSTOM_RECIPE_SENTINEL = "__custom__";
+
+// Same sentinel pattern, used in the "add missing ingredients" dialog's
+// target-list <Select> to mean "create a new shopping list" instead of
+// picking an existing active one.
+export const NEW_SHOPPING_LIST_SENTINEL = "__new_list__";

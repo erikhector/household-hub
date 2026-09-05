@@ -6,10 +6,11 @@ import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddMealDialog } from "@/components/meal-planning/add-meal-dialog";
+import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import type { MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
+import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -38,11 +39,13 @@ export function WeekPlanner({
   weekStartKey,
   recipes,
   entries,
+  activeShoppingLists,
 }: {
   dict: MealPlanningDict;
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
+  activeShoppingLists: ActiveShoppingListOption[];
 }) {
   const weekStart = parseDateKey(weekStartKey);
   const weekEnd = addDays(weekStart, 6);
@@ -89,9 +92,16 @@ export function WeekPlanner({
           {" – "}
           {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
         </p>
-        <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
-          {dict.thisWeek}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
+            {dict.thisWeek}
+          </Button>
+          <MissingIngredientsDialog
+            dict={dict}
+            weekStartKey={weekStartKey}
+            activeShoppingLists={activeShoppingLists}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">

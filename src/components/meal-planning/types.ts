@@ -22,3 +22,18 @@ export type MealPlanEntryData = {
   recipeName: string | null;
   freeformName: string | null;
 };
+
+// One ingredient the planned week's recipes need more of than the household
+// currently has on hand — see previewMissingIngredientsAction.
+export type MissingIngredientData = {
+  key: string;
+  name: string;
+  unit: string;
+  missingQuantity: number;
+};
+
+// An ACTIVE shopping list the "add missing ingredients" dialog can add to.
+export type ActiveShoppingListOption = {
+  id: string;
+  name: string;
+};

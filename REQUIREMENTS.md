@@ -511,6 +511,60 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
 
+### Meal-plan → shopping-list bridge
+
+An "Add missing ingredients to shopping list" button
+(`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
+sits next to the "This week" control in the weekly planner
+(`WeekPlanner`), scoped to the whole visible week — the simplest option per
+the task spec, and the pattern every competitor researched (Mealime,
+Paprika, Plan to Eat, Whisk) uses:
+
+- **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
+  (`src/app/dashboard/meal-planning/actions.ts`), a read-only preview — no
+  rows are written until the user commits. It collects every
+  `MealPlanEntry` with a `recipeId` in that week's `MealPlan` (freeform
+  entries have no ingredients and are skipped via `recipeId: { not: null }`),
+  gathers each recipe's `RecipeIngredient` rows, and resolves each to its
+  linked `InventoryItem`. `RecipeIngredient.inventoryItemId` is normally
+  always set (every ingredient is find-or-create-linked at recipe-save
+  time — see "Ingredient → inventory linking" above), but the relation is
+  `onDelete: SetNull`, so a since-deleted inventory item can leave one
+  unlinked; that case falls back to the same case-insensitive name match
+  `findOrCreateInventoryItem` uses everywhere else, against a fresh query of
+  the household's current inventory.
+- **Aggregation/diff**: the pure "sum required quantity per resolved item
+  across every recipe/day, subtract what's on hand once (not per
+  occurrence), keep only the positive shortfall" step is
+  `computeMissingIngredients` (`src/app/dashboard/meal-planning/missing-ingredients.ts`,
+  colocated `missing-ingredients.test.ts`) — split out from `actions.ts`
+  (a `"use server"` file, which may only export async functions) so it's
+  unit-testable without mocking Prisma, the same reasoning the recipe-import
+  task's parsing logic uses. Only ingredients whose required quantity
+  exceeds current stock are proposed; an item the household already has
+  enough of is never suggested. **Known simplification**: the diff assumes
+  a recipe ingredient's unit matches its linked inventory item's unit — there's
+  no unit-conversion step, matching this app's existing preference for
+  simple, hand-rolled logic over precision it wasn't asked for.
+- **Review before committing**: the dialog lists each proposed ingredient
+  (name + suggested quantity/unit) behind a checkbox (all checked by
+  default, individually deselectable), a target-list `<Select>` (any
+  `ACTIVE` shopping list, or a "New shopping list…" sentinel — same sentinel
+  pattern as `CUSTOM_RECIPE_SENTINEL`, here `NEW_SHOPPING_LIST_SENTINEL` in
+  `meal-types.ts`) with an optional name field when creating new, and a
+  submit button disabled until at least one item is checked. Nothing is
+  written until the user confirms.
+- **Committing**: `addMissingIngredientsToShoppingListAction` (same file)
+  creates the new list if requested (defaulting its name the same way
+  `createShoppingListAction` does), then find-or-create-links each checked
+  ingredient to an `InventoryItem` (`findOrCreateInventoryItem`, the
+  existing pattern already duplicated into this file — not invented here)
+  and adds it as a `ShoppingListItem` with `addedAutomatically: true`. Items
+  already pending (unpurchased) on the target list are skipped rather than
+  duplicated, mirroring `generateFromLowStockAction`'s existing dedupe in
+  `src/app/dashboard/shopping-list/actions.ts`. On success the dialog closes
+  and a `sonner` toast confirms which list the items were added to.
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -752,10 +806,6 @@ removed from this list when done.
 
 ### Wave 1 — independent, no schema migration needed, built in parallel
 
-1. **Meal-plan → shopping-list bridge** — diff a planned week's recipe
-   ingredients against current inventory and push the shortfall onto a
-   shopping list. The single most-copied pattern across every meal-planning
-   competitor researched (Mealime, Paprika, Plan to Eat, Whisk).
 2. **In-app notification center** — low-stock items and meal-plan gaps
    (no meal assigned for an upcoming day), computed live, surfaced via a bell
    icon in the nav. Closes the biggest functional gap found in the analysis:
