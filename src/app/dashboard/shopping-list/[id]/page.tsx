@@ -19,5 +19,5 @@ export default async function ShoppingListDetailPage(
   });
   if (!list) notFound();
 
-  return <ShoppingListClient list={list} dict={dict.shoppingList} />;
+  return <ShoppingListClient list={list} dict={dict.shoppingList} exportLabel={dict.export.button} />;
 }
