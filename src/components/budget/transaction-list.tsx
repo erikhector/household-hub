@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { Pencil, Repeat, Trash2 } from "lucide-react";
+import { Pencil, Repeat, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { deleteTransactionAction } from "@/app/dashboard/budget/actions";
-import { TransactionDialog, type TransactionRow } from "@/components/budget/transaction-dialog";
+import {
+  TransactionDialog,
+  type MemberOption,
+  type TransactionRow,
+} from "@/components/budget/transaction-dialog";
+import { format } from "@/lib/i18n/format";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
@@ -31,11 +36,15 @@ const frequencyLabelKey = {
 export function TransactionList({
   transactions,
   categories,
+  members,
+  currentMemberId,
   dict,
   locale,
 }: {
   transactions: TransactionListRow[];
   categories: CategoryRow[];
+  members: MemberOption[];
+  currentMemberId: string;
   dict: Dictionary["budget"];
   locale: Locale;
 }) {
@@ -49,6 +58,7 @@ export function TransactionList({
     month: "short",
     year: "numeric",
   });
+  const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? "?";
 
   function handleDelete(id: string) {
     startTransition(() => deleteTransactionAction(id));
@@ -97,6 +107,18 @@ export function TransactionList({
                     {dict[frequencyLabelKey[tx.recurrenceFrequency]]}
                   </Badge>
                 )}
+                {tx.splits.length > 0 && tx.paidByMemberId && (
+                  <Badge
+                    variant="secondary"
+                    className="gap-1"
+                    title={format(dict.split.paidByBadge, {
+                      name: memberName(tx.paidByMemberId),
+                    })}
+                  >
+                    <Users className="size-3" />
+                    {dict.split.splitBadge}
+                  </Badge>
+                )}
               </div>
             </TableCell>
             <TableCell className="max-w-64 truncate text-muted-foreground">
@@ -116,6 +138,8 @@ export function TransactionList({
                 <TransactionDialog
                   dict={dict}
                   categories={categories}
+                  members={members}
+                  currentMemberId={currentMemberId}
                   transaction={tx}
                   trigger={
                     <Button

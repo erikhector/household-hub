@@ -270,6 +270,7 @@ export const sv = {
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
     tabOverview: "Översikt",
     tabCostAnalyzer: "Kostnadsanalys",
+    tabBalances: "Saldon",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -342,6 +343,21 @@ export const sv = {
       noTrendData:
         "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här.",
       latestPrice: "Senaste",
+    },
+    split: {
+      toggleLabel: "Dela denna utgift",
+      paidByLabel: "Betalad av",
+      sharesLabel: "Dela mellan",
+      splitEvenlyButton: "Dela jämnt",
+      mismatchWarning: "Andelarna summerar till {total}, men transaktionen är {amount}.",
+      splitBadge: "Delad",
+      paidByBadge: "Betalad av {name}",
+    },
+    balances: {
+      title: "Vem är skyldig vem",
+      subtitle:
+        "Nettosaldon för alla delade transaktioner, förenklade till så få avräkningsöverföringar som möjligt.",
+      allSettled: "Alla är uppgjorda — inga delade utgifter är utestående.",
     },
   },
   export: {

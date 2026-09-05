@@ -116,6 +116,64 @@ function parseTransactionFormData(formData: FormData) {
   });
 }
 
+// Amounts within this tolerance of the transaction total are accepted —
+// guards against floating point noise (e.g. splitting 10 three ways), not a
+// real mismatch.
+const SPLIT_SUM_TOLERANCE = 0.01;
+
+/**
+ * Parses the optional "split this expense" section of the transaction form
+ * — same repeated-input convention as the meal-planning ingredient rows
+ * (`formData.getAll`, aligned by index). Returns `null` when splitting
+ * wasn't requested (the "splitEnabled" checkbox was off), so a plain
+ * transaction is completely unaffected.
+ *
+ * Validates every referenced member actually belongs to the caller's
+ * household (never trusts a client-supplied id beyond that check) and that
+ * the split amounts sum to the transaction's total amount.
+ */
+async function parseSplitFormData(
+  formData: FormData,
+  householdId: string,
+  amount: number,
+): Promise<
+  | { error: string }
+  | { paidByMemberId: string; splits: { householdMemberId: string; amountOwed: number }[] } | null
+> {
+  if (formData.get("splitEnabled") !== "on") return null;
+
+  const paidByMemberId = String(formData.get("paidByMemberId") || "");
+  if (!paidByMemberId) return { error: "Choose who paid" };
+
+  const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
+  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
+  if (memberIds.length === 0 || memberIds.length !== amounts.length) {
+    return { error: "Invalid split" };
+  }
+  if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
+    return { error: "Each split amount must be zero or more" };
+  }
+
+  const allMemberIds = [...new Set([paidByMemberId, ...memberIds])];
+  const validMembers = await prisma.householdMember.findMany({
+    where: { id: { in: allMemberIds }, householdId },
+    select: { id: true },
+  });
+  if (validMembers.length !== allMemberIds.length) {
+    return { error: "One of the selected members no longer belongs to this household" };
+  }
+
+  const splitTotal = amounts.reduce((sum, a) => sum + a, 0);
+  if (Math.abs(splitTotal - amount) > SPLIT_SUM_TOLERANCE) {
+    return { error: "The split amounts must add up to the transaction total" };
+  }
+
+  return {
+    paidByMemberId,
+    splits: memberIds.map((householdMemberId, i) => ({ householdMemberId, amountOwed: amounts[i] })),
+  };
+}
+
 export async function createTransactionAction(
   _prevState: ActionState,
   formData: FormData,
@@ -135,6 +193,9 @@ export async function createTransactionAction(
   });
   if (!category) return { error: "Category not found" };
 
+  const split = await parseSplitFormData(formData, household.id, parsed.data.amount);
+  if (split && "error" in split) return { error: split.error };
+
   await prisma.transaction.create({
     data: {
       householdId: household.id,
@@ -148,6 +209,15 @@ export async function createTransactionAction(
       isRecurring: parsed.data.isRecurring,
       recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
       createdByUserId: userId,
+      paidByMemberId: split?.paidByMemberId ?? null,
+      splits: split
+        ? {
+            create: split.splits.map((s) => ({
+              householdMemberId: s.householdMemberId,
+              amountOwed: s.amountOwed,
+            })),
+          }
+        : undefined,
     },
   });
 
@@ -186,19 +256,42 @@ export async function updateTransactionAction(
   });
   if (!category) return { error: "Category not found" };
 
-  const result = await prisma.transaction.updateMany({
+  const existing = await prisma.transaction.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
-    data: {
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      type: category.type,
-      description: parsed.data.description || null,
-      date: new Date(parsed.data.date),
-      isRecurring: parsed.data.isRecurring,
-      recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-    },
+    select: { id: true },
   });
-  if (result.count === 0) return { error: "Transaction not found" };
+  if (!existing) return { error: "Transaction not found" };
+
+  const split = await parseSplitFormData(formData, household.id, parsed.data.amount);
+  if (split && "error" in split) return { error: split.error };
+
+  // Splits are replaced wholesale (delete-all then recreate) rather than
+  // diffed, same convention as recipe ingredient editing — simpler, and
+  // fine at this scale (a handful of members per household).
+  await prisma.$transaction([
+    prisma.transactionSplit.deleteMany({ where: { transactionId: existing.id } }),
+    prisma.transaction.update({
+      where: { id: existing.id },
+      data: {
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        type: category.type,
+        description: parsed.data.description || null,
+        date: new Date(parsed.data.date),
+        isRecurring: parsed.data.isRecurring,
+        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
+        paidByMemberId: split?.paidByMemberId ?? null,
+        splits: split
+          ? {
+              create: split.splits.map((s) => ({
+                householdMemberId: s.householdMemberId,
+                amountOwed: s.amountOwed,
+              })),
+            }
+          : undefined,
+      },
+    }),
+  ]);
 
   revalidatePath("/dashboard/budget");
   return {};
