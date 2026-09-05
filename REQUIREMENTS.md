@@ -511,6 +511,77 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
 
+### Recipe import from URL
+
+`RecipeFormDialog` (`src/components/meal-planning/recipe-form-dialog.tsx`,
+used for both create and edit) has an "Import from a URL" input + button
+above the manual fields, in its own sibling `<form>` (an HTML form can't
+nest inside the create/edit form) bound to `importRecipeFromUrlAction`
+(`src/app/dashboard/meal-planning/actions.ts`). Importing never saves
+anything by itself — it only pre-fills the name/instructions/ingredient-row
+state (which had to move from uncontrolled `defaultValue`s to controlled
+React state to support this) so the user can review and edit before
+submitting the normal create/save action, per the "never auto-save an
+imported recipe" requirement.
+
+- **Parsing** (`src/lib/recipe-import.ts`, pure functions, no network,
+  unit-tested with inline HTML/JSON fixtures in
+  `src/lib/recipe-import.test.ts`): a regex extracts every `<script
+  type="application/ld+json">` block's contents (`extractJsonLdBlocks`);
+  each is `JSON.parse`d (retrying after a light HTML-entity decode for sites
+  that escape their own JSON-LD) and scanned for an object whose `@type`
+  includes `"Recipe"`, including one nested inside an `@graph` array
+  (`findRecipeNode`). No DOM parser (`cheerio`/`jsdom`) was added — neither
+  was already installed (checked `package.json` per the ground rules) and
+  the regex approach worked against real recipe sites tried during
+  development.
+  - `name` maps directly. `recipeInstructions` (a string, an array of
+    strings, or an array of `HowToStep`/`HowToSection` objects) is flattened
+    to plain text, one step per line (`flattenInstructions`).
+  - `recipeIngredient` (or the older `ingredients` field some sites still
+    emit) is a flat array of strings like `"2 cups flour"`;
+    `parseIngredientString` best-effort-splits each via a leading-number
+    regex (handling plain integers/decimals, simple fractions, and mixed
+    numbers like `"1 1/2"`) plus a fixed list of common unit words. When
+    there's no leading number, or a recognized unit word isn't the very next
+    word, the whole string goes into `name` with quantity `1` rather than
+    guessing wrong, per the task's explicit instruction — e.g. `"2 cups
+    flour"` → `{quantity: 2, unit: "cups", name: "flour"}`, `"2 eggs"` →
+    `{quantity: 2, unit: "pcs", name: "eggs"}` (no recognized unit word, but
+    a confident leading number), `"a pinch of salt"` → `{quantity: 1, unit:
+    "pcs", name: "a pinch of salt"}` (no leading number at all).
+  - If no Recipe JSON-LD is found, or the node found has no usable
+    name/ingredients/instructions, `parseRecipeFromHtml` returns `null` and
+    the action surfaces `dict.mealPlanning.importErrorNoRecipeFound` — this
+    is expected to happen on plenty of real-world pages (Microdata-only
+    sites, or sites with no structured recipe data at all), not treated as a
+    bug.
+- **SSRF guard**: this is a server-side fetch of a user-supplied URL, so
+  `validateRecipeUrl` (pure) rejects anything that isn't `http:`/`https:`,
+  `localhost`/`*.localhost`, and an IP-literal hostname in a
+  private/loopback/link-local/reserved range (checked via small CIDR-range
+  helpers for both IPv4 and IPv6, including IPv4-mapped IPv6 addresses).
+  `fetchRecipeHtml` additionally resolves the hostname with `dns.lookup`
+  before connecting and re-checks every resolved address the same way —
+  guarding against DNS rebinding, which a literal-hostname check alone
+  can't catch — and does this again on every redirect hop, since redirects
+  are followed manually (`redirect: "manual"`) specifically so each one can
+  be re-validated before being followed rather than trusting `fetch`'s
+  automatic redirect handling. The response body is read via a capped
+  streaming reader (3MB) rather than buffered in full, and the whole fetch
+  has an 8s timeout via `AbortController`. None of this network-dependent
+  code is exercised by `recipe-import.test.ts` (per the "no real network
+  calls in tests" rule) — only the pure parsing and pure URL-scheme/
+  IP-literal validation are unit-tested.
+- **Feedback**: `importRecipeFromUrlAction` returns `ImportRecipeState`
+  (`ActionState & { recipe?: {...} }`, following the same
+  `(prevState, formData) => Promise<State>` shape as every other
+  `useActionState`-bound action in this file) with a translated `error`
+  string on failure or the parsed `recipe` on success; `RecipeFormDialog`
+  shows a translated success line ("Imported — review the fields below,
+  then save.") rather than closing the dialog, since the point is manual
+  review before saving.
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -760,10 +831,6 @@ removed from this list when done.
    (no meal assigned for an upcoming day), computed live, surfaced via a bell
    icon in the nav. Closes the biggest functional gap found in the analysis:
    Household Hub currently has zero notifications/reminders of any kind.
-3. **Recipe import from URL** — paste a recipe URL, parse its
-   `schema.org/Recipe` JSON-LD (or Microdata) to auto-fill name, ingredients,
-   and instructions. Removes the single biggest friction point in the
-   meal-planning flow today (fully manual entry).
 4. **Data export (CSV)** for inventory, a shopping list, and budget
    transactions. A near-zero-risk trust-builder (removes lock-in fear) that
    several competitors (HomeZada, YNAB, Splitwise) offer as baseline.

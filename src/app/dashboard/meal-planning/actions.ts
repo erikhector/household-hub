@@ -4,8 +4,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
+import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -223,4 +225,58 @@ export async function deleteMealEntryAction(entryId: string) {
   await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
 
   revalidatePath(MEAL_PLANNING_PATH);
+}
+
+export type ImportedRecipeIngredient = { name: string; quantity: number; unit: string };
+export type ImportRecipeState = ActionState & {
+  recipe?: {
+    name: string;
+    instructions: string;
+    ingredients: ImportedRecipeIngredient[];
+  };
+};
+
+function importErrorMessage(
+  error: FetchRecipeError,
+  dict: Awaited<ReturnType<typeof getDictionary>>["mealPlanning"],
+): string {
+  switch (error) {
+    case "invalidUrl":
+      return dict.importErrorInvalidUrl;
+    case "blockedHost":
+      return dict.importErrorBlockedHost;
+    case "tooLarge":
+    case "tooManyRedirects":
+    case "fetchFailed":
+    default:
+      return dict.importErrorFetchFailed;
+  }
+}
+
+// Fetches a user-supplied recipe URL server-side and extracts its
+// schema.org/Recipe JSON-LD to pre-fill RecipeFormDialog's fields — never
+// saves anything itself; the user still reviews and submits
+// createRecipeAction/updateRecipeAction. requireHousehold() just confirms
+// the caller is an authenticated member of a household (this action doesn't
+// read/write anything household-scoped), matching the rule that every
+// action in this file re-derives its caller from the session rather than
+// trusting the client. See src/lib/recipe-import.ts for the SSRF-guarding
+// fetch and the JSON-LD parsing.
+export async function importRecipeFromUrlAction(
+  _prevState: ImportRecipeState,
+  formData: FormData,
+): Promise<ImportRecipeState> {
+  await requireHousehold();
+  const dict = await getDictionary();
+
+  const url = String(formData.get("url") ?? "").trim();
+  if (!url) return { error: dict.mealPlanning.importErrorInvalidUrl };
+
+  const fetched = await fetchRecipeHtml(url);
+  if (!fetched.ok) return { error: importErrorMessage(fetched.error, dict.mealPlanning) };
+
+  const recipe = parseRecipeFromHtml(fetched.html);
+  if (!recipe) return { error: dict.mealPlanning.importErrorNoRecipeFound };
+
+  return { recipe };
 }
