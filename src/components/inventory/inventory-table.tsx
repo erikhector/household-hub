@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { adjustQuantityAction, deleteInventoryItemAction } from "@/app/dashboard/inventory/actions";
+import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export type InventoryItemRow = {
@@ -25,13 +26,10 @@ export type InventoryItemRow = {
   location: string | null;
 };
 
-export type StockStatus = "out" | "low" | "in";
-
-export function getStockStatus(quantity: number, threshold: number): StockStatus {
-  if (quantity <= 0) return "out";
-  if (quantity <= threshold) return "low";
-  return "in";
-}
+// Re-exported for existing consumers (InventoryClient) — the real
+// implementation now lives in `@/lib/stock-status` so it's importable from
+// Server Components too (see that file's comment for why).
+export { getStockStatus, type StockStatus };
 
 function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["inventory"] }) {
   if (status === "out") return <Badge variant="destructive">{dict.statusOut}</Badge>;

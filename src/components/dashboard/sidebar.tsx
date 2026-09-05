@@ -11,6 +11,8 @@ import { navItems, isNavItemActive, SIDEBAR_COOKIE } from "@/components/dashboar
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -23,12 +25,14 @@ export function Sidebar({
   households,
   dict,
   locale,
+  notifications,
 }: {
   defaultExpanded: boolean;
   current: HouseholdOption;
   households: HouseholdOption[];
   dict: Dictionary;
   locale: Locale;
+  notifications: NotificationItem[];
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
@@ -84,6 +88,7 @@ export function Sidebar({
         })}
       </nav>
       <div className="flex flex-col gap-1 border-t p-2">
+        <NotificationBell items={notifications} dict={dict.notifications} expanded={expanded} />
         <Button
           type="button"
           variant="ghost"

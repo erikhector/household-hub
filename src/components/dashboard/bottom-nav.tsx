@@ -19,9 +19,19 @@ import {
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
+import { NotificationCountBadge, NotificationMenuItem } from "@/components/notifications/notification-bell";
+import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
-export function BottomNav({ dict, locale }: { dict: Dictionary; locale: Locale }) {
+export function BottomNav({
+  dict,
+  locale,
+  notifications,
+}: {
+  dict: Dictionary;
+  locale: Locale;
+  notifications: NotificationItem[];
+}) {
   const pathname = usePathname();
   const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
@@ -58,7 +68,13 @@ export function BottomNav({ dict, locale }: { dict: Dictionary; locale: Locale }
               />
             }
           >
-            <MoreHorizontal className="size-5" />
+            <span className="relative inline-flex">
+              <MoreHorizontal className="size-5" />
+              <NotificationCountBadge
+                count={notifications.length}
+                className="-top-1 -right-1 size-3.5 text-[9px]"
+              />
+            </span>
             {dict.nav.more}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" sideOffset={8}>
@@ -69,6 +85,7 @@ export function BottomNav({ dict, locale }: { dict: Dictionary; locale: Locale }
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
+            <NotificationMenuItem items={notifications} dict={dict.notifications} />
             <DropdownMenuItem onClick={toggleLocale}>
               <Languages className="size-4" />
               {nextLocale === "sv" ? dict.language.swedish : dict.language.english}

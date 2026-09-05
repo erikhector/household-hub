@@ -24,6 +24,16 @@ export const en = {
     system: "System",
     toggleLabel: "Switch theme",
   },
+  notifications: {
+    title: "Notifications",
+    bellAriaLabel: "Notifications",
+    empty: "You're all caught up!",
+    lowStockOut: "{name} is out of stock",
+    lowStockLow: "{name} is low ({quantity} {unit} left)",
+    mealGapToday: "No meals planned for today",
+    mealGapTomorrow: "No meals planned for tomorrow",
+    mealGapInDays: "No meals planned in {count} days",
+  },
   language: {
     english: "English",
     swedish: "Swedish",
