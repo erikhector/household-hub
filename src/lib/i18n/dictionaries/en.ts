@@ -295,6 +295,12 @@ export const en = {
       noIncome: "No income recorded this month.",
       noExpenses: "No expenses recorded this month.",
     },
+    safeToSpend: {
+      title: "Safe to spend",
+      caveat:
+        "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
+      notYetLoggedTitle: "Not yet logged this month",
+    },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
       spendingSubtitle:

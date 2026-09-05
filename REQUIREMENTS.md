@@ -420,6 +420,48 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   No new settings/toggle to disable this — it's the intended default
   behavior, not optional.
 
+### Safe to spend
+
+A hero stat card at the top of the Budget page's Overview tab, directly
+above `PeriodSummary` (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
+— the PocketGuard-style "what's actually left" number, per the competitive
+analysis. Like `PeriodSummary`/`CostAnalyzer`, it's a plain presentational
+component; all aggregation happens in `src/app/dashboard/budget/page.tsx`,
+which delegates the actual math to a pure, dependency-free
+`computeSafeToSpend` function in the colocated
+`src/app/dashboard/budget/safe-to-spend-calc.ts` (unit-tested in
+`safe-to-spend-calc.test.ts` — no Prisma import, so no mocking needed) rather
+than inlining it, since a Server Component page function can't itself be
+unit-tested.
+
+- **The headline number**: this month's income so far minus this month's
+  expenses so far (the same `[monthStart, monthEnd)` totals `PeriodSummary`
+  already computes from the page's one `transaction.findMany` query) minus
+  an estimate of recurring expense categories that haven't posted a
+  transaction yet this month (below).
+- **The recurring-expense estimate**: for every `EXPENSE`-type
+  `BudgetCategory` with at least one `isRecurring` transaction dated before
+  the current month, check whether that category already has *any*
+  transaction dated in the current month. If it does, it's assumed
+  posted/accounted for and contributes nothing to the estimate. If it
+  doesn't, the amount of that category's most recent recurring transaction
+  (by `date`) is treated as "expected but not yet logged" and subtracted
+  from the headline number. This is a best-effort heuristic, not a
+  scheduler — there's no "next occurrence" concept anywhere in the schema
+  (see "Recurring transactions" above), so it can't know a bill isn't due
+  yet vs. simply not entered; a one-line caveat under the headline number
+  says so explicitly.
+- **The breakdown**: beneath the headline number, a small list of every
+  category counted into the estimate (name + its expected amount, tinted
+  `text-destructive` like every other expense amount on the page) so the
+  number isn't a black box — e.g. "Rent  –1,200.00". Hidden entirely when no
+  category qualifies (nothing recurring, or everything recurring has
+  already posted this month).
+- Same no-currency-symbol `Intl.NumberFormat` convention as the rest of
+  Budgeting; the headline number is colored `text-chart-5` (safe/positive)
+  or `text-destructive` (negative — spending is on track to exceed income)
+  the same way `PeriodSummary`'s net figure is.
+
 **User profile** (built)
 - `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
   signed-in user edit their own `displayName`, email, and password, and
@@ -767,10 +809,6 @@ removed from this list when done.
 4. **Data export (CSV)** for inventory, a shopping list, and budget
    transactions. A near-zero-risk trust-builder (removes lock-in fear) that
    several competitors (HomeZada, YNAB, Splitwise) offer as baseline.
-5. **Budget "safe to spend" stat** — a prominent hero number on the Budget
-   page (this month's income minus expenses so far, minus any recurring
-   expense categories that haven't posted yet this month) — the PocketGuard
-   pattern, built from data the schema already has.
 
 ### Wave 2 — start once their Wave 1 dependency (or higher complexity) clears
 
