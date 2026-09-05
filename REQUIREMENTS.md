@@ -558,6 +558,98 @@ needs no loading state and degrades to a plain link with JS disabled.
 - **Out of scope** (per the roadmap item): no PDF export, and no CSV import
   back into the app — this is export-only, one direction.
 
+## Barcode scanning
+
+A "Scan barcode" button sits next to the **Name** field on both the
+inventory add-item form (`AddItemDialog`,
+`src/components/inventory/add-item-dialog.tsx`) and the shopping list
+ad-hoc-add form (`AddItemForm` inside `ShoppingListClient`,
+`src/components/shopping/shopping-list-client.tsx`) — the two places a
+household member most often types a grocery item's name from scratch. Both
+wire the same shared component
+(`BarcodeScannerButton`/`ScannedBarcodeNote`,
+`src/components/shared/barcode-scanner.tsx`), which opens the device
+camera, decodes a barcode client-side, and looks up a product name — but
+never blocks or breaks manual entry, at any failure point.
+
+- **Library choice**: no barcode-decoding library was already installed
+  (checked `package.json` per ground rule 9). Researched current options
+  rather than assuming one from training data — `@zxing/library` and the
+  once-popular `html5-qrcode` are both effectively unmaintained;
+  **`barcode-detector`** (npm, the actively maintained continuation of
+  `@sec-ant/barcode-detector`, v3.2.2 as of this writing) was picked
+  instead: it's a ponyfill of the standard Barcode Detection API backed by
+  `zxing-wasm`, has exactly one dependency, and needs no bundler/WASM
+  config — the `.wasm` binary is fetched at runtime from a CDN by the
+  library itself, not bundled. It's imported dynamically
+  (`await import("barcode-detector/ponyfill")`) inside the scan button's
+  click handler rather than as a static top-level import, per Next's own
+  "Loading External Libraries" lazy-loading guide
+  (`node_modules/next/dist/docs/01-app/02-guides/lazy-loading.md`) — this
+  keeps the decoder's JS/WASM entirely out of the initial page bundle and
+  guarantees none of it ever executes during SSR.
+- **Scanning flow** (`BarcodeScannerButton`): clicking "Scan barcode" opens
+  a dialog and requests `navigator.mediaDevices.getUserMedia({ video: {
+  facingMode: { ideal: "environment" } } })`. Once the stream is live, a
+  `setInterval` loop (~350ms) draws the current video frame onto an
+  off-screen `<canvas>` and calls `BarcodeDetector.detect(canvas)`,
+  restricted to `ean_13`/`ean_8`/`upc_a`/`upc_e` — the retail barcode
+  formats groceries actually carry, not QR/2D codes. The first successful
+  decode stops the camera immediately (all `MediaStreamTrack`s are
+  `.stop()`ed) and triggers the product lookup below.
+- **Product lookup** (`lookupBarcodeAction`, `src/lib/actions/barcode.ts`):
+  a Server Action — not a client-side `fetch` — that validates the decoded
+  string is barcode-shaped (`isValidBarcodeFormat`, pure and unit-tested in
+  the colocated `src/lib/barcode.test.ts`, split out of the `"use server"`
+  file the same way `recipe-import.ts`'s pure parsing was split from its
+  action, since a `"use server"` file may only export async functions),
+  then calls Open Food Facts's free public API
+  (`https://world.openfoodfacts.org/api/v2/product/<barcode>.json`, no API
+  key) with a short timeout (5s, via `AbortController`) and identifies the
+  app via a `User-Agent` header, per Open Food Facts's own API etiquette.
+  Any failure — invalid barcode shape, network error, timeout, a 4xx/5xx
+  response, no matching product, or a product with no `product_name` — is
+  swallowed and reported back as `{ name: null }` rather than an error;
+  there's nothing actionable a user could do about an Open Food Facts miss
+  besides typing the name themselves, which the flow already falls back to.
+  Still calls `requireHousehold()` first, matching every other action in
+  this app's "never a reachable, unauthenticated Server Action" convention,
+  even though the household id itself isn't used for anything here.
+- **Privacy**: the camera stream and every captured frame stay entirely
+  client-side — decoding happens locally via the WASM decoder, and no
+  frame or image is ever sent anywhere. The only thing that reaches the
+  network is the decoded barcode's digits, sent straight to Open Food
+  Facts's product endpoint.
+- **Fallback behavior — this is the important half of the feature**: the
+  "Scan barcode" button is purely additive next to a form that already
+  works without it.
+  - No camera / `getUserMedia` unsupported, permission denied, or any
+    other `getUserMedia`/decoder-setup error: the dialog shows a short
+    translated message (distinguishing a permission denial from a
+    generally unavailable camera) and a Cancel button; the underlying
+    add-item form's Name field is completely unaffected and still works
+    exactly as before.
+  - A successful scan with no Open Food Facts match (or the API being
+    unreachable): the Name field is left as-is (not overwritten with
+    nothing) and a small reference line — "Scanned barcode: `<number>`"
+    (`ScannedBarcodeNote`) plus a translated "no product found, enter the
+    name manually" note — appears under the field, so the user can still
+    search by that number or just type the name, without losing the fact
+    that a barcode was scanned.
+  - A successful scan **with** a match pre-fills the Name field (still a
+    plain editable, controlled input — the user can freely change it
+    before submitting) and shows the same reference line, without the "not
+    found" note.
+  - Nothing about a scan is ever persisted — there's no barcode column on
+    `InventoryItem`/`ShoppingListItem` and no migration for this task; the
+    scanned number only exists in the form's local state to pre-fill the
+    name and show the reference line, exactly like the recipe-import
+    feature's "pre-fill, then let the user review/submit normally" shape.
+- **i18n**: all new strings live in a new shared `barcodeScanner` dictionary
+  namespace (`en.ts`/`sv.ts`) rather than being duplicated into `inventory`
+  and `shoppingList`, since the component and its copy are identical in
+  both places.
+
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
@@ -1040,9 +1132,6 @@ subsections, "Notification center", "Data export (CSV)", and Budgeting's
 
 ### Wave 2 — start once their Wave 1 dependency (or higher complexity) clears
 
-6. **Barcode scanning** for inventory/shopping-list entry, using the
-   browser's camera and a public product-lookup API (no paid service). Cuts
-   friction on the highest-frequency user action (adding groceries).
 7. **Household contribution/expense splitting** between members (who paid,
    who owes) layered on the existing Budget module — the Splitwise pattern,
    valuable for roommate-shaped households where the current shared ledger

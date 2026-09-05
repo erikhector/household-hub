@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ExportCsvButton } from "@/components/export/export-csv-button";
+import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import {
   addAdHocItemAction,
   archiveShoppingListAction,
@@ -40,25 +41,68 @@ type ShoppingListDict = Dictionary["shoppingList"];
 
 const initialState: ActionState = {};
 
-function AddItemForm({ listId, dict }: { listId: string; dict: ShoppingListDict }) {
-  const [state, formAction, pending] = useActionState(addAdHocItemAction, initialState);
+function AddItemForm({
+  listId,
+  dict,
+  barcodeDict,
+}: {
+  listId: string;
+  dict: ShoppingListDict;
+  barcodeDict: Dictionary["barcodeScanner"];
+}) {
+  const [name, setName] = useState("");
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+
+  const [state, formAction, pending] = useActionState(async (
+    prevState: ActionState,
+    formData: FormData,
+  ) => {
+    const result = await addAdHocItemAction(prevState, formData);
+    if (!result.error) {
+      setName("");
+      setScannedBarcode(null);
+    }
+    return result;
+  }, initialState);
+
+  const handleScanResult = ({ barcode, name: scannedName }: BarcodeScanResult) => {
+    setScannedBarcode(barcode);
+    if (scannedName) setName(scannedName);
+  };
+
   return (
-    <form action={formAction} className="flex items-end gap-2">
+    <form action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="listId" value={listId} />
-      <div className="flex flex-col gap-1">
-        <Input name="name" placeholder={dict.addItemNamePlaceholder} required className="w-48" />
+      <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <Input
+            name="name"
+            placeholder={dict.addItemNamePlaceholder}
+            required
+            className="w-48"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <Input
+          name="quantity"
+          type="number"
+          min={0.01}
+          step="any"
+          defaultValue={1}
+          className="w-20"
+        />
+        <BarcodeScannerButton dict={barcodeDict} onResult={handleScanResult} />
+        <Button type="submit" variant="outline" disabled={pending}>
+          {pending ? dict.adding : dict.add}
+        </Button>
       </div>
-      <Input
-        name="quantity"
-        type="number"
-        min={0.01}
-        step="any"
-        defaultValue={1}
-        className="w-20"
-      />
-      <Button type="submit" variant="outline" disabled={pending}>
-        {pending ? dict.adding : dict.add}
-      </Button>
+      {scannedBarcode && (
+        <div className="flex flex-col gap-0.5">
+          <ScannedBarcodeNote barcode={scannedBarcode} dict={barcodeDict} />
+          {!name && <p className="text-xs text-muted-foreground">{barcodeDict.notFound}</p>}
+        </div>
+      )}
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
     </form>
   );
@@ -67,10 +111,12 @@ function AddItemForm({ listId, dict }: { listId: string; dict: ShoppingListDict 
 export function ShoppingListClient({
   list,
   dict,
+  barcodeDict,
   exportLabel,
 }: {
   list: ShoppingListData;
   dict: ShoppingListDict;
+  barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -152,7 +198,7 @@ export function ShoppingListClient({
         </div>
       </div>
 
-      {isActive && <AddItemForm listId={list.id} dict={dict} />}
+      {isActive && <AddItemForm listId={list.id} dict={dict} barcodeDict={barcodeDict} />}
 
       <div className="flex flex-col gap-2">
         {pendingItems.length === 0 && purchasedItems.length === 0 ? (
