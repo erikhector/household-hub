@@ -15,7 +15,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const weekParamValue = Array.isArray(weekParam) ? weekParam[0] : weekParam;
   const weekStart = isDateKey(weekParamValue) ? parseDateKey(weekParamValue) : getWeekStart(new Date());
 
-  const [recipes, mealPlan] = await Promise.all([
+  const [recipes, mealPlan, activeShoppingLists] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId: household.id },
       include: { ingredients: true },
@@ -24,6 +24,11 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
     prisma.mealPlan.findFirst({
       where: { householdId: household.id, weekStartDate: weekStart },
       include: { entries: { include: { recipe: true }, orderBy: { date: "asc" } } },
+    }),
+    prisma.shoppingList.findMany({
+      where: { householdId: household.id, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -50,6 +55,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         recipeName: entry.recipe?.name ?? null,
         freeformName: entry.freeformName,
       }))}
+      activeShoppingLists={activeShoppingLists}
     />
   );
 }
