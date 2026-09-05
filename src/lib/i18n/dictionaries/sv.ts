@@ -315,6 +315,12 @@ export const sv = {
       noIncome: "Inga inkomster registrerade denna månad.",
       noExpenses: "Inga utgifter registrerade denna månad.",
     },
+    safeToSpend: {
+      title: "Säkert att spendera",
+      caveat:
+        "En uppskattning, inte en schemaläggare — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
+      notYetLoggedTitle: "Inte registrerat än denna månad",
+    },
     costAnalyzer: {
       spendingTitle: "Matinköp över tid",
       spendingSubtitle:

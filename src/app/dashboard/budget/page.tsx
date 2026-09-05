@@ -11,8 +11,10 @@ import {
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { computeSafeToSpend } from "./safe-to-spend-calc";
 
 // An item needs at least this many recorded prices before its trend is
 // considered meaningful enough to show — see REQUIREMENTS.md's "Cost
@@ -80,6 +82,28 @@ export default async function BudgetPage() {
   const income = incomeByCategory.reduce((sum, c) => sum + c.total, 0);
   const expense = expenseByCategory.reduce((sum, c) => sum + c.total, 0);
 
+  // --- Safe to spend --------------------------------------------------------
+  // See REQUIREMENTS.md's "Safe to spend" subsection: this month's income so
+  // far minus expenses so far, minus an estimate of recurring expense
+  // categories that haven't posted a transaction yet this month. All pure
+  // logic lives in computeSafeToSpend (./safe-to-spend-calc.ts) so it's
+  // unit-testable without Prisma; this just feeds it the transactions the
+  // page already fetched above.
+  const { safeToSpend, expectedRecurring } = computeSafeToSpend({
+    transactions: transactions.map((t) => ({
+      categoryId: t.categoryId,
+      categoryName: t.category.name,
+      type: t.type,
+      amount: t.amount,
+      date: t.date,
+      isRecurring: t.isRecurring,
+    })),
+    monthStart,
+    monthEnd,
+    incomeSoFar: income,
+    expenseSoFar: expense,
+  });
+
   // --- Cost analyzer aggregation ------------------------------------------
   // Fed from PriceHistory, populated whenever a shopping list item is marked
   // purchased with an estimated price (togglePurchasedAction in
@@ -145,6 +169,13 @@ export default async function BudgetPage() {
           {dict.budget.noCategoriesWarning}
         </p>
       )}
+
+      <SafeToSpend
+        amount={safeToSpend}
+        expectedRecurring={expectedRecurring}
+        dict={dict.budget.safeToSpend}
+        locale={locale}
+      />
 
       <PeriodSummary
         income={income}
