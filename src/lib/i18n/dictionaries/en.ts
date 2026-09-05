@@ -236,6 +236,8 @@ export const en = {
   budget: {
     title: "Budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
+    tabOverview: "Overview",
+    tabCostAnalyzer: "Cost analyzer",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
     editTransactionDialogTitle: "Edit transaction",
@@ -290,6 +292,18 @@ export const en = {
       expensesByCategory: "Expenses by category",
       noIncome: "No income recorded this month.",
       noExpenses: "No expenses recorded this month.",
+    },
+    costAnalyzer: {
+      spendingTitle: "Grocery spending over time",
+      spendingSubtitle:
+        "Total estimated spend per month, from shopping list items marked purchased with a price.",
+      noSpendingData:
+        "No priced grocery purchases yet. Mark an item purchased with an estimated price on a shopping list to start tracking spend here.",
+      trendsTitle: "Price trends",
+      trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
+      noTrendData:
+        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here.",
+      latestPrice: "Latest",
     },
   },
   profile: {
