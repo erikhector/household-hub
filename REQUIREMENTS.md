@@ -739,3 +739,61 @@ components directly.
 Every feature from the original scope is now built. The autonomous agent
 build/improve loop itself is intentionally not set up yet — that's a
 deliberate separate step now that a real test suite exists to gate it on.
+
+## Roadmap
+
+Prioritized from the competitive analysis in [`Analyis_Comp.MD`](./Analyis_Comp.MD)
+(researched Sept 2026 against 23 competing shopping-list/pantry/meal-planning/
+budgeting apps). Full task specs, ground rules, and worktree coordination
+mechanics are in [`AGENT_TASKS_PHASE2.md`](./AGENT_TASKS_PHASE2.md) — this
+section just tracks status. Each task appends its own subsection here (same
+convention as the original build — see `AGENT_TASKS.md`) once landed, and is
+removed from this list when done.
+
+### Wave 1 — independent, no schema migration needed, built in parallel
+
+1. **Meal-plan → shopping-list bridge** — diff a planned week's recipe
+   ingredients against current inventory and push the shortfall onto a
+   shopping list. The single most-copied pattern across every meal-planning
+   competitor researched (Mealime, Paprika, Plan to Eat, Whisk).
+2. **In-app notification center** — low-stock items and meal-plan gaps
+   (no meal assigned for an upcoming day), computed live, surfaced via a bell
+   icon in the nav. Closes the biggest functional gap found in the analysis:
+   Household Hub currently has zero notifications/reminders of any kind.
+3. **Recipe import from URL** — paste a recipe URL, parse its
+   `schema.org/Recipe` JSON-LD (or Microdata) to auto-fill name, ingredients,
+   and instructions. Removes the single biggest friction point in the
+   meal-planning flow today (fully manual entry).
+4. **Data export (CSV)** for inventory, a shopping list, and budget
+   transactions. A near-zero-risk trust-builder (removes lock-in fear) that
+   several competitors (HomeZada, YNAB, Splitwise) offer as baseline.
+5. **Budget "safe to spend" stat** — a prominent hero number on the Budget
+   page (this month's income minus expenses so far, minus any recurring
+   expense categories that haven't posted yet this month) — the PocketGuard
+   pattern, built from data the schema already has.
+
+### Wave 2 — start once their Wave 1 dependency (or higher complexity) clears
+
+6. **Barcode scanning** for inventory/shopping-list entry, using the
+   browser's camera and a public product-lookup API (no paid service). Cuts
+   friction on the highest-frequency user action (adding groceries).
+7. **Household contribution/expense splitting** between members (who paid,
+   who owes) layered on the existing Budget module — the Splitwise pattern,
+   valuable for roommate-shaped households where the current shared ledger
+   doesn't track who fronted what.
+
+### Deferred — needs an infrastructure or product decision first, not started
+
+- **Item photos on inventory** — needs a blob-storage decision (S3/Vercel
+  Blob/Cloudinary/etc.); this app deliberately has zero file-storage
+  infrastructure today (see the Profile avatar section's rationale for why
+  that was avoided) and shouldn't gain one ad hoc inside an unrelated task.
+- **Bank/account sync, receipt OCR, native mobile app, social login
+  (Google/Apple)** — all clearly valuable per the competitive analysis, but
+  each needs a paid third-party service or developer credentials only the
+  product owner can provision (a Plaid/OCR vendor account, app store
+  enrollment, an OAuth consent screen). Flagged for a future decision, not
+  started here.
+- **PWA/offline support** — valuable for in-store/low-connectivity use, but
+  touches app-wide service-worker and caching concerns; scope it as its own
+  task once Wave 1/2 land rather than folding it into an unrelated one.
