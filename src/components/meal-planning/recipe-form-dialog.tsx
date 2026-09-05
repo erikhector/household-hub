@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, type ReactElement } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createRecipeAction, updateRecipeAction } from "@/app/dashboard/meal-planning/actions";
+import {
+  createRecipeAction,
+  importRecipeFromUrlAction,
+  updateRecipeAction,
+  type ImportRecipeState,
+} from "@/app/dashboard/meal-planning/actions";
 import type { RecipeData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -22,6 +27,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 type MealPlanningDict = Dictionary["mealPlanning"];
 
 const initialState: ActionState = {};
+const initialImportState: ImportRecipeState = {};
 
 type IngredientRow = { uid: string; name: string; quantity: string; unit: string };
 
@@ -51,7 +57,10 @@ export function RecipeFormDialog({
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
+  const [name, setName] = useState(recipe?.name ?? "");
+  const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
+  const [importUrl, setImportUrl] = useState("");
 
   const action = mode === "create" ? createRecipeAction : updateRecipeAction;
   const [state, formAction, pending] = useActionState(async (
@@ -61,14 +70,51 @@ export function RecipeFormDialog({
     const result = await action(prevState, formData);
     if (!result.error) {
       setOpen(false);
-      if (mode === "create") setIngredients([blankRow()]);
+      if (mode === "create") {
+        setName("");
+        setInstructions("");
+        setIngredients([blankRow()]);
+        setImportUrl("");
+      }
     }
     return result;
   }, initialState);
 
+  // Pre-fills the manual fields from a successful import, for the user to
+  // review/edit before saving — never auto-saves. Mirrors the main form's
+  // action wrapper above: state updates happen right after the action
+  // resolves, not in a useEffect (which would set state synchronously
+  // during a render pass).
+  const [importState, importFormAction, importPending] = useActionState(async (
+    prevState: ImportRecipeState,
+    formData: FormData,
+  ) => {
+    const result = await importRecipeFromUrlAction(prevState, formData);
+    if (result.recipe) {
+      if (result.recipe.name) setName(result.recipe.name);
+      if (result.recipe.instructions) setInstructions(result.recipe.instructions);
+      if (result.recipe.ingredients.length > 0) {
+        setIngredients(
+          result.recipe.ingredients.map((ingredient) => ({
+            uid: crypto.randomUUID(),
+            name: ingredient.name,
+            quantity: String(ingredient.quantity),
+            unit: ingredient.unit,
+          })),
+        );
+      }
+    }
+    return result;
+  }, initialImportState);
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next) setIngredients(rowsFromRecipe(recipe));
+    if (next) {
+      setName(recipe?.name ?? "");
+      setInstructions(recipe?.instructions ?? "");
+      setIngredients(rowsFromRecipe(recipe));
+      setImportUrl("");
+    }
   };
 
   const addRow = () => setIngredients((rows) => [...rows, blankRow()]);
@@ -86,6 +132,35 @@ export function RecipeFormDialog({
             {mode === "create" ? dict.newRecipeDialogTitle : dict.editRecipeDialogTitle}
           </DialogTitle>
         </DialogHeader>
+        {/* A sibling form, not nested inside the create/edit form below (HTML
+            forms can't nest) — importing just populates the manual fields'
+            state for review, it never saves anything itself. */}
+        <form
+          action={importFormAction}
+          className="flex flex-col gap-2 rounded-md border border-dashed p-3"
+        >
+          <Label htmlFor="recipe-import-url">{dict.importUrlLabel}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="recipe-import-url"
+              name="url"
+              type="url"
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              placeholder={dict.importUrlPlaceholder}
+              className="min-w-0 flex-1"
+            />
+            <Button type="submit" variant="outline" disabled={importPending || !importUrl.trim()}>
+              <Link2 className="size-3.5" />
+              {importPending ? dict.importing : dict.importButton}
+            </Button>
+          </div>
+          {importState.error && <p className="text-sm text-destructive">{importState.error}</p>}
+          {!importState.error && importState.recipe && (
+            <p className="text-sm text-chart-5">{dict.importSuccess}</p>
+          )}
+        </form>
+
         <form action={formAction} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
           {mode === "edit" && recipe && (
             <input type="hidden" name="recipeId" value={recipe.id} />
@@ -93,7 +168,14 @@ export function RecipeFormDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipe-name">{dict.recipeNameLabel}</Label>
-            <Input id="recipe-name" name="name" defaultValue={recipe?.name} required autoFocus />
+            <Input
+              id="recipe-name"
+              name="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+            />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -101,7 +183,8 @@ export function RecipeFormDialog({
             <Textarea
               id="recipe-instructions"
               name="instructions"
-              defaultValue={recipe?.instructions ?? ""}
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
               placeholder={dict.instructionsPlaceholder}
               rows={4}
             />
