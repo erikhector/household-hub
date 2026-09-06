@@ -5,6 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export const ACTIVE_HOUSEHOLD_COOKIE = "active_household";
 
+// For the personal budget (see AGENTS.md's "Personal hub" work): scoped to
+// the signed-in user rather than any household, so unlike requireHousehold
+// it doesn't need a membership at all.
+export async function requireUserId() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  return session.user.id;
+}
+
 export async function requireHousehold() {
   const session = await auth();
   if (!session?.user?.id) {

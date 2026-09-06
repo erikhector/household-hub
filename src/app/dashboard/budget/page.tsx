@@ -223,7 +223,7 @@ export default async function BudgetPage() {
         expense={expense}
         incomeByCategory={incomeByCategory}
         expenseByCategory={expenseByCategory}
-        dict={dict.budget}
+        dict={dict.budget.summary}
         locale={locale}
       />
 

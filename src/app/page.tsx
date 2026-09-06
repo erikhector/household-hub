@@ -5,9 +5,13 @@ import {
   ShoppingCart,
   CalendarDays,
   Wallet,
+  PiggyBank,
   LogIn,
   ArrowRight,
   Users,
+  UserPlus,
+  ClipboardList,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +41,18 @@ export default async function Home() {
       ...dict.landing.features.budget,
       color: "text-[oklch(0.72_0.14_180)] bg-[oklch(0.72_0.14_180/0.15)]",
     },
+    {
+      icon: PiggyBank,
+      ...dict.landing.features.personalBudget,
+      color: "text-[oklch(0.7_0.18_20)] bg-[oklch(0.7_0.18_20/0.15)]",
+    },
+  ];
+
+  const howItWorksSteps = [
+    { icon: UserPlus, ...dict.landing.howItWorks.steps.setup },
+    { icon: ClipboardList, ...dict.landing.howItWorks.steps.stock },
+    { icon: CalendarDays, ...dict.landing.howItWorks.steps.plan },
+    { icon: Share2, ...dict.landing.howItWorks.steps.share },
   ];
 
   return (
@@ -90,7 +106,7 @@ export default async function Home() {
           </p>
         </section>
 
-        <section className="grid w-full max-w-5xl grid-cols-1 gap-4 pb-20 sm:grid-cols-2 sm:pb-28">
+        <section className="grid w-full max-w-5xl grid-cols-1 gap-4 pb-16 sm:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, description, color }) => (
             <Card key={title} className="transition-transform hover:-translate-y-1">
               <CardHeader>
@@ -106,6 +122,29 @@ export default async function Home() {
               </CardContent>
             </Card>
           ))}
+        </section>
+
+        <section className="flex w-full max-w-5xl flex-col gap-8 pb-20 sm:pb-28">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h2 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+              {dict.landing.howItWorks.title}
+            </h2>
+            <p className="max-w-md text-muted-foreground">{dict.landing.howItWorks.subtitle}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {howItWorksSteps.map(({ icon: Icon, title, description }, index) => (
+              <div key={title} className="flex flex-col items-center gap-3 text-center">
+                <span className="relative flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                  <Icon className="size-6" />
+                  <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                    {index + 1}
+                  </span>
+                </span>
+                <h3 className="font-heading text-base font-semibold">{title}</h3>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="flex w-full max-w-2xl flex-col items-center gap-5 rounded-3xl bg-primary/10 px-6 py-12 text-center mb-20">

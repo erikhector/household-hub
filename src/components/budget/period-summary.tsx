@@ -27,7 +27,10 @@ export function PeriodSummary({
   expense: number;
   incomeByCategory: CategoryTotal[];
   expenseByCategory: CategoryTotal[];
-  dict: Dictionary["budget"];
+  // Narrowed to just the "summary" slice (rather than the full budget
+  // dictionary) so this presentational component can be reused for the
+  // personal budget too — see personal-budget/page.tsx.
+  dict: Dictionary["budget"]["summary"];
   locale: Locale;
 }) {
   const numberFormat = new Intl.NumberFormat(locale, {
@@ -38,12 +41,12 @@ export function PeriodSummary({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="font-heading text-base font-semibold">{dict.summary.title}</h2>
+      <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.summary.income}
+              {dict.income}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -53,7 +56,7 @@ export function PeriodSummary({
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.summary.expenses}
+              {dict.expenses}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -65,7 +68,7 @@ export function PeriodSummary({
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.summary.net}
+              {dict.net}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -78,17 +81,17 @@ export function PeriodSummary({
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <CategoryBreakdown
-          title={dict.summary.incomeByCategory}
+          title={dict.incomeByCategory}
           items={incomeByCategory}
           total={income}
-          emptyMessage={dict.summary.noIncome}
+          emptyMessage={dict.noIncome}
           numberFormat={numberFormat}
         />
         <CategoryBreakdown
-          title={dict.summary.expensesByCategory}
+          title={dict.expensesByCategory}
           items={expenseByCategory}
           total={expense}
-          emptyMessage={dict.summary.noExpenses}
+          emptyMessage={dict.noExpenses}
           numberFormat={numberFormat}
         />
       </div>

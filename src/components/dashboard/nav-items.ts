@@ -5,6 +5,7 @@ import {
   ShoppingCart,
   CalendarDays,
   Wallet,
+  PiggyBank,
   Users,
   User,
 } from "lucide-react";
@@ -17,6 +18,7 @@ export type NavKey =
   | "shoppingList"
   | "mealPlanning"
   | "budget"
+  | "personalBudget"
   | "household"
   | "profile";
 
@@ -32,6 +34,7 @@ export const navItems: NavItem[] = [
   { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart },
   { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays },
   { href: "/dashboard/budget", key: "budget", icon: Wallet },
+  { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank },
   { href: "/dashboard/household", key: "household", icon: Users },
   { href: "/dashboard/profile", key: "profile", icon: User },
 ];

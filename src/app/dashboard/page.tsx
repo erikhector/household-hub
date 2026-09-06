@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -9,7 +10,14 @@ import { format, plural } from "@/lib/i18n/format";
 export default async function DashboardOverviewPage() {
   const [{ household, userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
-  const [items, activeLists, memberCount] = await Promise.all([
+  const [
+    items,
+    activeLists,
+    memberCount,
+    shoppingListCount,
+    budgetCategoryCount,
+    personalBudgetCategoryCount,
+  ] = await Promise.all([
     prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
     prisma.shoppingList.findMany({
       where: { householdId: household.id, status: "ACTIVE" },
@@ -18,6 +26,9 @@ export default async function DashboardOverviewPage() {
     prisma.householdMember.count({
       where: { householdId: household.id, userId: { not: userId } },
     }),
+    prisma.shoppingList.count({ where: { householdId: household.id } }),
+    prisma.budgetCategory.count({ where: { householdId: household.id } }),
+    prisma.personalBudgetCategory.count({ where: { userId } }),
   ]);
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
@@ -25,12 +36,25 @@ export default async function DashboardOverviewPage() {
   const lowStock = items.filter((item) => item.quantity <= item.lowStockThreshold);
   const outOfStock = lowStock.filter((item) => item.quantity <= 0);
 
+  const gettingStartedSteps: GettingStartedStep[] = [
+    { key: "household", href: "/dashboard/household", done: memberCount > 0 },
+    { key: "inventory", href: "/dashboard/inventory", done: items.length > 0 },
+    { key: "shoppingList", href: "/dashboard/shopping-list", done: shoppingListCount > 0 },
+    { key: "budget", href: "/dashboard/budget", done: budgetCategoryCount > 0 },
+    {
+      key: "personalBudget",
+      href: "/dashboard/personal-budget",
+      done: personalBudgetCategoryCount > 0,
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{dict.dashboard.title}</h1>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
+      <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
       {memberCount > 0 && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
           <Users className="size-4 shrink-0" />
