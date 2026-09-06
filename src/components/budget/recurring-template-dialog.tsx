@@ -1,0 +1,163 @@
+"use client";
+
+import { useActionState, useState, type ReactElement } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  createRecurringTemplateAction,
+  updateRecurringTemplateAction,
+} from "@/app/dashboard/budget/actions";
+import type { ActionState } from "@/lib/actions/auth";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { CategoryRow } from "@/components/budget/category-manager";
+
+export type RecurringTemplateRow = {
+  id: string;
+  name: string;
+  categoryId: string;
+  amount: number;
+  frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
+  dayOfMonth: number | null;
+};
+
+const initialState: ActionState = {};
+
+export function RecurringTemplateDialog({
+  dict,
+  categories,
+  trigger,
+  template,
+}: {
+  dict: Dictionary["budget"];
+  categories: CategoryRow[];
+  trigger: ReactElement;
+  template?: RecurringTemplateRow;
+}) {
+  const isEdit = !!template;
+  const [open, setOpen] = useState(false);
+  const [state, formAction, pending] = useActionState(async (
+    prevState: ActionState,
+    formData: FormData,
+  ) => {
+    const action = isEdit ? updateRecurringTemplateAction : createRecurringTemplateAction;
+    const result = await action(prevState, formData);
+    if (!result.error) setOpen(false);
+    return result;
+  }, initialState);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={trigger} />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {isEdit ? dict.recurring.editDialogTitle : dict.recurring.addDialogTitle}
+          </DialogTitle>
+        </DialogHeader>
+        <form action={formAction} className="flex flex-col gap-4">
+          {isEdit && <input type="hidden" name="id" value={template.id} />}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rt-name">{dict.recurring.nameLabel}</Label>
+            <Input
+              id="rt-name"
+              name="name"
+              required
+              autoFocus
+              placeholder={dict.recurring.namePlaceholder}
+              defaultValue={template?.name}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rt-category">{dict.categoryLabel}</Label>
+            <Select name="categoryId" defaultValue={template?.categoryId}>
+              <SelectTrigger id="rt-category" className="w-full">
+                <SelectValue>
+                  {(v: string | null) =>
+                    v ? (categories.find((c) => c.id === v)?.name ?? v) : dict.categoryPlaceholder
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="rt-amount">{dict.recurring.amountLabel}</Label>
+              <Input
+                id="rt-amount"
+                name="amount"
+                type="number"
+                min={0.01}
+                step="any"
+                required
+                defaultValue={template?.amount}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="rt-day">{dict.recurring.dayOfMonthLabel}</Label>
+              <Input
+                id="rt-day"
+                name="dayOfMonth"
+                type="number"
+                min={1}
+                max={31}
+                step={1}
+                placeholder={dict.recurring.dayOfMonthPlaceholder}
+                defaultValue={template?.dayOfMonth ?? undefined}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="rt-frequency">{dict.frequencyLabel}</Label>
+            <Select name="frequency" defaultValue={template?.frequency ?? "MONTHLY"}>
+              <SelectTrigger id="rt-frequency" className="w-full">
+                <SelectValue>
+                  {(v: string) =>
+                    v === "WEEKLY"
+                      ? dict.frequencyWeekly
+                      : v === "YEARLY"
+                        ? dict.frequencyYearly
+                        : dict.frequencyMonthly
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="WEEKLY">{dict.frequencyWeekly}</SelectItem>
+                <SelectItem value="MONTHLY">{dict.frequencyMonthly}</SelectItem>
+                <SelectItem value="YEARLY">{dict.frequencyYearly}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending ? dict.recurring.saving : isEdit ? dict.recurring.save : dict.recurring.add}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

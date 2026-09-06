@@ -18,15 +18,20 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type Tab = "overview" | "costAnalyzer" | "balances";
+type Tab = "fixed" | "overview" | "costAnalyzer" | "balances";
 
 export function BudgetTabs({
   dict,
+  fixed,
   overview,
   costAnalyzer,
   balances,
 }: {
   dict: Dictionary["budget"];
+  // The primary tab — recurring income/costs you can plan for in advance,
+  // plus savings. Shown first since it's meant to be the main view into the
+  // budget; see REQUIREMENTS.md's "Fixed income & costs" subsection.
+  fixed: ReactNode;
   overview: ReactNode;
   costAnalyzer: ReactNode;
   // Only passed when the household has more than one member — see
@@ -34,11 +39,19 @@ export function BudgetTabs({
   // entirely means no third tab, rather than an empty one.
   balances?: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("fixed");
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
+        <Button
+          type="button"
+          variant={tab === "fixed" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setTab("fixed")}
+        >
+          {dict.tabFixed}
+        </Button>
         <Button
           type="button"
           variant={tab === "overview" ? "secondary" : "ghost"}
@@ -67,6 +80,7 @@ export function BudgetTabs({
         )}
       </div>
 
+      <div hidden={tab !== "fixed"}>{fixed}</div>
       <div hidden={tab !== "overview"}>{overview}</div>
       <div hidden={tab !== "costAnalyzer"}>{costAnalyzer}</div>
       {balances && <div hidden={tab !== "balances"}>{balances}</div>}

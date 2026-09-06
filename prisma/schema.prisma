@@ -19,9 +19,10 @@ model User {
   displayName  String
   createdAt    DateTime @default(now())
 
-  memberships              HouseholdMember[]
-  personalBudgetCategories PersonalBudgetCategory[]
-  personalTransactions     PersonalTransaction[]
+  memberships                HouseholdMember[]
+  personalBudgetCategories   PersonalBudgetCategory[]
+  personalTransactions       PersonalTransaction[]
+  personalRecurringTemplates PersonalRecurringTemplate[]
 }
 
 enum HouseholdRole {
@@ -34,14 +35,15 @@ model Household {
   name      String
   createdAt DateTime @default(now())
 
-  members          HouseholdMember[]
-  invitations      Invitation[]
-  inventoryItems   InventoryItem[]
-  shoppingLists    ShoppingList[]
-  recipes          Recipe[]
-  mealPlans        MealPlan[]
-  budgetCategories BudgetCategory[]
-  transactions     Transaction[]
+  members            HouseholdMember[]
+  invitations        Invitation[]
+  inventoryItems     InventoryItem[]
+  shoppingLists      ShoppingList[]
+  recipes            Recipe[]
+  mealPlans          MealPlan[]
+  budgetCategories   BudgetCategory[]
+  transactions       Transaction[]
+  recurringTemplates RecurringTemplate[]
 }
 
 model HouseholdMember {
@@ -211,9 +213,15 @@ model MealPlanEntry {
 
 // --- Budgeting -----------------------------------------------------------------
 
+// SAVINGS is neither income nor an expense — money set aside for later,
+// excluded from both totals wherever they're summed (PeriodSummary's net,
+// safe-to-spend, etc.) and reported as its own figure instead. See the
+// "Fixed income & costs" summary (recurring-template-calc.ts's
+// computeFixedMonthlySummary) for where that separation matters most.
 enum TransactionType {
   INCOME
   EXPENSE
+  SAVINGS
 }
 
 enum RecurrenceFrequency {
@@ -229,8 +237,9 @@ model BudgetCategory {
   type        TransactionType
   createdAt   DateTime        @default(now())
 
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+  recurringTemplates RecurringTemplate[]
 
   @@index([householdId])
 }
@@ -251,14 +260,22 @@ model Transaction {
   // splitting" subsection). Null on every transaction that isn't split,
   // which behaves exactly as it did before this feature.
   paidByMemberId      String?
+  // Recurring-bill tracking (see "Recurring budget templates" section
+  // below). Set when this transaction was logged from a RecurringTemplate,
+  // so the template's checklist can tell that period is fulfilled. Null on
+  // every transaction not logged that way — unaffected.
+  recurringTemplateId String?
 
-  household    Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category     BudgetCategory     @relation(fields: [categoryId], references: [id])
+  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category          BudgetCategory     @relation(fields: [categoryId], references: [id])
   // SetNull (not Cascade): if the paying member later leaves the household,
   // the transaction itself must survive — it just loses the "paid by" note,
   // the same tradeoff RecipeIngredient.inventoryItemId makes.
-  paidByMember HouseholdMember?   @relation("TransactionPaidBy", fields: [paidByMemberId], references: [id], onDelete: SetNull)
-  splits       TransactionSplit[]
+  paidByMember      HouseholdMember?   @relation("TransactionPaidBy", fields: [paidByMemberId], references: [id], onDelete: SetNull)
+  splits            TransactionSplit[]
+  // SetNull: deleting a template must never delete the transactions it
+  // already produced, same tradeoff as paidByMember above.
+  recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
 }
@@ -286,6 +303,54 @@ model TransactionSplit {
   @@index([householdMemberId])
 }
 
+// A recurring bill the household expects every period (week/month/year) —
+// e.g. "Rent", "Netflix". Distinct from `Transaction.isRecurring` (which
+// just flags a single logged transaction as one of a series): a template is
+// the standing expectation itself, checked off per period either by
+// logging a real Transaction from it (`Transaction.recurringTemplateId`) or
+// by a no-transaction RecurringTemplateAck — e.g. a bill on autopay from an
+// account this app doesn't otherwise track. `active: false` pauses a
+// template (e.g. a cancelled subscription) without losing its history.
+model RecurringTemplate {
+  id          String              @id @default(cuid())
+  householdId String
+  categoryId  String
+  name        String
+  amount      Float
+  type        TransactionType
+  frequency   RecurrenceFrequency
+  // Day-of-month hint (1-31) for display only, e.g. "due on the 3rd" — never
+  // used to compute the period a transaction/ack falls into (see
+  // recurring-template-calc.ts's getPeriodKey, which only looks at the
+  // date). Meaningless (and ignored) for WEEKLY/YEARLY templates.
+  dayOfMonth  Int?
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+
+  household        Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category         BudgetCategory         @relation(fields: [categoryId], references: [id])
+  acknowledgements RecurringTemplateAck[]
+  transactions     Transaction[]
+
+  @@index([householdId])
+}
+
+// A period (see recurring-template-calc.ts's getPeriodKey for the string
+// format per frequency) explicitly marked "accounted for" without a
+// logged Transaction. The unique constraint makes acknowledging a period
+// idempotent (repeat clicks just no-op against the same row).
+model RecurringTemplateAck {
+  id                  String   @id @default(cuid())
+  recurringTemplateId String
+  periodKey           String
+  createdAt           DateTime @default(now())
+
+  recurringTemplate RecurringTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringTemplateId, periodKey])
+  @@index([recurringTemplateId])
+}
+
 // --- Personal budget ---------------------------------------------------------
 // A user's own budget, kept separate from any household's — scoped by
 // userId rather than householdId, with no splitting/paid-by concept since
@@ -301,8 +366,9 @@ model PersonalBudgetCategory {
   type      TransactionType
   createdAt DateTime        @default(now())
 
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions PersonalTransaction[]
+  user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions       PersonalTransaction[]
+  recurringTemplates PersonalRecurringTemplate[]
 
   @@index([userId])
 }
@@ -318,9 +384,49 @@ model PersonalTransaction {
   isRecurring         Boolean              @default(false)
   recurrenceFrequency RecurrenceFrequency?
   createdAt           DateTime             @default(now())
+  // Mirrors Transaction.recurringTemplateId — see RecurringTemplate's
+  // doc comment above.
+  recurringTemplateId String?
 
-  user     User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category PersonalBudgetCategory @relation(fields: [categoryId], references: [id])
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category          PersonalBudgetCategory     @relation(fields: [categoryId], references: [id])
+  recurringTemplate PersonalRecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+
+// Personal-budget mirror of RecurringTemplate/RecurringTemplateAck — see
+// their doc comments above for the "accounted for" model. Kept as a
+// straight duplicate rather than a shared/polymorphic table, same
+// convention as PersonalBudgetCategory/PersonalTransaction themselves.
+model PersonalRecurringTemplate {
+  id         String              @id @default(cuid())
+  userId     String
+  categoryId String
+  name       String
+  amount     Float
+  type       TransactionType
+  frequency  RecurrenceFrequency
+  dayOfMonth Int?
+  active     Boolean             @default(true)
+  createdAt  DateTime            @default(now())
+
+  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category         PersonalBudgetCategory         @relation(fields: [categoryId], references: [id])
+  acknowledgements PersonalRecurringTemplateAck[]
+  transactions     PersonalTransaction[]
+
+  @@index([userId])
+}
+
+model PersonalRecurringTemplateAck {
+  id                          String   @id @default(cuid())
+  personalRecurringTemplateId String
+  periodKey                   String
+  createdAt                   DateTime @default(now())
+
+  personalRecurringTemplate PersonalRecurringTemplate @relation(fields: [personalRecurringTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([personalRecurringTemplateId, periodKey])
+  @@index([personalRecurringTemplateId])
 }

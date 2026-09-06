@@ -1,0 +1,307 @@
+"use client";
+
+import { useTransition, type ReactNode } from "react";
+import { Check, Pause, Pencil, Play, Trash2, Undo2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  acknowledgeTemplatePeriodAction,
+  deleteRecurringTemplateAction,
+  setRecurringTemplateActiveAction,
+  unacknowledgeTemplatePeriodAction,
+} from "@/app/dashboard/budget/actions";
+import {
+  RecurringTemplateDialog,
+  type RecurringTemplateRow,
+} from "@/components/budget/recurring-template-dialog";
+import {
+  TransactionDialog,
+  type MemberOption,
+} from "@/components/budget/transaction-dialog";
+import { format } from "@/lib/i18n/format";
+import type { CategoryRow } from "@/components/budget/category-manager";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+
+export type RecurringTemplateListRow = RecurringTemplateRow & {
+  categoryName: string;
+  status: "due" | "acknowledged" | "posted";
+};
+
+export type PausedRecurringTemplateRow = RecurringTemplateRow & { categoryName: string };
+
+const frequencyLabelKey = {
+  WEEKLY: "frequencyWeekly",
+  MONTHLY: "frequencyMonthly",
+  YEARLY: "frequencyYearly",
+} as const satisfies Record<RecurringTemplateRow["frequency"], keyof Dictionary["budget"]>;
+
+export function RecurringTemplatesPanel({
+  templates,
+  pausedTemplates,
+  categories,
+  members,
+  currentMemberId,
+  dict,
+  locale,
+}: {
+  templates: RecurringTemplateListRow[];
+  pausedTemplates: PausedRecurringTemplateRow[];
+  categories: CategoryRow[];
+  members: MemberOption[];
+  currentMemberId: string;
+  dict: Dictionary["budget"];
+  locale: Locale;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const numberFormat = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  const due = templates.filter((t) => t.status === "due");
+  const acknowledged = templates.filter((t) => t.status === "acknowledged");
+  const posted = templates.filter((t) => t.status === "posted");
+
+  function handleTogglePause(id: string, active: boolean) {
+    startTransition(() => setRecurringTemplateActiveAction(id, active));
+  }
+
+  function handleDelete(id: string) {
+    startTransition(() => deleteRecurringTemplateAction(id));
+  }
+
+  const isEmpty = templates.length === 0 && pausedTemplates.length === 0;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="font-heading text-base font-semibold">{dict.recurring.title}</h2>
+          <p className="text-sm text-muted-foreground">{dict.recurring.subtitle}</p>
+        </div>
+        <RecurringTemplateDialog
+          dict={dict}
+          categories={categories}
+          trigger={
+            <Button variant="outline" size="sm" disabled={categories.length === 0}>
+              {dict.recurring.addTemplate}
+            </Button>
+          }
+        />
+      </div>
+
+      {isEmpty ? (
+        <p className="text-sm text-muted-foreground">{dict.recurring.empty}</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <TemplateGroup label={dict.recurring.sectionDue} items={due}>
+            {(template) => (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                dict={dict}
+                numberFormat={numberFormat}
+                isPending={isPending}
+                onDelete={handleDelete}
+                onTogglePause={handleTogglePause}
+                categories={categories}
+                actions={
+                  <>
+                    <TransactionDialog
+                      dict={dict}
+                      categories={categories}
+                      members={members}
+                      currentMemberId={currentMemberId}
+                      prefillFromTemplate={{
+                        templateId: template.id,
+                        categoryId: template.categoryId,
+                        amount: template.amount,
+                        description: template.name,
+                        frequency: template.frequency,
+                      }}
+                      trigger={
+                        <Button size="xs" variant="secondary">
+                          {dict.recurring.logTransaction}
+                        </Button>
+                      }
+                    />
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => startTransition(() => acknowledgeTemplatePeriodAction(template.id))}
+                    >
+                      <Check className="size-3.5" />
+                      {dict.recurring.markAccountedFor}
+                    </Button>
+                  </>
+                }
+              />
+            )}
+          </TemplateGroup>
+
+          <TemplateGroup label={dict.recurring.sectionAcknowledged} items={acknowledged}>
+            {(template) => (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                dict={dict}
+                numberFormat={numberFormat}
+                isPending={isPending}
+                onDelete={handleDelete}
+                onTogglePause={handleTogglePause}
+                categories={categories}
+                actions={
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() => startTransition(() => unacknowledgeTemplatePeriodAction(template.id))}
+                  >
+                    <Undo2 className="size-3.5" />
+                    {dict.recurring.undo}
+                  </Button>
+                }
+              />
+            )}
+          </TemplateGroup>
+
+          <TemplateGroup label={dict.recurring.sectionPosted} items={posted}>
+            {(template) => (
+              <TemplateRow
+                key={template.id}
+                template={template}
+                dict={dict}
+                numberFormat={numberFormat}
+                isPending={isPending}
+                onDelete={handleDelete}
+                onTogglePause={handleTogglePause}
+                categories={categories}
+              />
+            )}
+          </TemplateGroup>
+
+          {pausedTemplates.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                {dict.recurring.pausedBadge}
+              </p>
+              <div className="flex flex-col gap-2">
+                {pausedTemplates.map((template) => (
+                  <TemplateRow
+                    key={template.id}
+                    template={{ ...template, status: "due" }}
+                    dict={dict}
+                    numberFormat={numberFormat}
+                    isPending={isPending}
+                    onDelete={handleDelete}
+                    onTogglePause={handleTogglePause}
+                    categories={categories}
+                    paused
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateGroup({
+  label,
+  items,
+  children,
+}: {
+  label: string;
+  items: RecurringTemplateListRow[];
+  children: (template: RecurringTemplateListRow) => ReactNode;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <div className="flex flex-col gap-2">{items.map((template) => children(template))}</div>
+    </div>
+  );
+}
+
+function TemplateRow({
+  template,
+  dict,
+  numberFormat,
+  isPending,
+  onDelete,
+  onTogglePause,
+  categories,
+  actions,
+  paused = false,
+}: {
+  template: RecurringTemplateListRow;
+  dict: Dictionary["budget"];
+  numberFormat: Intl.NumberFormat;
+  isPending: boolean;
+  onDelete: (id: string) => void;
+  onTogglePause: (id: string, active: boolean) => void;
+  categories: CategoryRow[];
+  actions?: ReactNode;
+  paused?: boolean;
+}) {
+  const frequencyLabel = dict[frequencyLabelKey[template.frequency]];
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{template.name}</span>
+          <Badge variant="secondary">{template.categoryName}</Badge>
+          {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {numberFormat.format(template.amount)} · {frequencyLabel}
+          {template.dayOfMonth
+            ? ` · ${format(dict.recurring.dueDayLabel, { day: template.dayOfMonth })}`
+            : ""}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {actions}
+        <RecurringTemplateDialog
+          dict={dict}
+          categories={categories}
+          template={template}
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground"
+              aria-label={format(dict.recurring.editAriaLabel, { name: template.name })}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          }
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground"
+          disabled={isPending}
+          onClick={() => onTogglePause(template.id, paused)}
+        >
+          {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-7 text-muted-foreground hover:text-destructive"
+          disabled={isPending}
+          aria-label={format(dict.recurring.deleteAriaLabel, { name: template.name })}
+          onClick={() => onDelete(template.id)}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}

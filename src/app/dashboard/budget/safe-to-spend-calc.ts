@@ -8,7 +8,11 @@
 export type SafeToSpendTransaction = {
   categoryId: string;
   categoryName: string;
-  type: "INCOME" | "EXPENSE";
+  // SAVINGS transactions are ignored below (filtered out alongside INCOME
+  // by the `type !== "EXPENSE"` check) — this type only needs to accept
+  // them so callers can pass a household's/user's full transaction list
+  // as-is, without filtering SAVINGS out themselves first.
+  type: "INCOME" | "EXPENSE" | "SAVINGS";
   amount: number;
   date: Date;
   isRecurring: boolean;

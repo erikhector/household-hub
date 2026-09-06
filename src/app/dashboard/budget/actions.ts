@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { getPeriodKey } from "@/app/dashboard/budget/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 
 // The category name/lookup key the shopping-list → budget link (Wave 2,
@@ -46,7 +47,7 @@ export async function findOrCreateGroceriesCategory(householdId: string) {
 
 const categorySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
-  type: z.enum(["INCOME", "EXPENSE"]),
+  type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
 });
 
 export async function createCategoryAction(
@@ -103,6 +104,11 @@ const transactionSchema = z.object({
   date: z.string().min(1, "Date is required"),
   isRecurring: z.boolean(),
   recurrenceFrequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]).optional(),
+  // Set when this transaction is being logged from a recurring template's
+  // "Log transaction" action (see RecurringTemplatesPanel) — links the two
+  // so the template's checklist can see this period is fulfilled. Validated
+  // against the caller's household below, same as categoryId.
+  recurringTemplateId: z.string().optional(),
 });
 
 function parseTransactionFormData(formData: FormData) {
@@ -113,7 +119,25 @@ function parseTransactionFormData(formData: FormData) {
     date: formData.get("date"),
     isRecurring: formData.get("isRecurring") === "on",
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
+    recurringTemplateId: formData.get("recurringTemplateId") || undefined,
   });
+}
+
+/** Validates an optional client-supplied recurringTemplateId actually
+ * belongs to the caller's household before it's ever written to a
+ * transaction. Returns `undefined` (not provided), the validated id, or an
+ * error. */
+async function resolveRecurringTemplateId(
+  householdId: string,
+  recurringTemplateId: string | undefined,
+): Promise<{ error: string } | { id: string | undefined }> {
+  if (!recurringTemplateId) return { id: undefined };
+  const template = await prisma.recurringTemplate.findFirst({
+    where: { id: recurringTemplateId, householdId },
+    select: { id: true },
+  });
+  if (!template) return { error: "Recurring template not found" };
+  return { id: template.id };
 }
 
 // Amounts within this tolerance of the transaction total are accepted —
@@ -196,6 +220,12 @@ export async function createTransactionAction(
   const split = await parseSplitFormData(formData, household.id, parsed.data.amount);
   if (split && "error" in split) return { error: split.error };
 
+  const recurringTemplate = await resolveRecurringTemplateId(
+    household.id,
+    parsed.data.recurringTemplateId,
+  );
+  if ("error" in recurringTemplate) return { error: recurringTemplate.error };
+
   await prisma.transaction.create({
     data: {
       householdId: household.id,
@@ -210,6 +240,7 @@ export async function createTransactionAction(
       recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
       createdByUserId: userId,
       paidByMemberId: split?.paidByMemberId ?? null,
+      recurringTemplateId: recurringTemplate.id ?? null,
       splits: split
         ? {
             create: split.splits.map((s) => ({
@@ -302,6 +333,170 @@ export async function deleteTransactionAction(transactionId: string) {
 
   await prisma.transaction.deleteMany({
     where: { id: transactionId, householdId: household.id },
+  });
+
+  revalidatePath("/dashboard/budget");
+}
+
+// --- Recurring templates --------------------------------------------------
+// See prisma/schema.prisma's RecurringTemplate/RecurringTemplateAck doc
+// comments and recurring-template-calc.ts for the "accounted for" model.
+
+const recurringTemplateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(120, "Name is too long"),
+  categoryId: z.string().min(1, "Category is required"),
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  frequency: z.enum(["WEEKLY", "MONTHLY", "YEARLY"]),
+  dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+});
+
+function parseRecurringTemplateFormData(formData: FormData) {
+  return recurringTemplateSchema.safeParse({
+    name: formData.get("name"),
+    categoryId: formData.get("categoryId"),
+    amount: formData.get("amount"),
+    frequency: formData.get("frequency"),
+    dayOfMonth: formData.get("dayOfMonth") || undefined,
+  });
+}
+
+export async function createRecurringTemplateAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = parseRecurringTemplateFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const category = await prisma.budgetCategory.findFirst({
+    where: { id: parsed.data.categoryId, householdId: household.id },
+  });
+  if (!category) return { error: "Category not found" };
+
+  await prisma.recurringTemplate.create({
+    data: {
+      householdId: household.id,
+      categoryId: category.id,
+      name: parsed.data.name,
+      amount: parsed.data.amount,
+      type: category.type,
+      frequency: parsed.data.frequency,
+      dayOfMonth: parsed.data.dayOfMonth ?? null,
+    },
+  });
+
+  revalidatePath("/dashboard/budget");
+  return {};
+}
+
+const updateRecurringTemplateSchema = recurringTemplateSchema.extend({
+  id: z.string().min(1),
+});
+
+export async function updateRecurringTemplateAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = updateRecurringTemplateSchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    categoryId: formData.get("categoryId"),
+    amount: formData.get("amount"),
+    frequency: formData.get("frequency"),
+    dayOfMonth: formData.get("dayOfMonth") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const category = await prisma.budgetCategory.findFirst({
+    where: { id: parsed.data.categoryId, householdId: household.id },
+  });
+  if (!category) return { error: "Category not found" };
+
+  const existing = await prisma.recurringTemplate.findFirst({
+    where: { id: parsed.data.id, householdId: household.id },
+  });
+  if (!existing) return { error: "Recurring template not found" };
+
+  await prisma.recurringTemplate.update({
+    where: { id: existing.id },
+    data: {
+      name: parsed.data.name,
+      categoryId: category.id,
+      amount: parsed.data.amount,
+      type: category.type,
+      frequency: parsed.data.frequency,
+      dayOfMonth: parsed.data.dayOfMonth ?? null,
+    },
+  });
+
+  revalidatePath("/dashboard/budget");
+  return {};
+}
+
+export async function setRecurringTemplateActiveAction(templateId: string, active: boolean) {
+  const { household } = await requireHousehold();
+
+  await prisma.recurringTemplate.updateMany({
+    where: { id: templateId, householdId: household.id },
+    data: { active },
+  });
+
+  revalidatePath("/dashboard/budget");
+}
+
+export async function deleteRecurringTemplateAction(templateId: string) {
+  const { household } = await requireHousehold();
+
+  await prisma.recurringTemplate.deleteMany({
+    where: { id: templateId, householdId: household.id },
+  });
+
+  revalidatePath("/dashboard/budget");
+}
+
+/**
+ * Checks a template off for the current period without logging a
+ * transaction — e.g. a bill paid on autopay from an account this app
+ * doesn't track. Idempotent: the unique (templateId, periodKey) constraint
+ * means a repeat click just no-ops against the existing row.
+ */
+export async function acknowledgeTemplatePeriodAction(templateId: string) {
+  const { household } = await requireHousehold();
+
+  const template = await prisma.recurringTemplate.findFirst({
+    where: { id: templateId, householdId: household.id },
+  });
+  if (!template) return;
+
+  const periodKey = getPeriodKey(new Date(), template.frequency);
+  await prisma.recurringTemplateAck.upsert({
+    where: { recurringTemplateId_periodKey: { recurringTemplateId: template.id, periodKey } },
+    create: { recurringTemplateId: template.id, periodKey },
+    update: {},
+  });
+
+  revalidatePath("/dashboard/budget");
+}
+
+/** Undoes acknowledgeTemplatePeriodAction for the current period. */
+export async function unacknowledgeTemplatePeriodAction(templateId: string) {
+  const { household } = await requireHousehold();
+
+  const template = await prisma.recurringTemplate.findFirst({
+    where: { id: templateId, householdId: household.id },
+  });
+  if (!template) return;
+
+  const periodKey = getPeriodKey(new Date(), template.frequency);
+  await prisma.recurringTemplateAck.deleteMany({
+    where: { recurringTemplateId: template.id, periodKey },
   });
 
   revalidatePath("/dashboard/budget");

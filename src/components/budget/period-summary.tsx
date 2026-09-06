@@ -18,15 +18,22 @@ const CHART_COLORS = [
 export function PeriodSummary({
   income,
   expense,
+  savings,
   incomeByCategory,
   expenseByCategory,
+  savingsByCategory,
   dict,
   locale,
 }: {
   income: number;
   expense: number;
+  // Neither income nor a cost — money set aside, so it's broken out on its
+  // own rather than folded into `net` below. See TransactionType's doc
+  // comment in schema.prisma.
+  savings: number;
   incomeByCategory: CategoryTotal[];
   expenseByCategory: CategoryTotal[];
+  savingsByCategory: CategoryTotal[];
   // Narrowed to just the "summary" slice (rather than the full budget
   // dictionary) so this presentational component can be reused for the
   // personal budget too — see personal-budget/page.tsx.
@@ -42,7 +49,7 @@ export function PeriodSummary({
   return (
     <div className="flex flex-col gap-4">
       <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -78,8 +85,18 @@ export function PeriodSummary({
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {dict.savings}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold text-chart-2">{numberFormat.format(savings)}</p>
+          </CardContent>
+        </Card>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <CategoryBreakdown
           title={dict.incomeByCategory}
           items={incomeByCategory}
@@ -92,6 +109,13 @@ export function PeriodSummary({
           items={expenseByCategory}
           total={expense}
           emptyMessage={dict.noExpenses}
+          numberFormat={numberFormat}
+        />
+        <CategoryBreakdown
+          title={dict.savingsByCategory}
+          items={savingsByCategory}
+          total={savings}
+          emptyMessage={dict.noSavings}
           numberFormat={numberFormat}
         />
       </div>

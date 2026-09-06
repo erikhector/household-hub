@@ -33,7 +33,11 @@ export async function GET() {
     transactions.map((tx) => [
       tx.date.toISOString().slice(0, 10),
       tx.category.name,
-      tx.type === "INCOME" ? dict.budget.type.income : dict.budget.type.expense,
+      tx.type === "INCOME"
+        ? dict.budget.type.income
+        : tx.type === "SAVINGS"
+          ? dict.budget.type.savings
+          : dict.budget.type.expense,
       tx.amount,
       tx.description ?? "",
       tx.isRecurring ? dict.export.yes : dict.export.no,

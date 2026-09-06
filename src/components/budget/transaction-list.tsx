@@ -24,8 +24,20 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type TransactionListRow = TransactionRow & {
   categoryName: string;
-  type: "INCOME" | "EXPENSE";
+  type: "INCOME" | "EXPENSE" | "SAVINGS";
 };
+
+function amountColor(type: TransactionListRow["type"]) {
+  if (type === "INCOME") return "text-chart-5";
+  if (type === "SAVINGS") return "text-chart-2";
+  return "text-destructive";
+}
+
+function amountSign(type: TransactionListRow["type"]) {
+  if (type === "INCOME") return "+";
+  if (type === "SAVINGS") return "→";
+  return "-";
+}
 
 const frequencyLabelKey = {
   WEEKLY: "frequencyWeekly",
@@ -96,7 +108,9 @@ export function TransactionList({
                   className={
                     tx.type === "INCOME"
                       ? "border-chart-5/30 text-chart-5"
-                      : "border-destructive/30 text-destructive"
+                      : tx.type === "SAVINGS"
+                        ? "border-chart-2/30 text-chart-2"
+                        : "border-destructive/30 text-destructive"
                   }
                 >
                   {tx.categoryName}
@@ -124,13 +138,8 @@ export function TransactionList({
             <TableCell className="max-w-64 truncate text-muted-foreground">
               {tx.description || "—"}
             </TableCell>
-            <TableCell
-              className={
-                "text-right font-medium tabular-nums " +
-                (tx.type === "INCOME" ? "text-chart-5" : "text-destructive")
-              }
-            >
-              {tx.type === "INCOME" ? "+" : "-"}
+            <TableCell className={"text-right font-medium tabular-nums " + amountColor(tx.type)}>
+              {amountSign(tx.type)}
               {numberFormat.format(tx.amount)}
             </TableCell>
             <TableCell>

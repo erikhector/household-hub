@@ -64,6 +64,17 @@ function toDateInputValue(date: Date) {
   return local.toISOString().slice(0, 10);
 }
 
+/** Seeds a new transaction's fields from a recurring template's "Log
+ * transaction" action (RecurringTemplatesPanel) — only meaningful when
+ * `transaction` isn't set (never overrides editing an existing one). */
+export type TransactionTemplatePrefill = {
+  templateId: string;
+  categoryId: string;
+  amount: number;
+  description?: string;
+  frequency: RecurrenceFrequency;
+};
+
 export function TransactionDialog({
   dict,
   categories,
@@ -71,6 +82,7 @@ export function TransactionDialog({
   currentMemberId,
   trigger,
   transaction,
+  prefillFromTemplate,
 }: {
   dict: Dictionary["budget"];
   categories: CategoryRow[];
@@ -83,12 +95,17 @@ export function TransactionDialog({
   currentMemberId: string;
   trigger: ReactElement;
   transaction?: TransactionRow;
+  prefillFromTemplate?: TransactionTemplatePrefill;
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
   const [open, setOpen] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(transaction?.isRecurring ?? false);
-  const [amount, setAmount] = useState(transaction ? String(transaction.amount) : "");
+  const [isRecurring, setIsRecurring] = useState(
+    transaction?.isRecurring ?? !!prefillFromTemplate,
+  );
+  const [amount, setAmount] = useState(
+    transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
+  );
   const [splitEnabled, setSplitEnabled] = useState(canSplit && !!transaction && transaction.splits.length > 0);
   const [paidByMemberId, setPaidByMemberId] = useState(
     transaction?.paidByMemberId ?? currentMemberId,
@@ -107,8 +124,10 @@ export function TransactionDialog({
   }, initialState);
 
   function resetForTransaction() {
-    setIsRecurring(transaction?.isRecurring ?? false);
-    setAmount(transaction ? String(transaction.amount) : "");
+    setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate);
+    setAmount(
+      transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
+    );
     setSplitEnabled(canSplit && !!transaction && transaction.splits.length > 0);
     setPaidByMemberId(transaction?.paidByMemberId ?? currentMemberId);
     setSplitAmounts(buildInitialSplitAmounts(transaction, members));
@@ -140,9 +159,15 @@ export function TransactionDialog({
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={transaction.id} />}
+          {!isEdit && prefillFromTemplate && (
+            <input type="hidden" name="recurringTemplateId" value={prefillFromTemplate.templateId} />
+          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-category">{dict.categoryLabel}</Label>
-            <Select name="categoryId" defaultValue={transaction?.categoryId}>
+            <Select
+              name="categoryId"
+              defaultValue={transaction?.categoryId ?? prefillFromTemplate?.categoryId}
+            >
               <SelectTrigger id="tx-category" className="w-full">
                 <SelectValue>
                   {(v: string | null) =>
@@ -190,7 +215,7 @@ export function TransactionDialog({
               id="tx-description"
               name="description"
               placeholder={dict.descriptionPlaceholder}
-              defaultValue={transaction?.description ?? ""}
+              defaultValue={transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
@@ -209,7 +234,9 @@ export function TransactionDialog({
                 <Label htmlFor="tx-frequency">{dict.frequencyLabel}</Label>
                 <Select
                   name="recurrenceFrequency"
-                  defaultValue={transaction?.recurrenceFrequency ?? "MONTHLY"}
+                  defaultValue={
+                    transaction?.recurrenceFrequency ?? prefillFromTemplate?.frequency ?? "MONTHLY"
+                  }
                 >
                   <SelectTrigger id="tx-frequency" className="w-full">
                     <SelectValue>

@@ -10,12 +10,23 @@ import {
   type ItemPriceTrend,
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
+import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { HouseholdBalances } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import {
+  RecurringTemplatesPanel,
+  type PausedRecurringTemplateRow,
+  type RecurringTemplateListRow,
+} from "@/components/budget/recurring-templates-panel";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { computeSafeToSpend } from "./safe-to-spend-calc";
+import {
+  computeFixedMonthlySummary,
+  computeRecurringMonthlyTotals,
+  computeTemplateStatuses,
+} from "./recurring-template-calc";
 import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
 
 // An item needs at least this many recorded prices before its trend is
@@ -25,6 +36,8 @@ const MIN_PRICE_POINTS_FOR_TREND = 3;
 // Cap the monthly spending chart to the most recent N months so it stays
 // readable once a household has years of price history.
 const MAX_SPENDING_MONTHS = 12;
+// Same cap, for the "Fixed income & costs" trend chart.
+const MAX_FIXED_TREND_MONTHS = 12;
 
 export default async function BudgetPage() {
   const [{ household, userId }, dict, locale] = await Promise.all([
@@ -37,26 +50,37 @@ export default async function BudgetPage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [categories, transactions, householdMembers] = await Promise.all([
-    prisma.budgetCategory.findMany({
-      where: { householdId: household.id },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-    }),
-    prisma.transaction.findMany({
-      where: { householdId: household.id },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { category: true, splits: true },
-    }),
-    // Fetched for the expense-splitting feature (see REQUIREMENTS.md's
-    // "Household expense splitting" subsection) — the split UI and the
-    // balances tab are both only offered when a household has more than
-    // one member.
-    prisma.householdMember.findMany({
-      where: { householdId: household.id },
-      include: { user: { select: { displayName: true } } },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  const [categories, transactions, householdMembers, recurringTemplates, recurringTemplateAcks] =
+    await Promise.all([
+      prisma.budgetCategory.findMany({
+        where: { householdId: household.id },
+        orderBy: [{ type: "asc" }, { name: "asc" }],
+      }),
+      prisma.transaction.findMany({
+        where: { householdId: household.id },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: { category: true, splits: true },
+      }),
+      // Fetched for the expense-splitting feature (see REQUIREMENTS.md's
+      // "Household expense splitting" subsection) — the split UI and the
+      // balances tab are both only offered when a household has more than
+      // one member.
+      prisma.householdMember.findMany({
+        where: { householdId: household.id },
+        include: { user: { select: { displayName: true } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      // Recurring bill templates — see recurring-template-calc.ts and the
+      // "Recurring" tab below.
+      prisma.recurringTemplate.findMany({
+        where: { householdId: household.id },
+        include: { category: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.recurringTemplateAck.findMany({
+        where: { recurringTemplate: { householdId: household.id } },
+      }),
+    ]);
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
 
@@ -102,7 +126,7 @@ export default async function BudgetPage() {
 
   const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
 
-  const totalsByCategory = (type: "INCOME" | "EXPENSE"): CategoryTotal[] => {
+  const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
     const totals = new Map<string, CategoryTotal>();
     for (const t of monthTransactions) {
       if (t.type !== type) continue;
@@ -118,8 +142,13 @@ export default async function BudgetPage() {
 
   const incomeByCategory = totalsByCategory("INCOME");
   const expenseByCategory = totalsByCategory("EXPENSE");
+  // Neither income nor a cost (see TransactionType's doc comment in
+  // schema.prisma) — tracked separately rather than folded into income or
+  // expense below.
+  const savingsByCategory = totalsByCategory("SAVINGS");
   const income = incomeByCategory.reduce((sum, c) => sum + c.total, 0);
   const expense = expenseByCategory.reduce((sum, c) => sum + c.total, 0);
+  const savings = savingsByCategory.reduce((sum, c) => sum + c.total, 0);
 
   // --- Safe to spend --------------------------------------------------------
   // See REQUIREMENTS.md's "Safe to spend" subsection: this month's income so
@@ -141,6 +170,60 @@ export default async function BudgetPage() {
     monthEnd,
     incomeSoFar: income,
     expenseSoFar: expense,
+  });
+
+  // --- Recurring templates --------------------------------------------------
+  // See recurring-template-calc.ts's doc comments for the "accounted for"
+  // model. Paused (inactive) templates get their own section in the panel
+  // instead of a status, since "due/acknowledged/posted" is meaningless
+  // while a template isn't running.
+  const activeRecurringTemplates = recurringTemplates.filter((t) => t.active);
+  const templateStatusRows = computeTemplateStatuses({
+    templates: activeRecurringTemplates,
+    transactions: transactions.map((t) => ({
+      recurringTemplateId: t.recurringTemplateId,
+      date: t.date,
+    })),
+    acks: recurringTemplateAcks,
+    referenceDate: now,
+  });
+  const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => ({
+    id: row.template.id,
+    name: row.template.name,
+    categoryId: row.template.categoryId,
+    categoryName: row.template.category.name,
+    amount: row.template.amount,
+    frequency: row.template.frequency,
+    dayOfMonth: row.template.dayOfMonth,
+    status: row.status,
+  }));
+  const pausedRecurringTemplateRows: PausedRecurringTemplateRow[] = recurringTemplates
+    .filter((t) => !t.active)
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      categoryId: t.categoryId,
+      categoryName: t.category.name,
+      amount: t.amount,
+      frequency: t.frequency,
+      dayOfMonth: t.dayOfMonth,
+    }));
+
+  // --- Fixed income & costs summary -----------------------------------------
+  // The "core of the budget" headline — see computeFixedMonthlySummary's doc
+  // comment. Fed every template (active and paused; the calc filters active
+  // itself) rather than just activeRecurringTemplates, so it stays symmetric
+  // with computeTemplateStatuses's own internal filtering above.
+  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates);
+  const fixedMonthlyTotals = computeRecurringMonthlyTotals({
+    transactions: transactions.map((t) => ({
+      type: t.type,
+      amount: t.amount,
+      date: t.date,
+      recurringTemplateId: t.recurringTemplateId,
+    })),
+    referenceDate: now,
+    monthsBack: MAX_FIXED_TREND_MONTHS,
   });
 
   // --- Cost analyzer aggregation ------------------------------------------
@@ -221,8 +304,10 @@ export default async function BudgetPage() {
       <PeriodSummary
         income={income}
         expense={expense}
+        savings={savings}
         incomeByCategory={incomeByCategory}
         expenseByCategory={expenseByCategory}
+        savingsByCategory={savingsByCategory}
         dict={dict.budget.summary}
         locale={locale}
       />
@@ -268,6 +353,27 @@ export default async function BudgetPage() {
               locale={locale}
             />
           ) : undefined
+        }
+        fixed={
+          <div className="flex flex-col gap-6">
+            <FixedBudgetSummary
+              monthlyIncome={fixedMonthlySummary.monthlyIncome}
+              monthlyExpense={fixedMonthlySummary.monthlyExpense}
+              monthlySavings={fixedMonthlySummary.monthlySavings}
+              monthlyTotals={fixedMonthlyTotals}
+              dict={dict.budget.fixedSummary}
+              locale={locale}
+            />
+            <RecurringTemplatesPanel
+              templates={recurringTemplateRows}
+              pausedTemplates={pausedRecurringTemplateRows}
+              categories={categoryRows}
+              members={memberOptions}
+              currentMemberId={currentMemberId}
+              dict={dict.budget}
+              locale={locale}
+            />
+          </div>
         }
       />
     </div>

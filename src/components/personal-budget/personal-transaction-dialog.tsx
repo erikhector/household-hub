@@ -47,20 +47,36 @@ function toDateInputValue(date: Date) {
   return local.toISOString().slice(0, 10);
 }
 
+/** Seeds a new transaction's fields from a recurring template's "Log
+ * transaction" action (PersonalRecurringTemplatesPanel) — only meaningful
+ * when `transaction` isn't set. Mirrors TransactionDialog's
+ * TransactionTemplatePrefill (src/components/budget/transaction-dialog.tsx). */
+export type PersonalTransactionTemplatePrefill = {
+  templateId: string;
+  categoryId: string;
+  amount: number;
+  description?: string;
+  frequency: PersonalRecurrenceFrequency;
+};
+
 export function PersonalTransactionDialog({
   dict,
   categories,
   trigger,
   transaction,
+  prefillFromTemplate,
 }: {
   dict: Dictionary["personalBudget"];
   categories: PersonalCategoryRow[];
   trigger: ReactElement;
   transaction?: PersonalTransactionRow;
+  prefillFromTemplate?: PersonalTransactionTemplatePrefill;
 }) {
   const isEdit = !!transaction;
   const [open, setOpen] = useState(false);
-  const [isRecurring, setIsRecurring] = useState(transaction?.isRecurring ?? false);
+  const [isRecurring, setIsRecurring] = useState(
+    transaction?.isRecurring ?? !!prefillFromTemplate,
+  );
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -76,7 +92,7 @@ export function PersonalTransactionDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setIsRecurring(transaction?.isRecurring ?? false);
+        if (next) setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate);
       }}
     >
       <DialogTrigger render={trigger} />
@@ -88,9 +104,15 @@ export function PersonalTransactionDialog({
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={transaction.id} />}
+          {!isEdit && prefillFromTemplate && (
+            <input type="hidden" name="recurringTemplateId" value={prefillFromTemplate.templateId} />
+          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="personal-tx-category">{dict.categoryLabel}</Label>
-            <Select name="categoryId" defaultValue={transaction?.categoryId}>
+            <Select
+              name="categoryId"
+              defaultValue={transaction?.categoryId ?? prefillFromTemplate?.categoryId}
+            >
               <SelectTrigger id="personal-tx-category" className="w-full">
                 <SelectValue>
                   {(v: string | null) =>
@@ -116,7 +138,13 @@ export function PersonalTransactionDialog({
                 type="number"
                 min={0.01}
                 step="any"
-                defaultValue={transaction ? String(transaction.amount) : ""}
+                defaultValue={
+                  transaction
+                    ? String(transaction.amount)
+                    : prefillFromTemplate
+                      ? String(prefillFromTemplate.amount)
+                      : ""
+                }
                 required
               />
             </div>
@@ -137,7 +165,7 @@ export function PersonalTransactionDialog({
               id="personal-tx-description"
               name="description"
               placeholder={dict.descriptionPlaceholder}
-              defaultValue={transaction?.description ?? ""}
+              defaultValue={transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
@@ -156,7 +184,9 @@ export function PersonalTransactionDialog({
                 <Label htmlFor="personal-tx-frequency">{dict.frequencyLabel}</Label>
                 <Select
                   name="recurrenceFrequency"
-                  defaultValue={transaction?.recurrenceFrequency ?? "MONTHLY"}
+                  defaultValue={
+                    transaction?.recurrenceFrequency ?? prefillFromTemplate?.frequency ?? "MONTHLY"
+                  }
                 >
                   <SelectTrigger id="personal-tx-frequency" className="w-full">
                     <SelectValue>

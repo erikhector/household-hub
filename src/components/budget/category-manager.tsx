@@ -27,7 +27,7 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-export type CategoryRow = { id: string; name: string; type: "INCOME" | "EXPENSE" };
+export type CategoryRow = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
 
 const initialState: ActionState = {};
 
@@ -49,6 +49,7 @@ export function CategoryManager({
 
   const income = categories.filter((c) => c.type === "INCOME");
   const expense = categories.filter((c) => c.type === "EXPENSE");
+  const savings = categories.filter((c) => c.type === "SAVINGS");
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -70,6 +71,13 @@ export function CategoryManager({
           <CategoryGroup
             label={dict.categories.expenseSection}
             items={expense}
+            dict={dict}
+            isPending={isPending}
+            onDelete={handleDelete}
+          />
+          <CategoryGroup
+            label={dict.categories.savingsSection}
+            items={savings}
             dict={dict}
             isPending={isPending}
             onDelete={handleDelete}
@@ -157,12 +165,19 @@ function AddCategoryDialog({ dict }: { dict: Dictionary["budget"] }) {
             <Select name="type" defaultValue="EXPENSE">
               <SelectTrigger id="category-type" className="w-full">
                 <SelectValue>
-                  {(v: string) => (v === "INCOME" ? dict.type.income : dict.type.expense)}
+                  {(v: string) =>
+                    v === "INCOME"
+                      ? dict.type.income
+                      : v === "SAVINGS"
+                        ? dict.type.savings
+                        : dict.type.expense
+                  }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="EXPENSE">{dict.type.expense}</SelectItem>
                 <SelectItem value="INCOME">{dict.type.income}</SelectItem>
+                <SelectItem value="SAVINGS">{dict.type.savings}</SelectItem>
               </SelectContent>
             </Select>
           </div>
