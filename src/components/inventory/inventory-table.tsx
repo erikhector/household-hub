@@ -1,9 +1,16 @@
 "use client";
 
-import { useTransition } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Fragment, useTransition } from "react";
+import { Ban, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -12,8 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { adjustQuantityAction, deleteInventoryItemAction } from "@/app/dashboard/inventory/actions";
+import {
+  adjustQuantityAction,
+  deleteInventoryItemAction,
+  markItemEmptyAction,
+} from "@/app/dashboard/inventory/actions";
+import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export type InventoryItemRow = {
@@ -26,6 +39,8 @@ export type InventoryItemRow = {
   location: string | null;
 };
 
+export type InventoryGroupBy = "none" | "category" | "location" | "both";
+
 // Re-exported for existing consumers (InventoryClient) — the real
 // implementation now lives in `@/lib/stock-status` so it's importable from
 // Server Components too (see that file's comment for why).
@@ -37,14 +52,50 @@ function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["i
   return <Badge variant="secondary">{dict.statusIn}</Badge>;
 }
 
+function groupKeyFor(item: InventoryItemRow, groupBy: InventoryGroupBy, dict: Dictionary["inventory"]) {
+  const location = item.location || dict.noLocation;
+  if (groupBy === "category") return item.category;
+  if (groupBy === "location") return location;
+  if (groupBy === "both") return `${item.category} • ${location}`;
+  return "";
+}
+
+// Groups items by the chosen key while keeping each group's items in their
+// incoming order (already name-sorted by the server/filter). Groups
+// themselves are sorted alphabetically so the table stays scannable no
+// matter which grouping is picked.
+function groupItems(items: InventoryItemRow[], groupBy: InventoryGroupBy, dict: Dictionary["inventory"]) {
+  if (groupBy === "none") return [{ key: "", items }];
+
+  const groups = new Map<string, InventoryItemRow[]>();
+  for (const item of items) {
+    const key = groupKeyFor(item, groupBy, dict);
+    const existing = groups.get(key);
+    if (existing) existing.push(item);
+    else groups.set(key, [item]);
+  }
+
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, groupedItems]) => ({ key, items: groupedItems }));
+}
+
 export function InventoryTable({
   items,
+  categories,
+  locations,
+  groupBy = "none",
   emptyMessage,
   dict,
+  barcodeDict,
 }: {
   items: InventoryItemRow[];
+  categories: string[];
+  locations: string[];
+  groupBy?: InventoryGroupBy;
   emptyMessage: string;
   dict: Dictionary["inventory"];
+  barcodeDict: Dictionary["barcodeScanner"];
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -56,6 +107,17 @@ export function InventoryTable({
     );
   }
 
+  function handleMarkEmpty(item: InventoryItemRow, addToShoppingList: boolean) {
+    startTransition(async () => {
+      const result = await markItemEmptyAction(item.id, addToShoppingList);
+      if (result) {
+        toast.success(format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName }));
+      }
+    });
+  }
+
+  const groups = groupItems(items, groupBy, dict);
+
   return (
     <Table>
       <TableHeader>
@@ -65,55 +127,109 @@ export function InventoryTable({
           <TableHead>{dict.columnLocation}</TableHead>
           <TableHead>{dict.columnQuantity}</TableHead>
           <TableHead>{dict.columnStatus}</TableHead>
-          <TableHead className="w-10" />
+          <TableHead className="w-20" />
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell className="font-medium">{item.name}</TableCell>
-            <TableCell className="text-muted-foreground">{item.category}</TableCell>
-            <TableCell className="text-muted-foreground">{item.location ?? "—"}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-7"
-                  disabled={isPending}
-                  onClick={() => startTransition(() => adjustQuantityAction(item.id, -1))}
-                >
-                  <Minus className="size-3.5" />
-                </Button>
-                <span className="w-14 text-center tabular-nums">
-                  {item.quantity} {item.unit}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-7"
-                  disabled={isPending}
-                  onClick={() => startTransition(() => adjustQuantityAction(item.id, 1))}
-                >
-                  <Plus className="size-3.5" />
-                </Button>
-              </div>
-            </TableCell>
-            <TableCell>
-              <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-            </TableCell>
-            <TableCell>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-7 text-muted-foreground hover:text-destructive"
-                disabled={isPending}
-                onClick={() => startTransition(() => deleteInventoryItemAction(item.id))}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </TableCell>
-          </TableRow>
+        {groups.map((group) => (
+          <Fragment key={group.key || "__ungrouped__"}>
+            {groupBy !== "none" && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
+                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                </TableCell>
+              </TableRow>
+            )}
+            {group.items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                <TableCell className="text-muted-foreground">{item.location ?? "—"}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      disabled={isPending}
+                      onClick={() => startTransition(() => adjustQuantityAction(item.id, -1))}
+                    >
+                      <Minus className="size-3.5" />
+                    </Button>
+                    <span className="w-14 text-center tabular-nums">
+                      {item.quantity} {item.unit}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-7"
+                      disabled={isPending}
+                      onClick={() => startTransition(() => adjustQuantityAction(item.id, 1))}
+                    >
+                      <Plus className="size-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-muted-foreground"
+                            disabled={isPending}
+                            aria-label={dict.markEmptyAriaLabel}
+                          >
+                            <Ban className="size-3.5" />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleMarkEmpty(item, false)}>
+                          {dict.markEmpty}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMarkEmpty(item, true)}>
+                          {dict.markEmptyAndAddToList}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <ItemFormDialog
+                      mode="edit"
+                      item={item}
+                      categories={categories}
+                      locations={locations}
+                      dict={dict}
+                      barcodeDict={barcodeDict}
+                      trigger={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground"
+                          aria-label={dict.editAriaLabel}
+                        >
+                          <Pencil className="size-3.5" />
+                        </Button>
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      disabled={isPending}
+                      onClick={() => startTransition(() => deleteInventoryItemAction(item.id))}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </Fragment>
         ))}
       </TableBody>
     </Table>

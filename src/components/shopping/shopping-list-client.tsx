@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ExportCsvButton } from "@/components/export/export-csv-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
+import { MapShoppingItemDialog } from "@/components/shopping/map-shopping-item-dialog";
 import {
   addAdHocItemAction,
   archiveShoppingListAction,
@@ -28,7 +29,10 @@ type ShoppingListItemRow = {
   quantity: number;
   purchased: boolean;
   addedAutomatically: boolean;
+  inventoryItemId: string | null;
 };
+
+type InventoryItemOption = { id: string; name: string; category: string };
 
 type ShoppingListData = {
   id: string;
@@ -110,11 +114,13 @@ function AddItemForm({
 
 export function ShoppingListClient({
   list,
+  inventoryItems,
   dict,
   barcodeDict,
   exportLabel,
 }: {
   list: ShoppingListData;
+  inventoryItems: InventoryItemOption[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
@@ -161,6 +167,7 @@ export function ShoppingListClient({
               onClick={() =>
                 startTransition(async () => {
                   const result = await completeShoppingListAction(list.id);
+                  if (result.error) toast.error(result.error);
                   if (result.expenseLoggedMessage) toast.success(result.expenseLoggedMessage);
                 })
               }
@@ -214,6 +221,7 @@ export function ShoppingListClient({
                 editable={isActive}
                 isPending={isPending}
                 startTransition={startTransition}
+                inventoryItems={inventoryItems}
                 dict={dict}
               />
             ))}
@@ -229,6 +237,7 @@ export function ShoppingListClient({
                 editable={isActive}
                 isPending={isPending}
                 startTransition={startTransition}
+                inventoryItems={inventoryItems}
                 dict={dict}
               />
             ))}
@@ -244,29 +253,53 @@ function ShoppingRow({
   editable,
   isPending,
   startTransition,
+  inventoryItems,
   dict,
 }: {
   item: ShoppingListItemRow;
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
+  inventoryItems: InventoryItemOption[];
   dict: ShoppingListDict;
 }) {
   return (
     <div className="flex items-center justify-between rounded-md border px-3 py-2">
-      <label className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          checked={item.purchased}
-          disabled={isPending || !editable}
-          onChange={() => startTransition(() => togglePurchasedAction(item.id))}
-          className="size-4"
-        />
-        <span className={item.purchased ? "text-muted-foreground line-through" : ""}>
-          {item.name} × {item.quantity}
-        </span>
-        {item.addedAutomatically && <Badge variant="secondary">{dict.lowStockBadge}</Badge>}
-      </label>
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={item.purchased}
+            disabled={isPending || !editable}
+            onChange={() => startTransition(() => togglePurchasedAction(item.id))}
+            className="size-4"
+          />
+          <span className={item.purchased ? "text-muted-foreground line-through" : ""}>
+            {item.name} × {item.quantity}
+          </span>
+          {item.addedAutomatically && <Badge variant="secondary">{dict.lowStockBadge}</Badge>}
+        </label>
+        {item.inventoryItemId === null &&
+          (editable ? (
+            <MapShoppingItemDialog
+              item={item}
+              inventoryItems={inventoryItems}
+              dict={dict.mapItem}
+              trigger={
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer border-dashed text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                >
+                  {dict.matchItemButton}
+                </Badge>
+              }
+            />
+          ) : (
+            <Badge variant="outline" className="border-dashed">
+              {dict.needsMappingBadge}
+            </Badge>
+          ))}
+      </div>
       {editable && (
         <Button
           variant="ghost"

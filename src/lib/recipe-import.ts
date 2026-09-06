@@ -160,6 +160,24 @@ const KNOWN_UNITS = new Set([
   "pieces",
   "pcs",
   "pc",
+  // Swedish (e.g. ICA recipes) — schema.org Recipe JSON-LD gives these as
+  // plain measure words in `recipeIngredient`, same as the English ones above.
+  "dl",
+  "msk",
+  "tsk",
+  "krm",
+  "st",
+  "förp",
+  "port",
+  "ask",
+  "burk",
+  "påse",
+  "klyfta",
+  "klyftor",
+  "skiva",
+  "skivor",
+  "kruka",
+  "näve",
 ]);
 
 function parseLeadingQuantity(raw: string): number | null {

@@ -146,6 +146,45 @@ describe("parseIngredientString", () => {
   it("handles an abbreviated unit with a trailing period", () => {
     expect(parseIngredientString("3 tbsp. butter")).toEqual({ name: "butter", quantity: 3, unit: "tbsp" });
   });
+
+  // Swedish (e.g. ICA recipes) — strings pulled from real ica.se Recipe JSON-LD.
+  it("splits a Swedish mixed number with a dl unit", () => {
+    expect(parseIngredientString("2 1/2 dl strösocker")).toEqual({
+      name: "strösocker",
+      quantity: 2.5,
+      unit: "dl",
+    });
+  });
+
+  it("splits a Swedish krm (kryddmått) unit", () => {
+    expect(parseIngredientString("1 krm salt")).toEqual({ name: "salt", quantity: 1, unit: "krm" });
+  });
+
+  it("splits a Swedish st (styck) unit", () => {
+    expect(parseIngredientString("2 st ägg")).toEqual({ name: "ägg", quantity: 2, unit: "st" });
+  });
+
+  it("splits Swedish msk/tsk units", () => {
+    expect(parseIngredientString("3 msk kakao")).toEqual({ name: "kakao", quantity: 3, unit: "msk" });
+    expect(parseIngredientString("2 tsk vaniljsocker")).toEqual({
+      name: "vaniljsocker",
+      quantity: 2,
+      unit: "tsk",
+    });
+  });
+
+  it("splits a Swedish förp (förpackning) unit with a trailing parenthetical", () => {
+    expect(parseIngredientString("2 förp kokta gröna linser (à 380 g)")).toEqual({
+      name: "kokta gröna linser (à 380 g)",
+      quantity: 2,
+      unit: "förp",
+    });
+  });
+
+  it("falls back to the whole string for a Swedish ingredient with no unit", () => {
+    expect(parseIngredientString("1/2 citron")).toEqual({ name: "citron", quantity: 0.5, unit: "pcs" });
+    expect(parseIngredientString("salt")).toEqual({ name: "salt", quantity: 1, unit: "pcs" });
+  });
 });
 
 describe("flattenInstructions", () => {
@@ -263,6 +302,52 @@ describe("parseRecipeFromHtml", () => {
   it("returns null when the Recipe node has no usable fields", () => {
     const html = `<script type="application/ld+json">{"@type":"Recipe"}</script>`;
     expect(parseRecipeFromHtml(html)).toBeNull();
+  });
+
+  it("parses a real ICA (Swedish) recipe end to end", () => {
+    // Trimmed to the fields we map, from a live ica.se/recept/ Recipe JSON-LD block.
+    const html = `
+      <html>
+        <head>
+          <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "Recipe",
+              "name": "Kladdig kladdkaka",
+              "recipeIngredient": [
+                "smör till formen",
+                "100 g smör",
+                "2 st ägg",
+                "2 1/2 dl strösocker",
+                "3 msk kakao",
+                "2 tsk vaniljsocker",
+                "1 1/2 dl vetemjöl",
+                "1 krm salt"
+              ],
+              "recipeInstructions": [
+                { "@type": "HowToStep", "text": "Sätt ugnen på 200°C, under- och övervärme." },
+                { "@type": "HowToStep", "text": "Vispa ihop ägg och socker." }
+              ]
+            }
+          </script>
+        </head>
+        <body><h1>Kladdig kladdkaka</h1></body>
+      </html>
+    `;
+    expect(parseRecipeFromHtml(html)).toEqual({
+      name: "Kladdig kladdkaka",
+      instructions: "Sätt ugnen på 200°C, under- och övervärme.\nVispa ihop ägg och socker.",
+      ingredients: [
+        { name: "smör till formen", quantity: 1, unit: "pcs" },
+        { name: "smör", quantity: 100, unit: "g" },
+        { name: "ägg", quantity: 2, unit: "st" },
+        { name: "strösocker", quantity: 2.5, unit: "dl" },
+        { name: "kakao", quantity: 3, unit: "msk" },
+        { name: "vaniljsocker", quantity: 2, unit: "tsk" },
+        { name: "vetemjöl", quantity: 1.5, unit: "dl" },
+        { name: "salt", quantity: 1, unit: "krm" },
+      ],
+    });
   });
 });
 

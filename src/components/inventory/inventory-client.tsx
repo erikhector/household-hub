@@ -12,6 +12,7 @@ import {
 import {
   InventoryTable,
   getStockStatus,
+  type InventoryGroupBy,
   type InventoryItemRow,
   type StockStatus,
 } from "@/components/inventory/inventory-table";
@@ -24,23 +25,33 @@ export function InventoryClient({
   categories,
   locations,
   dict,
+  barcodeDict,
   initialStatus,
 }: {
   items: InventoryItemRow[];
   categories: string[];
   locations: string[];
   dict: Dictionary["inventory"];
+  barcodeDict: Dictionary["barcodeScanner"];
   initialStatus?: StockStatus;
 }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState(ALL);
   const [location, setLocation] = useState(ALL);
   const [status, setStatus] = useState<string>(initialStatus ?? ALL);
+  const [groupBy, setGroupBy] = useState<InventoryGroupBy>("none");
 
   const statusLabels: Record<StockStatus, string> = {
     in: dict.statusIn,
     low: dict.statusLow,
     out: dict.statusOut,
+  };
+
+  const groupByLabels: Record<InventoryGroupBy, string> = {
+    none: dict.groupByNone,
+    category: dict.groupByCategory,
+    location: dict.groupByLocation,
+    both: dict.groupByBoth,
   };
 
   const filtered = useMemo(() => {
@@ -106,10 +117,26 @@ export function InventoryClient({
             ))}
           </SelectContent>
         </Select>
+        <Select value={groupBy} onValueChange={(v) => setGroupBy((v as InventoryGroupBy) ?? "none")}>
+          <SelectTrigger className="w-44">
+            <SelectValue>{(v: string) => `${dict.groupByLabel}: ${groupByLabels[v as InventoryGroupBy]}`}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.keys(groupByLabels) as InventoryGroupBy[]).map((g) => (
+              <SelectItem key={g} value={g}>
+                {groupByLabels[g]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <InventoryTable
         items={filtered}
+        categories={categories}
+        locations={locations}
+        groupBy={groupBy}
         dict={dict}
+        barcodeDict={barcodeDict}
         emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
       />
     </div>

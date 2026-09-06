@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { AddItemDialog } from "@/components/inventory/add-item-dialog";
+import { Button } from "@/components/ui/button";
+import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
 import { ExportCsvButton } from "@/components/export/export-csv-button";
 import type { StockStatus } from "@/lib/stock-status";
@@ -39,11 +40,13 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         </div>
         <div className="flex items-center gap-2">
           <ExportCsvButton href="/dashboard/inventory/export" label={dict.export.button} />
-          <AddItemDialog
+          <ItemFormDialog
+            mode="create"
             categories={categories}
             locations={locations}
             dict={dict.inventory}
             barcodeDict={dict.barcodeScanner}
+            trigger={<Button>{dict.inventory.addItem}</Button>}
           />
         </div>
       </div>
@@ -52,6 +55,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         categories={categories}
         locations={locations}
         dict={dict.inventory}
+        barcodeDict={dict.barcodeScanner}
         initialStatus={initialStatus}
       />
     </div>

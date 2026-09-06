@@ -10,14 +10,17 @@ import { format } from "@/lib/i18n/format";
 import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
 import type { ActionState } from "@/lib/actions/auth";
 
-async function findOrCreateInventoryItem(householdId: string, name: string) {
-  const existing = await prisma.inventoryItem.findFirst({
+/**
+ * Case-insensitive exact-name lookup only — never creates. Used wherever a
+ * shopping-list item should be auto-linked when it obviously already
+ * matches something in inventory, but left unlinked (rather than spawning a
+ * near-duplicate item) when it doesn't; the user then resolves it via
+ * linkShoppingListItemAction/createInventoryItemFromShoppingListItemAction
+ * below (see MapShoppingItemDialog).
+ */
+async function findExactInventoryItem(householdId: string, name: string) {
+  return prisma.inventoryItem.findFirst({
     where: { householdId, name: { equals: name, mode: "insensitive" } },
-  });
-  if (existing) return existing;
-
-  return prisma.inventoryItem.create({
-    data: { householdId, name, category: "Uncategorized", quantity: 0, lowStockThreshold: 0 },
   });
 }
 
@@ -148,17 +151,84 @@ export async function addAdHocItemAction(
   });
   if (!list) return { error: "This list can't be edited right now" };
 
-  const inventoryItem = await findOrCreateInventoryItem(household.id, parsed.data.name);
+  const inventoryItem = await findExactInventoryItem(household.id, parsed.data.name);
   await prisma.shoppingListItem.create({
     data: {
       shoppingListId: list.id,
-      inventoryItemId: inventoryItem.id,
+      inventoryItemId: inventoryItem?.id ?? null,
       name: parsed.data.name,
       quantity: parsed.data.quantity,
     },
   });
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  return {};
+}
+
+/**
+ * Links a shopping-list item that didn't resolve to an exact inventory-item
+ * match (see findExactInventoryItem above) to an existing inventory item the
+ * user picked themselves — the "choose an existing item" half of the
+ * mapping dialog (MapShoppingItemDialog).
+ */
+export async function linkShoppingListItemAction(
+  itemId: string,
+  inventoryItemId: string,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+  });
+  if (!item) return { error: "Item not found" };
+
+  const inventoryItem = await prisma.inventoryItem.findFirst({
+    where: { id: inventoryItemId, householdId: household.id },
+  });
+  if (!inventoryItem) return { error: "Inventory item not found" };
+
+  await prisma.shoppingListItem.update({
+    where: { id: item.id },
+    data: { inventoryItemId: inventoryItem.id },
+  });
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  return {};
+}
+
+/**
+ * Creates a brand-new inventory item from a shopping-list item's name and
+ * links it — the explicit "create new item" half of the mapping dialog,
+ * replacing the old implicit auto-create in findOrCreateInventoryItem.
+ */
+export async function createInventoryItemFromShoppingListItemAction(
+  itemId: string,
+  category: string,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+  });
+  if (!item) return { error: "Item not found" };
+
+  const inventoryItem = await prisma.inventoryItem.create({
+    data: {
+      householdId: household.id,
+      name: item.name,
+      category: category.trim() || "Uncategorized",
+      quantity: 0,
+      lowStockThreshold: 0,
+    },
+  });
+
+  await prisma.shoppingListItem.update({
+    where: { id: item.id },
+    data: { inventoryItemId: inventoryItem.id },
+  });
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/inventory");
   return {};
 }
 
@@ -215,7 +285,7 @@ export async function deleteShoppingListItemAction(itemId: string) {
 
 export async function completeShoppingListAction(
   listId: string,
-): Promise<{ expenseLoggedMessage?: string }> {
+): Promise<{ expenseLoggedMessage?: string; error?: string }> {
   const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -224,15 +294,16 @@ export async function completeShoppingListAction(
   });
   if (!list) return {};
 
-  // Every shopping list item should map 1:1 to an inventory item — link (or
-  // create) inventory items for anything that slipped through unlinked.
-  const unlinkedItems = list.items.filter((item) => item.inventoryItemId === null);
-  for (const item of unlinkedItems) {
-    const inventoryItem = await findOrCreateInventoryItem(household.id, item.name);
-    await prisma.shoppingListItem.update({
-      where: { id: item.id },
-      data: { inventoryItemId: inventoryItem.id },
-    });
+  // Every shopping list item should map 1:1 to an inventory item before a
+  // list can be completed — rather than silently inventing an inventory
+  // item for anything unlinked (the old behavior), refuse to complete and
+  // let the user resolve each one via the "needs mapping" row UI
+  // (MapShoppingItemDialog / linkShoppingListItemAction /
+  // createInventoryItemFromShoppingListItemAction above).
+  const dict = await getDictionary();
+  const hasUnresolvedItems = list.items.some((item) => item.inventoryItemId === null);
+  if (hasUnresolvedItems) {
+    return { error: dict.shoppingList.unresolvedItemsError };
   }
 
   await prisma.shoppingList.update({
@@ -251,7 +322,6 @@ export async function completeShoppingListAction(
     }
   }
 
-  const dict = await getDictionary();
   let expenseLoggedMessage: string | undefined;
 
   if (groceriesTotal > 0) {
