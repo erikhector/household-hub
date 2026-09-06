@@ -735,6 +735,84 @@ never blocks or breaks manual entry, at any failure point.
   and `shoppingList`, since the component and its copy are identical in
   both places.
 
+## Receipt scanning
+
+A "Scan receipt" button on an active shopping list's detail page
+(`ReceiptScanDialog`, `src/components/shopping/receipt-scan-dialog.tsx`,
+wired into `ShoppingListClient`) lets a household member photograph a paper
+receipt after a shop and, in one step, mark every matched list item
+purchased with its actual price — instead of pricing and checking off each
+item by hand. This is what feeds `PriceHistory` (and therefore the budget's
+Cost analyzer and Groceries expense on list completion) in the common case,
+so it directly serves "keep track of household spending".
+
+- **This was flagged as needing a paid vendor — it doesn't.** "Not yet
+  built" previously bucketed receipt OCR with bank-sync and social login as
+  needing a third-party account the product owner would have to provision.
+  That assumption held for cloud OCR vendors (Google Vision, AWS Textract,
+  ...), but **Tesseract.js** (npm, v7, MIT-derived/Apache-2.0, a WASM port
+  of the Tesseract OCR engine) runs entirely client-side with no API key,
+  no account, and no per-scan cost — so this shipped as a normal task
+  instead of staying deferred.
+- **OCR flow**: the "Scan receipt" button is a plain `<Button>` that clicks
+  a hidden `<input type="file" accept="image/*" capture="environment">` —
+  `capture="environment"` opens the device's rear camera directly on
+  mobile, and falls back to a normal file picker on desktop (no
+  `getUserMedia`/live-video loop needed, unlike barcode scanning, since a
+  single still photo of a receipt OCRs far better than a live camera
+  frame). Once a file is chosen, `tesseract.js` is dynamically imported
+  (`await import("tesseract.js")`, kept out of the initial bundle, same
+  lazy-loading convention as `barcode-detector` above) and
+  `createWorker(["eng", "swe"])` recognizes the `File` directly (a
+  browser-supported input type — no canvas/base64 conversion needed) before
+  being torn down with `worker.terminate()`.
+- **Parsing** (`src/lib/receipt-parsing.ts`, pure and unit-tested,
+  dependency-free like `item-matching.ts`): `parseReceiptText` splits the
+  OCR'd text into lines and keeps only ones that look like a priced item —
+  a trailing amount with exactly 2 decimal digits (what distinguishes a
+  price from a bare quantity, weight, or barcode elsewhere on the line),
+  with an optional leading "2 x " quantity prefix and an optional trailing
+  currency token. A boilerplate stoplist (Swedish + English: "summa",
+  "moms", "kort", "total", "vat", "kvitto", ...) drops non-item lines
+  (subtotals, VAT, payment method, "thank you") even when they carry a
+  trailing amount. `detectReceiptCurrency` separately scans the whole
+  receipt for the most frequent currency symbol/code, since a single
+  receipt is essentially always one currency.
+- **Currency conversion**: there's no per-household currency setting
+  anywhere in the schema — every amount in this app is a plain `Float` — so
+  `HOUSEHOLD_BASE_CURRENCY` (`src/lib/currency.ts`, currently `"SEK"`) is a
+  single fixed constant rather than a new setting. If a receipt's detected
+  (or user-corrected) currency differs, `applyReceiptScanAction`
+  (`src/app/dashboard/shopping-list/actions.ts`) fetches a live rate from
+  **Frankfurter** (`frankfurter.dev`, free ECB reference rates, no API key)
+  via `fetchExchangeRate` (`src/lib/exchange-rate.ts`) and converts every
+  matched line before saving; a failed fetch (offline, API down) reports an
+  error and applies nothing, rather than silently recording an unconverted
+  amount as if it were the base currency.
+- **Review before anything is written**: OCR and matching are both
+  heuristic, so nothing is auto-applied. `ReceiptScanDialog` shows every
+  parsed line with an editable price (OCR misreads a digit occasionally)
+  and a match dropdown pre-selected to the best fuzzy match against the
+  list's *pending* items (reusing `findInventoryMatches` from
+  `item-matching.ts` — generic enough to match against shopping-list items,
+  not just inventory items) when its similarity score clears a threshold,
+  else defaulting to "— Skip —" rather than guessing wrong. The user can
+  fix any price, change any match, or skip any line before confirming.
+- **Applying a scan** (`applyReceiptScanAction`): for every confirmed line,
+  sets the shopping-list item's `estimatedPrice` (converted) and marks it
+  `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
+  — bumping the linked inventory item's quantity and recording a
+  `PriceHistory` row — just batched across every scanned line in one
+  transaction instead of one checkbox at a time. De-dupes by
+  `shoppingListItemId` server-side (in case two OCR'd lines were ever
+  matched to the same item) so nothing is double-counted.
+- **Privacy**: exactly the same stance as barcode scanning — the receipt
+  photo is only ever read by the client-side OCR worker and never uploaded
+  anywhere; the server only ever receives the extracted item names, prices,
+  and currency the user has already reviewed.
+- **i18n**: all new strings live under `shoppingList.receiptScan` in
+  `en.ts`/`sv.ts`.
+
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
@@ -1227,12 +1305,13 @@ competitive analysis has now been built.
   Blob/Cloudinary/etc.); this app deliberately has zero file-storage
   infrastructure today (see the Profile avatar section's rationale for why
   that was avoided) and shouldn't gain one ad hoc inside an unrelated task.
-- **Bank/account sync, receipt OCR, native mobile app, social login
-  (Google/Apple)** — all clearly valuable per the competitive analysis, but
-  each needs a paid third-party service or developer credentials only the
-  product owner can provision (a Plaid/OCR vendor account, app store
-  enrollment, an OAuth consent screen). Flagged for a future decision, not
-  started here.
+- **Bank/account sync, native mobile app, social login (Google/Apple)** —
+  all clearly valuable per the competitive analysis, but each needs a paid
+  third-party service or developer credentials only the product owner can
+  provision (a Plaid account, app store enrollment, an OAuth consent
+  screen). Flagged for a future decision, not started here. (Receipt OCR
+  was in this bucket too, on the assumption it needed a paid vendor — see
+  "Receipt scanning" below for why that turned out not to be true.)
 - **PWA/offline support** — valuable for in-store/low-connectivity use, but
   touches app-wide service-worker and caching concerns; scope it as its own
   task once Wave 1/2 land rather than folding it into an unrelated one.

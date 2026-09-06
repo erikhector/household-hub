@@ -8,6 +8,8 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
+import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
+import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 
 /**
@@ -267,6 +269,94 @@ export async function togglePurchasedAction(itemId: string) {
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
+}
+
+export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
+
+/**
+ * Applies a reviewed receipt scan (see ReceiptScanDialog) to a shopping
+ * list: for every matched line, converts its price to
+ * HOUSEHOLD_BASE_CURRENCY if the receipt was in a different currency, sets
+ * that as the item's estimatedPrice, and marks it purchased — mirroring
+ * togglePurchasedAction's inventory-quantity/PriceHistory side effects, just
+ * batched across every scanned line in one transaction instead of one
+ * checkbox at a time.
+ *
+ * Only ever receives the OCR'd text/numbers the client already extracted
+ * (see receipt-parsing.ts) — the receipt photo itself never reaches the
+ * server, same privacy stance as the barcode scanner
+ * (src/components/shared/barcode-scanner.tsx).
+ */
+export async function applyReceiptScanAction(
+  listId: string,
+  currency: string,
+  matches: ReceiptScanMatch[],
+): Promise<ActionState & { itemsUpdated?: number; totalAmount?: number }> {
+  const { household } = await requireHousehold();
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId: household.id, status: "ACTIVE" },
+    include: { items: { include: { inventoryItem: true } } },
+  });
+  if (!list) return { error: "This list can't be edited right now" };
+
+  const itemsById = new Map(list.items.map((item) => [item.id, item]));
+  // Belt-and-braces de-dupe: if the client ever sent the same shopping-list
+  // item twice (e.g. two OCR'd lines both matched to it), only the first is
+  // applied — otherwise it would be double-counted into inventory and
+  // PriceHistory below.
+  const seen = new Set<string>();
+  const validMatches = matches.filter((m) => {
+    if (seen.has(m.shoppingListItemId)) return false;
+    const item = itemsById.get(m.shoppingListItemId);
+    if (!item || item.purchased || !Number.isFinite(m.price) || m.price <= 0) return false;
+    seen.add(m.shoppingListItemId);
+    return true;
+  });
+  if (validMatches.length === 0) return { error: "Nothing to apply" };
+
+  let rate = 1;
+  if (currency.toUpperCase() !== HOUSEHOLD_BASE_CURRENCY) {
+    const fetched = await fetchExchangeRate(currency, HOUSEHOLD_BASE_CURRENCY);
+    if (fetched === null) {
+      return {
+        error: `Couldn't fetch a ${currency} → ${HOUSEHOLD_BASE_CURRENCY} exchange rate right now. Try again shortly.`,
+      };
+    }
+    rate = fetched;
+  }
+
+  let totalAmount = 0;
+
+  await prisma.$transaction(async (tx) => {
+    for (const match of validMatches) {
+      const item = itemsById.get(match.shoppingListItemId)!;
+      const convertedPrice = Math.round(match.price * rate * 100) / 100;
+      totalAmount += convertedPrice;
+
+      await tx.shoppingListItem.update({
+        where: { id: item.id },
+        data: { estimatedPrice: convertedPrice, purchased: true },
+      });
+
+      if (item.inventoryItem) {
+        await tx.inventoryItem.update({
+          where: { id: item.inventoryItem.id },
+          data: { quantity: item.inventoryItem.quantity + item.quantity },
+        });
+        await tx.priceHistory.create({
+          data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
+        });
+      }
+    }
+  });
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/budget");
+
+  return { itemsUpdated: validMatches.length, totalAmount };
 }
 
 export async function deleteShoppingListItemAction(itemId: string) {

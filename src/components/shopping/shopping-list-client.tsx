@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExportCsvButton } from "@/components/export/export-csv-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { MapShoppingItemDialog } from "@/components/shopping/map-shopping-item-dialog";
+import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import {
   addAdHocItemAction,
   archiveShoppingListAction,
@@ -159,6 +160,13 @@ export function ShoppingListClient({
             >
               {dict.addLowStock}
             </Button>
+          )}
+          {isActive && pendingItems.length > 0 && (
+            <ReceiptScanDialog
+              listId={list.id}
+              pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name }))}
+              dict={dict.receiptScan}
+            />
           )}
           {isActive && list.items.length > 0 && (
             <Button
