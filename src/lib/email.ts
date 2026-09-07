@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { logger } from "@/lib/logger";
 
 // Resend chosen over alternatives (Nodemailer+SMTP, SendGrid, Postmark) as
 // the least-friction option for a Next.js app: no SMTP server to run, a
@@ -50,7 +51,7 @@ export async function sendHouseholdInviteEmail({
     }
     return {};
   } catch (err) {
-    console.error("Failed to send invite email", err);
+    logger.error("Failed to send invite email", { error: err });
     return { error: "Failed to send email" };
   }
 }

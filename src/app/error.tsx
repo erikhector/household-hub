@@ -6,6 +6,7 @@ import { RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientLocale } from "@/lib/i18n/client-locale";
+import { logger } from "@/lib/logger";
 
 const COPY = {
   en: {
@@ -43,7 +44,7 @@ export default function ErrorBoundary({
   // one-render text mismatch is expected and intentionally suppressed here,
   // the same tradeoff RootLayout already makes for the theme class.
   useEffect(() => {
-    console.error(error);
+    logger.error("Unhandled error boundary", { error });
   }, [error]);
 
   const copy = COPY[getClientLocale()];

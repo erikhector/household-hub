@@ -1,4 +1,5 @@
 import type { ActionState } from "@/lib/actions/auth";
+import { logger } from "@/lib/logger";
 
 /**
  * Converts an unexpected error (DB failure, network blip, etc. — anything
@@ -12,6 +13,6 @@ import type { ActionState } from "@/lib/actions/auth";
  * `revalidatePath`/`redirect` run outside the try block.
  */
 export function toFriendlyError(error: unknown): ActionState {
-  console.error(error);
+  logger.error("Unexpected error in server action", { error });
   return { error: "Something went wrong. Please try again." };
 }
