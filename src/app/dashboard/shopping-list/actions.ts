@@ -158,6 +158,31 @@ const addItemSchema = z.object({
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
 });
 
+/**
+ * Shared by addAdHocItemAction and quickAddShoppingListItemAction below —
+ * both just create a shopping-list item ad hoc (auto-linking to inventory
+ * when the name matches exactly, same as findExactInventoryItem everywhere
+ * else), they just differ in where the input comes from and what they hand
+ * back to the caller.
+ */
+async function createAdHocShoppingListItem(householdId: string, listId: string, name: string, quantity: number) {
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId, status: "ACTIVE" },
+  });
+  if (!list) return { error: "This list can't be edited right now" } as const;
+
+  const inventoryItem = await findExactInventoryItem(householdId, name);
+  const item = await prisma.shoppingListItem.create({
+    data: {
+      shoppingListId: list.id,
+      inventoryItemId: inventoryItem?.id ?? null,
+      name,
+      quantity,
+    },
+  });
+  return { list, item } as const;
+}
+
 export async function addAdHocItemAction(
   _prevState: ActionState,
   formData: FormData,
@@ -173,27 +198,53 @@ export async function addAdHocItemAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const list = await prisma.shoppingList.findFirst({
-    where: { id: parsed.data.listId, householdId: household.id, status: "ACTIVE" },
-  });
-  if (!list) return { error: "This list can't be edited right now" };
-
   try {
-    const inventoryItem = await findExactInventoryItem(household.id, parsed.data.name);
-    await prisma.shoppingListItem.create({
-      data: {
-        shoppingListId: list.id,
-        inventoryItemId: inventoryItem?.id ?? null,
-        name: parsed.data.name,
-        quantity: parsed.data.quantity,
-      },
-    });
+    const result = await createAdHocShoppingListItem(
+      household.id,
+      parsed.data.listId,
+      parsed.data.name,
+      parsed.data.quantity,
+    );
+    if ("error" in result) return { error: result.error };
+    revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
   } catch (error) {
     return toFriendlyError(error);
   }
 
-  revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return {};
+}
+
+/**
+ * Adds a new shopping-list item on the fly and hands back its id/name —
+ * used by ReceiptScanDialog when a scanned line doesn't match anything
+ * already on the list, so the user can create a match target for it without
+ * leaving the scan review flow.
+ */
+export async function quickAddShoppingListItemAction(
+  listId: string,
+  name: string,
+  quantity: number,
+): Promise<ActionState & { item?: { id: string; name: string } }> {
+  const { household } = await requireHousehold();
+
+  const parsed = addItemSchema.safeParse({ listId, name, quantity: quantity || 1 });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  try {
+    const result = await createAdHocShoppingListItem(
+      household.id,
+      parsed.data.listId,
+      parsed.data.name,
+      parsed.data.quantity,
+    );
+    if ("error" in result) return { error: result.error };
+    revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
+    return { item: { id: result.item.id, name: result.item.name } };
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 }
 
 /**

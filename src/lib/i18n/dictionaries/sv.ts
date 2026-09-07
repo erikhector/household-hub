@@ -212,6 +212,10 @@ export const sv = {
       priceLabel: "Pris",
       matchLabel: "Matchar",
       qtyLabel: "antal {qty}",
+      noMatchHint: "Ingen matchning hittades",
+      addAsNewItem: "Lägg till \"{name}\" som ny vara",
+      addButton: "Lägg till",
+      addingItem: "Lägger till…",
       applying: "Lägger till…",
       apply: "Lägg till på listan",
       cancel: "Avbryt",
@@ -219,6 +223,7 @@ export const sv = {
       ocrError: "Kunde inte läsa bilden. Prova ett tydligare foto av kvittot.",
       rateError: "Kunde inte omvandla {currency} just nu — försök igen om en stund.",
       noMatchesError: "Matcha minst en rad mot en vara på listan innan du lägger till.",
+      addItemError: "Kunde inte lägga till varan — försök igen.",
     },
   },
   inventory: {

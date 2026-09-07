@@ -215,6 +215,10 @@ export const en = {
       priceLabel: "Price",
       matchLabel: "Matches",
       qtyLabel: "qty {qty}",
+      noMatchHint: "No match found",
+      addAsNewItem: "Add \"{name}\" as a new item",
+      addButton: "Add",
+      addingItem: "Adding…",
       applying: "Applying…",
       apply: "Apply to list",
       cancel: "Cancel",
@@ -222,6 +226,7 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       rateError: "Couldn't convert {currency} right now — try again in a moment.",
       noMatchesError: "Match at least one line to a list item before applying.",
+      addItemError: "Couldn't add that item — try again.",
     },
   },
   inventory: {

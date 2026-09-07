@@ -18,13 +18,13 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { applyReceiptScanAction } from "@/app/dashboard/shopping-list/actions";
+import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { detectReceiptCurrency, parseReceiptText, type ParsedReceiptLine } from "@/lib/receipt-parsing";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
@@ -66,12 +66,22 @@ export function ReceiptScanDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>(HOUSEHOLD_BASE_CURRENCY);
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  // Items created mid-scan via the "add as new item" shortcut below, kept
+  // separate from the `pendingItems` prop (which only updates once the
+  // parent server component revalidates) so a newly created item shows up
+  // in every row's match dropdown immediately.
+  const [extraItems, setExtraItems] = useState<PendingItem[]>([]);
+  const [addingKey, setAddingKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const matchOptions = [...pendingItems, ...extraItems];
 
   function reset() {
     setPhase("idle");
     setErrorMessage(null);
     setRows([]);
+    setExtraItems([]);
+    setAddingKey(null);
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
   }
 
@@ -123,6 +133,20 @@ export function ReceiptScanDialog({
 
   function updateRow(key: string, patch: Partial<ReviewRow>) {
     setRows((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  }
+
+  async function handleAddAsNewItem(row: ReviewRow) {
+    setAddingKey(row.key);
+    setErrorMessage(null);
+    const result = await quickAddShoppingListItemAction(listId, row.name, row.quantity);
+    setAddingKey(null);
+    if (result.error || !result.item) {
+      setErrorMessage(result.error ?? dict.addItemError);
+      return;
+    }
+    const newItem = result.item;
+    setExtraItems((prev) => [...prev, newItem]);
+    updateRow(row.key, { matchId: newItem.id });
   }
 
   function handleApply() {
@@ -238,54 +262,79 @@ export function ReceiptScanDialog({
               </div>
 
               <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-                {rows.map((row) => (
-                  <div
-                    key={row.key}
-                    className="flex flex-col gap-2 rounded-md border p-2 sm:flex-row sm:items-center"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium" title={row.name}>
-                        {row.name}
-                      </p>
-                      {row.quantity !== 1 && (
-                        <p className="text-xs text-muted-foreground">
-                          {format(dict.qtyLabel, { qty: row.quantity })}
+                {rows.map((row) => {
+                  const isUnmatched = row.matchId === SKIP_VALUE;
+                  const isAdding = addingKey === row.key;
+                  return (
+                    <div
+                      key={row.key}
+                      className="flex flex-col gap-2 rounded-md border p-2 sm:flex-row sm:items-center"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium" title={row.name}>
+                          {row.name}
                         </p>
+                        {row.quantity !== 1 && (
+                          <p className="text-xs text-muted-foreground">
+                            {format(dict.qtyLabel, { qty: row.quantity })}
+                          </p>
+                        )}
+                        {isUnmatched && (
+                          <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>
+                        )}
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="any"
+                        value={row.price}
+                        onChange={(e) => updateRow(row.key, { price: e.target.value })}
+                        className="w-24 shrink-0"
+                        aria-label={dict.priceLabel}
+                      />
+                      <Select
+                        value={row.matchId}
+                        onValueChange={(v) => updateRow(row.key, { matchId: String(v) })}
+                      >
+                        <SelectTrigger className="w-full sm:w-48" aria-label={dict.matchLabel}>
+                          <SelectValue>
+                            {(v: string) =>
+                              v === SKIP_VALUE
+                                ? dict.skipOption
+                                : (matchOptions.find((i) => i.id === v)?.name ?? v)
+                            }
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={SKIP_VALUE}>{dict.skipOption}</SelectItem>
+                          {matchOptions.map((item) => (
+                            <SelectItem key={item.id} value={item.id}>
+                              {item.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isUnmatched && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={isAdding}
+                          onClick={() => void handleAddAsNewItem(row)}
+                          title={format(dict.addAsNewItem, { name: row.name })}
+                        >
+                          {isAdding ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Plus className="size-4" />
+                          )}
+                          {isAdding ? dict.addingItem : dict.addButton}
+                        </Button>
                       )}
                     </div>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      value={row.price}
-                      onChange={(e) => updateRow(row.key, { price: e.target.value })}
-                      className="w-24 shrink-0"
-                      aria-label={dict.priceLabel}
-                    />
-                    <Select
-                      value={row.matchId}
-                      onValueChange={(v) => updateRow(row.key, { matchId: String(v) })}
-                    >
-                      <SelectTrigger className="w-full sm:w-48" aria-label={dict.matchLabel}>
-                        <SelectValue>
-                          {(v: string) =>
-                            v === SKIP_VALUE
-                              ? dict.skipOption
-                              : (pendingItems.find((i) => i.id === v)?.name ?? v)
-                          }
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={SKIP_VALUE}>{dict.skipOption}</SelectItem>
-                        {pendingItems.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
