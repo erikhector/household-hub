@@ -32,6 +32,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/auth", () => ({ signIn: signInMock, signOut: signOutMock }));
 
 const { signupAction, loginAction } = await import("@/lib/actions/auth");
+const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -48,6 +49,7 @@ const validSignup = {
 
 afterEach(() => {
   vi.clearAllMocks();
+  _resetRateLimitsForTests();
 });
 
 describe("signupAction validation", () => {
@@ -133,5 +135,67 @@ describe("loginAction", () => {
     );
 
     expect(result).toEqual({});
+  });
+
+  it("normalizes email case before checking credentials", async () => {
+    signInMock.mockResolvedValue(undefined);
+
+    await loginAction({}, formData({ email: "Erik@Example.com", password: "supersecret" }));
+
+    expect(signInMock).toHaveBeenCalledWith(
+      "credentials",
+      expect.objectContaining({ email: "erik@example.com" }),
+    );
+  });
+
+  // Regression coverage for the brute-force fix: unlimited login attempts
+  // used to be possible against a single account (see LOGIN_RATE_LIMIT in
+  // src/lib/actions/auth.ts).
+  it("rate-limits repeated attempts against the same email without ever calling signIn again", async () => {
+    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
+
+    for (let i = 0; i < 10; i++) {
+      await loginAction({}, formData({ email: "victim@example.com", password: `guess${i}` }));
+    }
+    signInMock.mockClear();
+
+    const result = await loginAction(
+      {},
+      formData({ email: "victim@example.com", password: "guess11" }),
+    );
+
+    expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
+    expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rate-limit a different email after another account is throttled", async () => {
+    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
+    for (let i = 0; i < 10; i++) {
+      await loginAction({}, formData({ email: "victim@example.com", password: `guess${i}` }));
+    }
+
+    signInMock.mockResolvedValue(undefined);
+    const result = await loginAction(
+      {},
+      formData({ email: "someone-else@example.com", password: "supersecret" }),
+    );
+
+    expect(result).toEqual({});
+  });
+});
+
+describe("signupAction rate limiting", () => {
+  it("blocks repeated signup attempts for the same email after the limit", async () => {
+    findUniqueMock.mockResolvedValue({ id: "existing-user" });
+
+    for (let i = 0; i < 5; i++) {
+      await signupAction({}, formData(validSignup));
+    }
+    findUniqueMock.mockClear();
+
+    const result = await signupAction({}, formData(validSignup));
+
+    expect(result.error).toBe("Too many attempts. Please wait a while and try again.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
   });
 });

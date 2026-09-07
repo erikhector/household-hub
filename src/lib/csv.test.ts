@@ -37,6 +37,36 @@ describe("buildCsv", () => {
     const csv = buildCsv(["Amount"], [[12.5]]);
     expect(csv).toBe("Amount\r\n12.5\r\n");
   });
+
+  it("guards a string cell starting with '=' against formula injection", () => {
+    const csv = buildCsv(["Name"], [['=HYPERLINK("https://evil.example","click")']]);
+    expect(csv).toBe('Name\r\n"\'=HYPERLINK(""https://evil.example"",""click"")"\r\n');
+  });
+
+  it("guards string cells starting with +, -, @, tab, or CR", () => {
+    const csv = buildCsv(
+      ["Name"],
+      [["+1+1"], ["-2+3"], ["@SUM(A1:A9)"], ["\tcmd"], ["\rcmd"]],
+    );
+    const rows = csv.trim().split("\r\n").slice(1);
+    expect(rows).toEqual([
+      "'+1+1",
+      "'-2+3",
+      "'@SUM(A1:A9)",
+      "'\tcmd",
+      '"\'\rcmd"',
+    ]);
+  });
+
+  it("does not guard a plain negative number cell", () => {
+    const csv = buildCsv(["Amount"], [[-5]]);
+    expect(csv).toBe("Amount\r\n-5\r\n");
+  });
+
+  it("does not mangle an ordinary string that merely contains a hyphen", () => {
+    const csv = buildCsv(["Name"], [["Sugar-free syrup"]]);
+    expect(csv).toBe("Name\r\nSugar-free syrup\r\n");
+  });
 });
 
 describe("csvResponse", () => {

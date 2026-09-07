@@ -13,6 +13,7 @@ import { signIn } from "@/lib/auth";
 import { sendHouseholdInviteEmail } from "@/lib/email";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -42,10 +43,22 @@ export async function createInviteAction(): Promise<{ url?: string; token?: stri
   return { url: `/join/${invitation.token}`, token: invitation.token };
 }
 
+// Building this from the request's Host/X-Forwarded-Host header would let
+// anyone who can shape their own HTTP request (trivial with curl — the
+// browser's address bar plays no part in it) get this app to mail a
+// household invite link that points at an attacker-controlled domain, while
+// the token embedded in it is entirely real. That's a phishing primer
+// disguised as a legitimate invite, so the base URL must come from a value
+// only the deployer controls. APP_URL is checked first; the header-derived
+// guess only remains as a local-dev convenience when it's unset (so
+// `npm run dev` keeps working with no setup).
 async function absoluteAppUrl(path: string): Promise<string> {
+  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
+  if (configured) return `${configured}${path}`;
+
   const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
-  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const host = headerList.get("host") ?? "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
   return `${proto}://${host}${path}`;
 }
 
@@ -139,6 +152,11 @@ export async function acceptInviteAction(
   redirect("/dashboard");
 }
 
+// Mirrors auth.ts's SIGNUP_RATE_LIMIT — same account-creation/enumeration
+// abuse this join-via-invite flow is equally exposed to.
+const JOIN_SIGNUP_RATE_LIMIT = 5;
+const JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
 const joinSignupSchema = z.object({
   token: z.string().min(1),
   displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
@@ -163,6 +181,10 @@ export async function joinViaInviteSignupAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   const { token, displayName, email, password } = parsed.data;
+
+  if (!checkRateLimit(`join-signup:${email}`, JOIN_SIGNUP_RATE_LIMIT, JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS)) {
+    return { error: "Too many attempts. Please wait a while and try again." };
+  }
 
   const invitation = await getValidInvitation(token);
   if (!invitation) return { error: "This invite link is invalid or has expired" };

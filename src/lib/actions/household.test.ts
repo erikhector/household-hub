@@ -16,16 +16,20 @@ const {
   householdCreateMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
+  invitationFindFirstMock,
   transactionMock,
   requireHouseholdMock,
   cookieSetMock,
+  headersMock,
   redirectMock,
   revalidatePathMock,
   signInMock,
+  sendHouseholdInviteEmailMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
+  invitationFindFirstMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
     user: { create: vi.fn(async () => ({ id: "new-user" })) },
     householdMember: { create: vi.fn(async () => ({})) },
@@ -33,18 +37,20 @@ const {
   })),
   requireHouseholdMock: vi.fn(),
   cookieSetMock: vi.fn(),
+  headersMock: vi.fn(async () => new Map()),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
   }),
   revalidatePathMock: vi.fn(),
   signInMock: vi.fn(),
+  sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     household: { create: householdCreateMock },
     user: { findUnique: userFindUniqueMock },
-    invitation: { findUnique: invitationFindUniqueMock },
+    invitation: { findUnique: invitationFindUniqueMock, findFirst: invitationFindFirstMock },
     $transaction: transactionMock,
   },
 }));
@@ -55,16 +61,16 @@ vi.mock("@/lib/session", () => ({
 vi.mock("@/lib/auth", () => ({ signIn: signInMock }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build (same class of issue as the
-// next-auth mock above) — stub it since these tests don't exercise
-// sendInviteEmailAction.
-vi.mock("@/lib/email", () => ({ sendHouseholdInviteEmail: vi.fn() }));
+// next-auth mock above) — stub it out.
+vi.mock("@/lib/email", () => ({ sendHouseholdInviteEmail: sendHouseholdInviteEmailMock }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
+  headers: headersMock,
 }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { createHouseholdAction, joinViaInviteSignupAction } = await import(
+const { createHouseholdAction, joinViaInviteSignupAction, sendInviteEmailAction } = await import(
   "@/lib/actions/household"
 );
 
@@ -74,11 +80,16 @@ function formData(fields: Record<string, string>) {
   return fd;
 }
 
+const originalAppUrl = process.env.APP_URL;
+
 afterEach(() => {
   vi.clearAllMocks();
   redirectMock.mockImplementation((path: string) => {
     throw new Error(`REDIRECT:${path}`);
   });
+  headersMock.mockImplementation(async () => new Map());
+  if (originalAppUrl === undefined) delete process.env.APP_URL;
+  else process.env.APP_URL = originalAppUrl;
 });
 
 describe("createHouseholdAction validation (createHouseholdSchema)", () => {
@@ -187,5 +198,52 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
       password: validInput.password,
       redirectTo: "/dashboard",
     });
+  });
+});
+
+// Regression coverage for the host-header-injection fix in
+// absoluteAppUrl (src/lib/actions/household.ts): the invite link mailed out
+// must come from a trusted source (APP_URL), never straight from
+// caller-suppliable request headers — otherwise anyone who can shape their
+// own HTTP request (curl, not just a browser) could get a real, valid
+// invite token mailed inside a link pointing at a domain of their choosing.
+describe("sendInviteEmailAction (absoluteAppUrl trust boundary)", () => {
+  const validInvitation = {
+    id: "invite-1",
+    token: "invite-token",
+    householdId: "household-1",
+    acceptedAt: null,
+    expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+  };
+
+  it("builds the invite URL from APP_URL when it's configured, ignoring request headers", async () => {
+    process.env.APP_URL = "https://real-app.example.com/";
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1", name: "The Hectors" } });
+    invitationFindFirstMock.mockResolvedValue(validInvitation);
+    headersMock.mockResolvedValue(
+      new Map([
+        ["host", "attacker.example.com"],
+        ["x-forwarded-host", "attacker.example.com"],
+      ]),
+    );
+
+    await sendInviteEmailAction("invite-token", "friend@example.com");
+
+    expect(sendHouseholdInviteEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ inviteUrl: "https://real-app.example.com/join/invite-token" }),
+    );
+  });
+
+  it("falls back to the Host header only when APP_URL is unset (local-dev convenience)", async () => {
+    delete process.env.APP_URL;
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1", name: "The Hectors" } });
+    invitationFindFirstMock.mockResolvedValue(validInvitation);
+    headersMock.mockResolvedValue(new Map([["host", "localhost:3000"]]));
+
+    await sendInviteEmailAction("invite-token", "friend@example.com");
+
+    expect(sendHouseholdInviteEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ inviteUrl: "http://localhost:3000/join/invite-token" }),
+    );
   });
 });
