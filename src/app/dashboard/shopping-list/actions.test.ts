@@ -250,6 +250,47 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     const result = await quickAddShoppingListItemAction("list-1", "Eggs", 2);
 
     expect(result).toEqual({ item: { id: "item-9", name: "Eggs" } });
+    expect(inventoryItemCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("quickAddShoppingListItemAction with newItemDetails creates a new inventory item (category/unit) and links it when there's no exact-name match", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-9", name: "Kycklingfilé" });
+
+    const result = await quickAddShoppingListItemAction("list-1", "Kycklingfilé", 0.556, {
+      category: "Meat",
+      unit: "kg",
+    });
+
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Kycklingfilé",
+        category: "Meat",
+        unit: "kg",
+        quantity: 0,
+        lowStockThreshold: 0,
+      },
+    });
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: { shoppingListId: "list-1", inventoryItemId: "inv-new", name: "Kycklingfilé", quantity: 0.556 },
+    });
+    expect(result).toEqual({ item: { id: "item-9", name: "Kycklingfilé" } });
+  });
+
+  it("quickAddShoppingListItemAction with newItemDetails still links the exact-name match instead of creating a duplicate", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-existing" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-9", name: "Milk" });
+
+    await quickAddShoppingListItemAction("list-1", "Milk", 1, { category: "Dairy", unit: "l" });
+
+    expect(inventoryItemCreateMock).not.toHaveBeenCalled();
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: { shoppingListId: "list-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1 },
+    });
   });
 });
 

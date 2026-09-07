@@ -26,10 +26,13 @@ export default async function ShoppingListDetailPage(
   ]);
   if (!list) notFound();
 
+  const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
+
   return (
     <ShoppingListClient
       list={list}
       inventoryItems={inventoryItems}
+      categories={categories}
       dict={dict.shoppingList}
       barcodeDict={dict.barcodeScanner}
       exportLabel={dict.export.button}

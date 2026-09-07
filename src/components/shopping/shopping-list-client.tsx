@@ -117,12 +117,14 @@ function AddItemForm({
 export function ShoppingListClient({
   list,
   inventoryItems,
+  categories,
   dict,
   barcodeDict,
   exportLabel,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
+  categories: string[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
@@ -171,6 +173,7 @@ export function ShoppingListClient({
             <ReceiptScanDialog
               listId={list.id}
               pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name }))}
+              categories={categories}
               dict={dict.receiptScan}
             />
           )}

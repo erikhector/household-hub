@@ -164,14 +164,40 @@ const addItemSchema = z.object({
  * when the name matches exactly, same as findExactInventoryItem everywhere
  * else), they just differ in where the input comes from and what they hand
  * back to the caller.
+ *
+ * `newItemDetails`, when given, lets the caller (ReceiptScanDialog's "add as
+ * new item" shortcut) specify the category/unit a brand-new InventoryItem
+ * should get when no exact-name match exists — OCR'd names are unreliable
+ * enough that auto-mapping shouldn't silently guess those. addAdHocItemAction
+ * doesn't pass this, so it keeps its old behavior of leaving inventoryItemId
+ * null when there's no exact match.
  */
-async function createAdHocShoppingListItem(householdId: string, listId: string, name: string, quantity: number) {
+async function createAdHocShoppingListItem(
+  householdId: string,
+  listId: string,
+  name: string,
+  quantity: number,
+  newItemDetails?: { category: string; unit: string },
+) {
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId, status: "ACTIVE" },
   });
   if (!list) return { error: "This list can't be edited right now" } as const;
 
-  const inventoryItem = await findExactInventoryItem(householdId, name);
+  let inventoryItem = await findExactInventoryItem(householdId, name);
+  if (!inventoryItem && newItemDetails) {
+    inventoryItem = await prisma.inventoryItem.create({
+      data: {
+        householdId,
+        name,
+        category: newItemDetails.category || "Uncategorized",
+        unit: newItemDetails.unit || "pcs",
+        quantity: 0,
+        lowStockThreshold: 0,
+      },
+    });
+  }
+
   const item = await prisma.shoppingListItem.create({
     data: {
       shoppingListId: list.id,
@@ -214,20 +240,33 @@ export async function addAdHocItemAction(
   return {};
 }
 
+const quickAddSchema = addItemSchema.extend({
+  category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
+  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+});
+
 /**
  * Adds a new shopping-list item on the fly and hands back its id/name —
  * used by ReceiptScanDialog when a scanned line doesn't match anything
  * already on the list, so the user can create a match target for it without
- * leaving the scan review flow.
+ * leaving the scan review flow. `newItemDetails` is only used when that
+ * creates a brand-new InventoryItem (see createAdHocShoppingListItem above).
  */
 export async function quickAddShoppingListItemAction(
   listId: string,
   name: string,
   quantity: number,
+  newItemDetails?: { category: string; unit: string },
 ): Promise<ActionState & { item?: { id: string; name: string } }> {
   const { household } = await requireHousehold();
 
-  const parsed = addItemSchema.safeParse({ listId, name, quantity: quantity || 1 });
+  const parsed = quickAddSchema.safeParse({
+    listId,
+    name,
+    quantity: quantity || 1,
+    category: newItemDetails?.category,
+    unit: newItemDetails?.unit,
+  });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
@@ -238,6 +277,7 @@ export async function quickAddShoppingListItemAction(
       parsed.data.listId,
       parsed.data.name,
       parsed.data.quantity,
+      newItemDetails ? { category: parsed.data.category ?? "", unit: parsed.data.unit ?? "" } : undefined,
     );
     if ("error" in result) return { error: result.error };
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);

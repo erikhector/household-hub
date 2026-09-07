@@ -44,6 +44,13 @@ type ReviewRow = {
   matchId: string;
 };
 
+/** Draft fields for the inline "add as new item" form — OCR'd name/quantity
+ * are only a starting point, since a misread digit or a garbled product name
+ * is common, and auto-mapping can't guess a category or unit at all. */
+type NewItemDraft = { name: string; quantity: string; unit: string; category: string };
+
+const NEW_ITEM_CATEGORY_DATALIST_ID = "receipt-scan-new-item-categories";
+
 type Phase = "idle" | "reading" | "review" | "applying" | "error";
 
 const SKIP_VALUE = "__skip__";
@@ -55,10 +62,12 @@ const AUTO_MATCH_MIN_SCORE = 0.35;
 export function ReceiptScanDialog({
   listId,
   pendingItems,
+  categories,
   dict,
 }: {
   listId: string;
   pendingItems: PendingItem[];
+  categories: string[];
   dict: Dictionary["shoppingList"]["receiptScan"];
 }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +81,16 @@ export function ReceiptScanDialog({
   // in every row's match dropdown immediately.
   const [extraItems, setExtraItems] = useState<PendingItem[]>([]);
   const [addingKey, setAddingKey] = useState<string | null>(null);
+  // Which row's inline "add as new item" form is open, and its draft fields
+  // — kept separate from ReviewRow since these are only relevant while
+  // creating the new item, not once it exists.
+  const [newItemDraftKey, setNewItemDraftKey] = useState<string | null>(null);
+  const [newItemDraft, setNewItemDraft] = useState<NewItemDraft>({
+    name: "",
+    quantity: "1",
+    unit: "pcs",
+    category: "",
+  });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const matchOptions = [...pendingItems, ...extraItems];
@@ -82,6 +101,7 @@ export function ReceiptScanDialog({
     setRows([]);
     setExtraItems([]);
     setAddingKey(null);
+    setNewItemDraftKey(null);
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
   }
 
@@ -135,10 +155,27 @@ export function ReceiptScanDialog({
     setRows((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
   }
 
-  async function handleAddAsNewItem(row: ReviewRow) {
+  function openNewItemDraft(row: ReviewRow) {
+    setErrorMessage(null);
+    setNewItemDraftKey(row.key);
+    setNewItemDraft({ name: row.name, quantity: String(row.quantity), unit: "pcs", category: "" });
+  }
+
+  function updateNewItemDraft(patch: Partial<NewItemDraft>) {
+    setNewItemDraft((prev) => ({ ...prev, ...patch }));
+  }
+
+  async function handleConfirmNewItem(row: ReviewRow) {
+    const name = newItemDraft.name.trim();
+    const quantity = Number(newItemDraft.quantity);
+    if (!name || !Number.isFinite(quantity) || quantity <= 0) return;
+
     setAddingKey(row.key);
     setErrorMessage(null);
-    const result = await quickAddShoppingListItemAction(listId, row.name, row.quantity);
+    const result = await quickAddShoppingListItemAction(listId, name, quantity, {
+      category: newItemDraft.category,
+      unit: newItemDraft.unit,
+    });
     setAddingKey(null);
     if (result.error || !result.item) {
       setErrorMessage(result.error ?? dict.addItemError);
@@ -146,7 +183,8 @@ export function ReceiptScanDialog({
     }
     const newItem = result.item;
     setExtraItems((prev) => [...prev, newItem]);
-    updateRow(row.key, { matchId: newItem.id });
+    updateRow(row.key, { matchId: newItem.id, name, quantity });
+    setNewItemDraftKey(null);
   }
 
   function handleApply() {
@@ -242,8 +280,13 @@ export function ReceiptScanDialog({
           )}
 
           {(phase === "review" || phase === "applying") && (
-            <div className="flex flex-col gap-4">
+            <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
               <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
+              <datalist id={NEW_ITEM_CATEGORY_DATALIST_ID}>
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="receipt-currency">{dict.currencyLabel}</Label>
@@ -261,76 +304,149 @@ export function ReceiptScanDialog({
                 </Select>
               </div>
 
-              <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+              <div className="flex flex-col gap-2">
                 {rows.map((row) => {
                   const isUnmatched = row.matchId === SKIP_VALUE;
                   const isAdding = addingKey === row.key;
+                  const isDraftOpen = newItemDraftKey === row.key;
                   return (
-                    <div
-                      key={row.key}
-                      className="flex flex-col gap-2 rounded-md border p-2 sm:flex-row sm:items-center"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium" title={row.name}>
-                          {row.name}
-                        </p>
-                        {row.quantity !== 1 && (
-                          <p className="text-xs text-muted-foreground">
-                            {format(dict.qtyLabel, { qty: row.quantity })}
+                    <div key={row.key} className="flex flex-col gap-2 rounded-md border p-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium" title={row.name}>
+                            {row.name}
                           </p>
-                        )}
-                        {isUnmatched && (
-                          <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>
+                          {row.quantity !== 1 && (
+                            <p className="text-xs text-muted-foreground">
+                              {format(dict.qtyLabel, { qty: row.quantity })}
+                            </p>
+                          )}
+                          {isUnmatched && !isDraftOpen && (
+                            <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>
+                          )}
+                        </div>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="any"
+                          value={row.price}
+                          onChange={(e) => updateRow(row.key, { price: e.target.value })}
+                          className="w-24 shrink-0"
+                          aria-label={dict.priceLabel}
+                        />
+                        <Select
+                          value={row.matchId}
+                          onValueChange={(v) => updateRow(row.key, { matchId: String(v) })}
+                        >
+                          <SelectTrigger className="w-full sm:w-48" aria-label={dict.matchLabel}>
+                            <SelectValue>
+                              {(v: string) =>
+                                v === SKIP_VALUE
+                                  ? dict.skipOption
+                                  : (matchOptions.find((i) => i.id === v)?.name ?? v)
+                              }
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={SKIP_VALUE}>{dict.skipOption}</SelectItem>
+                            {matchOptions.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>
+                                {item.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isUnmatched && !isDraftOpen && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => openNewItemDraft(row)}
+                            title={format(dict.addAsNewItem, { name: row.name })}
+                          >
+                            <Plus className="size-4" />
+                            {dict.addButton}
+                          </Button>
                         )}
                       </div>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={row.price}
-                        onChange={(e) => updateRow(row.key, { price: e.target.value })}
-                        className="w-24 shrink-0"
-                        aria-label={dict.priceLabel}
-                      />
-                      <Select
-                        value={row.matchId}
-                        onValueChange={(v) => updateRow(row.key, { matchId: String(v) })}
-                      >
-                        <SelectTrigger className="w-full sm:w-48" aria-label={dict.matchLabel}>
-                          <SelectValue>
-                            {(v: string) =>
-                              v === SKIP_VALUE
-                                ? dict.skipOption
-                                : (matchOptions.find((i) => i.id === v)?.name ?? v)
-                            }
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={SKIP_VALUE}>{dict.skipOption}</SelectItem>
-                          {matchOptions.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {isUnmatched && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="shrink-0"
-                          disabled={isAdding}
-                          onClick={() => void handleAddAsNewItem(row)}
-                          title={format(dict.addAsNewItem, { name: row.name })}
-                        >
-                          {isAdding ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            <Plus className="size-4" />
-                          )}
-                          {isAdding ? dict.addingItem : dict.addButton}
-                        </Button>
+
+                      {isDraftOpen && (
+                        <div className="flex flex-col gap-2 rounded-md border border-dashed p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col gap-1">
+                              <Label htmlFor={`${row.key}-new-name`} className="text-xs">
+                                {dict.newItemNameLabel}
+                              </Label>
+                              <Input
+                                id={`${row.key}-new-name`}
+                                value={newItemDraft.name}
+                                onChange={(e) => updateNewItemDraft({ name: e.target.value })}
+                                maxLength={120}
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Label htmlFor={`${row.key}-new-quantity`} className="text-xs">
+                                {dict.newItemQuantityLabel}
+                              </Label>
+                              <Input
+                                id={`${row.key}-new-quantity`}
+                                type="number"
+                                min={0.01}
+                                step="any"
+                                value={newItemDraft.quantity}
+                                onChange={(e) => updateNewItemDraft({ quantity: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col gap-1">
+                              <Label htmlFor={`${row.key}-new-unit`} className="text-xs">
+                                {dict.newItemUnitLabel}
+                              </Label>
+                              <Input
+                                id={`${row.key}-new-unit`}
+                                value={newItemDraft.unit}
+                                onChange={(e) => updateNewItemDraft({ unit: e.target.value })}
+                                maxLength={20}
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Label htmlFor={`${row.key}-new-category`} className="text-xs">
+                                {dict.newItemCategoryLabel}
+                              </Label>
+                              <Input
+                                id={`${row.key}-new-category`}
+                                value={newItemDraft.category}
+                                onChange={(e) => updateNewItemDraft({ category: e.target.value })}
+                                placeholder={dict.newItemCategoryPlaceholder}
+                                list={NEW_ITEM_CATEGORY_DATALIST_ID}
+                                autoComplete="off"
+                                maxLength={60}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isAdding}
+                              onClick={() => setNewItemDraftKey(null)}
+                            >
+                              {dict.cancel}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={isAdding || !newItemDraft.name.trim()}
+                              onClick={() => void handleConfirmNewItem(row)}
+                            >
+                              {isAdding && <Loader2 className="size-4 animate-spin" />}
+                              {isAdding ? dict.addingItem : dict.confirmAddItem}
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
