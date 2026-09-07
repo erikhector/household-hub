@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function Home() {
@@ -158,6 +159,7 @@ export default async function Home() {
           </Button>
         </section>
       </main>
+      <LegalFooter dict={dict.legal} />
     </div>
   );
 }

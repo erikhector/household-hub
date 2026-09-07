@@ -801,6 +801,24 @@ export const en = {
       },
     },
   },
+  // Short UI strings only (nav labels, footer, signup consent line) — the
+  // Terms/Privacy page bodies themselves are long-form legal prose authored
+  // directly in src/app/terms/page.tsx and src/app/privacy/page.tsx rather
+  // than routed through this dictionary. See those files' top comment for
+  // why: this dictionary's `{one, other}`/`{key}`-interpolation shape fits
+  // short UI strings, not multi-paragraph legal text that a translator or
+  // lawyer would want to review as a whole document, in one language, in
+  // one place.
+  legal: {
+    termsNavLabel: "Terms",
+    privacyNavLabel: "Privacy",
+    footerCopyright: "© {year} Household Hub",
+    signupConsentPrefix: "By creating an account, you agree to the",
+    termsLink: "Terms of Service",
+    consentAnd: "and",
+    privacyLink: "Privacy Policy",
+    consentSuffix: ".",
+  },
 };
 
 export type Dictionary = typeof en;

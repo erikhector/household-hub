@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
+import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function SignupPage() {
@@ -23,9 +24,10 @@ export default async function SignupPage() {
           <CardTitle className="text-xl">{dict.auth.signup.pageTitle}</CardTitle>
         </CardHeader>
         <CardContent>
-          <SignupForm dict={dict.auth.signup} />
+          <SignupForm dict={dict.auth.signup} legalDict={dict.legal} />
         </CardContent>
       </Card>
+      <LegalFooter dict={dict.legal} />
     </div>
   );
 }

@@ -14,9 +14,11 @@ const initialState: ActionState = {};
 export function JoinSignupForm({
   token,
   dict,
+  legalDict,
 }: {
   token: string;
   dict: Dictionary["auth"]["join"];
+  legalDict: Dictionary["legal"];
 }) {
   const [state, formAction, pending] = useActionState(joinViaInviteSignupAction, initialState);
 
@@ -44,6 +46,17 @@ export function JoinSignupForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      <p className="text-center text-xs text-muted-foreground">
+        {legalDict.signupConsentPrefix}{" "}
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+          {legalDict.termsLink}
+        </Link>{" "}
+        {legalDict.consentAnd}{" "}
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          {legalDict.privacyLink}
+        </Link>
+        {legalDict.consentSuffix}
+      </p>
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? dict.creating : dict.submit}
       </Button>
