@@ -19,6 +19,11 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). Sign up to create a
 household, or open an invite link (`/join/<token>`) to join an existing one.
 
+Running anywhere other than local dev (staging, production)? Replace the
+placeholder `AUTH_SECRET` in `.env` with a real one first — generate it with
+`npx auth secret`. See the comment above `AUTH_SECRET` in `.env.example` for
+details.
+
 ## Scripts
 
 - `npm run dev` — dev server (Turbopack)
