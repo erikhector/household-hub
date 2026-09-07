@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# This is a small, single-maintainer app — one job running everything in
+# sequence is simpler to read and debug than splitting into parallel jobs,
+# and the whole thing finishes in well under a minute.
+jobs:
+  ci:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # README states Node 22+ as the requirement.
+          node-version: 22
+          cache: npm
+
+      # Installs dependencies and runs `prisma generate` via the
+      # package.json "postinstall" hook (no separate generate step needed).
+      # This does NOT need DATABASE_URL: `prisma generate` only reads
+      # prisma/schema.prisma to emit the typed client — it never opens a
+      # database connection.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Next.js 16 generates global route-aware helper types (PageProps,
+      # LayoutProps, RouteContext) into .next/types at build/dev time, and
+      # tsconfig.json's "include" expects them there. Without this step,
+      # `tsc --noEmit` fails on routes/layouts using those helpers even
+      # though the project itself is fine. `next typegen` produces the same
+      # .next/types output as `next build`/`next dev` without doing a full
+      # build, so typecheck can run as its own fast, independent step before
+      # the build step below.
+      - name: Generate Next.js route types
+        run: npx next typegen
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # `vitest run`. Every test that touches persistence mocks
+      # "@/lib/prisma" (see src/lib/actions/household.test.ts and friends)
+      # instead of hitting a real database, so no Postgres service container
+      # is needed here — confirmed locally by running the full suite with no
+      # DATABASE_URL set at all.
+      - name: Test
+        run: npm run test
+
+      # `next build`. Verified locally that this succeeds with NO
+      # DATABASE_URL / AUTH_SECRET set at all: every dashboard route reads
+      # cookies()/auth() (src/lib/session.ts) and is therefore rendered
+      # dynamically on request, not statically generated at build time, so
+      # nothing during "Collecting page data" / "Generating static pages"
+      # actually opens a database connection or reads the auth secret. If a
+      # future change makes some route static and the build starts requiring
+      # these vars, add clearly-fake placeholders here (e.g.
+      # DATABASE_URL: postgresql://ci:ci@localhost:5432/ci and a 32+ char
+      # dummy AUTH_SECRET) — never real secrets, since nothing at build time
+      # actually connects with them.
+      - name: Build
+        run: npm run build
