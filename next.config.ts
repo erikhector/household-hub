@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Applied to every response. None of this is a substitute for the
 // server-side auth/authorization checks elsewhere in the app (requireHousehold
@@ -39,4 +40,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// withSentryConfig's build-time plugin uploads source maps (and creates a
+// release) by talking to Sentry's API, which normally wants
+// SENTRY_AUTH_TOKEN. Only apply it when Sentry is actually configured
+// (SENTRY_DSN set) -- local dev and CI build with zero Sentry env vars and
+// must not gain a dependency on Sentry credentials or network access to
+// build at all. Source map upload itself is separately gated on
+// SENTRY_AUTH_TOKEN so a deployment that only sets SENTRY_DSN (error
+// reporting, no source maps) still builds without a token.
+export default process.env.SENTRY_DSN
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+      silent: true,
+      telemetry: false,
+    })
+  : nextConfig;

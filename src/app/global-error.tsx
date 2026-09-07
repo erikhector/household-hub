@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Only triggers if the root layout itself throws (vs. a page/segment error,
 // which src/app/error.tsx already handles) — so this can't rely on
@@ -15,6 +16,9 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error(error);
+    // No-op without a prior Sentry.init() call, i.e. without
+    // NEXT_PUBLIC_SENTRY_DSN set — see src/instrumentation-client.ts.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

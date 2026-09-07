@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,9 @@ export default function ErrorBoundary({
   // the same tradeoff RootLayout already makes for the theme class.
   useEffect(() => {
     console.error(error);
+    // No-op without a prior Sentry.init() call, i.e. without
+    // NEXT_PUBLIC_SENTRY_DSN set — see src/instrumentation-client.ts.
+    Sentry.captureException(error);
   }, [error]);
 
   const copy = COPY[getClientLocale()];

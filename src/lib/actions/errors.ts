@@ -1,10 +1,16 @@
+import * as Sentry from "@sentry/nextjs";
 import type { ActionState } from "@/lib/actions/auth";
 
 /**
  * Converts an unexpected error (DB failure, network blip, etc. — anything
  * that wasn't already turned into a validation `{ error }` by zod) into a
- * generic, friendly ActionState. Logs the real error server-side so it's
- * still diagnosable, without leaking internals to the client.
+ * generic, friendly ActionState. Logs the real error server-side and
+ * reports it to Sentry so it's still diagnosable, without leaking internals
+ * to the client.
+ *
+ * Sentry.captureException is a documented no-op without a prior
+ * Sentry.init() call, which only happens when SENTRY_DSN is set (see
+ * src/instrumentation.ts) — safe to call unconditionally here.
  *
  * Never wrap a call to `redirect()`/`notFound()` in the same try/catch this
  * feeds — both throw a special Next.js error that must propagate
@@ -13,5 +19,6 @@ import type { ActionState } from "@/lib/actions/auth";
  */
 export function toFriendlyError(error: unknown): ActionState {
   console.error(error);
+  Sentry.captureException(error);
   return { error: "Something went wrong. Please try again." };
 }
