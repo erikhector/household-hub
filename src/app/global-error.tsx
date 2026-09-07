@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
 
 // Only triggers if the root layout itself throws (vs. a page/segment error,
 // which src/app/error.tsx already handles) — so this can't rely on
@@ -14,7 +15,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    logger.error("Unhandled global error boundary", { error });
   }, [error]);
 
   return (
