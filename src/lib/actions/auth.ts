@@ -66,7 +66,7 @@ export async function signupAction(
   }
   const { displayName, householdName, email, password } = parsed.data;
 
-  if (!checkRateLimit(`signup:${email}`, SIGNUP_RATE_LIMIT, SIGNUP_RATE_LIMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`signup:${email}`, SIGNUP_RATE_LIMIT, SIGNUP_RATE_LIMIT_WINDOW_MS))) {
     return { error: "Too many attempts. Please wait a while and try again." };
   }
 
@@ -115,7 +115,7 @@ export async function loginAction(
     return { error: "Invalid email or password" };
   }
 
-  if (!checkRateLimit(`login:${parsed.data.email}`, LOGIN_RATE_LIMIT, LOGIN_RATE_LIMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`login:${parsed.data.email}`, LOGIN_RATE_LIMIT, LOGIN_RATE_LIMIT_WINDOW_MS))) {
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
