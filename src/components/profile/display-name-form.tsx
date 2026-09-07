@@ -36,6 +36,7 @@ export function DisplayNameForm({
           name="displayName"
           defaultValue={displayName}
           required
+          maxLength={60}
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}

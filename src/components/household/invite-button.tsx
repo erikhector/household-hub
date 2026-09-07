@@ -88,6 +88,7 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
                   placeholder={dict.emailPlaceholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  maxLength={254}
                   disabled={isSending}
                 />
                 <Button

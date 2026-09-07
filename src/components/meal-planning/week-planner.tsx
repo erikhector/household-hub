@@ -181,7 +181,9 @@ function MealEntryRow({ dict, entry }: { dict: MealPlanningDict; entry: MealPlan
 
   return (
     <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate" title={label}>
+        {label}
+      </span>
       <Button
         type="button"
         variant="ghost"

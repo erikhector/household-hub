@@ -25,6 +25,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
             name="email"
             type="email"
             required
+            maxLength={254}
             autoComplete="email"
             className="pl-8"
           />
@@ -39,6 +40,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
             name="password"
             type="password"
             required
+            maxLength={72}
             autoComplete="current-password"
             className="pl-8"
           />

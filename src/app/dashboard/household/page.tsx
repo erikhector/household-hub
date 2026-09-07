@@ -24,18 +24,22 @@ export default async function HouseholdPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">{dict.household.title}</h1>
-          <p className="text-sm text-muted-foreground">{household.name}</p>
+          <p className="truncate text-sm text-muted-foreground" title={household.name}>
+            {household.name}
+          </p>
           {otherMembers > 0 && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Users className="size-4" />
+              <Users className="size-4 shrink-0" />
               {format(plural(otherMembers, dict.household.sharedWith), { count: otherMembers })}
             </p>
           )}
         </div>
-        <InviteButton dict={dict.household.invite} />
+        <div className="shrink-0">
+          <InviteButton dict={dict.household.invite} />
+        </div>
       </div>
       <MemberList
         isOwner={isOwner}

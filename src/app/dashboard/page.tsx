@@ -58,7 +58,13 @@ export default async function DashboardOverviewPage() {
       {memberCount > 0 && (
         <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
           <Users className="size-4 shrink-0" />
-          <span>
+          <span
+            className="min-w-0 flex-1 truncate"
+            title={format(plural(memberCount, dict.dashboard.sharedWithIn), {
+              count: memberCount,
+              name: household.name,
+            })}
+          >
             {format(plural(memberCount, dict.dashboard.sharedWithIn), {
               count: memberCount,
               name: household.name,

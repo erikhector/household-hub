@@ -51,11 +51,11 @@ export function DeleteHouseholdDialog({
       <DialogTrigger render={<Button variant="destructive">{dict.trigger}</Button>} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{format(dict.title, { name: householdName })}</DialogTitle>
+          <DialogTitle className="break-words">{format(dict.title, { name: householdName })}</DialogTitle>
           <DialogDescription>{dict.description}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="confirm-household-name">
+          <Label htmlFor="confirm-household-name" className="break-words">
             {format(dict.confirmLabel, { name: householdName })}
           </Label>
           <Input

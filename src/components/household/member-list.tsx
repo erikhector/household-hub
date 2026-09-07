@@ -77,11 +77,15 @@ export function MemberList({
             key={member.id}
             className="flex items-center justify-between rounded-md border px-3 py-2"
           >
-            <div>
-              <p className="font-medium">{member.displayName}</p>
-              <p className="text-sm text-muted-foreground">{member.email}</p>
+            <div className="min-w-0">
+              <p className="truncate font-medium" title={member.displayName}>
+                {member.displayName}
+              </p>
+              <p className="truncate text-sm text-muted-foreground" title={member.email}>
+                {member.email}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
                 {member.role === "OWNER" ? dict.owner : dict.contributor}
               </Badge>

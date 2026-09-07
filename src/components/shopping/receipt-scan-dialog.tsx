@@ -244,7 +244,9 @@ export function ReceiptScanDialog({
                     className="flex flex-col gap-2 rounded-md border p-2 sm:flex-row sm:items-center"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{row.name}</p>
+                      <p className="truncate text-sm font-medium" title={row.name}>
+                        {row.name}
+                      </p>
                       {row.quantity !== 1 && (
                         <p className="text-xs text-muted-foreground">
                           {format(dict.qtyLabel, { qty: row.quantity })}

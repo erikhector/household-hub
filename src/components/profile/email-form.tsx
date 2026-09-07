@@ -47,6 +47,7 @@ export function EmailForm({
               name="newEmail"
               type="email"
               required
+              maxLength={254}
               autoComplete="email"
               className="pl-8"
             />

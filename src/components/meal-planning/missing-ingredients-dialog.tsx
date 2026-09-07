@@ -141,7 +141,9 @@ export function MissingIngredientsDialog({
                     checked={item.included}
                     onChange={() => toggleItem(item.key)}
                   />
-                  <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  <span className="min-w-0 flex-1 truncate" title={item.name}>
+                    {item.name}
+                  </span>
                   <span className="shrink-0 text-muted-foreground">
                     {item.missingQuantity} {item.unit}
                   </span>

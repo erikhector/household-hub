@@ -18,7 +18,7 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
     <div className="flex flex-1 items-center justify-center px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">
+          <CardTitle className="text-xl break-words">
             {invitation
               ? format(dict.auth.join.joinTitle, { name: invitation.householdName })
               : dict.auth.join.invalidTitle}

@@ -133,7 +133,11 @@ function RecipeCard({ dict, recipe }: { dict: MealPlanningDict; recipe: RecipeDa
         {recipe.ingredients.length > 0 && (
           <ul className="flex flex-col gap-0.5 text-sm">
             {recipe.ingredients.map((ingredient) => (
-              <li key={ingredient.id} className="truncate text-muted-foreground">
+              <li
+                key={ingredient.id}
+                className="truncate text-muted-foreground"
+                title={`${ingredient.name} — ${ingredient.quantity} ${ingredient.unit}`}
+              >
                 {ingredient.name}
                 {" — "}
                 {ingredient.quantity} {ingredient.unit}

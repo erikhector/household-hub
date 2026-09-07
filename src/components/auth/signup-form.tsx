@@ -24,6 +24,7 @@ export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
             id="displayName"
             name="displayName"
             required
+            maxLength={60}
             autoComplete="name"
             className="pl-8"
           />
@@ -37,6 +38,7 @@ export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
             id="householdName"
             name="householdName"
             required
+            maxLength={60}
             placeholder={dict.householdNamePlaceholder}
             className="pl-8"
           />
@@ -51,6 +53,7 @@ export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
             name="email"
             type="email"
             required
+            maxLength={254}
             autoComplete="email"
             className="pl-8"
           />
@@ -66,6 +69,7 @@ export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
             type="password"
             required
             minLength={8}
+            maxLength={72}
             autoComplete="new-password"
             className="pl-8"
           />

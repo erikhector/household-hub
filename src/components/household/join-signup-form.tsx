@@ -25,11 +25,11 @@ export function JoinSignupForm({
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
-        <Input id="displayName" name="displayName" required autoComplete="name" />
+        <Input id="displayName" name="displayName" required maxLength={60} autoComplete="name" />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{dict.email}</Label>
-        <Input id="email" name="email" type="email" required autoComplete="email" />
+        <Input id="email" name="email" type="email" required maxLength={254} autoComplete="email" />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{dict.password}</Label>
@@ -39,6 +39,7 @@ export function JoinSignupForm({
           type="password"
           required
           minLength={8}
+          maxLength={72}
           autoComplete="new-password"
         />
       </div>
