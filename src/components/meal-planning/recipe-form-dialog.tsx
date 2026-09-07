@@ -174,6 +174,7 @@ export function RecipeFormDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              maxLength={120}
               autoFocus
             />
           </div>
@@ -186,6 +187,7 @@ export function RecipeFormDialog({
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder={dict.instructionsPlaceholder}
+              maxLength={4000}
               rows={4}
             />
           </div>
@@ -206,12 +208,14 @@ export function RecipeFormDialog({
                     value={row.name}
                     onChange={(e) => updateRow(row.uid, "name", e.target.value)}
                     placeholder={dict.ingredientNamePlaceholder}
+                    maxLength={120}
                     className="min-w-0 flex-1"
                   />
                   <Input
                     name="ingredientQuantity"
                     type="number"
                     min={0.01}
+                    max={1000000}
                     step="any"
                     value={row.quantity}
                     onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
@@ -223,6 +227,7 @@ export function RecipeFormDialog({
                     value={row.unit}
                     onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
                     placeholder={dict.ingredientUnitPlaceholder}
+                    maxLength={20}
                     className="w-16 shrink-0"
                   />
                   <Button

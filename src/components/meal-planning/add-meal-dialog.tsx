@@ -108,6 +108,7 @@ export function AddMealDialog({
                 id="freeformName"
                 name="freeformName"
                 placeholder={dict.customMealNamePlaceholder}
+                maxLength={120}
                 autoFocus
               />
             </div>

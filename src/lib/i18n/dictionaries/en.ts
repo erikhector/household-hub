@@ -322,6 +322,8 @@ export const en = {
     editAriaLabel: "Edit recipe",
     deleteAriaLabel: "Delete recipe",
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
+    searchRecipesPlaceholder: "Search recipes…",
+    noRecipeSearchResults: "No recipes match your search.",
     ingredientCount: {
       one: "{count} ingredient",
       other: "{count} ingredients",

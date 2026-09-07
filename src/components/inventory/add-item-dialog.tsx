@@ -85,6 +85,7 @@ export function ItemFormDialog({
               name="name"
               required
               autoFocus
+              maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -102,6 +103,7 @@ export function ItemFormDialog({
                 id="category"
                 name="category"
                 required
+                maxLength={60}
                 defaultValue={item?.category}
                 placeholder={dict.categoryPlaceholder}
                 list="category-options"
@@ -118,6 +120,7 @@ export function ItemFormDialog({
               <Input
                 id="location"
                 name="location"
+                maxLength={120}
                 defaultValue={item?.location ?? undefined}
                 placeholder={dict.locationPlaceholder}
                 list="location-options"
@@ -145,7 +148,7 @@ export function ItemFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="unit">{dict.unitLabel}</Label>
-              <Input id="unit" name="unit" defaultValue={item?.unit ?? "pcs"} />
+              <Input id="unit" name="unit" maxLength={20} defaultValue={item?.unit ?? "pcs"} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="lowStockThreshold">{dict.lowStockAtLabel}</Label>

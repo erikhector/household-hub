@@ -114,14 +114,20 @@ function CategoryGroup({
       <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((category) => (
-          <Badge key={category.id} variant="outline" className="gap-1.5 py-1 pl-2.5">
-            {category.name}
+          <Badge
+            key={category.id}
+            variant="outline"
+            className="max-w-[10rem] gap-1.5 py-1 pl-2.5"
+          >
+            <span className="min-w-0 truncate" title={category.name}>
+              {category.name}
+            </span>
             <button
               type="button"
               aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
               disabled={isPending}
               onClick={() => onDelete(category.id)}
-              className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+              className="shrink-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
             >
               <Trash2 className="size-3" />
             </button>
@@ -164,6 +170,7 @@ function AddCategoryDialog({ dict }: { dict: Dictionary["personalBudget"] }) {
               name="name"
               required
               autoFocus
+              maxLength={60}
               placeholder={dict.categories.namePlaceholder}
             />
           </div>

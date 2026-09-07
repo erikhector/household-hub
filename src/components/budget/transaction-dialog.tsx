@@ -169,10 +169,14 @@ export function TransactionDialog({
               defaultValue={transaction?.categoryId ?? prefillFromTemplate?.categoryId}
             >
               <SelectTrigger id="tx-category" className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    v ? (categories.find((c) => c.id === v)?.name ?? v) : dict.categoryPlaceholder
-                  }
+                <SelectValue className="min-w-0">
+                  {(v: string | null) => (
+                    <span className="min-w-0 truncate">
+                      {v
+                        ? (categories.find((c) => c.id === v)?.name ?? v)
+                        : dict.categoryPlaceholder}
+                    </span>
+                  )}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -214,6 +218,7 @@ export function TransactionDialog({
             <Input
               id="tx-description"
               name="description"
+              maxLength={200}
               placeholder={dict.descriptionPlaceholder}
               defaultValue={transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />

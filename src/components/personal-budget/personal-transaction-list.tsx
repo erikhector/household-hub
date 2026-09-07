@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "sonner";
 import { Pencil, Repeat, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,10 @@ export function PersonalTransactionList({
   });
 
   function handleDelete(id: string) {
-    startTransition(() => deletePersonalTransactionAction(id));
+    startTransition(async () => {
+      const result = await deletePersonalTransactionAction(id);
+      if (result.error) toast.error(result.error);
+    });
   }
 
   if (transactions.length === 0) {
@@ -102,12 +106,14 @@ export function PersonalTransactionList({
                 <Badge
                   variant="outline"
                   className={
-                    tx.type === "INCOME"
+                    "max-w-[10rem] truncate " +
+                    (tx.type === "INCOME"
                       ? "border-chart-5/30 text-chart-5"
                       : tx.type === "SAVINGS"
                         ? "border-chart-2/30 text-chart-2"
-                        : "border-destructive/30 text-destructive"
+                        : "border-destructive/30 text-destructive")
                   }
+                  title={tx.categoryName}
                 >
                   {tx.categoryName}
                 </Badge>

@@ -11,6 +11,7 @@ import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
 import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
+import { toFriendlyError } from "@/lib/actions/errors";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -27,7 +28,7 @@ async function findExactInventoryItem(householdId: string, name: string) {
 }
 
 const createListSchema = z.object({
-  name: z.string().trim().max(120).optional(),
+  name: z.string().trim().max(120, "List name must be 120 characters or fewer").optional(),
 });
 
 export async function createShoppingListAction(
@@ -42,94 +43,118 @@ export async function createShoppingListAction(
   }
 
   const dict = await getDictionary();
-  const list = await prisma.shoppingList.create({
-    data: {
-      householdId: household.id,
-      name:
-        parsed.data.name ||
-        `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
-    },
-  });
+  let list;
+  try {
+    list = await prisma.shoppingList.create({
+      data: {
+        householdId: household.id,
+        name:
+          parsed.data.name ||
+          `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/shopping-list");
   redirect(`/dashboard/shopping-list/${list.id}`);
 }
 
-export async function archiveShoppingListAction(listId: string) {
+export async function archiveShoppingListAction(listId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.shoppingList.updateMany({
-    where: { id: listId, householdId: household.id },
-    data: { status: "ARCHIVED", archivedAt: new Date() },
-  });
+  try {
+    await prisma.shoppingList.updateMany({
+      where: { id: listId, householdId: household.id },
+      data: { status: "ARCHIVED", archivedAt: new Date() },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
+  return {};
 }
 
-export async function unarchiveShoppingListAction(listId: string) {
+export async function unarchiveShoppingListAction(listId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.shoppingList.updateMany({
-    where: { id: listId, householdId: household.id, status: "ARCHIVED" },
-    data: { status: "ACTIVE", archivedAt: null },
-  });
+  try {
+    await prisma.shoppingList.updateMany({
+      where: { id: listId, householdId: household.id, status: "ARCHIVED" },
+      data: { status: "ACTIVE", archivedAt: null },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/shopping-list");
   revalidatePath(`/dashboard/shopping-list/${listId}`);
+  return {};
 }
 
-export async function deleteShoppingListAction(listId: string) {
+export async function deleteShoppingListAction(listId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.shoppingList.deleteMany({
-    where: { id: listId, householdId: household.id },
-  });
+  try {
+    await prisma.shoppingList.deleteMany({
+      where: { id: listId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/shopping-list");
   redirect("/dashboard/shopping-list");
 }
 
-export async function generateFromLowStockAction(listId: string) {
+export async function generateFromLowStockAction(listId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
   });
-  if (!list) return;
+  if (!list) return { error: "This list can't be edited right now" };
 
-  const lowStockItems = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-  });
-
-  const alreadyOnList = await prisma.shoppingListItem.findMany({
-    where: { shoppingListId: list.id, purchased: false, inventoryItemId: { not: null } },
-    select: { inventoryItemId: true },
-  });
-  const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
-
-  const toAdd = lowStockItems.filter(
-    (item) => item.quantity <= item.lowStockThreshold && !alreadyOnListIds.has(item.id),
-  );
-
-  if (toAdd.length > 0) {
-    await prisma.shoppingListItem.createMany({
-      data: toAdd.map((item) => ({
-        shoppingListId: list.id,
-        inventoryItemId: item.id,
-        name: item.name,
-        quantity: Math.max(1, item.lowStockThreshold - item.quantity),
-        addedAutomatically: true,
-      })),
+  try {
+    const lowStockItems = await prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
     });
+
+    const alreadyOnList = await prisma.shoppingListItem.findMany({
+      where: { shoppingListId: list.id, purchased: false, inventoryItemId: { not: null } },
+      select: { inventoryItemId: true },
+    });
+    const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
+
+    const toAdd = lowStockItems.filter(
+      (item) => item.quantity <= item.lowStockThreshold && !alreadyOnListIds.has(item.id),
+    );
+
+    if (toAdd.length > 0) {
+      await prisma.shoppingListItem.createMany({
+        data: toAdd.map((item) => ({
+          shoppingListId: list.id,
+          inventoryItemId: item.id,
+          name: item.name,
+          quantity: Math.max(1, item.lowStockThreshold - item.quantity),
+          addedAutomatically: true,
+        })),
+      });
+    }
+  } catch (error) {
+    return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  return {};
 }
 
 const addItemSchema = z.object({
   listId: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required"),
+  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
 });
 
@@ -153,15 +178,19 @@ export async function addAdHocItemAction(
   });
   if (!list) return { error: "This list can't be edited right now" };
 
-  const inventoryItem = await findExactInventoryItem(household.id, parsed.data.name);
-  await prisma.shoppingListItem.create({
-    data: {
-      shoppingListId: list.id,
-      inventoryItemId: inventoryItem?.id ?? null,
-      name: parsed.data.name,
-      quantity: parsed.data.quantity,
-    },
-  });
+  try {
+    const inventoryItem = await findExactInventoryItem(household.id, parsed.data.name);
+    await prisma.shoppingListItem.create({
+      data: {
+        shoppingListId: list.id,
+        inventoryItemId: inventoryItem?.id ?? null,
+        name: parsed.data.name,
+        quantity: parsed.data.quantity,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return {};
@@ -214,61 +243,75 @@ export async function createInventoryItemFromShoppingListItemAction(
   });
   if (!item) return { error: "Item not found" };
 
-  const inventoryItem = await prisma.inventoryItem.create({
-    data: {
-      householdId: household.id,
-      name: item.name,
-      category: category.trim() || "Uncategorized",
-      quantity: 0,
-      lowStockThreshold: 0,
-    },
-  });
+  const trimmedCategory = category.trim();
+  if (trimmedCategory.length > 60) {
+    return { error: "Category must be 60 characters or fewer" };
+  }
 
-  await prisma.shoppingListItem.update({
-    where: { id: item.id },
-    data: { inventoryItemId: inventoryItem.id },
-  });
+  try {
+    const inventoryItem = await prisma.inventoryItem.create({
+      data: {
+        householdId: household.id,
+        name: item.name,
+        category: trimmedCategory || "Uncategorized",
+        quantity: 0,
+        lowStockThreshold: 0,
+      },
+    });
+
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: { inventoryItemId: inventoryItem.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   return {};
 }
 
-export async function togglePurchasedAction(itemId: string) {
+export async function togglePurchasedAction(itemId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
     include: { inventoryItem: true },
   });
-  if (!item) return;
+  if (!item) return { error: "Item not found" };
 
   const nextPurchased = !item.purchased;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.shoppingListItem.update({
-      where: { id: item.id },
-      data: { purchased: nextPurchased },
-    });
-
-    if (item.inventoryItem) {
-      const delta = nextPurchased ? item.quantity : -item.quantity;
-      await tx.inventoryItem.update({
-        where: { id: item.inventoryItem.id },
-        data: { quantity: Math.max(0, item.inventoryItem.quantity + delta) },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingListItem.update({
+        where: { id: item.id },
+        data: { purchased: nextPurchased },
       });
 
-      if (nextPurchased && item.estimatedPrice != null) {
-        await tx.priceHistory.create({
-          data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
+      if (item.inventoryItem) {
+        const delta = nextPurchased ? item.quantity : -item.quantity;
+        await tx.inventoryItem.update({
+          where: { id: item.inventoryItem.id },
+          data: { quantity: Math.max(0, item.inventoryItem.quantity + delta) },
         });
+
+        if (nextPurchased && item.estimatedPrice != null) {
+          await tx.priceHistory.create({
+            data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
+  return {};
 }
 
 export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
@@ -359,18 +402,23 @@ export async function applyReceiptScanAction(
   return { itemsUpdated: validMatches.length, totalAmount };
 }
 
-export async function deleteShoppingListItemAction(itemId: string) {
+export async function deleteShoppingListItemAction(itemId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { id: true, shoppingListId: true },
   });
-  if (!item) return;
+  if (!item) return { error: "Item not found" };
 
-  await prisma.shoppingListItem.delete({ where: { id: item.id } });
+  try {
+    await prisma.shoppingListItem.delete({ where: { id: item.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  return {};
 }
 
 export async function completeShoppingListAction(

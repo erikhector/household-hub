@@ -12,21 +12,31 @@ import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold } from "@/lib/session";
 import { signIn } from "@/lib/auth";
 import { sendHouseholdInviteEmail } from "@/lib/email";
 import type { ActionState } from "@/lib/actions/auth";
+import { toFriendlyError } from "@/lib/actions/errors";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+// Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
+// 72, so anything longer is rejected rather than accepted-but-misleading.
+const PASSWORD_MAX_LENGTH = 72;
 
 const INVITE_TTL_DAYS = 7;
 
 export async function createInviteAction(): Promise<{ url?: string; token?: string; error?: string }> {
   const { household } = await requireHousehold();
 
-  const invitation = await prisma.invitation.create({
-    data: {
-      householdId: household.id,
-      token: randomUUID(),
-      expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
-    },
-  });
+  let invitation;
+  try {
+    invitation = await prisma.invitation.create({
+      data: {
+        householdId: household.id,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/household");
   return { url: `/join/${invitation.token}`, token: invitation.token };
@@ -41,7 +51,7 @@ async function absoluteAppUrl(path: string): Promise<string> {
 
 const sendInviteEmailSchema = z.object({
   token: z.string().min(1),
-  email: z.string().trim().email("Enter a valid email address"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254, "Email is too long"),
 });
 
 // Sends the same link the on-screen "copy link" UI already shows for this
@@ -64,13 +74,11 @@ export async function sendInviteEmailAction(token: string, email: string): Promi
   }
 
   const inviteUrl = await absoluteAppUrl(`/join/${invitation.token}`);
-  const result = await sendHouseholdInviteEmail({
+  return sendHouseholdInviteEmail({
     to: parsed.data.email,
     householdName: household.name,
     inviteUrl,
   });
-
-  return result;
 }
 
 async function getValidInvitation(token: string) {
@@ -107,15 +115,19 @@ export async function acceptInviteAction(
   });
 
   if (!alreadyMember) {
-    await prisma.$transaction([
-      prisma.householdMember.create({
-        data: { householdId: invitation.householdId, userId, role: "CONTRIBUTOR" },
-      }),
-      prisma.invitation.update({
-        where: { id: invitation.id },
-        data: { acceptedAt: new Date() },
-      }),
-    ]);
+    try {
+      await prisma.$transaction([
+        prisma.householdMember.create({
+          data: { householdId: invitation.householdId, userId, role: "CONTRIBUTOR" },
+        }),
+        prisma.invitation.update({
+          where: { id: invitation.id },
+          data: { acceptedAt: new Date() },
+        }),
+      ]);
+    } catch (error) {
+      return toFriendlyError(error);
+    }
   }
 
   const cookieStore = await cookies();
@@ -129,9 +141,12 @@ export async function acceptInviteAction(
 
 const joinSignupSchema = z.object({
   token: z.string().min(1),
-  displayName: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Enter a valid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
 });
 
 export async function joinViaInviteSignupAction(
@@ -158,13 +173,17 @@ export async function joinViaInviteSignupAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { email, passwordHash, displayName } });
-    await tx.householdMember.create({
-      data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email, passwordHash, displayName } });
+      await tx.householdMember.create({
+        data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
+      });
+      await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
     });
-    await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
-  });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, invitation.householdId, {
@@ -199,7 +218,7 @@ export async function switchHouseholdAction(householdId: string) {
 }
 
 const createHouseholdSchema = z.object({
-  name: z.string().trim().min(1, "Household name is required"),
+  name: z.string().trim().min(1, "Household name is required").max(60, "Household name is too long"),
 });
 
 export async function createHouseholdAction(
@@ -213,12 +232,17 @@ export async function createHouseholdAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const household = await prisma.household.create({
-    data: {
-      name: parsed.data.name,
-      members: { create: { userId, role: "OWNER" } },
-    },
-  });
+  let household;
+  try {
+    household = await prisma.household.create({
+      data: {
+        name: parsed.data.name,
+        members: { create: { userId, role: "OWNER" } },
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, household.id, {
@@ -245,7 +269,11 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
   if (member.userId === userId) return { error: "You can't remove yourself" };
   if (member.role === "OWNER") return { error: "The owner can't be removed" };
 
-  await prisma.householdMember.delete({ where: { id: member.id } });
+  try {
+    await prisma.householdMember.delete({ where: { id: member.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/household");
   return {};
@@ -260,7 +288,11 @@ export async function deleteHouseholdAction(): Promise<ActionState> {
     return { error: "You can't delete your only household. Create another one first." };
   }
 
-  await prisma.household.delete({ where: { id: household.id } });
+  try {
+    await prisma.household.delete({ where: { id: household.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   const fallback = households.find((h) => h.id !== household.id);
   const cookieStore = await cookies();
@@ -294,7 +326,11 @@ export async function leaveHouseholdAction(): Promise<ActionState> {
   });
   if (!membership) return { error: "Membership not found" };
 
-  await prisma.householdMember.delete({ where: { id: membership.id } });
+  try {
+    await prisma.householdMember.delete({ where: { id: membership.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   const fallback = households.find((h) => h.id !== household.id);
   const cookieStore = await cookies();
@@ -331,16 +367,20 @@ export async function transferOwnershipAction(newOwnerMemberId: string): Promise
   if (target.userId === userId) return { error: "You're already the owner" };
   if (target.role === "OWNER") return { error: "This member is already the owner" };
 
-  await prisma.$transaction([
-    prisma.householdMember.update({
-      where: { id: currentOwnerMembership.id },
-      data: { role: "CONTRIBUTOR" },
-    }),
-    prisma.householdMember.update({
-      where: { id: target.id },
-      data: { role: "OWNER" },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.householdMember.update({
+        where: { id: currentOwnerMembership.id },
+        data: { role: "CONTRIBUTOR" },
+      }),
+      prisma.householdMember.update({
+        where: { id: target.id },
+        data: { role: "OWNER" },
+      }),
+    ]);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/household");
   return {};

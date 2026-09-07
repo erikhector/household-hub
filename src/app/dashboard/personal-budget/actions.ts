@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getPeriodKey } from "@/app/dashboard/budget/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
+import { toFriendlyError } from "@/lib/actions/errors";
 
 // --- Categories --------------------------------------------------------
 
@@ -33,9 +34,13 @@ export async function createPersonalCategoryAction(
   });
   if (existing) return { error: "A category with that name already exists" };
 
-  await prisma.personalBudgetCategory.create({
-    data: { userId, name: parsed.data.name, type: parsed.data.type },
-  });
+  try {
+    await prisma.personalBudgetCategory.create({
+      data: { userId, name: parsed.data.name, type: parsed.data.type },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};
@@ -123,21 +128,25 @@ export async function createPersonalTransactionAction(
   );
   if ("error" in recurringTemplate) return { error: recurringTemplate.error };
 
-  await prisma.personalTransaction.create({
-    data: {
-      userId,
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      // Derived from the category rather than taken as a separate field, so
-      // a transaction can never disagree with its own category's type.
-      type: category.type,
-      description: parsed.data.description || null,
-      date: new Date(parsed.data.date),
-      isRecurring: parsed.data.isRecurring,
-      recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-      recurringTemplateId: recurringTemplate.id ?? null,
-    },
-  });
+  try {
+    await prisma.personalTransaction.create({
+      data: {
+        userId,
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        // Derived from the category rather than taken as a separate field, so
+        // a transaction can never disagree with its own category's type.
+        type: category.type,
+        description: parsed.data.description || null,
+        date: new Date(parsed.data.date),
+        isRecurring: parsed.data.isRecurring,
+        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
+        recurringTemplateId: recurringTemplate.id ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};
@@ -180,31 +189,40 @@ export async function updatePersonalTransactionAction(
   });
   if (!existing) return { error: "Transaction not found" };
 
-  await prisma.personalTransaction.update({
-    where: { id: existing.id },
-    data: {
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      type: category.type,
-      description: parsed.data.description || null,
-      date: new Date(parsed.data.date),
-      isRecurring: parsed.data.isRecurring,
-      recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-    },
-  });
+  try {
+    await prisma.personalTransaction.update({
+      where: { id: existing.id },
+      data: {
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        type: category.type,
+        description: parsed.data.description || null,
+        date: new Date(parsed.data.date),
+        isRecurring: parsed.data.isRecurring,
+        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};
 }
 
-export async function deletePersonalTransactionAction(transactionId: string) {
+export async function deletePersonalTransactionAction(transactionId: string): Promise<ActionState> {
   const userId = await requireUserId();
 
-  await prisma.personalTransaction.deleteMany({
-    where: { id: transactionId, userId },
-  });
+  try {
+    await prisma.personalTransaction.deleteMany({
+      where: { id: transactionId, userId },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
 }
 
 // --- Recurring templates --------------------------------------------------
@@ -246,17 +264,21 @@ export async function createPersonalRecurringTemplateAction(
   });
   if (!category) return { error: "Category not found" };
 
-  await prisma.personalRecurringTemplate.create({
-    data: {
-      userId,
-      categoryId: category.id,
-      name: parsed.data.name,
-      amount: parsed.data.amount,
-      type: category.type,
-      frequency: parsed.data.frequency,
-      dayOfMonth: parsed.data.dayOfMonth ?? null,
-    },
-  });
+  try {
+    await prisma.personalRecurringTemplate.create({
+      data: {
+        userId,
+        categoryId: category.id,
+        name: parsed.data.name,
+        amount: parsed.data.amount,
+        type: category.type,
+        frequency: parsed.data.frequency,
+        dayOfMonth: parsed.data.dayOfMonth ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};
@@ -294,17 +316,21 @@ export async function updatePersonalRecurringTemplateAction(
   });
   if (!existing) return { error: "Recurring template not found" };
 
-  await prisma.personalRecurringTemplate.update({
-    where: { id: existing.id },
-    data: {
-      name: parsed.data.name,
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      type: category.type,
-      frequency: parsed.data.frequency,
-      dayOfMonth: parsed.data.dayOfMonth ?? null,
-    },
-  });
+  try {
+    await prisma.personalRecurringTemplate.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.data.name,
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        type: category.type,
+        frequency: parsed.data.frequency,
+        dayOfMonth: parsed.data.dayOfMonth ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};
@@ -313,62 +339,88 @@ export async function updatePersonalRecurringTemplateAction(
 export async function setPersonalRecurringTemplateActiveAction(
   templateId: string,
   active: boolean,
-) {
+): Promise<ActionState> {
   const userId = await requireUserId();
 
-  await prisma.personalRecurringTemplate.updateMany({
-    where: { id: templateId, userId },
-    data: { active },
-  });
+  try {
+    await prisma.personalRecurringTemplate.updateMany({
+      where: { id: templateId, userId },
+      data: { active },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
 }
 
-export async function deletePersonalRecurringTemplateAction(templateId: string) {
+export async function deletePersonalRecurringTemplateAction(
+  templateId: string,
+): Promise<ActionState> {
   const userId = await requireUserId();
 
-  await prisma.personalRecurringTemplate.deleteMany({
-    where: { id: templateId, userId },
-  });
+  try {
+    await prisma.personalRecurringTemplate.deleteMany({
+      where: { id: templateId, userId },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
 }
 
-export async function acknowledgePersonalTemplatePeriodAction(templateId: string) {
+export async function acknowledgePersonalTemplatePeriodAction(
+  templateId: string,
+): Promise<ActionState> {
   const userId = await requireUserId();
 
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: templateId, userId },
   });
-  if (!template) return;
+  if (!template) return { error: "Recurring template not found" };
 
-  const periodKey = getPeriodKey(new Date(), template.frequency);
-  await prisma.personalRecurringTemplateAck.upsert({
-    where: {
-      personalRecurringTemplateId_periodKey: {
-        personalRecurringTemplateId: template.id,
-        periodKey,
+  try {
+    const periodKey = getPeriodKey(new Date(), template.frequency);
+    await prisma.personalRecurringTemplateAck.upsert({
+      where: {
+        personalRecurringTemplateId_periodKey: {
+          personalRecurringTemplateId: template.id,
+          periodKey,
+        },
       },
-    },
-    create: { personalRecurringTemplateId: template.id, periodKey },
-    update: {},
-  });
+      create: { personalRecurringTemplateId: template.id, periodKey },
+      update: {},
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
 }
 
-export async function unacknowledgePersonalTemplatePeriodAction(templateId: string) {
+export async function unacknowledgePersonalTemplatePeriodAction(
+  templateId: string,
+): Promise<ActionState> {
   const userId = await requireUserId();
 
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: templateId, userId },
   });
-  if (!template) return;
+  if (!template) return { error: "Recurring template not found" };
 
-  const periodKey = getPeriodKey(new Date(), template.frequency);
-  await prisma.personalRecurringTemplateAck.deleteMany({
-    where: { personalRecurringTemplateId: template.id, periodKey },
-  });
+  try {
+    const periodKey = getPeriodKey(new Date(), template.frequency);
+    await prisma.personalRecurringTemplateAck.deleteMany({
+      where: { personalRecurringTemplateId: template.id, periodKey },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
+  return {};
 }

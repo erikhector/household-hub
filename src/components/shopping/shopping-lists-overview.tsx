@@ -2,6 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Archive, ArchiveRestore, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ function NewListDialog({ dict }: { dict: ShoppingListDict }) {
               name="name"
               placeholder={`${dict.defaultNamePrefix} — ${new Date().toLocaleDateString()}`}
               autoFocus
+              maxLength={120}
             />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
@@ -96,7 +98,7 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
           <ShoppingCart className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-medium">{list.name}</p>
+          <p className="truncate font-medium" title={list.name}>{list.name}</p>
           {list.status === "ACTIVE" ? (
             <p className="text-sm text-muted-foreground">
               {format(plural(list.pendingItemCount, dict.itemsToBuy), {
@@ -117,7 +119,12 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
             size="icon-sm"
             disabled={isPending}
             aria-label={dict.archiveAriaLabel}
-            onClick={() => startTransition(() => archiveShoppingListAction(list.id))}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await archiveShoppingListAction(list.id);
+                if (result.error) toast.error(result.error);
+              })
+            }
           >
             <Archive className="size-3.5" />
           </Button>
@@ -127,7 +134,12 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
             size="icon-sm"
             disabled={isPending}
             aria-label={dict.unarchiveAriaLabel}
-            onClick={() => startTransition(() => unarchiveShoppingListAction(list.id))}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await unarchiveShoppingListAction(list.id);
+                if (result.error) toast.error(result.error);
+              })
+            }
           >
             <ArchiveRestore className="size-3.5" />
           </Button>
@@ -138,7 +150,12 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
           className="text-muted-foreground hover:text-destructive"
           disabled={isPending}
           aria-label={dict.deleteAriaLabel}
-          onClick={() => startTransition(() => deleteShoppingListAction(list.id))}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await deleteShoppingListAction(list.id);
+              if (result.error) toast.error(result.error);
+            })
+          }
         >
           <Trash2 className="size-3.5" />
         </Button>

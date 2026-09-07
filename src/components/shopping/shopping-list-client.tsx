@@ -84,6 +84,7 @@ function AddItemForm({
             name="name"
             placeholder={dict.addItemNamePlaceholder}
             required
+            maxLength={120}
             className="w-48"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -156,7 +157,12 @@ export function ShoppingListClient({
             <Button
               variant="outline"
               disabled={isPending}
-              onClick={() => startTransition(() => generateFromLowStockAction(list.id))}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await generateFromLowStockAction(list.id);
+                  if (result.error) toast.error(result.error);
+                })
+              }
             >
               {dict.addLowStock}
             </Button>
@@ -187,7 +193,12 @@ export function ShoppingListClient({
             <Button
               variant="outline"
               disabled={isPending}
-              onClick={() => startTransition(() => unarchiveShoppingListAction(list.id))}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await unarchiveShoppingListAction(list.id);
+                  if (result.error) toast.error(result.error);
+                })
+              }
             >
               <ArchiveRestore className="size-4" />
               {dict.unarchive}
@@ -196,7 +207,12 @@ export function ShoppingListClient({
             <Button
               variant="outline"
               disabled={isPending}
-              onClick={() => startTransition(() => archiveShoppingListAction(list.id))}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await archiveShoppingListAction(list.id);
+                  if (result.error) toast.error(result.error);
+                })
+              }
             >
               <Archive className="size-4" />
               {dict.archive}
@@ -205,7 +221,12 @@ export function ShoppingListClient({
           <Button
             variant="destructive"
             disabled={isPending}
-            onClick={() => startTransition(() => deleteShoppingListAction(list.id))}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await deleteShoppingListAction(list.id);
+                if (result.error) toast.error(result.error);
+              })
+            }
           >
             <Trash2 className="size-4" />
             {dict.delete}
@@ -272,20 +293,32 @@ function ShoppingRow({
   dict: ShoppingListDict;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-md border px-3 py-2">
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-3">
+    <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <label className="flex min-w-0 flex-1 items-center gap-3">
           <input
             type="checkbox"
             checked={item.purchased}
             disabled={isPending || !editable}
-            onChange={() => startTransition(() => togglePurchasedAction(item.id))}
-            className="size-4"
+            onChange={() =>
+              startTransition(async () => {
+                const result = await togglePurchasedAction(item.id);
+                if (result.error) toast.error(result.error);
+              })
+            }
+            className="size-4 shrink-0"
           />
-          <span className={item.purchased ? "text-muted-foreground line-through" : ""}>
+          <span
+            className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+            title={`${item.name} × ${item.quantity}`}
+          >
             {item.name} × {item.quantity}
           </span>
-          {item.addedAutomatically && <Badge variant="secondary">{dict.lowStockBadge}</Badge>}
+          {item.addedAutomatically && (
+            <Badge variant="secondary" className="shrink-0">
+              {dict.lowStockBadge}
+            </Badge>
+          )}
         </label>
         {item.inventoryItemId === null &&
           (editable ? (
@@ -296,14 +329,14 @@ function ShoppingRow({
               trigger={
                 <Badge
                   variant="outline"
-                  className="cursor-pointer border-dashed text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                  className="shrink-0 cursor-pointer border-dashed text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
                 >
                   {dict.matchItemButton}
                 </Badge>
               }
             />
           ) : (
-            <Badge variant="outline" className="border-dashed">
+            <Badge variant="outline" className="shrink-0 border-dashed">
               {dict.needsMappingBadge}
             </Badge>
           ))}
@@ -312,9 +345,14 @@ function ShoppingRow({
         <Button
           variant="ghost"
           size="icon"
-          className="size-7 text-muted-foreground hover:text-destructive"
+          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
           disabled={isPending}
-          onClick={() => startTransition(() => deleteShoppingListItemAction(item.id))}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await deleteShoppingListItemAction(item.id);
+              if (result.error) toast.error(result.error);
+            })
+          }
         >
           <Trash2 className="size-3.5" />
         </Button>

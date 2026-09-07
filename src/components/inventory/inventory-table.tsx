@@ -110,9 +110,25 @@ export function InventoryTable({
   function handleMarkEmpty(item: InventoryItemRow, addToShoppingList: boolean) {
     startTransition(async () => {
       const result = await markItemEmptyAction(item.id, addToShoppingList);
-      if (result) {
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.listName) {
         toast.success(format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName }));
       }
+    });
+  }
+
+  function handleAdjustQuantity(itemId: string, delta: number) {
+    startTransition(async () => {
+      const result = await adjustQuantityAction(itemId, delta);
+      if (result.error) toast.error(result.error);
+    });
+  }
+
+  function handleDelete(itemId: string) {
+    startTransition(async () => {
+      const result = await deleteInventoryItemAction(itemId);
+      if (result.error) toast.error(result.error);
     });
   }
 
@@ -136,15 +152,29 @@ export function InventoryTable({
             {groupBy !== "none" && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={6} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
-                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                  <span className="block max-w-[28rem] truncate" title={group.key}>
+                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                  </span>
                 </TableCell>
               </TableRow>
             )}
             {group.items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell className="text-muted-foreground">{item.category}</TableCell>
-                <TableCell className="text-muted-foreground">{item.location ?? "—"}</TableCell>
+                <TableCell className="font-medium">
+                  <span className="block max-w-[16rem] truncate" title={item.name}>
+                    {item.name}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  <span className="block max-w-[10rem] truncate" title={item.category}>
+                    {item.category}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
+                    {item.location ?? "—"}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Button
@@ -152,7 +182,7 @@ export function InventoryTable({
                       size="icon"
                       className="size-7"
                       disabled={isPending}
-                      onClick={() => startTransition(() => adjustQuantityAction(item.id, -1))}
+                      onClick={() => handleAdjustQuantity(item.id, -1)}
                     >
                       <Minus className="size-3.5" />
                     </Button>
@@ -164,7 +194,7 @@ export function InventoryTable({
                       size="icon"
                       className="size-7"
                       disabled={isPending}
-                      onClick={() => startTransition(() => adjustQuantityAction(item.id, 1))}
+                      onClick={() => handleAdjustQuantity(item.id, 1)}
                     >
                       <Plus className="size-3.5" />
                     </Button>
@@ -221,7 +251,7 @@ export function InventoryTable({
                       size="icon"
                       className="size-7 text-muted-foreground hover:text-destructive"
                       disabled={isPending}
-                      onClick={() => startTransition(() => deleteInventoryItemAction(item.id))}
+                      onClick={() => handleDelete(item.id)}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>

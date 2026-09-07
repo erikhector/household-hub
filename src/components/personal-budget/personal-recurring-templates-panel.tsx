@@ -2,6 +2,7 @@
 
 import { useTransition, type ReactNode } from "react";
 import { Check, Pause, Pencil, Play, Trash2, Undo2 } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,11 +62,17 @@ export function PersonalRecurringTemplatesPanel({
   const posted = templates.filter((t) => t.status === "posted");
 
   function handleTogglePause(id: string, active: boolean) {
-    startTransition(() => setPersonalRecurringTemplateActiveAction(id, active));
+    startTransition(async () => {
+      const result = await setPersonalRecurringTemplateActiveAction(id, active);
+      if (result.error) toast.error(result.error);
+    });
   }
 
   function handleDelete(id: string) {
-    startTransition(() => deletePersonalRecurringTemplateAction(id));
+    startTransition(async () => {
+      const result = await deletePersonalRecurringTemplateAction(id);
+      if (result.error) toast.error(result.error);
+    });
   }
 
   const isEmpty = templates.length === 0 && pausedTemplates.length === 0;
@@ -126,7 +133,12 @@ export function PersonalRecurringTemplatesPanel({
                       variant="outline"
                       disabled={isPending}
                       onClick={() =>
-                        startTransition(() => acknowledgePersonalTemplatePeriodAction(template.id))
+                        startTransition(async () => {
+                          const result = await acknowledgePersonalTemplatePeriodAction(
+                            template.id,
+                          );
+                          if (result.error) toast.error(result.error);
+                        })
                       }
                     >
                       <Check className="size-3.5" />
@@ -155,7 +167,12 @@ export function PersonalRecurringTemplatesPanel({
                     variant="outline"
                     disabled={isPending}
                     onClick={() =>
-                      startTransition(() => unacknowledgePersonalTemplatePeriodAction(template.id))
+                      startTransition(async () => {
+                        const result = await unacknowledgePersonalTemplatePeriodAction(
+                          template.id,
+                        );
+                        if (result.error) toast.error(result.error);
+                      })
                     }
                   >
                     <Undo2 className="size-3.5" />
@@ -252,10 +269,14 @@ function TemplateRow({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{template.name}</span>
-          <Badge variant="secondary">{template.categoryName}</Badge>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-medium" title={template.name}>
+            {template.name}
+          </span>
+          <Badge variant="secondary" className="max-w-[10rem] truncate" title={template.categoryName}>
+            {template.categoryName}
+          </Badge>
           {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">

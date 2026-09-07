@@ -54,6 +54,25 @@ describe("parseReceiptText", () => {
     expect(lines[0]).toMatchObject({ name: "Champagne", price: 1234.5 });
   });
 
+  it("strips a leading article/PLU number from the item name", () => {
+    const lines = parseReceiptText("7311041052452 Mjölk 3%        15,90");
+    expect(lines).toEqual([
+      { rawLine: "7311041052452 Mjölk 3%        15,90", name: "Mjölk 3%", quantity: 1, price: 15.9 },
+    ]);
+  });
+
+  it("strips a trailing barcode from the item name", () => {
+    const lines = parseReceiptText("Bröd Pågen 7311041052452       32,50");
+    expect(lines).toEqual([
+      { rawLine: "Bröd Pågen 7311041052452       32,50", name: "Bröd Pågen", quantity: 1, price: 32.5 },
+    ]);
+  });
+
+  it("leaves a short leading number alone since it's likely a bare quantity", () => {
+    const lines = parseReceiptText("2 Bananer                     10,00");
+    expect(lines[0]).toMatchObject({ name: "2 Bananer" });
+  });
+
   it("ignores a line with no confidently-parseable trailing price", () => {
     const lines = parseReceiptText("7311041052452\nRandom note without a price");
     expect(lines).toEqual([]);

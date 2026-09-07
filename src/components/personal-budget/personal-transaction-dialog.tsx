@@ -164,6 +164,7 @@ export function PersonalTransactionDialog({
             <Input
               id="personal-tx-description"
               name="description"
+              maxLength={200}
               placeholder={dict.descriptionPlaceholder}
               defaultValue={transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />

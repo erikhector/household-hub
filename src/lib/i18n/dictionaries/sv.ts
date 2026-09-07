@@ -319,6 +319,8 @@ export const sv = {
     editAriaLabel: "Redigera recept",
     deleteAriaLabel: "Ta bort recept",
     emptyRecipes: "Inga recept än. Lägg till ditt första recept för att börja planera måltider.",
+    searchRecipesPlaceholder: "Sök recept…",
+    noRecipeSearchResults: "Inga recept matchar din sökning.",
     ingredientCount: {
       one: "{count} ingrediens",
       other: "{count} ingredienser",

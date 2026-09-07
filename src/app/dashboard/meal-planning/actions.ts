@@ -36,6 +36,14 @@ async function findOrCreateInventoryItem(householdId: string, name: string) {
 
 type IngredientRow = { name: string; quantity: number; unit: string };
 
+// Mirrors recipeSchema's own bounds (name: 120, kept modest since ingredient
+// names/units are always short words/phrases, never freeform prose) — every
+// row is validated here rather than via a zod array schema because rows
+// arrive as parallel FormData.getAll() arrays, not a single JSON payload.
+const MAX_INGREDIENT_NAME_LENGTH = 120;
+const MAX_INGREDIENT_UNIT_LENGTH = 20;
+const MAX_INGREDIENT_QUANTITY = 1_000_000;
+
 async function parseIngredientRows(
   formData: FormData,
   householdId: string,
@@ -48,13 +56,21 @@ async function parseIngredientRows(
   for (let i = 0; i < names.length; i++) {
     const name = names[i];
     if (!name) continue;
+    if (name.length > MAX_INGREDIENT_NAME_LENGTH) {
+      return { error: `Ingredient names must be ${MAX_INGREDIENT_NAME_LENGTH} characters or fewer` };
+    }
+
+    const unit = units[i] || "pcs";
+    if (unit.length > MAX_INGREDIENT_UNIT_LENGTH) {
+      return { error: `Ingredient units must be ${MAX_INGREDIENT_UNIT_LENGTH} characters or fewer` };
+    }
 
     const quantity = Number(quantities[i] || "1");
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_INGREDIENT_QUANTITY) {
       return { error: "Ingredient quantities must be greater than 0" };
     }
 
-    rows.push({ name, quantity, unit: units[i] || "pcs" });
+    rows.push({ name, quantity, unit });
   }
 
   const data = await Promise.all(

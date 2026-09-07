@@ -81,6 +81,7 @@ export function PersonalRecurringTemplateDialog({
               name="name"
               required
               autoFocus
+              maxLength={120}
               placeholder={dict.recurring.namePlaceholder}
               defaultValue={template?.name}
             />

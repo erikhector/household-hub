@@ -1,9 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
-import { ChefHat, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { ChefHat, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { deleteRecipeAction } from "@/app/dashboard/meal-planning/actions";
 import { format, plural } from "@/lib/i18n/format";
@@ -12,7 +13,20 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
+function matchesQuery(recipe: RecipeData, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (recipe.name.toLowerCase().includes(q)) return true;
+  return recipe.ingredients.some((ingredient) => ingredient.name.toLowerCase().includes(q));
+}
+
 export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recipes: RecipeData[] }) {
+  const [query, setQuery] = useState("");
+  const filteredRecipes = useMemo(
+    () => recipes.filter((recipe) => matchesQuery(recipe, query)),
+    [recipes, query],
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -37,11 +51,31 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
           {dict.emptyRecipes}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((recipe) => (
-            <RecipeCard key={recipe.id} dict={dict} recipe={recipe} />
-          ))}
-        </div>
+        <>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={dict.searchRecipesPlaceholder}
+              aria-label={dict.searchRecipesPlaceholder}
+              className="pl-8"
+            />
+          </div>
+
+          {filteredRecipes.length === 0 ? (
+            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+              {dict.noRecipeSearchResults}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredRecipes.map((recipe) => (
+                <RecipeCard key={recipe.id} dict={dict} recipe={recipe} />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -54,9 +88,11 @@ function RecipeCard({ dict, recipe }: { dict: MealPlanningDict; recipe: RecipeDa
     <Card>
       <CardHeader>
         <CardTitle className="flex items-start justify-between gap-2">
-          <span className="flex items-center gap-2 truncate">
+          <span className="flex min-w-0 items-center gap-2">
             <ChefHat className="size-4 shrink-0 text-primary" />
-            <span className="truncate">{recipe.name}</span>
+            <span className="truncate" title={recipe.name}>
+              {recipe.name}
+            </span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
             <RecipeFormDialog

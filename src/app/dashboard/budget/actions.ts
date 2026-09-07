@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getPeriodKey } from "@/app/dashboard/budget/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
+import { toFriendlyError } from "@/lib/actions/errors";
 
 // The category name/lookup key the shopping-list → budget link (Wave 2,
 // Task 8) is expected to use via findOrCreateGroceriesCategory below — see
@@ -69,9 +70,13 @@ export async function createCategoryAction(
   });
   if (existing) return { error: "A category with that name already exists" };
 
-  await prisma.budgetCategory.create({
-    data: { householdId: household.id, name: parsed.data.name, type: parsed.data.type },
-  });
+  try {
+    await prisma.budgetCategory.create({
+      data: { householdId: household.id, name: parsed.data.name, type: parsed.data.type },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
@@ -89,7 +94,11 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
     return { error: "This category has transactions and can't be deleted" };
   }
 
-  await prisma.budgetCategory.delete({ where: { id: category.id } });
+  try {
+    await prisma.budgetCategory.delete({ where: { id: category.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
@@ -226,31 +235,35 @@ export async function createTransactionAction(
   );
   if ("error" in recurringTemplate) return { error: recurringTemplate.error };
 
-  await prisma.transaction.create({
-    data: {
-      householdId: household.id,
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      // Derived from the category rather than taken as a separate field, so
-      // a transaction can never disagree with its own category's type.
-      type: category.type,
-      description: parsed.data.description || null,
-      date: new Date(parsed.data.date),
-      isRecurring: parsed.data.isRecurring,
-      recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-      createdByUserId: userId,
-      paidByMemberId: split?.paidByMemberId ?? null,
-      recurringTemplateId: recurringTemplate.id ?? null,
-      splits: split
-        ? {
-            create: split.splits.map((s) => ({
-              householdMemberId: s.householdMemberId,
-              amountOwed: s.amountOwed,
-            })),
-          }
-        : undefined,
-    },
-  });
+  try {
+    await prisma.transaction.create({
+      data: {
+        householdId: household.id,
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        // Derived from the category rather than taken as a separate field, so
+        // a transaction can never disagree with its own category's type.
+        type: category.type,
+        description: parsed.data.description || null,
+        date: new Date(parsed.data.date),
+        isRecurring: parsed.data.isRecurring,
+        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
+        createdByUserId: userId,
+        paidByMemberId: split?.paidByMemberId ?? null,
+        recurringTemplateId: recurringTemplate.id ?? null,
+        splits: split
+          ? {
+              create: split.splits.map((s) => ({
+                householdMemberId: s.householdMemberId,
+                amountOwed: s.amountOwed,
+              })),
+            }
+          : undefined,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
@@ -299,43 +312,52 @@ export async function updateTransactionAction(
   // Splits are replaced wholesale (delete-all then recreate) rather than
   // diffed, same convention as recipe ingredient editing — simpler, and
   // fine at this scale (a handful of members per household).
-  await prisma.$transaction([
-    prisma.transactionSplit.deleteMany({ where: { transactionId: existing.id } }),
-    prisma.transaction.update({
-      where: { id: existing.id },
-      data: {
-        categoryId: category.id,
-        amount: parsed.data.amount,
-        type: category.type,
-        description: parsed.data.description || null,
-        date: new Date(parsed.data.date),
-        isRecurring: parsed.data.isRecurring,
-        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-        paidByMemberId: split?.paidByMemberId ?? null,
-        splits: split
-          ? {
-              create: split.splits.map((s) => ({
-                householdMemberId: s.householdMemberId,
-                amountOwed: s.amountOwed,
-              })),
-            }
-          : undefined,
-      },
-    }),
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.transactionSplit.deleteMany({ where: { transactionId: existing.id } }),
+      prisma.transaction.update({
+        where: { id: existing.id },
+        data: {
+          categoryId: category.id,
+          amount: parsed.data.amount,
+          type: category.type,
+          description: parsed.data.description || null,
+          date: new Date(parsed.data.date),
+          isRecurring: parsed.data.isRecurring,
+          recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
+          paidByMemberId: split?.paidByMemberId ?? null,
+          splits: split
+            ? {
+                create: split.splits.map((s) => ({
+                  householdMemberId: s.householdMemberId,
+                  amountOwed: s.amountOwed,
+                })),
+              }
+            : undefined,
+        },
+      }),
+    ]);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
 }
 
-export async function deleteTransactionAction(transactionId: string) {
+export async function deleteTransactionAction(transactionId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.transaction.deleteMany({
-    where: { id: transactionId, householdId: household.id },
-  });
+  try {
+    await prisma.transaction.deleteMany({
+      where: { id: transactionId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
+  return {};
 }
 
 // --- Recurring templates --------------------------------------------------
@@ -376,17 +398,21 @@ export async function createRecurringTemplateAction(
   });
   if (!category) return { error: "Category not found" };
 
-  await prisma.recurringTemplate.create({
-    data: {
-      householdId: household.id,
-      categoryId: category.id,
-      name: parsed.data.name,
-      amount: parsed.data.amount,
-      type: category.type,
-      frequency: parsed.data.frequency,
-      dayOfMonth: parsed.data.dayOfMonth ?? null,
-    },
-  });
+  try {
+    await prisma.recurringTemplate.create({
+      data: {
+        householdId: household.id,
+        categoryId: category.id,
+        name: parsed.data.name,
+        amount: parsed.data.amount,
+        type: category.type,
+        frequency: parsed.data.frequency,
+        dayOfMonth: parsed.data.dayOfMonth ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
@@ -424,41 +450,58 @@ export async function updateRecurringTemplateAction(
   });
   if (!existing) return { error: "Recurring template not found" };
 
-  await prisma.recurringTemplate.update({
-    where: { id: existing.id },
-    data: {
-      name: parsed.data.name,
-      categoryId: category.id,
-      amount: parsed.data.amount,
-      type: category.type,
-      frequency: parsed.data.frequency,
-      dayOfMonth: parsed.data.dayOfMonth ?? null,
-    },
-  });
+  try {
+    await prisma.recurringTemplate.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.data.name,
+        categoryId: category.id,
+        amount: parsed.data.amount,
+        type: category.type,
+        frequency: parsed.data.frequency,
+        dayOfMonth: parsed.data.dayOfMonth ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
   return {};
 }
 
-export async function setRecurringTemplateActiveAction(templateId: string, active: boolean) {
+export async function setRecurringTemplateActiveAction(
+  templateId: string,
+  active: boolean,
+): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.recurringTemplate.updateMany({
-    where: { id: templateId, householdId: household.id },
-    data: { active },
-  });
+  try {
+    await prisma.recurringTemplate.updateMany({
+      where: { id: templateId, householdId: household.id },
+      data: { active },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
+  return {};
 }
 
-export async function deleteRecurringTemplateAction(templateId: string) {
+export async function deleteRecurringTemplateAction(templateId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
-  await prisma.recurringTemplate.deleteMany({
-    where: { id: templateId, householdId: household.id },
-  });
+  try {
+    await prisma.recurringTemplate.deleteMany({
+      where: { id: templateId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
+  return {};
 }
 
 /**
@@ -467,37 +510,47 @@ export async function deleteRecurringTemplateAction(templateId: string) {
  * doesn't track. Idempotent: the unique (templateId, periodKey) constraint
  * means a repeat click just no-ops against the existing row.
  */
-export async function acknowledgeTemplatePeriodAction(templateId: string) {
+export async function acknowledgeTemplatePeriodAction(templateId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
   });
-  if (!template) return;
+  if (!template) return { error: "Recurring template not found" };
 
   const periodKey = getPeriodKey(new Date(), template.frequency);
-  await prisma.recurringTemplateAck.upsert({
-    where: { recurringTemplateId_periodKey: { recurringTemplateId: template.id, periodKey } },
-    create: { recurringTemplateId: template.id, periodKey },
-    update: {},
-  });
+  try {
+    await prisma.recurringTemplateAck.upsert({
+      where: { recurringTemplateId_periodKey: { recurringTemplateId: template.id, periodKey } },
+      create: { recurringTemplateId: template.id, periodKey },
+      update: {},
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
+  return {};
 }
 
 /** Undoes acknowledgeTemplatePeriodAction for the current period. */
-export async function unacknowledgeTemplatePeriodAction(templateId: string) {
+export async function unacknowledgeTemplatePeriodAction(templateId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
   });
-  if (!template) return;
+  if (!template) return { error: "Recurring template not found" };
 
   const periodKey = getPeriodKey(new Date(), template.frequency);
-  await prisma.recurringTemplateAck.deleteMany({
-    where: { recurringTemplateId: template.id, periodKey },
-  });
+  try {
+    await prisma.recurringTemplateAck.deleteMany({
+      where: { recurringTemplateId: template.id, periodKey },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/budget");
+  return {};
 }

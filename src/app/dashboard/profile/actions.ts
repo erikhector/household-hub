@@ -7,9 +7,14 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
+import { toFriendlyError } from "@/lib/actions/errors";
+
+// Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
+// 72, so anything longer is rejected rather than accepted-but-misleading.
+const PASSWORD_MAX_LENGTH = 72;
 
 const updateProfileSchema = z.object({
-  displayName: z.string().trim().min(1, "Name is required"),
+  displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
 });
 
 export async function updateProfileAction(
@@ -23,10 +28,14 @@ export async function updateProfileAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { displayName: parsed.data.displayName },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { displayName: parsed.data.displayName },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard");
@@ -42,7 +51,11 @@ export async function updateProfileAction(
 // it re-proves the caller is the account owner, not just holding a valid
 // session, before the identifier changes.
 const updateEmailSchema = z.object({
-  newEmail: z.string().trim().toLowerCase().email("Enter a valid email"),
+  newEmail: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+  // No .max() here: this only ever gets bcrypt.compare()'d against an
+  // existing hash (never re-hashed), so a pre-existing long password must
+  // still be accepted for verification — only a *new* password (below)
+  // needs the bcrypt-truncation cap.
   currentPassword: z.string().min(1, "Current password is required"),
 });
 
@@ -77,10 +90,14 @@ export async function updateEmailAction(
     return { error: "An account with that email already exists" };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { email: newEmail },
-  });
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+    });
+  } catch {
+    return { error: "An account with that email already exists" };
+  }
 
   revalidatePath("/dashboard/profile");
   return {};
@@ -89,7 +106,10 @@ export async function updateEmailAction(
 const updatePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
     confirmPassword: z.string().min(1, "Please confirm your new password"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {

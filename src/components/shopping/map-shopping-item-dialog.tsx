@@ -146,6 +146,7 @@ export function MapShoppingItemDialog({
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 placeholder={dict.newItemCategoryPlaceholder}
+                maxLength={60}
               />
             </div>
           )}

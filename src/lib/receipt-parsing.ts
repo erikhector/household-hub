@@ -12,6 +12,10 @@
 // user adds/matches manually, same as today; a wrongly-parsed line is
 // reviewed and can be corrected/skipped in ReceiptScanDialog before
 // anything is written to the database.
+//
+// Article numbers / PLU codes / barcodes that often sit next to the name
+// (leading or trailing) are stripped before the name is extracted — we only
+// want the product name and price, not the store's internal item code.
 
 export type ParsedReceiptLine = {
   rawLine: string;
@@ -81,6 +85,15 @@ const TRAILING_PRICE_RE =
 
 const LEADING_QUANTITY_RE = /^(\d+(?:[.,]\d+)?)\s*[x×]\s+(.+)$/i;
 
+// Store article numbers / PLU codes / barcodes that receipts often print
+// right next to the item name — a run of 4+ digits stuck to the start of
+// the line (article number, PLU) or the end (a scanned barcode), separated
+// from the name by whitespace. Kept out of the item name entirely; a
+// 1-3 digit leading number is left alone since that's far more likely to be
+// a bare quantity (e.g. "2 Bananer") than a product code.
+const LEADING_ARTICLE_NUMBER_RE = /^\d{4,}\s+(?=\S)/;
+const TRAILING_BARCODE_RE = /\s+\d{6,}$/;
+
 /** Parses a European- or US-formatted amount ("1 234,56", "1,234.56",
  * "163,17", "19.90") into a plain number. Whichever of `,`/`.` appears
  * *last* is taken as the decimal separator; the other (if present) is
@@ -111,6 +124,8 @@ function parseLine(rawLine: string): ParsedReceiptLine | null {
   if (price === null || price <= 0) return null;
 
   let rest = trimmed.slice(0, priceMatch.index).trim();
+  rest = rest.replace(TRAILING_BARCODE_RE, "").trim();
+  rest = rest.replace(LEADING_ARTICLE_NUMBER_RE, "").trim();
 
   let quantity = 1;
   const qtyMatch = rest.match(LEADING_QUANTITY_RE);

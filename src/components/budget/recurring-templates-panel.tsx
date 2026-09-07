@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Check, Pause, Pencil, Play, Trash2, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,11 +64,17 @@ export function RecurringTemplatesPanel({
   const posted = templates.filter((t) => t.status === "posted");
 
   function handleTogglePause(id: string, active: boolean) {
-    startTransition(() => setRecurringTemplateActiveAction(id, active));
+    startTransition(async () => {
+      const result = await setRecurringTemplateActiveAction(id, active);
+      if (result.error) toast.error(result.error);
+    });
   }
 
   function handleDelete(id: string) {
-    startTransition(() => deleteRecurringTemplateAction(id));
+    startTransition(async () => {
+      const result = await deleteRecurringTemplateAction(id);
+      if (result.error) toast.error(result.error);
+    });
   }
 
   const isEmpty = templates.length === 0 && pausedTemplates.length === 0;
@@ -129,7 +136,12 @@ export function RecurringTemplatesPanel({
                       size="xs"
                       variant="outline"
                       disabled={isPending}
-                      onClick={() => startTransition(() => acknowledgeTemplatePeriodAction(template.id))}
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await acknowledgeTemplatePeriodAction(template.id);
+                          if (result.error) toast.error(result.error);
+                        })
+                      }
                     >
                       <Check className="size-3.5" />
                       {dict.recurring.markAccountedFor}
@@ -156,7 +168,12 @@ export function RecurringTemplatesPanel({
                     size="xs"
                     variant="outline"
                     disabled={isPending}
-                    onClick={() => startTransition(() => unacknowledgeTemplatePeriodAction(template.id))}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await unacknowledgeTemplatePeriodAction(template.id);
+                        if (result.error) toast.error(result.error);
+                      })
+                    }
                   >
                     <Undo2 className="size-3.5" />
                     {dict.recurring.undo}
@@ -252,10 +269,16 @@ function TemplateRow({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{template.name}</span>
-          <Badge variant="secondary">{template.categoryName}</Badge>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-medium" title={template.name}>
+            {template.name}
+          </span>
+          <Badge variant="secondary" className="max-w-[10rem]">
+            <span className="min-w-0 truncate" title={template.categoryName}>
+              {template.categoryName}
+            </span>
+          </Badge>
           {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">
