@@ -141,9 +141,45 @@ blockers from the original audit are now closed.**
 
 ## Wave 3 — after Wave 2 lands
 
-- [ ] **N. End-to-end smoke test** for the golden path (signup → verify →
-      create household → add inventory item → shopping list → budget
-      transaction), since it exercises the auth flows Wave 2 changes.
+- [x] **N. End-to-end smoke test** — `src/lib/actions/golden-path.test.ts`,
+      one test driving signup → verify email → login (including a wrong-
+      password rejection) → add inventory item → create shopping list +
+      ad-hoc item (auto-linked to the inventory item) → budget category +
+      transaction, all against a small stateful in-memory Prisma fake so
+      state genuinely threads between steps (real bcrypt hash checked at
+      login, real generated token used at verification) rather than each
+      step being independently mocked. Per the user's explicit choice, built
+      in this codebase's existing vitest/mocked-Prisma style — no Playwright
+      added. The agent proved the test can actually fail by deliberately
+      breaking the id chain, confirming the failure, then reverting.
+      Merged, 379/379 tests pass. Final `npm run build` (zero Sentry env
+      vars) succeeds cleanly with all 24 routes.
+
+**Wave 3 status: complete.**
+
+## Push summary
+
+All 14 tasks (A–N) are merged into `master`, verified clean (lint 0 errors,
+typecheck clean, 379/379 tests, production build succeeds), and every
+Wave 2 flow was additionally driven live in a real browser against the real
+dev database rather than trusted from unit tests alone. Two real bugs found
+mid-push were fixed directly: an ESLint config gap that caused `npm run
+lint` to recurse into `.claude/worktrees/` nested checkouts, and a
+`Permissions-Policy: camera=()` header that silently blocked the barcode
+scanner. One pre-existing, unrelated lint failure was also fixed
+(`use-theme-cycle.ts`'s `set-state-in-effect` violation, replaced with
+`useSyncExternalStore`).
+
+**Still needs a human**, none of it code:
+- A real Sentry account + `SENTRY_DSN` to actually see captured errors (task J).
+- A real Upstash account + credentials once this app runs on more than one
+  instance/serverless (task I) — until then it degrades safely with a
+  logged warning, not silently.
+- Legal review of the Terms/Privacy page content before onboarding real
+  end-users, especially given GDPR applicability (task G).
+- A hosting decision (Azure, Vercel, self-hosted) — see `DEPLOYMENT.md` for
+  the concrete runbook either way; the user chose to defer this until Waves
+  1–2 landed, which they now have.
 
 ## Notes for any agent resuming a task after an interruption
 
