@@ -182,7 +182,7 @@ export async function joinViaInviteSignupAction(
   }
   const { token, displayName, email, password } = parsed.data;
 
-  if (!checkRateLimit(`join-signup:${email}`, JOIN_SIGNUP_RATE_LIMIT, JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`join-signup:${email}`, JOIN_SIGNUP_RATE_LIMIT, JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS))) {
     return { error: "Too many attempts. Please wait a while and try again." };
   }
 
