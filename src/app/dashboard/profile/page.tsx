@@ -5,6 +5,8 @@ import { UserAvatar } from "@/components/profile/avatar";
 import { DisplayNameForm } from "@/components/profile/display-name-form";
 import { EmailForm } from "@/components/profile/email-form";
 import { PasswordForm } from "@/components/profile/password-form";
+import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
+import { ExportButton } from "@/components/export/export-button";
 
 export default async function ProfilePage() {
   const [{ userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
@@ -32,6 +34,24 @@ export default async function ProfilePage() {
         </div>
         <div className="rounded-md border p-4">
           <PasswordForm dict={dict.profile.passwordForm} />
+        </div>
+        <div className="flex flex-col gap-2 rounded-md border p-4">
+          <div>
+            <h2 className="font-heading text-base font-semibold">{dict.profile.dataExport.title}</h2>
+            <p className="text-sm text-muted-foreground">{dict.profile.dataExport.description}</p>
+          </div>
+          <div>
+            <ExportButton href="/dashboard/profile/export-data" label={dict.profile.dataExport.button} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+          <div>
+            <h2 className="font-heading text-base font-semibold">{dict.profile.dangerZoneTitle}</h2>
+            <p className="text-sm text-muted-foreground">{dict.profile.dangerZoneDescription}</p>
+          </div>
+          <div>
+            <DeleteAccountDialog dict={dict.profile.deleteAccount} />
+          </div>
         </div>
       </div>
     </div>

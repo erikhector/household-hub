@@ -704,6 +704,24 @@ export const sv = {
       saving: "Uppdaterar…",
       save: "Uppdatera lösenord",
     },
+    dataExport: {
+      title: "Exportera dina data",
+      description:
+        "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
+      button: "Exportera mina data",
+    },
+    dangerZoneTitle: "Farozon",
+    dangerZoneDescription:
+      "Att radera ditt konto är permanent och kan inte ångras. Dina personliga uppgifter tas bort. Om du äger ett hushåll där du är enda medlem raderas det hushållet också.",
+    deleteAccount: {
+      trigger: "Radera konto",
+      title: "Radera ditt konto?",
+      description:
+        "Detta raderar permanent ditt konto och dina personliga uppgifter. Om du är enda medlem i ett hushåll du äger raderas det hushållet också. Om du äger ett hushåll med andra medlemmar måste du först överföra ägarskapet till någon av dem — annars går det inte att fortsätta.",
+      confirmLabel: "Ange ditt lösenord för att bekräfta",
+      confirmButton: "Radera mitt konto",
+      deleting: "Raderar…",
+    },
   },
   auth: {
     brand: "Household Hub",
@@ -717,6 +735,7 @@ export const sv = {
       noAccount: "Inget konto än?",
       signUp: "Skapa konto",
       passwordResetSuccess: "Lösenordet har uppdaterats. Logga in med ditt nya lösenord.",
+      accountDeletedSuccess: "Ditt konto har raderats.",
     },
     forgotPassword: {
       pageTitle: "Återställ ditt lösenord",

@@ -712,6 +712,24 @@ export const en = {
       saving: "Updating…",
       save: "Update password",
     },
+    dataExport: {
+      title: "Export your data",
+      description:
+        "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
+      button: "Export my data",
+    },
+    dangerZoneTitle: "Danger zone",
+    dangerZoneDescription:
+      "Deleting your account is permanent and can't be undone. Your personal data is removed; any household you solely own is deleted along with it.",
+    deleteAccount: {
+      trigger: "Delete account",
+      title: "Delete your account?",
+      description:
+        "This permanently deletes your account and personal data. If you're the sole member of a household you own, that household and everything in it is deleted too. If you own a household with other members, transfer ownership to one of them first — this won't proceed until you do.",
+      confirmLabel: "Enter your password to confirm",
+      confirmButton: "Delete my account",
+      deleting: "Deleting…",
+    },
   },
   auth: {
     brand: "Household Hub",
@@ -725,6 +743,7 @@ export const en = {
       noAccount: "No account yet?",
       signUp: "Sign up",
       passwordResetSuccess: "Password updated. Please log in with your new password.",
+      accountDeletedSuccess: "Your account has been deleted.",
     },
     forgotPassword: {
       pageTitle: "Reset your password",
