@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { Suspense, use, useState } from "react";
 import { ChevronLeft, ChevronRight, Languages, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,22 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 type HouseholdOption = { id: string; name: string; role: string };
 
+// Unwraps the streamed notifications promise inside its own Suspense
+// boundary (see Sidebar below) so the per-navigation notifications query
+// doesn't block the rest of the sidebar from painting.
+function NotificationBellContent({
+  notifications,
+  dict,
+  expanded,
+}: {
+  notifications: Promise<NotificationItem[]>;
+  dict: Dictionary["notifications"];
+  expanded: boolean;
+}) {
+  const items = use(notifications);
+  return <NotificationBell items={items} dict={dict} expanded={expanded} />;
+}
+
 export function Sidebar({
   defaultExpanded,
   current,
@@ -32,7 +48,7 @@ export function Sidebar({
   households: HouseholdOption[];
   dict: Dictionary;
   locale: Locale;
-  notifications: NotificationItem[];
+  notifications: Promise<NotificationItem[]>;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
@@ -88,7 +104,9 @@ export function Sidebar({
         })}
       </nav>
       <div className="flex flex-col gap-1 border-t p-2">
-        <NotificationBell items={notifications} dict={dict.notifications} expanded={expanded} />
+        <Suspense fallback={<NotificationBell items={[]} dict={dict.notifications} expanded={expanded} />}>
+          <NotificationBellContent notifications={notifications} dict={dict.notifications} expanded={expanded} />
+        </Suspense>
         <Button
           type="button"
           variant="ghost"

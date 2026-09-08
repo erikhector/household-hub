@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -8,15 +9,19 @@ export const ACTIVE_HOUSEHOLD_COOKIE = "active_household";
 // For the personal budget (see AGENTS.md's "Personal hub" work): scoped to
 // the signed-in user rather than any household, so unlike requireHousehold
 // it doesn't need a membership at all.
-export async function requireUserId() {
+//
+// Wrapped in React's cache() so repeat calls within the same request (e.g.
+// dashboard/layout.tsx and its page.tsx both calling this) reuse one result
+// instead of re-querying the DB per call.
+export const requireUserId = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
   return session.user.id;
-}
+});
 
-export async function requireHousehold() {
+export const requireHousehold = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -46,4 +51,4 @@ export async function requireHousehold() {
       role: m.role,
     })),
   };
-}
+});

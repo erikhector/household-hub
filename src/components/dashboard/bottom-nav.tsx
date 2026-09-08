@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense, use } from "react";
 import { Languages, MoreHorizontal, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -23,6 +24,31 @@ import { NotificationCountBadge, NotificationMenuItem } from "@/components/notif
 import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
+// Each streamed independently under its own Suspense boundary (see BottomNav
+// below) so the notifications query doesn't block the bottom nav bar itself
+// from painting — only the badge count and submenu entries pop in once ready.
+function NotificationBadgeContent({
+  notifications,
+  className,
+}: {
+  notifications: Promise<NotificationItem[]>;
+  className?: string;
+}) {
+  const items = use(notifications);
+  return <NotificationCountBadge count={items.length} className={className} />;
+}
+
+function NotificationMenuItemContent({
+  notifications,
+  dict,
+}: {
+  notifications: Promise<NotificationItem[]>;
+  dict: Dictionary["notifications"];
+}) {
+  const items = use(notifications);
+  return <NotificationMenuItem items={items} dict={dict} />;
+}
+
 export function BottomNav({
   dict,
   locale,
@@ -30,7 +56,7 @@ export function BottomNav({
 }: {
   dict: Dictionary;
   locale: Locale;
-  notifications: NotificationItem[];
+  notifications: Promise<NotificationItem[]>;
 }) {
   const pathname = usePathname();
   const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
@@ -70,10 +96,12 @@ export function BottomNav({
           >
             <span className="relative inline-flex">
               <MoreHorizontal className="size-5" />
-              <NotificationCountBadge
-                count={notifications.length}
-                className="-top-1 -right-1 size-3.5 text-[9px]"
-              />
+              <Suspense fallback={null}>
+                <NotificationBadgeContent
+                  notifications={notifications}
+                  className="-top-1 -right-1 size-3.5 text-[9px]"
+                />
+              </Suspense>
             </span>
             {dict.nav.more}
           </DropdownMenuTrigger>
@@ -85,7 +113,9 @@ export function BottomNav({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <NotificationMenuItem items={notifications} dict={dict.notifications} />
+            <Suspense fallback={null}>
+              <NotificationMenuItemContent notifications={notifications} dict={dict.notifications} />
+            </Suspense>
             <DropdownMenuItem onClick={toggleLocale}>
               <Languages className="size-4" />
               {nextLocale === "sv" ? dict.language.swedish : dict.language.english}
