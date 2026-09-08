@@ -121,6 +121,24 @@ Prisma migration-numbering conflicts.
       the "already verified" branch — by design), invalid token correctly
       rejected.
 
+- [x] **M. Account deletion + GDPR data export** — `deleteAccountAction`
+      (password-confirmed) with per-membership rules: contributor →
+      removed from household only; sole owner → household deleted too;
+      owner with other members → blocked, pointed at existing
+      `transferOwnershipAction` (no auto-reassignment). Bounded JSON export
+      route (profile + memberships + personal budget data only, never
+      `passwordHash` or shared household data). Merged, 378/378 tests pass.
+      **Live-verified end-to-end**: confirmed the disposable `csptest`
+      account's actual email via a DOM read before touching anything
+      (never risked the real account), tested the export route's real JSON
+      response (correct fields, no `passwordHash`), wrong-password
+      rejection, and a full deletion — confirmed via direct DB query that
+      both the `User` row and its sole-owned `Household` row were actually
+      gone afterward, not just a UI redirect.
+
+**Wave 2 status: all 3 tasks (K, L, M) merged and live-verified. All launch
+blockers from the original audit are now closed.**
+
 ## Wave 3 — after Wave 2 lands
 
 - [ ] **N. End-to-end smoke test** for the golden path (signup → verify →
