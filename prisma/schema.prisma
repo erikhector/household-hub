@@ -18,12 +18,20 @@ model User {
   passwordHash String
   displayName  String
   createdAt    DateTime @default(now())
+  // Null = unverified. Set once by verifyEmailAction (src/lib/actions/auth.ts)
+  // when a valid EmailVerificationToken is redeemed. This is a soft gate —
+  // see EmailVerificationToken's doc comment below: an unverified user keeps
+  // full access, just with a dismissible-once-verified banner in the
+  // dashboard (src/components/dashboard/email-verification-banner.tsx)
+  // rather than being blocked anywhere.
+  emailVerifiedAt DateTime?
 
   memberships                HouseholdMember[]
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
   personalRecurringTemplates PersonalRecurringTemplate[]
   passwordResetTokens        PasswordResetToken[]
+  emailVerificationTokens    EmailVerificationToken[]
 }
 
 enum HouseholdRole {
@@ -88,6 +96,34 @@ model Invitation {
 // a fresh request invalidates a user's other outstanding unused tokens (see
 // requestPasswordResetAction) so an old leaked link stops working.
 model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Email-verification link, same token-based/time-limited shape as
+// PasswordResetToken above — see signupAction/sendVerificationEmail/
+// verifyEmailAction/resendVerificationEmailAction in
+// src/lib/actions/auth.ts / src/lib/email.ts. `expiresAt` is 36 hours from
+// creation: shorter than Invitation's 7 days (an unverified signup
+// shouldn't linger indefinitely, and a stale token is worthless anyway once
+// resent), but well past PasswordResetToken's 1 hour, since holding this
+// token grants no account access or takeover — the worst it can do is mark
+// an email verified, which the legitimate owner wanted anyway. 36 hours
+// covers a full day-plus for someone who signs up before bed and checks
+// email the next morning, without leaving months-old links live. `usedAt`
+// marks it consumed (mirrors PasswordResetToken.usedAt); both a fresh
+// signup-time send and a resend request invalidate a user's other
+// outstanding unused tokens (see resendVerificationEmailAction) so old
+// leaked/stale links stop working.
+model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   token     String    @unique
