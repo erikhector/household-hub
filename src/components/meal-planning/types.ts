@@ -7,11 +7,21 @@ export type RecipeIngredientData = {
   unit: string;
 };
 
+// A sub-recipe this recipe includes (e.g. a lasagna's bolognese +
+// béchamel) — see RecipeComponent in schema.prisma.
+export type RecipeComponentData = {
+  id: string;
+  componentRecipeId: string;
+  componentRecipeName: string;
+  quantity: number;
+};
+
 export type RecipeData = {
   id: string;
   name: string;
   instructions: string | null;
   ingredients: RecipeIngredientData[];
+  components: RecipeComponentData[];
 };
 
 export type MealPlanEntryData = {

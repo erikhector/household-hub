@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import {
   MEAL_TYPES,
@@ -13,10 +14,14 @@ import {
 } from "@/app/dashboard/meal-planning/meal-types";
 import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
 import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/meal-planning/missing-ingredients";
+import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
+import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+type MealPlanningDict = Awaited<ReturnType<typeof getDictionary>>["mealPlanning"];
 
 // Exact copy of the pattern in src/app/dashboard/shopping-list/actions.ts —
 // every ingredient (like every shopping list item) maps 1:1 to an
@@ -88,11 +93,57 @@ const recipeSchema = z.object({
   instructions: z.string().trim().max(4000).optional(),
 });
 
+type ComponentRow = { componentRecipeId: string; quantity: number };
+
+// Mirrors parseIngredientRows: rows arrive as parallel FormData.getAll()
+// arrays. `parentRecipeId` is undefined for a brand-new recipe — it can't
+// be anyone's descendant yet, so the cycle check is skipped entirely rather
+// than trivially passing on every candidate.
+const MAX_COMPONENT_QUANTITY = 1_000;
+
+async function parseComponentRows(
+  formData: FormData,
+  householdId: string,
+  parentRecipeId: string | undefined,
+  dict: MealPlanningDict,
+): Promise<{ data: ComponentRow[] } | { error: string }> {
+  const ids = formData.getAll("componentRecipeId").map((v) => String(v).trim());
+  const quantities = formData.getAll("componentQuantity").map((v) => String(v).trim());
+
+  const seen = new Set<string>();
+  const rows: ComponentRow[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    const componentRecipeId = ids[i];
+    if (!componentRecipeId || seen.has(componentRecipeId)) continue;
+    seen.add(componentRecipeId);
+
+    const quantity = Number(quantities[i] || "1");
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_COMPONENT_QUANTITY) {
+      return { error: dict.componentQuantityError };
+    }
+
+    const componentRecipe = await prisma.recipe.findFirst({
+      where: { id: componentRecipeId, householdId },
+      select: { id: true },
+    });
+    if (!componentRecipe) return { error: dict.componentNotFoundError };
+
+    if (parentRecipeId && (await wouldCreateCycle(parentRecipeId, componentRecipeId))) {
+      return { error: dict.componentCycleError };
+    }
+
+    rows.push({ componentRecipeId, quantity });
+  }
+
+  return { data: rows };
+}
+
 export async function createRecipeAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
+  const dict = await getDictionary();
 
   const parsed = recipeSchema.safeParse({
     name: formData.get("name"),
@@ -105,12 +156,16 @@ export async function createRecipeAction(
   const ingredients = await parseIngredientRows(formData, household.id);
   if ("error" in ingredients) return { error: ingredients.error };
 
+  const components = await parseComponentRows(formData, household.id, undefined, dict.mealPlanning);
+  if ("error" in components) return { error: components.error };
+
   await prisma.recipe.create({
     data: {
       householdId: household.id,
       name: parsed.data.name,
       instructions: parsed.data.instructions || null,
       ingredients: { create: ingredients.data },
+      components: { create: components.data },
     },
   });
 
@@ -123,6 +178,7 @@ export async function updateRecipeAction(
   formData: FormData,
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
+  const dict = await getDictionary();
 
   const recipeId = String(formData.get("recipeId") ?? "");
   const parsed = recipeSchema.safeParse({
@@ -141,14 +197,19 @@ export async function updateRecipeAction(
   const ingredients = await parseIngredientRows(formData, household.id);
   if ("error" in ingredients) return { error: ingredients.error };
 
+  const components = await parseComponentRows(formData, household.id, recipe.id, dict.mealPlanning);
+  if ("error" in components) return { error: components.error };
+
   await prisma.$transaction([
     prisma.recipeIngredient.deleteMany({ where: { recipeId: recipe.id } }),
+    prisma.recipeComponent.deleteMany({ where: { parentRecipeId: recipe.id } }),
     prisma.recipe.update({
       where: { id: recipe.id },
       data: {
         name: parsed.data.name,
         instructions: parsed.data.instructions || null,
         ingredients: { create: ingredients.data },
+        components: { create: components.data },
       },
     }),
   ]);
@@ -157,14 +218,34 @@ export async function updateRecipeAction(
   return {};
 }
 
-export async function deleteRecipeAction(recipeId: string) {
+export async function deleteRecipeAction(recipeId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
+  const dict = await getDictionary();
 
-  await prisma.recipe.deleteMany({
+  const recipe = await prisma.recipe.findFirst({
     where: { id: recipeId, householdId: household.id },
   });
+  if (!recipe) return {};
+
+  // Blocking here (rather than letting the RESTRICT foreign key throw) gives
+  // a clear, translated error naming the recipe that still depends on it —
+  // see RecipeComponent's doc comment in schema.prisma.
+  const usedAsComponent = await prisma.recipeComponent.findFirst({
+    where: { componentRecipeId: recipe.id },
+    include: { parentRecipe: { select: { name: true } } },
+  });
+  if (usedAsComponent) {
+    return {
+      error: format(dict.mealPlanning.deleteRecipeInUseError, {
+        recipeName: usedAsComponent.parentRecipe.name,
+      }),
+    };
+  }
+
+  await prisma.recipe.delete({ where: { id: recipe.id } });
 
   revalidatePath(MEAL_PLANNING_PATH);
+  return {};
 }
 
 const addEntrySchema = z.object({
@@ -259,10 +340,7 @@ export type ImportRecipeState = ActionState & {
   };
 };
 
-function importErrorMessage(
-  error: FetchRecipeError,
-  dict: Awaited<ReturnType<typeof getDictionary>>["mealPlanning"],
-): string {
+function importErrorMessage(error: FetchRecipeError, dict: MealPlanningDict): string {
   switch (error) {
     case "invalidUrl":
       return dict.importErrorInvalidUrl;
@@ -331,18 +409,22 @@ export async function previewMissingIngredientsAction(
   const plan = await prisma.mealPlan.findFirst({
     where: { householdId: household.id, weekStartDate },
     include: {
-      entries: {
-        where: { recipeId: { not: null } },
-        include: {
-          recipe: { include: { ingredients: { include: { inventoryItem: true } } } },
-        },
-      },
+      entries: { where: { recipeId: { not: null } }, select: { recipeId: true } },
     },
   });
 
   if (!plan || plan.entries.length === 0) {
     return { items: [] };
   }
+
+  // Each entry's recipeId is expanded recursively — its own ingredients plus
+  // every ingredient contributed by its sub-recipes (see RecipeComponent in
+  // schema.prisma) — into one flat list. See recipe-expansion.ts.
+  const expanded = (
+    await Promise.all(
+      plan.entries.map((entry) => expandRecipeIngredients(entry.recipeId!, 1, new Set())),
+    )
+  ).flat();
 
   // Every ingredient is normally linked to an InventoryItem at recipe-save
   // time (see "Ingredient → inventory linking" in REQUIREMENTS.md), but the
@@ -351,10 +433,8 @@ export async function previewMissingIngredientsAction(
   // against the household's current inventory for those, same identity rule
   // `findOrCreateInventoryItem` uses everywhere else.
   const looseNames = new Set<string>();
-  for (const entry of plan.entries) {
-    for (const ingredient of entry.recipe?.ingredients ?? []) {
-      if (!ingredient.inventoryItem) looseNames.add(ingredient.name.toLowerCase());
-    }
+  for (const ingredient of expanded) {
+    if (!ingredient.inventoryItemId) looseNames.add(ingredient.name.toLowerCase());
   }
   const looseMatches =
     looseNames.size > 0
@@ -366,19 +446,25 @@ export async function previewMissingIngredientsAction(
       .map((item) => [item.name.toLowerCase(), item]),
   );
 
-  const needs: IngredientNeed[] = [];
-  for (const entry of plan.entries) {
-    for (const ingredient of entry.recipe?.ingredients ?? []) {
-      const resolved = ingredient.inventoryItem ?? looseByName.get(ingredient.name.toLowerCase()) ?? null;
-      needs.push({
-        key: resolved ? resolved.id : `name:${ingredient.name.toLowerCase()}`,
-        name: resolved?.name ?? ingredient.name,
+  const needs: IngredientNeed[] = expanded.map((ingredient) => {
+    if (ingredient.inventoryItemId) {
+      return {
+        key: ingredient.inventoryItemId,
+        name: ingredient.inventoryItemName ?? ingredient.name,
         unit: ingredient.unit,
         quantity: ingredient.quantity,
-        onHandQuantity: resolved?.quantity ?? 0,
-      });
+        onHandQuantity: ingredient.onHandQuantity ?? 0,
+      };
     }
-  }
+    const loose = looseByName.get(ingredient.name.toLowerCase());
+    return {
+      key: loose ? loose.id : `name:${ingredient.name.toLowerCase()}`,
+      name: loose?.name ?? ingredient.name,
+      unit: ingredient.unit,
+      quantity: ingredient.quantity,
+      onHandQuantity: loose?.quantity ?? 0,
+    };
+  });
 
   // Only ingredients the household doesn't already have enough of are
   // proposed — never an item that's already sufficiently stocked. This

@@ -18,7 +18,10 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const [recipes, mealPlan, activeShoppingLists] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId: household.id },
-      include: { ingredients: true },
+      include: {
+        ingredients: true,
+        components: { include: { componentRecipe: { select: { id: true, name: true } } } },
+      },
       orderBy: { name: "asc" },
     }),
     prisma.mealPlan.findFirst({
@@ -45,6 +48,12 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
           name: ingredient.name,
           quantity: ingredient.quantity,
           unit: ingredient.unit,
+        })),
+        components: recipe.components.map((component) => ({
+          id: component.id,
+          componentRecipeId: component.componentRecipeId,
+          componentRecipeName: component.componentRecipe.name,
+          quantity: component.quantity,
         })),
       }))}
       entries={(mealPlan?.entries ?? []).map((entry) => ({

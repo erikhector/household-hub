@@ -222,8 +222,47 @@ model Recipe {
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
   mealPlanEntries MealPlanEntry[]
+  // Sub-recipes this recipe includes (e.g. a lasagna's bolognese +
+  // béchamel) — see RecipeComponent below.
+  components      RecipeComponent[]  @relation("ParentRecipe")
+  // Other recipes that include this one as a sub-recipe. Kept non-empty
+  // blocks deletion (see deleteRecipeAction) rather than silently cascading,
+  // since a recipe disappearing out from under a parent would silently
+  // change what that parent means.
+  usedInRecipes   RecipeComponent[]  @relation("ComponentRecipe")
 
   @@index([householdId])
+}
+
+// A sub-recipe used inside another recipe — self-referential many-to-many on
+// Recipe via an explicit join model (needed to carry `quantity`, and to give
+// Prisma two distinct named relations for the pair of FKs that both point at
+// Recipe). `quantity` is how many batches of the component recipe the parent
+// needs (e.g. lasagna uses 1 batch of bolognese and 1 of béchamel); ingredient
+// totals for shopping-list purposes are obtained by recursively expanding
+// this graph and scaling each level's ingredients by the accumulated
+// quantity — see expandRecipeIngredients in
+// src/app/dashboard/meal-planning/recipe-expansion.ts. A recipe can never
+// contain itself, directly or transitively — enforced in application code
+// (assertNoComponentCycle in actions.ts) since Postgres has no native
+// transitive-closure constraint to lean on. onDelete is Cascade on the
+// parent side (deleting a recipe drops its own component list) and Restrict
+// on the component side (a recipe still used as someone else's sub-recipe
+// can't be deleted out from under it — see deleteRecipeAction, which checks
+// this proactively for a clear error rather than letting the constraint
+// throw).
+model RecipeComponent {
+  id                String @id @default(cuid())
+  parentRecipeId    String
+  componentRecipeId String
+  quantity          Float  @default(1)
+
+  parentRecipe    Recipe @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
+  componentRecipe Recipe @relation("ComponentRecipe", fields: [componentRecipeId], references: [id], onDelete: Restrict)
+
+  @@unique([parentRecipeId, componentRecipeId])
+  @@index([parentRecipeId])
+  @@index([componentRecipeId])
 }
 
 model RecipeIngredient {

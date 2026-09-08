@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChefHat, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChefHat, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { deleteRecipeAction } from "@/app/dashboard/meal-planning/actions";
@@ -17,7 +17,10 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
   if (recipe.name.toLowerCase().includes(q)) return true;
-  return recipe.ingredients.some((ingredient) => ingredient.name.toLowerCase().includes(q));
+  if (recipe.ingredients.some((ingredient) => ingredient.name.toLowerCase().includes(q))) return true;
+  return recipe.components.some((component) =>
+    component.componentRecipeName.toLowerCase().includes(q),
+  );
 }
 
 export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recipes: RecipeData[] }) {
@@ -37,6 +40,7 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
         <RecipeFormDialog
           dict={dict}
           mode="create"
+          allRecipes={recipes}
           trigger={
             <Button type="button">
               <Plus className="size-4" />
@@ -69,9 +73,9 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
               {dict.noRecipeSearchResults}
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col divide-y rounded-md border">
               {filteredRecipes.map((recipe) => (
-                <RecipeCard key={recipe.id} dict={dict} recipe={recipe} />
+                <RecipeRow key={recipe.id} dict={dict} recipe={recipe} allRecipes={recipes} />
               ))}
             </div>
           )}
@@ -81,71 +85,79 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
   );
 }
 
-function RecipeCard({ dict, recipe }: { dict: MealPlanningDict; recipe: RecipeData }) {
+function RecipeRow({
+  dict,
+  recipe,
+  allRecipes,
+}: {
+  dict: MealPlanningDict;
+  recipe: RecipeData;
+  allRecipes: RecipeData[];
+}) {
   const [isPending, startTransition] = useTransition();
+  const ingredientSummary = recipe.ingredients.map((ingredient) => ingredient.name).join(", ");
+  const componentSummary = recipe.components.map((component) => component.componentRecipeName).join(", ");
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const result = await deleteRecipeAction(recipe.id);
+      if (result.error) toast.error(result.error);
+    });
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-start justify-between gap-2">
-          <span className="flex min-w-0 items-center gap-2">
-            <ChefHat className="size-4 shrink-0 text-primary" />
-            <span className="truncate" title={recipe.name}>
-              {recipe.name}
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1">
-            <RecipeFormDialog
-              dict={dict}
-              mode="edit"
-              recipe={recipe}
-              trigger={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={dict.editAriaLabel}
-                >
-                  <Pencil className="size-3.5" />
-                </Button>
-              }
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground hover:text-destructive"
-              disabled={isPending}
-              aria-label={dict.deleteAriaLabel}
-              onClick={() => startTransition(() => deleteRecipeAction(recipe.id))}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <p className="text-sm text-muted-foreground">
-          {format(plural(recipe.ingredients.length, dict.ingredientCount), {
-            count: recipe.ingredients.length,
-          })}
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <ChefHat className="size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium" title={recipe.name}>
+          {recipe.name}
         </p>
-        {recipe.ingredients.length > 0 && (
-          <ul className="flex flex-col gap-0.5 text-sm">
-            {recipe.ingredients.map((ingredient) => (
-              <li
-                key={ingredient.id}
-                className="truncate text-muted-foreground"
-                title={`${ingredient.name} — ${ingredient.quantity} ${ingredient.unit}`}
-              >
-                {ingredient.name}
-                {" — "}
-                {ingredient.quantity} {ingredient.unit}
-              </li>
-            ))}
-          </ul>
+        {ingredientSummary && (
+          <p className="truncate text-sm text-muted-foreground" title={ingredientSummary}>
+            {ingredientSummary}
+          </p>
         )}
-      </CardContent>
-    </Card>
+        {componentSummary && (
+          <p
+            className="flex items-center gap-1 truncate text-sm text-muted-foreground"
+            title={`${dict.includesLabel} ${componentSummary}`}
+          >
+            <Layers className="size-3 shrink-0" />
+            <span className="truncate">
+              {dict.includesLabel} {componentSummary}
+            </span>
+          </p>
+        )}
+      </div>
+      <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
+        {format(plural(recipe.ingredients.length, dict.ingredientCount), {
+          count: recipe.ingredients.length,
+        })}
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        <RecipeFormDialog
+          dict={dict}
+          mode="edit"
+          recipe={recipe}
+          allRecipes={allRecipes}
+          trigger={
+            <Button type="button" variant="ghost" size="icon-sm" aria-label={dict.editAriaLabel}>
+              <Pencil className="size-3.5" />
+            </Button>
+          }
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground hover:text-destructive"
+          disabled={isPending}
+          aria-label={dict.deleteAriaLabel}
+          onClick={handleDelete}
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      </span>
+    </div>
   );
 }

@@ -15,6 +15,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   createRecipeAction,
   importRecipeFromUrlAction,
   updateRecipeAction,
@@ -45,22 +52,42 @@ function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
   }));
 }
 
+type ComponentRow = { uid: string; componentRecipeId: string; quantity: string };
+
+function componentRowsFromRecipe(recipe: RecipeData | undefined): ComponentRow[] {
+  if (!recipe) return [];
+  return recipe.components.map((component) => ({
+    uid: component.id,
+    componentRecipeId: component.componentRecipeId,
+    quantity: String(component.quantity),
+  }));
+}
+
 export function RecipeFormDialog({
   dict,
   mode,
   recipe,
+  allRecipes,
   trigger,
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
   recipe?: RecipeData;
+  allRecipes: RecipeData[];
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(recipe?.name ?? "");
   const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
+  const [components, setComponents] = useState<ComponentRow[]>(() => componentRowsFromRecipe(recipe));
   const [importUrl, setImportUrl] = useState("");
+
+  // Every other household recipe can be added as a sub-recipe — a brand-new
+  // recipe (no `recipe.id` yet) can't be anyone's own descendant, so nothing
+  // needs excluding beyond itself in edit mode. The server re-validates for
+  // real (see wouldCreateCycle in actions.ts); this only drives the picker.
+  const componentCandidates = allRecipes.filter((candidate) => candidate.id !== recipe?.id);
 
   const action = mode === "create" ? createRecipeAction : updateRecipeAction;
   const [state, formAction, pending] = useActionState(async (
@@ -74,6 +101,7 @@ export function RecipeFormDialog({
         setName("");
         setInstructions("");
         setIngredients([blankRow()]);
+        setComponents([]);
         setImportUrl("");
       }
     }
@@ -113,6 +141,7 @@ export function RecipeFormDialog({
       setName(recipe?.name ?? "");
       setInstructions(recipe?.instructions ?? "");
       setIngredients(rowsFromRecipe(recipe));
+      setComponents(componentRowsFromRecipe(recipe));
       setImportUrl("");
     }
   };
@@ -122,6 +151,25 @@ export function RecipeFormDialog({
     setIngredients((rows) => (rows.length > 1 ? rows.filter((r) => r.uid !== uid) : rows));
   const updateRow = (uid: string, field: "name" | "quantity" | "unit", value: string) =>
     setIngredients((rows) => rows.map((r) => (r.uid === uid ? { ...r, [field]: value } : r)));
+
+  // A fresh row always starts pointed at a real, not-yet-used recipe (never
+  // an empty selection) — addComponentRow is a no-op once every candidate is
+  // already in use, and the "Add sub-recipe" button is disabled to match.
+  const usedComponentIds = new Set(components.map((c) => c.componentRecipeId));
+  const hasAvailableComponentRecipe = componentCandidates.some((c) => !usedComponentIds.has(c.id));
+  const addComponentRow = () => {
+    const next = componentCandidates.find((c) => !usedComponentIds.has(c.id));
+    if (!next) return;
+    setComponents((rows) => [...rows, { uid: crypto.randomUUID(), componentRecipeId: next.id, quantity: "1" }]);
+  };
+  const removeComponentRow = (uid: string) =>
+    setComponents((rows) => rows.filter((r) => r.uid !== uid));
+  const updateComponentRow = (uid: string, field: "componentRecipeId" | "quantity", value: string) =>
+    setComponents((rows) => rows.map((r) => (r.uid === uid ? { ...r, [field]: value } : r)));
+  const optionsForComponentRow = (row: ComponentRow) =>
+    componentCandidates.filter(
+      (c) => c.id === row.componentRecipeId || !components.some((other) => other.uid !== row.uid && other.componentRecipeId === c.id),
+    );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -242,6 +290,73 @@ export function RecipeFormDialog({
                   </Button>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label>{dict.componentsLabel}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={addComponentRow}
+                disabled={!hasAvailableComponentRecipe}
+              >
+                <Plus className="size-3" />
+                {dict.addComponent}
+              </Button>
+            </div>
+            {components.length === 0 && !hasAvailableComponentRecipe && (
+              <p className="text-sm text-muted-foreground">{dict.noAvailableComponentRecipes}</p>
+            )}
+            <div className="flex flex-col gap-2">
+              {components.map((row) => {
+                const options = optionsForComponentRow(row);
+                return (
+                  <div key={row.uid} className="flex items-center gap-1.5">
+                    <Select
+                      value={row.componentRecipeId}
+                      onValueChange={(v) => updateComponentRow(row.uid, "componentRecipeId", String(v))}
+                    >
+                      <SelectTrigger className="min-w-0 flex-1">
+                        <SelectValue>
+                          {(v: string) => options.find((o) => o.id === v)?.name ?? v}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <input type="hidden" name="componentRecipeId" value={row.componentRecipeId} />
+                    <Input
+                      name="componentQuantity"
+                      type="number"
+                      min={0.01}
+                      max={1000}
+                      step="any"
+                      value={row.quantity}
+                      onChange={(e) => updateComponentRow(row.uid, "quantity", e.target.value)}
+                      placeholder={dict.componentQuantityPlaceholder}
+                      className="w-20 shrink-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={dict.removeComponentAriaLabel}
+                      onClick={() => removeComponentRow(row.uid)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
