@@ -7,6 +7,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -278,34 +279,67 @@ export async function markItemEmptyAction(
   }
 }
 
-// Assigns a single location to many items at once — e.g. selecting every
-// unassigned item and filing them all under "Fridge" in one action instead
-// of editing each item individually. `updateMany` is scoped to the
-// household and the given ids together, so ids for another household's
-// items (or already-deleted ids) are silently dropped rather than erroring.
-export async function bulkUpdateLocationAction(
+const bulkFieldSchemas = {
+  category: itemSchema.shape.category,
+  location: itemSchema.shape.location,
+  unit: itemSchema.shape.unit,
+  quantity: itemSchema.shape.quantity,
+  lowStockThreshold: itemSchema.shape.lowStockThreshold,
+} satisfies Record<BulkEditableField, z.ZodTypeAny>;
+
+// Sets one field to one value across many items at once — e.g. selecting
+// every unassigned item and filing them all under "Fridge", or re-filing a
+// batch of items under a different category, in one action instead of
+// editing each item individually. `updateMany` is scoped to the household
+// and the given ids together, so ids for another household's items (or
+// already-deleted ids) are silently dropped rather than erroring.
+export async function bulkUpdateFieldAction(
   itemIds: string[],
-  location: string,
+  field: BulkEditableField,
+  rawValue: string,
 ): Promise<ActionState & { updated?: number }> {
   const { household } = await requireHousehold();
 
-  const parsed = itemSchema.shape.location.safeParse(location);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid location" };
-  }
-  const trimmedLocation = parsed.data?.trim();
-  if (!trimmedLocation) {
-    return { error: "Location is required" };
-  }
-
   const ids = [...new Set(itemIds)].filter(Boolean);
   if (ids.length === 0) return { error: "No items selected" };
+
+  if (!bulkEditableFields.includes(field)) {
+    return { error: "Invalid field" };
+  }
+
+  const parsed = bulkFieldSchemas[field].safeParse(rawValue);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid value" };
+  }
+
+  let data: Parameters<typeof prisma.inventoryItem.updateMany>[0]["data"];
+  switch (field) {
+    case "category":
+      // Blank clears back to the locale's "Uncategorized" bucket, same as
+      // the single-item form.
+      data = { category: (parsed.data as string) || (await getDictionary()).inventory.uncategorized };
+      break;
+    case "location":
+      // Blank explicitly un-assigns the location rather than being dropped
+      // as a no-op update, matching the single-item edit form.
+      data = { location: (parsed.data as string)?.trim() || null };
+      break;
+    case "unit":
+      data = { unit: parsed.data as string };
+      break;
+    case "quantity":
+      data = { quantity: parsed.data as number };
+      break;
+    case "lowStockThreshold":
+      data = { lowStockThreshold: parsed.data as number };
+      break;
+  }
 
   let updated = 0;
   try {
     const result = await prisma.inventoryItem.updateMany({
       where: { id: { in: ids }, householdId: household.id },
-      data: { location: trimmedLocation },
+      data,
     });
     updated = result.count;
   } catch (error) {

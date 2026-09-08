@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,10 +29,11 @@ import {
 } from "@/components/ui/table";
 import {
   adjustQuantityAction,
-  bulkUpdateLocationAction,
+  bulkUpdateFieldAction,
   deleteInventoryItemAction,
   markItemEmptyAction,
 } from "@/app/dashboard/inventory/actions";
+import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
@@ -107,7 +115,8 @@ export function InventoryTable({
 }) {
   const [isPending, startTransition] = useTransition();
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkLocation, setBulkLocation] = useState("");
+  const [bulkField, setBulkField] = useState<BulkEditableField>("location");
+  const [bulkValue, setBulkValue] = useState("");
 
   // Ids can go stale after a filter change or a bulk move that reassigns
   // the location facet being filtered on — derive the effective selection
@@ -196,24 +205,43 @@ export function InventoryTable({
     setSelected((prev) => (prev.size === items.length ? new Set() : new Set(items.map((item) => item.id))));
   }
 
+  // Category/location may be blank on purpose (clears back to "Uncategorized"
+  // / unassigned, mirroring the single-item form); the other fields require
+  // a real value since Prisma can't coerce an empty string into a number.
+  function isBulkValueValid(field: BulkEditableField, value: string) {
+    if (field === "quantity" || field === "lowStockThreshold") {
+      return value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+    }
+    if (field === "unit") return value.trim() !== "";
+    return true;
+  }
+
   function handleBulkApply() {
-    const location = bulkLocation.trim();
-    if (!location || selected.size === 0) return;
+    if (selected.size === 0 || !isBulkValueValid(bulkField, bulkValue)) return;
     const ids = [...selected];
+    const field = bulkField;
+    const value = bulkValue;
     startTransition(async () => {
-      const result = await bulkUpdateLocationAction(ids, location);
+      const result = await bulkUpdateFieldAction(ids, field, value);
       if (result.error) {
         toast.error(result.error);
         return;
       }
       const count = result.updated ?? ids.length;
       toast.success(
-        format(plural(count, dict.bulkActions.movedToast), { count, location }),
+        format(plural(count, dict.bulkActions.updatedToast), { count, field: fieldLabels[field] }),
       );
-      setSelected(new Set());
-      setBulkLocation("");
+      setBulkValue("");
     });
   }
+
+  const fieldLabels: Record<BulkEditableField, string> = {
+    category: dict.categoryLabel,
+    location: dict.locationLabel,
+    unit: dict.unitLabel,
+    quantity: dict.quantityLabel,
+    lowStockThreshold: dict.lowStockAtLabel,
+  };
 
   const groups = groupItems(items, groupBy, dict);
   const allSelected = items.length > 0 && selected.size === items.length;
@@ -225,23 +253,62 @@ export function InventoryTable({
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>
-          <Input
-            value={bulkLocation}
-            onChange={(e) => setBulkLocation(e.target.value)}
-            placeholder={dict.bulkActions.locationPlaceholder}
-            list="bulk-location-options"
-            autoComplete="off"
-            className="h-8 w-48"
-          />
-          <datalist id="bulk-location-options">
-            {locations.map((l) => (
-              <option key={l} value={l} />
-            ))}
-          </datalist>
+          <Select
+            value={bulkField}
+            onValueChange={(v) => {
+              setBulkField((v as BulkEditableField) ?? "location");
+              setBulkValue("");
+            }}
+          >
+            <SelectTrigger className="w-36">
+              <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {bulkEditableFields.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {fieldLabels[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {bulkField === "quantity" || bulkField === "lowStockThreshold" ? (
+            <Input
+              type="number"
+              min={0}
+              step="any"
+              value={bulkValue}
+              onChange={(e) => setBulkValue(e.target.value)}
+              className="h-8 w-28"
+            />
+          ) : bulkField === "unit" ? (
+            <Input
+              value={bulkValue}
+              onChange={(e) => setBulkValue(e.target.value)}
+              maxLength={20}
+              className="h-8 w-28"
+            />
+          ) : (
+            <>
+              <Input
+                value={bulkValue}
+                onChange={(e) => setBulkValue(e.target.value)}
+                placeholder={bulkField === "category" ? dict.categoryPlaceholder : dict.locationPlaceholder}
+                maxLength={bulkField === "category" ? 60 : 120}
+                list={`bulk-${bulkField}-options`}
+                autoComplete="off"
+                className="h-8 w-48"
+              />
+              <datalist id={`bulk-${bulkField}-options`}>
+                {(bulkField === "category" ? categories : locations).map((o) => (
+                  <option key={o} value={o} />
+                ))}
+              </datalist>
+            </>
+          )}
           <Button
             size="sm"
             className="h-8"
-            disabled={isPending || !bulkLocation.trim()}
+            disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
             onClick={handleBulkApply}
           >
             {isPending ? dict.bulkActions.applying : dict.bulkActions.apply}

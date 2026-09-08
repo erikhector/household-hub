@@ -332,13 +332,12 @@ export const sv = {
         one: "{count} vara markerad",
         other: "{count} varor markerade",
       },
-      locationPlaceholder: "Tilldela plats…",
       apply: "Tillämpa",
       applying: "Tillämpar…",
       clearSelection: "Avmarkera alla",
-      movedToast: {
-        one: "Flyttade {count} vara till {location}",
-        other: "Flyttade {count} varor till {location}",
+      updatedToast: {
+        one: "Uppdaterade {field} för {count} vara",
+        other: "Uppdaterade {field} för {count} varor",
       },
     },
   },

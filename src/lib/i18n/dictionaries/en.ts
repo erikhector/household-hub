@@ -340,13 +340,12 @@ export const en = {
         one: "{count} item selected",
         other: "{count} items selected",
       },
-      locationPlaceholder: "Assign to location…",
       apply: "Apply",
       applying: "Applying…",
       clearSelection: "Clear selection",
-      movedToast: {
-        one: "Moved {count} item to {location}",
-        other: "Moved {count} items to {location}",
+      updatedToast: {
+        one: "Updated {field} for {count} item",
+        other: "Updated {field} for {count} items",
       },
     },
   },
