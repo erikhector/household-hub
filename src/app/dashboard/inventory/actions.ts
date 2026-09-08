@@ -278,6 +278,45 @@ export async function markItemEmptyAction(
   }
 }
 
+// Assigns a single location to many items at once — e.g. selecting every
+// unassigned item and filing them all under "Fridge" in one action instead
+// of editing each item individually. `updateMany` is scoped to the
+// household and the given ids together, so ids for another household's
+// items (or already-deleted ids) are silently dropped rather than erroring.
+export async function bulkUpdateLocationAction(
+  itemIds: string[],
+  location: string,
+): Promise<ActionState & { updated?: number }> {
+  const { household } = await requireHousehold();
+
+  const parsed = itemSchema.shape.location.safeParse(location);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid location" };
+  }
+  const trimmedLocation = parsed.data?.trim();
+  if (!trimmedLocation) {
+    return { error: "Location is required" };
+  }
+
+  const ids = [...new Set(itemIds)].filter(Boolean);
+  if (ids.length === 0) return { error: "No items selected" };
+
+  let updated = 0;
+  try {
+    const result = await prisma.inventoryItem.updateMany({
+      where: { id: { in: ids }, householdId: household.id },
+      data: { location: trimmedLocation },
+    });
+    updated = result.count;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return { updated };
+}
+
 export async function deleteInventoryItemAction(itemId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 

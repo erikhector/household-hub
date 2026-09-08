@@ -324,6 +324,23 @@ export const sv = {
     markEmpty: "Markera som slut",
     markEmptyAndAddToList: "Markera som slut & lägg till i inköpslista",
     markedEmptyAddedToast: 'Markerade {name} som slut och la till den i "{list}"',
+    unassignedLocation: "Ingen plats tilldelad",
+    bulkActions: {
+      selectAllAriaLabel: "Markera alla varor",
+      selectItemAriaLabel: "Markera {name}",
+      selectedCount: {
+        one: "{count} vara markerad",
+        other: "{count} varor markerade",
+      },
+      locationPlaceholder: "Tilldela plats…",
+      apply: "Tillämpa",
+      applying: "Tillämpar…",
+      clearSelection: "Avmarkera alla",
+      movedToast: {
+        one: "Flyttade {count} vara till {location}",
+        other: "Flyttade {count} varor till {location}",
+      },
+    },
   },
   mealPlanning: {
     title: "Matplanering",

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Deployment Runbook
 
 Practical steps for shipping this app to production. Read this before running a
@@ -156,7 +155,7 @@ that fast and everyone starts seeing `too many connections` errors.
 
 ### The fix
 
-Put a connection pooler in front of Postgres so the *database* only ever
+Put a connection pooler in front of Postgres so the _database_ only ever
 sees a small, stable number of connections, no matter how many serverless
 invocations are hitting it:
 
@@ -283,7 +282,7 @@ more than one instance — multiple containers behind a load balancer,
 multiple serverless function invocations, or any horizontally-scaled
 deployment — **each instance gets its own independent attempt budget**. A
 limit of "10 login attempts per 10 minutes" silently becomes "10 attempts
-per 10 minutes *per instance*", multiplying the effective limit by however
+per 10 minutes _per instance_", multiplying the effective limit by however
 many instances are running, with no error or crash to signal it — the app
 behaves fine, it's just far less protected than it looks. On a serverless
 platform where every invocation can be a fresh process, this can degrade to

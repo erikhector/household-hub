@@ -332,6 +332,23 @@ export const en = {
     markEmpty: "Mark as empty",
     markEmptyAndAddToList: "Mark as empty & add to shopping list",
     markedEmptyAddedToast: 'Marked {name} as empty and added it to "{list}"',
+    unassignedLocation: "Unassigned",
+    bulkActions: {
+      selectAllAriaLabel: "Select all items",
+      selectItemAriaLabel: "Select {name}",
+      selectedCount: {
+        one: "{count} item selected",
+        other: "{count} items selected",
+      },
+      locationPlaceholder: "Assign to location…",
+      apply: "Apply",
+      applying: "Applying…",
+      clearSelection: "Clear selection",
+      movedToast: {
+        one: "Moved {count} item to {location}",
+        other: "Moved {count} items to {location}",
+      },
+    },
   },
   mealPlanning: {
     title: "Meal planning",

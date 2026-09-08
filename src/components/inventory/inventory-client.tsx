@@ -19,6 +19,7 @@ import {
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const ALL = "__all__";
+const UNASSIGNED = "__unassigned__";
 
 export function InventoryClient({
   items,
@@ -59,7 +60,8 @@ export function InventoryClient({
     return items.filter((item) => {
       if (nameQuery && !item.name.toLowerCase().includes(nameQuery)) return false;
       if (category !== ALL && item.category !== category) return false;
-      if (location !== ALL && (item.location ?? "") !== location) return false;
+      if (location === UNASSIGNED && item.location) return false;
+      if (location !== ALL && location !== UNASSIGNED && (item.location ?? "") !== location) return false;
       if (status !== ALL && getStockStatus(item.quantity, item.lowStockThreshold) !== status) {
         return false;
       }
@@ -91,10 +93,13 @@ export function InventoryClient({
         </Select>
         <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
           <SelectTrigger className="w-40">
-            <SelectValue>{(v: string) => (v === ALL ? dict.allLocations : v)}</SelectValue>
+            <SelectValue>
+              {(v: string) => (v === ALL ? dict.allLocations : v === UNASSIGNED ? dict.unassignedLocation : v)}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>{dict.allLocations}</SelectItem>
+            <SelectItem value={UNASSIGNED}>{dict.unassignedLocation}</SelectItem>
             {locations.map((l) => (
               <SelectItem key={l} value={l}>
                 {l}

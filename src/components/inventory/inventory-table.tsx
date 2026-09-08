@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { Ban, Minus, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import {
   adjustQuantityAction,
+  bulkUpdateLocationAction,
   deleteInventoryItemAction,
   markItemEmptyAction,
 } from "@/app/dashboard/inventory/actions";
@@ -28,7 +30,7 @@ import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export type InventoryItemRow = {
@@ -104,6 +106,17 @@ export function InventoryTable({
   barcodeDict: Dictionary["barcodeScanner"];
 }) {
   const [isPending, startTransition] = useTransition();
+  const [rawSelected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkLocation, setBulkLocation] = useState("");
+
+  // Ids can go stale after a filter change or a bulk move that reassigns
+  // the location facet being filtered on — derive the effective selection
+  // by intersecting with what's actually visible, rather than syncing state
+  // back with an effect.
+  const selected = useMemo(() => {
+    const visibleIds = new Set(items.map((item) => item.id));
+    return new Set([...rawSelected].filter((id) => visibleIds.has(id)));
+  }, [rawSelected, items]);
 
   if (items.length === 0 && isHouseholdEmpty) {
     return (
@@ -170,12 +183,91 @@ export function InventoryTable({
     });
   }
 
+  function toggleItem(itemId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelected((prev) => (prev.size === items.length ? new Set() : new Set(items.map((item) => item.id))));
+  }
+
+  function handleBulkApply() {
+    const location = bulkLocation.trim();
+    if (!location || selected.size === 0) return;
+    const ids = [...selected];
+    startTransition(async () => {
+      const result = await bulkUpdateLocationAction(ids, location);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const count = result.updated ?? ids.length;
+      toast.success(
+        format(plural(count, dict.bulkActions.movedToast), { count, location }),
+      );
+      setSelected(new Set());
+      setBulkLocation("");
+    });
+  }
+
   const groups = groupItems(items, groupBy, dict);
+  const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
-    <Table>
+    <div className="flex flex-col gap-2">
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+          <span className="text-sm font-medium">
+            {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
+          </span>
+          <Input
+            value={bulkLocation}
+            onChange={(e) => setBulkLocation(e.target.value)}
+            placeholder={dict.bulkActions.locationPlaceholder}
+            list="bulk-location-options"
+            autoComplete="off"
+            className="h-8 w-48"
+          />
+          <datalist id="bulk-location-options">
+            {locations.map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+          <Button
+            size="sm"
+            className="h-8"
+            disabled={isPending || !bulkLocation.trim()}
+            onClick={handleBulkApply}
+          >
+            {isPending ? dict.bulkActions.applying : dict.bulkActions.apply}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-muted-foreground"
+            disabled={isPending}
+            onClick={() => setSelected(new Set())}
+          >
+            {dict.bulkActions.clearSelection}
+          </Button>
+        </div>
+      )}
+      <Table>
       <TableHeader>
         <TableRow>
+          <TableHead className="w-10">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              aria-label={dict.bulkActions.selectAllAriaLabel}
+            />
+          </TableHead>
           <TableHead>{dict.columnName}</TableHead>
           <TableHead>{dict.columnCategory}</TableHead>
           <TableHead>{dict.columnLocation}</TableHead>
@@ -189,7 +281,7 @@ export function InventoryTable({
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
+                <TableCell colSpan={7} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
                   <span className="block max-w-[28rem] truncate" title={group.key}>
                     {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                   </span>
@@ -197,7 +289,15 @@ export function InventoryTable({
               </TableRow>
             )}
             {group.items.map((item) => (
-              <TableRow key={item.id}>
+              <TableRow key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(item.id)}
+                    onChange={() => toggleItem(item.id)}
+                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                  />
+                </TableCell>
                 <TableCell className="font-medium">
                   <span className="block max-w-[16rem] truncate" title={item.name}>
                     {item.name}
@@ -300,6 +400,7 @@ export function InventoryTable({
           </Fragment>
         ))}
       </TableBody>
-    </Table>
+      </Table>
+    </div>
   );
 }
