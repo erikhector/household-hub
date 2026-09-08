@@ -454,6 +454,7 @@ export async function previewMissingIngredientsAction(
         unit: ingredient.unit,
         quantity: ingredient.quantity,
         onHandQuantity: ingredient.onHandQuantity ?? 0,
+        onHandUnit: ingredient.onHandUnit,
       };
     }
     const loose = looseByName.get(ingredient.name.toLowerCase());
@@ -463,6 +464,7 @@ export async function previewMissingIngredientsAction(
       unit: ingredient.unit,
       quantity: ingredient.quantity,
       onHandQuantity: loose?.quantity ?? 0,
+      onHandUnit: loose?.unit ?? null,
     };
   });
 

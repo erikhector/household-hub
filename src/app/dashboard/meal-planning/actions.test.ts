@@ -521,7 +521,7 @@ describe("previewMissingIngredientsAction", () => {
     const result = await previewMissingIngredientsAction("2026-01-05");
 
     expect(result).toEqual({
-      items: [{ key: "name:ground beef", name: "Ground beef", unit: "kg", missingQuantity: 0.5 }],
+      items: [{ key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5 }],
     });
   });
 });

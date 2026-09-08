@@ -16,6 +16,12 @@ export type ExpandedIngredientNeed = {
   inventoryItemId: string | null;
   inventoryItemName: string | null;
   onHandQuantity: number | null;
+  // The linked InventoryItem's own unit — may differ from this
+  // RecipeIngredient's `unit` (they're independent free-text fields, see
+  // schema.prisma). Needed so missing-ingredients.ts only ever subtracts
+  // on-hand quantity from a requirement denominated in the same unit,
+  // instead of assuming the two always match.
+  onHandUnit: string | null;
   name: string;
   unit: string;
   quantity: number;
@@ -47,6 +53,7 @@ export async function expandRecipeIngredients(
     inventoryItemId: ingredient.inventoryItemId,
     inventoryItemName: ingredient.inventoryItem?.name ?? null,
     onHandQuantity: ingredient.inventoryItem?.quantity ?? null,
+    onHandUnit: ingredient.inventoryItem?.unit ?? null,
     name: ingredient.name,
     unit: ingredient.unit,
     quantity: ingredient.quantity * multiplier,

@@ -14,7 +14,7 @@ const { expandRecipeIngredients } = await import("@/app/dashboard/meal-planning/
 
 type FakeRecipe = {
   id: string;
-  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number } | null; name: string; unit: string; quantity: number }[];
+  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number; unit: string } | null; name: string; unit: string; quantity: number }[];
   components: { componentRecipeId: string; quantity: number }[];
 };
 
@@ -31,7 +31,7 @@ describe("expandRecipeIngredients", () => {
       {
         id: "bolognese",
         ingredients: [
-          { inventoryItemId: "inv-beef", inventoryItem: { name: "Ground beef", quantity: 2 }, name: "Ground beef", unit: "kg", quantity: 0.5 },
+          { inventoryItemId: "inv-beef", inventoryItem: { name: "Ground beef", quantity: 2, unit: "kg" }, name: "Ground beef", unit: "kg", quantity: 0.5 },
         ],
         components: [],
       },
@@ -44,6 +44,7 @@ describe("expandRecipeIngredients", () => {
         inventoryItemId: "inv-beef",
         inventoryItemName: "Ground beef",
         onHandQuantity: 2,
+        onHandUnit: "kg",
         name: "Ground beef",
         unit: "kg",
         quantity: 0.5,
@@ -56,14 +57,14 @@ describe("expandRecipeIngredients", () => {
       {
         id: "lasagna",
         ingredients: [
-          { inventoryItemId: "inv-pasta", inventoryItem: { name: "Pasta sheets", quantity: 1 }, name: "Pasta sheets", unit: "pcs", quantity: 12 },
+          { inventoryItemId: "inv-pasta", inventoryItem: { name: "Pasta sheets", quantity: 1, unit: "pcs" }, name: "Pasta sheets", unit: "pcs", quantity: 12 },
         ],
         components: [{ componentRecipeId: "bolognese", quantity: 2 }],
       },
       {
         id: "bolognese",
         ingredients: [
-          { inventoryItemId: "inv-beef", inventoryItem: { name: "Ground beef", quantity: 2 }, name: "Ground beef", unit: "kg", quantity: 0.5 },
+          { inventoryItemId: "inv-beef", inventoryItem: { name: "Ground beef", quantity: 2, unit: "kg" }, name: "Ground beef", unit: "kg", quantity: 0.5 },
         ],
         components: [],
       },
@@ -110,6 +111,7 @@ describe("expandRecipeIngredients", () => {
         inventoryItemId: null,
         inventoryItemName: null,
         onHandQuantity: null,
+        onHandUnit: null,
         name: "Tomato passata",
         unit: "L",
         quantity: 6,
