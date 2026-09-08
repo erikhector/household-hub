@@ -18,11 +18,11 @@
   - [x] UI button on profile page — renamed ExportCsvButton -> ExportButton (src/components/export/export-button.tsx) since it's now used for both CSV and JSON; updated all 3 prior usages (inventory, budget, shopping-list) + new profile usage
 - [x] i18n strings added to en.ts and sv.ts (profile.dataExport, profile.deleteAccount, profile.dangerZoneTitle/Description, auth.login.accountDeletedSuccess)
 - [x] Tests: deleteAccountAction (3 membership branches + wrong password + empty password), export route JSON shape (personal data included, household-shared + passwordHash excluded)
-- [ ] Run npm run lint
-- [ ] Run npx next typegen (new export-data route added) + npx tsc --noEmit
-- [ ] Run npm run test — fix any regressions (baseline 371/371 passing)
-- [ ] Commit work (small logical commits), message ends with Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
-- [ ] Final report: files changed, cascade-safety findings, lint/typecheck/test results, follow-ups (JWT session invalidation gap — note only, not fixed)
+- [x] Run npm run lint — clean
+- [x] Run npx prisma generate (needed first — src/generated/prisma was missing in this worktree) + npx next typegen (new export-data route added) + npx tsc --noEmit — clean
+- [x] Run npm run test — 378/378 passing (371 baseline + 7 new: 5 deleteAccountAction + 2 export route)
+- [x] Commit work (3 commits: rename ExportButton, account deletion, GDPR export), all ending with Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+- [x] Final report delivered to orchestrator
 
 ## Notes / findings
 
