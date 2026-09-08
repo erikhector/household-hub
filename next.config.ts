@@ -33,9 +33,12 @@ const securityHeaders = [
   // Don't leak this app's full URLs (which can contain invite tokens, e.g.
   // /join/<token>) to a third-party site when a user clicks an outbound link.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // This app doesn't use the camera/mic/geolocation APIs itself and embeds
-  // nothing that should be able to request them via this origin.
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // This app's own pages (never a cross-origin embed) use the camera for
+  // barcode scanning (src/components/shared/barcode-scanner.tsx's
+  // getUserMedia() call) — `camera=(self)` allows that while still blocking
+  // any framed/embedded third-party origin from requesting it. No use of
+  // the mic or geolocation anywhere, so those stay fully denied.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
   // HSTS: once a browser has loaded this over HTTPS, never let it silently
   // downgrade to plain HTTP (protects against SSL-stripping). Harmless in
   // local dev over http:// — browsers only honor this header on HTTPS
