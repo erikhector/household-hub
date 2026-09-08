@@ -12,6 +12,10 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const showPasswordResetSuccess =
     (Array.isArray(resetParam) ? resetParam[0] : resetParam) === "success";
 
+  const deletedParam = searchParams.deleted;
+  const showAccountDeletedSuccess =
+    (Array.isArray(deletedParam) ? deletedParam[0] : deletedParam) === "success";
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
@@ -30,6 +34,9 @@ export default async function LoginPage(props: PageProps<"/login">) {
         <CardContent>
           {showPasswordResetSuccess && (
             <p className="mb-4 text-sm text-emerald-500">{dict.auth.login.passwordResetSuccess}</p>
+          )}
+          {showAccountDeletedSuccess && (
+            <p className="mb-4 text-sm text-emerald-500">{dict.auth.login.accountDeletedSuccess}</p>
           )}
           <LoginForm dict={dict.auth.login} />
         </CardContent>
