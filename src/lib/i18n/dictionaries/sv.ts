@@ -37,6 +37,12 @@ export const sv = {
     swedish: "Svenska",
     toggleLabel: "Byt språk",
   },
+  emailVerification: {
+    message: "Verifiera din e-postadress.",
+    resend: "Skicka verifieringsmejl igen",
+    resending: "Skickar…",
+    sent: "Verifieringsmejl skickat — kolla din inkorg.",
+  },
   household: {
     switcher: {
       label: "Hushåll",
@@ -727,6 +733,16 @@ export const sv = {
       saving: "Uppdaterar…",
       submit: "Uppdatera lösenord",
       backToLogin: "Tillbaka till inloggning",
+    },
+    verifyEmail: {
+      pageTitle: "Verifiera din e-post",
+      verifying: "Verifierar din e-postadress…",
+      submit: "Verifiera e-post",
+      verifiedDescription: "Din e-postadress har verifierats.",
+      alreadyVerifiedDescription: "Din e-postadress är redan verifierad.",
+      goToDashboard: "Gå till översikten",
+      dashboardResendLink: "Gå till din översikt för att begära en ny länk",
+      loginToResendLink: "Logga in för att begära en ny länk",
     },
     signup: {
       pageTitle: "Skapa ditt hushåll",

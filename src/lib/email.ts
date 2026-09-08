@@ -96,6 +96,46 @@ export async function sendPasswordResetEmail({
   }
 }
 
+// Unlike sendPasswordResetEmail's link, this one is casual: holding it lets
+// someone mark an email address verified, not take over an account (see
+// verifyEmailAction in src/lib/actions/auth.ts). A delivery failure here
+// must never block signup — signupAction still creates the account either
+// way, and resendVerificationEmailAction lets the user retry from the
+// dashboard banner.
+export async function sendVerificationEmail({
+  to,
+  verifyUrl,
+}: {
+  to: string;
+  verifyUrl: string;
+}): Promise<{ error?: string }> {
+  if (!resend) {
+    return { error: "Email delivery isn't configured" };
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || DEFAULT_FROM,
+      to,
+      subject: "Verify your Household Hub email address",
+      html: `
+        <p>Welcome to Household Hub! Please confirm this is your email address.</p>
+        <p><a href="${verifyUrl}">Verify your email</a></p>
+        <p>Or copy and paste this link into your browser:<br />${verifyUrl}</p>
+        <p style="color:#666;font-size:12px;">This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.</p>
+      `,
+    });
+
+    if (error) {
+      return { error: error.message || "Failed to send email" };
+    }
+    return {};
+  } catch (err) {
+    logger.error("Failed to send verification email", { error: err });
+    return { error: "Failed to send email" };
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

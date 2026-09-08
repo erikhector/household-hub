@@ -40,6 +40,17 @@ export const en = {
     swedish: "Swedish",
     toggleLabel: "Switch language",
   },
+  // Dashboard-wide banner shown only while the signed-in user's email is
+  // unverified (User.emailVerifiedAt is null) — see
+  // src/components/dashboard/email-verification-banner.tsx and
+  // resendVerificationEmailAction in src/lib/actions/auth.ts. Soft-gate
+  // only: the rest of the dashboard stays fully usable either way.
+  emailVerification: {
+    message: "Please verify your email address.",
+    resend: "Resend verification email",
+    resending: "Sending…",
+    sent: "Verification email sent — check your inbox.",
+  },
   household: {
     switcher: {
       label: "Household",
@@ -730,6 +741,16 @@ export const en = {
       saving: "Updating…",
       submit: "Update password",
       backToLogin: "Back to log in",
+    },
+    verifyEmail: {
+      pageTitle: "Verify your email",
+      verifying: "Verifying your email…",
+      submit: "Verify email",
+      verifiedDescription: "Your email address has been verified.",
+      alreadyVerifiedDescription: "Your email address is already verified.",
+      goToDashboard: "Go to dashboard",
+      dashboardResendLink: "Go to your dashboard to request a new link",
+      loginToResendLink: "Log in to request a new link",
     },
     signup: {
       pageTitle: "Create your household",

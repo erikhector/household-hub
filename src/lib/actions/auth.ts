@@ -8,9 +8,10 @@ import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { signIn, signOut } from "@/lib/auth";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { requireUserId } from "@/lib/session";
 
 export type ActionState = { error?: string };
 
@@ -63,6 +64,15 @@ const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 // comment for the same reasoning.
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
+// Holding this token lets someone mark an email address verified — not an
+// account takeover (unlike RESET_TOKEN_TTL_MS above), so it can afford to
+// live much longer. 36 hours splits the difference between
+// PasswordResetToken's 1 hour and Invitation's 7 days: generous enough to
+// cover someone who signs up before bed and verifies the next day, without
+// leaving a link usable for the better part of a week. See
+// EmailVerificationToken's schema comment for the same reasoning.
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 36 * 60 * 60 * 1000;
+
 // Unauthenticated and, unlike signup/login, requires no knowledge to
 // trigger beyond a target's email address — without a limit, this could be
 // used to spam a stranger's inbox with reset emails. Wider window / lower
@@ -80,6 +90,21 @@ const REQUEST_RESET_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 // the caller isn't known to be the token's rightful owner yet.
 const RESET_PASSWORD_RATE_LIMIT = 10;
 const RESET_PASSWORD_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+// Throttles guessing at another user's verification token. Lower stakes
+// than RESET_PASSWORD_RATE_LIMIT (a correct guess only marks an email
+// verified) but kept for the same defense-in-depth reason — never rely on
+// token entropy alone. Keyed per-token, same as resetPasswordAction.
+const VERIFY_EMAIL_RATE_LIMIT = 10;
+const VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+// Unauthenticated-adjacent (only reachable by an already-signed-in user, via
+// the dashboard banner) but still throttled per-user so a compromised or
+// buggy client can't be used to spam a mailbox with verification emails.
+// Same width/count as REQUEST_RESET_RATE_LIMIT: a legitimate user only ever
+// needs a couple of these (one now, one retry if the first didn't arrive).
+const RESEND_VERIFICATION_RATE_LIMIT = 3;
+const RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 const GENERIC_RESET_REQUESTED_MESSAGE =
   "If an account exists for that email, we've sent a password reset link.";
@@ -109,8 +134,9 @@ export async function signupAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  let userId: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    userId = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: { email, passwordHash, displayName },
       });
@@ -120,9 +146,28 @@ export async function signupAction(
       await tx.householdMember.create({
         data: { userId: user.id, householdId: household.id, role: "OWNER" },
       });
+      return user.id;
     });
   } catch (error) {
     return toFriendlyError(error);
+  }
+
+  // Additive, not a hard dependency — same posture as household invites
+  // (see sendHouseholdInviteEmail): the account already exists regardless
+  // of whether this send succeeds, and resendVerificationEmailAction lets
+  // the user request a new link later from the dashboard banner.
+  try {
+    const verificationToken = await prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+      },
+    });
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    await sendVerificationEmail({ to: email, verifyUrl });
+  } catch (error) {
+    toFriendlyError(error);
   }
 
   try {
@@ -320,4 +365,150 @@ export async function resetPasswordAction(
   }
 
   redirect("/login?reset=success");
+}
+
+export type VerifyEmailState = { status?: "verified" | "alreadyVerified"; error?: string };
+
+const verifyEmailSchema = z.object({
+  token: z.string().min(1, "This verification link is invalid or has expired. Request a new one."),
+});
+
+const INVALID_VERIFICATION_LINK_MESSAGE =
+  "This verification link is invalid or has expired. Request a new one.";
+
+/**
+ * Idempotent on purpose: a user might click an old verification link twice,
+ * or click one after already verifying some other way (e.g. a newer resent
+ * link) — both report success (`status: "alreadyVerified"`) rather than an
+ * error, since the end state the user cares about (a verified email) is
+ * already true. Only a token that doesn't exist, or one for an account
+ * that's genuinely still unverified but is used/expired, is an error.
+ */
+export async function verifyEmailAction(
+  _prevState: VerifyEmailState,
+  formData: FormData,
+): Promise<VerifyEmailState> {
+  const parsed = verifyEmailSchema.safeParse({ token: formData.get("token") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { token } = parsed.data;
+
+  if (
+    !(await checkRateLimit(
+      `verify-email:${token}`,
+      VERIFY_EMAIL_RATE_LIMIT,
+      VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS,
+    ))
+  ) {
+    return { error: "Too many attempts. Please wait a few minutes and try again." };
+  }
+
+  const verificationToken = await prisma.emailVerificationToken.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+  if (!verificationToken) {
+    return { error: INVALID_VERIFICATION_LINK_MESSAGE };
+  }
+
+  if (verificationToken.user.emailVerifiedAt) {
+    return { status: "alreadyVerified" };
+  }
+
+  if (verificationToken.usedAt || verificationToken.expiresAt < new Date()) {
+    return { error: INVALID_VERIFICATION_LINK_MESSAGE };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: verificationToken.userId },
+        data: { emailVerifiedAt: new Date() },
+      });
+      await tx.emailVerificationToken.update({
+        where: { id: verificationToken.id },
+        data: { usedAt: new Date() },
+      });
+      // Same reasoning as resetPasswordAction invalidating other reset
+      // tokens on success: an older leaked/unused link for this user should
+      // stop working once verification has actually gone through.
+      await tx.emailVerificationToken.deleteMany({
+        where: {
+          userId: verificationToken.userId,
+          usedAt: null,
+          id: { not: verificationToken.id },
+        },
+      });
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  return { status: "verified" };
+}
+
+export type ResendVerificationState = { error?: string; sent?: boolean };
+
+/**
+ * Only reachable by an already-signed-in user (via the dashboard banner —
+ * see src/components/dashboard/email-verification-banner.tsx), so unlike
+ * requestPasswordResetAction there's no email-enumeration concern: the
+ * caller already knows their own account/email, so distinct error states
+ * are fine to surface. Rate-limited per-user rather than per-email since
+ * the caller's identity is already known from the session.
+ */
+export async function resendVerificationEmailAction(
+  // Unused, but kept (rather than dropped) so this still matches the
+  // (state, payload) => State shape useActionState expects of every action
+  // it dispatches — this is the only action in the file with no form
+  // fields to read, hence the lone lint suppression.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _prevState: ResendVerificationState,
+): Promise<ResendVerificationState> {
+  const userId = await requireUserId();
+
+  if (
+    !(await checkRateLimit(
+      `resend-verification:${userId}`,
+      RESEND_VERIFICATION_RATE_LIMIT,
+      RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS,
+    ))
+  ) {
+    return { error: "Too many attempts. Please wait a while and try again." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  // Both branches below are defensive rather than expected: requireUserId
+  // just confirmed a live session, and the banner that triggers this action
+  // only renders when emailVerifiedAt is already known to be null.
+  if (!user) {
+    return { error: "Something went wrong. Please try again." };
+  }
+  if (user.emailVerifiedAt) {
+    return { sent: true };
+  }
+
+  try {
+    // Invalidate old unused tokens first, same as
+    // requestPasswordResetAction, so a stale link stops working once a
+    // fresh one is issued.
+    await prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
+    const verificationToken = await prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+      },
+    });
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const { error } = await sendVerificationEmail({ to: user.email, verifyUrl });
+    if (error) {
+      return { error: "Couldn't send the verification email. Please try again later." };
+    }
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  return { sent: true };
 }

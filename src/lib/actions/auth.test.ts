@@ -23,6 +23,11 @@ const {
   passwordResetTokenDeleteManyMock,
   passwordResetTokenCreateMock,
   sendPasswordResetEmailMock,
+  emailVerificationTokenFindUniqueMock,
+  emailVerificationTokenDeleteManyMock,
+  emailVerificationTokenCreateMock,
+  sendVerificationEmailMock,
+  requireUserIdMock,
   headersMock,
   redirectMock,
 } = vi.hoisted(() => ({
@@ -38,6 +43,10 @@ const {
       update: vi.fn(async () => ({})),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
+    emailVerificationToken: {
+      update: vi.fn(async () => ({})),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
   })),
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
@@ -45,6 +54,14 @@ const {
   passwordResetTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
   passwordResetTokenCreateMock: vi.fn(async () => ({ id: "token-row", token: "generated-token" })),
   sendPasswordResetEmailMock: vi.fn(async () => ({})),
+  emailVerificationTokenFindUniqueMock: vi.fn(),
+  emailVerificationTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
+  emailVerificationTokenCreateMock: vi.fn(async () => ({
+    id: "verify-token-row",
+    token: "generated-verify-token",
+  })),
+  sendVerificationEmailMock: vi.fn(async () => ({})),
+  requireUserIdMock: vi.fn(async () => "user-1"),
   headersMock: vi.fn(async () => new Map([["host", "localhost:3000"]])),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -59,6 +76,11 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: passwordResetTokenDeleteManyMock,
       create: passwordResetTokenCreateMock,
     },
+    emailVerificationToken: {
+      findUnique: emailVerificationTokenFindUniqueMock,
+      deleteMany: emailVerificationTokenDeleteManyMock,
+      create: emailVerificationTokenCreateMock,
+    },
     $transaction: transactionMock,
   },
 }));
@@ -66,12 +88,26 @@ vi.mock("@/lib/auth", () => ({ signIn: signInMock, signOut: signOutMock }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build (same class of issue as the
 // next-auth mock above) — stub it out.
-vi.mock("@/lib/email", () => ({ sendPasswordResetEmail: sendPasswordResetEmailMock }));
+vi.mock("@/lib/email", () => ({
+  sendPasswordResetEmail: sendPasswordResetEmailMock,
+  sendVerificationEmail: sendVerificationEmailMock,
+}));
+// src/lib/session.ts's requireHousehold/requireUserId pull in next-auth's
+// auth() and a real DB call — resendVerificationEmailAction only needs the
+// resolved userId, so stub the whole module rather than mock those
+// transitively.
+vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("next/headers", () => ({ headers: headersMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { signupAction, loginAction, requestPasswordResetAction, resetPasswordAction } =
-  await import("@/lib/actions/auth");
+const {
+  signupAction,
+  loginAction,
+  requestPasswordResetAction,
+  resetPasswordAction,
+  verifyEmailAction,
+  resendVerificationEmailAction,
+} = await import("@/lib/actions/auth");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
@@ -102,6 +138,13 @@ afterEach(() => {
     token: "generated-token",
   }));
   sendPasswordResetEmailMock.mockImplementation(async () => ({}));
+  emailVerificationTokenDeleteManyMock.mockImplementation(async () => ({ count: 0 }));
+  emailVerificationTokenCreateMock.mockImplementation(async () => ({
+    id: "verify-token-row",
+    token: "generated-verify-token",
+  }));
+  sendVerificationEmailMock.mockImplementation(async () => ({}));
+  requireUserIdMock.mockImplementation(async () => "user-1");
   if (originalAppUrl === undefined) delete process.env.APP_URL;
   else process.env.APP_URL = originalAppUrl;
 });
@@ -151,6 +194,39 @@ describe("signupAction behavior", () => {
       password: validSignup.password,
       redirectTo: "/dashboard",
     });
+    expect(result).toEqual({});
+  });
+
+  // Regression coverage for task L: a fresh signup must also create an
+  // EmailVerificationToken and email it — see EMAIL_VERIFICATION_TOKEN_TTL_MS
+  // and sendVerificationEmail in src/lib/actions/auth.ts / src/lib/email.ts.
+  it("creates a verification token and emails it for a new signup", async () => {
+    delete process.env.APP_URL;
+    findUniqueMock.mockResolvedValue(null);
+    signInMock.mockResolvedValue(undefined);
+
+    await signupAction({}, formData(validSignup));
+
+    expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "new-user" }),
+    });
+    expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+      to: validSignup.email,
+      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+    });
+  });
+
+  // Additive, not a hard dependency (see signupAction's doc comment) — the
+  // account must still be created and signed into even if the verification
+  // email fails to send or the token can't be created.
+  it("still creates the account and signs in when sending the verification email fails", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    signInMock.mockResolvedValue(undefined);
+    emailVerificationTokenCreateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await signupAction({}, formData(validSignup));
+
+    expect(signInMock).toHaveBeenCalled();
     expect(result).toEqual({});
   });
 
@@ -465,5 +541,201 @@ describe("resetPasswordAction rate limiting", () => {
 
     expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
     expect(passwordResetTokenFindUniqueMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("verifyEmailAction", () => {
+  const validVerify = { token: "verify-token" };
+
+  it("rejects an unknown token", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue(null);
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result.error).toBe(
+      "This verification link is invalid or has expired. Request a new one.",
+    );
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired token for a still-unverified account", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() - 1000),
+      user: { emailVerifiedAt: null },
+    });
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result.error).toBe(
+      "This verification link is invalid or has expired. Request a new one.",
+    );
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an already-used token for a still-unverified account", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: { emailVerifiedAt: null },
+    });
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result.error).toBe(
+      "This verification link is invalid or has expired. Request a new one.",
+    );
+  });
+
+  // Idempotency: the account is already verified (e.g. a second, newer link
+  // was used first), so this reports success rather than an error even
+  // though this particular token is itself used/expired/whatever.
+  it("reports already-verified for an account that's already verified, regardless of this token's own state", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: new Date(),
+      expiresAt: new Date(Date.now() - 1000),
+      user: { emailVerifiedAt: new Date() },
+    });
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result).toEqual({ status: "alreadyVerified" });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("marks the user verified and consumes the token on a valid token", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: { emailVerifiedAt: null },
+    });
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(result).toEqual({ status: "verified" });
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("verifyEmailAction rate limiting", () => {
+  it("blocks repeated attempts against the same token after the limit", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue(null);
+    const verify = { token: "guessed-verify-token" };
+
+    for (let i = 0; i < 10; i++) {
+      await verifyEmailAction({}, formData(verify));
+    }
+    emailVerificationTokenFindUniqueMock.mockClear();
+
+    const result = await verifyEmailAction({}, formData(verify));
+
+    expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
+    expect(emailVerificationTokenFindUniqueMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("resendVerificationEmailAction", () => {
+  it("invalidates old tokens, creates a fresh one, and emails it", async () => {
+    delete process.env.APP_URL;
+    requireUserIdMock.mockResolvedValue("user-1");
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+    });
+
+    const result = await resendVerificationEmailAction({});
+
+    expect(result).toEqual({ sent: true });
+    expect(emailVerificationTokenDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: "user-1", usedAt: null },
+    });
+    expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "user-1" }),
+    });
+    expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+      to: "erik@example.com",
+      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+    });
+  });
+
+  it("short-circuits as already sent when the account is already verified", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: new Date(),
+    });
+
+    const result = await resendVerificationEmailAction({});
+
+    expect(result).toEqual({ sent: true });
+    expect(emailVerificationTokenCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when sending fails", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+    });
+    sendVerificationEmailMock.mockResolvedValue({ error: "Email delivery isn't configured" });
+
+    const result = await resendVerificationEmailAction({});
+
+    expect(result.error).toBe("Couldn't send the verification email. Please try again later.");
+  });
+});
+
+describe("resendVerificationEmailAction rate limiting", () => {
+  it("blocks repeated requests for the same user after the limit", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+    });
+
+    for (let i = 0; i < 3; i++) {
+      await resendVerificationEmailAction({});
+    }
+    findUniqueMock.mockClear();
+
+    const result = await resendVerificationEmailAction({});
+
+    expect(result.error).toBe("Too many attempts. Please wait a while and try again.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rate-limit a different user after another is throttled", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+    });
+    for (let i = 0; i < 3; i++) {
+      await resendVerificationEmailAction({});
+    }
+
+    requireUserIdMock.mockResolvedValue("user-2");
+    findUniqueMock.mockResolvedValue({
+      id: "user-2",
+      email: "someone-else@example.com",
+      emailVerifiedAt: null,
+    });
+
+    const result = await resendVerificationEmailAction({});
+
+    expect(result).toEqual({ sent: true });
   });
 });
