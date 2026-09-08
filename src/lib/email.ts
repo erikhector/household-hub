@@ -56,6 +56,46 @@ export async function sendHouseholdInviteEmail({
   }
 }
 
+// Unlike sendHouseholdInviteEmail's link, this one has no on-screen
+// fallback: it must only ever reach the account owner's inbox (see
+// requestPasswordResetAction in src/lib/actions/auth.ts). If this fails or
+// RESEND_API_KEY isn't configured, the caller must NOT expose that — surface
+// only the same generic "if an account exists..." message either way, never
+// "couldn't reach you, here's the link instead."
+export async function sendPasswordResetEmail({
+  to,
+  resetUrl,
+}: {
+  to: string;
+  resetUrl: string;
+}): Promise<{ error?: string }> {
+  if (!resend) {
+    return { error: "Email delivery isn't configured" };
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || DEFAULT_FROM,
+      to,
+      subject: "Reset your Household Hub password",
+      html: `
+        <p>We received a request to reset your Household Hub password.</p>
+        <p><a href="${resetUrl}">Reset your password</a></p>
+        <p>Or copy and paste this link into your browser:<br />${resetUrl}</p>
+        <p style="color:#666;font-size:12px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      `,
+    });
+
+    if (error) {
+      return { error: error.message || "Failed to send email" };
+    }
+    return {};
+  } catch (err) {
+    logger.error("Failed to send password reset email", { error: err });
+    return { error: "Failed to send email" };
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

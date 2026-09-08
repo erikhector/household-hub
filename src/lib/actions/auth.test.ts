@@ -1,8 +1,10 @@
 // Tests the module-private Zod schemas in src/lib/actions/auth.ts
-// (signupSchema / implicit login validation) indirectly through the
-// exported Server Actions, since the schemas themselves aren't exported.
-// All I/O (Prisma, next-auth's signIn/signOut) is mocked — no database or
-// real auth session is touched. See REQUIREMENTS.md's "Testing" section.
+// (signupSchema / implicit login validation / requestPasswordResetSchema /
+// resetPasswordSchema) indirectly through the exported Server Actions,
+// since the schemas themselves aren't exported. All I/O (Prisma,
+// next-auth's signIn/signOut, next/headers, next/navigation, email sending)
+// is mocked — no database or real auth session is touched. See
+// REQUIREMENTS.md's "Testing" section.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The real "next-auth" package's index imports "next/server", which Vitest's
@@ -12,26 +14,64 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 class AuthError extends Error {}
 vi.mock("next-auth", () => ({ AuthError }));
 
-const { findUniqueMock, transactionMock, signInMock, signOutMock } = vi.hoisted(() => ({
+const {
+  findUniqueMock,
+  transactionMock,
+  signInMock,
+  signOutMock,
+  passwordResetTokenFindUniqueMock,
+  passwordResetTokenDeleteManyMock,
+  passwordResetTokenCreateMock,
+  sendPasswordResetEmailMock,
+  headersMock,
+  redirectMock,
+} = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
-    user: { create: vi.fn(async () => ({ id: "new-user" })) },
+    user: {
+      create: vi.fn(async () => ({ id: "new-user" })),
+      update: vi.fn(async () => ({})),
+    },
     household: { create: vi.fn(async () => ({ id: "new-household" })) },
     householdMember: { create: vi.fn(async () => ({})) },
+    passwordResetToken: {
+      update: vi.fn(async () => ({})),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
   })),
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
+  passwordResetTokenFindUniqueMock: vi.fn(),
+  passwordResetTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
+  passwordResetTokenCreateMock: vi.fn(async () => ({ id: "token-row", token: "generated-token" })),
+  sendPasswordResetEmailMock: vi.fn(async () => ({})),
+  headersMock: vi.fn(async () => new Map([["host", "localhost:3000"]])),
+  redirectMock: vi.fn((path: string) => {
+    throw new Error(`REDIRECT:${path}`);
+  }),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: findUniqueMock },
+    passwordResetToken: {
+      findUnique: passwordResetTokenFindUniqueMock,
+      deleteMany: passwordResetTokenDeleteManyMock,
+      create: passwordResetTokenCreateMock,
+    },
     $transaction: transactionMock,
   },
 }));
 vi.mock("@/lib/auth", () => ({ signIn: signInMock, signOut: signOutMock }));
+// src/lib/email.ts imports "server-only", which Vitest's Node environment
+// can't resolve outside a Next.js build (same class of issue as the
+// next-auth mock above) — stub it out.
+vi.mock("@/lib/email", () => ({ sendPasswordResetEmail: sendPasswordResetEmailMock }));
+vi.mock("next/headers", () => ({ headers: headersMock }));
+vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { signupAction, loginAction } = await import("@/lib/actions/auth");
+const { signupAction, loginAction, requestPasswordResetAction, resetPasswordAction } =
+  await import("@/lib/actions/auth");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
@@ -47,9 +87,23 @@ const validSignup = {
   password: "supersecret",
 };
 
+const originalAppUrl = process.env.APP_URL;
+
 afterEach(() => {
   vi.clearAllMocks();
   _resetRateLimitsForTests();
+  redirectMock.mockImplementation((path: string) => {
+    throw new Error(`REDIRECT:${path}`);
+  });
+  headersMock.mockImplementation(async () => new Map([["host", "localhost:3000"]]));
+  passwordResetTokenDeleteManyMock.mockImplementation(async () => ({ count: 0 }));
+  passwordResetTokenCreateMock.mockImplementation(async () => ({
+    id: "token-row",
+    token: "generated-token",
+  }));
+  sendPasswordResetEmailMock.mockImplementation(async () => ({}));
+  if (originalAppUrl === undefined) delete process.env.APP_URL;
+  else process.env.APP_URL = originalAppUrl;
 });
 
 describe("signupAction validation", () => {
@@ -197,5 +251,219 @@ describe("signupAction rate limiting", () => {
 
     expect(result.error).toBe("Too many attempts. Please wait a while and try again.");
     expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+});
+
+const GENERIC_RESET_MESSAGE = "If an account exists for that email, we've sent a password reset link.";
+
+describe("requestPasswordResetAction validation", () => {
+  it("rejects an invalid email", async () => {
+    const result = await requestPasswordResetAction({}, formData({ email: "not-an-email" }));
+
+    expect(result.error).toBe("Enter a valid email");
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+});
+
+// Regression coverage for the "never reveal whether an email is
+// registered" constraint (see requestPasswordResetAction's doc comment in
+// src/lib/actions/auth.ts) — unlike signupAction, this flow must return an
+// identical response whether or not the account exists.
+describe("requestPasswordResetAction behavior", () => {
+  it("returns the generic message and sends no email for an unknown address", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "nobody@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_RESET_MESSAGE });
+    expect(passwordResetTokenDeleteManyMock).not.toHaveBeenCalled();
+    expect(passwordResetTokenCreateMock).not.toHaveBeenCalled();
+    expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates old tokens, creates a fresh one, and emails it for a known address", async () => {
+    delete process.env.APP_URL;
+    findUniqueMock.mockResolvedValue({ id: "user-1", email: "erik@example.com" });
+    headersMock.mockResolvedValue(new Map([["host", "localhost:3000"]]));
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "Erik@Example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_RESET_MESSAGE });
+    expect(passwordResetTokenDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: "user-1", usedAt: null },
+    });
+    expect(passwordResetTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "user-1" }),
+    });
+    expect(sendPasswordResetEmailMock).toHaveBeenCalledWith({
+      to: "erik@example.com",
+      resetUrl: "http://localhost:3000/reset-password/generated-token",
+    });
+  });
+
+  it("still returns the generic message when email sending fails", async () => {
+    findUniqueMock.mockResolvedValue({ id: "user-1", email: "erik@example.com" });
+    sendPasswordResetEmailMock.mockResolvedValue({ error: "Email delivery isn't configured" });
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "erik@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_RESET_MESSAGE });
+  });
+
+  it("still returns the generic message when token creation throws", async () => {
+    findUniqueMock.mockResolvedValue({ id: "user-1", email: "erik@example.com" });
+    passwordResetTokenCreateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "erik@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_RESET_MESSAGE });
+    expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestPasswordResetAction rate limiting", () => {
+  it("blocks repeated requests for the same email after the limit, without hitting prisma again", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    for (let i = 0; i < 3; i++) {
+      await requestPasswordResetAction({}, formData({ email: "victim@example.com" }));
+    }
+    findUniqueMock.mockClear();
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "victim@example.com" }),
+    );
+
+    expect(result.error).toBe("Too many attempts. Please wait a while and try again.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rate-limit a different email after another is throttled", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 3; i++) {
+      await requestPasswordResetAction({}, formData({ email: "victim@example.com" }));
+    }
+
+    const result = await requestPasswordResetAction(
+      {},
+      formData({ email: "someone-else@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_RESET_MESSAGE });
+  });
+});
+
+describe("resetPasswordAction validation", () => {
+  const validReset = {
+    token: "reset-token",
+    newPassword: "newsupersecret",
+    confirmPassword: "newsupersecret",
+  };
+
+  it("rejects a password shorter than 8 characters", async () => {
+    const result = await resetPasswordAction(
+      {},
+      formData({ ...validReset, newPassword: "short", confirmPassword: "short" }),
+    );
+
+    expect(result.error).toBe("Password must be at least 8 characters");
+    expect(passwordResetTokenFindUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects mismatched password confirmation", async () => {
+    const result = await resetPasswordAction(
+      {},
+      formData({ ...validReset, confirmPassword: "somethingelse" }),
+    );
+
+    expect(result.error).toBe("Passwords do not match");
+  });
+});
+
+describe("resetPasswordAction behavior", () => {
+  const validReset = {
+    token: "reset-token",
+    newPassword: "newsupersecret",
+    confirmPassword: "newsupersecret",
+  };
+
+  it("rejects an unknown token", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue(null);
+
+    const result = await resetPasswordAction({}, formData(validReset));
+
+    expect(result.error).toBe("This password reset link is invalid or has expired. Request a new one.");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired token", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() - 1000),
+    });
+
+    const result = await resetPasswordAction({}, formData(validReset));
+
+    expect(result.error).toBe("This password reset link is invalid or has expired. Request a new one.");
+  });
+
+  it("rejects an already-used token", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: new Date(),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+
+    const result = await resetPasswordAction({}, formData(validReset));
+
+    expect(result.error).toBe("This password reset link is invalid or has expired. Request a new one.");
+  });
+
+  it("updates the password, marks the token used, and redirects on a valid token", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+
+    await expect(resetPasswordAction({}, formData(validReset))).rejects.toThrow(
+      "REDIRECT:/login?reset=success",
+    );
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("resetPasswordAction rate limiting", () => {
+  it("blocks repeated attempts against the same token after the limit", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue(null);
+    const reset = { token: "guessed-token", newPassword: "newsupersecret", confirmPassword: "newsupersecret" };
+
+    for (let i = 0; i < 10; i++) {
+      await resetPasswordAction({}, formData(reset));
+    }
+    passwordResetTokenFindUniqueMock.mockClear();
+
+    const result = await resetPasswordAction({}, formData(reset));
+
+    expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
+    expect(passwordResetTokenFindUniqueMock).not.toHaveBeenCalled();
   });
 });
