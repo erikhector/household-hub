@@ -80,7 +80,24 @@ were resolved by keeping both calls side by side.
 Run one at a time, each rebased on the previous one's merge, to avoid
 Prisma migration-numbering conflicts.
 
-- [ ] **K. Password reset / forgot-password flow**
+- [x] **K. Password reset / forgot-password flow** — new `PasswordResetToken`
+      model + migration (1hr expiry), `requestPasswordResetAction`/
+      `resetPasswordAction`, new `/forgot-password` + `/reset-password/[token]`
+      pages, full EN/SV i18n. Enumeration-safe (identical generic response
+      whether or not the account exists), reset link is email-only (never
+      shown on-screen, unlike household invites), old tokens invalidated on
+      each new request and on successful reset. Merged, 358/358 tests pass.
+      **Live-verified end-to-end in browser** (not just mocked tests): request
+      → real DB token → reset → login with new password → reused token
+      correctly rejected as invalid. One snag caught during live verification:
+      the already-running dev server had a stale in-memory Prisma Client from
+      before the migration/merge (`prisma.passwordResetToken` was `undefined`
+      until the dev server was restarted) — not a real app bug, but a
+      reminder to restart the dev server after any schema-changing merge
+      before trusting a live check.
+      **Known follow-up, not fixed here:** NextAuth JWT sessions aren't
+      invalidated by a password change — a stolen session cookie survives a
+      reset. Same pre-existing gap as `updatePasswordAction`.
 - [ ] **L. Email verification on signup**
 - [ ] **M. Account deletion + GDPR data export**
 
