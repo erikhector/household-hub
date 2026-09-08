@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useTransition } from "react";
-import { Ban, Minus, Pencil, Plus, Trash2 } from "lucide-react";
+import { Ban, Minus, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ import {
   markItemEmptyAction,
 } from "@/app/dashboard/inventory/actions";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
+import { QuickAddBar } from "@/components/inventory/quick-add-bar";
+import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -86,6 +88,7 @@ export function InventoryTable({
   locations,
   groupBy = "none",
   emptyMessage,
+  isHouseholdEmpty = false,
   dict,
   barcodeDict,
 }: {
@@ -94,10 +97,45 @@ export function InventoryTable({
   locations: string[];
   groupBy?: InventoryGroupBy;
   emptyMessage: string;
+  /** True only when the household has zero items at all (not just zero
+   * after filtering) — gates the richer "get started" empty state below. */
+  isHouseholdEmpty?: boolean;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
 }) {
   const [isPending, startTransition] = useTransition();
+
+  if (items.length === 0 && isHouseholdEmpty) {
+    return (
+      <div className="flex flex-col items-center gap-6 rounded-md border border-dashed p-8 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Package className="size-6" />
+          </span>
+          <div>
+            <p className="text-sm font-medium">{dict.emptyTitle}</p>
+            <p className="text-sm text-muted-foreground">{dict.emptyLead}</p>
+          </div>
+        </div>
+        <QuickAddBar dict={dict} />
+        <ItemFormDialog
+          mode="create"
+          categories={categories}
+          locations={locations}
+          dict={dict}
+          barcodeDict={barcodeDict}
+          trigger={
+            <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+              {dict.addItem}
+            </Button>
+          }
+        />
+        <div className="w-full border-t pt-6">
+          <StarterKitPicker dict={dict} />
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (

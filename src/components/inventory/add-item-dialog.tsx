@@ -102,7 +102,6 @@ export function ItemFormDialog({
               <Input
                 id="category"
                 name="category"
-                required
                 maxLength={60}
                 defaultValue={item?.category}
                 placeholder={dict.categoryPlaceholder}
@@ -114,6 +113,7 @@ export function ItemFormDialog({
                   <option key={c} value={c} />
                 ))}
               </datalist>
+              {mode === "create" && <p className="text-xs text-muted-foreground">{dict.categoryHint}</p>}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="location">{dict.locationLabel}</Label>

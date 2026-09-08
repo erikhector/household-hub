@@ -138,6 +138,7 @@ export function InventoryClient({
         dict={dict}
         barcodeDict={barcodeDict}
         emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
+        isHouseholdEmpty={items.length === 0}
       />
     </div>
   );

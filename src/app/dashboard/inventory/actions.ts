@@ -10,11 +10,19 @@ import { toFriendlyError } from "@/lib/actions/errors";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
-  category: z.string().trim().min(1, "Category is required").max(60, "Category must be 60 characters or fewer"),
+  // Left blank on the create/edit form or the quick-add bar, an item files
+  // under the locale's "Uncategorized" label (resolved below) instead of
+  // blocking the add on picking a category up front.
+  category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
   quantity: z.coerce.number().min(0, "Quantity can't be negative"),
   unit: z.string().trim().min(1).max(20, "Unit must be 20 characters or fewer").default("pcs"),
   lowStockThreshold: z.coerce.number().min(0, "Threshold can't be negative"),
   location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
+});
+
+const starterKitSchema = z.object({
+  category: z.string().trim().min(1).max(60),
+  names: z.array(z.string().trim().min(1).max(120)).min(1).max(50),
 });
 
 export async function createInventoryItemAction(
@@ -35,9 +43,11 @@ export async function createInventoryItemAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
+
   try {
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...parsed.data },
+      data: { householdId: household.id, ...parsed.data, category },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -72,6 +82,8 @@ export async function updateInventoryItemAction(
   });
   if (!item) return { error: "Item not found" };
 
+  const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
+
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
@@ -79,7 +91,7 @@ export async function updateInventoryItemAction(
       // the field to empty actually nulls it out — Prisma drops `undefined`
       // keys from an update instead of writing them, which would otherwise
       // leave a stale location in place.
-      data: { ...parsed.data, location: parsed.data.location ?? null },
+      data: { ...parsed.data, category, location: parsed.data.location ?? null },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -88,6 +100,86 @@ export async function updateInventoryItemAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return {};
+}
+
+// Rapid-entry path for the empty-state quick-add bar: takes just a name (no
+// dialog, no category prompt) so a household starting from zero items can
+// fire off several adds in a row by typing and pressing Enter. Everything
+// else defaults the same way a blank create-form submission would.
+export async function quickAddInventoryItemAction(name: string): Promise<{ error?: string; name?: string }> {
+  const { household } = await requireHousehold();
+
+  const parsed = itemSchema.safeParse({
+    name,
+    quantity: 1,
+    unit: "pcs",
+    lowStockThreshold: 1,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const dict = await getDictionary();
+
+  try {
+    await prisma.inventoryItem.create({
+      data: { householdId: household.id, ...parsed.data, category: dict.inventory.uncategorized },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return { name: parsed.data.name };
+}
+
+// Bulk-inserts a starter kit's selected items in one round trip. `category`
+// and `names` arrive already translated by the client — it rendered them
+// from the same locale dictionary this server action would otherwise have
+// to re-resolve — so this only re-validates shape/length, not locale.
+// Case-insensitively skips names the household already has so re-adding a
+// kit (or overlapping two kits) doesn't create duplicate rows.
+export async function addStarterKitItemsAction(
+  category: string,
+  names: string[],
+): Promise<{ error?: string; added?: number }> {
+  const { household } = await requireHousehold();
+
+  const parsed = starterKitSchema.safeParse({ category, names });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let added = 0;
+  try {
+    const existing = await prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((item) => item.name.trim().toLowerCase()));
+    const toAdd = [...new Set(parsed.data.names)].filter((name) => !existingNames.has(name.toLowerCase()));
+
+    if (toAdd.length > 0) {
+      await prisma.inventoryItem.createMany({
+        data: toAdd.map((name) => ({
+          householdId: household.id,
+          name,
+          category: parsed.data.category,
+          quantity: 1,
+          unit: "pcs",
+          lowStockThreshold: 1,
+        })),
+      });
+    }
+    added = toAdd.length;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return { added };
 }
 
 export async function adjustQuantityAction(
