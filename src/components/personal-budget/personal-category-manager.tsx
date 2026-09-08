@@ -138,7 +138,7 @@ function CategoryGroup({
   );
 }
 
-function AddCategoryDialog({ dict }: { dict: Dictionary["personalBudget"] }) {
+export function AddCategoryDialog({ dict }: { dict: Dictionary["personalBudget"] }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,

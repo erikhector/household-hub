@@ -99,6 +99,7 @@ export function PersonalRecurringTemplatesPanel({
         <p className="text-sm text-muted-foreground">{dict.recurring.empty}</p>
       ) : (
         <div className="flex flex-col gap-4">
+          <p className="text-xs text-muted-foreground">{dict.recurring.statusLegend}</p>
           <TemplateGroup label={dict.recurring.sectionDue} items={due}>
             {(template) => (
               <TemplateRow
@@ -138,6 +139,7 @@ export function PersonalRecurringTemplatesPanel({
                             template.id,
                           );
                           if (result.error) toast.error(result.error);
+                          else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
                         })
                       }
                     >
@@ -172,6 +174,7 @@ export function PersonalRecurringTemplatesPanel({
                           template.id,
                         );
                         if (result.error) toast.error(result.error);
+                        else toast.success(format(dict.recurring.undoToast, { name: template.name }));
                       })
                     }
                   >

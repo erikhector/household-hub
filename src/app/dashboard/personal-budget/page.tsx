@@ -18,7 +18,6 @@ import {
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
 } from "@/app/dashboard/budget/recurring-template-calc";
-import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { computeSafeToSpend } from "@/app/dashboard/budget/safe-to-spend-calc";
 
 // Same cap as the household budget's cost analyzer / fixed trend chart.
@@ -178,19 +177,6 @@ export default async function PersonalBudgetPage() {
         />
       </div>
 
-      {categoryRows.length === 0 && (
-        <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {dict.personalBudget.noCategoriesWarning}
-        </p>
-      )}
-
-      <SafeToSpend
-        amount={safeToSpend}
-        expectedRecurring={expectedRecurring}
-        dict={dict.personalBudget.safeToSpend}
-        locale={locale}
-      />
-
       <PeriodSummary
         income={income}
         expense={expense}
@@ -223,6 +209,12 @@ export default async function PersonalBudgetPage() {
 
       <PersonalBudgetTabs
         dict={dict.personalBudget}
+        locale={locale}
+        categories={categoryRows}
+        safeToSpendAmount={safeToSpend}
+        safeToSpendExpectedRecurring={expectedRecurring}
+        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+        hasRecurringTemplates={recurringTemplateRows.length > 0}
         overview={overview}
         fixed={
           <div className="flex flex-col gap-6">

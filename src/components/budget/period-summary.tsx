@@ -48,7 +48,10 @@ export function PeriodSummary({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+      <div>
+        <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+        <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>

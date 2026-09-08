@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, type ReactElement } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,7 +120,12 @@ export function TransactionDialog({
   ) => {
     const action = isEdit ? updateTransactionAction : createTransactionAction;
     const result = await action(prevState, formData);
-    if (!result.error) setOpen(false);
+    if (!result.error) {
+      setOpen(false);
+      if (!isEdit && prefillFromTemplate) {
+        toast.success(format(dict.recurring.loggedToast, { name: prefillFromTemplate.description ?? "" }));
+      }
+    }
     return result;
   }, initialState);
 

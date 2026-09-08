@@ -434,8 +434,8 @@ export const sv = {
   budget: {
     title: "Budget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
-    tabFixed: "Fasta inkomster & utgifter",
-    tabOverview: "Översikt",
+    tabFixed: "Plan",
+    tabOverview: "Aktivitet",
     tabCostAnalyzer: "Kostnadsanalys",
     tabBalances: "Saldon",
     addTransaction: "Lägg till transaktion",
@@ -458,7 +458,6 @@ export const sv = {
     add: "Lägg till transaktion",
     editAriaLabel: "Redigera transaktion",
     deleteAriaLabel: "Ta bort transaktion",
-    noCategoriesWarning: "Lägg till en kategori nedan innan du registrerar en transaktion.",
     columnDate: "Datum",
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
@@ -487,6 +486,7 @@ export const sv = {
     },
     summary: {
       title: "Den här månaden",
+      subtitle: "Allt du har registrerat denna månad — planerat och engångs tillsammans.",
       income: "Inkomster",
       expenses: "Utgifter",
       net: "Netto",
@@ -503,6 +503,18 @@ export const sv = {
       caveat:
         "En uppskattning, inte en schemaläggare — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",
+    },
+    onboarding: {
+      title: "Sätt igång din budget",
+      body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+    },
+    dueWidget: {
+      title: "Att göra denna period",
+      subtitle: "Återkommande räkningar och inkomster du inte loggat än.",
+      allCaughtUpTitle: "Allt är klart",
+      allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
+      noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
+      manageButton: "Hantera återkommande poster",
     },
     costAnalyzer: {
       spendingTitle: "Matinköp över tid",
@@ -535,6 +547,8 @@ export const sv = {
       title: "Återkommande poster",
       subtitle:
         "Inkomster, räkningar och sparande du väntar dig varje period. Bocka av en genom att logga dess transaktion, eller markera den som klar om den hanteras utanför appen.",
+      statusLegend:
+        "Att göra: inte loggat än denna period. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
       addTemplate: "Lägg till återkommande post",
       addDialogTitle: "Lägg till återkommande post",
       editDialogTitle: "Redigera återkommande post",
@@ -554,6 +568,9 @@ export const sv = {
       logTransaction: "Logga transaktion",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
+      loggedToast: "{name} loggad för denna period.",
+      acknowledgedToast: "{name} markerad som klar.",
+      undoToast: "{name} flyttad tillbaka till att göra.",
       editAriaLabel: "Redigera {name}",
       deleteAriaLabel: "Ta bort {name}",
       pause: "Pausa",
@@ -582,8 +599,8 @@ export const sv = {
   personalBudget: {
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
-    tabFixed: "Fasta inkomster & utgifter",
-    tabOverview: "Översikt",
+    tabFixed: "Plan",
+    tabOverview: "Aktivitet",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -604,7 +621,6 @@ export const sv = {
     add: "Lägg till transaktion",
     editAriaLabel: "Redigera transaktion",
     deleteAriaLabel: "Ta bort transaktion",
-    noCategoriesWarning: "Lägg till en kategori nedan innan du registrerar en transaktion.",
     columnDate: "Datum",
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
@@ -632,6 +648,7 @@ export const sv = {
     },
     summary: {
       title: "Denna månad",
+      subtitle: "Allt du har registrerat denna månad — planerat och engångs tillsammans.",
       income: "Inkomst",
       expenses: "Utgifter",
       net: "Netto",
@@ -649,10 +666,24 @@ export const sv = {
         "En uppskattning, inte ett schema — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",
     },
+    onboarding: {
+      title: "Sätt igång din budget",
+      body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+    },
+    dueWidget: {
+      title: "Att göra denna period",
+      subtitle: "Återkommande räkningar och inkomster du inte loggat än.",
+      allCaughtUpTitle: "Allt är klart",
+      allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
+      noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
+      manageButton: "Hantera återkommande poster",
+    },
     recurring: {
       title: "Återkommande poster",
       subtitle:
         "Inkomster, räkningar och sparande du väntar dig varje period. Bocka av en genom att logga dess transaktion, eller markera den som klar om den hanteras utanför appen.",
+      statusLegend:
+        "Att göra: inte loggat än denna period. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
       addTemplate: "Lägg till återkommande post",
       addDialogTitle: "Lägg till återkommande post",
       editDialogTitle: "Redigera återkommande post",
@@ -672,6 +703,9 @@ export const sv = {
       logTransaction: "Logga transaktion",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
+      loggedToast: "{name} loggad för denna period.",
+      acknowledgedToast: "{name} markerad som klar.",
+      undoToast: "{name} flyttad tillbaka till att göra.",
       editAriaLabel: "Redigera {name}",
       deleteAriaLabel: "Ta bort {name}",
       pause: "Pausa",

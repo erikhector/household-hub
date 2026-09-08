@@ -442,8 +442,8 @@ export const en = {
   budget: {
     title: "Budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
-    tabFixed: "Fixed income & costs",
-    tabOverview: "Overview",
+    tabFixed: "Plan",
+    tabOverview: "Activity",
     tabCostAnalyzer: "Cost analyzer",
     tabBalances: "Balances",
     addTransaction: "Add transaction",
@@ -466,7 +466,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    noCategoriesWarning: "Add a category below before recording a transaction.",
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -495,6 +494,7 @@ export const en = {
     },
     summary: {
       title: "This month",
+      subtitle: "Everything you've logged this month — planned and one-off together.",
       income: "Income",
       expenses: "Expenses",
       net: "Net",
@@ -511,6 +511,18 @@ export const en = {
       caveat:
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",
+    },
+    onboarding: {
+      title: "Let's set up your budget",
+      body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
+    },
+    dueWidget: {
+      title: "Due this period",
+      subtitle: "Recurring bills and income you haven't logged yet.",
+      allCaughtUpTitle: "You're all caught up",
+      allCaughtUpBody: "Nothing's due right now — check back next period.",
+      noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      manageButton: "Manage recurring items",
     },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
@@ -543,6 +555,8 @@ export const en = {
       title: "Recurring items",
       subtitle:
         "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
+      statusLegend:
+        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
       addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
@@ -562,6 +576,9 @@ export const en = {
       logTransaction: "Log transaction",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
+      loggedToast: "{name} logged for this period.",
+      acknowledgedToast: "{name} marked as accounted for.",
+      undoToast: "{name} moved back to due.",
       editAriaLabel: "Edit {name}",
       deleteAriaLabel: "Delete {name}",
       pause: "Pause",
@@ -590,8 +607,8 @@ export const en = {
   personalBudget: {
     title: "Personal budget",
     subtitle: "Your own income and expenses — separate from any household you're part of.",
-    tabFixed: "Fixed income & costs",
-    tabOverview: "Overview",
+    tabFixed: "Plan",
+    tabOverview: "Activity",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
     editTransactionDialogTitle: "Edit transaction",
@@ -612,7 +629,6 @@ export const en = {
     add: "Add transaction",
     editAriaLabel: "Edit transaction",
     deleteAriaLabel: "Delete transaction",
-    noCategoriesWarning: "Add a category below before recording a transaction.",
     columnDate: "Date",
     columnCategory: "Category",
     columnDescription: "Description",
@@ -640,6 +656,7 @@ export const en = {
     },
     summary: {
       title: "This month",
+      subtitle: "Everything you've logged this month — planned and one-off together.",
       income: "Income",
       expenses: "Expenses",
       net: "Net",
@@ -657,10 +674,24 @@ export const en = {
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",
     },
+    onboarding: {
+      title: "Let's set up your budget",
+      body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
+    },
+    dueWidget: {
+      title: "Due this period",
+      subtitle: "Recurring bills and income you haven't logged yet.",
+      allCaughtUpTitle: "You're all caught up",
+      allCaughtUpBody: "Nothing's due right now — check back next period.",
+      noTemplatesBody: "Set up recurring bills and income to see what's due here.",
+      manageButton: "Manage recurring items",
+    },
     recurring: {
       title: "Recurring items",
       subtitle:
         "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
+      statusLegend:
+        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
       addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
@@ -680,6 +711,9 @@ export const en = {
       logTransaction: "Log transaction",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
+      loggedToast: "{name} logged for this period.",
+      acknowledgedToast: "{name} marked as accounted for.",
+      undoToast: "{name} moved back to due.",
       editAriaLabel: "Edit {name}",
       deleteAriaLabel: "Delete {name}",
       pause: "Pause",

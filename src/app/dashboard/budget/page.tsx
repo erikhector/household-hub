@@ -18,7 +18,6 @@ import {
   type PausedRecurringTemplateRow,
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
-import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { computeSafeToSpend } from "./safe-to-spend-calc";
@@ -288,19 +287,6 @@ export default async function BudgetPage() {
         />
       </div>
 
-      {categoryRows.length === 0 && (
-        <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-          {dict.budget.noCategoriesWarning}
-        </p>
-      )}
-
-      <SafeToSpend
-        amount={safeToSpend}
-        expectedRecurring={expectedRecurring}
-        dict={dict.budget.safeToSpend}
-        locale={locale}
-      />
-
       <PeriodSummary
         income={income}
         expense={expense}
@@ -335,6 +321,14 @@ export default async function BudgetPage() {
 
       <BudgetTabs
         dict={dict.budget}
+        locale={locale}
+        categories={categoryRows}
+        safeToSpendAmount={safeToSpend}
+        safeToSpendExpectedRecurring={expectedRecurring}
+        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+        hasRecurringTemplates={recurringTemplateRows.length > 0}
+        members={memberOptions}
+        currentMemberId={currentMemberId}
         overview={overview}
         costAnalyzer={
           <CostAnalyzer

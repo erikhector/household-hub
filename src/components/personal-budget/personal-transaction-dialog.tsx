@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, type ReactElement } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import {
   createPersonalTransactionAction,
   updatePersonalTransactionAction,
 } from "@/app/dashboard/personal-budget/actions";
+import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
@@ -83,7 +85,12 @@ export function PersonalTransactionDialog({
   ) => {
     const action = isEdit ? updatePersonalTransactionAction : createPersonalTransactionAction;
     const result = await action(prevState, formData);
-    if (!result.error) setOpen(false);
+    if (!result.error) {
+      setOpen(false);
+      if (!isEdit && prefillFromTemplate) {
+        toast.success(format(dict.recurring.loggedToast, { name: prefillFromTemplate.description ?? "" }));
+      }
+    }
     return result;
   }, initialState);
 
