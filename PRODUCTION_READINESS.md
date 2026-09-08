@@ -98,8 +98,28 @@ Prisma migration-numbering conflicts.
       **Known follow-up, not fixed here:** NextAuth JWT sessions aren't
       invalidated by a password change — a stolen session cookie survives a
       reset. Same pre-existing gap as `updatePasswordAction`.
-- [ ] **L. Email verification on signup**
-- [ ] **M. Account deletion + GDPR data export**
+- [x] **L. Email verification on signup** — new `EmailVerificationToken` model
+      + `User.emailVerifiedAt` + migration (36hr expiry), `signupAction` now
+      sends a verification email (non-blocking), new `verifyEmailAction` +
+      `resendVerificationEmailAction`, `/verify-email/[token]` page, dashboard
+      banner. **Soft-gated as scoped** — full access regardless, just a
+      dismissible-by-verifying banner. Merged, 371/371 tests pass.
+      Correction to my own earlier task brief: `src/proxy.ts` (Next 16's
+      `middleware.ts` rename) *does* do session-based route gating
+      (redirects unauthenticated users off `/dashboard`) — I'd told the
+      agent no such layer existed. Doesn't change the soft-gate decision
+      (proxy.ts is Edge/JWT-only, no Prisma access, so gating on
+      `emailVerifiedAt` there would need JWT/session-refresh plumbing
+      anyway) but noting the correction for accuracy.
+      **Live-verified end-to-end in browser**: banner renders for an
+      unverified account, resend action creates a fresh DB token (and
+      correctly surfaces a real "couldn't send" error here, unlike password
+      reset, since there's no enumeration concern for an already-logged-in
+      caller), valid-token verify works and clears the banner, an
+      already-verified re-visit is handled idempotently (harmless React
+      Strict Mode double-invoke of the auto-submit effect in dev landed on
+      the "already verified" branch — by design), invalid token correctly
+      rejected.
 
 ## Wave 3 — after Wave 2 lands
 
