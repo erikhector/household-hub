@@ -28,6 +28,7 @@ type ShoppingListItemRow = {
   id: string;
   name: string;
   quantity: number;
+  unit: string;
   purchased: boolean;
   addedAutomatically: boolean;
   inventoryItemId: string | null;
@@ -96,6 +97,12 @@ function AddItemForm({
           min={0.01}
           step="any"
           defaultValue={1}
+          className="w-20"
+        />
+        <Input
+          name="unit"
+          placeholder={dict.addItemUnitPlaceholder}
+          maxLength={20}
           className="w-20"
         />
         <BarcodeScannerButton dict={barcodeDict} onResult={handleScanResult} />
@@ -313,9 +320,9 @@ function ShoppingRow({
           />
           <span
             className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
-            title={`${item.name} × ${item.quantity}`}
+            title={`${item.name} × ${item.quantity} ${item.unit}`}
           >
-            {item.name} × {item.quantity}
+            {item.name} × {item.quantity} {item.unit}
           </span>
           {item.addedAutomatically && (
             <Badge variant="secondary" className="shrink-0">

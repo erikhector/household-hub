@@ -140,6 +140,7 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
           inventoryItemId: item.id,
           name: item.name,
           quantity: Math.max(1, item.lowStockThreshold - item.quantity),
+          unit: item.unit,
           addedAutomatically: true,
         })),
       });
@@ -156,6 +157,7 @@ const addItemSchema = z.object({
   listId: z.string().min(1),
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
+  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
 });
 
 /**
@@ -177,6 +179,7 @@ async function createAdHocShoppingListItem(
   listId: string,
   name: string,
   quantity: number,
+  unit: string,
   newItemDetails?: { category: string; unit: string },
 ) {
   const list = await prisma.shoppingList.findFirst({
@@ -204,6 +207,7 @@ async function createAdHocShoppingListItem(
       inventoryItemId: inventoryItem?.id ?? null,
       name,
       quantity,
+      unit: unit || inventoryItem?.unit || "pcs",
     },
   });
   return { list, item } as const;
@@ -219,6 +223,7 @@ export async function addAdHocItemAction(
     listId: formData.get("listId"),
     name: formData.get("name"),
     quantity: formData.get("quantity") || 1,
+    unit: formData.get("unit") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -230,6 +235,7 @@ export async function addAdHocItemAction(
       parsed.data.listId,
       parsed.data.name,
       parsed.data.quantity,
+      parsed.data.unit ?? "",
     );
     if ("error" in result) return { error: result.error };
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
@@ -277,6 +283,7 @@ export async function quickAddShoppingListItemAction(
       parsed.data.listId,
       parsed.data.name,
       parsed.data.quantity,
+      parsed.data.unit ?? "",
       newItemDetails ? { category: parsed.data.category ?? "", unit: parsed.data.unit ?? "" } : undefined,
     );
     if ("error" in result) return { error: result.error };

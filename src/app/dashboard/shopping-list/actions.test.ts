@@ -238,7 +238,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
 
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1 },
+      data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "pcs" },
     });
   });
 
@@ -275,7 +275,13 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
       },
     });
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-new", name: "Kycklingfilé", quantity: 0.556 },
+      data: {
+        shoppingListId: "list-1",
+        inventoryItemId: "inv-new",
+        name: "Kycklingfilé",
+        quantity: 0.556,
+        unit: "kg",
+      },
     });
     expect(result).toEqual({ item: { id: "item-9", name: "Kycklingfilé" } });
   });
@@ -289,7 +295,7 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
 
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: { shoppingListId: "list-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1 },
+      data: { shoppingListId: "list-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1, unit: "l" },
     });
   });
 });

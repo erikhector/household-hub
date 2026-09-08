@@ -542,6 +542,7 @@ export async function addMissingIngredientsToShoppingListAction(
         inventoryItemId: inventoryItem.id,
         name: row.name,
         quantity: row.quantity,
+        unit: row.unit,
         addedAutomatically: true,
       },
     });

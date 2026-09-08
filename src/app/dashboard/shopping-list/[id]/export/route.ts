@@ -26,10 +26,11 @@ export async function GET(
 
   const t = dict.export.shoppingList;
   const csv = buildCsv(
-    [t.headerName, t.headerQuantity, t.headerEstimatedPrice, t.headerPurchased],
+    [t.headerName, t.headerQuantity, t.headerUnit, t.headerEstimatedPrice, t.headerPurchased],
     list.items.map((item) => [
       item.name,
       item.quantity,
+      item.unit,
       item.estimatedPrice ?? "",
       item.purchased ? dict.export.yes : dict.export.no,
     ]),

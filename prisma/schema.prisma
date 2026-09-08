@@ -187,6 +187,7 @@ model ShoppingListItem {
   inventoryItemId    String?
   name               String
   quantity           Float    @default(1)
+  unit               String   @default("pcs")
   estimatedPrice     Float?
   purchased          Boolean  @default(false)
   addedAutomatically Boolean  @default(false)
