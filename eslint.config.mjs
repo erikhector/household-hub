@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Git worktrees (see the Agent tool's `isolation: "worktree"` option)
+    // land under here as full nested checkouts of this repo, including
+    // their own src/**. They're gitignored, but ESLint doesn't consult
+    // .gitignore on its own — without this, `npm run lint` run from the
+    // main checkout while any worktree exists recurses into every one of
+    // them and reports their issues as if they were this checkout's own.
+    ".claude/worktrees/**",
   ]),
 ]);
 
