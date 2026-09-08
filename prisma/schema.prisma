@@ -23,6 +23,7 @@ model User {
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
   personalRecurringTemplates PersonalRecurringTemplate[]
+  passwordResetTokens        PasswordResetToken[]
 }
 
 enum HouseholdRole {
@@ -72,6 +73,31 @@ model Invitation {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@index([householdId])
+}
+
+// Password-reset link, same token-based/time-limited shape as Invitation
+// above. Unlike an invite link (an intentional, always-visible fallback for
+// the inviting household owner), this token must only ever reach its owner
+// via email — see requestPasswordResetAction/sendPasswordResetEmail in
+// src/lib/actions/auth.ts / src/lib/email.ts. `expiresAt` is 1 hour from
+// creation (vs. Invitation's 7 days): a reset link grants account takeover
+// to whoever holds it, a much higher-value target than a household invite,
+// and password-reset emails typically arrive within seconds — an hour is
+// generous for a legitimate user while keeping a leaked/intercepted link's
+// window small. `usedAt` marks it consumed (mirrors Invitation.acceptedAt);
+// a fresh request invalidates a user's other outstanding unused tokens (see
+// requestPasswordResetAction) so an old leaked link stops working.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // --- Inventory & shopping ---------------------------------------------------
