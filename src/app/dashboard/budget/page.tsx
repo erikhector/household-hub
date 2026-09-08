@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
-import { ExportCsvButton } from "@/components/export/export-csv-button";
+import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { CategoryManager } from "@/components/budget/category-manager";
 import {
@@ -276,7 +276,7 @@ export default async function BudgetPage() {
   const overview = (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end gap-2">
-        <ExportCsvButton href="/dashboard/budget/export" label={dict.export.button} />
+        <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
         <TransactionDialog
           dict={dict.budget}
           categories={categoryRows}

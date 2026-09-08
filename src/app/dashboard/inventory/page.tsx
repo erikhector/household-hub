@@ -4,7 +4,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
-import { ExportCsvButton } from "@/components/export/export-csv-button";
+import { ExportButton } from "@/components/export/export-button";
 import type { StockStatus } from "@/lib/stock-status";
 
 // Status values the notification bell's low-stock alerts link to (e.g.
@@ -39,7 +39,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <ExportCsvButton href="/dashboard/inventory/export" label={dict.export.button} />
+          <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
           <ItemFormDialog
             mode="create"
             categories={categories}

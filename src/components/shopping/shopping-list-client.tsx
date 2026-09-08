@@ -7,7 +7,7 @@ import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ExportCsvButton } from "@/components/export/export-csv-button";
+import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { MapShoppingItemDialog } from "@/components/shopping/map-shopping-item-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
@@ -154,7 +154,7 @@ export function ShoppingListClient({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <ExportCsvButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
+          <ExportButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
           {isActive && (
             <Button
               variant="outline"
