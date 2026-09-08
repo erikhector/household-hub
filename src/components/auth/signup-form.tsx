@@ -11,7 +11,13 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const initialState: ActionState = {};
 
-export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
+export function SignupForm({
+  dict,
+  legalDict,
+}: {
+  dict: Dictionary["auth"]["signup"];
+  legalDict: Dictionary["legal"];
+}) {
   const [state, formAction, pending] = useActionState(signupAction, initialState);
 
   return (
@@ -76,6 +82,17 @@ export function SignupForm({ dict }: { dict: Dictionary["auth"]["signup"] }) {
         </div>
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+      <p className="text-center text-xs text-muted-foreground">
+        {legalDict.signupConsentPrefix}{" "}
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+          {legalDict.termsLink}
+        </Link>{" "}
+        {legalDict.consentAnd}{" "}
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          {legalDict.privacyLink}
+        </Link>
+        {legalDict.consentSuffix}
+      </p>
       <Button type="submit" disabled={pending} className="w-full">
         <Sparkles className="size-4" />
         {pending ? dict.creating : dict.submit}

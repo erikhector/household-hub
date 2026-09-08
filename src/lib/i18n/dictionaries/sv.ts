@@ -798,4 +798,14 @@ export const sv = {
       },
     },
   },
+  legal: {
+    termsNavLabel: "Villkor",
+    privacyNavLabel: "Integritet",
+    footerCopyright: "© {year} Household Hub",
+    signupConsentPrefix: "Genom att skapa ett konto godkänner du våra",
+    termsLink: "användarvillkor",
+    consentAnd: "och",
+    privacyLink: "integritetspolicy",
+    consentSuffix: ".",
+  },
 } satisfies Dictionary;

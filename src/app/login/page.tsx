@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
+import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function LoginPage() {
@@ -26,6 +27,7 @@ export default async function LoginPage() {
           <LoginForm dict={dict.auth.login} />
         </CardContent>
       </Card>
+      <LegalFooter dict={dict.legal} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getInvitationForDisplay } from "@/lib/actions/household";
 import { AcceptInviteForm } from "@/components/household/accept-invite-form";
 import { JoinSignupForm } from "@/components/household/join-signup-form";
+import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 
@@ -30,10 +31,11 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
           ) : session?.user ? (
             <AcceptInviteForm token={token} dict={dict.auth.join} />
           ) : (
-            <JoinSignupForm token={token} dict={dict.auth.join} />
+            <JoinSignupForm token={token} dict={dict.auth.join} legalDict={dict.legal} />
           )}
         </CardContent>
       </Card>
+      <LegalFooter dict={dict.legal} />
     </div>
   );
 }
