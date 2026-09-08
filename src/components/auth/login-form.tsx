@@ -32,7 +32,15 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">{dict.password}</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">{dict.password}</Label>
+          <Link
+            href="/forgot-password"
+            className="text-xs font-medium text-primary underline underline-offset-4"
+          >
+            {dict.forgotPassword}
+          </Link>
+        </div>
         <div className="relative">
           <Lock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
