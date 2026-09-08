@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Deployment Runbook
 
 Practical steps for shipping this app to production. Read this before running a
