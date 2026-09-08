@@ -44,7 +44,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", () => ({
-  getDictionary: vi.fn(async () => ({ shoppingList: { defaultNamePrefix: "Shopping list" } })),
+  getDictionary: vi.fn(async () => ({
+    shoppingList: { defaultNamePrefix: "Shopping list" },
+    inventory: { uncategorized: "Uncategorized" },
+  })),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
@@ -85,9 +88,15 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("rejects a missing category", async () => {
+  it("defaults a blank category to the locale's 'Uncategorized' label instead of rejecting it", async () => {
+    createMock.mockResolvedValue({});
+
     const result = await createInventoryItemAction({}, formData({ ...validItem, category: " " }));
-    expect(result.error).toBe("Category is required");
+
+    expect(result).toEqual({});
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Uncategorized" }) }),
+    );
   });
 
   it("rejects a negative quantity", async () => {
