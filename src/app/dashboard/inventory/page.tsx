@@ -30,6 +30,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
 
   const categories = [...new Set(items.map((item) => item.category))].sort();
   const locations = [...new Set(items.flatMap((item) => (item.location ? [item.location] : [])))].sort();
+  const units = [...new Set(items.map((item) => item.unit))].sort();
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,6 +45,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
             mode="create"
             categories={categories}
             locations={locations}
+            units={units}
             dict={dict.inventory}
             barcodeDict={dict.barcodeScanner}
             trigger={<Button>{dict.inventory.addItem}</Button>}
@@ -54,6 +56,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         items={items}
         categories={categories}
         locations={locations}
+        units={units}
         dict={dict.inventory}
         barcodeDict={dict.barcodeScanner}
         initialStatus={initialStatus}

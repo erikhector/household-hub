@@ -12,19 +12,75 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Autocomplete,
+  AutocompleteClear,
+  AutocompleteContent,
+  AutocompleteEmpty,
+  AutocompleteInput,
+  AutocompleteInputGroup,
+  AutocompleteItem,
+  AutocompleteList,
+  AutocompleteTrigger,
+} from "@/components/ui/autocomplete";
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import type { InventoryItemRow } from "@/components/inventory/inventory-table";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { format } from "@/lib/i18n/format";
 
 const initialState: ActionState = {};
+
+function ComboField({
+  id,
+  name,
+  items,
+  value,
+  onValueChange,
+  placeholder,
+  maxLength,
+  dict,
+}: {
+  id: string;
+  name: string;
+  items: string[];
+  value: string;
+  onValueChange: (value: string) => void;
+  placeholder?: string;
+  maxLength: number;
+  dict: Dictionary["inventory"];
+}) {
+  const trimmed = value.trim();
+  return (
+    <Autocomplete items={items} name={name} value={value} onValueChange={onValueChange}>
+      <AutocompleteInputGroup>
+        <AutocompleteInput id={id} placeholder={placeholder} maxLength={maxLength} />
+        <AutocompleteClear />
+        <AutocompleteTrigger />
+      </AutocompleteInputGroup>
+      <AutocompleteContent>
+        <AutocompleteEmpty>
+          {trimmed ? format(dict.comboboxAddNew, { value: trimmed }) : dict.comboboxNoMatches}
+        </AutocompleteEmpty>
+        <AutocompleteList>
+          {(option: string) => (
+            <AutocompleteItem key={option} value={option}>
+              {option}
+            </AutocompleteItem>
+          )}
+        </AutocompleteList>
+      </AutocompleteContent>
+    </Autocomplete>
+  );
+}
 
 export function ItemFormDialog({
   mode,
   item,
   categories,
   locations,
+  units,
   dict,
   barcodeDict,
   trigger,
@@ -33,18 +89,25 @@ export function ItemFormDialog({
   item?: InventoryItemRow;
   categories: string[];
   locations: string[];
+  units: string[];
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(item?.name ?? "");
+  const [category, setCategory] = useState(item?.category ?? "");
+  const [location, setLocation] = useState(item?.location ?? "");
+  const [unit, setUnit] = useState(item?.unit ?? "pcs");
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
       setName(item?.name ?? "");
+      setCategory(item?.category ?? "");
+      setLocation(item?.location ?? "");
+      setUnit(item?.unit ?? "pcs");
       setScannedBarcode(null);
     }
   };
@@ -99,38 +162,30 @@ export function ItemFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="category">{dict.categoryLabel}</Label>
-              <Input
+              <ComboField
                 id="category"
                 name="category"
-                maxLength={60}
-                defaultValue={item?.category}
+                items={categories}
+                value={category}
+                onValueChange={setCategory}
                 placeholder={dict.categoryPlaceholder}
-                list="category-options"
-                autoComplete="off"
+                maxLength={60}
+                dict={dict}
               />
-              <datalist id="category-options">
-                {categories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
               {mode === "create" && <p className="text-xs text-muted-foreground">{dict.categoryHint}</p>}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="location">{dict.locationLabel}</Label>
-              <Input
+              <ComboField
                 id="location"
                 name="location"
-                maxLength={120}
-                defaultValue={item?.location ?? undefined}
+                items={locations}
+                value={location}
+                onValueChange={setLocation}
                 placeholder={dict.locationPlaceholder}
-                list="location-options"
-                autoComplete="off"
+                maxLength={120}
+                dict={dict}
               />
-              <datalist id="location-options">
-                {locations.map((l) => (
-                  <option key={l} value={l} />
-                ))}
-              </datalist>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -148,7 +203,16 @@ export function ItemFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="unit">{dict.unitLabel}</Label>
-              <Input id="unit" name="unit" maxLength={20} defaultValue={item?.unit ?? "pcs"} />
+              <ComboField
+                id="unit"
+                name="unit"
+                items={units}
+                value={unit}
+                onValueChange={setUnit}
+                placeholder={dict.unitPlaceholder}
+                maxLength={20}
+                dict={dict}
+              />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="lowStockThreshold">{dict.lowStockAtLabel}</Label>

@@ -96,6 +96,7 @@ export function InventoryTable({
   items,
   categories,
   locations,
+  units,
   groupBy = "none",
   emptyMessage,
   isHouseholdEmpty = false,
@@ -105,6 +106,7 @@ export function InventoryTable({
   items: InventoryItemRow[];
   categories: string[];
   locations: string[];
+  units: string[];
   groupBy?: InventoryGroupBy;
   emptyMessage: string;
   /** True only when the household has zero items at all (not just zero
@@ -144,6 +146,7 @@ export function InventoryTable({
           mode="create"
           categories={categories}
           locations={locations}
+          units={units}
           dict={dict}
           barcodeDict={barcodeDict}
           trigger={
@@ -438,6 +441,7 @@ export function InventoryTable({
                       item={item}
                       categories={categories}
                       locations={locations}
+                      units={units}
                       dict={dict}
                       barcodeDict={barcodeDict}
                       trigger={

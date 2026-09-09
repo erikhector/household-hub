@@ -3,7 +3,7 @@ import type { Dictionary } from "./en";
 export const sv = {
   nav: {
     overview: "Översikt",
-    inventory: "Skafferi",
+    inventory: "Lager",
     shoppingList: "Inköpslista",
     mealPlanning: "Matplanering",
     budget: "Budget",
@@ -80,7 +80,7 @@ export const sv = {
       trigger: "Ta bort hushåll",
       title: "Ta bort {name}?",
       description:
-        "Detta tar permanent bort hushållet och allt i det — skafferi, inköpslistor, matplaner och budgetdata — för alla medlemmar. Det går inte att ångra.",
+        "Detta tar permanent bort hushållet och allt i det — lager, inköpslistor, matplaner och budgetdata — för alla medlemmar. Det går inte att ångra.",
       confirmLabel: "Skriv {name} för att bekräfta",
       confirmButton: "Ta bort hushåll",
       deleting: "Tar bort…",
@@ -98,7 +98,7 @@ export const sv = {
       ariaLabel: "Lämna hushållet",
       confirmTitle: "Lämna det här hushållet?",
       confirmDescription:
-        "Du förlorar åtkomst till dess skafferi, inköpslistor, matplaner och budgetdata. Du kan gå med igen senare om någon bjuder in dig på nytt.",
+        "Du förlorar åtkomst till dess lager, inköpslistor, matplaner och budgetdata. Du kan gå med igen senare om någon bjuder in dig på nytt.",
       confirmButton: "Lämna hushållet",
       leaving: "Lämnar…",
       cancel: "Avbryt",
@@ -117,7 +117,7 @@ export const sv = {
       one: "{count} slut i lager",
       other: "{count} slut i lager",
     },
-    viewInventory: "Visa skafferi",
+    viewInventory: "Visa lager",
     shoppingLists: "Inköpslistor",
     itemsToBuyAcross: {
       one: "varor att köpa på {count} aktiv lista",
@@ -125,7 +125,7 @@ export const sv = {
     },
     viewShoppingLists: "Visa inköpslistor",
     totalItemsTracked: "Antal varor totalt",
-    inInventory: "i skafferiet",
+    inInventory: "i lagret",
     gettingStarted: {
       title: "Kom igång",
       subtitle: "Några snabba steg för att få ut det mesta av Household Hub.",
@@ -135,7 +135,7 @@ export const sv = {
           description: "Ta med de du delar hemmet med — eller hoppa över det och kör själv.",
         },
         inventory: {
-          title: "Lägg till vad som finns i skafferiet",
+          title: "Lägg till vad som finns i lagret",
           description: "Registrera några varor så kan Household Hub börja flagga det som börjar ta slut.",
         },
         shoppingList: {
@@ -240,10 +240,10 @@ export const sv = {
     },
   },
   inventory: {
-    title: "Skafferi",
+    title: "Lager",
     subtitle: "Vad som finns hemma just nu.",
     addItem: "Lägg till vara",
-    addDialogTitle: "Lägg till vara i skafferiet",
+    addDialogTitle: "Lägg till vara i lagret",
     editDialogTitle: "Redigera vara",
     editAriaLabel: "Redigera vara",
     nameLabel: "Namn",
@@ -255,7 +255,10 @@ export const sv = {
     locationPlaceholder: "t.ex. Kylskåp",
     quantityLabel: "Antal",
     unitLabel: "Enhet",
+    unitPlaceholder: "t.ex. st",
     lowStockAtLabel: "Lågt lager vid",
+    comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",
+    comboboxAddNew: 'Använd "{value}"',
     adding: "Lägger till…",
     saving: "Sparar…",
     save: "Spara",
@@ -266,10 +269,10 @@ export const sv = {
     statusIn: "I lager",
     statusLow: "Lågt lager",
     statusOut: "Slut i lager",
-    emptyNoItems: "Inga varor än. Lägg till din första vara för att börja hålla koll på skafferiet.",
+    emptyNoItems: "Inga varor än. Lägg till din första vara för att börja hålla koll på lagret.",
     emptyNoMatches: "Inga varor matchar dina filter.",
     emptyTitle: "Inga varor än",
-    emptyLead: "Lägg till några varor för att börja hålla koll på skafferiet.",
+    emptyLead: "Lägg till några varor för att börja hålla koll på lagret.",
     quickAdd: {
       label: "Snabbtillägg",
       placeholder: "Varans namn — tryck Enter för att lägga till",
@@ -290,7 +293,7 @@ export const sv = {
         one: "La till {count} vara från {kit}",
         other: "La till {count} varor från {kit}",
       },
-      allAlreadyAdded: "De varorna finns redan i ditt skafferi.",
+      allAlreadyAdded: "De varorna finns redan i ditt lager.",
       noneSelected: "Välj minst en vara att lägga till.",
       kits: [
         {
@@ -741,7 +744,7 @@ export const sv = {
     yes: "Ja",
     no: "Nej",
     inventory: {
-      fileNamePrefix: "skafferi",
+      fileNamePrefix: "lager",
       headerName: "Namn",
       headerCategory: "Kategori",
       headerQuantity: "Antal",
@@ -909,7 +912,7 @@ export const sv = {
     heroHighlight: "drömlag",
     heroSuffix: ", inte i panik",
     heroDescription:
-      "Håll koll på vad som finns i skafferiet, skapa inköpslistor automatiskt, planera måltider och håll koll på budgeten — allt på ett lekfullt ställe, delat med hela hushållet.",
+      "Håll koll på vad som finns i lagret, skapa inköpslistor automatiskt, planera måltider och håll koll på budgeten — allt på ett lekfullt ställe, delat med hela hushållet.",
     getStarted: "Kom igång gratis",
     freeNote: "Gratis för hela hushållet — bjud in alla, inga extra platser",
     ctaTitle: "Redo att få ordning på hushållet?",
@@ -917,9 +920,9 @@ export const sv = {
     ctaButton: "Skapa ditt hushåll",
     features: {
       pantry: {
-        title: "Skafferi som håller koll på sig själv",
+        title: "Lager som håller koll på sig själv",
         description:
-          "Registrera vad som finns i skafferiet en gång. Vi flaggar allt som börjar ta slut innan du står utan.",
+          "Registrera vad som finns i lagret en gång. Vi flaggar allt som börjar ta slut innan du står utan.",
       },
       shoppingLists: {
         title: "Inköpslistor som byggs av sig själva",
@@ -927,7 +930,7 @@ export const sv = {
       },
       meals: {
         title: "Måltider, planerade istället för panikartade",
-        description: "Ställ upp veckans måltider mot det som redan finns i skafferiet.",
+        description: "Ställ upp veckans måltider mot det som redan finns i lagret.",
       },
       budget: {
         title: "Budget utan kalkylark",
@@ -948,7 +951,7 @@ export const sv = {
         },
         stock: {
           title: "Registrera vad du har",
-          description: "Lägg till några varor i skafferiet och en inköpslista. Lågt lager flaggas sedan av sig själv.",
+          description: "Lägg till några varor i lagret och en inköpslista. Lågt lager flaggas sedan av sig själv.",
         },
         plan: {
           title: "Planera måltider & utgifter",

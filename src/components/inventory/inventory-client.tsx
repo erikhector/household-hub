@@ -25,6 +25,7 @@ export function InventoryClient({
   items,
   categories,
   locations,
+  units,
   dict,
   barcodeDict,
   initialStatus,
@@ -32,6 +33,7 @@ export function InventoryClient({
   items: InventoryItemRow[];
   categories: string[];
   locations: string[];
+  units: string[];
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   initialStatus?: StockStatus;
@@ -139,6 +141,7 @@ export function InventoryClient({
         items={filtered}
         categories={categories}
         locations={locations}
+        units={units}
         groupBy={groupBy}
         dict={dict}
         barcodeDict={barcodeDict}
