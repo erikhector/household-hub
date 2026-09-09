@@ -592,11 +592,11 @@ export function InventoryTable({
       {/* Mobile: a stacked card list instead of the table above — a 6-column
           table can't fit a 375px screen without horizontal scrolling, so
           phones get the same data reshaped into cards instead. */}
-      <div className="flex flex-col gap-2 sm:hidden">
+      <div className="flex min-w-0 flex-col gap-2 sm:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
-              <div className="rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="block truncate" title={group.key}>
                   {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                 </span>
@@ -606,9 +606,9 @@ export function InventoryTable({
               <div
                 key={item.id}
                 data-state={selected.has(item.id) ? "selected" : undefined}
-                className="flex flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+                className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
               >
-                <div className="flex items-start gap-2">
+                <div className="flex min-w-0 items-start gap-2">
                   <input
                     type="checkbox"
                     checked={selected.has(item.id)}
@@ -627,18 +627,23 @@ export function InventoryTable({
                   </div>
                   <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
                     <Button
                       variant="outline"
                       size="icon"
+                      className="shrink-0"
                       disabled={isPending}
                       onClick={() => handleAdjustQuantity(item.id, -1)}
                     >
                       <Minus className="size-3.5" />
                     </Button>
+                    {/* min-w-0 + flex-1 (not shrink-0) lets a long/custom unit
+                        string truncate instead of forcing the row — and the
+                        page — wider than the viewport; see the desktop
+                        table's equivalent w-14 cell for the same fix. */}
                     <span
-                      className="block min-w-14 shrink-0 truncate text-center text-sm tabular-nums"
+                      className="min-w-0 flex-1 truncate text-center text-sm tabular-nums"
                       title={`${item.quantity} ${item.unit}`}
                     >
                       {item.quantity} {item.unit}
@@ -646,26 +651,29 @@ export function InventoryTable({
                     <Button
                       variant="outline"
                       size="icon"
+                      className="shrink-0"
                       disabled={isPending}
                       onClick={() => handleAdjustQuantity(item.id, 1)}
                     >
                       <Plus className="size-3.5" />
                     </Button>
                   </div>
-                  <ItemActions
-                    item={item}
-                    categories={categories}
-                    locations={locations}
-                    units={units}
-                    members={members}
-                    locale={locale}
-                    dict={dict}
-                    barcodeDict={barcodeDict}
-                    isPending={isPending}
-                    onMarkEmpty={handleMarkEmpty}
-                    onDelete={handleDelete}
-                    size="size-9"
-                  />
+                  <div className="shrink-0">
+                    <ItemActions
+                      item={item}
+                      categories={categories}
+                      locations={locations}
+                      units={units}
+                      members={members}
+                      locale={locale}
+                      dict={dict}
+                      barcodeDict={barcodeDict}
+                      isPending={isPending}
+                      onMarkEmpty={handleMarkEmpty}
+                      onDelete={handleDelete}
+                      size="size-9"
+                    />
+                  </div>
                 </div>
                 <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
               </div>
