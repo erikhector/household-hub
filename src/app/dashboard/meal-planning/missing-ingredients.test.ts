@@ -108,4 +108,52 @@ describe("computeMissingIngredients", () => {
   it("returns an empty list for no needs", () => {
     expect(computeMissingIngredients([])).toEqual([]);
   });
+
+  it("does not propose an ingredient whose on-hand quantity is in a different but convertible unit and covers the requirement", () => {
+    const needs: IngredientNeed[] = [
+      // 1 liter on hand comfortably covers a 3 tbsp requirement (45ml).
+      { key: "oil", name: "Olive oil", unit: "tbsp", quantity: 3, onHandQuantity: 1, onHandUnit: "l" },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([]);
+  });
+
+  it("reports the shortfall converted into the required unit when on-hand is insufficient but the unit is convertible", () => {
+    const needs: IngredientNeed[] = [
+      // 30ml on hand, 4 tbsp (60ml) required -> 2 tbsp (30ml) short.
+      { key: "oil", name: "Olive oil", unit: "tbsp", quantity: 4, onHandQuantity: 30, onHandUnit: "ml" },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 2 },
+    ]);
+  });
+
+  it("merges requirements for the same ingredient expressed in different but convertible units into one line", () => {
+    const needs: IngredientNeed[] = [
+      { key: "oil", name: "Olive oil", unit: "tbsp", quantity: 2, onHandQuantity: 0, onHandUnit: null },
+      { key: "oil", name: "Olive oil", unit: "tsp", quantity: 3, onHandQuantity: 0, onHandUnit: null },
+    ];
+
+    // 2 tbsp (30ml) + 3 tsp (15ml) = 45ml = 3 tbsp, expressed in the first
+    // cluster's unit (tbsp, from whichever need was seen first).
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 3 },
+    ]);
+  });
+
+  it("still keeps units from different dimensions separate even when merging convertible ones", () => {
+    const needs: IngredientNeed[] = [
+      { key: "flour", name: "Flour", unit: "cups", quantity: 1, onHandQuantity: 0, onHandUnit: null },
+      { key: "flour", name: "Flour", unit: "tbsp", quantity: 2, onHandQuantity: 0, onHandUnit: null },
+      { key: "flour", name: "Flour", unit: "g", quantity: 100, onHandQuantity: 0, onHandUnit: null },
+    ];
+
+    const result = computeMissingIngredients(needs);
+    // cups + tbsp merge (both volume); g stays separate (different dimension).
+    expect(result).toEqual([
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 1.13 },
+      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100 },
+    ]);
+  });
 });

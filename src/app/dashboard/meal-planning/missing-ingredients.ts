@@ -7,6 +7,7 @@
 // pure "sum required, subtract on-hand, keep the shortfall" step.
 
 import type { MissingIngredientData } from "@/components/meal-planning/types";
+import { convertQuantity, unitsAreComparable } from "@/lib/units";
 
 export type IngredientNeed = {
   // Identity to aggregate by — the linked InventoryItem's id when known,
@@ -24,59 +25,67 @@ export type IngredientNeed = {
 };
 
 const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
-// Sums `quantity` per (key, unit) across every need — deliberately *not*
-// per key alone, since units are free text (RecipeIngredient.unit /
-// InventoryItem.unit in schema.prisma) with no conversion table behind
-// them. Two recipes both needing "flour" but one in cups and one in grams
-// must stay separate line items rather than being silently added together
-// as if they were the same measurement.
+// Sums `quantity` per ingredient (key), then splits that total across one
+// or more "unit clusters" — groups of requirements whose units are either
+// identical or convertible into each other via src/lib/units.ts (e.g. a
+// recipe needing 2 tbsp and another needing 1 tsp of the same olive oil
+// combine into a single cluster). Units from a genuinely different
+// dimension (grams vs cups — that needs ingredient-specific density we
+// don't have) or that aren't recognized at all stay in their own cluster,
+// exactly as if there were no conversion table.
 //
-// For the same reason, a group's on-hand quantity is only subtracted from
-// it when the on-hand unit (read once per key, not summed) matches that
-// group's own unit — a mismatched on-hand unit can't be reconciled without
-// a conversion table, so it's left out rather than compared as if it were
-// directly comparable, and the group's full required quantity counts as
-// missing. Result is sorted by name (then unit, for ties) for a stable,
-// predictable review list.
+// Within a cluster, the household's on-hand quantity is subtracted after
+// converting it into the cluster's unit (again, only when the on-hand unit
+// is comparable) — so e.g. 1 liter of olive oil on hand correctly covers a
+// recipe that calls for 3 tablespoons, instead of being reported as fully
+// missing just because the unit strings differ. Result is sorted by name
+// (then unit, for ties) for a stable, predictable review list.
 export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngredientData[] {
-  type Accum = {
-    name: string;
-    unit: string;
-    required: number;
-    onHand: number;
-    onHandUnit: string | null;
-  };
-  const byGroup = new Map<string, Accum>();
-
+  const byKey = new Map<string, IngredientNeed[]>();
   for (const need of needs) {
-    const groupKey = `${need.key}::${normalizeUnit(need.unit)}`;
-    const existing = byGroup.get(groupKey);
-    if (existing) {
-      existing.required += need.quantity;
-    } else {
-      byGroup.set(groupKey, {
-        name: need.name,
-        unit: need.unit,
-        required: need.quantity,
-        onHand: need.onHandQuantity,
-        onHandUnit: need.onHandUnit,
-      });
-    }
+    const existing = byKey.get(need.key);
+    if (existing) existing.push(need);
+    else byKey.set(need.key, [need]);
   }
 
   const items: MissingIngredientData[] = [];
-  for (const [groupKey, accum] of byGroup) {
-    const onHandUnitMatches =
-      accum.onHandUnit !== null && normalizeUnit(accum.onHandUnit) === normalizeUnit(accum.unit);
-    const missing = accum.required - (onHandUnitMatches ? accum.onHand : 0);
-    if (missing > 0) {
-      items.push({
-        key: groupKey,
-        name: accum.name,
-        unit: accum.unit,
-        missingQuantity: Math.round(missing * 100) / 100,
-      });
+
+  for (const [key, keyNeeds] of byKey) {
+    const name = keyNeeds[0].name;
+    const onHandQuantity = keyNeeds[0].onHandQuantity;
+    const onHandUnit = keyNeeds[0].onHandUnit;
+
+    const clusters: { unit: string; required: number }[] = [];
+    for (const need of keyNeeds) {
+      const cluster = clusters.find((c) => unitsAreComparable(c.unit, need.unit));
+      if (cluster) {
+        const sameUnit = normalizeUnit(cluster.unit) === normalizeUnit(need.unit);
+        cluster.required += sameUnit ? need.quantity : convertQuantity(need.quantity, need.unit, cluster.unit)!;
+      } else {
+        clusters.push({ unit: need.unit, required: need.quantity });
+      }
+    }
+
+    for (const cluster of clusters) {
+      let onHandInClusterUnit = 0;
+      if (onHandUnit !== null && unitsAreComparable(onHandUnit, cluster.unit)) {
+        onHandInClusterUnit =
+          normalizeUnit(onHandUnit) === normalizeUnit(cluster.unit)
+            ? onHandQuantity
+            : convertQuantity(onHandQuantity, onHandUnit, cluster.unit)!;
+      }
+
+      const missing = cluster.required - onHandInClusterUnit;
+      if (missing > 0) {
+        items.push({
+          key: `${key}::${normalizeUnit(cluster.unit)}`,
+          name,
+          unit: cluster.unit,
+          missingQuantity: round2(missing),
+        });
+      }
     }
   }
 

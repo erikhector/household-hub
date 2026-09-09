@@ -169,4 +169,39 @@ describe("computeCookedIngredients", () => {
   it("returns an empty list for no needs", () => {
     expect(computeCookedIngredients([])).toEqual([]);
   });
+
+  it("converts the required quantity into the inventory item's unit when they're different but convertible", () => {
+    const needs: CookedIngredientNeed[] = [
+      {
+        inventoryItemId: "oil-1",
+        name: "Olive oil",
+        onHandQuantity: 1,
+        onHandUnit: "l",
+        requiredQuantity: 3,
+        requiredUnit: "tbsp",
+      },
+    ];
+
+    const result = computeCookedIngredients(needs);
+    // 3 tbsp = 45ml = 0.045l, decremented from the 1l on hand.
+    expect(result[0]?.suggestedQuantity).toBeCloseTo(0.05, 2);
+    expect(result[0]?.unitMismatch).toBe(false);
+  });
+
+  it("still flags a mismatch when units are recognized but from different dimensions", () => {
+    const needs: CookedIngredientNeed[] = [
+      {
+        inventoryItemId: "flour-1",
+        name: "Flour",
+        onHandQuantity: 500,
+        onHandUnit: "g",
+        requiredQuantity: 2,
+        requiredUnit: "cup",
+      },
+    ];
+
+    const result = computeCookedIngredients(needs);
+    expect(result[0]?.suggestedQuantity).toBe(0);
+    expect(result[0]?.unitMismatch).toBe(true);
+  });
 });

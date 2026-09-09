@@ -961,10 +961,23 @@ Paprika, Plan to Eat, Whisk) uses:
   unit-testable without mocking Prisma, the same reasoning the recipe-import
   task's parsing logic uses. Only ingredients whose required quantity
   exceeds current stock are proposed; an item the household already has
-  enough of is never suggested. **Known simplification**: the diff assumes
-  a recipe ingredient's unit matches its linked inventory item's unit — there's
-  no unit-conversion step, matching this app's existing preference for
-  simple, hand-rolled logic over precision it wasn't asked for.
+  enough of is never suggested. A recipe ingredient's unit and its linked
+  inventory item's unit are reconciled via a small fixed conversion table
+  (`src/lib/units.ts`, covering the metric/US volume and weight units
+  KNOWN_UNITS already recognizes when parsing imported recipes) — e.g. 1
+  liter of olive oil on hand correctly covers a recipe that calls for 3
+  tablespoons. **Known simplification**: this table only converts within
+  the same dimension (volume↔volume, weight↔weight); it can't cross
+  dimensions (cups of flour vs grams of flour needs ingredient-specific
+  density we don't have) or convert an unrecognized/count-style unit
+  ("clove", "can", "pcs", ...), matching this app's existing preference for
+  simple, hand-rolled logic over precision it wasn't asked for. Requirements
+  for the same ingredient in mutually convertible units are merged into one
+  line (converted into whichever unit was seen first) so the review list —
+  and the shopping-list item it produces — never splits one ingredient
+  across rows just because two recipes phrased the amount differently;
+  requirements in an unconvertible unit still get their own line, as
+  before.
 - **Review before committing**: the dialog lists each proposed ingredient
   (name + suggested quantity/unit) behind a checkbox (all checked by
   default, individually deselectable), a target-list `<Select>` (any
@@ -1000,8 +1013,9 @@ actually used, once they've cooked it.
   an automatic decrement tied to the calendar. That manual-trigger-with-
   preview pattern is what's copied here, for the same reason Grocy uses
   it: a meal plan diverges from what's actually cooked (skipped, doubled,
-  an ingredient swapped out), and this app has no unit-conversion layer
-  (see the shopping-list bridge's "known simplification" above) — a silent
+  an ingredient swapped out), and even with the small unit-conversion table
+  described above (`src/lib/units.ts`) there are still unconvertible cases
+  (an unrecognized unit, or one from a different dimension) — a silent
   automatic decrement could drift inventory numbers wrong with no easy fix.
 - **Idempotency**: `MealPlanEntry.consumedAt` (null until cooked) makes
   `markMealEntryCookedAction` a no-op on a repeat/stale submit, mirroring
@@ -1023,7 +1037,10 @@ actually used, once they've cooked it.
   `cooked-ingredients.test.ts`) sums each resolved `InventoryItem`'s
   required quantity across ingredient rows. Decrementing is always
   denominated in the inventory item's own unit (never the recipe
-  ingredient's), so a row whose unit doesn't match is flagged
+  ingredient's); the same `src/lib/units.ts` table used by the shopping-list
+  bridge converts a recipe row's unit into it where the two are recognized
+  and in the same dimension. A row that still doesn't reconcile (an
+  unrecognized unit, or one from a different dimension) is flagged
   (`unitMismatch`) and suggests `0` rather than a guessed conversion —
   the household sees the recipe's own required quantity/unit alongside it
   and enters the equivalent themselves.

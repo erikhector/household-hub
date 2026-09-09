@@ -4,7 +4,10 @@
 // mirrors missing-ingredients.ts. Resolving each RecipeIngredient to an
 // InventoryItem still requires a database round-trip and stays in
 // actions.ts; this module only does the pure "sum required quantity per
-// inventory item, only where units reconcile" step.
+// inventory item, converting into the inventory item's own unit where
+// possible" step.
+
+import { convertQuantity, unitsAreComparable } from "@/lib/units";
 
 export type CookedIngredientNeed = {
   inventoryItemId: string;
@@ -29,9 +32,12 @@ export type CookedIngredientData = {
   unit: string;
   onHandQuantity: number;
   // Defaults the confirm dialog's editable quantity input: the summed
-  // required quantity when every contributing row's unit matches the
-  // inventory item's own unit, else 0 (the household must enter the amount
-  // themselves — there's no conversion table to lean on).
+  // required quantity — converted into the inventory item's own unit via
+  // src/lib/units.ts where the two units are recognized and comparable —
+  // when every contributing row's unit reconciles that way, else 0 (the
+  // household must enter the amount themselves — there's no way to convert
+  // an unrecognized unit, or one from a different dimension like cups vs
+  // grams, without ingredient-specific data we don't have).
   suggestedQuantity: number;
   // The recipe-side requirement, kept for display when units mismatch so
   // the household has something to convert from.
@@ -44,11 +50,11 @@ const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
 
 // Groups by inventory item (not by item+unit like computeMissingIngredients
 // — there's only ever one unit to decrement in here, the inventory item's
-// own). A row whose required unit doesn't match the inventory item's unit
-// can't be reconciled without a conversion table, so it's flagged rather
+// own). A row whose required unit can't be reconciled with the inventory
+// item's unit (unrecognized, or a different dimension) is flagged rather
 // than summed into the suggested quantity — matching
-// computeMissingIngredients' onHandUnitMatches handling of the same
-// problem. Result is sorted by name for a stable, predictable review list.
+// computeMissingIngredients' on-hand handling of the same problem. Result
+// is sorted by name for a stable, predictable review list.
 export function computeCookedIngredients(needs: CookedIngredientNeed[]): CookedIngredientData[] {
   type Accum = {
     name: string;
@@ -62,12 +68,18 @@ export function computeCookedIngredients(needs: CookedIngredientNeed[]): CookedI
   const byItem = new Map<string, Accum>();
 
   for (const need of needs) {
-    const matches = normalizeUnit(need.requiredUnit) === normalizeUnit(need.onHandUnit);
+    const comparable = unitsAreComparable(need.requiredUnit, need.onHandUnit);
+    const contribution = comparable
+      ? normalizeUnit(need.requiredUnit) === normalizeUnit(need.onHandUnit)
+        ? need.requiredQuantity
+        : convertQuantity(need.requiredQuantity, need.requiredUnit, need.onHandUnit)!
+      : 0;
+
     const existing = byItem.get(need.inventoryItemId);
     if (existing) {
       existing.requiredQuantity += need.requiredQuantity;
-      if (matches) {
-        existing.suggestedQuantity += need.requiredQuantity;
+      if (comparable) {
+        existing.suggestedQuantity += contribution;
       } else {
         existing.unitMismatch = true;
       }
@@ -76,10 +88,10 @@ export function computeCookedIngredients(needs: CookedIngredientNeed[]): CookedI
         name: need.name,
         unit: need.onHandUnit,
         onHandQuantity: need.onHandQuantity,
-        suggestedQuantity: matches ? need.requiredQuantity : 0,
+        suggestedQuantity: contribution,
         requiredQuantity: need.requiredQuantity,
         requiredUnit: need.requiredUnit,
-        unitMismatch: !matches,
+        unitMismatch: !comparable,
       });
     }
   }
