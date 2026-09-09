@@ -2,11 +2,12 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddMealDialog } from "@/components/meal-planning/add-meal-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
+import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
 import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
@@ -191,6 +192,12 @@ function MealEntryRow({ dict, entry }: { dict: MealPlanningDict; entry: MealPlan
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
+      {entry.recipeId && !entry.consumedAt && <MarkCookedDialog dict={dict} entry={entry} />}
+      {entry.consumedAt && (
+        <span className="shrink-0 text-muted-foreground" title={dict.mealCookedBadgeLabel}>
+          <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
+        </span>
+      )}
       <Button
         type="button"
         variant="ghost"

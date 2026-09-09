@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { toFriendlyError } from "@/lib/actions/errors";
 import type { ActionState } from "@/lib/actions/auth";
 import {
   MEAL_TYPES,
@@ -14,9 +15,10 @@ import {
 } from "@/app/dashboard/meal-planning/meal-types";
 import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
 import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/meal-planning/missing-ingredients";
+import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
 import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
-import type { MissingIngredientData } from "@/components/meal-planning/types";
+import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -585,5 +587,154 @@ export async function addMissingIngredientsToShoppingListAction(
   revalidatePath(`/dashboard/shopping-list/${listId}`);
   revalidatePath("/dashboard");
 
+  return {};
+}
+
+// --- Mark meal as cooked → inventory decrement ------------------------------
+//
+// Unlike the shopping-list bridge above (which only ever proposes additions),
+// this actually mutates inventory quantities, so it's scoped to a single
+// MealPlanEntry rather than a whole week, and is confirm-then-commit rather
+// than automatic — see "Mark meal as cooked → inventory decrement" in
+// REQUIREMENTS.md for why (competitor research, and the lack of a unit-
+// conversion layer here making a silent auto-decrement risky).
+
+async function loadCookableEntry(entryId: string, householdId: string) {
+  return prisma.mealPlanEntry.findFirst({
+    where: { id: entryId, mealPlan: { householdId } },
+    select: {
+      id: true,
+      recipeId: true,
+      portions: true,
+      consumedAt: true,
+      recipe: { select: { servings: true } },
+    },
+  });
+}
+
+// Read-only preview — no rows are written until markMealEntryCookedAction
+// below is called. Reuses the exact same expansion/scaling/loose-match logic
+// as previewMissingIngredientsAction, but (unlike that action) drops any
+// ingredient that doesn't resolve to an existing InventoryItem, since there's
+// nothing to decrement for it.
+export async function previewCookedIngredientsAction(
+  entryId: string,
+): Promise<{ items: CookedIngredientData[] } | { error: string }> {
+  const { household } = await requireHousehold();
+
+  const entry = await loadCookableEntry(entryId, household.id);
+  if (!entry) return { error: "Meal not found" };
+  if (!entry.recipeId) return { error: "No recipe linked to this meal" };
+
+  const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
+  const expanded = await expandRecipeIngredients(entry.recipeId, multiplier, new Set());
+
+  // Same fallback as previewMissingIngredientsAction: an ingredient's
+  // inventoryItemId is normally always set (find-or-create-linked at
+  // recipe-save time), but the relation is `onDelete: SetNull`, so a
+  // since-deleted inventory item can leave one unlinked.
+  const looseNames = new Set<string>();
+  for (const ingredient of expanded) {
+    if (!ingredient.inventoryItemId) looseNames.add(ingredient.name.toLowerCase());
+  }
+  const looseMatches =
+    looseNames.size > 0
+      ? await prisma.inventoryItem.findMany({ where: { householdId: household.id } })
+      : [];
+  const looseByName = new Map(
+    looseMatches
+      .filter((item) => looseNames.has(item.name.toLowerCase()))
+      .map((item) => [item.name.toLowerCase(), item]),
+  );
+
+  const needs: CookedIngredientNeed[] = [];
+  for (const ingredient of expanded) {
+    if (ingredient.inventoryItemId) {
+      needs.push({
+        inventoryItemId: ingredient.inventoryItemId,
+        name: ingredient.inventoryItemName ?? ingredient.name,
+        onHandQuantity: ingredient.onHandQuantity ?? 0,
+        onHandUnit: ingredient.onHandUnit ?? "pcs",
+        requiredQuantity: ingredient.quantity,
+        requiredUnit: ingredient.unit,
+      });
+      continue;
+    }
+    const loose = looseByName.get(ingredient.name.toLowerCase());
+    // Nothing to decrement for an ingredient with no matching inventory
+    // item — unlike the shopping-list bridge, this can't propose creating
+    // one, so it's simply dropped from the review list.
+    if (!loose) continue;
+    needs.push({
+      inventoryItemId: loose.id,
+      name: loose.name,
+      onHandQuantity: loose.quantity,
+      onHandUnit: loose.unit,
+      requiredQuantity: ingredient.quantity,
+      requiredUnit: ingredient.unit,
+    });
+  }
+
+  return { items: computeCookedIngredients(needs) };
+}
+
+export async function markMealEntryCookedAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const entryId = String(formData.get("entryId") ?? "");
+  const entry = await loadCookableEntry(entryId, household.id);
+  if (!entry) return { error: "Meal not found" };
+  // Idempotent no-op — a stale button re-click or a double-submit shouldn't
+  // decrement inventory twice, mirroring RecurringTemplateAck's
+  // repeat-click idempotency elsewhere in this app.
+  if (entry.consumedAt) return {};
+
+  const itemIds = formData.getAll("itemId").map((v) => String(v).trim());
+  const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
+
+  const rows = itemIds
+    .map((itemId, i) => ({ itemId, quantity: quantities[i] }))
+    .filter(
+      (row) =>
+        row.itemId &&
+        Number.isFinite(row.quantity) &&
+        row.quantity >= 0 &&
+        row.quantity <= MAX_INGREDIENT_QUANTITY,
+    );
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (rows.length > 0) {
+        const items = await tx.inventoryItem.findMany({
+          where: { id: { in: rows.map((r) => r.itemId) }, householdId: household.id },
+        });
+        const itemsById = new Map(items.map((item) => [item.id, item]));
+
+        for (const row of rows) {
+          const item = itemsById.get(row.itemId);
+          if (!item) continue; // not this household's item — silently skip, mirrors bulkUpdateFieldAction
+          const nextQuantity = Math.max(0, item.quantity - row.quantity);
+          await tx.inventoryItem.update({
+            where: { id: item.id },
+            data: { quantity: nextQuantity, updatedByUserId: userId },
+          });
+        }
+      }
+
+      await tx.mealPlanEntry.update({
+        where: { id: entry.id },
+        data: { consumedAt: new Date() },
+      });
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
   return {};
 }

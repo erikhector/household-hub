@@ -463,6 +463,18 @@ export const en = {
     newListNamePlaceholder: "e.g. Weekly shop",
     addMissingIngredientsSubmit: "Add to list",
     missingIngredientsAddedToast: 'Added to "{list}"',
+    markCookedAriaLabel: "Mark as cooked",
+    mealCookedBadgeLabel: "Cooked",
+    markCookedDialogTitle: "Mark as cooked",
+    markCookedDialogHint: "Review and adjust the inventory this used, then confirm.",
+    loadingCookedIngredients: "Checking linked inventory…",
+    noCookedIngredientsLinked:
+      "No inventory items are linked to this recipe's ingredients — marking it cooked won't change your inventory.",
+    cookedIngredientUnitMismatchNote: "Recipe needs {quantity} {unit} — enter the amount manually",
+    onHandQuantityLabel: "{quantity} {unit} on hand",
+    markCookedSubmit: "Mark as cooked",
+    markingCooked: "Marking…",
+    mealMarkedCookedToast: "Marked as cooked — inventory updated",
   },
   budget: {
     title: "Budget",

@@ -455,6 +455,18 @@ export const sv = {
     newListNamePlaceholder: "t.ex. Veckohandling",
     addMissingIngredientsSubmit: "Lägg till i listan",
     missingIngredientsAddedToast: 'Tillagd i "{list}"',
+    markCookedAriaLabel: "Markera som lagad",
+    mealCookedBadgeLabel: "Lagad",
+    markCookedDialogTitle: "Markera som lagad",
+    markCookedDialogHint: "Granska och justera lagret detta använde, bekräfta sedan.",
+    loadingCookedIngredients: "Kontrollerar kopplat lager…",
+    noCookedIngredientsLinked:
+      "Inga lagervaror är kopplade till receptets ingredienser — att markera det som lagat ändrar inte ditt lager.",
+    cookedIngredientUnitMismatchNote: "Receptet behöver {quantity} {unit} — ange mängden manuellt",
+    onHandQuantityLabel: "{quantity} {unit} i lager",
+    markCookedSubmit: "Markera som lagad",
+    markingCooked: "Markerar…",
+    mealMarkedCookedToast: "Markerad som lagad — lagret uppdaterat",
   },
   budget: {
     title: "Budget",

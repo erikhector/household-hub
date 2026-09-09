@@ -984,6 +984,64 @@ Paprika, Plan to Eat, Whisk) uses:
   `src/app/dashboard/shopping-list/actions.ts`. On success the dialog closes
   and a `sonner` toast confirms which list the items were added to.
 
+### Mark meal as cooked → inventory decrement
+
+A "Mark as cooked" button (`MarkCookedDialog`,
+`src/components/meal-planning/mark-cooked-dialog.tsx`, a `ChefHat` icon
+button next to `MealEntryRow`'s delete button in `WeekPlanner`) lets a
+household decrement inventory for the ingredients a specific `MealPlanEntry`
+actually used, once they've cooked it.
+
+- **Competitor research**: checked how Grocy, Paprika, AnyList, and Mealime
+  handle this. Paprika/AnyList only use pantry state to pre-check items off
+  a *generated shopping list*; Mealime has no pantry awareness at all.
+  Grocy is the one competitor that decrements stock for a cooked recipe —
+  via a manual "consume" action with a fulfillment/preview step first, not
+  an automatic decrement tied to the calendar. That manual-trigger-with-
+  preview pattern is what's copied here, for the same reason Grocy uses
+  it: a meal plan diverges from what's actually cooked (skipped, doubled,
+  an ingredient swapped out), and this app has no unit-conversion layer
+  (see the shopping-list bridge's "known simplification" above) — a silent
+  automatic decrement could drift inventory numbers wrong with no easy fix.
+- **Idempotency**: `MealPlanEntry.consumedAt` (null until cooked) makes
+  `markMealEntryCookedAction` a no-op on a repeat/stale submit, mirroring
+  `RecurringTemplateAck`'s idempotent-acknowledgement pattern elsewhere in
+  this app. Once set, `MealEntryRow` swaps the button for a static
+  "Cooked" checkmark. Only entries with a linked `recipeId` get the
+  button — a freeform entry has no ingredients to decrement.
+- **Preview**: opening the dialog calls `previewCookedIngredientsAction`
+  (`src/app/dashboard/meal-planning/actions.ts`), which reuses the exact
+  same `expandRecipeIngredients` call and `portions / servings` multiplier
+  as the shopping-list bridge above, plus its same loose name-match
+  fallback for an ingredient whose linked `InventoryItem` was since
+  deleted. Unlike that bridge, an ingredient that still doesn't resolve to
+  an existing `InventoryItem` is simply dropped from the list — there's
+  nothing to decrement for it, and (unlike the shopping-list case) nothing
+  useful to propose creating either.
+- **Aggregation**: `computeCookedIngredients`
+  (`src/app/dashboard/meal-planning/cooked-ingredients.ts`, colocated
+  `cooked-ingredients.test.ts`) sums each resolved `InventoryItem`'s
+  required quantity across ingredient rows. Decrementing is always
+  denominated in the inventory item's own unit (never the recipe
+  ingredient's), so a row whose unit doesn't match is flagged
+  (`unitMismatch`) and suggests `0` rather than a guessed conversion —
+  the household sees the recipe's own required quantity/unit alongside it
+  and enters the equivalent themselves.
+- **Review before committing**: every row is checked by default with an
+  **editable** quantity input (unlike the shopping-list bridge's read-only
+  suggested quantity — this is a real mutation, so the default must be
+  correctable before it's applied), plus on-hand quantity for context.
+  Nothing is written until the user submits.
+- **Committing**: `markMealEntryCookedAction` re-verifies each submitted
+  item belongs to the household, clamps each decrement at 0 (same as
+  `adjustQuantityAction` in `src/app/dashboard/inventory/actions.ts`), and
+  sets `consumedAt`, all inside one `$transaction`.
+- **No undo**: once marked cooked, it's final — consistent with "no
+  in-place edit for meal entries" above. A wrong decrement is corrected
+  the same way any inventory number is corrected today: the existing +/-
+  adjuster on the inventory page. Deleting the meal-plan entry afterward
+  doesn't reverse the decrement either, for the same reason.
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**

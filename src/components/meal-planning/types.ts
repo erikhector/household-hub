@@ -40,6 +40,9 @@ export type MealPlanEntryData = {
   // MealPlanEntry.portions' doc comment in schema.prisma. Meaningless when
   // recipeId is null (a freeform entry has no recipe to scale).
   portions: number;
+  // ISO timestamp once inventory has been decremented for this entry (see
+  // MealPlanEntry.consumedAt's doc comment in schema.prisma), else null.
+  consumedAt: string | null;
 };
 
 // One ingredient the planned week's recipes need more of than the household
@@ -55,4 +58,18 @@ export type MissingIngredientData = {
 export type ActiveShoppingListOption = {
   id: string;
   name: string;
+};
+
+// One inventory item a "mark as cooked" confirmation can decrement — see
+// previewCookedIngredientsAction and computeCookedIngredients.
+export type CookedIngredientData = {
+  key: string;
+  inventoryItemId: string;
+  name: string;
+  unit: string;
+  onHandQuantity: number;
+  suggestedQuantity: number;
+  requiredQuantity: number;
+  requiredUnit: string;
+  unitMismatch: boolean;
 };

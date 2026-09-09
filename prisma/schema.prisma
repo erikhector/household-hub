@@ -331,6 +331,13 @@ model MealPlanEntry {
   // which has no recipe to scale. See Recipe.servings' doc comment for why
   // both fields share the same default.
   portions     Int      @default(4)
+  // Set once inventory has been decremented for this entry via
+  // markMealEntryCookedAction (src/app/dashboard/meal-planning/actions.ts) —
+  // makes the action idempotent (a stale button re-click, or a double
+  // submit, is a no-op) and lets the UI swap the "Mark as cooked" button for
+  // a static "Cooked" indicator. Null means not yet cooked/consumed.
+  // Meaningless (and unused) on a freeform entry, same as `portions`.
+  consumedAt   DateTime?
 
   mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe   Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)

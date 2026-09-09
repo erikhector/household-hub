@@ -65,6 +65,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         recipeName: entry.recipe?.name ?? null,
         freeformName: entry.freeformName,
         portions: entry.portions,
+        consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
       }))}
       activeShoppingLists={activeShoppingLists}
     />
