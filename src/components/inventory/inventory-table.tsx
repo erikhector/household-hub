@@ -39,7 +39,7 @@ import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { format, plural } from "@/lib/i18n/format";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type InventoryItemRow = {
   id: string;
@@ -49,9 +49,64 @@ export type InventoryItemRow = {
   unit: string;
   lowStockThreshold: number;
   location: string | null;
+  updatedAt: Date;
+  updatedByUserId: string | null;
 };
 
+export type HouseholdMemberOption = { userId: string; displayName: string };
+
 export type InventoryGroupBy = "none" | "category" | "location" | "both";
+
+// Bucketed "last updated" ranges the filter dropdown offers — see
+// matchesUpdatedFilter below. Kept as a plain union (not derived from the
+// dict) so InventoryClient's filtering logic doesn't depend on translations.
+export type UpdatedFilter = "all" | "today" | "week" | "stale30" | "stale90";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function matchesUpdatedFilter(item: InventoryItemRow, filter: UpdatedFilter, now: number): boolean {
+  const ageMs = now - item.updatedAt.getTime();
+  switch (filter) {
+    case "today":
+      return ageMs < DAY_MS;
+    case "week":
+      return ageMs < 7 * DAY_MS;
+    case "stale30":
+      return ageMs >= 30 * DAY_MS;
+    case "stale90":
+      return ageMs >= 90 * DAY_MS;
+    default:
+      return true;
+  }
+}
+
+// Renders the "Last updated" cell: a compact date plus, when resolvable, who
+// last touched the item — with the full sentence in a tooltip since the
+// column itself only has room for the date.
+function LastUpdatedCell({
+  item,
+  members,
+  locale,
+  dict,
+}: {
+  item: InventoryItemRow;
+  members: HouseholdMemberOption[];
+  locale: Locale;
+  dict: Dictionary["inventory"];
+}) {
+  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  const dateLabel = dateFormat.format(item.updatedAt);
+  const updaterName = members.find((m) => m.userId === item.updatedByUserId)?.displayName;
+  const fullLabel = updaterName
+    ? format(dict.lastUpdatedWithUser, { date: dateLabel, name: updaterName })
+    : format(dict.lastUpdatedNoUser, { date: dateLabel });
+
+  return (
+    <span className="block text-muted-foreground" title={fullLabel}>
+      {dateLabel}
+    </span>
+  );
+}
 
 // Re-exported for existing consumers (InventoryClient) — the real
 // implementation now lives in `@/lib/stock-status` so it's importable from
@@ -97,6 +152,8 @@ export function InventoryTable({
   categories,
   locations,
   units,
+  members,
+  locale,
   groupBy = "none",
   emptyMessage,
   isHouseholdEmpty = false,
@@ -107,6 +164,8 @@ export function InventoryTable({
   categories: string[];
   locations: string[];
   units: string[];
+  members: HouseholdMemberOption[];
+  locale: Locale;
   groupBy?: InventoryGroupBy;
   emptyMessage: string;
   /** True only when the household has zero items at all (not just zero
@@ -343,6 +402,7 @@ export function InventoryTable({
           <TableHead>{dict.columnLocation}</TableHead>
           <TableHead>{dict.columnQuantity}</TableHead>
           <TableHead>{dict.columnStatus}</TableHead>
+          <TableHead>{dict.columnLastUpdated}</TableHead>
           <TableHead className="w-20" />
         </TableRow>
       </TableHeader>
@@ -351,7 +411,7 @@ export function InventoryTable({
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
+                <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
                   <span className="block max-w-[28rem] truncate" title={group.key}>
                     {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                   </span>
@@ -415,6 +475,9 @@ export function InventoryTable({
                   <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                 </TableCell>
                 <TableCell>
+                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger
@@ -445,6 +508,8 @@ export function InventoryTable({
                       categories={categories}
                       locations={locations}
                       units={units}
+                      members={members}
+                      locale={locale}
                       dict={dict}
                       barcodeDict={barcodeDict}
                       trigger={

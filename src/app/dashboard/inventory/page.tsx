@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
@@ -13,9 +13,10 @@ import type { StockStatus } from "@/lib/stock-status";
 const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
 
 export default async function InventoryPage(props: PageProps<"/dashboard/inventory">) {
-  const [{ household }, dict, searchParams] = await Promise.all([
+  const [{ household }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
+    getLocale(),
     props.searchParams,
   ]);
 
@@ -23,10 +24,20 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
   const statusParamValue = Array.isArray(statusParam) ? statusParam[0] : statusParam;
   const initialStatus = LINKABLE_STATUSES.find((status) => status === statusParamValue);
 
-  const items = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-    orderBy: { name: "asc" },
-  });
+  const [items, householdMembers] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      orderBy: { name: "asc" },
+    }),
+    // Resolved to display names for the "last updated by" note — see
+    // InventoryItem.updatedByUserId's doc comment in schema.prisma.
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      include: { user: { select: { displayName: true } } },
+    }),
+  ]);
+
+  const members = householdMembers.map((m) => ({ userId: m.userId, displayName: m.user.displayName }));
 
   const categories = [...new Set(items.map((item) => item.category))].sort();
   const locations = [...new Set(items.flatMap((item) => (item.location ? [item.location] : [])))].sort();
@@ -57,6 +68,8 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         categories={categories}
         locations={locations}
         units={units}
+        members={members}
+        locale={locale}
         dict={dict.inventory}
         barcodeDict={dict.barcodeScanner}
         initialStatus={initialStatus}

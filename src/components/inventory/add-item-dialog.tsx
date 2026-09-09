@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/autocomplete";
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
-import type { InventoryItemRow } from "@/components/inventory/inventory-table";
+import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table";
 import type { ActionState } from "@/lib/actions/auth";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 
 const initialState: ActionState = {};
@@ -81,6 +81,8 @@ export function ItemFormDialog({
   categories,
   locations,
   units,
+  members = [],
+  locale,
   dict,
   barcodeDict,
   trigger,
@@ -90,6 +92,10 @@ export function ItemFormDialog({
   categories: string[];
   locations: string[];
   units: string[];
+  /** Only needed in edit mode, to resolve `item.updatedByUserId` to a name
+   * for the "last updated by" line below. */
+  members?: HouseholdMemberOption[];
+  locale?: Locale;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   trigger: ReactElement;
@@ -134,6 +140,23 @@ export function ItemFormDialog({
         <DialogHeader>
           <DialogTitle>{mode === "create" ? dict.addDialogTitle : dict.editDialogTitle}</DialogTitle>
         </DialogHeader>
+        {mode === "edit" && item && locale && (
+          <p className="-mt-2 text-xs text-muted-foreground">
+            {(() => {
+              const dateLabel = new Intl.DateTimeFormat(locale, {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              }).format(item.updatedAt);
+              const updaterName = members.find((m) => m.userId === item.updatedByUserId)?.displayName;
+              return updaterName
+                ? format(dict.lastUpdatedWithUser, { date: dateLabel, name: updaterName })
+                : format(dict.lastUpdatedNoUser, { date: dateLabel });
+            })()}
+          </p>
+        )}
         <form action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && item && <input type="hidden" name="itemId" value={item.id} />}
           <div className="flex flex-col gap-2">

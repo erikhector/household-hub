@@ -66,12 +66,13 @@ function formData(fields: Record<string, string>) {
 }
 
 const household = { id: "household-1" };
+const userId = "user-1";
 
 afterEach(() => {
   vi.clearAllMocks();
-  requireHouseholdMock.mockResolvedValue({ household });
+  requireHouseholdMock.mockResolvedValue({ household, userId });
 });
-requireHouseholdMock.mockResolvedValue({ household });
+requireHouseholdMock.mockResolvedValue({ household, userId });
 
 const validItem = {
   name: "Flour",
@@ -138,6 +139,7 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         quantity: 2,
         unit: "kg",
         lowStockThreshold: 1,
+        updatedByUserId: "user-1",
       },
     });
   });
@@ -205,7 +207,10 @@ describe("adjustQuantityAction", () => {
 
     await adjustQuantityAction("item-1", -10);
 
-    expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 0 } });
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { quantity: 0, updatedByUserId: "user-1" },
+    });
   });
 
   it("adds a positive delta normally", async () => {
@@ -214,7 +219,10 @@ describe("adjustQuantityAction", () => {
 
     await adjustQuantityAction("item-1", 3);
 
-    expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 5 } });
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { quantity: 5, updatedByUserId: "user-1" },
+    });
   });
 });
 
@@ -235,7 +243,10 @@ describe("markItemEmptyAction", () => {
     const result = await markItemEmptyAction("item-1", false);
 
     expect(result).toEqual({});
-    expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 0 } });
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { quantity: 0, updatedByUserId: "user-1" },
+    });
     expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
   });
 

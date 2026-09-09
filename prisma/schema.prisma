@@ -150,6 +150,13 @@ model InventoryItem {
   lastKnownPrice    Float?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  // Who last touched this row — set on every mutation (edits, quantity
+  // +/- taps, mark-empty, bulk field edits) by src/app/dashboard/inventory/
+  // actions.ts, mirroring Transaction.createdByUserId's plain-string
+  // (no @relation) shape: resolved to a display name via a household-member
+  // lookup in the inventory page rather than a Prisma join. Surfaced next to
+  // `updatedAt` in the inventory table/detail view so a household can spot
+  // items that haven't been touched (and recounted) in a while.
   updatedByUserId   String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)

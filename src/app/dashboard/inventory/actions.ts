@@ -30,7 +30,7 @@ export async function createInventoryItemAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = itemSchema.safeParse({
     name: formData.get("name"),
@@ -48,7 +48,7 @@ export async function createInventoryItemAction(
 
   try {
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...parsed.data, category },
+      data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -63,7 +63,7 @@ export async function updateInventoryItemAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const itemId = String(formData.get("itemId") ?? "");
   const parsed = itemSchema.safeParse({
@@ -92,7 +92,7 @@ export async function updateInventoryItemAction(
       // the field to empty actually nulls it out — Prisma drops `undefined`
       // keys from an update instead of writing them, which would otherwise
       // leave a stale location in place.
-      data: { ...parsed.data, category, location: parsed.data.location ?? null },
+      data: { ...parsed.data, category, location: parsed.data.location ?? null, updatedByUserId: userId },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -108,7 +108,7 @@ export async function updateInventoryItemAction(
 // fire off several adds in a row by typing and pressing Enter. Everything
 // else defaults the same way a blank create-form submission would.
 export async function quickAddInventoryItemAction(name: string): Promise<{ error?: string; name?: string }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = itemSchema.safeParse({
     name,
@@ -124,7 +124,12 @@ export async function quickAddInventoryItemAction(name: string): Promise<{ error
 
   try {
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...parsed.data, category: dict.inventory.uncategorized },
+      data: {
+        householdId: household.id,
+        ...parsed.data,
+        category: dict.inventory.uncategorized,
+        updatedByUserId: userId,
+      },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -145,7 +150,7 @@ export async function addStarterKitItemsAction(
   category: string,
   names: string[],
 ): Promise<{ error?: string; added?: number }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = starterKitSchema.safeParse({ category, names });
   if (!parsed.success) {
@@ -170,6 +175,7 @@ export async function addStarterKitItemsAction(
           quantity: 1,
           unit: "pcs",
           lowStockThreshold: 1,
+          updatedByUserId: userId,
         })),
       });
     }
@@ -187,7 +193,7 @@ export async function adjustQuantityAction(
   itemId: string,
   delta: number,
 ): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
@@ -198,7 +204,7 @@ export async function adjustQuantityAction(
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
-      data: { quantity: nextQuantity },
+      data: { quantity: nextQuantity, updatedByUserId: userId },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -219,7 +225,7 @@ export async function markItemEmptyAction(
   itemId: string,
   addToShoppingList: boolean,
 ): Promise<{ listName?: string; error?: string }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
@@ -229,7 +235,7 @@ export async function markItemEmptyAction(
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
-      data: { quantity: 0 },
+      data: { quantity: 0, updatedByUserId: userId },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -298,7 +304,7 @@ export async function bulkUpdateFieldAction(
   field: BulkEditableField,
   rawValue: string,
 ): Promise<ActionState & { updated?: number }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const ids = [...new Set(itemIds)].filter(Boolean);
   if (ids.length === 0) return { error: "No items selected" };
@@ -339,7 +345,7 @@ export async function bulkUpdateFieldAction(
   try {
     const result = await prisma.inventoryItem.updateMany({
       where: { id: { in: ids }, householdId: household.id },
-      data,
+      data: { ...data, updatedByUserId: userId },
     });
     updated = result.count;
   } catch (error) {

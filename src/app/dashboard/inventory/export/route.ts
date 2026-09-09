@@ -9,10 +9,17 @@ import { buildCsv, csvResponse } from "@/lib/csv";
 export async function GET() {
   const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
-  const items = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-    orderBy: { name: "asc" },
-  });
+  const [items, householdMembers] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      orderBy: { name: "asc" },
+    }),
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      include: { user: { select: { displayName: true } } },
+    }),
+  ]);
+  const displayNameByUserId = new Map(householdMembers.map((m) => [m.userId, m.user.displayName]));
 
   const t = dict.export.inventory;
   const csv = buildCsv(
@@ -24,6 +31,8 @@ export async function GET() {
       t.headerLocation,
       t.headerLowStockThreshold,
       t.headerLastKnownPrice,
+      t.headerLastUpdated,
+      t.headerUpdatedBy,
     ],
     items.map((item) => [
       item.name,
@@ -33,6 +42,8 @@ export async function GET() {
       item.location ?? "",
       item.lowStockThreshold,
       item.lastKnownPrice ?? "",
+      item.updatedAt.toISOString().slice(0, 10),
+      (item.updatedByUserId && displayNameByUserId.get(item.updatedByUserId)) || "",
     ]),
   );
 
