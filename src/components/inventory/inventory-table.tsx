@@ -394,7 +394,10 @@ export function InventoryTable({
                     >
                       <Minus className="size-3.5" />
                     </Button>
-                    <span className="w-14 text-center tabular-nums">
+                    <span
+                      className="block w-14 shrink-0 truncate text-center tabular-nums"
+                      title={`${item.quantity} ${item.unit}`}
+                    >
                       {item.quantity} {item.unit}
                     </span>
                     <Button
