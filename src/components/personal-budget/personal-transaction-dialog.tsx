@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactElement } from "react";
+import { useActionState, useMemo, useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxInput,
+  ComboboxInputGroup,
+  ComboboxItem,
+  ComboboxTrigger,
+  createComboboxItems,
+} from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
@@ -79,6 +88,14 @@ export function PersonalTransactionDialog({
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate,
   );
+  const categoryItems = useMemo(
+    () =>
+      createComboboxItems(categories, {
+        getValue: (c: PersonalCategoryRow) => c.id,
+        getLabel: (c: PersonalCategoryRow) => c.name,
+      }),
+    [categories],
+  );
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -116,25 +133,23 @@ export function PersonalTransactionDialog({
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="personal-tx-category">{dict.categoryLabel}</Label>
-            <Select
+            <Combobox
+              items={categoryItems}
               name="categoryId"
               defaultValue={transaction?.categoryId ?? prefillFromTemplate?.categoryId}
             >
-              <SelectTrigger id="personal-tx-category" className="w-full">
-                <SelectValue>
-                  {(v: string | null) =>
-                    v ? (categories.find((c) => c.id === v)?.name ?? v) : dict.categoryPlaceholder
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
+              <ComboboxInputGroup>
+                <ComboboxInput id="personal-tx-category" placeholder={dict.categoryPlaceholder} />
+                <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
+              </ComboboxInputGroup>
+              <ComboboxContent emptyMessage={dict.categoryNoResults}>
+                {(c: PersonalCategoryRow) => (
+                  <ComboboxItem key={c.id} value={c.id}>
                     {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </ComboboxItem>
+                )}
+              </ComboboxContent>
+            </Combobox>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
