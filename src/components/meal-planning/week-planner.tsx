@@ -10,6 +10,7 @@ import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ing
 import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { format, plural } from "@/lib/i18n/format";
 import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -178,11 +179,17 @@ function MealTypeSlot({
 function MealEntryRow({ dict, entry }: { dict: MealPlanningDict; entry: MealPlanEntryData }) {
   const [isPending, startTransition] = useTransition();
   const label = entry.recipeName ?? entry.freeformName ?? "";
+  // Portions only mean something next to a linked recipe — a freeform entry
+  // has nothing to scale (see MealPlanEntryData.portions' doc comment).
+  const portionsLabel = entry.recipeId
+    ? format(plural(entry.portions, dict.entryPortionsCount), { count: entry.portions })
+    : null;
 
   return (
     <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-      <span className="min-w-0 truncate" title={label}>
+      <span className="min-w-0 truncate" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
+        {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
       <Button
         type="button"

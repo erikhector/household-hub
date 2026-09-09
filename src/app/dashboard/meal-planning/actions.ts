@@ -91,6 +91,7 @@ async function parseIngredientRows(
 const recipeSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   instructions: z.string().trim().max(4000).optional(),
+  servings: z.coerce.number().int().min(1, "Servings must be at least 1").max(1_000),
 });
 
 type ComponentRow = { componentRecipeId: string; quantity: number };
@@ -148,6 +149,7 @@ export async function createRecipeAction(
   const parsed = recipeSchema.safeParse({
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
+    servings: formData.get("servings") || 4,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -164,6 +166,7 @@ export async function createRecipeAction(
       householdId: household.id,
       name: parsed.data.name,
       instructions: parsed.data.instructions || null,
+      servings: parsed.data.servings,
       ingredients: { create: ingredients.data },
       components: { create: components.data },
     },
@@ -184,6 +187,7 @@ export async function updateRecipeAction(
   const parsed = recipeSchema.safeParse({
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
+    servings: formData.get("servings") || 4,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -208,6 +212,7 @@ export async function updateRecipeAction(
       data: {
         name: parsed.data.name,
         instructions: parsed.data.instructions || null,
+        servings: parsed.data.servings,
         ingredients: { create: ingredients.data },
         components: { create: components.data },
       },
@@ -254,6 +259,12 @@ const addEntrySchema = z.object({
   mealType: z.enum(MEAL_TYPES),
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
+  // How many portions of the recipe this slot is for — see
+  // MealPlanEntry.portions' doc comment in schema.prisma. Optional because a
+  // freeform entry has no recipe to scale; when omitted for a recipe entry,
+  // addMealEntryAction below falls back to that recipe's own `servings` (i.e.
+  // "one full recipe"), matching pre-portions behavior.
+  portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
 });
 
 export async function addMealEntryAction(
@@ -268,6 +279,7 @@ export async function addMealEntryAction(
     mealType: formData.get("mealType"),
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
+    portions: formData.get("portions") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -277,6 +289,9 @@ export async function addMealEntryAction(
 
   let linkedRecipeId: string | null = null;
   let freeformMealName: string | null = null;
+  // Falls back to the recipe's own serving size (i.e. "one full recipe")
+  // when the form doesn't send an explicit portions count.
+  let portions = parsed.data.portions ?? 4;
 
   if (recipeId && recipeId !== CUSTOM_RECIPE_SENTINEL) {
     const recipe = await prisma.recipe.findFirst({
@@ -284,6 +299,7 @@ export async function addMealEntryAction(
     });
     if (!recipe) return { error: "Recipe not found" };
     linkedRecipeId = recipe.id;
+    portions = parsed.data.portions ?? recipe.servings;
   } else {
     if (!freeformName) return { error: "Choose a recipe or enter a meal name" };
     freeformMealName = freeformName;
@@ -310,6 +326,7 @@ export async function addMealEntryAction(
       mealType,
       recipeId: linkedRecipeId,
       freeformName: freeformMealName,
+      portions,
     },
   });
 
@@ -409,7 +426,10 @@ export async function previewMissingIngredientsAction(
   const plan = await prisma.mealPlan.findFirst({
     where: { householdId: household.id, weekStartDate },
     include: {
-      entries: { where: { recipeId: { not: null } }, select: { recipeId: true } },
+      entries: {
+        where: { recipeId: { not: null } },
+        select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
+      },
     },
   });
 
@@ -420,9 +440,18 @@ export async function previewMissingIngredientsAction(
   // Each entry's recipeId is expanded recursively — its own ingredients plus
   // every ingredient contributed by its sub-recipes (see RecipeComponent in
   // schema.prisma) — into one flat list. See recipe-expansion.ts.
+  //
+  // The multiplier scales the recipe's as-written ingredient quantities down
+  // (or up) to how many portions this specific entry is cooking — see
+  // MealPlanEntry.portions' doc comment in schema.prisma. Two entries of the
+  // same 4-portion recipe each cooking 2 portions (e.g. lasagna for Thursday
+  // dinner and Friday lunch) therefore total 1 full batch, not 2.
   const expanded = (
     await Promise.all(
-      plan.entries.map((entry) => expandRecipeIngredients(entry.recipeId!, 1, new Set())),
+      plan.entries.map((entry) => {
+        const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
+        return expandRecipeIngredients(entry.recipeId!, multiplier, new Set());
+      }),
     )
   ).flat();
 

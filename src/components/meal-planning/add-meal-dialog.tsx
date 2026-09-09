@@ -45,6 +45,7 @@ export function AddMealDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [recipeChoice, setRecipeChoice] = useState(CUSTOM_RECIPE_SENTINEL);
+  const [portions, setPortions] = useState("4");
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -53,6 +54,7 @@ export function AddMealDialog({
     if (!result.error) {
       setOpen(false);
       setRecipeChoice(CUSTOM_RECIPE_SENTINEL);
+      setPortions("4");
     }
     return result;
   }, initialState);
@@ -61,6 +63,15 @@ export function AddMealDialog({
     value === CUSTOM_RECIPE_SENTINEL
       ? dict.customMealOption
       : (recipes.find((r) => r.id === value)?.name ?? value);
+
+  // Re-picking a recipe resets portions to its own serving size (i.e. "one
+  // full recipe") — the common case — while still leaving it freely
+  // editable, e.g. down to 2 when only cooking half a batch for one slot.
+  const handleRecipeChoiceChange = (value: string) => {
+    setRecipeChoice(value);
+    const recipe = recipes.find((r) => r.id === value);
+    if (recipe) setPortions(String(recipe.servings));
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -84,7 +95,7 @@ export function AddMealDialog({
             <Label htmlFor="recipeId">{dict.recipeLabel}</Label>
             <Select
               value={recipeChoice}
-              onValueChange={(v) => setRecipeChoice(v ?? CUSTOM_RECIPE_SENTINEL)}
+              onValueChange={(v) => handleRecipeChoiceChange(v ?? CUSTOM_RECIPE_SENTINEL)}
             >
               <SelectTrigger id="recipeId" className="w-full">
                 <SelectValue>{recipeLabel}</SelectValue>
@@ -101,7 +112,7 @@ export function AddMealDialog({
             <input type="hidden" name="recipeId" value={recipeChoice} />
           </div>
 
-          {recipeChoice === CUSTOM_RECIPE_SENTINEL && (
+          {recipeChoice === CUSTOM_RECIPE_SENTINEL ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor="freeformName">{dict.customMealNameLabel}</Label>
               <Input
@@ -111,6 +122,22 @@ export function AddMealDialog({
                 maxLength={120}
                 autoFocus
               />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="portions">{dict.portionsLabel}</Label>
+              <Input
+                id="portions"
+                name="portions"
+                type="number"
+                min={1}
+                max={1000}
+                step={1}
+                value={portions}
+                onChange={(e) => setPortions(e.target.value)}
+                className="w-24"
+              />
+              <p className="text-xs text-muted-foreground">{dict.portionsHint}</p>
             </div>
           )}
 

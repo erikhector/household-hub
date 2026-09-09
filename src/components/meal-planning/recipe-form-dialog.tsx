@@ -78,6 +78,7 @@ export function RecipeFormDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(recipe?.name ?? "");
+  const [servings, setServings] = useState(String(recipe?.servings ?? 4));
   const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
   const [components, setComponents] = useState<ComponentRow[]>(() => componentRowsFromRecipe(recipe));
@@ -99,6 +100,7 @@ export function RecipeFormDialog({
       setOpen(false);
       if (mode === "create") {
         setName("");
+        setServings("4");
         setInstructions("");
         setIngredients([blankRow()]);
         setComponents([]);
@@ -139,6 +141,7 @@ export function RecipeFormDialog({
     setOpen(next);
     if (next) {
       setName(recipe?.name ?? "");
+      setServings(String(recipe?.servings ?? 4));
       setInstructions(recipe?.instructions ?? "");
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
@@ -214,18 +217,35 @@ export function RecipeFormDialog({
             <input type="hidden" name="recipeId" value={recipe.id} />
           )}
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="recipe-name">{dict.recipeNameLabel}</Label>
-            <Input
-              id="recipe-name"
-              name="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              maxLength={120}
-              autoFocus
-            />
+          <div className="flex gap-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Label htmlFor="recipe-name">{dict.recipeNameLabel}</Label>
+              <Input
+                id="recipe-name"
+                name="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                maxLength={120}
+                autoFocus
+              />
+            </div>
+            <div className="flex w-24 shrink-0 flex-col gap-2">
+              <Label htmlFor="recipe-servings">{dict.servingsLabel}</Label>
+              <Input
+                id="recipe-servings"
+                name="servings"
+                type="number"
+                min={1}
+                max={1000}
+                step={1}
+                value={servings}
+                onChange={(e) => setServings(e.target.value)}
+                required
+              />
+            </div>
           </div>
+          <p className="-mt-2 text-xs text-muted-foreground">{dict.servingsHint}</p>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipe-instructions">{dict.instructionsLabel}</Label>

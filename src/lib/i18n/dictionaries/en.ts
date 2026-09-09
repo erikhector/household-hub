@@ -388,6 +388,8 @@ export const en = {
     customMealOption: "Custom meal…",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
+    portionsLabel: "Portions",
+    portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
     adding: "Adding…",
     add: "Add",
@@ -406,6 +408,8 @@ export const en = {
     importErrorFetchFailed: "Couldn't load that page. Check the link and try again.",
     importErrorNoRecipeFound: "Couldn't read a recipe from that page.",
     recipeNameLabel: "Name",
+    servingsLabel: "Servings",
+    servingsHint: "How many portions the ingredient amounts below make.",
     instructionsLabel: "Instructions",
     instructionsPlaceholder: "How to make it…",
     ingredientsLabel: "Ingredients",
@@ -432,6 +436,14 @@ export const en = {
     ingredientCount: {
       one: "{count} ingredient",
       other: "{count} ingredients",
+    },
+    servingsCount: {
+      one: "{count} serving",
+      other: "{count} servings",
+    },
+    entryPortionsCount: {
+      one: "{count} portion",
+      other: "{count} portions",
     },
     saving: "Saving…",
     save: "Save",

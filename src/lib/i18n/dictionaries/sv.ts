@@ -380,6 +380,8 @@ export const sv = {
     customMealOption: "Egen måltid…",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
+    portionsLabel: "Portioner",
+    portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
     removeMealAriaLabel: "Ta bort måltid",
     adding: "Lägger till…",
     add: "Lägg till",
@@ -398,6 +400,8 @@ export const sv = {
     importErrorFetchFailed: "Kunde inte läsa in sidan. Kontrollera länken och försök igen.",
     importErrorNoRecipeFound: "Kunde inte läsa ett recept från den sidan.",
     recipeNameLabel: "Namn",
+    servingsLabel: "Portioner",
+    servingsHint: "Hur många portioner mängderna nedan räcker till.",
     instructionsLabel: "Instruktioner",
     instructionsPlaceholder: "Så här gör du…",
     ingredientsLabel: "Ingredienser",
@@ -424,6 +428,14 @@ export const sv = {
     ingredientCount: {
       one: "{count} ingrediens",
       other: "{count} ingredienser",
+    },
+    servingsCount: {
+      one: "{count} portion",
+      other: "{count} portioner",
+    },
+    entryPortionsCount: {
+      one: "{count} portion",
+      other: "{count} portioner",
     },
     saving: "Sparar…",
     save: "Spara",

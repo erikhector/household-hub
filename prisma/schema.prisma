@@ -225,6 +225,14 @@ model Recipe {
   householdId  String
   name         String
   instructions String?
+  // How many portions the ingredient quantities on this recipe (as entered)
+  // actually make. MealPlanEntry.portions is scaled against this — see its
+  // doc comment below — so ingredient totals for a meal-plan entry reflect
+  // how many portions that specific slot is cooking, not always "one full
+  // recipe." Defaults to 4 (a common household recipe size) both here and
+  // on MealPlanEntry.portions so pre-existing rows keep a 1:1 ratio — i.e.
+  // no behavior change — until a household actively edits either value.
+  servings     Int      @default(4)
   createdAt    DateTime @default(now())
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -313,6 +321,16 @@ model MealPlanEntry {
   mealType     MealType
   recipeId     String?
   freeformName String?
+  // How many portions of `recipe` this specific slot is cooking — lets two
+  // entries of the same recipe in one week (e.g. lasagna for Thursday dinner
+  // and Friday lunch) split one batch instead of each demanding a full
+  // recipe's worth of ingredients. Ingredient totals for the shopping-list
+  // diff (previewMissingIngredientsAction in actions.ts) scale the recipe's
+  // ingredients by `portions / recipe.servings` via expandRecipeIngredients
+  // in recipe-expansion.ts. Meaningless (and unused) on a freeform entry,
+  // which has no recipe to scale. See Recipe.servings' doc comment for why
+  // both fields share the same default.
+  portions     Int      @default(4)
 
   mealPlan MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe   Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)

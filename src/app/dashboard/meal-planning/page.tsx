@@ -43,6 +43,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         id: recipe.id,
         name: recipe.name,
         instructions: recipe.instructions,
+        servings: recipe.servings,
         ingredients: recipe.ingredients.map((ingredient) => ({
           id: ingredient.id,
           name: ingredient.name,
@@ -63,6 +64,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         recipeId: entry.recipeId,
         recipeName: entry.recipe?.name ?? null,
         freeformName: entry.freeformName,
+        portions: entry.portions,
       }))}
       activeShoppingLists={activeShoppingLists}
     />

@@ -20,6 +20,11 @@ export type RecipeData = {
   id: string;
   name: string;
   instructions: string | null;
+  // How many portions the ingredient amounts above make — see Recipe.servings'
+  // doc comment in schema.prisma. Used to scale ingredient totals down to
+  // however many portions a given meal-plan entry (MealPlanEntryData.portions
+  // below) is actually cooking.
+  servings: number;
   ingredients: RecipeIngredientData[];
   components: RecipeComponentData[];
 };
@@ -31,6 +36,10 @@ export type MealPlanEntryData = {
   recipeId: string | null;
   recipeName: string | null;
   freeformName: string | null;
+  // How many portions of the linked recipe this slot is for — see
+  // MealPlanEntry.portions' doc comment in schema.prisma. Meaningless when
+  // recipeId is null (a freeform entry has no recipe to scale).
+  portions: number;
 };
 
 // One ingredient the planned week's recipes need more of than the household

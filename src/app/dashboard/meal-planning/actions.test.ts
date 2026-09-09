@@ -395,8 +395,8 @@ describe("addMealEntryAction", () => {
     expect(result.error).toBe("Choose a recipe or enter a meal name");
   });
 
-  it("creates the meal plan (upsert) and entry for a valid recipe-linked meal", async () => {
-    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1" });
+  it("creates the meal plan (upsert) and entry for a valid recipe-linked meal, defaulting portions to the recipe's own servings", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", servings: 6 });
     mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
     mealPlanEntryCreateMock.mockResolvedValue({});
 
@@ -420,8 +420,24 @@ describe("addMealEntryAction", () => {
         mealType: "DINNER",
         recipeId: "recipe-1",
         freeformName: null,
+        portions: 6,
       },
     });
+  });
+
+  it("uses an explicit portions count instead of the recipe's own servings when the form sends one", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", servings: 6 });
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateMock.mockResolvedValue({});
+
+    await addMealEntryAction(
+      {},
+      formData({ ...base, recipeId: "recipe-1", portions: "2" }),
+    );
+
+    expect(mealPlanEntryCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ portions: 2 }) }),
+    );
   });
 });
 
@@ -492,7 +508,9 @@ describe("previewMissingIngredientsAction", () => {
   });
 
   it("includes a sub-recipe's ingredients when diffing a planned recipe that uses one", async () => {
-    mealPlanFindFirstMock.mockResolvedValue({ entries: [{ recipeId: "lasagna" }] });
+    mealPlanFindFirstMock.mockResolvedValue({
+      entries: [{ recipeId: "lasagna", portions: 4, recipe: { servings: 4 } }],
+    });
     const recipesById: Record<string, unknown> = {
       lasagna: {
         id: "lasagna",
@@ -522,6 +540,32 @@ describe("previewMissingIngredientsAction", () => {
 
     expect(result).toEqual({
       items: [{ key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5 }],
+    });
+  });
+
+  it("scales each entry's ingredients by its portions relative to the recipe's own servings, instead of always counting a full recipe per entry", async () => {
+    // A 4-serving soup recipe planned twice in the week (e.g. dinner Thursday
+    // and lunch Friday), 2 portions each — together that's exactly one batch
+    // of the recipe, not two.
+    mealPlanFindFirstMock.mockResolvedValue({
+      entries: [
+        { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
+        { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
+      ],
+    });
+    recipeFindUniqueMock.mockResolvedValue({
+      id: "soup",
+      ingredients: [
+        { inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 2 },
+      ],
+      components: [],
+    });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction("2026-01-05");
+
+    expect(result).toEqual({
+      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2 }],
     });
   });
 });

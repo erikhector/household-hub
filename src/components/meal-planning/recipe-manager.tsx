@@ -130,6 +130,8 @@ function RecipeRow({
         )}
       </div>
       <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
+        {format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings })}
+        {" · "}
         {format(plural(recipe.ingredients.length, dict.ingredientCount), {
           count: recipe.ingredients.length,
         })}
