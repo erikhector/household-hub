@@ -115,11 +115,10 @@ export function InventoryClient({
           placeholder={dict.searchPlaceholder}
           className="w-full sm:w-48"
         />
-        {/* On phones this scrolls horizontally as a single row of filter
-            chips (a common mobile pattern) instead of stacking five full-width
-            rows below the search box and burying the item list. sm+ reverts
-            to the original wrapping toolbar. */}
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
+        {/* Wraps onto as many rows as needed rather than scrolling
+            sideways — each select is a fixed, modest width so 2-3 fit per
+            row on a phone instead of one per row. */}
+        <div className="flex flex-wrap gap-2">
           <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
             <SelectTrigger className="w-40 shrink-0">
               <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
