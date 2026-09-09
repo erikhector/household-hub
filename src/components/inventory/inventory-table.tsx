@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { Ban, Minus, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -117,6 +118,93 @@ function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["i
   if (status === "out") return <Badge variant="destructive">{dict.statusOut}</Badge>;
   if (status === "low") return <Badge className="bg-amber-500 text-white">{dict.statusLow}</Badge>;
   return <Badge variant="secondary">{dict.statusIn}</Badge>;
+}
+
+// Shared between the desktop table row and the mobile card (see
+// InventoryTable below) so the mark-empty/edit/delete cluster — and its
+// touch-target sizing — only needs to be defined once.
+function ItemActions({
+  item,
+  categories,
+  locations,
+  units,
+  members,
+  locale,
+  dict,
+  barcodeDict,
+  isPending,
+  onMarkEmpty,
+  onDelete,
+  size = "size-7",
+}: {
+  item: InventoryItemRow;
+  categories: string[];
+  locations: string[];
+  units: string[];
+  members: HouseholdMemberOption[];
+  locale: Locale;
+  dict: Dictionary["inventory"];
+  barcodeDict: Dictionary["barcodeScanner"];
+  isPending: boolean;
+  onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
+  onDelete: (itemId: string) => void;
+  size?: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(size, "text-muted-foreground")}
+              disabled={isPending}
+              aria-label={dict.markEmptyAriaLabel}
+            >
+              <Ban className="size-3.5" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>
+            {dict.markEmptyAndAddToList}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ItemFormDialog
+        mode="edit"
+        item={item}
+        categories={categories}
+        locations={locations}
+        units={units}
+        members={members}
+        locale={locale}
+        dict={dict}
+        barcodeDict={barcodeDict}
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(size, "text-muted-foreground")}
+            aria-label={dict.editAriaLabel}
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+        }
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(size, "text-muted-foreground hover:text-destructive")}
+        disabled={isPending}
+        onClick={() => onDelete(item.id)}
+      >
+        <Trash2 className="size-3.5" />
+      </Button>
+    </div>
+  );
 }
 
 function groupKeyFor(item: InventoryItemRow, groupBy: InventoryGroupBy, dict: Dictionary["inventory"]) {
@@ -386,6 +474,7 @@ export function InventoryTable({
           </Button>
         </div>
       )}
+      <div className="hidden sm:block">
       <Table>
       <TableHeader>
         <TableRow>
@@ -478,61 +567,19 @@ export function InventoryTable({
                   <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-muted-foreground"
-                            disabled={isPending}
-                            aria-label={dict.markEmptyAriaLabel}
-                          >
-                            <Ban className="size-3.5" />
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleMarkEmpty(item, false)}>
-                          {dict.markEmpty}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleMarkEmpty(item, true)}>
-                          {dict.markEmptyAndAddToList}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <ItemFormDialog
-                      mode="edit"
-                      item={item}
-                      categories={categories}
-                      locations={locations}
-                      units={units}
-                      members={members}
-                      locale={locale}
-                      dict={dict}
-                      barcodeDict={barcodeDict}
-                      trigger={
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 text-muted-foreground"
-                          aria-label={dict.editAriaLabel}
-                        >
-                          <Pencil className="size-3.5" />
-                        </Button>
-                      }
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
+                  <ItemActions
+                    item={item}
+                    categories={categories}
+                    locations={locations}
+                    units={units}
+                    members={members}
+                    locale={locale}
+                    dict={dict}
+                    barcodeDict={barcodeDict}
+                    isPending={isPending}
+                    onMarkEmpty={handleMarkEmpty}
+                    onDelete={handleDelete}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -540,6 +587,92 @@ export function InventoryTable({
         ))}
       </TableBody>
       </Table>
+      </div>
+
+      {/* Mobile: a stacked card list instead of the table above — a 6-column
+          table can't fit a 375px screen without horizontal scrolling, so
+          phones get the same data reshaped into cards instead. */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {groups.map((group) => (
+          <Fragment key={`m-${group.key || "__ungrouped__"}`}>
+            {groupBy !== "none" && (
+              <div className="rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                <span className="block truncate" title={group.key}>
+                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                </span>
+              </div>
+            )}
+            {group.items.map((item) => (
+              <div
+                key={item.id}
+                data-state={selected.has(item.id) ? "selected" : undefined}
+                className="flex flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+              >
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(item.id)}
+                    onChange={() => toggleItem(item.id)}
+                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                    className="mt-1 size-4 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium" title={item.name}>
+                      {item.name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {item.category}
+                      {item.location ? ` • ${item.location}` : ""}
+                    </p>
+                  </div>
+                  <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isPending}
+                      onClick={() => handleAdjustQuantity(item.id, -1)}
+                    >
+                      <Minus className="size-3.5" />
+                    </Button>
+                    <span
+                      className="block min-w-14 shrink-0 truncate text-center text-sm tabular-nums"
+                      title={`${item.quantity} ${item.unit}`}
+                    >
+                      {item.quantity} {item.unit}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={isPending}
+                      onClick={() => handleAdjustQuantity(item.id, 1)}
+                    >
+                      <Plus className="size-3.5" />
+                    </Button>
+                  </div>
+                  <ItemActions
+                    item={item}
+                    categories={categories}
+                    locations={locations}
+                    units={units}
+                    members={members}
+                    locale={locale}
+                    dict={dict}
+                    barcodeDict={barcodeDict}
+                    isPending={isPending}
+                    onMarkEmpty={handleMarkEmpty}
+                    onDelete={handleDelete}
+                    size="size-9"
+                  />
+                </div>
+                <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
+              </div>
+            ))}
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }

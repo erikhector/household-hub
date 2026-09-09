@@ -108,83 +108,89 @@ export function InventoryClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={dict.searchPlaceholder}
-          className="w-48"
+          className="w-full sm:w-48"
         />
-        <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
-          <SelectTrigger className="w-40">
-            <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{dict.allCategories}</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
-          <SelectTrigger className="w-40">
-            <SelectValue>
-              {(v: string) => (v === ALL ? dict.allLocations : v === UNASSIGNED ? dict.unassignedLocation : v)}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{dict.allLocations}</SelectItem>
-            <SelectItem value={UNASSIGNED}>{dict.unassignedLocation}</SelectItem>
-            {locations.map((l) => (
-              <SelectItem key={l} value={l}>
-                {l}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
-          <SelectTrigger className="w-40">
-            <SelectValue>
-              {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
-            {(Object.keys(statusLabels) as StockStatus[]).map((s) => (
-              <SelectItem key={s} value={s}>
-                {statusLabels[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter((v as UpdatedFilter) ?? "all")}>
-          <SelectTrigger className="w-48">
-            <SelectValue>
-              {(v: string) => `${dict.updatedFilterLabel}: ${updatedFilterLabels[v as UpdatedFilter]}`}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(updatedFilterLabels) as UpdatedFilter[]).map((f) => (
-              <SelectItem key={f} value={f}>
-                {updatedFilterLabels[f]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={groupBy} onValueChange={(v) => setGroupBy((v as InventoryGroupBy) ?? "none")}>
-          <SelectTrigger className="w-44">
-            <SelectValue>{(v: string) => `${dict.groupByLabel}: ${groupByLabels[v as InventoryGroupBy]}`}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(groupByLabels) as InventoryGroupBy[]).map((g) => (
-              <SelectItem key={g} value={g}>
-                {groupByLabels[g]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* On phones this scrolls horizontally as a single row of filter
+            chips (a common mobile pattern) instead of stacking five full-width
+            rows below the search box and burying the item list. sm+ reverts
+            to the original wrapping toolbar. */}
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&::-webkit-scrollbar]:hidden">
+          <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
+            <SelectTrigger className="w-40 shrink-0">
+              <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{dict.allCategories}</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
+            <SelectTrigger className="w-40 shrink-0">
+              <SelectValue>
+                {(v: string) => (v === ALL ? dict.allLocations : v === UNASSIGNED ? dict.unassignedLocation : v)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{dict.allLocations}</SelectItem>
+              <SelectItem value={UNASSIGNED}>{dict.unassignedLocation}</SelectItem>
+              {locations.map((l) => (
+                <SelectItem key={l} value={l}>
+                  {l}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
+            <SelectTrigger className="w-40 shrink-0">
+              <SelectValue>
+                {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{dict.allStatuses}</SelectItem>
+              {(Object.keys(statusLabels) as StockStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {statusLabels[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter((v as UpdatedFilter) ?? "all")}>
+            <SelectTrigger className="w-48 shrink-0">
+              <SelectValue>
+                {(v: string) => `${dict.updatedFilterLabel}: ${updatedFilterLabels[v as UpdatedFilter]}`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(updatedFilterLabels) as UpdatedFilter[]).map((f) => (
+                <SelectItem key={f} value={f}>
+                  {updatedFilterLabels[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={groupBy} onValueChange={(v) => setGroupBy((v as InventoryGroupBy) ?? "none")}>
+            <SelectTrigger className="w-44 shrink-0">
+              <SelectValue>{(v: string) => `${dict.groupByLabel}: ${groupByLabels[v as InventoryGroupBy]}`}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(groupByLabels) as InventoryGroupBy[]).map((g) => (
+                <SelectItem key={g} value={g}>
+                  {groupByLabels[g]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <InventoryTable
         items={filtered}

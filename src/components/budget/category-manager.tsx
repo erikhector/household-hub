@@ -120,7 +120,7 @@ function CategoryGroup({
               aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
               disabled={isPending}
               onClick={() => onDelete(category.id)}
-              className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+              className="-m-1.5 p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50"
             >
               <Trash2 className="size-3" />
             </button>

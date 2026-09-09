@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Nunito, Baloo_2, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,6 +23,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Household Hub",
   description: "Inventory, shopping, meal planning, and budgeting for your household.",
+};
+
+// Next.js doesn't inject a default viewport meta tag — without this, phones
+// fall back to a ~980px desktop-sized layout viewport and zoom the whole
+// page out to fit, which silently defeats every `sm:` breakpoint in the app.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

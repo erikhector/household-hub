@@ -99,7 +99,7 @@ export function BudgetTabs({
         <BudgetOnboarding dict={dict} />
       )}
 
-      <div className="flex w-fit gap-1 rounded-lg bg-muted p-1">
+      <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
         <Button
           type="button"
           variant={tab === "fixed" ? "secondary" : "ghost"}

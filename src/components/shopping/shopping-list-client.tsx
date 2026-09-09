@@ -79,14 +79,14 @@ function AddItemForm({
   return (
     <form action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="listId" value={listId} />
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex min-w-0 flex-1 basis-full flex-col gap-1 sm:basis-auto">
           <Input
             name="name"
             placeholder={dict.addItemNamePlaceholder}
             required
             maxLength={120}
-            className="w-48"
+            className="w-full sm:w-48"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />

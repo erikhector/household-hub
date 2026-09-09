@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { ChevronRight, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/getting-started";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -91,9 +92,15 @@ export default async function DashboardOverviewPage() {
                 })}
               </p>
             )}
-            <Link href="/dashboard/inventory" className="text-sm underline underline-offset-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 w-full justify-between"
+              render={<Link href="/dashboard/inventory" />}
+            >
               {dict.dashboard.viewInventory}
-            </Link>
+              <ChevronRight className="size-4" />
+            </Button>
           </CardContent>
         </Card>
         <Card>
@@ -109,12 +116,15 @@ export default async function DashboardOverviewPage() {
                 count: activeLists.length,
               })}
             </p>
-            <Link
-              href="/dashboard/shopping-list"
-              className="text-sm underline underline-offset-4"
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 w-full justify-between"
+              render={<Link href="/dashboard/shopping-list" />}
             >
               {dict.dashboard.viewShoppingLists}
-            </Link>
+              <ChevronRight className="size-4" />
+            </Button>
           </CardContent>
         </Card>
         <Card>
