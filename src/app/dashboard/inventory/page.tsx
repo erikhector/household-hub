@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -45,7 +46,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
@@ -59,7 +60,12 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
             units={units}
             dict={dict.inventory}
             barcodeDict={dict.barcodeScanner}
-            trigger={<Button>{dict.inventory.addItem}</Button>}
+            trigger={
+              <Button className="gap-1.5">
+                <Plus className="size-4" />
+                <span className="sr-only sm:not-sr-only">{dict.inventory.addItem}</span>
+              </Button>
+            }
           />
         </div>
       </div>
