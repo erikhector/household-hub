@@ -57,7 +57,11 @@ function DialogContent({
           // most of the viewport height and scrollable so long forms don't
           // get clipped under the keyboard. sm+: the original centered modal.
           "fixed inset-x-0 top-auto bottom-0 z-50 grid max-h-[85vh] w-full max-w-none translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-t-2xl bg-popover p-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
-          "sm:top-1/2 sm:left-1/2 sm:bottom-auto sm:inset-x-auto sm:w-full sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 sm:duration-100 sm:data-open:zoom-in-95 sm:data-open:slide-in-from-bottom-0 sm:data-closed:zoom-out-95 sm:data-closed:slide-out-to-bottom-0",
+          // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
+          // "left" conflict group, and it keeps only the later class — reversing
+          // this order silently drops sm:left-1/2, leaving the dialog at left:0
+          // (its fixed-position static position) instead of centered.
+          "sm:top-1/2 sm:bottom-auto sm:inset-x-auto sm:left-1/2 sm:w-full sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:p-4 sm:pb-4 sm:duration-100 sm:data-open:zoom-in-95 sm:data-open:slide-in-from-bottom-0 sm:data-closed:zoom-out-95 sm:data-closed:slide-out-to-bottom-0",
           className
         )}
         {...props}
