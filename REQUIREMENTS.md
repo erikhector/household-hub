@@ -1,13 +1,13 @@
 # REQUIREMENTS.md
 
-Single source of truth for what Household Hub is and how it's built — for AI
+Single source of truth for what Squirrel is and how it's built — for AI
 coding agents (including any future autonomous build loop) and humans alike.
 Update this file whenever product decisions change, and keep it in sync with
 what's actually implemented.
 
 ## Product summary
 
-Household Hub tracks a household's grocery/pantry inventory, flags items
+Squirrel tracks a household's grocery/pantry inventory, flags items
 that are running low, auto-generates shopping lists from what's missing,
 plans weekly meals, analyzes grocery cost trends, and tracks general
 household income/expenses (one-time and recurring). It's built as a

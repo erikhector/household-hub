@@ -18,7 +18,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // resend.dev's shared sending domain works out of the box with no domain
 // verification, which keeps local/dev setup to just an API key. Production
 // deployments should set EMAIL_FROM to a verified sending address instead.
-const DEFAULT_FROM = "Household Hub <onboarding@resend.dev>";
+const DEFAULT_FROM = "Squirrel <onboarding@resend.dev>";
 
 export async function sendHouseholdInviteEmail({
   to,
@@ -37,9 +37,9 @@ export async function sendHouseholdInviteEmail({
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: `You're invited to join ${householdName} on Household Hub`,
+      subject: `You're invited to join ${householdName} on Squirrel`,
       html: `
-        <p>You've been invited to join <strong>${escapeHtml(householdName)}</strong> on Household Hub.</p>
+        <p>You've been invited to join <strong>${escapeHtml(householdName)}</strong> on Squirrel.</p>
         <p><a href="${inviteUrl}">Accept the invite</a></p>
         <p>Or copy and paste this link into your browser:<br />${inviteUrl}</p>
         <p style="color:#666;font-size:12px;">This link expires in 7 days.</p>
@@ -77,9 +77,9 @@ export async function sendPasswordResetEmail({
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: "Reset your Household Hub password",
+      subject: "Reset your Squirrel password",
       html: `
-        <p>We received a request to reset your Household Hub password.</p>
+        <p>We received a request to reset your Squirrel password.</p>
         <p><a href="${resetUrl}">Reset your password</a></p>
         <p>Or copy and paste this link into your browser:<br />${resetUrl}</p>
         <p style="color:#666;font-size:12px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
@@ -117,9 +117,9 @@ export async function sendVerificationEmail({
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: "Verify your Household Hub email address",
+      subject: "Verify your Squirrel email address",
       html: `
-        <p>Welcome to Household Hub! Please confirm this is your email address.</p>
+        <p>Welcome to Squirrel! Please confirm this is your email address.</p>
         <p><a href="${verifyUrl}">Verify your email</a></p>
         <p>Or copy and paste this link into your browser:<br />${verifyUrl}</p>
         <p style="color:#666;font-size:12px;">This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.</p>

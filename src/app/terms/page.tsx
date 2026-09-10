@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
+import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 // Long-form legal prose, authored directly here in English rather than
@@ -9,7 +9,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // body. Only the brand header/footer chrome around this content uses the
 // dictionary, same as every other page in src/app.
 export const metadata: Metadata = {
-  title: "Terms of Service — Household Hub",
+  title: "Terms of Service — Squirrel",
 };
 
 const LAST_UPDATED = "September 7, 2026";
@@ -35,9 +35,7 @@ export default async function TermsPage() {
           href="/"
           className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
         >
-          <span className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Sparkles className="size-4" />
-          </span>
+          <BrandBadge />
           {dict.auth.brand}
         </Link>
 
@@ -47,9 +45,9 @@ export default async function TermsPage() {
             <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           </header>
 
-          <Section title="1. What Household Hub is">
+          <Section title="1. What Squirrel is">
             <p>
-              Household Hub is a household-management tool for tracking pantry inventory,
+              Squirrel is a household-management tool for tracking pantry inventory,
               building shopping lists, planning meals, and keeping a shared or personal budget.
               You create an account, set up a household (or join one someone else already
               created, via an invite link), and everyone in that household can see and manage
@@ -60,7 +58,7 @@ export default async function TermsPage() {
           <Section title="2. Your account">
             <p>
               You need an account (email address, password, and a display name) to use
-              Household Hub. You&apos;re responsible for keeping your password confidential and
+              Squirrel. You&apos;re responsible for keeping your password confidential and
               for all activity under your account. Let us know if you believe your account has
               been accessed without your permission.
             </p>
@@ -92,7 +90,7 @@ export default async function TermsPage() {
           <Section title="4. Acceptable use">
             <p>You agree not to:</p>
             <ul className="list-disc pl-5">
-              <li>Use Household Hub for anything unlawful, or to store or share content you don&apos;t have the right to store or share;</li>
+              <li>Use Squirrel for anything unlawful, or to store or share content you don&apos;t have the right to store or share;</li>
               <li>Try to access another household&apos;s data without a valid invite;</li>
               <li>Attempt to circumvent rate limits, probe for vulnerabilities, or otherwise interfere with the service&apos;s normal operation;</li>
               <li>Use the invite system to send unsolicited email to people who haven&apos;t asked to join your household.</li>
@@ -121,7 +119,7 @@ export default async function TermsPage() {
 
           <Section title="7. No warranty">
             <p>
-              Household Hub is a small, personally-run application, provided &quot;as is&quot;
+              Squirrel is a small, personally-run application, provided &quot;as is&quot;
               without warranties of any kind, express or implied. We don&apos;t guarantee the
               service will be uninterrupted, error-free, or available at all times. You&apos;re
               responsible for keeping your own copies of anything you can&apos;t afford to lose —
@@ -136,7 +134,7 @@ export default async function TermsPage() {
 
           <Section title="8. Limitation of liability">
             <p>
-              To the fullest extent permitted by law, Household Hub and whoever operates this
+              To the fullest extent permitted by law, Squirrel and whoever operates this
               instance of it are not liable for any indirect, incidental, or consequential
               damages arising from your use of the service, including loss of data.
             </p>
@@ -146,7 +144,7 @@ export default async function TermsPage() {
             <p>
               We may update these terms as the service changes. If we make a material change,
               we&apos;ll update the &quot;Last updated&quot; date above. Continuing to use
-              Household Hub after a change means you accept the updated terms.
+              Squirrel after a change means you accept the updated terms.
             </p>
           </Section>
 
@@ -155,7 +153,7 @@ export default async function TermsPage() {
               You can leave any household you belong to at any time. A household owner can
               delete their household at any time from that household&apos;s settings, which is
               permanent. To close your account entirely, contact whoever administers your
-              household&apos;s Household Hub instance (typically the household owner who invited
+              household&apos;s Squirrel instance (typically the household owner who invited
               you, or the person who set up the app) — see &quot;Contact&quot; in our{" "}
               <Link href="/privacy" className="text-primary underline underline-offset-4">
                 Privacy Policy
@@ -167,7 +165,7 @@ export default async function TermsPage() {
           <Section title="11. Contact">
             <p>
               Questions about these terms? Reach out to whoever invited you to your household, or
-              the person who operates your instance of Household Hub.
+              the person who operates your instance of Squirrel.
             </p>
           </Section>
         </article>

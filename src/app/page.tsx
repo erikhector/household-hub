@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LegalFooter } from "@/components/legal-footer";
+import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function Home() {
@@ -60,9 +61,7 @@ export default async function Home() {
     <div className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-6">
         <div className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Sparkles className="size-4" />
-          </span>
+          <BrandBadge />
           {dict.auth.brand}
         </div>
         <Button variant="ghost" render={<Link href="/login" />}>

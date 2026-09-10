@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Household Hub",
+  title: "Squirrel",
   description: "Inventory, shopping, meal planning, and budgeting for your household.",
 };
 

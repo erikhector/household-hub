@@ -1,4 +1,4 @@
-# Household Hub
+# Squirrel
 
 Tracks home inventory (groceries etc.), flags low/out-of-stock items,
 auto-generates shopping lists, plans meals, analyzes grocery cost, and

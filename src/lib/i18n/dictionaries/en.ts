@@ -136,7 +136,7 @@ export const en = {
     inInventory: "in inventory",
     gettingStarted: {
       title: "Get set up",
-      subtitle: "A few quick steps to get the most out of Household Hub.",
+      subtitle: "A few quick steps to get the most out of Squirrel.",
       steps: {
         household: {
           title: "Invite your household",
@@ -144,7 +144,7 @@ export const en = {
         },
         inventory: {
           title: "Add what's in the pantry",
-          description: "Log a few items so Household Hub can start flagging what's running low.",
+          description: "Log a few items so Squirrel can start flagging what's running low.",
         },
         shoppingList: {
           title: "Start a shopping list",
@@ -884,7 +884,7 @@ export const en = {
     },
   },
   auth: {
-    brand: "Household Hub",
+    brand: "Squirrel",
     login: {
       welcomeTitle: "Welcome back!",
       email: "Email",
@@ -1022,7 +1022,7 @@ export const en = {
   legal: {
     termsNavLabel: "Terms",
     privacyNavLabel: "Privacy",
-    footerCopyright: "© {year} Household Hub",
+    footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "By creating an account, you agree to the",
     termsLink: "Terms of Service",
     consentAnd: "and",

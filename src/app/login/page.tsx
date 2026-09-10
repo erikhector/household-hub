@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "@/components/auth/login-form";
 import { LegalFooter } from "@/components/legal-footer";
+import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function LoginPage(props: PageProps<"/login">) {
@@ -22,9 +22,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
         href="/"
         className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
       >
-        <span className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-          <Sparkles className="size-4" />
-        </span>
+        <BrandBadge />
         {dict.auth.brand}
       </Link>
       <Card className="w-full max-w-sm">

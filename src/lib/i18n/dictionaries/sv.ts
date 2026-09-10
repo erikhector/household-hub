@@ -128,7 +128,7 @@ export const sv = {
     inInventory: "i lagret",
     gettingStarted: {
       title: "Kom igång",
-      subtitle: "Några snabba steg för att få ut det mesta av Household Hub.",
+      subtitle: "Några snabba steg för att få ut det mesta av Squirrel.",
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
@@ -136,7 +136,7 @@ export const sv = {
         },
         inventory: {
           title: "Lägg till vad som finns i lagret",
-          description: "Registrera några varor så kan Household Hub börja flagga det som börjar ta slut.",
+          description: "Registrera några varor så kan Squirrel börja flagga det som börjar ta slut.",
         },
         shoppingList: {
           title: "Starta en inköpslista",
@@ -876,7 +876,7 @@ export const sv = {
     },
   },
   auth: {
-    brand: "Household Hub",
+    brand: "Squirrel",
     login: {
       welcomeTitle: "Välkommen tillbaka!",
       email: "E-post",
@@ -1006,7 +1006,7 @@ export const sv = {
   legal: {
     termsNavLabel: "Villkor",
     privacyNavLabel: "Integritet",
-    footerCopyright: "© {year} Household Hub",
+    footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "Genom att skapa ett konto godkänner du våra",
     termsLink: "användarvillkor",
     consentAnd: "och",

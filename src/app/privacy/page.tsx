@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Sparkles } from "lucide-react";
+import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 // Long-form legal prose, authored directly here in English rather than
@@ -11,7 +11,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // that confirmed there are no analytics/tracking scripts anywhere in
 // src/ — don't add either without updating this page.
 export const metadata: Metadata = {
-  title: "Privacy Policy — Household Hub",
+  title: "Privacy Policy — Squirrel",
 };
 
 const LAST_UPDATED = "September 7, 2026";
@@ -37,9 +37,7 @@ export default async function PrivacyPage() {
           href="/"
           className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
         >
-          <span className="flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Sparkles className="size-4" />
-          </span>
+          <BrandBadge />
           {dict.auth.brand}
         </Link>
 
@@ -51,8 +49,8 @@ export default async function PrivacyPage() {
 
           <Section title="1. Overview">
             <p>
-              This policy explains what personal data Household Hub collects, why, and what (if
-              anything) is shared with anyone else. Household Hub is a small household-management
+              This policy explains what personal data Squirrel collects, why, and what (if
+              anything) is shared with anyone else. Squirrel is a small household-management
               app — it isn&apos;t ad-supported, doesn&apos;t run analytics or tracking scripts of
               any kind, and doesn&apos;t sell or rent your data to anyone.
             </p>
@@ -60,9 +58,9 @@ export default async function PrivacyPage() {
 
           <Section title="2. Who this policy covers">
             <p>
-              &quot;We&quot; means whoever operates the instance of Household Hub your account
+              &quot;We&quot; means whoever operates the instance of Squirrel your account
               lives on — typically the person who set it up for you and your household, or the
-              household owner who invited you. Household Hub isn&apos;t a large multi-tenant SaaS
+              household owner who invited you. Squirrel isn&apos;t a large multi-tenant SaaS
               company with a dedicated privacy team; it&apos;s a self-run app, so for anything
               this policy says to contact &quot;us&quot; about, that means contacting them.
             </p>
@@ -76,7 +74,7 @@ export default async function PrivacyPage() {
               <li>Your display name;</li>
               <li>Which households you belong to and your role in each (owner or contributor).</li>
             </ul>
-            <p>Beyond your account, Household Hub stores the content you and your household enter to use its features:</p>
+            <p>Beyond your account, Squirrel stores the content you and your household enter to use its features:</p>
             <ul className="list-disc pl-5">
               <li>Household-shared data: inventory items, shopping lists, recipes, meal plans, and the household&apos;s shared budget categories and transactions — visible to every member of that household;</li>
               <li>Your personal budget: categories and transactions you track for yourself, visible only to you.</li>
@@ -97,7 +95,7 @@ export default async function PrivacyPage() {
 
           <Section title="5. Third parties">
             <p>
-              <strong>Resend</strong> is the only third-party service Household Hub sends any
+              <strong>Resend</strong> is the only third-party service Squirrel sends any
               personal data to, and only for delivering household-invite emails (recipient email
               address, the inviting household&apos;s name, and the invite link). Resend processes
               that data on our behalf as a data processor, under its own privacy policy. If email
@@ -142,10 +140,10 @@ export default async function PrivacyPage() {
               EU/EEA and Swedish users, these come from the GDPR.
             </p>
             <p>
-              Household Hub doesn&apos;t yet have a self-service &quot;export my data&quot; or
+              Squirrel doesn&apos;t yet have a self-service &quot;export my data&quot; or
               &quot;delete my account&quot; button built into the app. Until it does, you can
               exercise any of these rights by contacting the household owner who invited you, or
-              whoever operates your instance of Household Hub — they can look up, correct, export,
+              whoever operates your instance of Squirrel — they can look up, correct, export,
               or delete your account data directly. You can already delete your own content (for
               example, individual inventory items, shopping lists, or budget entries) yourself at
               any time through the app.
@@ -154,7 +152,7 @@ export default async function PrivacyPage() {
 
           <Section title="9. Children">
             <p>
-              Household Hub isn&apos;t directed at children and isn&apos;t knowingly used to
+              Squirrel isn&apos;t directed at children and isn&apos;t knowingly used to
               collect personal data from anyone below the age required to consent to data
               processing under their local law (13 in most contexts, 16 under the GDPR unless
               their country sets it lower). If you believe a child has created an account, contact
@@ -182,7 +180,7 @@ export default async function PrivacyPage() {
           <Section title="12. Contact">
             <p>
               For any question about this policy or your data, contact the household owner who
-              invited you, or the person who operates your instance of Household Hub. See also
+              invited you, or the person who operates your instance of Squirrel. See also
               our{" "}
               <Link href="/terms" className="text-primary underline underline-offset-4">
                 Terms of Service
