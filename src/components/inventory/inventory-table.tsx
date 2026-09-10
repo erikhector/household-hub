@@ -158,7 +158,7 @@ function ItemActions({
             <Button
               variant="ghost"
               size="icon"
-              className={cn(size, "text-muted-foreground")}
+              className={cn(size, "text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400")}
               disabled={isPending}
               aria-label={dict.markEmptyAriaLabel}
             >
@@ -187,7 +187,7 @@ function ItemActions({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(size, "text-muted-foreground")}
+            className={cn(size, "text-muted-foreground hover:text-primary")}
             aria-label={dict.editAriaLabel}
           >
             <Pencil className="size-3.5" />
