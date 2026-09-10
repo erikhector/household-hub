@@ -1,18 +1,15 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { SquirrelMark } from "@/components/brand/squirrel-mark";
+import icon from "@/app/icon.png";
 
-// The small colored badge that wraps the brand mark wherever the wordmark
-// appears (landing header, auth pages, legal pages) — extracted once these
-// were the same six lines of markup repeated in six files.
+// The brand mark wherever the wordmark appears (landing header, auth pages,
+// legal pages) — the same recolored squirrel mascot used for the favicon/app
+// icon, rendered at a size where its detail (face, tail, acorn) still reads
+// rather than blurring into a dot.
 export function BrandBadge({ className }: { className?: string }) {
   return (
-    <span
-      className={cn(
-        "flex size-8 items-center justify-center rounded-xl bg-primary/15 text-primary",
-        className,
-      )}
-    >
-      <SquirrelMark className="size-4" />
+    <span className={cn("relative block size-10 shrink-0 overflow-hidden rounded-xl", className)}>
+      <Image src={icon} alt="" fill sizes="40px" className="object-cover" priority />
     </span>
   );
 }
