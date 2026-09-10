@@ -69,6 +69,7 @@ export function InventoryClient({
   const [status, setStatus] = useState<string>(initialStatus ?? ALL);
   const [updatedFilter, setUpdatedFilter] = useState<UpdatedFilter>("all");
   const [groupBy, setGroupBy] = useState<InventoryGroupBy>("none");
+  const [now] = useState(() => Date.now());
 
   const statusLabels: Record<StockStatus, string> = {
     in: dict.statusIn,
@@ -93,7 +94,6 @@ export function InventoryClient({
 
   const filtered = useMemo(() => {
     const nameQuery = name.trim().toLowerCase();
-    const now = Date.now();
     const result = items.filter((item) => {
       if (nameQuery && !item.name.toLowerCase().includes(nameQuery)) return false;
       if (category !== ALL && item.category !== category) return false;
@@ -116,7 +116,7 @@ export function InventoryClient({
     }
 
     return result;
-  }, [items, name, category, location, status, updatedFilter]);
+  }, [items, name, category, location, status, updatedFilter, now]);
 
   // Counts real filters only — groupBy is a view option, not a filter, so it
   // doesn't count toward the mobile "Filters" button's badge.
