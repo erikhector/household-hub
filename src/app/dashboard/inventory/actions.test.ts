@@ -16,6 +16,8 @@ const {
   shoppingListCreateMock,
   shoppingListItemFindFirstMock,
   shoppingListItemCreateMock,
+  notificationFindFirstMock,
+  notificationCreateMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
@@ -27,6 +29,8 @@ const {
   shoppingListCreateMock: vi.fn(),
   shoppingListItemFindFirstMock: vi.fn(),
   shoppingListItemCreateMock: vi.fn(),
+  notificationFindFirstMock: vi.fn(),
+  notificationCreateMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
@@ -40,6 +44,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     shoppingList: { findFirst: shoppingListFindFirstMock, create: shoppingListCreateMock },
     shoppingListItem: { findFirst: shoppingListItemFindFirstMock, create: shoppingListItemCreateMock },
+    notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
@@ -71,6 +76,8 @@ const userId = "user-1";
 afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household, userId });
+  notificationFindFirstMock.mockResolvedValue(null);
+  notificationCreateMock.mockResolvedValue({});
 });
 requireHouseholdMock.mockResolvedValue({ household, userId });
 

@@ -9,7 +9,7 @@ import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { getNotifications } from "@/lib/notifications";
+import { getActiveNotifications } from "@/lib/notifications";
 
 // Isolated behind its own Suspense boundary (see below) so the
 // emailVerifiedAt lookup doesn't gate the rest of the dashboard shell —
@@ -36,7 +36,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   // and BottomNav client components — which unwrap it with `use()` under
   // their own Suspense boundaries — lets the shell paint immediately instead
   // of every navigation waiting on this DB round trip too.
-  const notifications = getNotifications(household.id);
+  const notifications = getActiveNotifications(household.id);
   const sidebarExpanded = cookieStore.get(SIDEBAR_COOKIE)?.value !== "0";
   const current = { id: household.id, name: household.name, role };
 

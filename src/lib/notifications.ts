@@ -1,91 +1,146 @@
-// Live-computed alerts for the notification bell (nav — see
-// `src/components/notifications/`). No database table, no background job:
-// every call re-derives the current state from `InventoryItem` and
-// `MealPlanEntry` directly, so an alert simply disappears once its
-// underlying condition is resolved. Callers must resolve `householdId` from
-// their own `requireHousehold()` call first — this trusts its argument the
-// same way `findOrCreateInventoryItem`/`findOrCreateGroceriesCategory` do.
+// Persisted alerts for the notification bell (nav — see
+// `src/components/notifications/`). Backed by the `Notification` table (see
+// its doc comment in prisma/schema.prisma) — unlike the fully live-computed
+// design this replaced, alerts are created once, at the moment a trigger
+// condition happens, and stick around until a user dismisses them (see
+// dismissNotificationAction in src/lib/actions/notifications.ts).
+//
+// Only two triggers exist:
+// - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
+//   into <= 0 — see `recordOutOfStockTransition`, called from every action
+//   that can *decrease* an existing item's quantity (adjustQuantityAction,
+//   markItemEmptyAction, updateInventoryItemAction, bulkUpdateFieldAction,
+//   markMealEntryCookedAction, togglePurchasedAction). Deliberately never
+//   called from anything that *creates* an item (createInventoryItemAction,
+//   quickAddInventoryItemAction, addStarterKitItemsAction,
+//   findOrCreateInventoryItem, createInventoryItemFromShoppingListItemAction)
+//   — those items often start at quantity 0, which is not a depletion event.
+// - Meal not logged: a past MealPlanEntry whose `consumedAt` is still null —
+//   synced lazily in `syncMealNotLoggedNotifications` below (no background
+//   job) whenever the bell's contents are fetched.
+//
+// Callers must resolve `householdId` from their own `requireHousehold()`
+// call first — this trusts its argument the same way
+// `findOrCreateInventoryItem`/`findOrCreateGroceriesCategory` do.
 
 import { prisma } from "@/lib/prisma";
-import { getStockStatus, type StockStatus } from "@/lib/stock-status";
-import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { Prisma } from "@/generated/prisma/client";
+import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
-// today + the next 2 days — kept small so this stays a cheap, genuinely
-// useful nudge rather than a noisy wall of far-future gaps.
-const MEAL_GAP_LOOKAHEAD_DAYS = 2;
-
-export type LowStockNotification = {
-  kind: "lowStock";
+export type OutOfStockNotification = {
+  id: string;
+  kind: "outOfStock";
   itemId: string;
   name: string;
-  quantity: number;
-  unit: string;
-  status: Extract<StockStatus, "low" | "out">;
 };
 
-export type MealGapNotification = {
-  kind: "mealGap";
+export type MealNotLoggedNotification = {
+  id: string;
+  kind: "mealNotLogged";
+  entryId: string;
   dateKey: string;
   weekStartKey: string;
-  offsetDays: number;
+  name: string;
 };
 
-export type NotificationItem = LowStockNotification | MealGapNotification;
+export type NotificationItem = OutOfStockNotification | MealNotLoggedNotification;
 
-async function getLowStockNotifications(householdId: string): Promise<LowStockNotification[]> {
-  const items = await prisma.inventoryItem.findMany({
-    where: { householdId },
-    orderBy: { name: "asc" },
+type DbClient = typeof prisma | Prisma.TransactionClient;
+
+// Called from every action that can decrease an already-existing
+// InventoryItem's quantity, right after computing its new value. Only fires
+// when the item actually crosses from in-stock into out-of-stock — a
+// continued decrease while already at 0, or a decrease that doesn't reach 0,
+// is a no-op. Deduped against any already-active (undismissed) alert for the
+// same item so repeated small decrements past zero don't pile up duplicates.
+export async function recordOutOfStockTransition(
+  db: DbClient,
+  householdId: string,
+  itemId: string,
+  previousQuantity: number,
+  nextQuantity: number,
+): Promise<void> {
+  if (previousQuantity <= 0 || nextQuantity > 0) return;
+
+  const existing = await db.notification.findFirst({
+    where: { inventoryItemId: itemId, kind: "OUT_OF_STOCK", dismissedAt: null },
+  });
+  if (existing) return;
+
+  await db.notification.create({
+    data: { householdId, kind: "OUT_OF_STOCK", inventoryItemId: itemId },
+  });
+}
+
+// Finds past meal-plan entries that were never marked cooked and files a
+// one-time reminder for each — a nudge that "mark as cooked" was probably
+// forgotten. The `mealPlanEntryId` unique constraint on Notification makes
+// the create idempotent (a concurrent request racing this same sync is a
+// no-op via P2002), and guarantees each entry only ever gets one reminder,
+// dismissed or not.
+async function syncMealNotLoggedNotifications(householdId: string): Promise<void> {
+  const today = new Date(toDateKey(new Date()));
+
+  const candidates = await prisma.mealPlanEntry.findMany({
+    where: {
+      mealPlan: { householdId },
+      date: { lt: today },
+      consumedAt: null,
+      notification: null,
+    },
+    select: { id: true },
+  });
+  if (candidates.length === 0) return;
+
+  await Promise.all(
+    candidates.map((entry) =>
+      prisma.notification
+        .create({
+          data: { householdId, kind: "MEAL_NOT_LOGGED", mealPlanEntryId: entry.id },
+        })
+        .catch((error) => {
+          // P2002: another concurrent sync already created it — fine, ignore.
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
+          throw error;
+        }),
+    ),
+  );
+}
+
+export async function getActiveNotifications(householdId: string): Promise<NotificationItem[]> {
+  await syncMealNotLoggedNotifications(householdId);
+
+  const rows = await prisma.notification.findMany({
+    where: { householdId, dismissedAt: null },
+    orderBy: { createdAt: "desc" },
+    include: {
+      inventoryItem: { select: { name: true } },
+      mealPlanEntry: {
+        select: { date: true, freeformName: true, recipe: { select: { name: true } } },
+      },
+    },
   });
 
-  return items.flatMap((item): LowStockNotification[] => {
-    const status = getStockStatus(item.quantity, item.lowStockThreshold);
-    if (status === "in") return [];
+  return rows.flatMap((row): NotificationItem[] => {
+    if (row.kind === "OUT_OF_STOCK") {
+      // The item was deleted after the alert fired (onDelete: Cascade would
+      // normally remove this row too, but a concurrent transaction could
+      // leave a brief gap) — nothing meaningful to show.
+      if (!row.inventoryItem) return [];
+      return [{ id: row.id, kind: "outOfStock", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+    }
+
+    if (!row.mealPlanEntry) return [];
+    const entryDate = row.mealPlanEntry.date;
     return [
       {
-        kind: "lowStock",
-        itemId: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        status,
+        id: row.id,
+        kind: "mealNotLogged",
+        entryId: row.mealPlanEntryId!,
+        dateKey: toDateKey(entryDate),
+        weekStartKey: toDateKey(getWeekStart(entryDate)),
+        name: row.mealPlanEntry.recipe?.name ?? row.mealPlanEntry.freeformName ?? "",
       },
     ];
   });
-}
-
-async function getMealPlanGapNotifications(householdId: string): Promise<MealGapNotification[]> {
-  const today = parseDateKey(toDateKey(new Date()));
-  const lastDay = addDays(today, MEAL_GAP_LOOKAHEAD_DAYS);
-
-  const entries = await prisma.mealPlanEntry.findMany({
-    where: {
-      mealPlan: { householdId },
-      date: { gte: today, lte: lastDay },
-    },
-    select: { date: true },
-  });
-  const plannedDateKeys = new Set(entries.map((entry) => toDateKey(entry.date)));
-
-  const gaps: MealGapNotification[] = [];
-  for (let offsetDays = 0; offsetDays <= MEAL_GAP_LOOKAHEAD_DAYS; offsetDays++) {
-    const date = addDays(today, offsetDays);
-    const dateKey = toDateKey(date);
-    if (plannedDateKeys.has(dateKey)) continue;
-    gaps.push({
-      kind: "mealGap",
-      dateKey,
-      weekStartKey: toDateKey(getWeekStart(date)),
-      offsetDays,
-    });
-  }
-  return gaps;
-}
-
-export async function getNotifications(householdId: string): Promise<NotificationItem[]> {
-  const [lowStock, mealGaps] = await Promise.all([
-    getLowStockNotifications(householdId),
-    getMealPlanGapNotifications(householdId),
-  ]);
-  return [...lowStock, ...mealGaps];
 }

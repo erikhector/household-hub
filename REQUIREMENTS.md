@@ -1206,43 +1206,71 @@ components directly.
 ## Notification center
 
 A bell icon in the nav (desktop sidebar, mobile bottom nav's "More" menu —
-see "Navigation & responsive layout" above) opens a panel of live-computed
-alerts for the active household. There's no `Notification` database table,
-no background job, and no email: `getNotifications(householdId)`
-(`src/lib/notifications.ts`) re-derives the current alert list from
-`InventoryItem` and `MealPlanEntry` on every render, scoped via the
-household id the caller already resolved through `requireHousehold()` (the
-same trust-the-caller contract as `findOrCreateInventoryItem`/
-`findOrCreateGroceriesCategory`). An alert simply stops appearing once its
-underlying condition is resolved — there's no "mark as read" state to keep
-in sync because nothing is stored.
+see "Navigation & responsive layout" above) opens a panel of **persisted**
+alerts for the active household, backed by a `Notification` table
+(`prisma/schema.prisma`). This replaced an earlier fully live-computed
+design (no table at all, alerts re-derived from scratch on every render) —
+that design couldn't distinguish "this item happens to be at zero right
+now" from "this item just ran out," and had no way to dismiss anything.
+The current model fires an alert once, at the moment a specific trigger
+happens, and it stays until a user dismisses it.
+
+Exactly two triggers exist — nothing else creates a notification:
+
+- **Out of stock**: an existing `InventoryItem`'s quantity crossing from
+  `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
+  is called, with the item's before/after quantity, from every Server Action
+  that can *decrease* an already-existing item's quantity —
+  `adjustQuantityAction`, `markItemEmptyAction`, `updateInventoryItemAction`,
+  `bulkUpdateFieldAction` (when editing the `quantity` field),
+  `markMealEntryCookedAction` (per ingredient, inside its `$transaction`),
+  and `togglePurchasedAction` (un-marking a shopping-list item as purchased
+  puts its quantity back down). It only fires on the crossing itself — a
+  further decrease while already at zero, or a decrease that doesn't reach
+  zero, is a no-op — and it's deduped against any already-active
+  (undismissed) alert for the same item.
+  - **Deliberately never fires on item creation.** `createInventoryItemAction`,
+    `quickAddInventoryItemAction`, `addStarterKitItemsAction`,
+    `findOrCreateInventoryItem` (meal-planning ingredients and shopping-list
+    items), and `createInventoryItemFromShoppingListItemAction` all can
+    create a brand-new `InventoryItem` at quantity 0 (e.g. an ingredient
+    auto-linked the moment a recipe is saved, or a manually added item left
+    at its default) — none of them call `recordOutOfStockTransition`. A new
+    item starting empty is not a depletion event, and flagging it would just
+    be noise every time someone adds a recipe or a pantry item.
+- **Meal not logged**: a past `MealPlanEntry` whose `consumedAt` is still
+  null — a nudge that "mark as cooked" was probably forgotten. There's no
+  background job for this: `getActiveNotifications` (`src/lib/notifications.ts`)
+  lazily syncs it on every fetch, finding entries with `date` before today,
+  `consumedAt: null`, and no `Notification` row yet, and creating one for
+  each. The `Notification.mealPlanEntryId` unique constraint makes this
+  fire **at most once per entry, ever** — once created, dismissed or not,
+  it's never recreated, so ignoring it doesn't turn it into a repeating
+  nag.
+- Both triggers are intentionally narrow. The old design's "low stock" alert
+  (anything at or below its threshold, not just at zero) and "meal-plan gap"
+  alert (an upcoming day with nothing planned) are gone — neither is a
+  concrete, one-time event, so under the current model neither fits.
+
+**Dismissal is the only way an alert clears.** Unlike the old design, a
+notification does *not* disappear on its own when the underlying condition
+resolves (e.g. restocking an out-of-stock item) — clicking it is what
+clears it. Clicking a notification in the bell (`notification-bell.tsx`,
+a Client Component) calls `dismissNotificationAction`
+(`src/lib/actions/notifications.ts`) to set `dismissedAt`, then lets the
+entry's own `Link` navigate as before. `dismissNotificationAction` scopes
+its `updateMany` to the caller's household and an undismissed row, so a
+stale id or a double-click is a harmless no-op, and calls
+`revalidatePath("/dashboard")` so the bell's count reflects the dismissal
+immediately even when the click doesn't leave the current page (e.g.
+dismissing a second out-of-stock alert while already on
+`/dashboard/inventory?status=out`).
 
 - **Where it's computed**: `src/app/dashboard/layout.tsx` — the one place
   that already calls `getDictionary()`/`getLocale()` for the whole dashboard
-  shell — also calls `getNotifications(household.id)` once per request and
-  passes the resulting list down into both `Sidebar` and `BottomNav` as a
+  shell — also calls `getActiveNotifications(household.id)` once per request
+  and passes the resulting list down into both `Sidebar` and `BottomNav` as a
   `notifications` prop, the same pattern used for `dict`/`locale`.
-- **Low stock**: every `InventoryItem` where `getStockStatus(quantity,
-  lowStockThreshold)` returns `"low"` or `"out"`. `getStockStatus`
-  (previously defined inline in `inventory-table.tsx`, a `"use client"` file)
-  moved to `src/lib/stock-status.ts` so this Server-Component-only helper
-  could import the exact same predicate instead of duplicating the
-  condition — a Server Component can't safely import a plain function from a
-  `"use client"` module (Next.js turns every export of that module into an
-  opaque client reference, not the real function); `inventory-table.tsx` now
-  re-exports it for its existing consumer (`InventoryClient`) so nothing else
-  had to change.
-- **Meal-plan gaps**: for today and the next 2 days (`MEAL_GAP_LOOKAHEAD_DAYS`
-  in `src/lib/notifications.ts`), any date with zero `MealPlanEntry` rows
-  (any `MealType`) for the household. The window is intentionally short so
-  this stays a cheap, genuinely useful nudge rather than a noisy wall of
-  far-future gaps. The date math reuses `src/app/dashboard/meal-planning/date-utils.ts`
-  (`addDays`, `getWeekStart`, `parseDateKey`, `toDateKey`) rather than
-  re-deriving UTC-midnight date handling — the lookahead window can span a
-  week boundary (e.g. today is the last day of one week and the day after
-  next falls in the following week), so each gap resolves its own
-  `weekStartKey` independently rather than assuming one week for the whole
-  window.
 - **UI**: `src/components/notifications/notification-bell.tsx` exports two
   presentational shapes sharing one alert-list renderer: `NotificationBell`
   (a standalone `DropdownMenu` for the sidebar, styled like the theme/language
@@ -1254,15 +1282,13 @@ in sync because nothing is stored.
   badge on its `MoreHorizontal` icon so the count is visible without opening
   the menu. An empty list shows a "You're all caught up!" message instead of
   an empty panel.
-- **Clicking an alert navigates**: a low-stock alert links to
-  `/dashboard/inventory?status=low` or `?status=out` (matching that item's
-  own status); a meal-gap alert links to
-  `/dashboard/meal-planning?week={weekStartKey}`, reusing that page's
-  existing `?week=` param. The inventory page/`InventoryClient` gained a
-  small, additive `initialStatus` prop read from the `status` search param
-  (`src/app/dashboard/inventory/page.tsx`) so the status filter can be
-  preset on navigation — the filter itself is unchanged, just given an
-  optional initial value instead of always starting at "All statuses".
+- **Clicking an alert navigates**: an out-of-stock alert links to
+  `/dashboard/inventory?status=out`; a meal-not-logged alert links to
+  `/dashboard/meal-planning?week={weekStartKey}` (the week containing that
+  entry's date), reusing that page's existing `?week=` param. The inventory
+  page/`InventoryClient` reads an `initialStatus` prop from the `status`
+  search param (`src/app/dashboard/inventory/page.tsx`) so the status filter
+  can be preset on navigation.
 
 ## Conventions
 

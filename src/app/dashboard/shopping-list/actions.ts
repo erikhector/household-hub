@@ -12,6 +12,7 @@ import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { recordOutOfStockTransition } from "@/lib/notifications";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -390,10 +391,12 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
 
       if (item.inventoryItem) {
         const delta = nextPurchased ? item.quantity : -item.quantity;
+        const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
-          data: { quantity: Math.max(0, item.inventoryItem.quantity + delta) },
+          data: { quantity: nextQuantity },
         });
+        await recordOutOfStockTransition(tx, household.id, item.inventoryItem.id, item.inventoryItem.quantity, nextQuantity);
 
         if (nextPurchased && item.estimatedPrice != null) {
           await tx.priceHistory.create({

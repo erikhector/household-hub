@@ -1,8 +1,12 @@
+"use client";
+
 // Bell icon + dropdown panel for the notification center (see
-// REQUIREMENTS.md's "Notification center" section). `getNotifications`
-// (src/lib/notifications.ts) computes the alert list live, server-side, in
-// `src/app/dashboard/layout.tsx`; this file only renders what it's handed —
-// no client-side fetch, no polling.
+// REQUIREMENTS.md's "Notification center" section). `getActiveNotifications`
+// (src/lib/notifications.ts) resolves the current alert list server-side, in
+// `src/app/dashboard/layout.tsx`; this file renders what it's handed and, on
+// click, dismisses the clicked alert (see dismissNotificationAction) before
+// letting the Link's own navigation proceed — that's the only client-side
+// behavior here, no polling or client-side fetch of the list itself.
 //
 // Two shapes are exported because the bell sits in two different places
 // (REQUIREMENTS.md's "Navigation & responsive layout"): `NotificationBell`
@@ -26,27 +30,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "@/lib/i18n/format";
+import { dismissNotificationAction } from "@/lib/actions/notifications";
 import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 function notificationHref(item: NotificationItem): string {
-  if (item.kind === "lowStock") return `/dashboard/inventory?status=${item.status}`;
+  if (item.kind === "outOfStock") return `/dashboard/inventory?status=out`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
 function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
-  if (item.kind === "lowStock") {
-    return item.status === "out"
-      ? format(dict.lowStockOut, { name: item.name })
-      : format(dict.lowStockLow, { name: item.name, quantity: item.quantity, unit: item.unit });
-  }
-  if (item.offsetDays === 0) return dict.mealGapToday;
-  if (item.offsetDays === 1) return dict.mealGapTomorrow;
-  return format(dict.mealGapInDays, { count: item.offsetDays });
-}
-
-function notificationKey(item: NotificationItem): string {
-  return item.kind === "lowStock" ? `low-${item.itemId}` : `gap-${item.dateKey}`;
+  if (item.kind === "outOfStock") return format(dict.outOfStock, { name: item.name });
+  return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 
 export function NotificationCountBadge({ count, className }: { count: number; className?: string }) {
@@ -86,9 +81,13 @@ function NotificationEntries({
   return (
     <>
       {items.map((item) => {
-        const Icon = item.kind === "lowStock" ? Package : CalendarDays;
+        const Icon = item.kind === "outOfStock" ? Package : CalendarDays;
         return (
-          <DropdownMenuItem key={notificationKey(item)} render={<Link href={notificationHref(item)} />}>
+          <DropdownMenuItem
+            key={item.id}
+            onClick={() => dismissNotificationAction(item.id)}
+            render={<Link href={notificationHref(item)} />}
+          >
             <Icon className="size-4 shrink-0" />
             <span className="truncate">{notificationLabel(item, dict)}</span>
           </DropdownMenuItem>

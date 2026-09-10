@@ -8,6 +8,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
+import { recordOutOfStockTransition } from "@/lib/notifications";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -94,6 +95,7 @@ export async function updateInventoryItemAction(
       // leave a stale location in place.
       data: { ...parsed.data, category, location: parsed.data.location ?? null, updatedByUserId: userId },
     });
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -206,6 +208,7 @@ export async function adjustQuantityAction(
       where: { id: item.id },
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -237,6 +240,7 @@ export async function markItemEmptyAction(
       where: { id: item.id },
       data: { quantity: 0, updatedByUserId: userId },
     });
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -343,11 +347,30 @@ export async function bulkUpdateFieldAction(
 
   let updated = 0;
   try {
+    // Only needed to detect an out-of-stock transition below — skipped for
+    // every other field, which can't affect "out" status either way.
+    const previousQuantities =
+      field === "quantity"
+        ? await prisma.inventoryItem.findMany({
+            where: { id: { in: ids }, householdId: household.id },
+            select: { id: true, quantity: true },
+          })
+        : [];
+
     const result = await prisma.inventoryItem.updateMany({
       where: { id: { in: ids }, householdId: household.id },
       data: { ...data, updatedByUserId: userId },
     });
     updated = result.count;
+
+    if (field === "quantity") {
+      const nextQuantity = parsed.data as number;
+      await Promise.all(
+        previousQuantities.map((item) =>
+          recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity),
+        ),
+      );
+    }
   } catch (error) {
     return toFriendlyError(error);
   }
