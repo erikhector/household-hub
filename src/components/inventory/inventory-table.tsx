@@ -628,7 +628,7 @@ export function InventoryTable({
                   <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                 </div>
                 <div className="flex min-w-0 items-center justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className="flex min-w-0 shrink items-center gap-1.5">
                     <Button
                       variant="outline"
                       size="icon"
@@ -638,12 +638,13 @@ export function InventoryTable({
                     >
                       <Minus className="size-3.5" />
                     </Button>
-                    {/* min-w-0 + flex-1 (not shrink-0) lets a long/custom unit
-                        string truncate instead of forcing the row — and the
-                        page — wider than the viewport; see the desktop
-                        table's equivalent w-14 cell for the same fix. */}
+                    {/* Capped (not flex-1) so the control stays a tight
+                        cluster instead of stretching across the row — a long/
+                        custom unit string still truncates instead of forcing
+                        the row wider; see the desktop table's w-14 cell for
+                        the same fix. */}
                     <span
-                      className="min-w-0 flex-1 truncate text-center text-sm tabular-nums"
+                      className="max-w-24 truncate text-center text-sm tabular-nums"
                       title={`${item.quantity} ${item.unit}`}
                     >
                       {item.quantity} {item.unit}
