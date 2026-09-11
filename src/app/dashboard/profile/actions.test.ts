@@ -22,6 +22,7 @@ const {
   bcryptCompareMock,
   bcryptHashMock,
   revalidatePathMock,
+  toFriendlyErrorMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   requireUserIdMock: vi.fn(),
@@ -43,6 +44,7 @@ const {
   bcryptCompareMock: vi.fn(),
   bcryptHashMock: vi.fn(async () => "hashed"),
   revalidatePathMock: vi.fn(),
+  toFriendlyErrorMock: vi.fn(() => ({ error: "Something went wrong. Please try again." })),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -72,9 +74,11 @@ vi.mock("bcryptjs", () => ({
   default: { compare: bcryptCompareMock, hash: bcryptHashMock },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+vi.mock("@/lib/actions/errors", () => ({ toFriendlyError: toFriendlyErrorMock }));
 
 const { updateProfileAction, updateEmailAction, updatePasswordAction, deleteAccountAction } =
   await import("@/app/dashboard/profile/actions");
+const { Prisma } = await import("@/generated/prisma/client");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -162,6 +166,36 @@ describe("updateEmailAction (re-authentication gate)", () => {
       where: { id: "user-1" },
       data: { email: "new@example.com" },
     });
+  });
+
+  it("reports the friendly already-exists message when the update itself races into a unique-constraint violation", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", email: "old@example.com", passwordHash: "hash" });
+    bcryptCompareMock.mockResolvedValue(true);
+    userFindUniqueMock.mockResolvedValue(null);
+    userUpdateMock.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
+    );
+
+    const result = await updateEmailAction({}, formData(base));
+
+    expect(result.error).toBe("An account with that email already exists");
+    expect(toFriendlyErrorMock).not.toHaveBeenCalled();
+  });
+
+  it("falls through to toFriendlyError for an update failure unrelated to a unique-constraint violation", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", email: "old@example.com", passwordHash: "hash" });
+    bcryptCompareMock.mockResolvedValue(true);
+    userFindUniqueMock.mockResolvedValue(null);
+    const dbError = new Error("Connection timed out");
+    userUpdateMock.mockRejectedValue(dbError);
+
+    const result = await updateEmailAction({}, formData(base));
+
+    expect(toFriendlyErrorMock).toHaveBeenCalledWith(dbError);
+    expect(result).toEqual({ error: "Something went wrong. Please try again." });
   });
 });
 
