@@ -100,7 +100,17 @@ export function BarcodeScannerButton({
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          // Capping resolution matters a lot here: the decoder below runs in
+          // ZXing's exhaustive "tryHarder" mode on every frame (it's baked
+          // into the barcode-detector ponyfill, not something we can turn
+          // off), so an uncapped 1080p+ camera feed makes each tick far
+          // slower than it needs to be for a barcode a few inches from the
+          // lens. 1280px is plenty of resolution for that distance.
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
         });
       } catch (err) {
         if (cancelled) return;
@@ -153,7 +163,14 @@ export function BarcodeScannerButton({
 
       setPhase("scanning");
 
+      // Guards against overlapping detect() calls: a decode can take longer
+      // than DETECT_INTERVAL_MS on slower devices, and since detect() runs
+      // in ZXing's exhaustive mode, letting ticks pile up on top of each
+      // other only makes every one of them slower.
+      let decoding = false;
+
       intervalRef.current = setInterval(() => {
+        if (decoding) return;
         void (async () => {
           const currentVideo = videoRef.current;
           const currentDetector = detectorRef.current;
@@ -161,21 +178,31 @@ export function BarcodeScannerButton({
           if (currentVideo.readyState < currentVideo.HAVE_CURRENT_DATA) return;
           if (currentVideo.videoWidth === 0 || currentVideo.videoHeight === 0) return;
 
-          canvas.width = currentVideo.videoWidth;
-          canvas.height = currentVideo.videoHeight;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-          ctx.drawImage(currentVideo, 0, 0, canvas.width, canvas.height);
-
+          decoding = true;
           try {
-            const results = await currentDetector.detect(canvas);
-            const barcode = results[0]?.rawValue;
-            if (barcode && !cancelled) {
-              await handleDetected(barcode);
+            // Setting canvas.width/height clears and reallocates its backing
+            // buffer even when the value is unchanged, so only touch it when
+            // the video's actual dimensions differ from last time.
+            if (canvas.width !== currentVideo.videoWidth || canvas.height !== currentVideo.videoHeight) {
+              canvas.width = currentVideo.videoWidth;
+              canvas.height = currentVideo.videoHeight;
             }
-          } catch {
-            // A single failed detect() on one frame isn't fatal — just
-            // skip this tick and try again on the next one.
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            ctx.drawImage(currentVideo, 0, 0, canvas.width, canvas.height);
+
+            try {
+              const results = await currentDetector.detect(canvas);
+              const barcode = results[0]?.rawValue;
+              if (barcode && !cancelled) {
+                await handleDetected(barcode);
+              }
+            } catch {
+              // A single failed detect() on one frame isn't fatal — just
+              // skip this tick and try again on the next one.
+            }
+          } finally {
+            decoding = false;
           }
         })();
       }, DETECT_INTERVAL_MS);
