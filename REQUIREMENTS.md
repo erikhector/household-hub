@@ -303,13 +303,39 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   description, and a recurring toggle) — editing reuses the same dialog
   with the row's data as `defaultValue`s rather than a second form.
 - **Recurring transactions**: `isRecurring` + `recurrenceFrequency`
-  (`WEEKLY`/`MONTHLY`/`YEARLY`) are metadata and display only — checking
-  "this repeats" on a transaction marks it and shows a "Recurring" badge
-  with its frequency in the list. There's no scheduler that auto-generates
-  future transactions from a recurring one; the schema has no
-  "next occurrence" field to drive that, and it wasn't asked for. Someone
-  logs each occurrence themselves; the flag just documents that it's an
-  expected repeat (e.g. rent, a subscription) for their own reference.
+  (`WEEKLY`/`MONTHLY`/`YEARLY`) on `Transaction` itself are metadata and
+  display only — checking "this repeats" on a transaction marks it and
+  shows a "Recurring" badge with its frequency in the list. Nothing about
+  a single `Transaction` row auto-generates a future one; the flag just
+  documents that a logged transaction is one of an expected repeat (e.g.
+  rent, a subscription) for the household's own reference.
+- **Recurring budget templates** (a separate, later-added system — see
+  `RecurringTemplate`/`RecurringTemplateAck` in `prisma/schema.prisma`,
+  the pure `src/app/dashboard/budget/recurring-template-calc.ts`, and
+  `RecurringTemplatesPanel`/`DueRecurringWidget` in
+  `src/components/budget/`): a standing expectation ("Rent", "Netflix" — an
+  amount, category, and `WEEKLY`/`MONTHLY`/`YEARLY` frequency, with an
+  optional display-only `dayOfMonth` hint) that's checked off every period
+  independently of any single `Transaction`. For the current period,
+  `computeTemplateStatuses` derives one of three statuses per active
+  template: `"posted"` (a `Transaction` was logged with this template's
+  id, via `Transaction.recurringTemplateId`), `"acknowledged"` (marked
+  accounted-for with no transaction — e.g. a bill on autopay this app
+  doesn't otherwise track — via a `RecurringTemplateAck` row keyed by
+  template + a stable per-frequency period string, which makes
+  acknowledging idempotent), or `"due"` (neither yet). `DueRecurringWidget`
+  surfaces everything `"due"` in an always-visible strip above the Budget
+  page's tabs; the full `RecurringTemplatesPanel` groups templates by all
+  three statuses and also handles add/edit/pause (`active: false`, which
+  keeps history but stops a template counting as due)/delete. This is
+  still not an auto-generating scheduler — nothing ever creates a
+  `Transaction` on its own — but it is a genuine per-period due/posted/
+  acknowledged tracker, meaningfully more than the display-only
+  `isRecurring` flag above. Mirrored for the separate, user-scoped personal
+  budget (`prisma/schema.prisma`'s `PersonalBudgetCategory`/
+  `PersonalTransaction`) as `PersonalRecurringTemplate`/
+  `PersonalRecurringTemplateAck` — not documented further here, as it isn't
+  part of this file's original household-budgeting scope.
 - **Period summary**: `PeriodSummary` shows the current calendar month
   (`[monthStart, monthEnd)` computed from `new Date()` server-side) —
   income/expense/net totals, plus a per-category breakdown for each with a
@@ -447,10 +473,15 @@ unit-tested.
   doesn't, the amount of that category's most recent recurring transaction
   (by `date`) is treated as "expected but not yet logged" and subtracted
   from the headline number. This is a best-effort heuristic, not a
-  scheduler — there's no "next occurrence" concept anywhere in the schema
-  (see "Recurring transactions" above), so it can't know a bill isn't due
-  yet vs. simply not entered; a one-line caveat under the headline number
-  says so explicitly.
+  scheduler: `computeSafeToSpend` (`src/app/dashboard/budget/
+  safe-to-spend-calc.ts`) only ever looks at `Transaction.isRecurring`, so
+  it can't know a bill isn't due yet vs. simply not entered; a one-line
+  caveat under the headline number says so explicitly. It deliberately
+  doesn't use the separate `RecurringTemplate` due/posted/acknowledged
+  system (see "Recurring budget templates" above) — that system already
+  distinguishes "due" from "acknowledged"/"posted" per period, which would
+  make a better signal than this heuristic, but wiring the headline number
+  to it wasn't part of this feature's own pass.
 - **The breakdown**: beneath the headline number, a small list of every
   category counted into the estimate (name + its expected amount, tinted
   `text-destructive` like every other expense amount on the page) so the
@@ -575,15 +606,17 @@ is pure and unit-tested in the colocated
     out just by typing a new address. The action requires the current
     password (verified with `bcrypt.compare` against `passwordHash`, same
     as the Credentials provider's `authorize` in `src/lib/auth.ts`) before
-    the email changes, plus the usual format/uniqueness checks. This is the
-    minimum real gate available today: this app has no email-delivery
-    integration anywhere yet (invite links are still copy/paste-only — see
-    "Sharing" above), so a send-a-confirmation-link re-verification flow
-    isn't buildable on top of anything that exists. Re-entering the
-    password re-proves account ownership, not just session possession,
-    which is the realistic threat this guards against. Revisit this if/when
-    email delivery lands (see the household lifecycle follow-ups task) —
-    a confirmation-link flow would be a strictly stronger guarantee.
+    the email changes, plus the usual format/uniqueness checks. Password
+    re-verification is a deliberate choice here, not a stand-in for missing
+    infrastructure: email delivery via Resend has since landed (see "Invite
+    email delivery" above, and `PasswordResetToken`/`EmailVerificationToken`
+    in the Data model), so a send-a-confirmation-link flow is buildable now.
+    But re-entering the password already re-proves account ownership, not
+    just session possession, which is the realistic threat this guards
+    against — a confirmation-link flow would additionally guard against a
+    hijacked *session* stealing the account outright, which is a real gap,
+    but `updateEmailAction` hasn't been revisited to add it since this
+    bullet was written.
   - **Password change** (`updatePasswordAction`): current password + new
     password + confirmation, hashed with the same `bcryptjs` approach
     (`bcrypt.hash(newPassword, 12)`) signup already uses in
@@ -596,12 +629,22 @@ is pure and unit-tested in the colocated
 
 Three "Export CSV" buttons — inventory, one shopping list, and budget
 transactions — each a plain `<Link>` (styled as a `Button`,
-`src/components/export/export-csv-button.tsx`'s `ExportCsvButton`, shared
+`src/components/export/export-button.tsx`'s `ExportButton`, shared
 across all three) pointing at a Route Handler that streams that household's
 own scoped data as a `.csv` download. No client-side JS is involved in the
 download itself: the browser's native handling of a
 `Content-Disposition: attachment` response does the work, so the button
 needs no loading state and degrades to a plain link with JS disabled.
+
+`ExportButton` is a generic `{ href, label }` link-styled-as-button, not
+CSV-specific despite this section's name — the Profile page also has its
+own "export my data" button (`src/app/dashboard/profile/export-data/route.ts`)
+that reuses the same component for a `.json` (not `.csv`) download of just
+the signed-in user's own data (profile fields, household memberships, and
+personal-budget data — deliberately excluding household-*shared* data like
+`InventoryItem`/`Transaction`, which the three CSV exports below already
+make reachable to anyone with household access). That export isn't detailed
+further here, as it isn't part of this section's original CSV-export scope.
 
 - **Route Handlers**: `src/app/dashboard/inventory/export/route.ts`,
   `src/app/dashboard/shopping-list/[id]/export/route.ts`, and
@@ -1290,6 +1333,68 @@ dismissing a second out-of-stock alert while already on
   search param (`src/app/dashboard/inventory/page.tsx`) so the status filter
   can be preset on navigation.
 
+## PWA install & push notifications
+
+Two independent, opt-in cards on `/dashboard/profile`, both following
+`node_modules/next/dist/docs/01-app/02-guides/progressive-web-apps.md`'s
+patterns (per AGENTS.md's instruction to read this build's own docs rather
+than trust training data). `src/app/manifest.ts` is the app's manifest
+(name "Squirrel", `display: "standalone"`, theme/background colors, and
+192/512/512-maskable icons).
+
+- **Install** (`InstallAppCard`, `src/components/profile/install-app-card.tsx`,
+  following the guide's "InstallPrompt" example): a three-state card —
+  already installed (`display-mode: standalone` matched) shows a static
+  "installed" message; iOS (Safari has no `beforeinstallprompt` event) shows
+  manual add-to-home-screen instructions instead of a button; everywhere
+  else shows a real install button once the browser fires
+  `beforeinstallprompt` (captured and replayed via `prompt()`), or generic
+  fallback copy before/if it never does. The standalone-mode and iOS checks
+  are both read via `useSyncExternalStore` rather than `useState`+`useEffect`,
+  since they're browser-only values that would otherwise mismatch between
+  the server-rendered HTML and the client's first hydration pass.
+- **Push notifications** (`PushNotificationsCard`,
+  `src/components/profile/push-notifications-card.tsx`): a subscribe/
+  unsubscribe toggle for real device/OS push, on top of the in-app bell
+  above — not a replacement for it. Subscribing registers
+  `src/lib/service-worker.js` (`navigator.serviceWorker.register(new URL(...,
+  import.meta.url), { scope: "/", updateViaCache: "none" })`, which Next
+  bundles as a hashed, same-origin static asset with automatic cache-busting
+  on every build) and calls `pushManager.subscribe()` with the
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY` application server key, then persists the
+  resulting endpoint/keys via `subscribeToPushAction`
+  (`src/lib/actions/push.ts`) into the `PushSubscription` table — **scoped
+  to the user, not the household**, since a subscription belongs to one
+  browser and a user can belong to multiple households.
+  `subscribeToPushAction` upserts by `endpoint` (re-subscribing the same
+  browser, e.g. after clearing its permission, just refreshes the keys
+  rather than hitting the unique constraint); `unsubscribeFromPushAction`
+  deletes scoped to `{ endpoint, userId }`, so a stale or foreign endpoint
+  is a harmless no-op. Without `NEXT_PUBLIC_VAPID_PUBLIC_KEY`/
+  `VAPID_PRIVATE_KEY` set (see `.env.example`), the card just reports the
+  feature unavailable and every server-side send is a silent no-op — same
+  fails-gracefully pattern as `RESEND_API_KEY` in `src/lib/email.ts`.
+  - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
+    out to every push subscription belonging to every member of a
+    household. It's called from the **exact same two triggers** as the
+    in-app notification bell above — `recordOutOfStockTransition` and
+    `syncMealNotLoggedNotifications` in `src/lib/notifications.ts` — nothing
+    else sends a push. Both call sites fire it without awaiting (`void
+    sendPushToHousehold(...)`) since some of them run inside a Prisma
+    `$transaction`, and holding that open for a network call isn't worth
+    it — Push API delivery has no delivery guarantee either way, so losing
+    a send if the surrounding write later rolls back is an acceptable
+    trade. A 404/410 response (the browser revoked/expired that
+    subscription) deletes the `PushSubscription` row so delivery stops
+    retrying it; any other error is just logged.
+  - **Showing it**: `src/lib/service-worker.js` only implements two
+    listeners — `push` (shows the notification via
+    `registration.showNotification`, with `{ title, body, url }` as sent)
+    and `notificationclick` (closes it and opens `url`, mirroring
+    `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
+    handler and does no caching — it exists purely to deliver push, not for
+    offline support (see "Deferred" below).
+
 ## Conventions
 
 - Server Actions live next to the routes that use them
@@ -1413,6 +1518,13 @@ competitive analysis has now been built.
   screen). Flagged for a future decision, not started here. (Receipt OCR
   was in this bucket too, on the assumption it needed a paid vendor — see
   "Receipt scanning" below for why that turned out not to be true.)
-- **PWA/offline support** — valuable for in-store/low-connectivity use, but
-  touches app-wide service-worker and caching concerns; scope it as its own
-  task once Wave 1/2 land rather than folding it into an unrelated one.
+- **True offline support** — PWA *installability* and *push notifications*
+  are both built now (see "PWA install & push notifications" above), but
+  neither gives the app any ability to work with no connection:
+  `src/lib/service-worker.js` only listens for `push`/`notificationclick`,
+  with no `fetch` handler or Cache API usage, so nothing is actually cached
+  for offline use — a page navigation or Server Action with no network still
+  just fails. Caching app-shell assets and/or data for real offline use is
+  a bigger, separate decision (what's safe to serve stale — e.g. inventory
+  counts — vs. what must always be fresh, like auth) that installability
+  and push didn't need to make, so it's still deferred.
