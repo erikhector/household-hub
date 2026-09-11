@@ -63,9 +63,22 @@ export function BottomNav({
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
   const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
 
+  const totalItems = primaryMobileNavItems.length + 1;
+  const primaryActiveIndex = primaryMobileNavItems.findIndex((item) => isNavItemActive(pathname, item.href));
+  const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
-      <div className="flex items-stretch justify-around pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
+      <div className="relative flex items-stretch justify-around">
+        <span
+          aria-hidden
+          className="absolute inset-y-1 left-0 rounded-xl bg-primary/10 transition-transform duration-300 ease-out"
+          style={{
+            width: `${100 / totalItems}%`,
+            transform: `translateX(${activeIndex * 100}%)`,
+            opacity: activeIndex === -1 ? 0 : 1,
+          }}
+        />
         {primaryMobileNavItems.map(({ href, key, icon: Icon }) => {
           const active = isNavItemActive(pathname, href);
           return (
@@ -73,7 +86,7 @@ export function BottomNav({
               key={href}
               href={href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium",
+                "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
@@ -88,7 +101,7 @@ export function BottomNav({
               <button
                 type="button"
                 className={cn(
-                  "flex flex-1 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium",
+                  "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
                   moreActive ? "text-primary" : "text-muted-foreground",
                 )}
               />
