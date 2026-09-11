@@ -14,9 +14,14 @@ vi.mock("next-auth", () => ({ AuthError }));
 
 const {
   householdCreateMock,
+  householdDeleteMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
   invitationFindFirstMock,
+  householdMemberFindFirstMock,
+  householdMemberFindUniqueMock,
+  householdMemberDeleteMock,
+  householdMemberUpdateMock,
   transactionMock,
   requireHouseholdMock,
   cookieSetMock,
@@ -27,14 +32,27 @@ const {
   sendHouseholdInviteEmailMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
+  householdDeleteMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
   invitationFindFirstMock: vi.fn(),
-  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
-    user: { create: vi.fn(async () => ({ id: "new-user" })) },
-    householdMember: { create: vi.fn(async () => ({})) },
-    invitation: { update: vi.fn(async () => ({})) },
-  })),
+  householdMemberFindFirstMock: vi.fn(),
+  householdMemberFindUniqueMock: vi.fn(),
+  householdMemberDeleteMock: vi.fn(),
+  householdMemberUpdateMock: vi.fn(),
+  // Handles both $transaction call shapes the module uses: an interactive
+  // callback (joinViaInviteSignupAction) and a plain array of already-issued
+  // mocked-Prisma calls (transferOwnershipAction) — Prisma's array form just
+  // runs each query and resolves with the results, which Promise.all mirrors
+  // closely enough for these tests.
+  transactionMock: vi.fn(async (arg: unknown) => {
+    if (Array.isArray(arg)) return Promise.all(arg);
+    return (arg as (tx: unknown) => unknown)({
+      user: { create: vi.fn(async () => ({ id: "new-user" })) },
+      householdMember: { create: vi.fn(async () => ({})) },
+      invitation: { update: vi.fn(async () => ({})) },
+    });
+  }),
   requireHouseholdMock: vi.fn(),
   cookieSetMock: vi.fn(),
   headersMock: vi.fn(async () => new Map()),
@@ -48,9 +66,15 @@ const {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    household: { create: householdCreateMock },
+    household: { create: householdCreateMock, delete: householdDeleteMock },
     user: { findUnique: userFindUniqueMock },
     invitation: { findUnique: invitationFindUniqueMock, findFirst: invitationFindFirstMock },
+    householdMember: {
+      findFirst: householdMemberFindFirstMock,
+      findUnique: householdMemberFindUniqueMock,
+      delete: householdMemberDeleteMock,
+      update: householdMemberUpdateMock,
+    },
     $transaction: transactionMock,
   },
 }));
@@ -70,9 +94,16 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { createHouseholdAction, joinViaInviteSignupAction, sendInviteEmailAction } = await import(
-  "@/lib/actions/household"
-);
+const {
+  createHouseholdAction,
+  joinViaInviteSignupAction,
+  sendInviteEmailAction,
+  removeMemberAction,
+  deleteHouseholdAction,
+  leaveHouseholdAction,
+  transferOwnershipAction,
+  switchHouseholdAction,
+} = await import("@/lib/actions/household");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -245,5 +276,362 @@ describe("sendInviteEmailAction (absoluteAppUrl trust boundary)", () => {
     expect(sendHouseholdInviteEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({ inviteUrl: "http://localhost:3000/join/invite-token" }),
     );
+  });
+});
+
+// Owner-only administration + ownership hand-off/leaving. The security
+// boundary that matters most here is that every action re-derives its
+// target row scoped to the caller's session household — a client-supplied
+// member/household id belonging to a DIFFERENT household must never be
+// actionable, even though nothing stops a caller from sending one.
+describe("removeMemberAction", () => {
+  const ownerSession = {
+    household: { id: "household-1", name: "The Hectors" },
+    role: "OWNER" as const,
+    userId: "owner-user",
+  };
+
+  it("rejects a non-owner caller", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      userId: "contributor-user",
+    });
+
+    const result = await removeMemberAction("member-2");
+
+    expect(result.error).toBe("Only the household owner can remove members");
+    expect(householdMemberFindFirstMock).not.toHaveBeenCalled();
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a member id that belongs to a different household (forged id)", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    // Simulates the real query scoping: findFirst is called with
+    // householdId: "household-1", so a member row that actually lives under
+    // another household would never match and Prisma would return null.
+    householdMemberFindFirstMock.mockResolvedValue(null);
+
+    const result = await removeMemberAction("member-in-other-household");
+
+    expect(householdMemberFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "member-in-other-household", householdId: "household-1" },
+    });
+    expect(result.error).toBe("Member not found");
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects the owner targeting themselves", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+
+    const result = await removeMemberAction("member-owner");
+
+    expect(result.error).toBe("You can't remove yourself");
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects targeting the owner", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-other-owner",
+      householdId: "household-1",
+      userId: "some-other-user",
+      role: "OWNER",
+    });
+
+    const result = await removeMemberAction("member-other-owner");
+
+    expect(result.error).toBe("The owner can't be removed");
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("removes a contributor on the happy path", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-2",
+      householdId: "household-1",
+      userId: "contributor-user",
+      role: "CONTRIBUTOR",
+    });
+    householdMemberDeleteMock.mockResolvedValue({});
+
+    const result = await removeMemberAction("member-2");
+
+    expect(result).toEqual({});
+    expect(householdMemberDeleteMock).toHaveBeenCalledWith({ where: { id: "member-2" } });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+});
+
+describe("deleteHouseholdAction", () => {
+  it("rejects a non-owner caller", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "CONTRIBUTOR" },
+        { id: "household-2", name: "Lake House", role: "OWNER" },
+      ],
+    });
+
+    const result = await deleteHouseholdAction();
+
+    expect(result.error).toBe("Only the household owner can delete the household");
+    expect(householdDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects deleting the caller's only household", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "OWNER",
+      households: [{ id: "household-1", name: "The Hectors", role: "OWNER" }],
+    });
+
+    const result = await deleteHouseholdAction();
+
+    expect(result.error).toBe("You can't delete your only household. Create another one first.");
+    expect(householdDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes the household and falls back the active cookie on the happy path", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "OWNER",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "OWNER" },
+        { id: "household-2", name: "Lake House", role: "CONTRIBUTOR" },
+      ],
+    });
+    householdDeleteMock.mockResolvedValue({});
+
+    await expect(deleteHouseholdAction()).rejects.toThrow("REDIRECT:/dashboard");
+
+    expect(householdDeleteMock).toHaveBeenCalledWith({ where: { id: "household-1" } });
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "active_household",
+      "household-2",
+      expect.objectContaining({ path: "/" }),
+    );
+  });
+});
+
+describe("leaveHouseholdAction", () => {
+  it("rejects the owner (must transfer or delete instead)", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "OWNER",
+      userId: "owner-user",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "OWNER" },
+        { id: "household-2", name: "Lake House", role: "CONTRIBUTOR" },
+      ],
+    });
+
+    const result = await leaveHouseholdAction();
+
+    expect(result.error).toBe(
+      "Transfer ownership to another member before leaving, or delete the household instead",
+    );
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects leaving the caller's only household", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      userId: "contributor-user",
+      households: [{ id: "household-1", name: "The Hectors", role: "CONTRIBUTOR" }],
+    });
+
+    const result = await leaveHouseholdAction();
+
+    expect(result.error).toBe("You can't leave your only household. Create another one first.");
+    expect(householdMemberDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("removes the caller's own membership and falls back the active cookie on the happy path", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      userId: "contributor-user",
+      households: [
+        { id: "household-1", name: "The Hectors", role: "CONTRIBUTOR" },
+        { id: "household-2", name: "Lake House", role: "OWNER" },
+      ],
+    });
+    householdMemberFindUniqueMock.mockResolvedValue({
+      id: "member-2",
+      householdId: "household-1",
+      userId: "contributor-user",
+      role: "CONTRIBUTOR",
+    });
+    householdMemberDeleteMock.mockResolvedValue({});
+
+    await expect(leaveHouseholdAction()).rejects.toThrow("REDIRECT:/dashboard");
+
+    expect(householdMemberFindUniqueMock).toHaveBeenCalledWith({
+      where: { householdId_userId: { householdId: "household-1", userId: "contributor-user" } },
+    });
+    expect(householdMemberDeleteMock).toHaveBeenCalledWith({ where: { id: "member-2" } });
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "active_household",
+      "household-2",
+      expect.objectContaining({ path: "/" }),
+    );
+  });
+});
+
+describe("transferOwnershipAction", () => {
+  const ownerSession = {
+    household: { id: "household-1", name: "The Hectors" },
+    role: "OWNER" as const,
+    userId: "owner-user",
+  };
+
+  it("rejects a non-owner caller", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      role: "CONTRIBUTOR",
+      userId: "contributor-user",
+    });
+
+    const result = await transferOwnershipAction("member-2");
+
+    expect(result.error).toBe("Only the household owner can transfer ownership");
+    expect(householdMemberFindUniqueMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a target member id that belongs to a different household (forged id)", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindUniqueMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+    // Scoped findFirst: a member row actually belonging to another
+    // household must not match household-1 and so resolves to null.
+    householdMemberFindFirstMock.mockResolvedValue(null);
+
+    const result = await transferOwnershipAction("member-in-other-household");
+
+    expect(householdMemberFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "member-in-other-household", householdId: "household-1" },
+    });
+    expect(result.error).toBe("Member not found");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects the owner targeting themselves", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindUniqueMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+
+    const result = await transferOwnershipAction("member-owner");
+
+    expect(result.error).toBe("You're already the owner");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a target that is already the owner", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindUniqueMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-co-owner",
+      householdId: "household-1",
+      userId: "other-owner-user",
+      role: "OWNER",
+    });
+
+    const result = await transferOwnershipAction("member-co-owner");
+
+    expect(result.error).toBe("This member is already the owner");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("swaps OWNER/CONTRIBUTOR between caller and target in one transaction on the happy path", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindUniqueMock.mockResolvedValue({
+      id: "member-owner",
+      householdId: "household-1",
+      userId: "owner-user",
+      role: "OWNER",
+    });
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-2",
+      householdId: "household-1",
+      userId: "contributor-user",
+      role: "CONTRIBUTOR",
+    });
+    householdMemberUpdateMock.mockImplementation(async (args: { where: { id: string } }) => args);
+
+    const result = await transferOwnershipAction("member-2");
+
+    expect(result).toEqual({});
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(householdMemberUpdateMock).toHaveBeenCalledWith({
+      where: { id: "member-owner" },
+      data: { role: "CONTRIBUTOR" },
+    });
+    expect(householdMemberUpdateMock).toHaveBeenCalledWith({
+      where: { id: "member-2" },
+      data: { role: "OWNER" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+});
+
+describe("switchHouseholdAction", () => {
+  it("switches to a household the caller is a member of", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      households: [
+        { id: "household-1", name: "The Hectors", role: "OWNER" },
+        { id: "household-2", name: "Lake House", role: "CONTRIBUTOR" },
+      ],
+    });
+
+    await expect(switchHouseholdAction("household-2")).rejects.toThrow("REDIRECT:/dashboard");
+
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "active_household",
+      "household-2",
+      expect.objectContaining({ path: "/" }),
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("no-ops for a household id the caller isn't a member of (forged id)", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      households: [{ id: "household-1", name: "The Hectors", role: "OWNER" }],
+    });
+
+    const result = await switchHouseholdAction("household-belonging-to-someone-else");
+
+    expect(result).toBeUndefined();
+    expect(cookieSetMock).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });
