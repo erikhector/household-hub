@@ -105,33 +105,35 @@ export async function updateInventoryItemAction(
   return {};
 }
 
-// Rapid-entry path for the empty-state quick-add bar: takes just a name (no
-// dialog, no category prompt) so a household starting from zero items can
-// fire off several adds in a row by typing and pressing Enter. Everything
-// else defaults the same way a blank create-form submission would.
-export async function quickAddInventoryItemAction(name: string): Promise<{ error?: string; name?: string }> {
+// Rapid-entry path for the quick-add bar/grid: no dialog round trip, so a
+// household starting from zero items (or blitzing through a shelf) can fire
+// off several adds in a row by typing and pressing Enter. `quantity`/`unit`/
+// `category` are optional — left out entirely, this defaults exactly the
+// way a blank create-form submission would (qty 1, "pcs", "Uncategorized").
+export async function quickAddInventoryItemAction(input: {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  category?: string;
+}): Promise<{ error?: string; name?: string }> {
   const { household, userId } = await requireHousehold();
 
   const parsed = itemSchema.safeParse({
-    name,
-    quantity: 1,
-    unit: "pcs",
+    name: input.name,
+    category: input.category,
+    quantity: input.quantity ?? 1,
+    unit: input.unit || "pcs",
     lowStockThreshold: 1,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const dict = await getDictionary();
+  const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
 
   try {
     await prisma.inventoryItem.create({
-      data: {
-        householdId: household.id,
-        ...parsed.data,
-        category: dict.inventory.uncategorized,
-        updatedByUserId: userId,
-      },
+      data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -140,6 +142,88 @@ export async function quickAddInventoryItemAction(name: string): Promise<{ error
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   return { name: parsed.data.name };
+}
+
+const bulkCreateItemSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  quantity: z.coerce.number().min(0).default(1),
+  unit: z.string().trim().min(1).max(20).default("pcs"),
+});
+
+const bulkCreateSchema = z.object({
+  items: z.array(bulkCreateItemSchema).min(1).max(300),
+  category: z.string().trim().max(60).optional(),
+  location: z.string().trim().max(120).optional(),
+});
+
+// Shared batch-insert path for the scan queue and the pasted-list review
+// screen — both land here with a flat list of {name, quantity, unit} plus
+// one category/location applied to the whole batch (a scanning or unpacking
+// session is almost always one shelf/drawer at a time). Mirrors
+// addStarterKitItemsAction's case-insensitive dedupe against what the
+// household already has, so re-running a scan session over the same shelf
+// doesn't create duplicate rows — it just skips the repeats.
+export async function bulkCreateInventoryItemsAction(
+  items: { name: string; quantity?: number; unit?: string }[],
+  shared?: { category?: string; location?: string },
+): Promise<{ error?: string; added?: number; skipped?: number }> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = bulkCreateSchema.safeParse({ items, category: shared?.category, location: shared?.location });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const dict = await getDictionary();
+  const category = parsed.data.category || dict.inventory.uncategorized;
+  const location = parsed.data.location || null;
+
+  let added = 0;
+  let skipped = 0;
+  try {
+    const existing = await prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((item) => item.name.trim().toLowerCase()));
+
+    // Later duplicates within the same batch (two rows scanned/pasted for
+    // the same item) merge into one row by summing quantity, rather than
+    // creating two rows or silently dropping the second.
+    const merged = new Map<string, { name: string; quantity: number; unit: string }>();
+    for (const item of parsed.data.items) {
+      const key = item.name.toLowerCase();
+      if (existingNames.has(key)) {
+        skipped += 1;
+        continue;
+      }
+      const prev = merged.get(key);
+      merged.set(key, prev ? { ...prev, quantity: prev.quantity + item.quantity } : item);
+    }
+
+    const toAdd = [...merged.values()];
+    if (toAdd.length > 0) {
+      await prisma.inventoryItem.createMany({
+        data: toAdd.map((item) => ({
+          householdId: household.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          category,
+          location,
+          lowStockThreshold: 1,
+          updatedByUserId: userId,
+        })),
+      });
+    }
+    added = toAdd.length;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return { added, skipped };
 }
 
 // Bulk-inserts a starter kit's selected items in one round trip. `category`

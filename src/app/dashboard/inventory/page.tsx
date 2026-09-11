@@ -1,9 +1,11 @@
-import { Plus } from "lucide-react";
+import { ClipboardList, Plus, ScanLine } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
+import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
+import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
 import { ExportButton } from "@/components/export/export-button";
 import type { StockStatus } from "@/lib/stock-status";
@@ -53,6 +55,29 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         </div>
         <div className="flex items-center gap-2">
           <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
+          <BulkPasteDialog
+            dict={dict.inventory}
+            categories={categories}
+            locations={locations}
+            trigger={
+              <Button variant="outline" className="gap-1.5">
+                <ClipboardList className="size-4" />
+                <span className="sr-only sm:not-sr-only">{dict.inventory.pasteList.triggerLabel}</span>
+              </Button>
+            }
+          />
+          <BulkScanDialog
+            dict={dict.inventory}
+            barcodeDict={dict.barcodeScanner}
+            categories={categories}
+            locations={locations}
+            trigger={
+              <Button variant="outline" className="gap-1.5">
+                <ScanLine className="size-4" />
+                <span className="sr-only sm:not-sr-only">{dict.inventory.bulkScan.triggerLabel}</span>
+              </Button>
+            }
+          />
           <ItemFormDialog
             mode="create"
             categories={categories}

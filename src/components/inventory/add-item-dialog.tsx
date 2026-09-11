@@ -12,68 +12,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Autocomplete,
-  AutocompleteClear,
-  AutocompleteContent,
-  AutocompleteEmpty,
-  AutocompleteInput,
-  AutocompleteInputGroup,
-  AutocompleteItem,
-  AutocompleteList,
-  AutocompleteTrigger,
-} from "@/components/ui/autocomplete";
+import { ComboField } from "@/components/inventory/combo-field";
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 
 const initialState: ActionState = {};
-
-function ComboField({
-  id,
-  name,
-  items,
-  value,
-  onValueChange,
-  placeholder,
-  maxLength,
-  dict,
-}: {
-  id: string;
-  name: string;
-  items: string[];
-  value: string;
-  onValueChange: (value: string) => void;
-  placeholder?: string;
-  maxLength: number;
-  dict: Dictionary["inventory"];
-}) {
-  const trimmed = value.trim();
-  return (
-    <Autocomplete items={items} name={name} value={value} onValueChange={onValueChange}>
-      <AutocompleteInputGroup>
-        <AutocompleteInput id={id} placeholder={placeholder} maxLength={maxLength} />
-        <AutocompleteClear />
-        <AutocompleteTrigger />
-      </AutocompleteInputGroup>
-      <AutocompleteContent>
-        <AutocompleteEmpty>
-          {trimmed ? format(dict.comboboxAddNew, { value: trimmed }) : dict.comboboxNoMatches}
-        </AutocompleteEmpty>
-        <AutocompleteList>
-          {(option: string) => (
-            <AutocompleteItem key={option} value={option}>
-              {option}
-            </AutocompleteItem>
-          )}
-        </AutocompleteList>
-      </AutocompleteContent>
-    </Autocomplete>
-  );
-}
 
 export function ItemFormDialog({
   mode,
@@ -107,6 +54,11 @@ export function ItemFormDialog({
   const [location, setLocation] = useState(item?.location ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "pcs");
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  // Tracks which of the two submit buttons was pressed, and how many items
+  // have gone in via "save & add another" so far this time the dialog is
+  // open — set on click (below), read once the action settles.
+  const keepOpenRef = useRef(false);
+  const [sessionAddedCount, setSessionAddedCount] = useState(0);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -116,6 +68,7 @@ export function ItemFormDialog({
       setLocation(item?.location ?? "");
       setUnit(item?.unit ?? "pcs");
       setScannedBarcode(null);
+      setSessionAddedCount(0);
     }
   };
 
@@ -130,8 +83,22 @@ export function ItemFormDialog({
     formData: FormData,
   ) => {
     const result = await action(prevState, formData);
-    if (!result.error) handleOpenChange(false);
-    return result;
+    if (result.error) return result;
+
+    if (keepOpenRef.current) {
+      // Category/location/unit/quantity/threshold stay exactly as they are —
+      // most bulk sessions are one category/location at a time (a whole
+      // pantry shelf, a drawer of tools), so re-picking them per item is the
+      // cost this button exists to remove. Only the name (and any scanned
+      // barcode note) resets, and focus goes back to it immediately.
+      setName("");
+      setScannedBarcode(null);
+      setSessionAddedCount((count) => count + 1);
+      nameInputRef.current?.focus();
+    } else {
+      handleOpenChange(false);
+    }
+    return {};
   }, initialState);
 
   return (
@@ -256,8 +223,31 @@ export function ItemFormDialog({
             </div>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {sessionAddedCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {format(plural(sessionAddedCount, dict.sessionAddedCount), { count: sessionAddedCount })}
+            </p>
+          )}
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
+            {mode === "create" && (
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  keepOpenRef.current = true;
+                }}
+              >
+                {pending ? dict.adding : dict.saveAndAddAnother}
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={pending}
+              onClick={() => {
+                keepOpenRef.current = false;
+              }}
+            >
               {pending
                 ? mode === "create"
                   ? dict.adding

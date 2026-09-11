@@ -38,6 +38,8 @@ import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
+import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
+import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -288,20 +290,43 @@ export function InventoryTable({
             <p className="text-sm text-muted-foreground">{dict.emptyLead}</p>
           </div>
         </div>
-        <QuickAddBar dict={dict} />
-        <ItemFormDialog
-          mode="create"
-          categories={categories}
-          locations={locations}
-          units={units}
-          dict={dict}
-          barcodeDict={barcodeDict}
-          trigger={
-            <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-              {dict.addItem}
-            </Button>
-          }
-        />
+        <QuickAddBar dict={dict} categories={categories} units={units} />
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs">
+          <ItemFormDialog
+            mode="create"
+            categories={categories}
+            locations={locations}
+            units={units}
+            dict={dict}
+            barcodeDict={barcodeDict}
+            trigger={
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+                {dict.addItem}
+              </Button>
+            }
+          />
+          <BulkScanDialog
+            dict={dict}
+            barcodeDict={barcodeDict}
+            categories={categories}
+            locations={locations}
+            trigger={
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+                {dict.bulkScan.triggerLabel}
+              </Button>
+            }
+          />
+          <BulkPasteDialog
+            dict={dict}
+            categories={categories}
+            locations={locations}
+            trigger={
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+                {dict.pasteList.triggerLabel}
+              </Button>
+            }
+          />
+        </div>
         <div className="w-full border-t pt-6">
           <StarterKitPicker dict={dict} />
         </div>

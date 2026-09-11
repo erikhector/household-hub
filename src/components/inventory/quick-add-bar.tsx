@@ -1,36 +1,57 @@
 "use client";
 
-import { useState, useTransition, type KeyboardEvent } from "react";
+import { useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ComboField } from "@/components/inventory/combo-field";
 import { quickAddInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 /**
- * Name-only rapid entry: type, press Enter, repeat — no dialog round trip
- * and no category prompt (server files it under "Uncategorized"). Meant for
- * a household starting from zero items, where the full add-item dialog's
- * per-field cost adds up fast across a dozen+ items.
+ * Rapid entry for stocking a shelf at a time: name + quantity + unit +
+ * category in one row. Pressing Enter in the name field commits the row and
+ * refocuses it for the next item — quantity, unit, and category stay put
+ * between rows (a shelf is usually one category, and 1-2 units, at a time),
+ * so only the name needs retyping. No dialog round trip either way.
  */
-export function QuickAddBar({ dict }: { dict: Dictionary["inventory"] }) {
+export function QuickAddBar({
+  dict,
+  categories,
+  units,
+}: {
+  dict: Dictionary["inventory"];
+  categories: string[];
+  units: string[];
+}) {
   const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unit, setUnit] = useState("pcs");
+  const [category, setCategory] = useState("");
+  const [addedCount, setAddedCount] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
-    const trimmed = name.trim();
-    if (!trimmed || isPending) return;
+    const trimmedName = name.trim();
+    if (!trimmedName || isPending) return;
 
     startTransition(async () => {
-      const result = await quickAddInventoryItemAction(trimmed);
+      const result = await quickAddInventoryItemAction({
+        name: trimmedName,
+        quantity: Number(quantity) || 1,
+        unit: unit.trim() || "pcs",
+        category: category.trim() || undefined,
+      });
       if (result.error) {
         toast.error(result.error);
         return;
       }
-      toast.success(format(dict.quickAdd.addedToast, { name: result.name ?? trimmed }));
+      setAddedCount((count) => count + 1);
       setName("");
+      nameInputRef.current?.focus();
     });
   };
 
@@ -45,17 +66,58 @@ export function QuickAddBar({ dict }: { dict: Dictionary["inventory"] }) {
   };
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-1.5">
-      <div className="flex items-center gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={dict.quickAdd.placeholder}
-          maxLength={120}
-          disabled={isPending}
-          autoFocus
-        />
+    <div className="flex w-full max-w-md flex-col gap-1.5">
+      <div className="flex items-end gap-1.5">
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="text-[11px] text-muted-foreground">{dict.nameLabel}</span>
+          <Input
+            ref={nameInputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={dict.quickAdd.placeholder}
+            maxLength={120}
+            disabled={isPending}
+            autoFocus
+          />
+        </div>
+        <div className="flex w-16 flex-col gap-1">
+          <span className="text-[11px] text-muted-foreground">{dict.quantityLabel}</span>
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isPending}
+          />
+        </div>
+        <div className="flex w-20 flex-col gap-1">
+          <span className="text-[11px] text-muted-foreground">{dict.unitLabel}</span>
+          <ComboField
+            id="quick-add-unit"
+            name="unit"
+            items={units}
+            value={unit}
+            onValueChange={setUnit}
+            maxLength={20}
+            dict={dict}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-1">
+          <span className="text-[11px] text-muted-foreground">{dict.categoryLabel}</span>
+          <ComboField
+            id="quick-add-category"
+            name="category"
+            items={categories}
+            value={category}
+            onValueChange={setCategory}
+            placeholder={dict.categoryPlaceholder}
+            maxLength={60}
+            dict={dict}
+          />
+        </div>
         <Button
           type="button"
           size="icon"
@@ -67,7 +129,9 @@ export function QuickAddBar({ dict }: { dict: Dictionary["inventory"] }) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        {format(dict.quickAdd.hint, { category: dict.uncategorized })}
+        {addedCount > 0
+          ? format(dict.quickAdd.addedCountHint, { count: addedCount })
+          : format(dict.quickAdd.hint, { category: dict.uncategorized })}
       </p>
     </div>
   );
