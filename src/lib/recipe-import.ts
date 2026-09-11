@@ -1,7 +1,7 @@
 // Recipe import from URL — pure parsing logic (JSON-LD extraction, ingredient
 // splitting, instruction flattening) plus the SSRF-guarding URL validation and
 // fetch used by importRecipeFromUrlAction
-// (src/app/dashboard/meal-planning/actions.ts). The parsing functions below
+// (src/app/dashboard/meal-planning/recipe-actions.ts). The parsing functions below
 // take no network dependency and are unit-tested with inline HTML/JSON
 // fixtures in recipe-import.test.ts; fetchRecipeHtml is the only part that
 // touches the network and isn't exercised by tests.

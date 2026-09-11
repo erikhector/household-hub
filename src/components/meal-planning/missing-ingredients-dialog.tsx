@@ -24,7 +24,7 @@ import {
 import {
   addMissingIngredientsToShoppingListAction,
   previewMissingIngredientsAction,
-} from "@/app/dashboard/meal-planning/actions";
+} from "@/app/dashboard/meal-planning/cooking-actions";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { format, plural } from "@/lib/i18n/format";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";

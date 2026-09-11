@@ -1,4 +1,4 @@
-// See src/app/dashboard/meal-planning/actions.test.ts for the mocking
+// See src/app/dashboard/meal-planning/recipe-actions.test.ts for the mocking
 // convention this mirrors: prisma is mocked, no database is touched.
 import { describe, expect, it, vi } from "vitest";
 

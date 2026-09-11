@@ -15,7 +15,7 @@ import {
 import {
   markMealEntryCookedAction,
   previewCookedIngredientsAction,
-} from "@/app/dashboard/meal-planning/actions";
+} from "@/app/dashboard/meal-planning/cooking-actions";
 import { format } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";

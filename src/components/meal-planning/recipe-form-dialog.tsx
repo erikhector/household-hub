@@ -26,7 +26,7 @@ import {
   importRecipeFromUrlAction,
   updateRecipeAction,
   type ImportRecipeState,
-} from "@/app/dashboard/meal-planning/actions";
+} from "@/app/dashboard/meal-planning/recipe-actions";
 import type { RecipeData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
