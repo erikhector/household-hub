@@ -29,6 +29,7 @@ const {
   transactionMock,
   notificationFindFirstMock,
   notificationCreateMock,
+  inventoryItemFindUniqueMock,
   findOrCreateGroceriesCategoryMock,
   fetchExchangeRateMock,
   redirectMock,
@@ -54,10 +55,11 @@ const {
   transactionCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
+  inventoryItemFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
       shoppingListItem: { update: shoppingListItemUpdateMock },
-      inventoryItem: { update: inventoryItemUpdateMock },
+      inventoryItem: { update: inventoryItemUpdateMock, findUnique: inventoryItemFindUniqueMock },
       priceHistory: { create: priceHistoryCreateMock },
       notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
     };

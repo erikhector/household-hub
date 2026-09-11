@@ -868,6 +868,27 @@ export const en = {
         "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
       button: "Export my data",
     },
+    installApp: {
+      title: "Install app",
+      installedDescription: "Squirrel is installed on this device.",
+      installButton: "Install",
+      iosDescription:
+        "To install, tap the Share icon in Safari, then \"Add to Home Screen\".",
+      genericDescription:
+        "Open your browser's menu and look for \"Install app\" or \"Add to Home Screen\" to add Squirrel to your device.",
+    },
+    pushNotifications: {
+      title: "Push notifications",
+      description:
+        "Get notified on this device when something needs your attention — an item runs out, or a planned meal was never logged.",
+      enableButton: "Enable notifications",
+      disableButton: "Disable notifications",
+      enabled: "Notifications are enabled on this device.",
+      unsupported: "Push notifications aren't supported in this browser.",
+      notConfigured: "Push notifications aren't set up for this app yet.",
+      permissionDenied: "Notifications are blocked for this site — check your browser's site settings.",
+      error: "Something went wrong. Please try again.",
+    },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
       "Deleting your account is permanent and can't be undone. Your personal data is removed; any household you solely own is deleted along with it.",

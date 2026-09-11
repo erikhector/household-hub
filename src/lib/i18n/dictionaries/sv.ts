@@ -860,6 +860,27 @@ export const sv = {
         "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
       button: "Exportera mina data",
     },
+    installApp: {
+      title: "Installera appen",
+      installedDescription: "Squirrel är installerad på den här enheten.",
+      installButton: "Installera",
+      iosDescription:
+        "Installera genom att trycka på Dela-ikonen i Safari och sedan \"Lägg till på hemskärmen\".",
+      genericDescription:
+        "Öppna webbläsarens meny och leta efter \"Installera app\" eller \"Lägg till på hemskärmen\" för att lägga till Squirrel på din enhet.",
+    },
+    pushNotifications: {
+      title: "Push-notiser",
+      description:
+        "Få aviseringar på den här enheten när något behöver din uppmärksamhet — en vara tar slut, eller en planerad måltid glömdes bort.",
+      enableButton: "Aktivera notiser",
+      disableButton: "Inaktivera notiser",
+      enabled: "Notiser är aktiverade på den här enheten.",
+      unsupported: "Push-notiser stöds inte i den här webbläsaren.",
+      notConfigured: "Push-notiser är inte konfigurerade för appen ännu.",
+      permissionDenied: "Notiser är blockerade för den här sidan — kontrollera webbläsarens webbplatsinställningar.",
+      error: "Något gick fel. Försök igen.",
+    },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
       "Att radera ditt konto är permanent och kan inte ångras. Dina personliga uppgifter tas bort. Om du äger ett hushåll där du är enda medlem raderas det hushållet också.",

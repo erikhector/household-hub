@@ -32,6 +32,25 @@ model User {
   personalRecurringTemplates PersonalRecurringTemplate[]
   passwordResetTokens        PasswordResetToken[]
   emailVerificationTokens    EmailVerificationToken[]
+  pushSubscriptions          PushSubscription[]
+}
+
+// One row per subscribed browser/device (src/lib/actions/push.ts). Per-user
+// rather than per-household — a subscription belongs to one browser, and a
+// user can belong to multiple households (src/lib/session.ts's
+// requireHousehold). sendPushToHousehold (src/lib/push.ts) fans out to every
+// member's subscriptions when a notification fires.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum HouseholdRole {

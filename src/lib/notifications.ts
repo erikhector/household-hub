@@ -26,6 +26,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { sendPushToHousehold } from "@/lib/push";
 
 export type OutOfStockNotification = {
   id: string;
@@ -70,6 +71,19 @@ export async function recordOutOfStockTransition(
   await db.notification.create({
     data: { householdId, kind: "OUT_OF_STOCK", inventoryItemId: itemId },
   });
+
+  // Fire-and-forget: some callers run this inside a $transaction (see this
+  // function's doc comment above), and awaiting a push network call there
+  // would hold it open. See sendPushToHousehold's doc comment in
+  // src/lib/push.ts for why that's an acceptable trade.
+  const item = await db.inventoryItem.findUnique({ where: { id: itemId }, select: { name: true } });
+  if (item) {
+    void sendPushToHousehold(householdId, {
+      title: "Out of stock",
+      body: `${item.name} is out of stock`,
+      url: "/dashboard/inventory?status=out",
+    });
+  }
 }
 
 // Finds past meal-plan entries that were never marked cooked and files a
@@ -88,7 +102,7 @@ async function syncMealNotLoggedNotifications(householdId: string): Promise<void
       consumedAt: null,
       notification: null,
     },
-    select: { id: true },
+    select: { id: true, date: true, freeformName: true, recipe: { select: { name: true } } },
   });
   if (candidates.length === 0) return;
 
@@ -97,6 +111,17 @@ async function syncMealNotLoggedNotifications(householdId: string): Promise<void
       prisma.notification
         .create({
           data: { householdId, kind: "MEAL_NOT_LOGGED", mealPlanEntryId: entry.id },
+        })
+        .then(() => {
+          // Fire-and-forget — see recordOutOfStockTransition's matching
+          // comment above and sendPushToHousehold's doc comment in
+          // src/lib/push.ts.
+          const name = entry.recipe?.name ?? entry.freeformName ?? "";
+          void sendPushToHousehold(householdId, {
+            title: "Did you forget to log a meal?",
+            body: name || "A planned meal was never marked as cooked",
+            url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(entry.date))}`,
+          });
         })
         .catch((error) => {
           // P2002: another concurrent sync already created it — fine, ignore.

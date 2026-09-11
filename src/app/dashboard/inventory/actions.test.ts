@@ -18,6 +18,7 @@ const {
   shoppingListItemCreateMock,
   notificationFindFirstMock,
   notificationCreateMock,
+  inventoryItemFindUniqueMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
@@ -31,6 +32,7 @@ const {
   shoppingListItemCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
+  inventoryItemFindUniqueMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
@@ -40,6 +42,7 @@ vi.mock("@/lib/prisma", () => ({
       create: createMock,
       update: updateMock,
       findFirst: findFirstMock,
+      findUnique: inventoryItemFindUniqueMock,
       deleteMany: deleteManyMock,
     },
     shoppingList: { findFirst: shoppingListFindFirstMock, create: shoppingListCreateMock },
@@ -78,6 +81,7 @@ afterEach(() => {
   requireHouseholdMock.mockResolvedValue({ household, userId });
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
+  inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
 });
 requireHouseholdMock.mockResolvedValue({ household, userId });
 

@@ -6,6 +6,8 @@ import { DisplayNameForm } from "@/components/profile/display-name-form";
 import { EmailForm } from "@/components/profile/email-form";
 import { PasswordForm } from "@/components/profile/password-form";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
+import { InstallAppCard } from "@/components/profile/install-app-card";
+import { PushNotificationsCard } from "@/components/profile/push-notifications-card";
 import { ExportButton } from "@/components/export/export-button";
 
 export default async function ProfilePage() {
@@ -35,6 +37,8 @@ export default async function ProfilePage() {
         <div className="rounded-md border p-4">
           <PasswordForm dict={dict.profile.passwordForm} />
         </div>
+        <InstallAppCard dict={dict.profile.installApp} />
+        <PushNotificationsCard dict={dict.profile.pushNotifications} />
         <div className="flex flex-col gap-2 rounded-md border p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.profile.dataExport.title}</h2>
