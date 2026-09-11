@@ -162,7 +162,6 @@ export function AddCategoryDialog({ dict }: { dict: Dictionary["budget"] }) {
               id="category-name"
               name="name"
               required
-              autoFocus
               maxLength={60}
               placeholder={dict.categories.namePlaceholder}
             />

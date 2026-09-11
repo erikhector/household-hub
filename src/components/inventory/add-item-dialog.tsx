@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactElement } from "react";
+import { useActionState, useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +101,7 @@ export function ItemFormDialog({
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(item?.name ?? "");
   const [category, setCategory] = useState(item?.category ?? "");
   const [location, setLocation] = useState(item?.location ?? "");
@@ -136,7 +137,11 @@ export function ItemFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={trigger} />
-      <DialogContent>
+      <DialogContent
+        initialFocus={(interactionType) =>
+          interactionType === "touch" ? null : nameInputRef.current
+        }
+      >
         <DialogHeader>
           <DialogTitle>{mode === "create" ? dict.addDialogTitle : dict.editDialogTitle}</DialogTitle>
         </DialogHeader>
@@ -167,10 +172,10 @@ export function ItemFormDialog({
               )}
             </div>
             <Input
+              ref={nameInputRef}
               id="name"
               name="name"
               required
-              autoFocus
               maxLength={120}
               value={name}
               onChange={(e) => setName(e.target.value)}

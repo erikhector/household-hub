@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ export function AddMealDialog({
   recipes: RecipeData[];
 }) {
   const [open, setOpen] = useState(false);
+  const freeformNameRef = useRef<HTMLInputElement>(null);
   const [recipeChoice, setRecipeChoice] = useState(CUSTOM_RECIPE_SENTINEL);
   const [portions, setPortions] = useState("4");
   const [state, formAction, pending] = useActionState(async (
@@ -82,7 +83,11 @@ export function AddMealDialog({
           </Button>
         }
       />
-      <DialogContent>
+      <DialogContent
+        initialFocus={(interactionType) =>
+          interactionType === "touch" ? null : freeformNameRef.current
+        }
+      >
         <DialogHeader>
           <DialogTitle>{dict.addMealDialogTitle}</DialogTitle>
         </DialogHeader>
@@ -116,11 +121,11 @@ export function AddMealDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="freeformName">{dict.customMealNameLabel}</Label>
               <Input
+                ref={freeformNameRef}
                 id="freeformName"
                 name="freeformName"
                 placeholder={dict.customMealNamePlaceholder}
                 maxLength={120}
-                autoFocus
               />
             </div>
           ) : (

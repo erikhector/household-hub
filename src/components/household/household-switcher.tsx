@@ -54,7 +54,7 @@ function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switch
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-household-name">{dict.nameLabel}</Label>
-            <Input id="new-household-name" name="name" required maxLength={60} autoFocus />
+            <Input id="new-household-name" name="name" required maxLength={60} />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>

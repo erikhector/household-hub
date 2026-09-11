@@ -69,7 +69,6 @@ function NewListDialog({ dict }: { dict: ShoppingListDict }) {
               id="new-list-name"
               name="name"
               placeholder={`${dict.defaultNamePrefix} — ${new Date().toLocaleDateString()}`}
-              autoFocus
               maxLength={120}
             />
           </div>

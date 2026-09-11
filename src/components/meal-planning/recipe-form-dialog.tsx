@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type ReactElement } from "react";
+import { useActionState, useRef, useState, type ReactElement } from "react";
 import { Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,7 @@ export function RecipeFormDialog({
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(recipe?.name ?? "");
   const [servings, setServings] = useState(String(recipe?.servings ?? 4));
   const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
@@ -177,7 +178,12 @@ export function RecipeFormDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        initialFocus={(interactionType) =>
+          interactionType === "touch" ? null : nameInputRef.current
+        }
+      >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? dict.newRecipeDialogTitle : dict.editRecipeDialogTitle}
@@ -221,13 +227,13 @@ export function RecipeFormDialog({
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Label htmlFor="recipe-name">{dict.recipeNameLabel}</Label>
               <Input
+                ref={nameInputRef}
                 id="recipe-name"
                 name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 maxLength={120}
-                autoFocus
               />
             </div>
             <div className="flex w-24 shrink-0 flex-col gap-2">
