@@ -80,6 +80,72 @@ describe("computeNetBalances", () => {
     ];
     expect(computeNetBalances(transactions)).toEqual([]);
   });
+
+  it("nets a degenerate split with only one member included: everything owed to that person", () => {
+    // Only one member is in `splits` and it isn't the payer — a
+    // "split" in name only, equivalent to alice fronting the whole
+    // thing on bob's behalf.
+    const transactions: SplitTransaction[] = [
+      {
+        amount: 50,
+        paidByMemberId: "alice",
+        splits: [{ householdMemberId: "bob", amountOwed: 50 }],
+      },
+    ];
+    const balances = computeNetBalances(transactions);
+    expect(balances).toEqual(
+      expect.arrayContaining([
+        { householdMemberId: "alice", netBalance: 50 },
+        { householdMemberId: "bob", netBalance: -50 },
+      ]),
+    );
+    expect(balances).toHaveLength(2);
+  });
+
+  it("nets a degenerate split where the only member is the payer themselves: balance cancels out", () => {
+    // Payer is also the sole split member for their own share — nets to
+    // zero and drops out entirely, like any other zero balance.
+    const transactions: SplitTransaction[] = [
+      {
+        amount: 50,
+        paidByMemberId: "alice",
+        splits: [{ householdMemberId: "alice", amountOwed: 50 }],
+      },
+    ];
+    expect(computeNetBalances(transactions)).toEqual([]);
+  });
+
+  it("stays correct to the cent across many small transactions despite floating-point summation", () => {
+    // 25 transactions of $10.10 each, split three ways as 3.37/3.37/3.36
+    // (sums to 10.10 per transaction). Repeated float addition of
+    // sub-dollar amounts is the classic case for cumulative drift; the
+    // result should still land within a cent of the exact decimal answer.
+    const transactions: SplitTransaction[] = Array.from({ length: 25 }, () => ({
+      amount: 10.1,
+      paidByMemberId: "alice",
+      splits: [
+        { householdMemberId: "alice", amountOwed: 3.37 },
+        { householdMemberId: "bob", amountOwed: 3.37 },
+        { householdMemberId: "carol", amountOwed: 3.36 },
+      ],
+    }));
+
+    const balances = computeNetBalances(transactions);
+    const byId = Object.fromEntries(balances.map((b) => [b.householdMemberId, b.netBalance]));
+
+    // alice: paid 25*10.10 = 252.50, owes her own share 25*3.37 = 84.25
+    expect(byId.alice).toBeCloseTo(252.5 - 84.25, 2);
+    // bob owes his share across all 25 transactions
+    expect(byId.bob).toBeCloseTo(-84.25, 2);
+    // carol owes her (slightly smaller) share across all 25 transactions
+    expect(byId.carol).toBeCloseTo(-84.0, 2);
+
+    const settlements = simplifyDebts(balances);
+    const total = settlements.reduce((sum, s) => sum + s.amount, 0);
+    // bob and carol collectively owe alice exactly her net balance.
+    expect(total).toBeCloseTo(252.5 - 84.25, 2);
+    expect(settlements.every((s) => s.toMemberId === "alice")).toBe(true);
+  });
 });
 
 describe("simplifyDebts", () => {
