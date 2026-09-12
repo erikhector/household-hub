@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { getPeriodKey } from "@/app/dashboard/budget/recurring-template-calc";
+import { getPeriodKey } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 

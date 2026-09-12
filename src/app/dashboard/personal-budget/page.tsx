@@ -17,8 +17,8 @@ import {
   computeFixedMonthlySummary,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
-} from "@/app/dashboard/budget/recurring-template-calc";
-import { computeSafeToSpend } from "@/app/dashboard/budget/safe-to-spend-calc";
+} from "@/lib/recurring-template-calc";
+import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 
 // Same cap as the household budget's cost analyzer / fixed trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
@@ -45,7 +45,7 @@ export default async function PersonalBudgetPage() {
       include: { category: true },
     }),
     // Recurring bill templates — mirrors the household budget's, see
-    // recurring-template-calc.ts.
+    // src/lib/recurring-template-calc.ts.
     prisma.personalRecurringTemplate.findMany({
       where: { userId },
       include: { category: true },
@@ -94,7 +94,7 @@ export default async function PersonalBudgetPage() {
   const savings = savingsByCategory.reduce((sum, c) => sum + c.total, 0);
 
   // Same pure calc as the household budget's Safe to spend — see
-  // safe-to-spend-calc.ts — fed this user's own transactions instead.
+  // src/lib/safe-to-spend-calc.ts — fed this user's own transactions instead.
   const { safeToSpend, expectedRecurring } = computeSafeToSpend({
     transactions: transactions.map((t) => ({
       categoryId: t.categoryId,
@@ -112,7 +112,7 @@ export default async function PersonalBudgetPage() {
 
   // --- Recurring templates --------------------------------------------------
   // Mirrors the household budget's (src/app/dashboard/budget/page.tsx) —
-  // see recurring-template-calc.ts's doc comments.
+  // see src/lib/recurring-template-calc.ts's doc comments.
   const activeRecurringTemplates = recurringTemplates.filter((t) => t.active);
   const templateStatusRows = computeTemplateStatuses({
     templates: activeRecurringTemplates,
@@ -152,7 +152,7 @@ export default async function PersonalBudgetPage() {
 
   // --- Fixed income & costs summary -----------------------------------------
   // Mirrors the household budget's (src/app/dashboard/budget/page.tsx) — see
-  // recurring-template-calc.ts's doc comments.
+  // src/lib/recurring-template-calc.ts's doc comments.
   const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates);
   const fixedMonthlyTotals = computeRecurringMonthlyTotals({
     transactions: transactions.map((t) => ({
