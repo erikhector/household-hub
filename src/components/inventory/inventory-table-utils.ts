@@ -8,6 +8,7 @@ export type InventoryItemRow = {
   unit: string;
   lowStockThreshold: number;
   location: string | null;
+  expiresAt: Date | null;
   updatedAt: Date;
   updatedByUserId: string | null;
 };

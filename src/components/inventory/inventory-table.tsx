@@ -33,6 +33,7 @@ import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { StockBadge } from "@/components/inventory/stock-badge";
+import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { getStockStatus } from "@/lib/stock-status";
@@ -396,7 +397,10 @@ export function InventoryTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <ExpiryBadge expiresAt={item.expiresAt} dict={dict} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
@@ -460,7 +464,10 @@ export function InventoryTable({
                       {item.location ? ` • ${item.location}` : ""}
                     </p>
                   </div>
-                  <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <ExpiryBadge expiresAt={item.expiresAt} dict={dict} />
+                  </div>
                 </div>
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <div className="flex min-w-0 shrink items-center gap-1.5">

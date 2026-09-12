@@ -5,7 +5,7 @@
 // condition happens, and stick around until a user dismisses them (see
 // dismissNotificationAction in src/lib/actions/notifications.ts).
 //
-// Only two triggers exist:
+// Three triggers exist:
 // - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0 — see `recordOutOfStockTransition`, called from every action
 //   that can *decrease* an existing item's quantity (adjustQuantityAction,
@@ -18,6 +18,9 @@
 // - Meal not logged: a past MealPlanEntry whose `consumedAt` is still null —
 //   synced lazily in `syncMealNotLoggedNotifications` below (no background
 //   job) whenever the bell's contents are fetched.
+// - Expiring soon: an in-stock InventoryItem with `expiresAt` set, within
+//   EXPIRY_WARNING_DAYS of that date or already past it — synced lazily in
+//   `syncExpiringSoonNotifications` below, the same way meal-not-logged is.
 //
 // Callers must resolve `householdId` from their own `requireHousehold()`
 // call first — this trusts its argument the same way
@@ -27,6 +30,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { sendPushToHousehold } from "@/lib/push";
+import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 
 export type OutOfStockNotification = {
   id: string;
@@ -44,7 +48,14 @@ export type MealNotLoggedNotification = {
   name: string;
 };
 
-export type NotificationItem = OutOfStockNotification | MealNotLoggedNotification;
+export type ExpiringSoonNotification = {
+  id: string;
+  kind: "expiringSoon";
+  itemId: string;
+  name: string;
+};
+
+export type NotificationItem = OutOfStockNotification | MealNotLoggedNotification | ExpiringSoonNotification;
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -132,8 +143,61 @@ async function syncMealNotLoggedNotifications(householdId: string): Promise<void
   );
 }
 
+// Finds in-stock items within EXPIRY_WARNING_DAYS of their `expiresAt` (or
+// already past it) and files a one-time alert for each — deduped like
+// recordOutOfStockTransition (an existing undismissed alert for the same
+// item is left alone) rather than a DB unique constraint, since an item can
+// legitimately be re-stocked with a new expiry date after an old alert was
+// dismissed, and a unique constraint on `inventoryItemId` would then block
+// the new one from ever being created.
+async function syncExpiringSoonNotifications(householdId: string): Promise<void> {
+  const threshold = new Date(Date.now() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
+
+  const candidates = await prisma.inventoryItem.findMany({
+    where: {
+      householdId,
+      quantity: { gt: 0 },
+      expiresAt: { lte: threshold },
+    },
+    select: { id: true, name: true },
+  });
+  if (candidates.length === 0) return;
+
+  const alreadyAlerted = await prisma.notification.findMany({
+    where: {
+      householdId,
+      kind: "EXPIRING_SOON",
+      dismissedAt: null,
+      inventoryItemId: { in: candidates.map((item) => item.id) },
+    },
+    select: { inventoryItemId: true },
+  });
+  const alreadyAlertedIds = new Set(alreadyAlerted.map((row) => row.inventoryItemId));
+
+  const toAlert = candidates.filter((item) => !alreadyAlertedIds.has(item.id));
+  if (toAlert.length === 0) return;
+
+  await Promise.all(
+    toAlert.map((item) =>
+      prisma.notification
+        .create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } })
+        .then(() => {
+          // Fire-and-forget — see recordOutOfStockTransition's matching
+          // comment above and sendPushToHousehold's doc comment in
+          // src/lib/push.ts.
+          void sendPushToHousehold(householdId, {
+            title: "Expiring soon",
+            body: `${item.name} is expiring soon`,
+            url: "/dashboard/inventory",
+          });
+        }),
+    ),
+  );
+}
+
 export async function getActiveNotifications(householdId: string): Promise<NotificationItem[]> {
   await syncMealNotLoggedNotifications(householdId);
+  await syncExpiringSoonNotifications(householdId);
 
   const rows = await prisma.notification.findMany({
     where: { householdId, dismissedAt: null },
@@ -153,6 +217,11 @@ export async function getActiveNotifications(householdId: string): Promise<Notif
       // leave a brief gap) — nothing meaningful to show.
       if (!row.inventoryItem) return [];
       return [{ id: row.id, kind: "outOfStock", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+    }
+
+    if (row.kind === "EXPIRING_SOON") {
+      if (!row.inventoryItem) return [];
+      return [{ id: row.id, kind: "expiringSoon", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
     }
 
     if (!row.mealPlanEntry) return [];

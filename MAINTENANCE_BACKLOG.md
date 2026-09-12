@@ -132,7 +132,7 @@ Run after the already-dispatched "remove react-hook-form" task merges, to avoid 
 Run after the already-dispatched "add missing Prisma indexes" task merges, to avoid a
 migration-numbering conflict (same reasoning `PRODUCTION_READINESS.md`'s Wave 2 used).
 
-- [ ] **L. Add expiry/best-before date tracking** — `InventoryItem` has no expiry
+- [x] **L. Add expiry/best-before date tracking** — `InventoryItem` has no expiry
       field today. Add an optional `expiresAt` (`DateTime?`) to `InventoryItem` in
       `prisma/schema.prisma` + migration. Surface "expiring soon" (e.g. within 3 days)
       as a visual indicator in the inventory list/table, alongside the existing

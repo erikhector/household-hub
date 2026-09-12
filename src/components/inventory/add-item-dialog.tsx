@@ -222,6 +222,15 @@ export function ItemFormDialog({
               />
             </div>
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="expiresAt">{dict.expiresAtLabel}</Label>
+            <Input
+              id="expiresAt"
+              name="expiresAt"
+              type="date"
+              defaultValue={item?.expiresAt ? item.expiresAt.toISOString().slice(0, 10) : ""}
+            />
+          </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           {sessionAddedCount > 0 && (
             <p className="text-xs text-muted-foreground">
