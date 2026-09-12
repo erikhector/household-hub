@@ -224,6 +224,18 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
+  - **Expiry/best-before tracking**: an optional `expiresAt` (`DateTime?`),
+    set from a native date input on the single-item add/edit form
+    (`ItemFormDialog`) only — never by any bulk-add flow (scan queue,
+    paste-list, starter kit), since those are rapid multi-item entry paths
+    with no natural single date to apply. `getExpiryStatus`
+    (`src/lib/inventory/expiry.ts`, pure and unit-tested, mirroring
+    `getStockStatus`'s split for the same Server/Client Component reason)
+    classifies an item as `"soon"` (within `EXPIRY_WARNING_DAYS`, currently
+    3) or `"expired"` (past the date); `ExpiryBadge` renders that next to
+    the existing stock-status badge in the inventory table/cards, hidden
+    entirely when no expiry is set or it's further out than the window. Also
+    feeds a third notification trigger — see "Notification center" below.
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
@@ -1258,7 +1270,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly two triggers exist — nothing else creates a notification:
+Exactly three triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -1290,7 +1302,17 @@ Exactly two triggers exist — nothing else creates a notification:
   fire **at most once per entry, ever** — once created, dismissed or not,
   it's never recreated, so ignoring it doesn't turn it into a repeating
   nag.
-- Both triggers are intentionally narrow. The old design's "low stock" alert
+- **Expiring soon**: an in-stock `InventoryItem` (`quantity > 0`) with
+  `expiresAt` set, within `EXPIRY_WARNING_DAYS` (3) of that date or already
+  past it. Synced lazily the same way "meal not logged" is — every
+  `getActiveNotifications` call runs `syncExpiringSoonNotifications`, which
+  finds qualifying items and creates an `EXPIRING_SOON` `Notification` for
+  each. Deduped like out-of-stock (an application-level check for an
+  existing undismissed alert for the same item), not a DB unique constraint
+  like meal-not-logged — a unique constraint on `inventoryItemId` would
+  permanently block a future alert for an item that gets re-stocked with a
+  new expiry date after the old alert was dismissed.
+- All three triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
   concrete, one-time event, so under the current model neither fits.

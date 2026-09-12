@@ -11,6 +11,7 @@ const {
   notificationFindManyMock,
   mealPlanEntryFindManyMock,
   inventoryItemFindUniqueMock,
+  inventoryItemFindManyMock,
   sendPushToHouseholdMock,
 } = vi.hoisted(() => ({
   notificationFindFirstMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   notificationFindManyMock: vi.fn(),
   mealPlanEntryFindManyMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
+  inventoryItemFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
 }));
 
@@ -29,7 +31,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: notificationFindManyMock,
     },
     mealPlanEntry: { findMany: mealPlanEntryFindManyMock },
-    inventoryItem: { findUnique: inventoryItemFindUniqueMock },
+    inventoryItem: { findUnique: inventoryItemFindUniqueMock, findMany: inventoryItemFindManyMock },
   },
 }));
 
@@ -51,6 +53,7 @@ beforeEach(() => {
   notificationFindManyMock.mockResolvedValue([]);
   mealPlanEntryFindManyMock.mockResolvedValue([]);
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Eggs" });
+  inventoryItemFindManyMock.mockResolvedValue([]);
   sendPushToHouseholdMock.mockResolvedValue(undefined);
 });
 
@@ -204,5 +207,59 @@ describe("getActiveNotifications", () => {
     expect(notificationFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { householdId: "household-42", dismissedAt: null } }),
     );
+  });
+
+  it("syncs an EXPIRING_SOON alert for an in-stock item nearing its expiry date", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    notificationFindManyMock.mockResolvedValueOnce([]); // no existing undismissed alert
+
+    await getActiveNotifications("household-1");
+
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", quantity: { gt: 0 }, expiresAt: { lte: expect.any(Date) } },
+      select: { id: true, name: true },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "EXPIRING_SOON", inventoryItemId: "item-1" },
+    });
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
+      title: "Expiring soon",
+      body: "Yogurt is expiring soon",
+      url: "/dashboard/inventory",
+    });
+  });
+
+  it("does not duplicate an already-active EXPIRING_SOON alert for the same item", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    notificationFindManyMock.mockResolvedValueOnce([{ inventoryItemId: "item-1" }]);
+
+    await getActiveNotifications("household-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("maps an EXPIRING_SOON row using the linked item's current name", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "notif-3",
+        kind: "EXPIRING_SOON",
+        inventoryItemId: "item-1",
+        inventoryItem: { name: "Yogurt" },
+        mealPlanEntry: null,
+      },
+    ]);
+
+    const notifications = await getActiveNotifications("household-1");
+
+    expect(notifications).toEqual([{ id: "notif-3", kind: "expiringSoon", itemId: "item-1", name: "Yogurt" }]);
+  });
+
+  it("drops an EXPIRING_SOON row whose inventory item no longer exists", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      { id: "notif-3", kind: "EXPIRING_SOON", inventoryItemId: "item-1", inventoryItem: null, mealPlanEntry: null },
+    ]);
+
+    expect(await getActiveNotifications("household-1")).toEqual([]);
   });
 });

@@ -20,6 +20,12 @@ const itemSchema = z.object({
   unit: z.string().trim().min(1).max(20, "Unit must be 20 characters or fewer").default("pcs"),
   lowStockThreshold: z.coerce.number().min(0, "Threshold can't be negative"),
   location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
+  // Native <input type="date"> value ("" when left blank) — only ever set
+  // from the single-item add/edit form, never any bulk-add flow.
+  expiresAt: z
+    .string()
+    .optional()
+    .transform((value) => (value ? new Date(value) : null)),
 });
 
 const starterKitSchema = z.object({
@@ -40,6 +46,7 @@ export async function createInventoryItemAction(
     unit: formData.get("unit") || "pcs",
     lowStockThreshold: formData.get("lowStockThreshold"),
     location: formData.get("location") || undefined,
+    expiresAt: formData.get("expiresAt") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -74,6 +81,7 @@ export async function updateInventoryItemAction(
     unit: formData.get("unit") || "pcs",
     lowStockThreshold: formData.get("lowStockThreshold"),
     location: formData.get("location") || undefined,
+    expiresAt: formData.get("expiresAt") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };

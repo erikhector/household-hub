@@ -13,6 +13,7 @@ function item(overrides: Partial<InventoryItemRow>): InventoryItemRow {
     unit: "l",
     lowStockThreshold: 1,
     location: "Fridge",
+    expiresAt: null,
     updatedAt: new Date(2026, 8, 1),
     updatedByUserId: null,
     ...overrides,

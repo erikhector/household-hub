@@ -136,6 +136,26 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
     );
   });
 
+  it("parses a provided expiresAt date and persists it as a Date", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, expiresAt: "2026-12-25" }));
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expiresAt: new Date("2026-12-25") }) }),
+    );
+  });
+
+  it("defaults expiresAt to null when left blank", async () => {
+    createMock.mockResolvedValue({});
+    const fd = formData(validItem);
+    fd.delete("expiresAt");
+
+    await createInventoryItemAction({}, fd);
+
+    expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ expiresAt: null }) }));
+  });
+
   it("creates the item scoped to the caller's household on valid input", async () => {
     createMock.mockResolvedValue({});
 
@@ -150,6 +170,7 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         quantity: 2,
         unit: "kg",
         lowStockThreshold: 1,
+        expiresAt: null,
         updatedByUserId: "user-1",
       },
     });
@@ -182,6 +203,19 @@ describe("updateInventoryItemAction", () => {
 
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ location: null }) }),
+    );
+  });
+
+  it("clears expiresAt back to null when the date input is emptied", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1" });
+    updateMock.mockResolvedValue({});
+    const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-01-01" });
+    fd.delete("expiresAt");
+
+    await updateInventoryItemAction({}, fd);
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expiresAt: null }) }),
     );
   });
 

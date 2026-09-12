@@ -17,7 +17,7 @@
 // 6th primary icon to the bottom bar.
 
 import Link from "next/link";
-import { Bell, CalendarDays, Package } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +36,13 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 function notificationHref(item: NotificationItem): string {
   if (item.kind === "outOfStock") return `/dashboard/inventory?status=out`;
+  if (item.kind === "expiringSoon") return `/dashboard/inventory`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
 function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
   if (item.kind === "outOfStock") return format(dict.outOfStock, { name: item.name });
+  if (item.kind === "expiringSoon") return format(dict.expiringSoon, { name: item.name });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 
@@ -81,7 +83,7 @@ function NotificationEntries({
   return (
     <>
       {items.map((item) => {
-        const Icon = item.kind === "outOfStock" ? Package : CalendarDays;
+        const Icon = item.kind === "outOfStock" ? Package : item.kind === "expiringSoon" ? CalendarClock : CalendarDays;
         return (
           <DropdownMenuItem
             key={item.id}

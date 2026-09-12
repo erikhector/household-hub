@@ -168,6 +168,12 @@ model InventoryItem {
   lowStockThreshold Float    @default(1)
   location          String?
   lastKnownPrice    Float?
+  // Optional best-before/expiry date, set from the add/edit item form. Feeds
+  // the "expiring soon" table indicator and notification trigger (see
+  // src/lib/inventory/expiry.ts, src/lib/notifications.ts) — never set by
+  // any bulk-add flow (scan queue, paste-list, starter kit), only the
+  // single-item form.
+  expiresAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity
@@ -191,11 +197,12 @@ model InventoryItem {
 enum NotificationKind {
   OUT_OF_STOCK
   MEAL_NOT_LOGGED
+  EXPIRING_SOON
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
 // earlier design with no table at all, where every alert was recomputed
-// live on each render. Two triggers only, both fired at the moment they
+// live on each render. Three triggers only, all fired at the moment they
 // happen rather than recomputed:
 // - OUT_OF_STOCK: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0. Never fired for items created at zero (recipe-ingredient
@@ -206,6 +213,13 @@ enum NotificationKind {
 //   getActiveNotifications runs after that becomes true. The @@unique on
 //   mealPlanEntryId makes this fire at most once per entry, ever —
 //   dismissing it (or ignoring it) never brings it back.
+// - EXPIRING_SOON: an InventoryItem with `expiresAt` set, still in stock,
+//   within EXPIRY_WARNING_DAYS of its expiry date (or already past it).
+//   Fired lazily the same way MEAL_NOT_LOGGED is, but deduped like
+//   OUT_OF_STOCK (an application-level check for an existing undismissed
+//   alert for the same item, not a DB unique constraint) since an item can
+//   legitimately be re-stocked with a new expiry date after the old alert
+//   was dismissed. See syncExpiringSoonNotifications.
 // `dismissedAt` is set the moment a user clicks the notification (see
 // dismissNotificationAction) — dismissed rows are kept, not deleted, so
 // MEAL_NOT_LOGGED's once-ever guarantee holds, and are simply excluded from
