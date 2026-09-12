@@ -25,6 +25,12 @@ export type RecipeData = {
   // however many portions a given meal-plan entry (MealPlanEntryData.portions
   // below) is actually cooking.
   servings: number;
+  // Optional, manual-entry-only per-serving nutrition info — see Recipe's
+  // doc comment in schema.prisma. Null means "not entered."
+  caloriesPerServing: number | null;
+  proteinGramsPerServing: number | null;
+  carbsGramsPerServing: number | null;
+  fatGramsPerServing: number | null;
   ingredients: RecipeIngredientData[];
   components: RecipeComponentData[];
 };

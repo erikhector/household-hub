@@ -5,12 +5,15 @@
 // and the personal recurring-template actions.
 
 import { useTransition } from "react";
-import { Check, CheckCircle2 } from "lucide-react";
+import { Check, CheckCircle2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { acknowledgePersonalTemplatePeriodAction } from "@/app/dashboard/personal-budget/actions";
+import {
+  acknowledgePersonalTemplatePeriodAction,
+  logPersonalRecurringTemplateAction,
+} from "@/app/dashboard/personal-budget/actions";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
@@ -98,6 +101,21 @@ export function PersonalDueRecurringWidget({
                       </Button>
                     }
                   />
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await logPersonalRecurringTemplateAction(template.id);
+                        if (result.error) toast.error(result.error);
+                        else toast.success(format(dict.recurring.loggedAsIsToast, { name: template.name }));
+                      })
+                    }
+                  >
+                    <Zap className="size-3.5" />
+                    {dict.recurring.logAsIs}
+                  </Button>
                   <Button
                     size="xs"
                     variant="outline"

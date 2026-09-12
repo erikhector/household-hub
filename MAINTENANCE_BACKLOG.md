@@ -168,7 +168,7 @@ Each of these is a genuine feature, not a cleanup — give the agent latitude to
 reasonable UX calls the way past waves' agents did, but flag anything that reads like a
 product decision rather than an implementation detail.
 
-- [ ] **N. CSV/bulk inventory import** — CSV *export* exists for inventory/shopping/budget
+- [x] **N. CSV/bulk inventory import** — CSV *export* exists for inventory/shopping/budget
       (`src/lib/csv.ts`), but there's no import path anywhere. The recent bulk-stocking
       work already added a paste-list parser and scan queue to the inventory feature
       (see recent commits/`src/components/inventory/` for the paste-list import UI) —
@@ -176,7 +176,7 @@ product decision rather than an implementation detail.
       inventory setup, reusing its parsing/preview/confirm flow rather than building a
       new one. Scope to inventory only (not shopping-list/budget import) for this pass.
 
-- [ ] **O. One-tap "log it" for a due recurring template** — the recurring-transaction
+- [x] **O. One-tap "log it" for a due recurring template** — the recurring-transaction
       scheduler groundwork already exists: `recurring-template-calc.ts`'s
       `getPeriodKey`/`computeTemplateStatuses` derives per-period due/posted/acknowledged
       state (see Wave 4 note above — coordinate if both land close together). Add a
@@ -185,7 +185,7 @@ product decision rather than an implementation detail.
       the user re-entering it by hand via `TransactionDialog`. Keep the existing
       "acknowledge without logging" path working unchanged.
 
-- [ ] **P. Recipe nutrition fields (manual entry only)** — add optional per-recipe
+- [x] **P. Recipe nutrition fields (manual entry only)** — add optional per-recipe
       nutrition fields (e.g. calories, protein/carbs/fat — confirm exact field set is
       reasonable, don't over-build) to `Recipe` in `prisma/schema.prisma` + migration,
       editable in `RecipeFormDialog` and displayed on the recipe view. Manual entry

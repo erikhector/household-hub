@@ -85,6 +85,7 @@ const {
   deletePersonalRecurringTemplateAction,
   acknowledgePersonalTemplatePeriodAction,
   unacknowledgePersonalTemplatePeriodAction,
+  logPersonalRecurringTemplateAction,
 } = await import("@/app/dashboard/personal-budget/actions");
 
 function formData(fields: Record<string, string>) {
@@ -285,5 +286,47 @@ describe("personal recurring templates", () => {
 
     expect(result.error).toBe("Recurring template not found");
     expect(recurringTemplateAckDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  describe("logPersonalRecurringTemplateAction", () => {
+    it("returns 'Recurring template not found' for another user's template (IDOR guard)", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue(null);
+
+      const result = await logPersonalRecurringTemplateAction("someone-elses-template");
+
+      expect(result.error).toBe("Recurring template not found");
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+      expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "someone-elses-template", userId } }),
+      );
+    });
+
+    it("creates a transaction from the template's own fields, never a client-supplied amount/category", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue({
+        id: "template-1",
+        categoryId: "cat-1",
+        amount: 300,
+        type: "EXPENSE",
+        name: "Gym",
+        frequency: "MONTHLY",
+      });
+      transactionCreateMock.mockResolvedValue({});
+
+      const result = await logPersonalRecurringTemplateAction("template-1");
+
+      expect(result).toEqual({});
+      expect(transactionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId,
+          categoryId: "cat-1",
+          amount: 300,
+          type: "EXPENSE",
+          description: "Gym",
+          isRecurring: true,
+          recurrenceFrequency: "MONTHLY",
+          recurringTemplateId: "template-1",
+        }),
+      });
+    });
   });
 });

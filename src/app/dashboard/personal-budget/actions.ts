@@ -372,6 +372,44 @@ export async function deletePersonalRecurringTemplateAction(
   return {};
 }
 
+/**
+ * One-click "log it as-is" — mirrors logRecurringTemplateAction in
+ * src/app/dashboard/budget/actions.ts for PersonalTransaction/
+ * PersonalRecurringTemplate. Creates a PersonalTransaction straight from the
+ * template's own amount/category/frequency (today's date, no dialog), which
+ * is already sufficient for computeTemplateStatuses to see this period as
+ * "posted" — no separate acknowledgement row needed.
+ */
+export async function logPersonalRecurringTemplateAction(templateId: string): Promise<ActionState> {
+  const userId = await requireUserId();
+
+  const template = await prisma.personalRecurringTemplate.findFirst({
+    where: { id: templateId, userId },
+  });
+  if (!template) return { error: "Recurring template not found" };
+
+  try {
+    await prisma.personalTransaction.create({
+      data: {
+        userId,
+        categoryId: template.categoryId,
+        amount: template.amount,
+        type: template.type,
+        description: template.name,
+        date: new Date(),
+        isRecurring: true,
+        recurrenceFrequency: template.frequency,
+        recurringTemplateId: template.id,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/personal-budget");
+  return {};
+}
+
 export async function acknowledgePersonalTemplatePeriodAction(
   templateId: string,
 ): Promise<ActionState> {

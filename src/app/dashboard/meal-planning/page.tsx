@@ -44,6 +44,10 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         name: recipe.name,
         instructions: recipe.instructions,
         servings: recipe.servings,
+        caloriesPerServing: recipe.caloriesPerServing,
+        proteinGramsPerServing: recipe.proteinGramsPerServing,
+        carbsGramsPerServing: recipe.carbsGramsPerServing,
+        fatGramsPerServing: recipe.fatGramsPerServing,
         ingredients: recipe.ingredients.map((ingredient) => ({
           id: ingredient.id,
           name: ingredient.name,

@@ -239,6 +239,59 @@ describe("createRecipeAction", () => {
       }),
     );
   });
+
+  it("sets all four optional nutrition fields when provided, rounding calories", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    await createRecipeAction(
+      {},
+      formData({
+        name: "Soup",
+        caloriesPerServing: "310.6",
+        proteinGramsPerServing: "12.5",
+        carbsGramsPerServing: "40",
+        fatGramsPerServing: "8.25",
+      }),
+    );
+
+    expect(recipeCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          caloriesPerServing: 311,
+          proteinGramsPerServing: 12.5,
+          carbsGramsPerServing: 40,
+          fatGramsPerServing: 8.25,
+        }),
+      }),
+    );
+  });
+
+  it("defaults every nutrition field to null when left blank", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    await createRecipeAction({}, formData({ name: "Soup" }));
+
+    expect(recipeCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          caloriesPerServing: null,
+          proteinGramsPerServing: null,
+          carbsGramsPerServing: null,
+          fatGramsPerServing: null,
+        }),
+      }),
+    );
+  });
+
+  it("rejects a negative nutrition value", async () => {
+    const result = await createRecipeAction(
+      {},
+      formData({ name: "Soup", caloriesPerServing: "-5" }),
+    );
+
+    expect(result.error).toBe("Nutrition values can't be negative");
+    expect(recipeCreateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateRecipeAction", () => {
@@ -296,6 +349,26 @@ describe("updateRecipeAction", () => {
         components: { create: [{ componentRecipeId: "bolognese", quantity: 2 }] },
       }),
     });
+  });
+
+  it("clears a previously-set nutrition field back to null when the input is emptied", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "lasagna" });
+    recipeUpdateMock.mockResolvedValue({});
+    const fd = formData({ recipeId: "lasagna", name: "Lasagna", proteinGramsPerServing: "20" });
+    fd.delete("proteinGramsPerServing");
+
+    await updateRecipeAction({}, fd);
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          caloriesPerServing: null,
+          proteinGramsPerServing: null,
+          carbsGramsPerServing: null,
+          fatGramsPerServing: null,
+        }),
+      }),
+    );
   });
 });
 

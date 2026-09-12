@@ -80,10 +80,34 @@ async function parseIngredientRows(
   return { data };
 }
 
+// Optional, manual-entry-only nutrition fields (see Recipe's doc comment in
+// schema.prisma) — each arrives from the form as "" when left blank, which
+// must become `null` (not `undefined`) so an update can actually clear a
+// previously-set value, mirroring InventoryItem.expiresAt's optional-string
+// -> null transform in src/app/dashboard/inventory/actions.ts.
+const optionalNonNegativeNumber = z
+  .string()
+  .optional()
+  .transform((value) => (value ? Number(value) : null))
+  .refine((value) => value === null || (Number.isFinite(value) && value >= 0), {
+    message: "Nutrition values can't be negative",
+  });
+
+// Same as above but rounded to a whole number, matching
+// `caloriesPerServing Int?` in schema.prisma (a fractional calorie count
+// would otherwise reject at the database layer).
+const optionalNonNegativeInt = optionalNonNegativeNumber.transform((value) =>
+  value === null ? null : Math.round(value),
+);
+
 const recipeSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   instructions: z.string().trim().max(4000).optional(),
   servings: z.coerce.number().int().min(1, "Servings must be at least 1").max(1_000),
+  caloriesPerServing: optionalNonNegativeInt,
+  proteinGramsPerServing: optionalNonNegativeNumber,
+  carbsGramsPerServing: optionalNonNegativeNumber,
+  fatGramsPerServing: optionalNonNegativeNumber,
 });
 
 type ComponentRow = { componentRecipeId: string; quantity: number };
@@ -142,6 +166,10 @@ export async function createRecipeAction(
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
     servings: formData.get("servings") || 4,
+    caloriesPerServing: formData.get("caloriesPerServing") || undefined,
+    proteinGramsPerServing: formData.get("proteinGramsPerServing") || undefined,
+    carbsGramsPerServing: formData.get("carbsGramsPerServing") || undefined,
+    fatGramsPerServing: formData.get("fatGramsPerServing") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -159,6 +187,10 @@ export async function createRecipeAction(
       name: parsed.data.name,
       instructions: parsed.data.instructions || null,
       servings: parsed.data.servings,
+      caloriesPerServing: parsed.data.caloriesPerServing,
+      proteinGramsPerServing: parsed.data.proteinGramsPerServing,
+      carbsGramsPerServing: parsed.data.carbsGramsPerServing,
+      fatGramsPerServing: parsed.data.fatGramsPerServing,
       ingredients: { create: ingredients.data },
       components: { create: components.data },
     },
@@ -180,6 +212,10 @@ export async function updateRecipeAction(
     name: formData.get("name"),
     instructions: formData.get("instructions") || undefined,
     servings: formData.get("servings") || 4,
+    caloriesPerServing: formData.get("caloriesPerServing") || undefined,
+    proteinGramsPerServing: formData.get("proteinGramsPerServing") || undefined,
+    carbsGramsPerServing: formData.get("carbsGramsPerServing") || undefined,
+    fatGramsPerServing: formData.get("fatGramsPerServing") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -205,6 +241,10 @@ export async function updateRecipeAction(
         name: parsed.data.name,
         instructions: parsed.data.instructions || null,
         servings: parsed.data.servings,
+        caloriesPerServing: parsed.data.caloriesPerServing,
+        proteinGramsPerServing: parsed.data.proteinGramsPerServing,
+        carbsGramsPerServing: parsed.data.carbsGramsPerServing,
+        fatGramsPerServing: parsed.data.fatGramsPerServing,
         ingredients: { create: ingredients.data },
         components: { create: components.data },
       },
