@@ -193,17 +193,13 @@ product decision rather than an implementation detail.
       a separate, larger task needing its own SSRF-safe-fetch review (like the existing
       recipe-URL-import feature) and is out of scope here.
 
-- [ ] **Q. Scoped view-only share link for a single shopping list** — today the only
-      sharing mechanism is a full household invite (`/join/[token]`), which requires
-      creating an account and joining the whole household's data. Add a separate,
-      revocable link scoped to one `ShoppingList` that lets a non-member view (and
-      optionally check off items — **flag this specific choice for a human decision**:
-      read-only vs. check-off-only changes the security model) without joining the
-      household. **This needs a product decision before implementation on**: (1)
-      read-only or check-off-allowed, (2) whether the link requires no login at all or
-      a lightweight session, (3) expiry/revocation UX. Don't guess on these — surface
-      the question rather than picking silently, the way past tasks in
-      `PRODUCTION_READINESS.md` escalated ambiguous scope calls.
+- [x] **Q. Scoped view-only share link for a single shopping list** — decisions made
+      (check-off allowed, no login required, manual revoke only). Implemented as
+      `ShoppingListShareLink` + a public `/share/shopping-list/[token]` page, with the
+      unauthenticated `toggleItemViaShareTokenAction` re-validating the itemId belongs
+      to the token's own list as the real security boundary. Live-verified: create
+      link, view + check off with no session, revoke, confirm revoked link stops
+      working.
 
 - [ ] **R. Accessibility pass** — only ~49 `aria-*`/`role` occurrences across 25 files
       app-wide is thin for a multi-page dashboard app. Audit form labeling (every input

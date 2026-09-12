@@ -264,6 +264,66 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   was given); un-marking it reverses the increment. The dashboard overview
   card sums pending items across every `ACTIVE` list, not just one.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
+- **Share link** (`ShoppingListShareLink`) — lets a household member hand a
+  single `ShoppingList` to someone outside the household (a roommate not on
+  the account, a partner picking up the shop) without inviting them as a
+  full household member. Three product decisions drive the shape, all made
+  up front rather than left to be re-litigated:
+  - **Permissions**: a visitor holding the link can both **view the list and
+    check off items** — not view-only. Checking off an item via the link
+    runs the exact same side effects `togglePurchasedAction` has for a
+    signed-in member (increments/decrements the linked `InventoryItem`'s
+    quantity, `recordOutOfStockTransition`, `PriceHistory` on marking
+    purchased) — see `toggleItemViaShareTokenAction` below.
+  - **Access**: **no login required at all** — the token is the sole
+    credential, the same frictionless model `Invitation`/`/join/[token]`
+    already uses for household invites. Unlike `Invitation`, there's no
+    `expiresAt`.
+  - **Expiry**: **manual revoke only**, by any household member (member-,
+    not owner-, scoped — same convention as `deleteShoppingListAction`), via
+    `revokedAt`. `revokedAt: null` means active; there's no background job
+    or time-based expiry at all.
+
+  Schema: `id`, `shoppingListId` (`onDelete: Cascade`), `token`
+  (`String @unique`, generated with `randomUUID()` the same way
+  `Invitation`/password-reset/email-verification tokens are), `createdAt`,
+  `revokedAt`. A list can accumulate more than one row over its lifetime
+  (each revoke-then-reshare mints a fresh token), but
+  `createShareLinkAction` reuses an existing active link instead of piling
+  up duplicates for repeat clicks.
+
+  Actions live in two places, split by trust boundary:
+  - `src/app/dashboard/shopping-list/share-actions.ts` —
+    `createShareLinkAction`/`revokeShareLinkAction`, both `requireHousehold`-
+    scoped exactly like the rest of this feature. `createShareLinkAction`
+    builds the full share URL server-side from `APP_URL` (falling back to
+    request headers only in local dev with `APP_URL` unset) — the same
+    header-spoofing trust boundary `sendInviteEmailAction`'s `absoluteAppUrl`
+    already guards against, applied here too.
+  - `src/app/share/shopping-list/actions.ts` — `getShoppingListByShareToken`
+    and `toggleItemViaShareTokenAction`, which take **no session at all**.
+    **The critical security boundary**: `toggleItemViaShareTokenAction`
+    doesn't just check the token is active — it re-derives the
+    `shoppingListId` from the token first and scopes the `shoppingListItem`
+    lookup to `{ id: itemId, shoppingListId }`, so a client can't pair a
+    valid, active token for list A with an `itemId` belonging to list B
+    (their own, a different household's, or guessed) to toggle an item they
+    were never granted access to. A lookup miss (unknown token, revoked
+    token, or a real item from the wrong list) all resolve to the same
+    generic "not found"/"invalid or revoked" errors — nothing here
+    distinguishes *why* a token or pairing failed.
+
+  UI: `/dashboard/shopping-list/[id]`'s `ShoppingListClient` renders a
+  "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
+  link/copy-button/revoke UX) only while the list is `ACTIVE` — sharing a
+  `COMPLETED`/`ARCHIVED` list to let a visitor check off items has no real
+  use once the list is done. The public page itself,
+  `/share/shopping-list/[token]` (top-level, deliberately **not** under
+  `/dashboard` so `src/proxy.ts`'s session gate — which only matches
+  `/dashboard/*` — never touches it), is a minimal standalone Card with no
+  dashboard chrome, the same shape `/join/[token]` uses for its own
+  unauthenticated visitors. An unknown or revoked token renders a clear
+  "link not found" message rather than a crash or generic 404.
 
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to

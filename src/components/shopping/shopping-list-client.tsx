@@ -11,6 +11,7 @@ import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { MapShoppingItemDialog } from "@/components/shopping/map-shopping-item-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
+import { ShareListButton } from "@/components/shopping/share-list-button";
 import {
   addAdHocItemAction,
   archiveShoppingListAction,
@@ -162,6 +163,7 @@ export function ShoppingListClient({
         </div>
         <div className="flex flex-wrap gap-2">
           <ExportButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
+          {isActive && <ShareListButton shoppingListId={list.id} dict={dict.shareLink} />}
           {isActive && (
             <Button
               variant="outline"
