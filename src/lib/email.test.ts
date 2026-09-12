@@ -20,9 +20,9 @@ const { sendMock, ResendMock, loggerErrorMock } = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 
 vi.mock("resend", () => ({
-  Resend: ResendMock.mockImplementation(() => ({
-    emails: { send: sendMock },
-  })),
+  Resend: ResendMock.mockImplementation(function () {
+    return { emails: { send: sendMock } };
+  }),
 }));
 
 vi.mock("@/lib/logger", () => ({
