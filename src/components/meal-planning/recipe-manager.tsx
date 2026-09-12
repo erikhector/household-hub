@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
-import { deleteRecipeAction } from "@/app/dashboard/meal-planning/actions";
+import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
 import { format, plural } from "@/lib/i18n/format";
 import type { RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";

@@ -21,16 +21,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { InventoryTable } from "@/components/inventory/inventory-table";
+import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import {
-  InventoryTable,
-  getStockStatus,
   matchesUpdatedFilter,
   type HouseholdMemberOption,
   type InventoryGroupBy,
   type InventoryItemRow,
-  type StockStatus,
   type UpdatedFilter,
-} from "@/components/inventory/inventory-table";
+} from "@/components/inventory/inventory-table-utils";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const ALL = "__all__";

@@ -15,7 +15,7 @@ import {
 import { ComboField } from "@/components/inventory/combo-field";
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
-import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table";
+import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";

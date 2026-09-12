@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { requireHousehold, requireUserId } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
@@ -95,8 +96,11 @@ export async function updateEmailAction(
       where: { id: userId },
       data: { email: newEmail },
     });
-  } catch {
-    return { error: "An account with that email already exists" };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: "An account with that email already exists" };
+    }
+    return toFriendlyError(error);
   }
 
   revalidatePath("/dashboard/profile");

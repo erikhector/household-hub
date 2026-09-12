@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addMealEntryAction } from "@/app/dashboard/meal-planning/actions";
+import { addMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { CUSTOM_RECIPE_SENTINEL, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import type { RecipeData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";

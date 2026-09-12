@@ -1,11 +1,9 @@
 "use client";
 
 import { Fragment, useMemo, useState, useTransition } from "react";
-import { Ban, Minus, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { Minus, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -14,12 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -40,202 +32,20 @@ import { QuickAddBar } from "@/components/inventory/quick-add-bar";
 import { StarterKitPicker } from "@/components/inventory/starter-kit-picker";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
-import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { StockBadge } from "@/components/inventory/stock-badge";
+import { ItemActions } from "@/components/inventory/item-actions";
+import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
+import { getStockStatus } from "@/lib/stock-status";
+import {
+  groupItems,
+  type HouseholdMemberOption,
+  type InventoryGroupBy,
+  type InventoryItemRow,
+} from "@/components/inventory/inventory-table-utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
-export type InventoryItemRow = {
-  id: string;
-  name: string;
-  category: string;
-  quantity: number;
-  unit: string;
-  lowStockThreshold: number;
-  location: string | null;
-  updatedAt: Date;
-  updatedByUserId: string | null;
-};
-
-export type HouseholdMemberOption = { userId: string; displayName: string };
-
-export type InventoryGroupBy = "none" | "category" | "location" | "both";
-
-// Bucketed "last updated" ranges the filter dropdown offers — see
-// matchesUpdatedFilter below. Kept as a plain union (not derived from the
-// dict) so InventoryClient's filtering logic doesn't depend on translations.
-export type UpdatedFilter = "all" | "today" | "week" | "stale30" | "stale90";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-export function matchesUpdatedFilter(item: InventoryItemRow, filter: UpdatedFilter, now: number): boolean {
-  const ageMs = now - item.updatedAt.getTime();
-  switch (filter) {
-    case "today":
-      return ageMs < DAY_MS;
-    case "week":
-      return ageMs < 7 * DAY_MS;
-    case "stale30":
-      return ageMs >= 30 * DAY_MS;
-    case "stale90":
-      return ageMs >= 90 * DAY_MS;
-    default:
-      return true;
-  }
-}
-
-// Renders the "Last updated" cell: a compact date plus, when resolvable, who
-// last touched the item — with the full sentence in a tooltip since the
-// column itself only has room for the date.
-function LastUpdatedCell({
-  item,
-  members,
-  locale,
-  dict,
-}: {
-  item: InventoryItemRow;
-  members: HouseholdMemberOption[];
-  locale: Locale;
-  dict: Dictionary["inventory"];
-}) {
-  const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
-  const dateLabel = dateFormat.format(item.updatedAt);
-  const updaterName = members.find((m) => m.userId === item.updatedByUserId)?.displayName;
-  const fullLabel = updaterName
-    ? format(dict.lastUpdatedWithUser, { date: dateLabel, name: updaterName })
-    : format(dict.lastUpdatedNoUser, { date: dateLabel });
-
-  return (
-    <span className="block text-muted-foreground" title={fullLabel}>
-      {dateLabel}
-    </span>
-  );
-}
-
-// Re-exported for existing consumers (InventoryClient) — the real
-// implementation now lives in `@/lib/stock-status` so it's importable from
-// Server Components too (see that file's comment for why).
-export { getStockStatus, type StockStatus };
-
-function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["inventory"] }) {
-  if (status === "out") return <Badge variant="destructive">{dict.statusOut}</Badge>;
-  if (status === "low") return <Badge className="bg-amber-500 text-white">{dict.statusLow}</Badge>;
-  return <Badge variant="secondary">{dict.statusIn}</Badge>;
-}
-
-// Shared between the desktop table row and the mobile card (see
-// InventoryTable below) so the mark-empty/edit/delete cluster — and its
-// touch-target sizing — only needs to be defined once.
-function ItemActions({
-  item,
-  categories,
-  locations,
-  units,
-  members,
-  locale,
-  dict,
-  barcodeDict,
-  isPending,
-  onMarkEmpty,
-  onDelete,
-  size = "size-7",
-}: {
-  item: InventoryItemRow;
-  categories: string[];
-  locations: string[];
-  units: string[];
-  members: HouseholdMemberOption[];
-  locale: Locale;
-  dict: Dictionary["inventory"];
-  barcodeDict: Dictionary["barcodeScanner"];
-  isPending: boolean;
-  onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
-  onDelete: (itemId: string) => void;
-  size?: string;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(size, "text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400")}
-              disabled={isPending}
-              aria-label={dict.markEmptyAriaLabel}
-            >
-              <Ban className="size-3.5" />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>
-            {dict.markEmptyAndAddToList}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ItemFormDialog
-        mode="edit"
-        item={item}
-        categories={categories}
-        locations={locations}
-        units={units}
-        members={members}
-        locale={locale}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        trigger={
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(size, "text-muted-foreground hover:text-primary")}
-            aria-label={dict.editAriaLabel}
-          >
-            <Pencil className="size-3.5" />
-          </Button>
-        }
-      />
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn(size, "text-muted-foreground hover:text-destructive")}
-        disabled={isPending}
-        onClick={() => onDelete(item.id)}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
-    </div>
-  );
-}
-
-function groupKeyFor(item: InventoryItemRow, groupBy: InventoryGroupBy, dict: Dictionary["inventory"]) {
-  const location = item.location || dict.noLocation;
-  if (groupBy === "category") return item.category;
-  if (groupBy === "location") return location;
-  if (groupBy === "both") return `${item.category} • ${location}`;
-  return "";
-}
-
-// Groups items by the chosen key while keeping each group's items in their
-// incoming order (already name-sorted by the server/filter). Groups
-// themselves are sorted alphabetically so the table stays scannable no
-// matter which grouping is picked.
-function groupItems(items: InventoryItemRow[], groupBy: InventoryGroupBy, dict: Dictionary["inventory"]) {
-  if (groupBy === "none") return [{ key: "", items }];
-
-  const groups = new Map<string, InventoryItemRow[]>();
-  for (const item of items) {
-    const key = groupKeyFor(item, groupBy, dict);
-    const existing = groups.get(key);
-    if (existing) existing.push(item);
-    else groups.set(key, [item]);
-  }
-
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, groupedItems]) => ({ key, items: groupedItems }));
-}
+export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
 export function InventoryTable({
   items,

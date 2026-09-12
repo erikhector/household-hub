@@ -134,4 +134,67 @@ describe("computeSafeToSpend", () => {
     });
     expect(result.safeToSpend).toBe(1000 - 5000);
   });
+
+  it("handles a month with zero transactions at all", () => {
+    const result = computeSafeToSpend({
+      transactions: [],
+      monthStart,
+      monthEnd,
+      incomeSoFar: 0,
+      expenseSoFar: 0,
+    });
+    expect(result.safeToSpend).toBe(0);
+    expect(result.expectedRecurring).toEqual([]);
+  });
+
+  it("does not estimate a recurring category whose only transaction is dated in a future month", () => {
+    // The category's sole transaction is recurring, but dated in October —
+    // a future month relative to the September [monthStart, monthEnd)
+    // window — so it isn't "prior" (t.date < monthStart) and shouldn't be
+    // treated as an unposted expected expense for the current month per
+    // REQUIREMENTS.md's "The recurring-expense estimate".
+    const transactions = [tx({ date: new Date(2026, 9, 15) })]; // October, future month
+    const result = computeSafeToSpend({
+      transactions,
+      monthStart,
+      monthEnd,
+      incomeSoFar: 3000,
+      expenseSoFar: 0,
+    });
+    expect(result.expectedRecurring).toEqual([]);
+    expect(result.safeToSpend).toBe(3000);
+  });
+
+  it("includes recurring transactions with a zero or negative amount in the estimate", () => {
+    const transactions = [
+      tx({
+        categoryId: "cat-zero",
+        categoryName: "Zero Fee",
+        amount: 0,
+        date: new Date(2026, 7, 1),
+      }),
+      tx({
+        categoryId: "cat-negative",
+        categoryName: "Rebate",
+        amount: -50,
+        date: new Date(2026, 7, 1),
+      }),
+    ];
+    const result = computeSafeToSpend({
+      transactions,
+      monthStart,
+      monthEnd,
+      incomeSoFar: 3000,
+      expenseSoFar: 0,
+    });
+    expect(result.expectedRecurring).toEqual(
+      expect.arrayContaining([
+        { categoryId: "cat-zero", categoryName: "Zero Fee", amount: 0 },
+        { categoryId: "cat-negative", categoryName: "Rebate", amount: -50 },
+      ]),
+    );
+    expect(result.expectedRecurring).toHaveLength(2);
+    // Expected total is 0 + (-50) = -50, so it *adds* 50 to safe-to-spend.
+    expect(result.safeToSpend).toBe(3000 - 0 - -50);
+  });
 });
