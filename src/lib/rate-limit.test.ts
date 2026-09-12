@@ -96,26 +96,28 @@ describe("checkRateLimit (Upstash Redis backend)", () => {
 
     vi.doMock("@upstash/redis", () => {
       return {
-        Redis: vi.fn().mockImplementation(() => ({
-          set: vi.fn(async (key: string, value: number, opts?: { nx?: boolean; px?: number }) => {
-            const now = Date.now();
-            const existing = store.get(key);
-            if (opts?.nx && existing && existing.expiresAt > now) {
-              return null; // NX: key already exists and hasn't expired
-            }
-            store.set(key, { value, expiresAt: now + (opts?.px ?? 0) });
-            return "OK";
-          }),
-          incr: vi.fn(async (key: string) => {
-            const now = Date.now();
-            const existing = store.get(key);
-            // Real Redis leaves TTL untouched on INCR; mirror that by
-            // keeping the existing expiresAt rather than resetting it.
-            const next = (existing && existing.expiresAt > now ? existing.value : 0) + 1;
-            store.set(key, { value: next, expiresAt: existing?.expiresAt ?? now });
-            return next;
-          }),
-        })),
+        Redis: vi.fn().mockImplementation(function () {
+          return {
+            set: vi.fn(async (key: string, value: number, opts?: { nx?: boolean; px?: number }) => {
+              const now = Date.now();
+              const existing = store.get(key);
+              if (opts?.nx && existing && existing.expiresAt > now) {
+                return null; // NX: key already exists and hasn't expired
+              }
+              store.set(key, { value, expiresAt: now + (opts?.px ?? 0) });
+              return "OK";
+            }),
+            incr: vi.fn(async (key: string) => {
+              const now = Date.now();
+              const existing = store.get(key);
+              // Real Redis leaves TTL untouched on INCR; mirror that by
+              // keeping the existing expiresAt rather than resetting it.
+              const next = (existing && existing.expiresAt > now ? existing.value : 0) + 1;
+              store.set(key, { value: next, expiresAt: existing?.expiresAt ?? now });
+              return next;
+            }),
+          };
+        }),
       };
     });
   });
@@ -169,14 +171,16 @@ describe("checkRateLimit (Upstash Redis backend)", () => {
 
   it("falls back to the in-memory limiter (without throwing) when the Redis client errors", async () => {
     vi.doMock("@upstash/redis", () => ({
-      Redis: vi.fn().mockImplementation(() => ({
-        set: vi.fn(async () => {
-          throw new Error("simulated Upstash network error");
-        }),
-        incr: vi.fn(async () => {
-          throw new Error("simulated Upstash network error");
-        }),
-      })),
+      Redis: vi.fn().mockImplementation(function () {
+        return {
+          set: vi.fn(async () => {
+            throw new Error("simulated Upstash network error");
+          }),
+          incr: vi.fn(async () => {
+            throw new Error("simulated Upstash network error");
+          }),
+        };
+      }),
     }));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { checkRateLimit } = await import("@/lib/rate-limit");
