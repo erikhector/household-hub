@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactElement } from "react";
+import { useId, useRef, useState, type ReactElement } from "react";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,13 @@ import {
 import { ComboField } from "@/components/inventory/combo-field";
 import { bulkCreateInventoryItemsAction } from "@/app/dashboard/inventory/actions";
 import { parsePastedList } from "@/lib/inventory/parse-pasted-list";
+import { parseImportCsv, type ImportCsvError } from "@/lib/inventory/parse-import-csv";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Row = { key: string; name: string; quantity: number; unit: string };
 type Step = "paste" | "review";
+type PasteTab = "text" | "csv";
 
 /**
  * A "brain dump" bulk-add: paste or type a freeform list, one item per line
@@ -45,22 +47,33 @@ export function BulkPasteDialog({
   const t = dict.pasteList;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("paste");
+  const [pasteTab, setPasteTab] = useState<PasteTab>("text");
   const [text, setText] = useState("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const idPrefix = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
       setStep("paste");
+      setPasteTab("text");
       setText("");
+      setCsvFile(null);
       setRows([]);
       setCategory("");
       setLocation("");
     }
+  };
+
+  const applyParsedItems = (parsed: { name: string; quantity: number; unit: string }[]) => {
+    setRows(parsed.map((item, i) => ({ key: `${i}-${item.name}`, ...item })));
+    setStep("review");
   };
 
   const handleParse = () => {
@@ -69,8 +82,36 @@ export function BulkPasteDialog({
       toast.error(t.emptyAfterParse);
       return;
     }
-    setRows(parsed.map((item, i) => ({ key: `${i}-${item.name}`, ...item })));
-    setStep("review");
+    applyParsedItems(parsed);
+  };
+
+  const csvImportErrorMessage = (code: ImportCsvError) => {
+    switch (code) {
+      case "missingNameColumn":
+        return t.importCsvMissingNameColumnError;
+      case "emptyFile":
+        return t.importCsvEmptyError;
+    }
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvFile) return;
+    setImporting(true);
+    let text: string;
+    try {
+      text = await csvFile.text();
+    } catch {
+      setImporting(false);
+      toast.error(t.importCsvReadError);
+      return;
+    }
+    const result = parseImportCsv(text);
+    setImporting(false);
+    if (!result.ok) {
+      toast.error(csvImportErrorMessage(result.error));
+      return;
+    }
+    applyParsedItems(result.items);
   };
 
   const updateRow = (key: string, patch: Partial<Row>) => {
@@ -111,19 +152,70 @@ export function BulkPasteDialog({
 
         {step === "paste" && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">{t.description}</p>
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={t.textareaPlaceholder}
-              rows={8}
-              autoFocus
-            />
-            <DialogFooter>
-              <Button type="button" onClick={handleParse} disabled={!text.trim()}>
-                {t.parseButton}
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={pasteTab === "text" ? "default" : "outline"}
+                onClick={() => setPasteTab("text")}
+              >
+                {t.pasteTabLabel}
               </Button>
-            </DialogFooter>
+              <Button
+                type="button"
+                size="sm"
+                variant={pasteTab === "csv" ? "default" : "outline"}
+                onClick={() => setPasteTab("csv")}
+              >
+                {t.uploadTabLabel}
+              </Button>
+            </div>
+
+            {pasteTab === "text" && (
+              <>
+                <p className="text-sm text-muted-foreground">{t.description}</p>
+                <Textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder={t.textareaPlaceholder}
+                  rows={8}
+                  autoFocus
+                />
+                <DialogFooter>
+                  <Button type="button" onClick={handleParse} disabled={!text.trim()}>
+                    {t.parseButton}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+
+            {pasteTab === "csv" && (
+              <>
+                <p className="text-sm text-muted-foreground">{t.uploadDescription}</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
+                />
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    {t.uploadButtonLabel}
+                  </Button>
+                  {csvFile && (
+                    <span className="truncate text-sm text-muted-foreground">
+                      {format(t.uploadFileSelected, { name: csvFile.name })}
+                    </span>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button type="button" onClick={handleImportCsv} disabled={!csvFile || importing}>
+                    {importing ? <Loader2 className="size-4 animate-spin" /> : t.importButton}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </div>
         )}
 

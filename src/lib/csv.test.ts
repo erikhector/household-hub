@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsv, csvResponse } from "@/lib/csv";
+import { buildCsv, csvResponse, parseCsv } from "@/lib/csv";
 
 describe("buildCsv", () => {
   it("joins header and rows with commas and CRLF line endings", () => {
@@ -66,6 +66,68 @@ describe("buildCsv", () => {
   it("does not mangle an ordinary string that merely contains a hyphen", () => {
     const csv = buildCsv(["Name"], [["Sugar-free syrup"]]);
     expect(csv).toBe("Name\r\nSugar-free syrup\r\n");
+  });
+});
+
+describe("parseCsv", () => {
+  it("parses a simple header and rows with CRLF line endings", () => {
+    expect(parseCsv("Name,Quantity\r\nMilk,2\r\nEggs,12\r\n")).toEqual([
+      ["Name", "Quantity"],
+      ["Milk", "2"],
+      ["Eggs", "12"],
+    ]);
+  });
+
+  it("parses bare LF line endings", () => {
+    expect(parseCsv("Name,Quantity\nMilk,2\nEggs,12")).toEqual([
+      ["Name", "Quantity"],
+      ["Milk", "2"],
+      ["Eggs", "12"],
+    ]);
+  });
+
+  it("un-quotes a field containing a comma", () => {
+    expect(parseCsv('Description\r\n"Rent, utilities"\r\n')).toEqual([
+      ["Description"],
+      ["Rent, utilities"],
+    ]);
+  });
+
+  it("un-doubles an escaped quote inside a quoted field", () => {
+    expect(parseCsv('Name\r\n"12"" pizza"\r\n')).toEqual([["Name"], ['12" pizza']]);
+  });
+
+  it("keeps a newline inside a quoted field as part of the value", () => {
+    expect(parseCsv('Notes\r\n"line one\nline two"\r\n')).toEqual([
+      ["Notes"],
+      ["line one\nline two"],
+    ]);
+  });
+
+  it("round-trips through buildCsv", () => {
+    const csv = buildCsv(
+      ["Name", "Category"],
+      [
+        ["Flour", "Baking"],
+        ['12" pizza', "Frozen, ready meals"],
+      ],
+    );
+    expect(parseCsv(csv)).toEqual([
+      ["Name", "Category"],
+      ["Flour", "Baking"],
+      ['12" pizza', "Frozen, ready meals"],
+    ]);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(parseCsv("")).toEqual([]);
+  });
+
+  it("handles a file with no trailing newline", () => {
+    expect(parseCsv("Name,Quantity\nMilk,2")).toEqual([
+      ["Name", "Quantity"],
+      ["Milk", "2"],
+    ]);
   });
 });
 
