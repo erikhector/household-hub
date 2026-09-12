@@ -5,7 +5,7 @@ import {
   computeTemplateStatuses,
   getPeriodKey,
   monthlyEquivalentAmount,
-} from "./recurring-template-calc";
+} from "@/lib/recurring-template-calc";
 
 describe("getPeriodKey", () => {
   it("formats a MONTHLY period as YYYY-MM", () => {

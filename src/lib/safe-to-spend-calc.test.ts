@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSafeToSpend, type SafeToSpendTransaction } from "./safe-to-spend-calc";
+import { computeSafeToSpend, type SafeToSpendTransaction } from "@/lib/safe-to-spend-calc";
 
 const monthStart = new Date(2026, 8, 1); // Sept 2026
 const monthEnd = new Date(2026, 9, 1);

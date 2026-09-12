@@ -20,12 +20,12 @@ import {
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
-import { computeSafeToSpend } from "./safe-to-spend-calc";
+import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import {
   computeFixedMonthlySummary,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
-} from "./recurring-template-calc";
+} from "@/lib/recurring-template-calc";
 import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
 
 // An item needs at least this many recorded prices before its trend is
@@ -69,7 +69,7 @@ export default async function BudgetPage() {
         include: { user: { select: { displayName: true } } },
         orderBy: { createdAt: "asc" },
       }),
-      // Recurring bill templates — see recurring-template-calc.ts and the
+      // Recurring bill templates — see src/lib/recurring-template-calc.ts and the
       // "Recurring" tab below.
       prisma.recurringTemplate.findMany({
         where: { householdId: household.id },
@@ -104,7 +104,7 @@ export default async function BudgetPage() {
   // See REQUIREMENTS.md's "Household expense splitting" subsection. Only
   // meaningful once a household has more than one member; all netting/
   // debt-simplification logic lives in settle-up-calc.ts so it's
-  // unit-testable without Prisma, same convention as safe-to-spend-calc.ts.
+  // unit-testable without Prisma, same convention as src/lib/safe-to-spend-calc.ts.
   const settlements =
     memberOptions.length > 1
       ? simplifyDebts(
@@ -153,7 +153,7 @@ export default async function BudgetPage() {
   // See REQUIREMENTS.md's "Safe to spend" subsection: this month's income so
   // far minus expenses so far, minus an estimate of recurring expense
   // categories that haven't posted a transaction yet this month. All pure
-  // logic lives in computeSafeToSpend (./safe-to-spend-calc.ts) so it's
+  // logic lives in computeSafeToSpend (@/lib/safe-to-spend-calc.ts) so it's
   // unit-testable without Prisma; this just feeds it the transactions the
   // page already fetched above.
   const { safeToSpend, expectedRecurring } = computeSafeToSpend({
@@ -172,7 +172,7 @@ export default async function BudgetPage() {
   });
 
   // --- Recurring templates --------------------------------------------------
-  // See recurring-template-calc.ts's doc comments for the "accounted for"
+  // See src/lib/recurring-template-calc.ts's doc comments for the "accounted for"
   // model. Paused (inactive) templates get their own section in the panel
   // instead of a status, since "due/acknowledged/posted" is meaningless
   // while a template isn't running.

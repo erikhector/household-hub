@@ -152,7 +152,7 @@ migration-numbering conflict (same reasoning `PRODUCTION_READINESS.md`'s Wave 2 
 Run after item H (Wave 1) merges — both touch `safe-to-spend-calc.ts`/
 `safe-to-spend-calc.test.ts` and `recurring-template-calc.ts`.
 
-- [ ] **M. Relocate shared budget calc modules to `src/lib`** —
+- [x] **M. Relocate shared budget calc modules to `src/lib`** —
       `src/app/dashboard/budget/safe-to-spend-calc.ts` and
       `.../recurring-template-calc.ts` live under the `budget` feature's route folder
       but are imported directly by the unrelated `personal-budget` feature

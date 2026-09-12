@@ -13,7 +13,7 @@ import { PersonalDueRecurringWidget } from "@/components/personal-budget/persona
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
-import type { ExpectedRecurringExpense } from "@/app/dashboard/budget/safe-to-spend-calc";
+import type { ExpectedRecurringExpense } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 type Tab = "fixed" | "overview";

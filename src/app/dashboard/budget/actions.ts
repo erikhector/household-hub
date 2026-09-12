@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getPeriodKey } from "@/app/dashboard/budget/recurring-template-calc";
+import { getPeriodKey } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 
@@ -362,7 +362,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
 
 // --- Recurring templates --------------------------------------------------
 // See prisma/schema.prisma's RecurringTemplate/RecurringTemplateAck doc
-// comments and recurring-template-calc.ts for the "accounted for" model.
+// comments and src/lib/recurring-template-calc.ts for the "accounted for" model.
 
 const recurringTemplateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name is too long"),

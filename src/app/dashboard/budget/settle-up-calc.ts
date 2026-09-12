@@ -1,7 +1,7 @@
 // Pure "who owes whom" aggregation/debt-simplification logic for household
 // expense splitting — see REQUIREMENTS.md's "Household expense splitting"
 // subsection under Budgeting. Kept dependency-free (no Prisma import), same
-// pattern as ./safe-to-spend-calc.ts, so it's unit-testable with plain
+// pattern as src/lib/safe-to-spend-calc.ts, so it's unit-testable with plain
 // fixtures; src/app/dashboard/budget/page.tsx is the only caller, feeding it
 // the splits/payer data from the same `transaction.findMany` query it
 // already runs for the rest of the page.

@@ -1,11 +1,11 @@
 // Pure presentational hero stat — same pattern as PeriodSummary/CostAnalyzer:
 // all aggregation happens in src/app/dashboard/budget/page.tsx (via
-// computeSafeToSpend in ./safe-to-spend-calc.ts), this component just renders
+// computeSafeToSpend in src/lib/safe-to-spend-calc.ts), this component just renders
 // the result. See REQUIREMENTS.md's "Safe to spend" subsection.
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import type { ExpectedRecurringExpense } from "@/app/dashboard/budget/safe-to-spend-calc";
+import type { ExpectedRecurringExpense } from "@/lib/safe-to-spend-calc";
 
 export function SafeToSpend({
   amount,
