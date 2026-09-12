@@ -97,6 +97,24 @@ function RecipeRow({
   const [isPending, startTransition] = useTransition();
   const ingredientSummary = recipe.ingredients.map((ingredient) => ingredient.name).join(", ");
   const componentSummary = recipe.components.map((component) => component.componentRecipeName).join(", ");
+  // Only shown when at least one nutrition field was filled in — see
+  // Recipe's doc comment in schema.prisma. Empty recipes (the vast
+  // majority, since these fields are optional/manual) render no line here.
+  const nutritionParts = [
+    recipe.caloriesPerServing != null
+      ? format(dict.nutritionCaloriesValue, { value: recipe.caloriesPerServing })
+      : null,
+    recipe.proteinGramsPerServing != null
+      ? format(dict.nutritionProteinValue, { value: recipe.proteinGramsPerServing })
+      : null,
+    recipe.carbsGramsPerServing != null
+      ? format(dict.nutritionCarbsValue, { value: recipe.carbsGramsPerServing })
+      : null,
+    recipe.fatGramsPerServing != null
+      ? format(dict.nutritionFatValue, { value: recipe.fatGramsPerServing })
+      : null,
+  ].filter((part): part is string => part !== null);
+  const nutritionSummary = nutritionParts.join(" · ");
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -126,6 +144,11 @@ function RecipeRow({
             <span className="truncate">
               {dict.includesLabel} {componentSummary}
             </span>
+          </p>
+        )}
+        {nutritionSummary && (
+          <p className="truncate text-sm text-muted-foreground" title={nutritionSummary}>
+            {nutritionSummary}
           </p>
         )}
       </div>

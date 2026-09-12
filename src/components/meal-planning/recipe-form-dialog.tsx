@@ -84,6 +84,25 @@ export function RecipeFormDialog({
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
   const [components, setComponents] = useState<ComponentRow[]>(() => componentRowsFromRecipe(recipe));
   const [importUrl, setImportUrl] = useState("");
+  const hasNutrition = (r: RecipeData | undefined) =>
+    r != null &&
+    (r.caloriesPerServing != null ||
+      r.proteinGramsPerServing != null ||
+      r.carbsGramsPerServing != null ||
+      r.fatGramsPerServing != null);
+  const [showNutrition, setShowNutrition] = useState(() => hasNutrition(recipe));
+  const [caloriesPerServing, setCaloriesPerServing] = useState(
+    recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "",
+  );
+  const [proteinGramsPerServing, setProteinGramsPerServing] = useState(
+    recipe?.proteinGramsPerServing != null ? String(recipe.proteinGramsPerServing) : "",
+  );
+  const [carbsGramsPerServing, setCarbsGramsPerServing] = useState(
+    recipe?.carbsGramsPerServing != null ? String(recipe.carbsGramsPerServing) : "",
+  );
+  const [fatGramsPerServing, setFatGramsPerServing] = useState(
+    recipe?.fatGramsPerServing != null ? String(recipe.fatGramsPerServing) : "",
+  );
 
   // Every other household recipe can be added as a sub-recipe — a brand-new
   // recipe (no `recipe.id` yet) can't be anyone's own descendant, so nothing
@@ -106,6 +125,11 @@ export function RecipeFormDialog({
         setIngredients([blankRow()]);
         setComponents([]);
         setImportUrl("");
+        setShowNutrition(false);
+        setCaloriesPerServing("");
+        setProteinGramsPerServing("");
+        setCarbsGramsPerServing("");
+        setFatGramsPerServing("");
       }
     }
     return result;
@@ -147,6 +171,15 @@ export function RecipeFormDialog({
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
       setImportUrl("");
+      setShowNutrition(hasNutrition(recipe));
+      setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
+      setProteinGramsPerServing(
+        recipe?.proteinGramsPerServing != null ? String(recipe.proteinGramsPerServing) : "",
+      );
+      setCarbsGramsPerServing(
+        recipe?.carbsGramsPerServing != null ? String(recipe.carbsGramsPerServing) : "",
+      );
+      setFatGramsPerServing(recipe?.fatGramsPerServing != null ? String(recipe.fatGramsPerServing) : "");
     }
   };
 
@@ -384,6 +417,82 @@ export function RecipeFormDialog({
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {!showNutrition ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="self-start"
+                onClick={() => setShowNutrition(true)}
+              >
+                <Plus className="size-3" />
+                {dict.addNutritionInfo}
+              </Button>
+            ) : (
+              <>
+                <Label>{dict.nutritionSectionLabel}</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="recipe-calories" className="text-xs font-normal text-muted-foreground">
+                      {dict.caloriesPerServingLabel}
+                    </Label>
+                    <Input
+                      id="recipe-calories"
+                      name="caloriesPerServing"
+                      type="number"
+                      min={0}
+                      value={caloriesPerServing}
+                      onChange={(e) => setCaloriesPerServing(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="recipe-protein" className="text-xs font-normal text-muted-foreground">
+                      {dict.proteinGramsPerServingLabel}
+                    </Label>
+                    <Input
+                      id="recipe-protein"
+                      name="proteinGramsPerServing"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={proteinGramsPerServing}
+                      onChange={(e) => setProteinGramsPerServing(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="recipe-carbs" className="text-xs font-normal text-muted-foreground">
+                      {dict.carbsGramsPerServingLabel}
+                    </Label>
+                    <Input
+                      id="recipe-carbs"
+                      name="carbsGramsPerServing"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={carbsGramsPerServing}
+                      onChange={(e) => setCarbsGramsPerServing(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label htmlFor="recipe-fat" className="text-xs font-normal text-muted-foreground">
+                      {dict.fatGramsPerServingLabel}
+                    </Label>
+                    <Input
+                      id="recipe-fat"
+                      name="fatGramsPerServing"
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={fatGramsPerServing}
+                      onChange={(e) => setFatGramsPerServing(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}

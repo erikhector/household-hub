@@ -914,6 +914,46 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
 
+### Recipe nutrition info
+
+`Recipe` carries four optional fields — `caloriesPerServing Int?`,
+`proteinGramsPerServing Float?`, `carbsGramsPerServing Float?`,
+`fatGramsPerServing Float?` — for a household to note a recipe's nutrition
+by hand. All four are **manual-entry only**: there is no lookup against a
+nutrition API (USDA, Edamam, or similar) anywhere in this feature, and
+adding one is explicitly out of scope — it would need its own SSRF-safe-fetch
+review, the same as the recipe-URL-import feature below, and is a separate,
+larger effort. Every field is nullable and independent of the others (a
+recipe can have calories set with the rest left blank).
+
+- **Per serving, not totals**: `Recipe.servings` already exists (how many
+  portions the ingredient list makes), so these four track the same
+  per-serving framing rather than adding a totals-vs-per-serving toggle —
+  the per-serving number is what's actually useful when reading a recipe
+  card, and keeping a single unit avoids a second field/conversion per
+  nutrient.
+- **Form**: `RecipeFormDialog` keeps the four inputs collapsed behind a
+  plain "Add nutrition info" toggle button (uncontrolled `useState<boolean>`,
+  defaulting open only when editing a recipe that already has at least one
+  value set) rather than always-visible fields — no collapsible/disclosure
+  primitive existed in `src/components/ui/` and this is a secondary,
+  rarely-filled part of the form. None of the four inputs are `required`,
+  matching how `instructions` is already optional here.
+- **Persistence**: `createRecipeAction`/`updateRecipeAction`
+  (`src/app/dashboard/meal-planning/recipe-actions.ts`) parse each field as
+  an optional Zod string, transforming a blank/omitted value to `null`
+  (never `undefined`) — the same optional-string-to-nullable convention
+  `InventoryItem.expiresAt` uses in `src/app/dashboard/inventory/actions.ts`
+  — so editing a recipe to clear a previously-set nutrition value actually
+  writes `null` on save rather than leaving the old value untouched.
+  `caloriesPerServing` is additionally rounded to the nearest whole number
+  (matching its `Int` column) since the input allows only whole calories.
+- **Display**: `RecipeManager` renders a nutrition summary line
+  (`"320 kcal · 20g protein · 30g carbs · 10g fat"`, only the fields that
+  are actually set) under a recipe's ingredient/sub-recipe summary — never
+  shown at all for a recipe with all four fields null, which is expected to
+  be the common case.
+
 ### Recipe import from URL
 
 `RecipeFormDialog` (`src/components/meal-planning/recipe-form-dialog.tsx`,

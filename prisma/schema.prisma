@@ -311,6 +311,17 @@ model Recipe {
   // no behavior change — until a household actively edits either value.
   servings     Int      @default(4)
   createdAt    DateTime @default(now())
+  // Optional, manual-entry-only nutrition info — never fetched from an
+  // external nutrition-lookup API (that's a separate, larger effort needing
+  // its own SSRF-safe-fetch review, same as the recipe-URL-import feature
+  // above). All four are per-serving (not raw recipe totals) since
+  // `servings` already exists and per-serving figures are what's actually
+  // useful on a recipe card. Null on every field means "not entered" —
+  // RecipeManager only renders a nutrition line when at least one is set.
+  caloriesPerServing     Int?
+  proteinGramsPerServing Float?
+  carbsGramsPerServing   Float?
+  fatGramsPerServing     Float?
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
