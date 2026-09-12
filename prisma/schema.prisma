@@ -13,11 +13,11 @@ datasource db {
 // --- Accounts & households -------------------------------------------------
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  displayName  String
-  createdAt    DateTime @default(now())
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  displayName     String
+  createdAt       DateTime  @default(now())
   // Null = unverified. Set once by verifyEmailAction (src/lib/actions/auth.ts)
   // when a valid EmailVerificationToken is redeemed. This is a soft gate —
   // see EmailVerificationToken's doc comment below: an unverified user keeps
@@ -159,13 +159,13 @@ model EmailVerificationToken {
 // --- Inventory & shopping ---------------------------------------------------
 
 model InventoryItem {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   householdId       String
   name              String
   category          String
-  quantity          Float    @default(0)
-  unit              String   @default("pcs")
-  lowStockThreshold Float    @default(1)
+  quantity          Float     @default(0)
+  unit              String    @default("pcs")
+  lowStockThreshold Float     @default(1)
   location          String?
   lastKnownPrice    Float?
   // Optional best-before/expiry date, set from the add/edit item form. Feeds
@@ -174,8 +174,8 @@ model InventoryItem {
   // any bulk-add flow (scan queue, paste-list, starter kit), only the
   // single-item form.
   expiresAt         DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity
   // +/- taps, mark-empty, bulk field edits) by src/app/dashboard/inventory/
   // actions.ts, mirroring Transaction.createdByUserId's plain-string
@@ -259,10 +259,35 @@ model ShoppingList {
   completedAt DateTime?
   archivedAt  DateTime?
 
-  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  items     ShoppingListItem[]
+  household  Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items      ShoppingListItem[]
+  shareLinks ShoppingListShareLink[]
 
   @@index([householdId])
+}
+
+// A publicly-reachable, token-only link that grants view + check-off access
+// to one ShoppingList with no login at all — see
+// src/app/share/shopping-list/[token]/page.tsx and
+// src/app/share/shopping-list/actions.ts. Deliberately shaped like
+// Invitation above but WITHOUT an `expiresAt`: per product decision, this
+// link never expires on its own and is only ever closed by a household
+// member calling revokeShareLinkAction (src/app/dashboard/shopping-list/
+// share-actions.ts), which sets `revokedAt`. `revokedAt: null` means active.
+// A ShoppingList can have more than one row here over its lifetime (each
+// revoke-then-reshare creates a fresh token rather than reusing/clearing the
+// old one), but createShareLinkAction reuses an existing active link instead
+// of piling up duplicates for the common case.
+model ShoppingListShareLink {
+  id             String    @id @default(cuid())
+  shoppingListId String
+  token          String    @unique
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+
+  @@index([shoppingListId])
 }
 
 model ShoppingListItem {
@@ -298,10 +323,10 @@ model PriceHistory {
 // --- Meal planning -----------------------------------------------------------
 
 model Recipe {
-  id           String   @id @default(cuid())
-  householdId  String
-  name         String
-  instructions String?
+  id                     String   @id @default(cuid())
+  householdId            String
+  name                   String
+  instructions           String?
   // How many portions the ingredient quantities on this recipe (as entered)
   // actually make. MealPlanEntry.portions is scaled against this — see its
   // doc comment below — so ingredient totals for a meal-plan entry reflect
@@ -309,8 +334,8 @@ model Recipe {
   // recipe." Defaults to 4 (a common household recipe size) both here and
   // on MealPlanEntry.portions so pre-existing rows keep a 1:1 ratio — i.e.
   // no behavior change — until a household actively edits either value.
-  servings     Int      @default(4)
-  createdAt    DateTime @default(now())
+  servings               Int      @default(4)
+  createdAt              DateTime @default(now())
   // Optional, manual-entry-only nutrition info — never fetched from an
   // external nutrition-lookup API (that's a separate, larger effort needing
   // its own SSRF-safe-fetch review, same as the recipe-URL-import feature
@@ -403,7 +428,7 @@ enum MealType {
 }
 
 model MealPlanEntry {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   mealPlanId   String
   date         DateTime
   mealType     MealType
@@ -418,7 +443,7 @@ model MealPlanEntry {
   // in recipe-expansion.ts. Meaningless (and unused) on a freeform entry,
   // which has no recipe to scale. See Recipe.servings' doc comment for why
   // both fields share the same default.
-  portions     Int      @default(4)
+  portions     Int       @default(4)
   // Set once inventory has been decremented for this entry via
   // markMealEntryCookedAction (src/app/dashboard/meal-planning/actions.ts) —
   // makes the action idempotent (a stale button re-click, or a double
@@ -427,8 +452,8 @@ model MealPlanEntry {
   // Meaningless (and unused) on a freeform entry, same as `portions`.
   consumedAt   DateTime?
 
-  mealPlan     MealPlan       @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  recipe       Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  mealPlan     MealPlan      @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe       Recipe?       @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   notification Notification?
 
   @@index([mealPlanId])

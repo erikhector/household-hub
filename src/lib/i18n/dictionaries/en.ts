@@ -245,6 +245,20 @@ export const en = {
       noMatchesError: "Match at least one line to a list item before applying.",
       addItemError: "Couldn't add that item — try again.",
     },
+    shareLink: {
+      button: "Share",
+      dialogTitle: "Share this list",
+      generating: "Generating link…",
+      description:
+        "Anyone with this link can view and check off items on this list — no account needed. Revoke it any time.",
+      copy: "Copy",
+      createError: "Could not create share link",
+      activeLabel: "Link is active",
+      revoke: "Revoke link",
+      revoking: "Revoking…",
+      revokedToast: "Share link revoked",
+      revokeError: "Could not revoke share link",
+    },
   },
   inventory: {
     title: "Inventory",
@@ -1123,6 +1137,19 @@ export const en = {
   // short UI strings, not multi-paragraph legal text that a translator or
   // lawyer would want to review as a whole document, in one language, in
   // one place.
+  // The public, unauthenticated page at src/app/share/shopping-list/[token]/
+  // page.tsx — reached only via a ShoppingListShareLink token, never through
+  // the dashboard nav, so it gets its own small namespace instead of living
+  // under `shoppingList` (whose strings assume the authenticated
+  // ShoppingListClient UI/controls that don't exist on this page).
+  sharedShoppingList: {
+    notFoundTitle: "Link not found",
+    notFoundDescription:
+      "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
+    purchased: "Purchased",
+    emptyList: "Nothing on this list yet.",
+    footerNote: "Shared from a Squirrel household",
+  },
   legal: {
     termsNavLabel: "Terms",
     privacyNavLabel: "Privacy",

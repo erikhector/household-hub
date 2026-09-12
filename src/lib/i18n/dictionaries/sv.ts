@@ -237,6 +237,20 @@ export const sv = {
       noMatchesError: "Matcha minst en rad mot en vara på listan innan du lägger till.",
       addItemError: "Kunde inte lägga till varan — försök igen.",
     },
+    shareLink: {
+      button: "Dela",
+      dialogTitle: "Dela den här listan",
+      generating: "Skapar länk…",
+      description:
+        "Alla med den här länken kan se och bocka av varor på listan — inget konto krävs. Återkalla den när som helst.",
+      copy: "Kopiera",
+      createError: "Kunde inte skapa dellänk",
+      activeLabel: "Länken är aktiv",
+      revoke: "Återkalla länk",
+      revoking: "Återkallar…",
+      revokedToast: "Dellänken har återkallats",
+      revokeError: "Kunde inte återkalla dellänken",
+    },
   },
   inventory: {
     title: "Lager",
@@ -1106,6 +1120,14 @@ export const sv = {
         },
       },
     },
+  },
+  sharedShoppingList: {
+    notFoundTitle: "Länken hittades inte",
+    notFoundDescription:
+      "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
+    purchased: "Köpt",
+    emptyList: "Inget på listan än.",
+    footerNote: "Delad från ett Squirrel-hushåll",
   },
   legal: {
     termsNavLabel: "Villkor",
