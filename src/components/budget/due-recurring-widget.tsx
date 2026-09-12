@@ -10,12 +10,15 @@
 // PersonalDueRecurringWidget (src/components/personal-budget/personal-due-recurring-widget.tsx).
 
 import { useTransition } from "react";
-import { Check, CheckCircle2 } from "lucide-react";
+import { Check, CheckCircle2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { acknowledgeTemplatePeriodAction } from "@/app/dashboard/budget/actions";
+import {
+  acknowledgeTemplatePeriodAction,
+  logRecurringTemplateAction,
+} from "@/app/dashboard/budget/actions";
 import { TransactionDialog, type MemberOption } from "@/components/budget/transaction-dialog";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
@@ -114,6 +117,21 @@ export function DueRecurringWidget({
                       </Button>
                     }
                   />
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await logRecurringTemplateAction(template.id);
+                        if (result.error) toast.error(result.error);
+                        else toast.success(format(dict.recurring.loggedAsIsToast, { name: template.name }));
+                      })
+                    }
+                  >
+                    <Zap className="size-3.5" />
+                    {dict.recurring.logAsIs}
+                  </Button>
                   <Button
                     size="xs"
                     variant="outline"

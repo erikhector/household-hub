@@ -533,6 +533,49 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
   return {};
 }
 
+/**
+ * One-click "log it as-is" — creates a Transaction straight from the
+ * template's own amount/category/frequency (today's date, no dialog, no
+ * client-supplied amount/category trusted) for the common case where the
+ * amount doesn't need adjusting this period. This produces the same shape
+ * of row `createTransactionAction` would when called from
+ * `TransactionDialog`'s `prefillFromTemplate` path — including the
+ * `recurringTemplateId` link — so `computeTemplateStatuses` (which derives
+ * "posted" purely from a matching transaction's `recurringTemplateId` +
+ * period, not from a RecurringTemplateAck row) sees the period as fulfilled
+ * without any separate acknowledgement step.
+ */
+export async function logRecurringTemplateAction(templateId: string): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const template = await prisma.recurringTemplate.findFirst({
+    where: { id: templateId, householdId: household.id },
+  });
+  if (!template) return { error: "Recurring template not found" };
+
+  try {
+    await prisma.transaction.create({
+      data: {
+        householdId: household.id,
+        categoryId: template.categoryId,
+        amount: template.amount,
+        type: template.type,
+        description: template.name,
+        date: new Date(),
+        isRecurring: true,
+        recurrenceFrequency: template.frequency,
+        createdByUserId: userId,
+        recurringTemplateId: template.id,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/budget");
+  return {};
+}
+
 /** Undoes acknowledgeTemplatePeriodAction for the current period. */
 export async function unacknowledgeTemplatePeriodAction(templateId: string): Promise<ActionState> {
   const { household } = await requireHousehold();

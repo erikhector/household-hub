@@ -88,6 +88,7 @@ const {
   deleteRecurringTemplateAction,
   acknowledgeTemplatePeriodAction,
   unacknowledgeTemplatePeriodAction,
+  logRecurringTemplateAction,
 } = await import("@/app/dashboard/budget/actions");
 
 function formData(fields: Record<string, string>) {
@@ -470,5 +471,50 @@ describe("recurring templates", () => {
 
     expect(result.error).toBe("Recurring template not found");
     expect(recurringTemplateAckDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  describe("logRecurringTemplateAction", () => {
+    it("returns 'Recurring template not found' for another household's template (IDOR guard)", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue(null);
+
+      const result = await logRecurringTemplateAction("someone-elses-template");
+
+      expect(result.error).toBe("Recurring template not found");
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+      expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "someone-elses-template", householdId: "household-1" },
+        }),
+      );
+    });
+
+    it("creates a transaction from the template's own fields, never a client-supplied amount/category", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue({
+        id: "template-1",
+        categoryId: "cat-1",
+        amount: 1000,
+        type: "EXPENSE",
+        name: "Rent",
+        frequency: "MONTHLY",
+      });
+      transactionCreateMock.mockResolvedValue({});
+
+      const result = await logRecurringTemplateAction("template-1");
+
+      expect(result).toEqual({});
+      expect(transactionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          householdId: "household-1",
+          categoryId: "cat-1",
+          amount: 1000,
+          type: "EXPENSE",
+          description: "Rent",
+          isRecurring: true,
+          recurrenceFrequency: "MONTHLY",
+          createdByUserId: "user-1",
+          recurringTemplateId: "template-1",
+        }),
+      });
+    });
   });
 });
