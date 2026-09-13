@@ -402,7 +402,7 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
       {},
       formData({ listId: shoppingList.id as string, name: "Milk", quantity: "1" }),
     );
-    expect(addItemResult).toEqual({});
+    expect(addItemResult).toEqual({ autoLinkedName: "Milk" });
     expect(store.shoppingListItems).toHaveLength(1);
     const shoppingListItem = store.shoppingListItems[0];
     expect(shoppingListItem.shoppingListId).toBe(shoppingList.id);

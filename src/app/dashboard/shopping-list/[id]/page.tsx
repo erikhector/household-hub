@@ -20,19 +20,21 @@ export default async function ShoppingListDetailPage(
     }),
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { id: true, name: true, category: true },
+      select: { id: true, name: true, category: true, unit: true },
       orderBy: { name: "asc" },
     }),
   ]);
   if (!list) notFound();
 
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
+  const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
 
   return (
     <ShoppingListClient
       list={list}
       inventoryItems={inventoryItems}
       categories={categories}
+      units={units}
       dict={dict.shoppingList}
       barcodeDict={dict.barcodeScanner}
       exportLabel={dict.export.button}

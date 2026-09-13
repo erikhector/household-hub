@@ -6,13 +6,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
 import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { findInventoryMatches } from "@/lib/item-matching";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -26,6 +27,24 @@ async function findExactInventoryItem(householdId: string, name: string) {
   return prisma.inventoryItem.findFirst({
     where: { householdId, name: { equals: name, mode: "insensitive" } },
   });
+}
+
+// Only auto-link on a fuzzy match this confident — a typo or a trailing
+// size/brand ("Milk 1L" vs "Milk") should still resolve automatically, but
+// anything softer is safer left for the user to confirm via the edit dialog.
+const AUTO_FUZZY_MATCH_MIN_SCORE = 0.6;
+
+/**
+ * Fuzzy fallback for findExactInventoryItem, used only when there's no exact
+ * match: auto-links a new shopping-list item to an existing inventory item
+ * when exactly one candidate scores above AUTO_FUZZY_MATCH_MIN_SCORE. With
+ * two candidates both scoring above it, guessing wrong is worse than leaving
+ * the item unlinked, so that case is left alone too.
+ */
+async function findFuzzyInventoryItem(householdId: string, name: string) {
+  const candidates = await prisma.inventoryItem.findMany({ where: { householdId } });
+  const matches = findInventoryMatches(name, candidates, { minScore: AUTO_FUZZY_MATCH_MIN_SCORE, limit: 2 });
+  return matches.length === 1 ? matches[0] : null;
 }
 
 const createListSchema = z.object({
@@ -164,16 +183,17 @@ const addItemSchema = z.object({
 /**
  * Shared by addAdHocItemAction and quickAddShoppingListItemAction below —
  * both just create a shopping-list item ad hoc (auto-linking to inventory
- * when the name matches exactly, same as findExactInventoryItem everywhere
- * else), they just differ in where the input comes from and what they hand
- * back to the caller.
+ * when the name matches exactly, or — absent an exact match — via a single
+ * confident fuzzy match, see findFuzzyInventoryItem above), they just differ
+ * in where the input comes from and what they hand back to the caller.
  *
  * `newItemDetails`, when given, lets the caller (ReceiptScanDialog's "add as
  * new item" shortcut) specify the category/unit a brand-new InventoryItem
  * should get when no exact-name match exists — OCR'd names are unreliable
- * enough that auto-mapping shouldn't silently guess those. addAdHocItemAction
- * doesn't pass this, so it keeps its old behavior of leaving inventoryItemId
- * null when there's no exact match.
+ * enough that auto-mapping shouldn't silently guess those, so the fuzzy
+ * fallback is skipped in that case too. addAdHocItemAction doesn't pass
+ * this, so it keeps its old behavior of leaving inventoryItemId null when
+ * neither match resolves.
  */
 async function createAdHocShoppingListItem(
   householdId: string,
@@ -200,6 +220,8 @@ async function createAdHocShoppingListItem(
         lowStockThreshold: 0,
       },
     });
+  } else if (!inventoryItem) {
+    inventoryItem = await findFuzzyInventoryItem(householdId, name);
   }
 
   const item = await prisma.shoppingListItem.create({
@@ -211,13 +233,18 @@ async function createAdHocShoppingListItem(
       unit: unit || inventoryItem?.unit || "pcs",
     },
   });
-  return { list, item } as const;
+  // Only surfaced to the caller when the link just happened automatically
+  // (not for a brand-new item the caller explicitly asked to create) — lets
+  // the UI show a quick "linked to X" confirmation instead of leaving a
+  // successful auto-link silent.
+  const autoLinkedName = newItemDetails ? null : (inventoryItem?.name ?? null);
+  return { list, item, autoLinkedName } as const;
 }
 
 export async function addAdHocItemAction(
   _prevState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionState & { autoLinkedName?: string }> {
   const { household } = await requireHousehold();
 
   const parsed = addItemSchema.safeParse({
@@ -240,11 +267,10 @@ export async function addAdHocItemAction(
     );
     if ("error" in result) return { error: result.error };
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
+    return { autoLinkedName: result.autoLinkedName ?? undefined };
   } catch (error) {
     return toFriendlyError(error);
   }
-
-  return {};
 }
 
 const quickAddSchema = addItemSchema.extend({
@@ -443,6 +469,81 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+export type MappingResolution =
+  | { itemId: string; kind: "existing"; inventoryItemId: string }
+  | { itemId: string; kind: "new"; category: string };
+
+/**
+ * Resolves several unlinked shopping-list items' inventory mappings in one
+ * round trip — the batch counterpart to linkShoppingListItemAction /
+ * createInventoryItemFromShoppingListItemAction above, for the "resolve N
+ * items" review dialog (ResolveMappingsDialog) that appears once a list has
+ * enough unmapped items that going through them one at a time would be
+ * tedious. Silently skips any resolution whose item doesn't belong to the
+ * caller's household, is already linked, or names an inventory item outside
+ * the household — rather than failing the whole batch over one stale/bad
+ * row — and reports back how many actually resolved.
+ */
+export async function resolveShoppingListMappingsAction(
+  resolutions: MappingResolution[],
+): Promise<ActionState & { resolvedCount?: number }> {
+  const { household } = await requireHousehold();
+  if (resolutions.length === 0) return { resolvedCount: 0 };
+
+  const items = await prisma.shoppingListItem.findMany({
+    where: { id: { in: resolutions.map((r) => r.itemId) }, shoppingList: { householdId: household.id } },
+  });
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+
+  let shoppingListId: string | null = null;
+  let resolvedCount = 0;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const resolution of resolutions) {
+        const item = itemsById.get(resolution.itemId);
+        if (!item || item.inventoryItemId !== null) continue;
+        shoppingListId = item.shoppingListId;
+
+        if (resolution.kind === "existing") {
+          const inventoryItem = await tx.inventoryItem.findFirst({
+            where: { id: resolution.inventoryItemId, householdId: household.id },
+          });
+          if (!inventoryItem) continue;
+          await tx.shoppingListItem.update({
+            where: { id: item.id },
+            data: { inventoryItemId: inventoryItem.id },
+          });
+        } else {
+          const trimmedCategory = resolution.category.trim().slice(0, 60);
+          const inventoryItem = await tx.inventoryItem.create({
+            data: {
+              householdId: household.id,
+              name: item.name,
+              category: trimmedCategory || "Uncategorized",
+              quantity: 0,
+              lowStockThreshold: 0,
+            },
+          });
+          await tx.shoppingListItem.update({
+            where: { id: item.id },
+            data: { inventoryItemId: inventoryItem.id },
+          });
+        }
+        resolvedCount++;
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  if (shoppingListId) {
+    revalidatePath(`/dashboard/shopping-list/${shoppingListId}`);
+    revalidatePath("/dashboard/inventory");
+  }
+  return { resolvedCount };
+}
+
 export async function togglePurchasedAction(itemId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -596,7 +697,7 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
 
 export async function completeShoppingListAction(
   listId: string,
-): Promise<{ expenseLoggedMessage?: string; error?: string }> {
+): Promise<{ expenseLoggedMessage?: string; unresolvedNotice?: string; error?: string }> {
   const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -605,17 +706,20 @@ export async function completeShoppingListAction(
   });
   if (!list) return {};
 
-  // Every shopping list item should map 1:1 to an inventory item before a
-  // list can be completed — rather than silently inventing an inventory
-  // item for anything unlinked (the old behavior), refuse to complete and
-  // let the user resolve each one via the "needs mapping" row UI
-  // (EditShoppingItemDialog / linkShoppingListItemAction /
-  // createInventoryItemFromShoppingListItemAction above).
   const dict = await getDictionary();
-  const hasUnresolvedItems = list.items.some((item) => item.inventoryItemId === null);
-  if (hasUnresolvedItems) {
-    return { error: dict.shoppingList.unresolvedItemsError };
-  }
+
+  // Completing no longer requires every item to be mapped to an inventory
+  // item first — that used to block finishing the list at exactly the
+  // moment (in the store, or just home) the user wants to be done. An
+  // unlinked item was never going to update inventory anyway (see
+  // togglePurchasedAction/applyReceiptScanAction, both no-ops without
+  // item.inventoryItem), so nothing about the actual data changes here —
+  // this only relaxes the completion gate, surfacing a heads-up afterward
+  // instead of a hard stop. Items stay resolvable anytime via the "needs
+  // mapping" row UI (EditShoppingItemDialog / linkShoppingListItemAction /
+  // createInventoryItemFromShoppingListItemAction above / batch resolution
+  // via resolveShoppingListMappingsAction below), completed list or not.
+  const unresolvedCount = list.items.filter((item) => item.inventoryItemId === null).length;
 
   await prisma.shoppingList.update({
     where: { id: list.id },
@@ -657,10 +761,15 @@ export async function completeShoppingListAction(
     expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
   }
 
+  const unresolvedNotice =
+    unresolvedCount > 0
+      ? format(plural(unresolvedCount, dict.shoppingList.unresolvedNotice), { count: unresolvedCount })
+      : undefined;
+
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/budget");
 
-  return { expenseLoggedMessage };
+  return { expenseLoggedMessage, unresolvedNotice };
 }

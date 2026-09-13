@@ -19,7 +19,10 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  * (category/location/unit) — shared by the single-item add/edit dialog and
  * every bulk-add surface (scan queue, pasted-list review, quick-add grid) so
  * they all pick from the same values instead of drifting into near-duplicate
- * categories like "Fridge" vs. "fridge".
+ * categories like "Fridge" vs. "fridge". `dict` only needs the two combobox
+ * copy strings, not the whole inventory dictionary, so the shopping list's
+ * item-edit surfaces (which carry their own copy of those two strings) can
+ * reuse this component for its unit field too.
  */
 export function ComboField({
   id,
@@ -38,7 +41,7 @@ export function ComboField({
   onValueChange: (value: string) => void;
   placeholder?: string;
   maxLength: number;
-  dict: Dictionary["inventory"];
+  dict: Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
 }) {
   const trimmed = value.trim();
   return (

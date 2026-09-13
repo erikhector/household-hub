@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ComboField } from "@/components/inventory/combo-field";
 import {
   Dialog,
   DialogContent,
@@ -58,12 +59,14 @@ type EditableItem = {
 export function EditShoppingItemDialog({
   item,
   inventoryItems,
+  units,
   dict,
   editAriaLabel,
   matchItemLabel,
 }: {
   item: EditableItem;
   inventoryItems: InventoryItemOption[];
+  units: string[];
   dict: Dictionary["shoppingList"]["editItem"];
   editAriaLabel: string;
   matchItemLabel: string;
@@ -203,11 +206,15 @@ export function EditShoppingItemDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="edit-item-unit">{dict.unitLabel}</Label>
-              <Input
+              <ComboField
                 id="edit-item-unit"
+                name="unit"
+                items={units}
                 value={unit}
-                onChange={(e) => setUnit(e.target.value)}
+                onValueChange={setUnit}
+                placeholder={dict.unitPlaceholder}
                 maxLength={20}
+                dict={dict}
               />
             </div>
           </div>

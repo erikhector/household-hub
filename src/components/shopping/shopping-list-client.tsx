@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
+import { ComboField } from "@/components/inventory/combo-field";
 import { EditShoppingItemDialog } from "@/components/shopping/edit-shopping-item-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
+import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import {
   addAdHocItemAction,
@@ -23,8 +25,13 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+
+// Below this many unlinked items, resolving them one at a time via each
+// row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
+// offered instead so the user isn't clicking into the same dialog N times.
+const BATCH_RESOLVE_THRESHOLD = 3;
 
 type ShoppingListItemRow = {
   id: string;
@@ -51,14 +58,17 @@ const initialState: ActionState = {};
 
 function AddItemForm({
   listId,
+  units,
   dict,
   barcodeDict,
 }: {
   listId: string;
+  units: string[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
 }) {
   const [name, setName] = useState("");
+  const [unit, setUnit] = useState("");
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   const [state, formAction, pending] = useActionState(async (
@@ -67,7 +77,11 @@ function AddItemForm({
   ) => {
     const result = await addAdHocItemAction(prevState, formData);
     if (!result.error) {
+      if (result.autoLinkedName) {
+        toast.success(format(dict.autoLinkedName, { name: result.autoLinkedName }));
+      }
       setName("");
+      setUnit("");
       setScannedBarcode(null);
     }
     return result;
@@ -102,12 +116,18 @@ function AddItemForm({
           className="w-20"
           aria-label={dict.addItemQuantityAriaLabel}
         />
-        <Input
-          name="unit"
-          placeholder={dict.addItemUnitPlaceholder}
-          maxLength={20}
-          className="w-20"
-        />
+        <div className="w-24">
+          <ComboField
+            id="add-item-unit"
+            name="unit"
+            items={units}
+            value={unit}
+            onValueChange={setUnit}
+            placeholder={dict.addItemUnitPlaceholder}
+            maxLength={20}
+            dict={dict}
+          />
+        </div>
         <BarcodeScannerButton dict={barcodeDict} onResult={handleScanResult} />
         <Button type="submit" variant="outline" disabled={pending}>
           {pending ? dict.adding : dict.add}
@@ -128,6 +148,7 @@ export function ShoppingListClient({
   list,
   inventoryItems,
   categories,
+  units,
   dict,
   barcodeDict,
   exportLabel,
@@ -135,6 +156,7 @@ export function ShoppingListClient({
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
   categories: string[];
+  units: string[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
@@ -145,6 +167,7 @@ export function ShoppingListClient({
   const purchasedItems = list.items.filter((item) => item.purchased);
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
+  const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -188,6 +211,16 @@ export function ShoppingListClient({
               dict={dict.receiptScan}
             />
           )}
+          {isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD && (
+            <ResolveMappingsDialog
+              items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
+              inventoryItems={inventoryItems}
+              dict={dict.resolveMappings}
+              triggerLabel={format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
+                count: unresolvedItems.length,
+              })}
+            />
+          )}
           {isActive && list.items.length > 0 && (
             <Button
               variant="secondary"
@@ -197,6 +230,7 @@ export function ShoppingListClient({
                   const result = await completeShoppingListAction(list.id);
                   if (result.error) toast.error(result.error);
                   if (result.expenseLoggedMessage) toast.success(result.expenseLoggedMessage);
+                  if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
                 })
               }
             >
@@ -248,7 +282,7 @@ export function ShoppingListClient({
         </div>
       </div>
 
-      {isActive && <AddItemForm listId={list.id} dict={dict} barcodeDict={barcodeDict} />}
+      {isActive && <AddItemForm listId={list.id} units={units} dict={dict} barcodeDict={barcodeDict} />}
 
       <div className="flex flex-col gap-2">
         {pendingItems.length === 0 && purchasedItems.length === 0 ? (
@@ -265,6 +299,7 @@ export function ShoppingListClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 inventoryItems={inventoryItems}
+                units={units}
                 dict={dict}
               />
             ))}
@@ -281,6 +316,7 @@ export function ShoppingListClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 inventoryItems={inventoryItems}
+                units={units}
                 dict={dict}
               />
             ))}
@@ -297,6 +333,7 @@ function ShoppingRow({
   isPending,
   startTransition,
   inventoryItems,
+  units,
   dict,
 }: {
   item: ShoppingListItemRow;
@@ -304,6 +341,7 @@ function ShoppingRow({
   isPending: boolean;
   startTransition: (fn: () => void) => void;
   inventoryItems: InventoryItemOption[];
+  units: string[];
   dict: ShoppingListDict;
 }) {
   return (
@@ -343,6 +381,7 @@ function ShoppingRow({
           <EditShoppingItemDialog
             item={item}
             inventoryItems={inventoryItems}
+            units={units}
             dict={dict.editItem}
             editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
             matchItemLabel={dict.matchItemButton}

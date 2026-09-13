@@ -59,7 +59,12 @@ const {
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
       shoppingListItem: { update: shoppingListItemUpdateMock },
-      inventoryItem: { update: inventoryItemUpdateMock, findUnique: inventoryItemFindUniqueMock },
+      inventoryItem: {
+        update: inventoryItemUpdateMock,
+        findUnique: inventoryItemFindUniqueMock,
+        findFirst: inventoryItemFindFirstMock,
+        create: inventoryItemCreateMock,
+      },
       priceHistory: { create: priceHistoryCreateMock },
       notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
     };
@@ -106,9 +111,12 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
   getDictionary: vi.fn(async () => ({
     shoppingList: {
       defaultNamePrefix: "Shopping list",
-      unresolvedItemsError: "Resolve every item before completing this list",
       expenseDescription: "Groceries: {name}",
       expenseLogged: "Logged a {amount} expense",
+      unresolvedNotice: {
+        one: "{count} item wasn't linked",
+        other: "{count} items weren't linked",
+      },
     },
   })),
   getLocale: vi.fn(async () => "en"),
@@ -116,6 +124,7 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
 vi.mock("@/lib/i18n/format", () => ({
   format: (template: string, vars: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? "")),
+  plural: (count: number, forms: { one: string; other: string }) => (count === 1 ? forms.one : forms.other),
 }));
 vi.mock("@/app/dashboard/budget/actions", () => ({
   findOrCreateGroceriesCategory: findOrCreateGroceriesCategoryMock,
@@ -135,6 +144,7 @@ const {
   createInventoryItemFromShoppingListItemAction,
   updateShoppingListItemAction,
   unlinkShoppingListItemAction,
+  resolveShoppingListMappingsAction,
   togglePurchasedAction,
   applyReceiptScanAction,
   deleteShoppingListItemAction,
@@ -239,16 +249,57 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     expect(shoppingListItemCreateMock).not.toHaveBeenCalled();
   });
 
-  it("auto-links to an inventory item on an exact case-insensitive name match", async () => {
+  it("auto-links to an inventory item on an exact case-insensitive name match, and reports the link", async () => {
     shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "milk" });
     shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
 
-    await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
+    const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
 
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
       data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "pcs" },
     });
+    expect(result.autoLinkedName).toBe("milk");
+    // An exact match already resolved it — no need to fetch every inventory
+    // item just to try the fuzzy fallback too.
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a single confident fuzzy match when there's no exact match", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", unit: "l" },
+      { id: "inv-2", name: "Bread", unit: "pcs" },
+    ]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk 1L", quantity: "1" }));
+
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk 1L", quantity: 1, unit: "l" },
+    });
+    expect(result.autoLinkedName).toBe("Milk");
+  });
+
+  it("leaves the item unlinked when two candidates both score above the fuzzy match threshold", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    // Both "Tomato" and "Tomatoes" are near-identical to the misspelled
+    // query — with two strong candidates, guessing which one is right isn't
+    // safe, so this should leave the item unlinked rather than pick one.
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Tomato", unit: "pcs" },
+      { id: "inv-2", name: "Tomatoes", unit: "pcs" },
+    ]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await addAdHocItemAction({}, formData({ listId: "list-1", name: "Tomatoe", quantity: "1" }));
+
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: { shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" },
+    });
+    expect(result.autoLinkedName).toBeUndefined();
   });
 
   it("quickAddShoppingListItemAction returns the created item's id/name for the caller to use immediately", async () => {
@@ -443,6 +494,71 @@ describe("unlinkShoppingListItemAction", () => {
   });
 });
 
+describe("resolveShoppingListMappingsAction", () => {
+  it("returns resolvedCount 0 without querying anything for an empty batch", async () => {
+    const result = await resolveShoppingListMappingsAction([]);
+
+    expect(result).toEqual({ resolvedCount: 0 });
+    expect(shoppingListItemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("links an 'existing' resolution and creates+links a 'new' one in the same batch", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-1", shoppingListId: "list-1", name: "Milk", inventoryItemId: null },
+      { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: null },
+    ]);
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1" });
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await resolveShoppingListMappingsAction([
+      { itemId: "item-1", kind: "existing", inventoryItemId: "inv-1" },
+      { itemId: "item-2", kind: "new", category: "Dairy" },
+    ]);
+
+    expect(result).toEqual({ resolvedCount: 2 });
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { inventoryItemId: "inv-1" },
+    });
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: "Eggs", category: "Dairy" }) }),
+    );
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-2" },
+      data: { inventoryItemId: "inv-new" },
+    });
+  });
+
+  it("skips a resolution naming an inventory item outside the caller's household", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-1", shoppingListId: "list-1", name: "Milk", inventoryItemId: null },
+    ]);
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await resolveShoppingListMappingsAction([
+      { itemId: "item-1", kind: "existing", inventoryItemId: "someone-elses-inventory-item" },
+    ]);
+
+    expect(result).toEqual({ resolvedCount: 0 });
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("skips a resolution for an item outside the caller's household or already linked", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: "inv-already" },
+    ]);
+
+    const result = await resolveShoppingListMappingsAction([
+      { itemId: "someone-elses-item", kind: "new", category: "" },
+      { itemId: "item-2", kind: "new", category: "" },
+    ]);
+
+    expect(result).toEqual({ resolvedCount: 0 });
+    expect(inventoryItemCreateMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("togglePurchasedAction", () => {
   it("returns 'Item not found' for an item outside the caller's household", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue(null);
@@ -582,17 +698,39 @@ describe("deleteShoppingListItemAction", () => {
 });
 
 describe("completeShoppingListAction", () => {
-  it("refuses to complete a list with an unresolved (unlinked) item", async () => {
+  it("completes a list with unresolved (unlinked) items instead of refusing, and reports how many", async () => {
     shoppingListFindFirstMock.mockResolvedValue({
       id: "list-1",
       name: "This week",
-      items: [{ inventoryItemId: null, purchased: false, estimatedPrice: null }],
+      items: [
+        { inventoryItemId: null, purchased: false, estimatedPrice: null },
+        { inventoryItemId: null, purchased: false, estimatedPrice: null },
+        { inventoryItemId: "inv-1", purchased: true, estimatedPrice: null },
+      ],
     });
+    shoppingListUpdateMock.mockResolvedValue({});
 
     const result = await completeShoppingListAction("list-1");
 
-    expect(result.error).toBe("Resolve every item before completing this list");
-    expect(shoppingListUpdateMock).not.toHaveBeenCalled();
+    expect(result.error).toBeUndefined();
+    expect(shoppingListUpdateMock).toHaveBeenCalledWith({
+      where: { id: "list-1" },
+      data: expect.objectContaining({ status: "COMPLETED" }),
+    });
+    expect(result.unresolvedNotice).toBe("2 items weren't linked");
+  });
+
+  it("completes cleanly with no unresolvedNotice when every item is linked", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [{ inventoryItemId: "inv-1", purchased: true, estimatedPrice: null }],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.unresolvedNotice).toBeUndefined();
   });
 
   it("logs a single Groceries expense summing only purchased items with a price", async () => {
