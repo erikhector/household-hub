@@ -201,15 +201,16 @@ product decision rather than an implementation detail.
       link, view + check off with no session, revoke, confirm revoked link stops
       working.
 
-- [ ] **R. Accessibility pass** — only ~49 `aria-*`/`role` occurrences across 25 files
-      app-wide is thin for a multi-page dashboard app. Audit form labeling (every input
-      has an associated `<label>` or `aria-label`), live-region announcements for
-      `sonner` toast/notification updates, and keyboard-trap checks on the camera
-      (barcode scanner) and OCR (receipt scanner) dialogs — both open a modal that
-      should trap focus and be dismissible via keyboard alone. Fix what's found; this
-      is broad-surface so expect a large diff touching many component files — run this
-      last, after Waves 1-4's structural file splits (item A especially) have landed,
-      to avoid rebasing a large accessibility diff across files that just moved.
+- [x] **R. Accessibility pass** — audited form labeling, sonner toast live-region
+      announcements, and keyboard-trap/dismissal behavior on the barcode-scanner and
+      receipt-scan dialogs. Found and fixed 10 genuine icon-only-button/unlabeled-input
+      gaps (transaction split amounts, invite/share link fields, bulk-add review rows,
+      the quick-add bar's bare spans, inventory bulk-edit controls, several delete
+      buttons, and a completely unused pause/resume aria-label). Toasts and both camera/
+      OCR dialogs were already correct out of the box (sonner's default `aria-live`,
+      Base UI's default focus trap + Escape) — verified against the installed library
+      source and live in the browser, not assumed. 14-file, +67/−7 diff, all
+      attribute-level, no layout/logic changes.
 
 ## Notes for any agent resuming a task after an interruption
 

@@ -341,6 +341,7 @@ export function TransactionDialog({
                           onChange={(e) =>
                             setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
                           }
+                          aria-label={format(dict.split.amountAriaLabel, { name: m.displayName })}
                         />
                       </div>
                     ))}

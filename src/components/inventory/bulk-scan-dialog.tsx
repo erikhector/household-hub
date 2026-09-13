@@ -387,6 +387,7 @@ export function BulkScanDialog({
                     maxLength={120}
                     className="flex-1"
                     aria-invalid={!row.name.trim()}
+                    aria-label={dict.nameLabel}
                   />
                   <Input
                     type="number"
@@ -395,6 +396,7 @@ export function BulkScanDialog({
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 0 })}
                     className="w-16"
+                    aria-label={dict.quantityLabel}
                   />
                   <button
                     type="button"

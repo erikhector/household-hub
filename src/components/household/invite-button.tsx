@@ -70,7 +70,12 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">{dict.description}</p>
               <div className="flex gap-2">
-                <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+                <Input
+                  readOnly
+                  value={link}
+                  onFocus={(e) => e.currentTarget.select()}
+                  aria-label={dict.linkAriaLabel}
+                />
                 <Button
                   type="button"
                   variant="secondary"
@@ -86,6 +91,7 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
                 <Input
                   type="email"
                   placeholder={dict.emailPlaceholder}
+                  aria-label={dict.emailPlaceholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   maxLength={254}

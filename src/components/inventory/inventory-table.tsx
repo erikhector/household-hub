@@ -246,7 +246,7 @@ export function InventoryTable({
               setBulkValue("");
             }}
           >
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-36" aria-label={dict.bulkActions.fieldAriaLabel}>
               <SelectValue>{(v: string) => fieldLabels[v as BulkEditableField]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -265,6 +265,7 @@ export function InventoryTable({
               value={bulkValue}
               onChange={(e) => setBulkValue(e.target.value)}
               className="h-8 w-28"
+              aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : bulkField === "unit" ? (
             <Input
@@ -272,6 +273,7 @@ export function InventoryTable({
               onChange={(e) => setBulkValue(e.target.value)}
               maxLength={20}
               className="h-8 w-28"
+              aria-label={dict.bulkActions.valueAriaLabel}
             />
           ) : (
             <>
@@ -283,6 +285,7 @@ export function InventoryTable({
                 list={`bulk-${bulkField}-options`}
                 autoComplete="off"
                 className="h-8 w-48"
+                aria-label={dict.bulkActions.valueAriaLabel}
               />
               <datalist id={`bulk-${bulkField}-options`}>
                 {(bulkField === "category" ? categories : locations).map((o) => (
