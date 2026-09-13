@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
-import { MapShoppingItemDialog } from "@/components/shopping/map-shopping-item-dialog";
+import { EditShoppingItemDialog } from "@/components/shopping/edit-shopping-item-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import {
@@ -308,69 +308,61 @@ function ShoppingRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <label className="flex min-w-0 flex-1 items-center gap-3">
-          <input
-            type="checkbox"
-            checked={item.purchased}
-            disabled={isPending || !editable}
-            onChange={() =>
-              startTransition(async () => {
-                const result = await togglePurchasedAction(item.id);
-                if (result.error) toast.error(result.error);
-              })
-            }
-            className="size-4 shrink-0"
-          />
-          <span
-            className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
-            title={`${item.name} × ${item.quantity} ${item.unit}`}
-          >
-            {item.name} × {item.quantity} {item.unit}
-          </span>
-          {item.addedAutomatically && (
-            <Badge variant="secondary" className="shrink-0">
-              {dict.lowStockBadge}
-            </Badge>
-          )}
-        </label>
-        {item.inventoryItemId === null &&
-          (editable ? (
-            <MapShoppingItemDialog
-              item={item}
-              inventoryItems={inventoryItems}
-              dict={dict.mapItem}
-              trigger={
-                <Badge
-                  variant="outline"
-                  className="shrink-0 cursor-pointer border-dashed text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
-                >
-                  {dict.matchItemButton}
-                </Badge>
-              }
-            />
-          ) : (
-            <Badge variant="outline" className="shrink-0 border-dashed">
-              {dict.needsMappingBadge}
-            </Badge>
-          ))}
-      </div>
-      {editable && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-          disabled={isPending}
-          aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-          onClick={() =>
+      <label className="flex min-w-0 flex-1 items-center gap-3">
+        <input
+          type="checkbox"
+          checked={item.purchased}
+          disabled={isPending || !editable}
+          onChange={() =>
             startTransition(async () => {
-              const result = await deleteShoppingListItemAction(item.id);
+              const result = await togglePurchasedAction(item.id);
               if (result.error) toast.error(result.error);
             })
           }
+          className="size-4 shrink-0"
+        />
+        <span
+          className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+          title={`${item.name} × ${item.quantity} ${item.unit}`}
         >
-          <Trash2 className="size-3.5" />
-        </Button>
+          {item.name} × {item.quantity} {item.unit}
+        </span>
+        {item.addedAutomatically && (
+          <Badge variant="secondary" className="shrink-0">
+            {dict.lowStockBadge}
+          </Badge>
+        )}
+        {!editable && item.inventoryItemId === null && (
+          <Badge variant="outline" className="shrink-0 border-dashed">
+            {dict.needsMappingBadge}
+          </Badge>
+        )}
+      </label>
+      {editable && (
+        <div className="flex shrink-0 items-center gap-1">
+          <EditShoppingItemDialog
+            item={item}
+            inventoryItems={inventoryItems}
+            dict={dict.editItem}
+            editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
+            matchItemLabel={dict.matchItemButton}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground hover:text-destructive"
+            disabled={isPending}
+            aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await deleteShoppingListItemAction(item.id);
+                if (result.error) toast.error(result.error);
+              })
+            }
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        </div>
       )}
     </div>
   );

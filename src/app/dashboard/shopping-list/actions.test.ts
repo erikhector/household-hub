@@ -133,6 +133,8 @@ const {
   quickAddShoppingListItemAction,
   linkShoppingListItemAction,
   createInventoryItemFromShoppingListItemAction,
+  updateShoppingListItemAction,
+  unlinkShoppingListItemAction,
   togglePurchasedAction,
   applyReceiptScanAction,
   deleteShoppingListItemAction,
@@ -369,6 +371,75 @@ describe("createInventoryItemFromShoppingListItemAction", () => {
     expect(inventoryItemCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ category: "Uncategorized" }) }),
     );
+  });
+});
+
+describe("updateShoppingListItemAction", () => {
+  it("returns 'Item not found' for an item outside the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await updateShoppingListItemAction("someone-elses-item", {
+      name: "Milk",
+      quantity: 1,
+      unit: "l",
+    });
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a zero quantity", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await updateShoppingListItemAction("item-1", { name: "Milk", quantity: 0, unit: "l" });
+
+    expect(result.error).toBe("Quantity must be greater than 0");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank name", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await updateShoppingListItemAction("item-1", { name: "   ", quantity: 1, unit: "l" });
+
+    expect(result.error).toBe("Name is required");
+  });
+
+  it("updates name/quantity/unit, falling back to 'pcs' for a blank unit", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await updateShoppingListItemAction("item-1", { name: "Oat milk", quantity: 2, unit: "" });
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { name: "Oat milk", quantity: 2, unit: "pcs" },
+    });
+  });
+});
+
+describe("unlinkShoppingListItemAction", () => {
+  it("returns 'Item not found' for an item outside the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await unlinkShoppingListItemAction("someone-elses-item");
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("clears the item's inventory link", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await unlinkShoppingListItemAction("item-1");
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { inventoryItemId: null },
+    });
   });
 });
 

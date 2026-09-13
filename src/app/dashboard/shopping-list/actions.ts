@@ -20,7 +20,7 @@ import { recordOutOfStockTransition } from "@/lib/notifications";
  * matches something in inventory, but left unlinked (rather than spawning a
  * near-duplicate item) when it doesn't; the user then resolves it via
  * linkShoppingListItemAction/createInventoryItemFromShoppingListItemAction
- * below (see MapShoppingItemDialog).
+ * below (see EditShoppingItemDialog).
  */
 async function findExactInventoryItem(householdId: string, name: string) {
   return prisma.inventoryItem.findFirst({
@@ -295,11 +295,59 @@ export async function quickAddShoppingListItemAction(
   }
 }
 
+const updateItemSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
+  quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
+  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+});
+
+/**
+ * Edits a shopping-list item's own fields (name/quantity/unit). Previously
+ * the only way to fix a typo or change a quantity was delete-and-re-add,
+ * which lost addedAutomatically/estimatedPrice/the inventory link in the
+ * process. Scoped the same way as deleteShoppingListItemAction: household
+ * ownership only, no ACTIVE-list check (the UI already only renders the
+ * edit control for active lists).
+ */
+export async function updateShoppingListItemAction(
+  itemId: string,
+  data: { name: string; quantity: number; unit: string },
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { id: true, shoppingListId: true },
+  });
+  if (!item) return { error: "Item not found" };
+
+  const parsed = updateItemSchema.safeParse(data);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  try {
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: {
+        name: parsed.data.name,
+        quantity: parsed.data.quantity,
+        unit: parsed.data.unit || "pcs",
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  return {};
+}
+
 /**
  * Links a shopping-list item that didn't resolve to an exact inventory-item
  * match (see findExactInventoryItem above) to an existing inventory item the
  * user picked themselves — the "choose an existing item" half of the
- * mapping dialog (MapShoppingItemDialog).
+ * mapping dialog (EditShoppingItemDialog).
  */
 export async function linkShoppingListItemAction(
   itemId: string,
@@ -368,6 +416,30 @@ export async function createInventoryItemFromShoppingListItemAction(
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
+  return {};
+}
+
+/**
+ * Removes a shopping-list item's inventory link — the inverse of
+ * linkShoppingListItemAction/createInventoryItemFromShoppingListItemAction,
+ * for when an item was mapped to the wrong inventory item and needs to go
+ * back to "needs mapping" rather than being deleted and re-added.
+ */
+export async function unlinkShoppingListItemAction(itemId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { id: true, shoppingListId: true },
+  });
+  if (!item) return { error: "Item not found" };
+
+  await prisma.shoppingListItem.update({
+    where: { id: item.id },
+    data: { inventoryItemId: null },
+  });
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
 }
 
@@ -537,7 +609,7 @@ export async function completeShoppingListAction(
   // list can be completed — rather than silently inventing an inventory
   // item for anything unlinked (the old behavior), refuse to complete and
   // let the user resolve each one via the "needs mapping" row UI
-  // (MapShoppingItemDialog / linkShoppingListItemAction /
+  // (EditShoppingItemDialog / linkShoppingListItemAction /
   // createInventoryItemFromShoppingListItemAction above).
   const dict = await getDictionary();
   const hasUnresolvedItems = list.items.some((item) => item.inventoryItemId === null);
