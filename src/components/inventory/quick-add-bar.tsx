@@ -5,6 +5,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ComboField } from "@/components/inventory/combo-field";
 import { quickAddInventoryItemAction } from "@/app/dashboard/inventory/actions";
 import { format } from "@/lib/i18n/format";
@@ -69,9 +70,12 @@ export function QuickAddBar({
     <div className="flex w-full max-w-md flex-col gap-1.5">
       <div className="flex items-end gap-1.5">
         <div className="flex flex-1 flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground">{dict.nameLabel}</span>
+          <Label htmlFor="quick-add-name" className="text-[11px] font-normal text-muted-foreground">
+            {dict.nameLabel}
+          </Label>
           <Input
             ref={nameInputRef}
+            id="quick-add-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -82,8 +86,11 @@ export function QuickAddBar({
           />
         </div>
         <div className="flex w-16 flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground">{dict.quantityLabel}</span>
+          <Label htmlFor="quick-add-quantity" className="text-[11px] font-normal text-muted-foreground">
+            {dict.quantityLabel}
+          </Label>
           <Input
+            id="quick-add-quantity"
             type="number"
             min={0}
             step="any"
@@ -94,7 +101,9 @@ export function QuickAddBar({
           />
         </div>
         <div className="flex w-20 flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground">{dict.unitLabel}</span>
+          <Label htmlFor="quick-add-unit" className="text-[11px] font-normal text-muted-foreground">
+            {dict.unitLabel}
+          </Label>
           <ComboField
             id="quick-add-unit"
             name="unit"
@@ -106,7 +115,9 @@ export function QuickAddBar({
           />
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <span className="text-[11px] text-muted-foreground">{dict.categoryLabel}</span>
+          <Label htmlFor="quick-add-category" className="text-[11px] font-normal text-muted-foreground">
+            {dict.categoryLabel}
+          </Label>
           <ComboField
             id="quick-add-category"
             name="category"

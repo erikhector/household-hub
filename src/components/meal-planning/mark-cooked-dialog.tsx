@@ -133,6 +133,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                         value={item.quantity}
                         disabled={!item.included}
                         onChange={(e) => updateQuantity(item.key, Number(e.target.value))}
+                        aria-label={format(dict.cookedQuantityAriaLabel, { name: item.name })}
                       />
                       <span className="text-xs text-muted-foreground">{item.unit}</span>
                       {item.unitMismatch && (

@@ -259,6 +259,7 @@ export function BulkPasteDialog({
                     maxLength={120}
                     className="flex-1"
                     aria-invalid={!row.name.trim()}
+                    aria-label={dict.nameLabel}
                   />
                   <Input
                     type="number"
@@ -267,12 +268,14 @@ export function BulkPasteDialog({
                     value={row.quantity}
                     onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 0 })}
                     className="w-16"
+                    aria-label={dict.quantityLabel}
                   />
                   <Input
                     value={row.unit}
                     onChange={(e) => updateRow(row.key, { unit: e.target.value })}
                     maxLength={20}
                     className="w-16"
+                    aria-label={dict.unitLabel}
                   />
                   <button
                     type="button"

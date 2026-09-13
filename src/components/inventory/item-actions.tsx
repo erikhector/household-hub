@@ -92,6 +92,7 @@ export function ItemActions({
         size="icon"
         className={cn(size, "text-muted-foreground hover:text-destructive")}
         disabled={isPending}
+        aria-label={dict.deleteAriaLabel}
         onClick={() => onDelete(item.id)}
       >
         <Trash2 className="size-3.5" />

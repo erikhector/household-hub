@@ -313,6 +313,7 @@ function TemplateRow({
           size="icon"
           className="size-7 text-muted-foreground"
           disabled={isPending}
+          aria-label={paused ? dict.recurring.resume : dict.recurring.pause}
           onClick={() => onTogglePause(template.id, paused)}
         >
           {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}

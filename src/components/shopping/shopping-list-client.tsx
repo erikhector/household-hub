@@ -23,6 +23,7 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type ShoppingListItemRow = {
@@ -99,6 +100,7 @@ function AddItemForm({
           step="any"
           defaultValue={1}
           className="w-20"
+          aria-label={dict.addItemQuantityAriaLabel}
         />
         <Input
           name="unit"
@@ -359,6 +361,7 @@ function ShoppingRow({
           size="icon"
           className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
           disabled={isPending}
+          aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
           onClick={() =>
             startTransition(async () => {
               const result = await deleteShoppingListItemAction(item.id);
