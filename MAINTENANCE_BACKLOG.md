@@ -28,7 +28,7 @@ cost). See conversation history if this needs revisiting later.
 
 ## Wave 1 — independent, parallel (no shared files, no schema changes)
 
-- [ ] **A. Split `inventory-table.tsx`** — 712-line file
+- [x] **A. Split `inventory-table.tsx`** — 712-line file
       (`src/components/inventory/inventory-table.tsx`) mixes pure grouping/filter logic
       (`groupKeyFor`/`groupItems` ~lines 212-238, `matchesUpdatedFilter` ~line 70) with
       presentation and several sub-components (`LastUpdatedCell`, `StockBadge`,
@@ -39,7 +39,7 @@ cost). See conversation history if this needs revisiting later.
       components. No behavior change; add a unit test for the extracted grouping/filter
       helpers since they currently have none.
 
-- [ ] **B. Split `meal-planning/actions.ts`** — 742-line `"use server"` file
+- [x] **B. Split `meal-planning/actions.ts`** — 742-line `"use server"` file
       (`src/app/dashboard/meal-planning/actions.ts`) spans five sub-domains: recipe CRUD +
       ingredient-cycle detection (~lines 34-271), meal-entry add/delete (~273-361), recipe
       URL import (~363-416), missing-ingredients shopping-list bridge (~418-601), and
@@ -49,7 +49,7 @@ cost). See conversation history if this needs revisiting later.
       component/page that calls these actions. No behavior change — verify with
       `npm run lint`, `npx tsc --noEmit`, `npm run test` after.
 
-- [ ] **C. Fix `updateEmailAction` error handling** —
+- [x] **C. Fix `updateEmailAction` error handling** —
       `src/app/dashboard/profile/actions.ts:93-100`'s bare `catch` assumes any
       `prisma.user.update` failure means "email already taken," silently swallowing
       unrelated errors (timeout, connection drop) without calling `toFriendlyError`
@@ -58,7 +58,7 @@ cost). See conversation history if this needs revisiting later.
       "email already exists" message; otherwise fall through to `toFriendlyError` like
       the rest of the file (see line 36-38 for the existing pattern).
 
-- [ ] **D. Test `household.ts`'s ownership/membership actions** —
+- [x] **D. Test `household.ts`'s ownership/membership actions** —
       `src/lib/actions/household.ts` has several exported actions with no test coverage,
       including `removeMemberAction`, `deleteHouseholdAction`, `leaveHouseholdAction`,
       `transferOwnershipAction`, and `switchHouseholdAction` (verify current coverage
@@ -72,23 +72,23 @@ cost). See conversation history if this needs revisiting later.
       inside its `$transaction`, and `switchHouseholdAction` no-op/rejecting a household
       id the caller isn't a member of.
 
-- [ ] **E. Test `src/lib/exchange-rate.ts`** — `fetchExchangeRate` has zero test
+- [x] **E. Test `src/lib/exchange-rate.ts`** — `fetchExchangeRate` has zero test
       coverage despite feeding receipt currency conversion (real money) into the budget.
       Add a mocked-`fetch` unit test covering: a non-OK API response, malformed JSON,
       a currency code missing from the response, and the same-currency short-circuit
       (`from === to`, case-insensitive) that should skip the network call entirely.
 
-- [ ] **F. Test `src/lib/email.ts`** — currently only exercised indirectly through
+- [x] **F. Test `src/lib/email.ts`** — currently only exercised indirectly through
       other modules' mocks (`auth.test.ts`, `household.test.ts`). Add direct tests for
       template building and the missing-`RESEND_API_KEY` / malformed-recipient paths.
 
-- [ ] **G. Test the budget CSV export route** —
+- [x] **G. Test the budget CSV export route** —
       `src/app/dashboard/budget/export/route.ts` has no test (the underlying
       `src/lib/csv.ts` helpers are tested, but the route's auth/query wiring isn't).
       Add a test verifying it's scoped via `requireHousehold()` (never a client-supplied
       household id) and returns only the current calendar month's transactions.
 
-- [ ] **H. Add boundary-value tests to existing money-calc tests** —
+- [x] **H. Add boundary-value tests to existing money-calc tests** —
       `safe-to-spend-calc.test.ts` (currently 8 cases) is missing: a zero-transaction
       month, a recurring-expense category whose only transaction is dated in a future
       month, and a zero/negative recurring amount. `settle-up-calc.ts`'s tests should
@@ -96,12 +96,12 @@ cost). See conversation history if this needs revisiting later.
       floating-point accumulation drift across many small transactions. Do not move or
       rename these files (see item M below, which depends on this landing first).
 
-- [ ] **I. Add a Postgres healthcheck to `docker-compose.yml`** — the `postgres`
+- [x] **I. Add a Postgres healthcheck to `docker-compose.yml`** — the `postgres`
       service has no healthcheck, so `docker compose up -d` can report "started" before
       Postgres accepts connections, racing local dev/test startup. Add a `pg_isready`-based
       healthcheck.
 
-- [ ] **J. Sync `REQUIREMENTS.md` with actual shipped code** — the doc is stale in at
+- [x] **J. Sync `REQUIREMENTS.md` with actual shipped code** — the doc is stale in at
       least two places: (1) it describes PWA/offline support and a recurring-transaction
       scheduler as "not started" under a Deferred/roadmap section, but the code already
       has a working PWA install flow (`src/components/profile/install-app-card.tsx`,
@@ -119,7 +119,7 @@ cost). See conversation history if this needs revisiting later.
 Run after the already-dispatched "remove react-hook-form" task merges, to avoid a
 `package.json`/`package-lock.json` conflict.
 
-- [ ] **K. Upgrade vitest 3.2.7 → 5.0.0** — resolves the moderate `@vitest/mocker`
+- [x] **K. Upgrade vitest 3.2.7 → 5.0.0** — resolves the moderate `@vitest/mocker`
       path-traversal vulnerability (`npm audit`) cleanly; vitest 5 pins
       `@vitest/mocker@5.0.0`, past the fix range. `vitest.config.ts` is minimal (node
       env, tsconfig-paths plugin only) so migration risk looks low, but check the v4/v5
