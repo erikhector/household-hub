@@ -16,13 +16,19 @@
 // receipt-parsing.ts, unit-tested there; this component is just the
 // review/confirm UI wrapped around them.
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
-import { Camera, Loader2, Plus } from "lucide-react";
+import { Camera, ImageUp, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
 import { findInventoryMatches } from "@/lib/item-matching";
@@ -91,7 +97,8 @@ export function ReceiptScanDialog({
     unit: "pcs",
     category: "",
   });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const matchOptions = [...pendingItems, ...extraItems];
 
@@ -223,33 +230,57 @@ export function ReceiptScanDialog({
 
   const matchedCount = rows.filter((row) => row.matchId !== SKIP_VALUE).length;
 
+  function onFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) {
+      reset();
+      setOpen(true);
+      void handleFile(file);
+    }
+  }
+
   return (
     <>
+      {/* Two inputs, not one: a `capture` attribute steers some mobile
+          browsers straight into the camera app and skips the OS's own
+          photo-library chooser, so one input can't offer both "take a new
+          photo" and "pick an existing one". */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) {
-            reset();
-            setOpen(true);
-            void handleFile(file);
-          }
-        }}
+        onChange={onFileSelected}
       />
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pendingItems.length === 0}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Camera className="size-4" />
-        {dict.scanButton}
-      </Button>
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={onFileSelected}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button type="button" variant="outline" disabled={pendingItems.length === 0}>
+              <Camera className="size-4" />
+              {dict.scanButton}
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+            <Camera className="size-4" />
+            {dict.takePhoto}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => libraryInputRef.current?.click()}>
+            <ImageUp className="size-4" />
+            {dict.choosePhoto}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog
         open={open}
@@ -273,9 +304,19 @@ export function ReceiptScanDialog({
           {phase === "error" && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-destructive">{errorMessage}</p>
-              <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                {dict.tryAgain}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button type="button" variant="outline">{dict.tryAgain}</Button>} />
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
+                    <Camera className="size-4" />
+                    {dict.takePhoto}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => libraryInputRef.current?.click()}>
+                    <ImageUp className="size-4" />
+                    {dict.choosePhoto}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
 
