@@ -32,7 +32,7 @@ export default async function ProfilePage() {
           <DisplayNameForm displayName={user.displayName} dict={dict.profile.displayNameForm} />
         </div>
         <div className="rounded-md border p-4">
-          <EmailForm email={user.email} dict={dict.profile.emailForm} />
+          <EmailForm email={user.email} verified={Boolean(user.emailVerifiedAt)} dict={dict.profile.emailForm} />
         </div>
         <div className="rounded-md border p-4">
           <PasswordForm dict={dict.profile.passwordForm} />

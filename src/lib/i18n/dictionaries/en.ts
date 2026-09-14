@@ -52,6 +52,7 @@ export const en = {
     resend: "Resend verification email",
     resending: "Sending…",
     sent: "Verification email sent — check your inbox.",
+    dismissAriaLabel: "Remind me later",
   },
   household: {
     switcher: {
@@ -1158,6 +1159,10 @@ export const en = {
       saved: "Email updated",
       saving: "Updating…",
       save: "Update email",
+      notVerified: "Not verified yet.",
+      resendVerification: "Resend verification email",
+      resendingVerification: "Sending…",
+      verificationSent: "Verification email sent — check your inbox.",
     },
     passwordForm: {
       title: "Password",
