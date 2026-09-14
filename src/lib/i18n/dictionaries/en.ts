@@ -10,7 +10,7 @@ export const en = {
     shoppingList: "Shopping list",
     mealPlanning: "Meal planning",
     tasks: "Tasks",
-    budget: "Budget",
+    budget: "Household budget",
     personalBudget: "Personal budget",
     household: "Household",
     profile: "Profile",
@@ -732,7 +732,7 @@ export const en = {
     },
   },
   budget: {
-    title: "Budget",
+    title: "Household budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
     tabFixed: "Plan",
     tabOverview: "Activity",

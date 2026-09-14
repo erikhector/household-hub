@@ -94,7 +94,7 @@ export function WeekPlanner({
           {" – "}
           {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
             {dict.thisWeek}
           </Button>

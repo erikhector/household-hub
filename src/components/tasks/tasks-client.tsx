@@ -219,8 +219,12 @@ function TaskItemRow({
     : null;
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <label className="flex min-w-0 flex-1 items-center gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+      {/* basis-full forces the title onto its own line on narrow screens —
+          otherwise the recurrence/assignee badges and the edit/delete
+          buttons (all shrink-0) crowd the flex-1 title span down to just a
+          few visible characters. */}
+      <label className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
         <input
           type="checkbox"
           checked={task.completed}
@@ -240,6 +244,8 @@ function TaskItemRow({
         >
           {task.title}
         </span>
+      </label>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {recurrenceLabel && (
           <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
             <Repeat className="size-3" />
@@ -256,32 +262,32 @@ function TaskItemRow({
             {format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}
           </span>
         )}
-      </label>
-      <EditTaskDialog
-        task={task}
-        members={members}
-        dict={dict}
-        editAriaLabel={format(dict.editTaskAriaLabel, { title: task.title })}
-      />
-      <ConfirmDialog
-        trigger={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-            disabled={isPending}
-            aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
-        }
-        title={format(dict.confirmDelete.title, { name: task.title })}
-        description={dict.confirmDelete.description}
-        cancelLabel={dict.confirmDelete.cancel}
-        confirmLabel={dict.confirmDelete.confirm}
-        pendingLabel={dict.confirmDelete.confirming}
-        onConfirm={() => deleteTaskAction(task.id)}
-      />
+        <EditTaskDialog
+          task={task}
+          members={members}
+          dict={dict}
+          editAriaLabel={format(dict.editTaskAriaLabel, { title: task.title })}
+        />
+        <ConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+              disabled={isPending}
+              aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          }
+          title={format(dict.confirmDelete.title, { name: task.title })}
+          description={dict.confirmDelete.description}
+          cancelLabel={dict.confirmDelete.cancel}
+          confirmLabel={dict.confirmDelete.confirm}
+          pendingLabel={dict.confirmDelete.confirming}
+          onConfirm={() => deleteTaskAction(task.id)}
+        />
+      </div>
     </div>
   );
 }

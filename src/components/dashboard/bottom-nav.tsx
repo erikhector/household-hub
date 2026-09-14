@@ -86,12 +86,12 @@ export function BottomNav({
               key={href}
               href={href}
               className={cn(
-                "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
+                "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 py-2 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
               <Icon className="size-5" />
-              {dict.nav[key]}
+              <span className="w-full text-center leading-tight break-words">{dict.nav[key]}</span>
             </Link>
           );
         })}

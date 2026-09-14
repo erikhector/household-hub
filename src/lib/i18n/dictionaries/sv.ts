@@ -7,7 +7,7 @@ export const sv = {
     shoppingList: "Inköpslista",
     mealPlanning: "Matplanering",
     tasks: "Uppgifter",
-    budget: "Budget",
+    budget: "Hushållsbudget",
     personalBudget: "Personlig budget",
     household: "Hushåll",
     profile: "Profil",
@@ -724,7 +724,7 @@ export const sv = {
     },
   },
   budget: {
-    title: "Budget",
+    title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
     tabFixed: "Plan",
     tabOverview: "Aktivitet",
