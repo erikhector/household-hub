@@ -12,8 +12,8 @@ restart) without re-deriving what's done.
 
 | # | Item | Files | Owner | Status |
 |---|------|-------|-------|--------|
-| 1 | Email verification banner dismiss | `email-verification-banner.tsx`, `dashboard/layout.tsx`, dictionaries, Profile page | subagent A | todo |
-| 2 | Needs-mapping inline hint at add-time | `shopping-list-client.tsx`, dictionaries | subagent B | todo |
+| 1 | Email verification banner dismiss | `email-verification-banner.tsx`, `dashboard/layout.tsx`, dictionaries, Profile page | subagent A | done (merged) |
+| 2 | Needs-mapping inline hint at add-time | `shopping-list-client.tsx`, `shopping-list/actions.ts`, dictionaries | subagent B | done (merged) |
 | 3 | Cost analyzer empty-state hint copy | dictionaries (`en.ts`/`sv.ts` `costAnalyzer.noSpendingData`/`noTrendData`) | orchestrator (direct) | done |
 | 4 | At-threshold restock badge (`<=` → `<`) | `stock-status.ts`, `stock-status.test.ts` | orchestrator (direct) | done |
 | 5 | Meal planning in primary mobile nav | `nav-items.ts` (swapped Household budget → Meal planning; product call made per backlog's own reasoning) | orchestrator (direct) | done |
