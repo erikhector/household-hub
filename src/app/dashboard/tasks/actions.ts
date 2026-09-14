@@ -12,10 +12,25 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+
+const recurrenceIntervalDaysSchema = z.coerce
+  .number()
+  .int("Repeat interval must be a whole number of days")
+  .min(1, "Repeat interval must be at least 1 day")
+  .max(90, "Repeat interval must be 90 days or fewer")
+  .nullable()
+  .optional();
 
 const createTaskSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120, "Title must be 120 characters or fewer"),
   assignedToMemberId: z.string().trim().min(1).optional(),
+  recurrenceIntervalDays: recurrenceIntervalDaysSchema,
+});
+
+const updateTaskSchema = z.object({
+  assignedToMemberId: z.string().trim().min(1).nullable(),
+  recurrenceIntervalDays: recurrenceIntervalDaysSchema,
 });
 
 export async function createTaskAction(
@@ -27,6 +42,7 @@ export async function createTaskAction(
   const parsed = createTaskSchema.safeParse({
     title: formData.get("title"),
     assignedToMemberId: formData.get("assignedToMemberId") || undefined,
+    recurrenceIntervalDays: formData.get("recurrenceIntervalDays") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -48,6 +64,50 @@ export async function createTaskAction(
         householdId: household.id,
         title: parsed.data.title,
         assignedToMemberId,
+        recurrenceIntervalDays: parsed.data.recurrenceIntervalDays ?? null,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/tasks");
+  return {};
+}
+
+export async function updateTaskAction(
+  taskId: string,
+  input: { assignedToMemberId: string | null; recurrenceIntervalDays: number | null },
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const task = await prisma.householdTask.findFirst({
+    where: { id: taskId, householdId: household.id },
+    select: { id: true },
+  });
+  if (!task) return { error: "Task not found" };
+
+  const parsed = updateTaskSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let assignedToMemberId: string | null = null;
+  if (parsed.data.assignedToMemberId) {
+    const member = await prisma.householdMember.findFirst({
+      where: { id: parsed.data.assignedToMemberId, householdId: household.id },
+      select: { id: true },
+    });
+    if (!member) return { error: "Member not found" };
+    assignedToMemberId = member.id;
+  }
+
+  try {
+    await prisma.householdTask.update({
+      where: { id: task.id },
+      data: {
+        assignedToMemberId,
+        recurrenceIntervalDays: parsed.data.recurrenceIntervalDays ?? null,
       },
     });
   } catch (error) {
@@ -63,11 +123,12 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
 
   const task = await prisma.householdTask.findFirst({
     where: { id: taskId, householdId: household.id },
-    select: { id: true, completedAt: true },
+    select: { id: true, completedAt: true, recurrenceIntervalDays: true },
   });
   if (!task) return { error: "Task not found" };
 
-  const nextCompleted = task.completedAt === null;
+  const now = new Date();
+  const nextCompleted = isTaskOpen(task, now);
 
   let completedByMemberId: string | null = null;
   if (nextCompleted) {
@@ -82,7 +143,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
     await prisma.householdTask.update({
       where: { id: task.id },
       data: {
-        completedAt: nextCompleted ? new Date() : null,
+        completedAt: nextCompleted ? now : null,
         completedByMemberId,
       },
     });

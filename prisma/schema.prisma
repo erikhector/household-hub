@@ -714,22 +714,29 @@ model PersonalRecurringTemplateAck {
 // Shared task list for adult household co-managers (see JOY_GAP_BACKLOG.md
 // item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
 // system like Tody or OurHome (see that item's Scope note): no due date, no
-// recurrence, no per-person scoring. `completedAt` nullable-timestamp-as-
-// status (not a boolean/enum) mirrors MealPlanEntry.consumedAt.
-// `assignedToMemberId`/`completedByMemberId` are two distinct, independently
-// nullable fields — a task can be completed by someone other than whoever it
-// was assigned to, and an unassigned task can still be completed. Both use
-// onDelete: SetNull (never Cascade), the same tradeoff Transaction.
-// paidByMemberId makes: removing a household member unassigns/un-attributes
-// their tasks rather than deleting task history.
+// per-person scoring. `completedAt` nullable-timestamp-as-status (not a
+// boolean/enum) mirrors MealPlanEntry.consumedAt. `assignedToMemberId`/
+// `completedByMemberId` are two distinct, independently nullable fields — a
+// task can be completed by someone other than whoever it was assigned to,
+// and an unassigned task can still be completed. Both use onDelete: SetNull
+// (never Cascade), the same tradeoff Transaction.paidByMemberId makes:
+// removing a household member unassigns/un-attributes their tasks rather
+// than deleting task history.
+// `recurrenceIntervalDays` (nullable) is the whole recurrence model: no
+// rrule/weekday schedule, just "reopen N days after it was last completed".
+// See src/app/dashboard/tasks/recurrence.ts for how a recurring task's
+// open/completed state is derived lazily from `completedAt` + this interval
+// at read time — completing it again simply overwrites `completedAt`, so no
+// separate completion-history table is needed.
 model HouseholdTask {
-  id                  String    @id @default(cuid())
-  householdId         String
-  title               String
-  assignedToMemberId  String?
-  completedAt         DateTime?
-  completedByMemberId String?
-  createdAt           DateTime  @default(now())
+  id                     String    @id @default(cuid())
+  householdId            String
+  title                  String
+  assignedToMemberId     String?
+  completedAt            DateTime?
+  completedByMemberId    String?
+  recurrenceIntervalDays Int?
+  createdAt              DateTime  @default(now())
 
   household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)

@@ -3,6 +3,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { TasksClient } from "@/components/tasks/tasks-client";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
+import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 
 export default async function TasksPage() {
   const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
@@ -38,7 +39,8 @@ export default async function TasksPage() {
         title: t.title,
         assignedToMemberId: t.assignedToMemberId,
         completedByMemberId: t.completedByMemberId,
-        completed: t.completedAt !== null,
+        completed: !isTaskOpen(t, now),
+        recurrenceIntervalDays: t.recurrenceIntervalDays,
       }))}
       recapGroups={recapGroups.map((g) => ({
         memberName: g.completedByMemberId ? (memberNameById.get(g.completedByMemberId) ?? null) : null,
