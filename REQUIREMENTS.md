@@ -1214,6 +1214,55 @@ actually used, once they've cooked it.
   adjuster on the inventory page. Deleting the meal-plan entry afterward
   doesn't reverse the decrement either, for the same reason.
 
+## Household tasks
+
+`/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
+[`JOY_GAP_BACKLOG.md`](./JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
+that closes an actual product gap (a shared task list) rather than a tone
+change. One flat, shared `HouseholdTask` list per household — deliberately
+**not** a chore-chart/points/rewards system like Tody or OurHome: no due
+dates, no recurrence, no per-person scoring or leaderboard, in v1 or planned.
+Squirrel's audience is adult household co-managers, not kids earning
+rewards.
+
+- **Model**: `HouseholdTask` (`householdId`, `title`, nullable
+  `assignedToMemberId`, nullable `completedAt`, nullable
+  `completedByMemberId`). `completedAt` is a nullable-timestamp-as-status
+  (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
+  `assignedToMemberId`/`completedByMemberId` are two independent, both-
+  nullable fields — a task can be completed by someone other than whoever
+  it was assigned to, and an unassigned task can still be completed. Both
+  use `onDelete: SetNull` (never `Cascade`), the same tradeoff
+  `Transaction.paidByMemberId` makes: a member leaving the household
+  unassigns/un-attributes their tasks rather than deleting task history.
+- **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`,
+  `toggleTaskCompletedAction` (flips `completedAt` between `null` and
+  `new Date()`, always attributing completion to the *caller's own*
+  household-member id — never a client-supplied one), `deleteTaskAction`.
+  No dedicated edit/re-assign action in v1 — delete and re-add instead.
+- **UI**: one add-task form (title + optional assignee picker) and a flat
+  list split into open/completed sections, matching
+  `ShoppingListClient`'s shape. An unassigned task shows a neutral
+  "Unassigned" badge; a completed task credits its completer by name, never
+  a count.
+- **Weekly recap**: `src/app/dashboard/tasks/weekly-recap-calc.ts`
+  (`computeWeeklyTaskRecap`) groups the current Monday-start week's
+  completed tasks by completer, in first-appearance order — **never** sorted
+  or labeled by per-person count, which would read as a leaderboard. A quiet
+  week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
+  `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
+  variety recap.
+- **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
+  Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
+  rather than the primary mobile bar — revisit only if usage shows it
+  deserves that placement.
+- **Deferred**: a dedicated "tasks cleared" bell notification (item 6d) was
+  considered and explicitly deferred — the weekly recap already gives
+  completions a positive surface, and a notification on top risks the same
+  "positive notifications become noise" failure the bell's other good-news
+  kinds guard against, for a domain with no usage data yet. Revisit once
+  6a-6c have real usage to judge against.
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -1651,11 +1700,14 @@ competitive analysis has now been built.
   counts — vs. what must always be fresh, like auth) that installability
   and push didn't need to make, so it's still deferred.
 
-### Joy Gap backlog — Sep 2026, not started
+### Joy Gap backlog — Sep 2026
 
-Every item above is feature parity; every one has landed. A follow-up
-positioning memo ("The Joy Gap," Sep 2026) found the remaining gap is no
-longer functional but emotional — see
+Every roadmap item above is feature parity; every one has landed. A
+follow-up positioning memo ("The Joy Gap," Sep 2026) found the remaining
+gap is no longer functional but emotional — see
 [`JOY_GAP_BACKLOG.md`](./JOY_GAP_BACKLOG.md) for the resulting tickets
 (designer + developer handover, waved and status-tracked the same way as
-`MAINTENANCE_BACKLOG.md`).
+`MAINTENANCE_BACKLOG.md`). Waves 1-3 (items 1-6, ending with "Household
+Tasks v1" — see "Household tasks" above) have all landed; item 6d
+(a tasks-cleared bell notification) was evaluated and deliberately deferred
+rather than built — see that section's note.

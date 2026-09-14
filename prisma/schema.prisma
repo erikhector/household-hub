@@ -73,6 +73,7 @@ model Household {
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
   notifications      Notification[]
+  tasks              HouseholdTask[]
 }
 
 model HouseholdMember {
@@ -86,6 +87,8 @@ model HouseholdMember {
   user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   paidTransactions  Transaction[]      @relation("TransactionPaidBy")
   transactionSplits TransactionSplit[]
+  assignedTasks     HouseholdTask[]    @relation("TaskAssignedTo")
+  completedTasks    HouseholdTask[]    @relation("TaskCompletedBy")
 
   @@unique([householdId, userId])
 }
@@ -698,4 +701,33 @@ model PersonalRecurringTemplateAck {
 
   @@unique([personalRecurringTemplateId, periodKey])
   @@index([personalRecurringTemplateId])
+}
+
+// --- Household tasks ---------------------------------------------------------
+// Shared task list for adult household co-managers (see JOY_GAP_BACKLOG.md
+// item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
+// system like Tody or OurHome (see that item's Scope note): no due date, no
+// recurrence, no per-person scoring. `completedAt` nullable-timestamp-as-
+// status (not a boolean/enum) mirrors MealPlanEntry.consumedAt.
+// `assignedToMemberId`/`completedByMemberId` are two distinct, independently
+// nullable fields — a task can be completed by someone other than whoever it
+// was assigned to, and an unassigned task can still be completed. Both use
+// onDelete: SetNull (never Cascade), the same tradeoff Transaction.
+// paidByMemberId makes: removing a household member unassigns/un-attributes
+// their tasks rather than deleting task history.
+model HouseholdTask {
+  id                  String    @id @default(cuid())
+  householdId         String
+  title               String
+  assignedToMemberId  String?
+  completedAt         DateTime?
+  completedByMemberId String?
+  createdAt           DateTime  @default(now())
+
+  household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+  completedByMember HouseholdMember? @relation("TaskCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+  @@index([assignedToMemberId])
 }

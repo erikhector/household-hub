@@ -162,7 +162,7 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
 
 ## Wave 3 — later, needs its own task breakdown before starting
 
-- [ ] **6. Household Tasks v1** — scoped below into 6a-6d, same
+- [x] **6. Household Tasks v1** — scoped below into 6a-6d, same
       sub-task/status-tracking convention `MAINTENANCE_BACKLOG.md` uses for
       its larger items. **Problem:** this is the actual gap in the
       product, not a polish item — Squirrel has no shared calendar or
@@ -183,7 +183,7 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
       not 6b's UI. 6d (notification hook) is optional polish, decoupled
       from the rest; see its own note on why it's last and not blocking.
 
-  - [ ] **6a. Schema + actions** — the foundation; everything else in this
+  - [x] **6a. Schema + actions** — the foundation; everything else in this
         item depends on it landing first.
         **Schema (`prisma/schema.prisma`):** a `HouseholdTask` model,
         household-scoped like every other domain table (`householdId` +
@@ -258,7 +258,7 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
         convention — cover the household-scoping/IDOR guard on
         `assignedToMemberId` and on the taskId itself for each action.
 
-  - [ ] **6b. List UI** — depends on 6a.
+  - [x] **6b. List UI** — depends on 6a.
         **Route:** `src/app/dashboard/tasks/page.tsx` (Server Component:
         `requireHousehold()`, fetch this household's `HouseholdTask` rows
         plus its `HouseholdMember` list for the assignee picker — mirror
@@ -287,7 +287,7 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
         **Non-goal:** no per-task due date/recurrence UI — see item 6's
         scope note.
 
-  - [ ] **6c. Weekly recap** — depends on 6a's data shape, not on 6b
+  - [x] **6c. Weekly recap** — depends on 6a's data shape, not on 6b
         landing first (can build in parallel with 6b).
         Reuses item 5's recap pattern exactly: a pure, dependency-free calc
         module — `src/app/dashboard/tasks/weekly-recap-calc.ts`, mirroring

@@ -8,6 +8,7 @@ import {
   PiggyBank,
   Users,
   User,
+  ListChecks,
 } from "lucide-react";
 
 export const SIDEBAR_COOKIE = "sidebar_expanded";
@@ -17,6 +18,7 @@ export type NavKey =
   | "inventory"
   | "shoppingList"
   | "mealPlanning"
+  | "tasks"
   | "budget"
   | "personalBudget"
   | "household"
@@ -33,6 +35,7 @@ export const navItems: NavItem[] = [
   { href: "/dashboard/inventory", key: "inventory", icon: Package },
   { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart },
   { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays },
+  { href: "/dashboard/tasks", key: "tasks", icon: ListChecks },
   { href: "/dashboard/budget", key: "budget", icon: Wallet },
   { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank },
   { href: "/dashboard/household", key: "household", icon: Users },
