@@ -44,6 +44,7 @@ export const sv = {
     resend: "Skicka verifieringsmejl igen",
     resending: "Skickar…",
     sent: "Verifieringsmejl skickat — kolla din inkorg.",
+    dismissAriaLabel: "Påminn mig senare",
   },
   household: {
     switcher: {
@@ -1150,6 +1151,10 @@ export const sv = {
       saved: "E-post uppdaterad",
       saving: "Uppdaterar…",
       save: "Uppdatera e-post",
+      notVerified: "Inte verifierad än.",
+      resendVerification: "Skicka verifieringsmejl igen",
+      resendingVerification: "Skickar…",
+      verificationSent: "Verifieringsmejl skickat — kolla din inkorg.",
     },
     passwordForm: {
       title: "Lösenord",

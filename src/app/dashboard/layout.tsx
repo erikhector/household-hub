@@ -4,7 +4,10 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
 import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
-import { EmailVerificationBanner } from "@/components/dashboard/email-verification-banner";
+import {
+  EmailVerificationBanner,
+  EMAIL_VERIFICATION_DISMISSED_COOKIE,
+} from "@/components/dashboard/email-verification-banner";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -18,10 +21,15 @@ import { getActiveNotifications } from "@/lib/notifications";
 async function EmailVerificationCheck({
   userId,
   dict,
+  dismissed,
 }: {
   userId: string;
   dict: Dictionary["emailVerification"];
+  dismissed: boolean;
 }) {
+  // Checked before the DB round trip: once dismissed for this session there's
+  // nothing this lookup could change about what renders, so skip it entirely.
+  if (dismissed) return null;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { emailVerifiedAt: true } });
   if (user?.emailVerifiedAt) return null;
   return <EmailVerificationBanner dict={dict} />;
@@ -38,6 +46,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   // of every navigation waiting on this DB round trip too.
   const notifications = getActiveNotifications(household.id);
   const sidebarExpanded = cookieStore.get(SIDEBAR_COOKIE)?.value !== "0";
+  const emailVerificationDismissed = cookieStore.get(EMAIL_VERIFICATION_DISMISSED_COOKIE)?.value === "1";
   const current = { id: household.id, name: household.name, role };
 
   return (
@@ -52,7 +61,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       />
       <div className="flex flex-1 flex-col">
         <Suspense fallback={null}>
-          <EmailVerificationCheck userId={userId} dict={dict.emailVerification} />
+          <EmailVerificationCheck
+            userId={userId}
+            dict={dict.emailVerification}
+            dismissed={emailVerificationDismissed}
+          />
         </Suspense>
         <header className="border-b bg-background px-4 py-3 sm:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
