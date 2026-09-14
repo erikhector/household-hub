@@ -82,6 +82,73 @@ export async function createCategoryAction(
   return {};
 }
 
+const starterCategorySchema = z.object({
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(60),
+        type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+/**
+ * One-click "starter set" of common budget categories — Budget's equivalent
+ * of `addStarterKitItemsAction` in src/app/dashboard/inventory/actions.ts.
+ * Like that action, the caller (StarterCategoryPicker) supplies the already-
+ * localized names and their type straight from the locale dictionary
+ * (`dict.budget.starterCategories.items`) rather than this action looking
+ * anything up itself, and every item is created in one household-scoped
+ * batch. Case-insensitively deduped both against categories the household
+ * already has and within the batch itself (keeping the first occurrence),
+ * same convention as createInventoryItemAction's dedupe.
+ */
+export async function createStarterCategoriesAction(
+  items: { name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" }[],
+): Promise<{ error?: string; added?: number }> {
+  const { household } = await requireHousehold();
+
+  const parsed = starterCategorySchema.safeParse({ items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let added = 0;
+  try {
+    const existing = await prisma.budgetCategory.findMany({
+      where: { householdId: household.id },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((c) => c.name.trim().toLowerCase()));
+
+    const seen = new Set<string>();
+    const toAdd = parsed.data.items.filter((item) => {
+      const key = item.name.toLowerCase();
+      if (existingNames.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (toAdd.length > 0) {
+      await prisma.budgetCategory.createMany({
+        data: toAdd.map((item) => ({
+          householdId: household.id,
+          name: item.name,
+          type: item.type,
+        })),
+      });
+    }
+    added = toAdd.length;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/budget");
+  return { added };
+}
+
 export async function deleteCategoryAction(categoryId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 

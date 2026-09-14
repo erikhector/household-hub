@@ -14,6 +14,17 @@
 // in pre-rendered like the tab panels below — see DueRecurringWidget's doc
 // comment for the fuller rationale.
 //
+// A small "Manage categories" trigger sits next to the tab bar itself
+// (rendered unconditionally, not just once categories exist) so it has one
+// stable home regardless of onboarding state — see UX_FRICTION_BACKLOG.md
+// item 7: before this, CategoryManager only ever rendered inside the
+// Activity tab's overview panel, below several other widgets, so it "moved"
+// the moment the zero-category onboarding banner disappeared. Opens the
+// existing CategoryManager UI (src/components/budget/category-manager.tsx)
+// in a dialog rather than duplicating its list/add/delete UI, and stays
+// additive — CategoryManager's original render site in the Activity tab is
+// untouched.
+//
 // Tab panels themselves are Server Components rendered ahead of time by the
 // page and passed in as props — a supported pattern for nesting
 // server-rendered UI inside a Client Component (see
@@ -24,12 +35,19 @@
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { DueRecurringWidget } from "@/components/budget/due-recurring-widget";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
+import { CategoryManager, type CategoryRow } from "@/components/budget/category-manager";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
-import type { CategoryRow } from "@/components/budget/category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
@@ -102,41 +120,58 @@ export function BudgetTabs({
         <BudgetOnboarding dict={dict} />
       )}
 
-      <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
-        <Button
-          type="button"
-          variant={tab === "fixed" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("fixed")}
-        >
-          {dict.tabFixed}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "overview" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("overview")}
-        >
-          {dict.tabOverview}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "costAnalyzer" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("costAnalyzer")}
-        >
-          {dict.tabCostAnalyzer}
-        </Button>
-        {balances && (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
           <Button
             type="button"
-            variant={tab === "balances" ? "secondary" : "ghost"}
+            variant={tab === "fixed" ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => setTab("balances")}
+            onClick={() => setTab("fixed")}
           >
-            {dict.tabBalances}
+            {dict.tabFixed}
           </Button>
-        )}
+          <Button
+            type="button"
+            variant={tab === "overview" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setTab("overview")}
+          >
+            {dict.tabOverview}
+          </Button>
+          <Button
+            type="button"
+            variant={tab === "costAnalyzer" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setTab("costAnalyzer")}
+          >
+            {dict.tabCostAnalyzer}
+          </Button>
+          {balances && (
+            <Button
+              type="button"
+              variant={tab === "balances" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setTab("balances")}
+            >
+              {dict.tabBalances}
+            </Button>
+          )}
+        </div>
+        <Dialog>
+          <DialogTrigger
+            render={
+              <Button type="button" variant="ghost" size="sm">
+                {dict.manageCategories.trigger}
+              </Button>
+            }
+          />
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{dict.manageCategories.dialogTitle}</DialogTitle>
+            </DialogHeader>
+            <CategoryManager categories={categories} dict={dict} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div hidden={tab !== "fixed"}>{fixed}</div>

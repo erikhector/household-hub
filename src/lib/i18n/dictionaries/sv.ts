@@ -819,6 +819,32 @@ export const sv = {
       title: "Sätt igång din budget",
       body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
     },
+    starterCategories: {
+      heading: "Eller lägg till ett startpaket",
+      description: "Välj de kategorier du vill ha och lägg till dem alla på en gång.",
+      addSelected: {
+        one: "Lägg till {count} kategori",
+        other: "Lägg till {count} kategorier",
+      },
+      addedToast: {
+        one: "La till {count} kategori",
+        other: "La till {count} kategorier",
+      },
+      allAlreadyAdded: "De kategorierna finns redan i din budget.",
+      noneSelected: "Välj minst en kategori att lägga till.",
+      items: [
+        { id: "groceries", name: "Mat", type: "EXPENSE" },
+        { id: "rent", name: "Hyra", type: "EXPENSE" },
+        { id: "utilities", name: "Räkningar", type: "EXPENSE" },
+        { id: "transportation", name: "Transport", type: "EXPENSE" },
+        { id: "salary", name: "Lön", type: "INCOME" },
+        { id: "savings", name: "Sparande", type: "SAVINGS" },
+      ],
+    },
+    manageCategories: {
+      trigger: "Hantera kategorier",
+      dialogTitle: "Hantera kategorier",
+    },
     dueWidget: {
       title: "Att göra denna period",
       subtitle: "Återkommande räkningar och inkomster du inte loggat än.",
