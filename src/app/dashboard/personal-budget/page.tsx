@@ -95,7 +95,7 @@ export default async function PersonalBudgetPage() {
 
   // Same pure calc as the household budget's Safe to spend — see
   // src/lib/safe-to-spend-calc.ts — fed this user's own transactions instead.
-  const { safeToSpend, expectedRecurring } = computeSafeToSpend({
+  const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
     transactions: transactions.map((t) => ({
       categoryId: t.categoryId,
       categoryName: t.category.name,
@@ -212,6 +212,7 @@ export default async function PersonalBudgetPage() {
         locale={locale}
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
+        safeToSpendStatus={safeToSpendStatus}
         safeToSpendExpectedRecurring={expectedRecurring}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}

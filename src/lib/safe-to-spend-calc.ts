@@ -24,6 +24,12 @@ export type ExpectedRecurringExpense = {
   amount: number;
 };
 
+// Ratio of income-so-far below which a still-positive `safeToSpend` counts
+// as "tight" rather than "healthy" — see the "status" doc comment below.
+const TIGHT_THRESHOLD_RATIO = 0.1;
+
+export type SafeToSpendStatus = "over" | "tight" | "healthy";
+
 export type SafeToSpendResult = {
   /** Income so far this month, minus expenses so far this month, minus the
    * sum of `expectedRecurring` amounts below. */
@@ -31,6 +37,15 @@ export type SafeToSpendResult = {
   /** Recurring expense categories estimated as "expected but not yet
    * logged" this month, sorted largest-first for the breakdown UI. */
   expectedRecurring: ExpectedRecurringExpense[];
+  /** Calmer three-way read on `safeToSpend`, for copy/color in the UI (see
+   * JOY_GAP_BACKLOG.md item 3): "over" once spent past zero, "tight" once
+   * what's left drops under `TIGHT_THRESHOLD_RATIO` of this month's income
+   * so far, "healthy" otherwise. Ratio-based (not a fixed amount) so it
+   * holds up across households and currencies; with no income logged yet
+   * this month there's no ratio to judge "tight" against, so a non-negative
+   * balance reads as "healthy" rather than guessing.
+   */
+  status: SafeToSpendStatus;
 };
 
 /**
@@ -96,9 +111,18 @@ export function computeSafeToSpend({
   expectedRecurring.sort((a, b) => b.amount - a.amount);
 
   const expectedTotal = expectedRecurring.reduce((sum, e) => sum + e.amount, 0);
+  const safeToSpend = incomeSoFar - expenseSoFar - expectedTotal;
+
+  const status: SafeToSpendStatus =
+    safeToSpend < 0
+      ? "over"
+      : incomeSoFar > 0 && safeToSpend <= incomeSoFar * TIGHT_THRESHOLD_RATIO
+        ? "tight"
+        : "healthy";
 
   return {
-    safeToSpend: incomeSoFar - expenseSoFar - expectedTotal,
+    safeToSpend,
     expectedRecurring,
+    status,
   };
 }

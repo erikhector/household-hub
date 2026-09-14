@@ -8,7 +8,7 @@ import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
 import { ExportButton } from "@/components/export/export-button";
-import type { StockStatus } from "@/lib/stock-status";
+import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 
 // Status values the notification bell's low-stock alerts link to (e.g.
 // `/dashboard/inventory?status=low`) — see src/lib/notifications.ts and
@@ -46,12 +46,20 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
   const locations = [...new Set(items.flatMap((item) => (item.location ? [item.location] : [])))].sort();
   const units = [...new Set(items.map((item) => item.unit))].sort();
 
+  // Footnote-weight positive state (see JOY_GAP_BACKLOG.md item 2): the
+  // common case right after a restock — nothing low or out — otherwise gets
+  // no acknowledgment at all. Deliberately quiet (small, muted text, no
+  // badge/icon) so it doesn't compete with the item table below it.
+  const isWellStocked =
+    items.length > 0 && items.every((item) => getStockStatus(item.quantity, item.lowStockThreshold) === "in");
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
+          {isWellStocked && <p className="text-xs text-muted-foreground">{dict.inventory.wellStocked}</p>}
         </div>
         <div className="flex items-center gap-2">
           <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />

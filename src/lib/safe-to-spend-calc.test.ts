@@ -197,4 +197,54 @@ describe("computeSafeToSpend", () => {
     // Expected total is 0 + (-50) = -50, so it *adds* 50 to safe-to-spend.
     expect(result.safeToSpend).toBe(3000 - 0 - -50);
   });
+
+  describe("status", () => {
+    it("is 'over' once safe-to-spend goes negative", () => {
+      const result = computeSafeToSpend({
+        transactions: [],
+        monthStart,
+        monthEnd,
+        incomeSoFar: 1000,
+        expenseSoFar: 1050,
+      });
+      expect(result.safeToSpend).toBe(-50);
+      expect(result.status).toBe("over");
+    });
+
+    it("is 'tight' once what's left drops under 10% of income so far", () => {
+      const result = computeSafeToSpend({
+        transactions: [],
+        monthStart,
+        monthEnd,
+        incomeSoFar: 1000,
+        expenseSoFar: 920, // 80 left, exactly 8% of income
+      });
+      expect(result.safeToSpend).toBe(80);
+      expect(result.status).toBe("tight");
+    });
+
+    it("is 'healthy' when comfortably above the tight threshold", () => {
+      const result = computeSafeToSpend({
+        transactions: [],
+        monthStart,
+        monthEnd,
+        incomeSoFar: 1000,
+        expenseSoFar: 500,
+      });
+      expect(result.safeToSpend).toBe(500);
+      expect(result.status).toBe("healthy");
+    });
+
+    it("is 'healthy' for a non-negative balance when no income has posted yet, rather than guessing 'tight'", () => {
+      const result = computeSafeToSpend({
+        transactions: [],
+        monthStart,
+        monthEnd,
+        incomeSoFar: 0,
+        expenseSoFar: 0,
+      });
+      expect(result.safeToSpend).toBe(0);
+      expect(result.status).toBe("healthy");
+    });
+  });
 });

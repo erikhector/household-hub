@@ -156,7 +156,7 @@ export default async function BudgetPage() {
   // logic lives in computeSafeToSpend (@/lib/safe-to-spend-calc.ts) so it's
   // unit-testable without Prisma; this just feeds it the transactions the
   // page already fetched above.
-  const { safeToSpend, expectedRecurring } = computeSafeToSpend({
+  const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
     transactions: transactions.map((t) => ({
       categoryId: t.categoryId,
       categoryName: t.category.name,
@@ -324,6 +324,7 @@ export default async function BudgetPage() {
         locale={locale}
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
+        safeToSpendStatus={safeToSpendStatus}
         safeToSpendExpectedRecurring={expectedRecurring}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}

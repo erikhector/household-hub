@@ -5,15 +5,28 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import type { ExpectedRecurringExpense } from "@/lib/safe-to-spend-calc";
+import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
+
+// Calmer three-way read on the amount (see JOY_GAP_BACKLOG.md item 3): a
+// tight-but-not-empty balance gets its own amber tone instead of being
+// lumped in with either a comfortably healthy or a truly over-budget
+// number, so "$4 left" doesn't read as either as fine as "$400 left" or as
+// alarming as actually being over.
+const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
+  healthy: "text-chart-5",
+  tight: "text-amber-600 dark:text-amber-500",
+  over: "text-destructive",
+};
 
 export function SafeToSpend({
   amount,
+  status,
   expectedRecurring,
   dict,
   locale,
 }: {
   amount: number;
+  status: SafeToSpendStatus;
   expectedRecurring: ExpectedRecurringExpense[];
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
@@ -22,7 +35,11 @@ export function SafeToSpend({
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const amountColor = amount >= 0 ? "text-chart-5" : "text-destructive";
+  const summary = {
+    healthy: dict.summaryHealthy,
+    tight: dict.summaryTight,
+    over: dict.summaryOver,
+  }[status];
 
   return (
     <Card className="border-2 border-primary/40 bg-primary/5">
@@ -32,7 +49,8 @@ export function SafeToSpend({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className={`font-display text-4xl font-bold ${amountColor}`}>
+        <p className="text-sm text-foreground">{summary}</p>
+        <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
           {amount >= 0 ? "+" : ""}
           {numberFormat.format(amount)}
         </p>

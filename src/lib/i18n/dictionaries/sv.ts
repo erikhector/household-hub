@@ -190,6 +190,9 @@ export const sv = {
     editItemAriaLabel: "Redigera {name}",
     emptyListActive: "Inget på listan än. Lägg till varor manuellt, eller hämta det som har lågt lager.",
     emptyListOther: "Inget på listan.",
+    clearedTitle: "Allt klart",
+    clearedDescription: "Allt på listan är avbockat eller borttaget.",
+    clearedDismissAriaLabel: "Stäng",
     purchased: "Köpt",
     lowStockBadge: "Lågt lager",
     expenseLogged: "Loggade {amount} i din budget för Livsmedel",
@@ -346,6 +349,7 @@ export const sv = {
     statusIn: "I lager",
     statusLow: "Lågt lager",
     statusOut: "Slut i lager",
+    wellStocked: "Inget är lågt eller slut just nu — skafferiet ser bra ut.",
     expiringSoon: "Går snart ut",
     expired: "Utgången",
     emptyNoItems: "Inga varor än. Lägg till din första vara för att börja hålla koll på lagret.",
@@ -693,6 +697,9 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      summaryHealthy: "Det ser bra ut för resten av månaden.",
+      summaryTight: "Det börjar bli knapert för resten av månaden.",
+      summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
       caveat:
         "En uppskattning, inte en schemaläggare — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",
@@ -860,6 +867,9 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      summaryHealthy: "Det ser bra ut för resten av månaden.",
+      summaryTight: "Det börjar bli knapert för resten av månaden.",
+      summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
       caveat:
         "En uppskattning, inte ett schema — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",

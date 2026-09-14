@@ -198,6 +198,9 @@ export const en = {
     editItemAriaLabel: "Edit {name}",
     emptyListActive: "Nothing on this list yet. Add items manually, or pull in what's low on stock.",
     emptyListOther: "Nothing on this list.",
+    clearedTitle: "All done",
+    clearedDescription: "Everything on this list is checked off or gone.",
+    clearedDismissAriaLabel: "Dismiss",
     purchased: "Purchased",
     lowStockBadge: "Low stock",
     expenseLogged: "Logged {amount} to your Groceries budget",
@@ -354,6 +357,7 @@ export const en = {
     statusIn: "In stock",
     statusLow: "Low stock",
     statusOut: "Out of stock",
+    wellStocked: "Nothing low or out right now — the pantry's in good shape.",
     expiringSoon: "Expiring soon",
     expired: "Expired",
     emptyNoItems: "No items yet. Add your first item to start tracking inventory.",
@@ -701,6 +705,9 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      summaryHealthy: "You're in good shape for the rest of the month.",
+      summaryTight: "It's getting tight for the rest of the month.",
+      summaryOver: "You've gone over what's safe to spend this month.",
       caveat:
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",
@@ -868,6 +875,9 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      summaryHealthy: "You're in good shape for the rest of the month.",
+      summaryTight: "It's getting tight for the rest of the month.",
+      summaryOver: "You've gone over what's safe to spend this month.",
       caveat:
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",

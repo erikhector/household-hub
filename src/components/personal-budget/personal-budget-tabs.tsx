@@ -13,7 +13,7 @@ import { PersonalDueRecurringWidget } from "@/components/personal-budget/persona
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
-import type { ExpectedRecurringExpense } from "@/lib/safe-to-spend-calc";
+import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 type Tab = "fixed" | "overview";
@@ -23,6 +23,7 @@ export function PersonalBudgetTabs({
   locale,
   categories,
   safeToSpendAmount,
+  safeToSpendStatus,
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
@@ -33,6 +34,7 @@ export function PersonalBudgetTabs({
   locale: Locale;
   categories: PersonalCategoryRow[];
   safeToSpendAmount: number;
+  safeToSpendStatus: SafeToSpendStatus;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
@@ -49,6 +51,7 @@ export function PersonalBudgetTabs({
         <>
           <SafeToSpend
             amount={safeToSpendAmount}
+            status={safeToSpendStatus}
             expectedRecurring={safeToSpendExpectedRecurring}
             dict={dict.safeToSpend}
             locale={locale}

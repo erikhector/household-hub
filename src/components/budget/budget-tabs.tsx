@@ -30,7 +30,7 @@ import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
 import type { CategoryRow } from "@/components/budget/category-manager";
-import type { ExpectedRecurringExpense } from "@/lib/safe-to-spend-calc";
+import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 type Tab = "fixed" | "overview" | "costAnalyzer" | "balances";
@@ -40,6 +40,7 @@ export function BudgetTabs({
   locale,
   categories,
   safeToSpendAmount,
+  safeToSpendStatus,
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
@@ -54,6 +55,7 @@ export function BudgetTabs({
   locale: Locale;
   categories: CategoryRow[];
   safeToSpendAmount: number;
+  safeToSpendStatus: SafeToSpendStatus;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
@@ -80,6 +82,7 @@ export function BudgetTabs({
         <>
           <SafeToSpend
             amount={safeToSpendAmount}
+            status={safeToSpendStatus}
             expectedRecurring={safeToSpendExpectedRecurring}
             dict={dict.safeToSpend}
             locale={locale}

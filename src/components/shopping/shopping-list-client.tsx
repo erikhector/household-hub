@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -185,6 +185,26 @@ export function ShoppingListClient({
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
 
+  // "Cleared" covers two cases: every item got checked off (purchasedItems
+  // non-empty), or the list was emptied out entirely after having had items
+  // this session (hadItems distinguishes that from a list that's simply
+  // never had anything added to it, which gets the plain empty state).
+  const [hadItems, setHadItems] = useState(list.items.length > 0);
+  if (list.items.length > 0 && !hadItems) setHadItems(true);
+  const isCleared =
+    pendingItems.length === 0 && (purchasedItems.length > 0 || (list.items.length === 0 && hadItems));
+
+  // Adjust-state-during-render pattern: re-arm the dismissal the moment the
+  // list leaves the cleared state (e.g. a new item is added), so the next
+  // time it clears it shows fresh instead of staying dismissed forever.
+  const [wasCleared, setWasCleared] = useState(isCleared);
+  const [clearedDismissed, setClearedDismissed] = useState(false);
+  if (isCleared !== wasCleared) {
+    setWasCleared(isCleared);
+    if (!isCleared) setClearedDismissed(false);
+  }
+  const showCleared = isCleared && !clearedDismissed;
+
   return (
     <div className="flex flex-col gap-6">
       <Link
@@ -312,7 +332,9 @@ export function ShoppingListClient({
       )}
 
       <div className="flex flex-col gap-2">
-        {pendingItems.length === 0 && purchasedItems.length === 0 ? (
+        {showCleared ? (
+          <ClearedState dict={dict} onDismiss={() => setClearedDismissed(true)} />
+        ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
           <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
             {isActive ? dict.emptyListActive : dict.emptyListOther}
           </p>
@@ -352,6 +374,25 @@ export function ShoppingListClient({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ClearedState({ dict, onDismiss }: { dict: ShoppingListDict; onDismiss: () => void }) {
+  return (
+    <div className="relative flex flex-col items-center gap-1.5 rounded-md border border-dashed p-8 text-center">
+      <CheckCheck className="size-5 text-muted-foreground" />
+      <p className="text-sm font-medium">{dict.clearedTitle}</p>
+      <p className="text-sm text-muted-foreground">{dict.clearedDescription}</p>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-2 top-2 size-7 text-muted-foreground"
+        aria-label={dict.clearedDismissAriaLabel}
+        onClick={onDismiss}
+      >
+        <X className="size-3.5" />
+      </Button>
     </div>
   );
 }

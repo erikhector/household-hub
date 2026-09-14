@@ -47,7 +47,7 @@ every ticket here is built, not just which ones exist:
 
 Independent; any order.
 
-- [ ] **1. Shopping list "cleared" state**
+- [x] **1. Shopping list "cleared" state**
       — `src/app/dashboard/shopping-list/[id]/page.tsx`,
       `src/app/dashboard/shopping-list/actions.ts`
       **Problem:** checking off the last item on a shopping list currently
@@ -67,7 +67,7 @@ Independent; any order.
       REQUIREMENTS.md i18n convention — `satisfies Dictionary` will fail the
       build if `sv.ts` is missed).
 
-- [ ] **2. Inventory "stocked" empty state**
+- [x] **2. Inventory "stocked" empty state**
       — `src/app/dashboard/inventory/page.tsx`,
       `src/components/inventory/inventory-table.tsx`,
       `src/components/inventory/stock-badge.tsx`
@@ -86,7 +86,7 @@ Independent; any order.
       `inventory-table.tsx` before designing against it (it may already
       render blank, which is exactly the gap).
 
-- [ ] **3. Budget copy & tone pass on "safe to spend"**
+- [x] **3. Budget copy & tone pass on "safe to spend"**
       — `src/components/budget/safe-to-spend.tsx`,
       `src/lib/safe-to-spend-calc.ts`
       **Problem:** "safe to spend" is already the one place in the app that
