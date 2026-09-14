@@ -9,7 +9,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   requireHouseholdMock,
   categoryFindFirstMock,
+  categoryFindManyMock,
   categoryCreateMock,
+  categoryCreateManyMock,
   categoryDeleteMock,
   transactionFindFirstMock,
   transactionCreateMock,
@@ -27,7 +29,9 @@ const {
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
+  categoryFindManyMock: vi.fn(),
   categoryCreateMock: vi.fn(),
+  categoryCreateManyMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
   transactionFindFirstMock: vi.fn(),
   transactionCreateMock: vi.fn(),
@@ -48,7 +52,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     budgetCategory: {
       findFirst: categoryFindFirstMock,
+      findMany: categoryFindManyMock,
       create: categoryCreateMock,
+      createMany: categoryCreateManyMock,
       delete: categoryDeleteMock,
     },
     transaction: {
@@ -78,6 +84,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 const {
   findOrCreateGroceriesCategory,
   createCategoryAction,
+  createStarterCategoriesAction,
   deleteCategoryAction,
   createTransactionAction,
   updateTransactionAction,
@@ -152,6 +159,79 @@ describe("createCategoryAction", () => {
     expect(categoryCreateMock).toHaveBeenCalledWith({
       data: { householdId: "household-1", name: "Fun money", type: "EXPENSE" },
     });
+  });
+});
+
+describe("createStarterCategoriesAction", () => {
+  it("rejects an empty item list", async () => {
+    const result = await createStarterCategoriesAction([]);
+    expect(result.error).toBeTruthy();
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid type", async () => {
+    const result = await createStarterCategoriesAction([
+      { name: "Groceries", type: "BOGUS" as never },
+    ]);
+    expect(result.error).toBeTruthy();
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes the batch create to the caller's household", async () => {
+    categoryFindManyMock.mockResolvedValue([]);
+    categoryCreateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await createStarterCategoriesAction([
+      { name: "Groceries", type: "EXPENSE" },
+      { name: "Salary", type: "INCOME" },
+    ]);
+
+    expect(result).toEqual({ added: 2 });
+    expect(categoryCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { householdId: "household-1", name: "Groceries", type: "EXPENSE" },
+        { householdId: "household-1", name: "Salary", type: "INCOME" },
+      ],
+    });
+  });
+
+  it("skips categories that already exist (case-insensitive)", async () => {
+    categoryFindManyMock.mockResolvedValue([{ name: "groceries" }]);
+    categoryCreateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await createStarterCategoriesAction([
+      { name: "Groceries", type: "EXPENSE" },
+      { name: "Rent", type: "EXPENSE" },
+    ]);
+
+    expect(result).toEqual({ added: 1 });
+    expect(categoryCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", name: "Rent", type: "EXPENSE" }],
+    });
+  });
+
+  it("dedupes repeats within the same batch, keeping the first occurrence", async () => {
+    categoryFindManyMock.mockResolvedValue([]);
+    categoryCreateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await createStarterCategoriesAction([
+      { name: "Rent", type: "EXPENSE" },
+      { name: "rent", type: "INCOME" },
+    ]);
+
+    expect(result).toEqual({ added: 1 });
+    expect(categoryCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", name: "Rent", type: "EXPENSE" }],
+    });
+  });
+
+  it("returns added: 0 without calling createMany when everything already exists", async () => {
+    categoryFindManyMock.mockResolvedValue([{ name: "Groceries" }]);
+
+    const result = await createStarterCategoriesAction([{ name: "Groceries", type: "EXPENSE" }]);
+
+    expect(result).toEqual({ added: 0 });
+    expect(categoryCreateManyMock).not.toHaveBeenCalled();
   });
 });
 

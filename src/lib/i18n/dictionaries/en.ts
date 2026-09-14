@@ -830,6 +830,32 @@ export const en = {
       title: "Let's set up your budget",
       body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
     },
+    starterCategories: {
+      heading: "Or add a starter set",
+      description: "Pick the categories you want, then add them all at once.",
+      addSelected: {
+        one: "Add {count} category",
+        other: "Add {count} categories",
+      },
+      addedToast: {
+        one: "Added {count} category",
+        other: "Added {count} categories",
+      },
+      allAlreadyAdded: "Those categories are already in your budget.",
+      noneSelected: "Pick at least one category to add.",
+      items: [
+        { id: "groceries", name: "Groceries", type: "EXPENSE" },
+        { id: "rent", name: "Rent", type: "EXPENSE" },
+        { id: "utilities", name: "Utilities", type: "EXPENSE" },
+        { id: "transportation", name: "Transportation", type: "EXPENSE" },
+        { id: "salary", name: "Salary", type: "INCOME" },
+        { id: "savings", name: "Savings", type: "SAVINGS" },
+      ],
+    },
+    manageCategories: {
+      trigger: "Manage categories",
+      dialogTitle: "Manage categories",
+    },
     dueWidget: {
       title: "Due this period",
       subtitle: "Recurring bills and income you haven't logged yet.",
