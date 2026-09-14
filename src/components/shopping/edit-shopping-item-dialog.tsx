@@ -169,6 +169,7 @@ export function EditShoppingItemDialog({
       />
       {item.inventoryItemId === null && (
         <DialogTrigger
+          nativeButton={false}
           render={
             <Badge
               variant="outline"

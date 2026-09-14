@@ -5,6 +5,7 @@ import { Check, Pause, Pencil, Play, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   acknowledgePersonalTemplatePeriodAction,
   deletePersonalRecurringTemplateAction,
@@ -79,7 +80,7 @@ export function PersonalRecurringTemplatesPanel({
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-heading text-base font-semibold">{dict.recurring.title}</h2>
           <p className="text-sm text-muted-foreground">{dict.recurring.subtitle}</p>
@@ -316,16 +317,25 @@ function TemplateRow({
         >
           {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 text-muted-foreground hover:text-destructive"
-          disabled={isPending}
-          aria-label={format(dict.recurring.deleteAriaLabel, { name: template.name })}
-          onClick={() => onDelete(template.id)}
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+        <ConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-destructive"
+              disabled={isPending}
+              aria-label={format(dict.recurring.deleteAriaLabel, { name: template.name })}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          }
+          title={format(dict.recurring.confirmDelete.title, { name: template.name })}
+          description={dict.recurring.confirmDelete.description}
+          cancelLabel={dict.recurring.confirmDelete.cancel}
+          confirmLabel={dict.recurring.confirmDelete.confirm}
+          pendingLabel={dict.recurring.confirmDelete.confirming}
+          onConfirm={() => onDelete(template.id)}
+        />
       </div>
     </div>
   );

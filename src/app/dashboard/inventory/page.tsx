@@ -62,13 +62,13 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
           {isWellStocked && <p className="text-xs text-muted-foreground">{dict.inventory.wellStocked}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
           <BulkPasteDialog
             dict={dict.inventory}

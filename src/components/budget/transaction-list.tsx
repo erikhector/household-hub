@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTransactionAction } from "@/app/dashboard/budget/actions";
 import {
   TransactionDialog,
@@ -170,16 +171,25 @@ export function TransactionList({
                     </Button>
                   }
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  disabled={isPending}
-                  aria-label={dict.deleteAriaLabel}
-                  onClick={() => handleDelete(tx.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      disabled={isPending}
+                      aria-label={dict.deleteAriaLabel}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  }
+                  title={dict.confirmDeleteTransaction.title}
+                  description={dict.confirmDeleteTransaction.description}
+                  cancelLabel={dict.confirmDeleteTransaction.cancel}
+                  confirmLabel={dict.confirmDeleteTransaction.confirm}
+                  pendingLabel={dict.confirmDeleteTransaction.confirming}
+                  onConfirm={() => handleDelete(tx.id)}
+                />
               </div>
             </TableCell>
           </TableRow>
@@ -259,16 +269,25 @@ export function TransactionList({
                     </Button>
                   }
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-9 text-muted-foreground hover:text-destructive"
-                  disabled={isPending}
-                  aria-label={dict.deleteAriaLabel}
-                  onClick={() => handleDelete(tx.id)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 text-muted-foreground hover:text-destructive"
+                      disabled={isPending}
+                      aria-label={dict.deleteAriaLabel}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  }
+                  title={dict.confirmDeleteTransaction.title}
+                  description={dict.confirmDeleteTransaction.description}
+                  cancelLabel={dict.confirmDeleteTransaction.cancel}
+                  confirmLabel={dict.confirmDeleteTransaction.confirm}
+                  pendingLabel={dict.confirmDeleteTransaction.confirming}
+                  onConfirm={() => handleDelete(tx.id)}
+                />
               </div>
             </div>
           </div>

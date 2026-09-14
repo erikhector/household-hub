@@ -7,6 +7,7 @@ import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucid
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { ComboField } from "@/components/inventory/combo-field";
@@ -305,19 +306,25 @@ export function ShoppingListClient({
               {dict.archive}
             </Button>
           )}
-          <Button
-            variant="destructive"
-            disabled={isPending}
-            onClick={() =>
+          <ConfirmDialog
+            trigger={
+              <Button variant="destructive" disabled={isPending}>
+                <Trash2 className="size-4" />
+                {dict.delete}
+              </Button>
+            }
+            title={format(dict.confirmDeleteList.title, { name: list.name })}
+            description={dict.confirmDeleteList.description}
+            cancelLabel={dict.confirmDeleteList.cancel}
+            confirmLabel={dict.confirmDeleteList.confirm}
+            pendingLabel={dict.confirmDeleteList.confirming}
+            onConfirm={() =>
               startTransition(async () => {
                 const result = await deleteShoppingListAction(list.id);
                 if (result.error) toast.error(result.error);
               })
             }
-          >
-            <Trash2 className="size-4" />
-            {dict.delete}
-          </Button>
+          />
         </div>
       </div>
 

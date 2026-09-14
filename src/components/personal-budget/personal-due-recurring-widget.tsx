@@ -43,7 +43,7 @@ export function PersonalDueRecurringWidget({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+      <CardHeader className="flex flex-col items-start gap-2 space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>{dict.dueWidget.title}</CardTitle>
           <p className="text-sm text-muted-foreground">{dict.dueWidget.subtitle}</p>

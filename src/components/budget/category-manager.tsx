@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -115,15 +116,24 @@ function CategoryGroup({
             <span className="min-w-0 truncate" title={category.name}>
               {category.name}
             </span>
-            <button
-              type="button"
-              aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
-              disabled={isPending}
-              onClick={() => onDelete(category.id)}
-              className="-m-1.5 p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50"
-            >
-              <Trash2 className="size-3" />
-            </button>
+            <ConfirmDialog
+              trigger={
+                <button
+                  type="button"
+                  aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
+                  disabled={isPending}
+                  className="-m-1.5 p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              }
+              title={format(dict.categories.confirmDelete.title, { name: category.name })}
+              description={dict.categories.confirmDelete.description}
+              cancelLabel={dict.categories.confirmDelete.cancel}
+              confirmLabel={dict.categories.confirmDelete.confirm}
+              pendingLabel={dict.categories.confirmDelete.confirming}
+              onConfirm={() => onDelete(category.id)}
+            />
           </Badge>
         ))}
       </div>

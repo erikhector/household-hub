@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Archive, ArchiveRestore, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -143,21 +144,25 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
             <ArchiveRestore className="size-3.5" />
           </Button>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:text-destructive"
-          disabled={isPending}
-          aria-label={dict.deleteAriaLabel}
-          onClick={() =>
-            startTransition(async () => {
-              const result = await deleteShoppingListAction(list.id);
-              if (result.error) toast.error(result.error);
-            })
+        <ConfirmDialog
+          trigger={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-destructive"
+              disabled={isPending}
+              aria-label={dict.deleteAriaLabel}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
           }
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+          title={format(dict.confirmDeleteList.title, { name: list.name })}
+          description={dict.confirmDeleteList.description}
+          cancelLabel={dict.confirmDeleteList.cancel}
+          confirmLabel={dict.confirmDeleteList.confirm}
+          pendingLabel={dict.confirmDeleteList.confirming}
+          onConfirm={() => deleteShoppingListAction(list.id)}
+        />
       </div>
     </div>
   );

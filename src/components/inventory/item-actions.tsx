@@ -9,7 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 
@@ -87,16 +89,25 @@ export function ItemActions({
           </Button>
         }
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        className={cn(size, "text-muted-foreground hover:text-destructive")}
-        disabled={isPending}
-        aria-label={dict.deleteAriaLabel}
-        onClick={() => onDelete(item.id)}
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(size, "text-muted-foreground hover:text-destructive")}
+            disabled={isPending}
+            aria-label={dict.deleteAriaLabel}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        }
+        title={format(dict.confirmDelete.title, { name: item.name })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={() => onDelete(item.id)}
+      />
     </div>
   );
 }

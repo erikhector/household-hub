@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createTaskAction, deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { EditTaskDialog } from "@/components/tasks/edit-task-dialog";
 import { TasksWeeklyRecap, type WeeklyRecapGroupView } from "@/components/tasks/tasks-weekly-recap";
@@ -262,21 +263,25 @@ function TaskItemRow({
         dict={dict}
         editAriaLabel={format(dict.editTaskAriaLabel, { title: task.title })}
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-        disabled={isPending}
-        aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
-        onClick={() =>
-          startTransition(async () => {
-            const result = await deleteTaskAction(task.id);
-            if (result.error) toast.error(result.error);
-          })
+      <ConfirmDialog
+        trigger={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+            disabled={isPending}
+            aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
         }
-      >
-        <Trash2 className="size-3.5" />
-      </Button>
+        title={format(dict.confirmDelete.title, { name: task.title })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={() => deleteTaskAction(task.id)}
+      />
     </div>
   );
 }

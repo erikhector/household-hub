@@ -5,6 +5,7 @@ import { Crown, LogOut, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogClose,
@@ -102,16 +103,25 @@ export function MemberList({
                 </Button>
               )}
               {isOwner && member.role !== "OWNER" && (
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground hover:text-destructive"
-                  disabled={isPending}
-                  aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
-                  onClick={() => handleRemove(member.id)}
-                >
-                  <UserMinus className="size-3.5" />
-                </Button>
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      disabled={isPending}
+                      aria-label={format(dict.removeAriaLabel, { name: member.displayName })}
+                    >
+                      <UserMinus className="size-3.5" />
+                    </Button>
+                  }
+                  title={format(dict.confirmRemoveMember.title, { name: member.displayName })}
+                  description={dict.confirmRemoveMember.description}
+                  cancelLabel={dict.confirmRemoveMember.cancel}
+                  confirmLabel={dict.confirmRemoveMember.confirm}
+                  pendingLabel={dict.confirmRemoveMember.confirming}
+                  onConfirm={() => handleRemove(member.id)}
+                />
               )}
               {isSelf && member.role !== "OWNER" && (
                 <Button

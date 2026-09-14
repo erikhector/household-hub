@@ -5,6 +5,7 @@ import { ChefHat, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
 import { format, plural } from "@/lib/i18n/format";
@@ -32,7 +33,7 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-heading text-lg font-semibold">{dict.recipesTitle}</h2>
           <p className="text-sm text-muted-foreground">{dict.recipesSubtitle}</p>
@@ -171,17 +172,26 @@ function RecipeRow({
             </Button>
           }
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="text-muted-foreground hover:text-destructive"
-          disabled={isPending}
-          aria-label={dict.deleteAriaLabel}
-          onClick={handleDelete}
-        >
-          <Trash2 className="size-3.5" />
-        </Button>
+        <ConfirmDialog
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:text-destructive"
+              disabled={isPending}
+              aria-label={dict.deleteAriaLabel}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          }
+          title={format(dict.confirmDelete.title, { name: recipe.name })}
+          description={dict.confirmDelete.description}
+          cancelLabel={dict.confirmDelete.cancel}
+          confirmLabel={dict.confirmDelete.confirm}
+          pendingLabel={dict.confirmDelete.confirming}
+          onConfirm={handleDelete}
+        />
       </span>
     </div>
   );
