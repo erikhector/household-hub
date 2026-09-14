@@ -1650,3 +1650,12 @@ competitive analysis has now been built.
   a bigger, separate decision (what's safe to serve stale — e.g. inventory
   counts — vs. what must always be fresh, like auth) that installability
   and push didn't need to make, so it's still deferred.
+
+### Joy Gap backlog — Sep 2026, not started
+
+Every item above is feature parity; every one has landed. A follow-up
+positioning memo ("The Joy Gap," Sep 2026) found the remaining gap is no
+longer functional but emotional — see
+[`JOY_GAP_BACKLOG.md`](./JOY_GAP_BACKLOG.md) for the resulting tickets
+(designer + developer handover, waved and status-tracked the same way as
+`MAINTENANCE_BACKLOG.md`).
