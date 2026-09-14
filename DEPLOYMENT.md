@@ -188,39 +188,31 @@ directly.
 - `DIRECT_URL` — the **unpooled**, direct-to-Postgres connection string.
   Used only by the Prisma CLI for `migrate deploy` / `migrate dev`.
 
-**This app currently has no `DIRECT_URL` split** — `prisma7.config.ts` only
-declares `datasource.url`. It works today because there's no pooler in
-front of `DATABASE_URL` yet. The moment you put PgBouncer/Neon-pooler/
-Supabase-pooler in front of `DATABASE_URL` for the running app, you need to
-wire up the direct URL too, or `migrate deploy` will fail or silently
-misbehave against the pooler. Two changes, both small:
+`prisma7.config.ts`'s `datasource` block declares both:
 
-1. Add a `DIRECT_URL` value in the environment (see `.env.example` — the
-   variable is now documented there) pointing at the same database's
-   **direct**, non-pooled connection string (Neon: the non-`-pooler`
-   hostname; Supabase: port `5432`; self-hosted: Postgres's own port,
-   bypassing PgBouncer).
-2. Add it to `prisma7.config.ts`'s `datasource` block:
+```typescript
+datasource: {
+  url: process.env["DATABASE_URL"],
+  directUrl: process.env["DIRECT_URL"],
+},
+```
 
-   ```typescript
-   datasource: {
-     url: process.env["DATABASE_URL"],
-     directUrl: process.env["DIRECT_URL"],
-   },
-   ```
+so once you put a pooler in front of `DATABASE_URL`, `migrate deploy` picks
+up `DIRECT_URL` automatically — no code change needed, just the environment
+variable below. Leaving `DIRECT_URL` unset (e.g. local dev with no pooler)
+is fine; Prisma falls back to `url` for everything.
 
-   This is a one-line code change, intentionally **not** made as part of
-   this docs pass — do it at the same time you actually put a pooler in
-   front of `DATABASE_URL`, not before, since until then `DIRECT_URL` has
-   nothing to do.
+Add a `DIRECT_URL` value in the environment (see `.env.example`) pointing
+at the same database's **direct**, non-pooled connection string (Neon: the
+non-`-pooler` hostname; Supabase: port `5432`; self-hosted: Postgres's own
+port, bypassing PgBouncer).
 
 ### Practical order of operations
 
 1. Stand up the pooler (managed or PgBouncer).
 2. Point `DATABASE_URL` at the pooled endpoint, set `DIRECT_URL` to the
    direct endpoint.
-3. Make the one-line `prisma7.config.ts` change above.
-4. Re-run `npx prisma migrate deploy` once against the new setup to confirm
+3. Re-run `npx prisma migrate deploy` once against the new setup to confirm
    it still works before relying on it in the normal deploy step from
    section 1.
 
