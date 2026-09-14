@@ -43,7 +43,7 @@ type ShoppingListItemRow = {
   inventoryItemId: string | null;
 };
 
-type InventoryItemOption = { id: string; name: string; category: string };
+type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
 type ShoppingListData = {
   id: string;
@@ -58,11 +58,13 @@ const initialState: ActionState = {};
 
 function AddItemForm({
   listId,
+  inventoryItems,
   units,
   dict,
   barcodeDict,
 }: {
   listId: string;
+  inventoryItems: InventoryItemOption[];
   units: string[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
@@ -70,6 +72,19 @@ function AddItemForm({
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
+  const itemNames = [...new Set(inventoryItems.map((item) => item.name))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  const handleNameChange = (nextName: string) => {
+    setName(nextName);
+    if (!unit) {
+      const matched = inventoryItems.find(
+        (item) => item.name.toLowerCase() === nextName.trim().toLowerCase(),
+      );
+      if (matched?.unit) setUnit(matched.unit);
+    }
+  };
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -97,14 +112,15 @@ function AddItemForm({
       <input type="hidden" name="listId" value={listId} />
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex min-w-0 flex-1 basis-full flex-col gap-1 sm:basis-auto">
-          <Input
+          <ComboField
+            id="add-item-name"
             name="name"
-            placeholder={dict.addItemNamePlaceholder}
-            required
-            maxLength={120}
-            className="w-full sm:w-48"
+            items={itemNames}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onValueChange={handleNameChange}
+            placeholder={dict.addItemNamePlaceholder}
+            maxLength={120}
+            dict={dict}
           />
         </div>
         <Input
@@ -207,7 +223,9 @@ export function ShoppingListClient({
             <ReceiptScanDialog
               listId={list.id}
               pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name }))}
+              inventoryItems={inventoryItems}
               categories={categories}
+              units={units}
               dict={dict.receiptScan}
             />
           )}
@@ -215,6 +233,7 @@ export function ShoppingListClient({
             <ResolveMappingsDialog
               items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
               inventoryItems={inventoryItems}
+              categories={categories}
               dict={dict.resolveMappings}
               triggerLabel={format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
                 count: unresolvedItems.length,
@@ -282,7 +301,15 @@ export function ShoppingListClient({
         </div>
       </div>
 
-      {isActive && <AddItemForm listId={list.id} units={units} dict={dict} barcodeDict={barcodeDict} />}
+      {isActive && (
+        <AddItemForm
+          listId={list.id}
+          inventoryItems={inventoryItems}
+          units={units}
+          dict={dict}
+          barcodeDict={barcodeDict}
+        />
+      )}
 
       <div className="flex flex-col gap-2">
         {pendingItems.length === 0 && purchasedItems.length === 0 ? (
@@ -299,6 +326,7 @@ export function ShoppingListClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 inventoryItems={inventoryItems}
+                categories={categories}
                 units={units}
                 dict={dict}
               />
@@ -316,6 +344,7 @@ export function ShoppingListClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 inventoryItems={inventoryItems}
+                categories={categories}
                 units={units}
                 dict={dict}
               />
@@ -333,6 +362,7 @@ function ShoppingRow({
   isPending,
   startTransition,
   inventoryItems,
+  categories,
   units,
   dict,
 }: {
@@ -341,6 +371,7 @@ function ShoppingRow({
   isPending: boolean;
   startTransition: (fn: () => void) => void;
   inventoryItems: InventoryItemOption[];
+  categories: string[];
   units: string[];
   dict: ShoppingListDict;
 }) {
@@ -381,6 +412,7 @@ function ShoppingRow({
           <EditShoppingItemDialog
             item={item}
             inventoryItems={inventoryItems}
+            categories={categories}
             units={units}
             dict={dict.editItem}
             editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}

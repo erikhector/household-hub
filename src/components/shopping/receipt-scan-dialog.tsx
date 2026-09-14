@@ -30,6 +30,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ComboField } from "@/components/inventory/combo-field";
+import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { detectReceiptCurrency, parseReceiptText, type ParsedReceiptLine } from "@/lib/receipt-parsing";
@@ -38,6 +40,7 @@ import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type PendingItem = { id: string; name: string };
+type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
 type ReviewRow = {
   key: string;
@@ -55,8 +58,6 @@ type ReviewRow = {
  * is common, and auto-mapping can't guess a category or unit at all. */
 type NewItemDraft = { name: string; quantity: string; unit: string; category: string };
 
-const NEW_ITEM_CATEGORY_DATALIST_ID = "receipt-scan-new-item-categories";
-
 type Phase = "idle" | "reading" | "review" | "applying" | "error";
 
 const SKIP_VALUE = "__skip__";
@@ -68,12 +69,16 @@ const AUTO_MATCH_MIN_SCORE = 0.35;
 export function ReceiptScanDialog({
   listId,
   pendingItems,
+  inventoryItems,
   categories,
+  units,
   dict,
 }: {
   listId: string;
   pendingItems: PendingItem[];
+  inventoryItems: InventoryItemOption[];
   categories: string[];
+  units: string[];
   dict: Dictionary["shoppingList"]["receiptScan"];
 }) {
   const [open, setOpen] = useState(false);
@@ -101,6 +106,7 @@ export function ReceiptScanDialog({
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const matchOptions = [...pendingItems, ...extraItems];
+  const itemNames = [...new Set(inventoryItems.map((i) => i.name))].sort((a, b) => a.localeCompare(b));
 
   function reset() {
     setPhase("idle");
@@ -323,11 +329,6 @@ export function ReceiptScanDialog({
           {(phase === "review" || phase === "applying") && (
             <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
               <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
-              <datalist id={NEW_ITEM_CATEGORY_DATALIST_ID}>
-                {categories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="receipt-currency">{dict.currencyLabel}</Label>
@@ -375,28 +376,18 @@ export function ReceiptScanDialog({
                           className="w-24 shrink-0"
                           aria-label={dict.priceLabel}
                         />
-                        <Select
-                          value={row.matchId}
-                          onValueChange={(v) => updateRow(row.key, { matchId: String(v) })}
-                        >
-                          <SelectTrigger className="w-full sm:w-48" aria-label={dict.matchLabel}>
-                            <SelectValue>
-                              {(v: string) =>
-                                v === SKIP_VALUE
-                                  ? dict.skipOption
-                                  : (matchOptions.find((i) => i.id === v)?.name ?? v)
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={SKIP_VALUE}>{dict.skipOption}</SelectItem>
-                            {matchOptions.map((item) => (
-                              <SelectItem key={item.id} value={item.id}>
-                                {item.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="w-full sm:w-48">
+                          <ItemCombobox
+                            items={[
+                              { id: SKIP_VALUE, label: dict.skipOption },
+                              ...matchOptions.map((item) => ({ id: item.id, label: item.name })),
+                            ]}
+                            value={row.matchId}
+                            onValueChange={(v) => updateRow(row.key, { matchId: v })}
+                            ariaLabel={dict.matchLabel}
+                            emptyMessage={dict.matchNoResults}
+                          />
+                        </div>
                         {isUnmatched && !isDraftOpen && (
                           <Button
                             type="button"
@@ -419,11 +410,14 @@ export function ReceiptScanDialog({
                               <Label htmlFor={`${row.key}-new-name`} className="text-xs">
                                 {dict.newItemNameLabel}
                               </Label>
-                              <Input
+                              <ComboField
                                 id={`${row.key}-new-name`}
+                                name="name"
+                                items={itemNames}
                                 value={newItemDraft.name}
-                                onChange={(e) => updateNewItemDraft({ name: e.target.value })}
+                                onValueChange={(v) => updateNewItemDraft({ name: v })}
                                 maxLength={120}
+                                dict={dict}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
@@ -445,25 +439,29 @@ export function ReceiptScanDialog({
                               <Label htmlFor={`${row.key}-new-unit`} className="text-xs">
                                 {dict.newItemUnitLabel}
                               </Label>
-                              <Input
+                              <ComboField
                                 id={`${row.key}-new-unit`}
+                                name="unit"
+                                items={units}
                                 value={newItemDraft.unit}
-                                onChange={(e) => updateNewItemDraft({ unit: e.target.value })}
+                                onValueChange={(v) => updateNewItemDraft({ unit: v })}
                                 maxLength={20}
+                                dict={dict}
                               />
                             </div>
                             <div className="flex flex-col gap-1">
                               <Label htmlFor={`${row.key}-new-category`} className="text-xs">
                                 {dict.newItemCategoryLabel}
                               </Label>
-                              <Input
+                              <ComboField
                                 id={`${row.key}-new-category`}
+                                name="category"
+                                items={categories}
                                 value={newItemDraft.category}
-                                onChange={(e) => updateNewItemDraft({ category: e.target.value })}
+                                onValueChange={(v) => updateNewItemDraft({ category: v })}
                                 placeholder={dict.newItemCategoryPlaceholder}
-                                list={NEW_ITEM_CATEGORY_DATALIST_ID}
-                                autoComplete="off"
                                 maxLength={60}
+                                dict={dict}
                               />
                             </div>
                           </div>

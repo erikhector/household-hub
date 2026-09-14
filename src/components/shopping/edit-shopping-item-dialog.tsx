@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ComboField } from "@/components/inventory/combo-field";
+import { ItemCombobox } from "@/components/inventory/item-combobox";
 import {
   Dialog,
   DialogContent,
@@ -15,13 +16,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { format } from "@/lib/i18n/format";
 import {
@@ -59,6 +53,7 @@ type EditableItem = {
 export function EditShoppingItemDialog({
   item,
   inventoryItems,
+  categories,
   units,
   dict,
   editAriaLabel,
@@ -66,6 +61,7 @@ export function EditShoppingItemDialog({
 }: {
   item: EditableItem;
   inventoryItems: InventoryItemOption[];
+  categories: string[];
   units: string[];
   dict: Dictionary["shoppingList"]["editItem"];
   editAriaLabel: string;
@@ -78,6 +74,11 @@ export function EditShoppingItemDialog({
   const [name, setName] = useState(item.name);
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [unit, setUnit] = useState(item.unit);
+
+  const itemNames = useMemo(
+    () => [...new Set(inventoryItems.map((i) => i.name))].sort((a, b) => a.localeCompare(b)),
+    [inventoryItems],
+  );
 
   const suggestions = useMemo(
     () => findInventoryMatches(item.name, inventoryItems),
@@ -185,11 +186,14 @@ export function EditShoppingItemDialog({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-item-name">{dict.nameLabel}</Label>
-            <Input
+            <ComboField
               id="edit-item-name"
+              name="name"
+              items={itemNames}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onValueChange={setName}
               maxLength={120}
+              dict={dict}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -259,30 +263,28 @@ export function EditShoppingItemDialog({
                   </div>
                 )}
                 {linkMode === "existing" ? (
-                  <Select value={selectedId} onValueChange={(v) => setSelectedId(String(v))}>
-                    <SelectTrigger id="edit-item-link" className="w-full">
-                      <SelectValue>
-                        {(v: string) => orderedItems.find((i) => i.id === v)?.name ?? v}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {orderedItems.map((i) => (
-                        <SelectItem key={i.id} value={i.id}>
-                          {i.name} · {i.category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ItemCombobox
+                    id="edit-item-link"
+                    items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
+                    value={selectedId}
+                    onValueChange={setSelectedId}
+                    ariaLabel={dict.existingItemLabel}
+                    emptyMessage={dict.existingItemNoResults}
+                  />
                 ) : (
                   <>
                     {inventoryItems.length === 0 && (
                       <p className="text-xs text-muted-foreground">{dict.noInventoryItems}</p>
                     )}
-                    <Input
+                    <ComboField
+                      id="edit-item-new-category"
+                      name="newCategory"
+                      items={categories}
                       value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
+                      onValueChange={setNewCategory}
                       placeholder={dict.newItemCategoryPlaceholder}
                       maxLength={60}
+                      dict={dict}
                     />
                   </>
                 )}

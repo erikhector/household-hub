@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ComboField } from "@/components/inventory/combo-field";
+import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { format, plural } from "@/lib/i18n/format";
 import {
@@ -47,11 +47,13 @@ function buildRow(item: UnresolvedItem, inventoryItems: InventoryItemOption[]): 
 export function ResolveMappingsDialog({
   items,
   inventoryItems,
+  categories,
   dict,
   triggerLabel,
 }: {
   items: UnresolvedItem[];
   inventoryItems: InventoryItemOption[];
+  categories: string[];
   dict: Dictionary["shoppingList"]["resolveMappings"];
   triggerLabel: string;
 }) {
@@ -160,23 +162,13 @@ export function ResolveMappingsDialog({
                   </div>
 
                   {row.mode === "existing" && (
-                    <Select
+                    <ItemCombobox
+                      items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
                       value={row.selectedId}
-                      onValueChange={(v) => updateRow(row.itemId, { selectedId: String(v) })}
-                    >
-                      <SelectTrigger className="w-full" aria-label={dict.existingItemLabel}>
-                        <SelectValue>
-                          {(v: string) => orderedItems.find((i) => i.id === v)?.name ?? v}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {orderedItems.map((i) => (
-                          <SelectItem key={i.id} value={i.id}>
-                            {i.name} · {i.category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onValueChange={(v) => updateRow(row.itemId, { selectedId: v })}
+                      ariaLabel={dict.existingItemLabel}
+                      emptyMessage={dict.existingItemNoResults}
+                    />
                   )}
 
                   {row.mode === "new" && (
@@ -184,11 +176,15 @@ export function ResolveMappingsDialog({
                       {inventoryItems.length === 0 && (
                         <p className="text-xs text-muted-foreground">{dict.noInventoryItems}</p>
                       )}
-                      <Input
+                      <ComboField
+                        id={`resolve-${row.itemId}-new-category`}
+                        name="newCategory"
+                        items={categories}
                         value={row.newCategory}
-                        onChange={(e) => updateRow(row.itemId, { newCategory: e.target.value })}
+                        onValueChange={(v) => updateRow(row.itemId, { newCategory: v })}
                         placeholder={dict.newItemCategoryPlaceholder}
                         maxLength={60}
+                        dict={dict}
                       />
                     </>
                   )}
