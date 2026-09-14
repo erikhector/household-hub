@@ -17,9 +17,30 @@ restart) without re-deriving what's done.
 | 3 | Cost analyzer empty-state hint copy | dictionaries (`en.ts`/`sv.ts` `costAnalyzer.noSpendingData`/`noTrendData`) | orchestrator (direct) | done |
 | 4 | At-threshold restock badge (`<=` → `<`) | `stock-status.ts`, `stock-status.test.ts` | orchestrator (direct) | done |
 | 5 | Meal planning in primary mobile nav | `nav-items.ts` (swapped Household budget → Meal planning; product call made per backlog's own reasoning) | orchestrator (direct) | done |
-| 6+7 | Starter categories + persistent "Manage categories" entry | `budget-onboarding.tsx`, `category-manager.tsx`, `budget-tabs.tsx`, `budget/page.tsx`, dictionaries | subagent C | todo |
+| 6+7 | Starter categories + persistent "Manage categories" entry | `budget-onboarding.tsx`, `starter-category-picker.tsx` (new), `budget-tabs.tsx`, `budget/actions.ts`, dictionaries | subagent C | done (merged) |
 | HK | Next.js dev-mode build-activity indicator overlap | `next.config.ts` (`devIndicators: false`) | orchestrator (direct) | done |
 | 8 | Manual purchase-price collection | — | deferred: needs a product decision per backlog's own note, revisit once item 3 has shipped and there's usage signal | deferred |
+
+## Final status
+
+All 7 actionable Wave 1/2 items + housekeeping are merged into
+`claude/ux-friction-backlog-delegation-jmg5gv`. Item 8 (Wave 3) is
+deferred per the backlog's own note — it explicitly needs a product
+decision, to be revisited once item 3's cheap fix has had time to show
+whether receipt scanning alone gets households populating price data.
+
+Verified together on the integrated branch:
+- `npx eslint .` — clean.
+- `npx vitest run` — 46 files / 640 tests passing.
+- `npx next build` — compiles; TypeScript gate blocked only by the
+  pre-existing, unrelated `prisma7.config.ts` issue below (present on
+  `origin/master` already, not introduced by this work).
+- **Not verified**: an actual browser/Playwright run of the new UI. This
+  sandbox has no running Postgres (`docker` has no daemon available) to
+  bring up the app against, so the golden-path/action test suite is the
+  evidence for correctness here — the UI itself has not been visually
+  confirmed working. Flagging this explicitly rather than claiming a
+  browser check that didn't happen.
 
 ## Known pre-existing issue found during verification (out of scope, not fixed here)
 
