@@ -330,6 +330,7 @@ model ShoppingListItem {
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([shoppingListId])
+  @@index([inventoryItemId])
 }
 
 model PriceHistory {
@@ -430,6 +431,7 @@ model RecipeIngredient {
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([recipeId])
+  @@index([inventoryItemId])
 }
 
 model MealPlan {
@@ -550,6 +552,7 @@ model Transaction {
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
+  @@index([categoryId])
 }
 
 // One row per household member included in a split transaction's cost
@@ -605,6 +608,7 @@ model RecurringTemplate {
   transactions     Transaction[]
 
   @@index([householdId])
+  @@index([categoryId])
 }
 
 // A period (see recurring-template-calc.ts's getPeriodKey for the string
@@ -665,6 +669,8 @@ model PersonalTransaction {
   recurringTemplate PersonalRecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([categoryId])
+  @@index([recurringTemplateId])
 }
 
 // Personal-budget mirror of RecurringTemplate/RecurringTemplateAck — see
@@ -689,6 +695,7 @@ model PersonalRecurringTemplate {
   transactions     PersonalTransaction[]
 
   @@index([userId])
+  @@index([categoryId])
 }
 
 model PersonalRecurringTemplateAck {
