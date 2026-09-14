@@ -239,6 +239,8 @@ export const en = {
     expenseLogged: "Logged {amount} to your Groceries budget",
     expenseDescription: 'From "{name}"',
     needsMappingBadge: "Needs mapping",
+    needsMappingHint: "New to your pantry — match it or add it as a new item so buying it updates your stock.",
+    needsMappingToast: "{name} is new to your pantry — match it or add it as a new item to keep stock in sync.",
     matchItemButton: "Match item",
     autoLinkedName: "Linked to {name}",
     unresolvedNotice: {
