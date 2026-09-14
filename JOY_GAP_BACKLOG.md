@@ -162,34 +162,176 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
 
 ## Wave 3 — later, needs its own task breakdown before starting
 
-- [ ] **6. Household Tasks v1** `[!]` blocked — needs a scoping pass of its
-      own before implementation; sketched here at memo-level detail only.
-      **Problem:** this is the actual gap in the product, not a polish
-      item — Squirrel has no shared calendar or chores/tasks surface at
-      all, which is exactly the ground Cozi and OurHome stand on. It's also
-      the only item in this backlog that shifts Squirrel's competitive
-      position rather than just its tone, because it adds coverage Squirrel
-      doesn't have today.
+- [ ] **6. Household Tasks v1** — scoped below into 6a-6d, same
+      sub-task/status-tracking convention `MAINTENANCE_BACKLOG.md` uses for
+      its larger items. **Problem:** this is the actual gap in the
+      product, not a polish item — Squirrel has no shared calendar or
+      chores/tasks surface at all, which is exactly the ground Cozi and
+      OurHome stand on. It's also the only item in this backlog that shifts
+      Squirrel's competitive position rather than just its tone, because it
+      adds coverage Squirrel doesn't have today.
       **Scope note (see Guardrails):** explicitly *not* OurHome's model —
-      no points economy, no rewards store, no kid-vs-kid leaderboard. This
-      is a shared task list for adult household co-managers, closer to "did
-      the household handle the bins/dishwasher/plants this week" than to a
+      no points economy, no rewards store, no kid-vs-kid leaderboard, no
+      due dates or recurrence in v1 (a chore-chart-style schedule is a
+      bigger, separate decision — see 6c's non-goals). This is a shared
+      task list for adult household co-managers, closer to "did the
+      household handle the bins/dishwasher/plants this week" than to a
       chore-chart game.
-      **Design brief (starting point, not final):** a new dashboard section
-      alongside Inventory/Shopping List/Meal Planning/Budget; a simple
-      household-scoped task list (create, assign or leave unassigned,
-      complete); a weekly recap reusing item 5's "recap" visual pattern
-      ("this week, the household handled: …"), crediting whoever completed
-      each task by name — never a ranked list.
-      **Dev notes (sketch, needs its own spec before building):** new
-      Prisma model (e.g. `HouseholdTask`), household-scoped like every other
-      domain table (`householdId` + `requireHousehold()` per
-      REQUIREMENTS.md's multi-tenancy convention), new
-      `src/app/dashboard/tasks/` route with `page.tsx` + `actions.ts`
-      following the existing feature-folder pattern (compare
-      `src/app/dashboard/shopping-list/`), full EN/SV dictionary coverage,
-      and a decision on whether completions feed the new
-      `LIST_CLEARED`-style notification pattern from item 4 or need their
-      own kind. Given the size, split into its own sub-tasks (schema +
-      actions, list UI, weekly recap, notification hook) the way
-      `MAINTENANCE_BACKLOG.md` splits its larger items, rather than one PR.
+      **Sequencing:** 6a is the foundation every other sub-task needs
+      (schema + actions) and should land first; 6b (list UI) and 6c (weekly
+      recap) can then proceed in parallel — 6c only needs 6a's data shape,
+      not 6b's UI. 6d (notification hook) is optional polish, decoupled
+      from the rest; see its own note on why it's last and not blocking.
+
+  - [ ] **6a. Schema + actions** — the foundation; everything else in this
+        item depends on it landing first.
+        **Schema (`prisma/schema.prisma`):** a `HouseholdTask` model,
+        household-scoped like every other domain table (`householdId` +
+        `requireHousehold()` per REQUIREMENTS.md's "Multi-tenancy model"
+        section):
+        ```
+        model HouseholdTask {
+          id                  String    @id @default(cuid())
+          householdId         String
+          title               String
+          assignedToMemberId  String?
+          completedAt         DateTime?
+          completedByMemberId String?
+          createdAt           DateTime  @default(now())
+
+          household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+          assignedToMember  HouseholdMember? @relation("TaskAssignedTo", fields: [assignedToMemberId], references: [id], onDelete: SetNull)
+          completedByMember HouseholdMember? @relation("TaskCompletedBy", fields: [completedByMemberId], references: [id], onDelete: SetNull)
+
+          @@index([householdId])
+          @@index([assignedToMemberId])
+        }
+        ```
+        `assignedToMemberId`/`completedByMemberId` are two distinct,
+        independently-nullable fields — a task can be completed by someone
+        other than whoever it was assigned to, and an unassigned task can
+        still be completed. Both use `onDelete: SetNull` (never `Cascade`)
+        — mirrors `Transaction.paidByMemberId`'s exact precedent
+        (`prisma/schema.prisma` — search `TransactionPaidBy`): removing a
+        household member unassigns/un-attributes their tasks rather than
+        deleting task history. `completedAt` nullable-timestamp-as-status
+        (not a separate boolean, not an enum) mirrors
+        `MealPlanEntry.consumedAt`. No due date, no recurrence field — v1
+        non-goal, see 6's scope note. Add the `tasks HouseholdTask[]`
+        back-relation on `Household`. Migration required — run
+        `npx prisma migrate dev` (needs a reachable Postgres; this repo's
+        `docker-compose.yml` provides one, or point `DATABASE_URL` at any
+        local Postgres 16+ — a local `postgresql-16` server package works
+        fine if Docker isn't available) and follow the existing
+        migration-naming convention (check `prisma/migrations/` for the
+        pattern).
+        **Actions (`src/app/dashboard/tasks/actions.ts`, new file):**
+        follow the shopping-list actions module's conventions
+        (`src/app/dashboard/shopping-list/actions.ts`) — every action
+        starts with `requireHousehold()`, scopes every query/mutation to
+        `householdId`, wraps Prisma errors in `toFriendlyError`, calls
+        `revalidatePath("/dashboard/tasks")` on success.
+        - `createTaskAction(prevState, formData)` — `title` (required,
+          trimmed, reasonable max length — mirror
+          `ShoppingListItem.name`'s 120-char cap) and an optional
+          `assignedToMemberId` (validate it actually belongs to this
+          household before writing it, same IDOR guard every other
+          member-id-accepting action in this codebase already has —
+          compare `transaction-dialog.tsx`'s member select flow).
+        - `toggleTaskCompletedAction(taskId)` — flips `completedAt`
+          between `null` and `new Date()`; sets/clears
+          `completedByMemberId` to the *caller's own* household-member id
+          (derive it the same way `src/app/dashboard/budget/page.tsx`
+          does: `householdMembers.find(m => m.userId === userId)?.id` —
+          never trust a client-supplied completer id) each time it's
+          checked, so re-opening and re-completing by a different member
+          re-attributes correctly. Mirrors `togglePurchasedAction`'s
+          shape.
+        - `deleteTaskAction(taskId)` — household-scoped delete, mirrors
+          `deleteShoppingListItemAction`.
+        - Skip a dedicated "edit"/re-assign action for v1 — reuse
+          create+delete, or fold re-assignment into a small inline control
+          in 6b if it turns out to be needed; don't build it speculatively
+          here.
+        **Tests:** mocked-Prisma unit tests for all three actions,
+        matching `src/app/dashboard/shopping-list/actions.test.ts`'s
+        convention — cover the household-scoping/IDOR guard on
+        `assignedToMemberId` and on the taskId itself for each action.
+
+  - [ ] **6b. List UI** — depends on 6a.
+        **Route:** `src/app/dashboard/tasks/page.tsx` (Server Component:
+        `requireHousehold()`, fetch this household's `HouseholdTask` rows
+        plus its `HouseholdMember` list for the assignee picker — mirror
+        `src/app/dashboard/inventory/page.tsx`'s `members` query/mapping)
+        + `src/components/tasks/tasks-client.tsx` (Client Component,
+        mirrors `ShoppingListClient`'s shape: an add-task form, a flat
+        list — no multiple lists like shopping lists have, this is one
+        shared household list — split into an open section and a
+        completed section the way shopping-list splits pending/purchased).
+        Each row: checkbox to toggle complete, title, an assignee
+        badge/select (nullable — an unassigned task shows a neutral
+        "Unassigned" state, never a blank/broken-looking gap), and credits
+        the completer by name once done (never a count or ranking per
+        person — see 6's Guardrails scope note).
+        **Nav wiring:** add a `"tasks"` entry to `NavKey` and `navItems` in
+        `src/components/dashboard/nav-items.ts` (a `ListChecks` or
+        `CheckSquare` lucide icon fits the existing icon language) — leave
+        it out of `primaryMobileHrefs` initially (mobile bottom bar has
+        room for ~4; it lives behind "More" like Meal Planning/Personal
+        Budget/Household/Profile already do) unless usage after shipping
+        shows it deserves primary placement. Add `dict.nav.tasks` plus a
+        full `dict.tasks` dictionary block (title/subtitle/empty
+        states/add-form labels/assignee picker copy) to both `en.ts` and
+        `sv.ts` — `satisfies Dictionary` will fail the build if `sv.ts` is
+        missed (see AGENTS.md/REQUIREMENTS.md's i18n convention).
+        **Non-goal:** no per-task due date/recurrence UI — see item 6's
+        scope note.
+
+  - [ ] **6c. Weekly recap** — depends on 6a's data shape, not on 6b
+        landing first (can build in parallel with 6b).
+        Reuses item 5's recap pattern exactly: a pure, dependency-free calc
+        module — `src/app/dashboard/tasks/weekly-recap-calc.ts`, mirroring
+        `src/app/dashboard/meal-planning/meal-variety-calc.ts`'s shape —
+        that takes this household's `HouseholdTask` rows (`completedAt`,
+        `completedByMemberId`) and `now`, and returns the current week's
+        completed tasks grouped by completer (resolve display names in the
+        page/component layer, same separation the calc-module pattern
+        elsewhere in this repo already uses — the calc itself stays
+        Prisma-free and takes plain data). Reuse
+        `getWeekStart`/`toDateKey` from
+        `src/app/dashboard/meal-planning/date-utils.ts` rather than
+        reimplementing week-boundary math — `src/lib/notifications.ts`
+        already imports that module cross-feature, so it's an established
+        shared utility, not meal-planning-private. Add a unit test file
+        alongside it mirroring `meal-variety-calc.test.ts`.
+        **Rendering:** a `TasksWeeklyRecap` component styled like
+        `MealVarietyRecap` (`src/components/meal-planning/
+        meal-variety-recap.tsx`) — small, dismissible, footnote-weight,
+        rendered only when the week has at least one completed task (a
+        quiet week shows nothing, exact same non-goal as item 5 — "no 'the
+        household did nothing this week' shaming copy"). Copy reads as
+        variety/coverage ("this week, the household handled: bins,
+        dishwasher, plants"), crediting each completer by name in the
+        list — explicitly never sorted by per-person count and never
+        labeled with a count per person, which would read as a leaderboard
+        (see Guardrails).
+
+  - [ ] **6d. Notification hook** `[!]` needs a product decision — optional
+        polish, does not block 6a-6c shipping. Two options, no clear
+        winner without user feedback on 6a-6c first:
+        - **Recommended default: no notification for v1.** 6c's weekly
+          recap already gives completions a positive surface: a dedicated
+          bell alert on top of that risks exactly the
+          "positive-notifications-become-noise" failure the Guardrails
+          section warns about (item 4's firing-rule rationale), for a
+          domain that's brand new and unproven. Ship 6a-6c, revisit once
+          there's real usage to judge against.
+        - **Alternative:** a `TASKS_CLEARED` kind, structurally identical
+          to `LIST_CLEARED` (`src/lib/notifications.ts`'s
+          `recordListClearedTransition` — the household's open-task count
+          crossing from >0 to 0) — same dedup/push/bell-icon pattern
+          already built in item 4, so it's cheap to add later without
+          touching 6a-6c's schema or actions. Its own migration, isolated
+          from 6a's.
+        Whichever way this goes, it's a small, self-contained follow-up —
+        not a reason to hold up 6a-6c.
