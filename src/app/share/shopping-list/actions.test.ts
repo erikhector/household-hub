@@ -16,6 +16,7 @@ const {
   shoppingListFindUniqueMock,
   shoppingListItemFindFirstMock,
   shoppingListItemUpdateMock,
+  shoppingListItemCountMock,
   inventoryItemUpdateMock,
   inventoryItemFindUniqueMock,
   priceHistoryCreateMock,
@@ -23,22 +24,27 @@ const {
   notificationCreateMock,
   transactionMock,
   recordOutOfStockTransitionMock,
+  recordRestockTransitionMock,
+  recordListClearedTransitionMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   shareLinkFindUniqueMock: vi.fn(),
   shoppingListFindUniqueMock: vi.fn(),
   shoppingListItemFindFirstMock: vi.fn(),
   shoppingListItemUpdateMock: vi.fn(),
+  shoppingListItemCountMock: vi.fn(async () => 0),
   inventoryItemUpdateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
   priceHistoryCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   recordOutOfStockTransitionMock: vi.fn(async () => {}),
+  recordRestockTransitionMock: vi.fn(async () => {}),
+  recordListClearedTransitionMock: vi.fn(async () => {}),
   revalidatePathMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
-      shoppingListItem: { update: shoppingListItemUpdateMock },
+      shoppingListItem: { update: shoppingListItemUpdateMock, count: shoppingListItemCountMock },
       shoppingList: { findUnique: shoppingListFindUniqueMock },
       inventoryItem: { update: inventoryItemUpdateMock, findUnique: inventoryItemFindUniqueMock },
       priceHistory: { create: priceHistoryCreateMock },
@@ -56,7 +62,11 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
-vi.mock("@/lib/notifications", () => ({ recordOutOfStockTransition: recordOutOfStockTransitionMock }));
+vi.mock("@/lib/notifications", () => ({
+  recordOutOfStockTransition: recordOutOfStockTransitionMock,
+  recordRestockTransition: recordRestockTransitionMock,
+  recordListClearedTransition: recordListClearedTransitionMock,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const { getShoppingListByShareToken, toggleItemViaShareTokenAction } = await import(
@@ -174,9 +184,10 @@ describe("toggleItemViaShareTokenAction", () => {
       purchased: false,
       quantity: 3,
       estimatedPrice: 25,
-      inventoryItem: { id: "inv-1", quantity: 2 },
+      inventoryItem: { id: "inv-1", quantity: 2, lowStockThreshold: 1 },
     });
     shoppingListFindUniqueMock.mockResolvedValue({ householdId: "household-1" });
+    shoppingListItemCountMock.mockResolvedValue(2);
 
     const result = await toggleItemViaShareTokenAction("valid-token-for-list-1", "item-1");
 
@@ -196,9 +207,27 @@ describe("toggleItemViaShareTokenAction", () => {
       2,
       5,
     );
+    expect(recordRestockTransitionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "household-1",
+      "inv-1",
+      2,
+      1,
+      5,
+      1,
+    );
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 25 },
     });
+    // Two pending items still remain after this one — not a clearing
+    // transition, but the counts are still passed through correctly.
+    expect(recordListClearedTransitionMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "household-1",
+      "list-1",
+      3,
+      2,
+    );
   });
 
   it("un-marking purchased decreases linked inventory quantity, floored at zero", async () => {
@@ -225,6 +254,9 @@ describe("toggleItemViaShareTokenAction", () => {
       data: { quantity: 0 },
     });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+    // Un-marking can only ever add a pending item back, never clear the
+    // list — no LIST_CLEARED check needed.
+    expect(recordListClearedTransitionMock).not.toHaveBeenCalled();
   });
 
   it("returns 'Item not found' for an item that doesn't exist at all", async () => {

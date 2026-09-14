@@ -24,6 +24,8 @@ const {
   shoppingListItemCreateManyMock,
   shoppingListItemUpdateMock,
   shoppingListItemDeleteMock,
+  shoppingListItemCountMock,
+  shoppingListFindUniqueMock,
   priceHistoryCreateMock,
   transactionCreateMock,
   transactionMock,
@@ -51,6 +53,8 @@ const {
   shoppingListItemCreateManyMock: vi.fn(),
   shoppingListItemUpdateMock: vi.fn(),
   shoppingListItemDeleteMock: vi.fn(),
+  shoppingListItemCountMock: vi.fn(async () => 0),
+  shoppingListFindUniqueMock: vi.fn(),
   priceHistoryCreateMock: vi.fn(),
   transactionCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
@@ -58,7 +62,12 @@ const {
   inventoryItemFindUniqueMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
-      shoppingListItem: { update: shoppingListItemUpdateMock },
+      shoppingListItem: {
+        update: shoppingListItemUpdateMock,
+        delete: shoppingListItemDeleteMock,
+        count: shoppingListItemCountMock,
+      },
+      shoppingList: { findUnique: shoppingListFindUniqueMock },
       inventoryItem: {
         update: inventoryItemUpdateMock,
         findUnique: inventoryItemFindUniqueMock,
@@ -591,6 +600,30 @@ describe("togglePurchasedAction", () => {
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 25 },
     });
+    // Only pending item on the list — checking it off crosses pending
+    // count from 1 to 0, firing a LIST_CLEARED notification.
+    expect(shoppingListItemCountMock).toHaveBeenCalledWith({
+      where: { shoppingListId: "list-1", purchased: false },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "LIST_CLEARED", shoppingListId: "list-1" },
+    });
+  });
+
+  it("does not fire LIST_CLEARED while other pending items remain", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 3,
+      estimatedPrice: null,
+      inventoryItem: null,
+    });
+    shoppingListItemCountMock.mockResolvedValueOnce(2);
+
+    await togglePurchasedAction("item-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
   });
 
   it("un-marking purchased decreases linked inventory quantity, floored at zero", async () => {
@@ -694,6 +727,42 @@ describe("deleteShoppingListItemAction", () => {
 
     expect(result.error).toBe("Item not found");
     expect(shoppingListItemDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes an already-purchased item directly, without checking for a LIST_CLEARED transition", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: true });
+
+    const result = await deleteShoppingListItemAction("item-1");
+
+    expect(result).toEqual({});
+    expect(shoppingListItemDeleteMock).toHaveBeenCalledWith({ where: { id: "item-1" } });
+    expect(shoppingListItemCountMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("fires LIST_CLEARED when deleting the last pending item", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: false });
+    shoppingListItemCountMock.mockResolvedValueOnce(0);
+
+    const result = await deleteShoppingListItemAction("item-1");
+
+    expect(result).toEqual({});
+    expect(shoppingListItemDeleteMock).toHaveBeenCalledWith({ where: { id: "item-1" } });
+    expect(shoppingListItemCountMock).toHaveBeenCalledWith({
+      where: { shoppingListId: "list-1", purchased: false },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "LIST_CLEARED", shoppingListId: "list-1" },
+    });
+  });
+
+  it("does not fire LIST_CLEARED when deleting a pending item while others remain", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1", purchased: false });
+    shoppingListItemCountMock.mockResolvedValueOnce(1);
+
+    await deleteShoppingListItemAction("item-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
+import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
 import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -15,12 +16,14 @@ export function MealPlanningView({
   recipes,
   entries,
   activeShoppingLists,
+  varietyCount,
 }: {
   dict: Dictionary["mealPlanning"];
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
+  varietyCount: number;
 }) {
   const [tab, setTab] = useState<Tab>("planner");
 
@@ -30,6 +33,8 @@ export function MealPlanningView({
         <h1 className="text-2xl font-semibold tracking-tight">{dict.title}</h1>
         <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
       </div>
+
+      {varietyCount > 0 && <MealVarietyRecap count={varietyCount} dict={dict} />}
 
       <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
         <Button

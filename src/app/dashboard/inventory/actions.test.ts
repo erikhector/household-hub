@@ -234,6 +234,29 @@ describe("updateInventoryItemAction", () => {
       data: expect.objectContaining({ location: "Pantry" }),
     });
   });
+
+  it("fires a RESTOCKED notification when the edit crosses the item back into stock", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 0, lowStockThreshold: 1 });
+    updateMock.mockResolvedValue({});
+    inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
+
+    // validItem submits quantity 2 / threshold 1 — item was out (0 <= 1),
+    // now comfortably in stock (2 > 1).
+    await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1" }));
+
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "RESTOCKED", inventoryItemId: "item-1" },
+    });
+  });
+
+  it("does not fire RESTOCKED when the item was already in stock", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 5, lowStockThreshold: 1 });
+    updateMock.mockResolvedValue({});
+
+    await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1" }));
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("adjustQuantityAction", () => {
@@ -267,6 +290,18 @@ describe("adjustQuantityAction", () => {
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
       data: { quantity: 5, updatedByUserId: "user-1" },
+    });
+  });
+
+  it("fires a RESTOCKED notification when a + tap crosses the item back into stock", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 0, lowStockThreshold: 1 });
+    updateMock.mockResolvedValue({});
+    inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
+
+    await adjustQuantityAction("item-1", 3);
+
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "RESTOCKED", inventoryItemId: "item-1" },
     });
   });
 });

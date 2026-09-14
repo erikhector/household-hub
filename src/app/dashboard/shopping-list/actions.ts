@@ -12,7 +12,7 @@ import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordListClearedTransition, recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 
 /**
@@ -570,12 +570,28 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
           data: { quantity: nextQuantity },
         });
         await recordOutOfStockTransition(tx, household.id, item.inventoryItem.id, item.inventoryItem.quantity, nextQuantity);
+        await recordRestockTransition(
+          tx,
+          household.id,
+          item.inventoryItem.id,
+          item.inventoryItem.quantity,
+          item.inventoryItem.lowStockThreshold,
+          nextQuantity,
+          item.inventoryItem.lowStockThreshold,
+        );
 
         if (nextPurchased && item.estimatedPrice != null) {
           await tx.priceHistory.create({
             data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
           });
         }
+      }
+
+      if (nextPurchased) {
+        const remainingPending = await tx.shoppingListItem.count({
+          where: { shoppingListId: item.shoppingListId, purchased: false },
+        });
+        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending);
       }
     });
   } catch (error) {
@@ -681,12 +697,24 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
-    select: { id: true, shoppingListId: true },
+    select: { id: true, shoppingListId: true, purchased: true },
   });
   if (!item) return { error: "Item not found" };
 
   try {
-    await prisma.shoppingListItem.delete({ where: { id: item.id } });
+    if (item.purchased) {
+      // Deleting an already-purchased item can't change the pending count
+      // — nothing to check for a LIST_CLEARED transition.
+      await prisma.shoppingListItem.delete({ where: { id: item.id } });
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.shoppingListItem.delete({ where: { id: item.id } });
+        const remainingPending = await tx.shoppingListItem.count({
+          where: { shoppingListId: item.shoppingListId, purchased: false },
+        });
+        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending);
+      });
+    }
   } catch (error) {
     return toFriendlyError(error);
   }

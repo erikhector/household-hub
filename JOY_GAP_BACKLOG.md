@@ -113,7 +113,7 @@ Independent; any order.
 
 Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
 
-- [ ] **4. Positive notification kinds**
+- [x] **4. Positive notification kinds**
       — `prisma/schema.prisma` (`NotificationKind` enum, currently
       `OUT_OF_STOCK` / `MEAL_NOT_LOGGED` / `EXPIRING_SOON` — all three are
       warnings), `src/lib/notifications.ts`,
@@ -141,7 +141,7 @@ Depends on Wave 1's i18n/copy conventions but not on Wave 1 shipping first.
       repo's existing migration-naming convention (check `prisma/migrations/`
       for the pattern). Add both new kinds' copy to `en.ts`/`sv.ts`.
 
-- [ ] **5. Monthly meal-variety recap**
+- [x] **5. Monthly meal-variety recap**
       — `src/app/dashboard/meal-planning/page.tsx` or a new component in
       `src/components/meal-planning/`
       **Problem:** meal planning has no sense of momentum or variety over

@@ -5,7 +5,7 @@
 // condition happens, and stick around until a user dismisses them (see
 // dismissNotificationAction in src/lib/actions/notifications.ts).
 //
-// Three triggers exist:
+// Five triggers exist:
 // - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0 — see `recordOutOfStockTransition`, called from every action
 //   that can *decrease* an existing item's quantity (adjustQuantityAction,
@@ -21,6 +21,17 @@
 // - Expiring soon: an in-stock InventoryItem with `expiresAt` set, within
 //   EXPIRY_WARNING_DAYS of that date or already past it — synced lazily in
 //   `syncExpiringSoonNotifications` below, the same way meal-not-logged is.
+// - Restocked (good news — see JOY_GAP_BACKLOG.md item 4): the inverse of
+//   out-of-stock — an existing InventoryItem's quantity crossing back above
+//   its low-stock threshold. See `recordRestockTransition`, called from the
+//   same call sites as `recordOutOfStockTransition` wherever quantity can
+//   *increase* (adjustQuantityAction, updateInventoryItemAction,
+//   bulkUpdateFieldAction, togglePurchasedAction) — never from a pure
+//   threshold edit, which isn't a restock.
+// - List cleared (good news): a ShoppingList's unpurchased item count
+//   crossing from >0 to 0 — see `recordListClearedTransition`, called from
+//   togglePurchasedAction and deleteShoppingListItemAction (and their
+//   share-link equivalents).
 //
 // Callers must resolve `householdId` from their own `requireHousehold()`
 // call first — this trusts its argument the same way
@@ -31,6 +42,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { sendPushToHousehold } from "@/lib/push";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
+import { getStockStatus } from "@/lib/stock-status";
 
 export type OutOfStockNotification = {
   id: string;
@@ -55,7 +67,26 @@ export type ExpiringSoonNotification = {
   name: string;
 };
 
-export type NotificationItem = OutOfStockNotification | MealNotLoggedNotification | ExpiringSoonNotification;
+export type RestockedNotification = {
+  id: string;
+  kind: "restocked";
+  itemId: string;
+  name: string;
+};
+
+export type ListClearedNotification = {
+  id: string;
+  kind: "listCleared";
+  shoppingListId: string;
+  name: string;
+};
+
+export type NotificationItem =
+  | OutOfStockNotification
+  | MealNotLoggedNotification
+  | ExpiringSoonNotification
+  | RestockedNotification
+  | ListClearedNotification;
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -93,6 +124,87 @@ export async function recordOutOfStockTransition(
       title: "Out of stock",
       body: `${item.name} is out of stock`,
       url: "/dashboard/inventory?status=out",
+    });
+  }
+}
+
+// The inverse of recordOutOfStockTransition (see JOY_GAP_BACKLOG.md item 4)
+// — called from the same call sites, wherever an existing InventoryItem's
+// quantity can *increase*. Takes both the previous and next
+// quantity/threshold pairs (rather than assuming the threshold is
+// unchanged) so a single-item edit that adjusts quantity and threshold
+// together still resolves correctly. Deliberately never fired from a pure
+// threshold edit with no quantity change — moving the threshold isn't
+// "restocking" anything, and firing on it would make the bell's good news
+// untrustworthy (see the Guardrails section of JOY_GAP_BACKLOG.md).
+export async function recordRestockTransition(
+  db: DbClient,
+  householdId: string,
+  itemId: string,
+  previousQuantity: number,
+  previousThreshold: number,
+  nextQuantity: number,
+  nextThreshold: number,
+): Promise<void> {
+  const wasStocked = getStockStatus(previousQuantity, previousThreshold) === "in";
+  const nowStocked = getStockStatus(nextQuantity, nextThreshold) === "in";
+  if (wasStocked || !nowStocked) return;
+
+  const existing = await db.notification.findFirst({
+    where: { inventoryItemId: itemId, kind: "RESTOCKED", dismissedAt: null },
+  });
+  if (existing) return;
+
+  await db.notification.create({
+    data: { householdId, kind: "RESTOCKED", inventoryItemId: itemId },
+  });
+
+  // Fire-and-forget — see recordOutOfStockTransition's matching comment
+  // above and sendPushToHousehold's doc comment in src/lib/push.ts.
+  const item = await db.inventoryItem.findUnique({ where: { id: itemId }, select: { name: true } });
+  if (item) {
+    void sendPushToHousehold(householdId, {
+      title: "Back in stock",
+      body: `${item.name} is back in stock`,
+      url: "/dashboard/inventory",
+    });
+  }
+}
+
+// Fires when a ShoppingList's unpurchased item count crosses from >0 to 0 —
+// "the shopping is done" (see JOY_GAP_BACKLOG.md item 4). Takes the
+// before/after pending counts rather than re-querying them, since every
+// caller already knows both from the mutation it just made. Deduped like
+// recordOutOfStockTransition/recordRestockTransition so re-triggering while
+// already at 0 (e.g. deleting an already-purchased item) or while an
+// undismissed alert is still active is a no-op; dismissing it lets the next
+// clearing fire a fresh one.
+export async function recordListClearedTransition(
+  db: DbClient,
+  householdId: string,
+  shoppingListId: string,
+  previousPendingCount: number,
+  nextPendingCount: number,
+): Promise<void> {
+  if (previousPendingCount === 0 || nextPendingCount !== 0) return;
+
+  const existing = await db.notification.findFirst({
+    where: { shoppingListId, kind: "LIST_CLEARED", dismissedAt: null },
+  });
+  if (existing) return;
+
+  await db.notification.create({
+    data: { householdId, kind: "LIST_CLEARED", shoppingListId },
+  });
+
+  // Fire-and-forget — see recordOutOfStockTransition's matching comment
+  // above and sendPushToHousehold's doc comment in src/lib/push.ts.
+  const list = await db.shoppingList.findUnique({ where: { id: shoppingListId }, select: { name: true } });
+  if (list) {
+    void sendPushToHousehold(householdId, {
+      title: "Shopping list cleared",
+      body: `${list.name} is all checked off`,
+      url: `/dashboard/shopping-list/${shoppingListId}`,
     });
   }
 }
@@ -207,6 +319,7 @@ export async function getActiveNotifications(householdId: string): Promise<Notif
       mealPlanEntry: {
         select: { date: true, freeformName: true, recipe: { select: { name: true } } },
       },
+      shoppingList: { select: { name: true } },
     },
   });
 
@@ -222,6 +335,16 @@ export async function getActiveNotifications(householdId: string): Promise<Notif
     if (row.kind === "EXPIRING_SOON") {
       if (!row.inventoryItem) return [];
       return [{ id: row.id, kind: "expiringSoon", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+    }
+
+    if (row.kind === "RESTOCKED") {
+      if (!row.inventoryItem) return [];
+      return [{ id: row.id, kind: "restocked", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+    }
+
+    if (row.kind === "LIST_CLEARED") {
+      if (!row.shoppingList) return [];
+      return [{ id: row.id, kind: "listCleared", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
     }
 
     if (!row.mealPlanEntry) return [];

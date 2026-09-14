@@ -3,6 +3,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { MealPlanningView } from "@/components/meal-planning/meal-planning-view";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 
 export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
   const [{ household }, dict, searchParams] = await Promise.all([
@@ -15,7 +16,10 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const weekParamValue = Array.isArray(weekParam) ? weekParam[0] : weekParam;
   const weekStart = isDateKey(weekParamValue) ? parseDateKey(weekParamValue) : getWeekStart(new Date());
 
-  const [recipes, mealPlan, activeShoppingLists] = await Promise.all([
+  const now = new Date();
+  const varietyWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [recipes, mealPlan, activeShoppingLists, varietyEntries] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId: household.id },
       include: {
@@ -33,7 +37,16 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true },
     }),
+    // Feeds the "variety recap" (see JOY_GAP_BACKLOG.md item 5) — a
+    // trailing-30-day window across all weeks, independent of whichever
+    // week is currently displayed above.
+    prisma.mealPlanEntry.findMany({
+      where: { mealPlan: { householdId: household.id }, date: { gte: varietyWindowStart, lte: now } },
+      select: { date: true, recipeId: true },
+    }),
   ]);
+
+  const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
 
   return (
     <MealPlanningView
@@ -72,6 +85,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
       }))}
       activeShoppingLists={activeShoppingLists}
+      varietyCount={distinctRecipeCount}
     />
   );
 }

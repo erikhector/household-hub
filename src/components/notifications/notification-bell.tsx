@@ -17,7 +17,7 @@
 // 6th primary icon to the bottom bar.
 
 import Link from "next/link";
-import { Bell, CalendarClock, CalendarDays, Package } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, PackageCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,15 +36,23 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 function notificationHref(item: NotificationItem): string {
   if (item.kind === "outOfStock") return `/dashboard/inventory?status=out`;
-  if (item.kind === "expiringSoon") return `/dashboard/inventory`;
+  if (item.kind === "expiringSoon" || item.kind === "restocked") return `/dashboard/inventory`;
+  if (item.kind === "listCleared") return `/dashboard/shopping-list/${item.shoppingListId}`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
 function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
   if (item.kind === "outOfStock") return format(dict.outOfStock, { name: item.name });
   if (item.kind === "expiringSoon") return format(dict.expiringSoon, { name: item.name });
+  if (item.kind === "restocked") return format(dict.restocked, { name: item.name });
+  if (item.kind === "listCleared") return format(dict.listCleared, { name: item.name });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
+
+// Good-news kinds (see JOY_GAP_BACKLOG.md item 4) get their own icon and a
+// calm green accent, distinct from the warning kinds' default (inherited)
+// color — a different row treatment, not just a recolor of the same one.
+const GOOD_NEWS_KINDS = new Set<NotificationItem["kind"]>(["restocked", "listCleared"]);
 
 export function NotificationCountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
@@ -83,14 +91,24 @@ function NotificationEntries({
   return (
     <>
       {items.map((item) => {
-        const Icon = item.kind === "outOfStock" ? Package : item.kind === "expiringSoon" ? CalendarClock : CalendarDays;
+        const Icon =
+          item.kind === "outOfStock"
+            ? Package
+            : item.kind === "expiringSoon"
+              ? CalendarClock
+              : item.kind === "restocked"
+                ? PackageCheck
+                : item.kind === "listCleared"
+                  ? CheckCircle2
+                  : CalendarDays;
+        const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);
         return (
           <DropdownMenuItem
             key={item.id}
             onClick={() => dismissNotificationAction(item.id)}
             render={<Link href={notificationHref(item)} />}
           >
-            <Icon className="size-4 shrink-0" />
+            <Icon className={cn("size-4 shrink-0", isGoodNews && "text-chart-5")} />
             <span className="truncate">{notificationLabel(item, dict)}</span>
           </DropdownMenuItem>
         );

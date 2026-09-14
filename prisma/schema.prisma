@@ -198,12 +198,18 @@ enum NotificationKind {
   OUT_OF_STOCK
   MEAL_NOT_LOGGED
   EXPIRING_SOON
+  // Good-news kinds (see JOY_GAP_BACKLOG.md item 4) — RESTOCKED and
+  // LIST_CLEARED are the only two kinds that aren't a warning; the bell
+  // gives them a distinct treatment. Same lifecycle as every other kind
+  // (fired once at the transition, cleared only by dismissal).
+  RESTOCKED
+  LIST_CLEARED
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
 // earlier design with no table at all, where every alert was recomputed
-// live on each render. Three triggers only, all fired at the moment they
-// happen rather than recomputed:
+// live on each render. Five triggers, all fired at the moment they happen
+// rather than recomputed:
 // - OUT_OF_STOCK: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0. Never fired for items created at zero (recipe-ingredient
 //   auto-create, the add-item dialog, starter kits, quick-add) — those are
@@ -220,28 +226,42 @@ enum NotificationKind {
 //   alert for the same item, not a DB unique constraint) since an item can
 //   legitimately be re-stocked with a new expiry date after the old alert
 //   was dismissed. See syncExpiringSoonNotifications.
+// - RESTOCKED (good news — see JOY_GAP_BACKLOG.md item 4): the inverse of
+//   OUT_OF_STOCK — an existing InventoryItem's quantity crossing back above
+//   its low-stock threshold. Deduped the same way OUT_OF_STOCK is. See
+//   recordRestockTransition.
+// - LIST_CLEARED (good news): a ShoppingList's unpurchased item count
+//   crossing from >0 to 0 — every item got checked off or removed. Fired at
+//   most once per crossing (checking/removing another item while already
+//   at 0 is a no-op), and can fire again the next time the list refills and
+//   clears again. See recordListClearedTransition.
 // `dismissedAt` is set the moment a user clicks the notification (see
 // dismissNotificationAction) — dismissed rows are kept, not deleted, so
 // MEAL_NOT_LOGGED's once-ever guarantee holds, and are simply excluded from
 // what the bell displays. Unlike the old live-computed model, a
 // notification does NOT clear itself when the underlying condition
-// resolves (e.g. restocking) — dismissal is the only way to clear it.
+// resolves — e.g. an OUT_OF_STOCK alert doesn't disappear just because the
+// item is later restocked, that fires its own separate RESTOCKED alert
+// instead; dismissal is the only way to clear any alert.
 model Notification {
   id              String           @id @default(cuid())
   householdId     String
   kind            NotificationKind
   inventoryItemId String?
   mealPlanEntryId String?
+  shoppingListId  String?
   createdAt       DateTime         @default(now())
   dismissedAt     DateTime?
 
   household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
   mealPlanEntry MealPlanEntry? @relation(fields: [mealPlanEntryId], references: [id], onDelete: Cascade)
+  shoppingList  ShoppingList?  @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
 
   @@unique([mealPlanEntryId])
   @@index([householdId, dismissedAt])
   @@index([inventoryItemId])
+  @@index([shoppingListId])
 }
 
 enum ShoppingListStatus {
@@ -259,9 +279,10 @@ model ShoppingList {
   completedAt DateTime?
   archivedAt  DateTime?
 
-  household  Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  items      ShoppingListItem[]
-  shareLinks ShoppingListShareLink[]
+  household     Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items         ShoppingListItem[]
+  shareLinks    ShoppingListShareLink[]
+  notifications Notification[]
 
   @@index([householdId])
 }

@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordListClearedTransition, recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
 // src/app/share/shopping-list/[token]/page.tsx — there is no session on this
@@ -108,12 +108,12 @@ export async function toggleItemViaShareTokenAction(
         data: { purchased: nextPurchased },
       });
 
-      if (item.inventoryItem) {
-        const list = await tx.shoppingList.findUnique({
-          where: { id: item.shoppingListId },
-          select: { householdId: true },
-        });
+      const list = await tx.shoppingList.findUnique({
+        where: { id: item.shoppingListId },
+        select: { householdId: true },
+      });
 
+      if (item.inventoryItem) {
         const delta = nextPurchased ? item.quantity : -item.quantity;
         const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
         await tx.inventoryItem.update({
@@ -128,6 +128,15 @@ export async function toggleItemViaShareTokenAction(
             item.inventoryItem.quantity,
             nextQuantity,
           );
+          await recordRestockTransition(
+            tx,
+            list.householdId,
+            item.inventoryItem.id,
+            item.inventoryItem.quantity,
+            item.inventoryItem.lowStockThreshold,
+            nextQuantity,
+            item.inventoryItem.lowStockThreshold,
+          );
         }
 
         if (nextPurchased && item.estimatedPrice != null) {
@@ -135,6 +144,13 @@ export async function toggleItemViaShareTokenAction(
             data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
           });
         }
+      }
+
+      if (list && nextPurchased) {
+        const remainingPending = await tx.shoppingListItem.count({
+          where: { shoppingListId: item.shoppingListId, purchased: false },
+        });
+        await recordListClearedTransition(tx, list.householdId, item.shoppingListId, remainingPending + 1, remainingPending);
       }
     });
   } catch (error) {

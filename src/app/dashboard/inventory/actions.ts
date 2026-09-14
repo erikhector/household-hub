@@ -8,7 +8,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
-import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -104,6 +104,15 @@ export async function updateInventoryItemAction(
       data: { ...parsed.data, category, location: parsed.data.location ?? null, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
+    await recordRestockTransition(
+      prisma,
+      household.id,
+      item.id,
+      item.quantity,
+      item.lowStockThreshold,
+      parsed.data.quantity,
+      parsed.data.lowStockThreshold,
+    );
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -301,6 +310,15 @@ export async function adjustQuantityAction(
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity);
+    await recordRestockTransition(
+      prisma,
+      household.id,
+      item.id,
+      item.quantity,
+      item.lowStockThreshold,
+      nextQuantity,
+      item.lowStockThreshold,
+    );
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -439,13 +457,16 @@ export async function bulkUpdateFieldAction(
 
   let updated = 0;
   try {
-    // Only needed to detect an out-of-stock transition below — skipped for
-    // every other field, which can't affect "out" status either way.
+    // Only needed to detect an out-of-stock/restock transition below —
+    // skipped for every other field. A bulk lowStockThreshold edit is
+    // deliberately excluded even though it can affect "low" status: that's
+    // a threshold recalibration, not a restock, and firing RESTOCKED for it
+    // would be a false positive (see recordRestockTransition's doc comment).
     const previousQuantities =
       field === "quantity"
         ? await prisma.inventoryItem.findMany({
             where: { id: { in: ids }, householdId: household.id },
-            select: { id: true, quantity: true },
+            select: { id: true, quantity: true, lowStockThreshold: true },
           })
         : [];
 
@@ -460,6 +481,19 @@ export async function bulkUpdateFieldAction(
       await Promise.all(
         previousQuantities.map((item) =>
           recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity),
+        ),
+      );
+      await Promise.all(
+        previousQuantities.map((item) =>
+          recordRestockTransition(
+            prisma,
+            household.id,
+            item.id,
+            item.quantity,
+            item.lowStockThreshold,
+            nextQuantity,
+            item.lowStockThreshold,
+          ),
         ),
       );
     }
