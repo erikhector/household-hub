@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,8 +28,10 @@ import {
   type HouseholdMemberOption,
   type InventoryGroupBy,
   type InventoryItemRow,
+  type InventoryViewPrefs,
   type UpdatedFilter,
 } from "@/components/inventory/inventory-table-utils";
+import { setInventoryViewPrefsAction } from "@/lib/actions/preferences";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const ALL = "__all__";
@@ -51,6 +53,7 @@ export function InventoryClient({
   dict,
   barcodeDict,
   initialStatus,
+  initialViewPrefs,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -61,14 +64,41 @@ export function InventoryClient({
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   initialStatus?: StockStatus;
+  initialViewPrefs: Partial<InventoryViewPrefs>;
 }) {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(ALL);
-  const [location, setLocation] = useState(ALL);
-  const [status, setStatus] = useState<string>(initialStatus ?? ALL);
-  const [updatedFilter, setUpdatedFilter] = useState<UpdatedFilter>("all");
-  const [groupBy, setGroupBy] = useState<InventoryGroupBy>("none");
+  // A saved category/location is only honored if it's still one the
+  // household actually has (items get deleted, categories/locations change)
+  // — otherwise it'd silently filter the table down to nothing.
+  const [category, setCategory] = useState(() =>
+    initialViewPrefs.category && categories.includes(initialViewPrefs.category)
+      ? initialViewPrefs.category
+      : ALL,
+  );
+  const [location, setLocation] = useState(() => {
+    const saved = initialViewPrefs.location;
+    if (saved === UNASSIGNED) return UNASSIGNED;
+    return saved && locations.includes(saved) ? saved : ALL;
+  });
+  // initialStatus (a notification-bell ?status= link) is an explicit ask to
+  // view that status right now, so it overrides the saved preference.
+  const [status, setStatus] = useState<string>(initialStatus ?? initialViewPrefs.status ?? ALL);
+  const [updatedFilter, setUpdatedFilter] = useState<UpdatedFilter>(initialViewPrefs.updatedFilter ?? "all");
+  const [groupBy, setGroupBy] = useState<InventoryGroupBy>(initialViewPrefs.groupBy ?? "none");
   const [now] = useState(() => Date.now());
+
+  // Persists grouping/filter changes to the account (src/lib/actions/preferences.ts)
+  // so they're there on reload and on other devices. Skips the render that
+  // just applied initialViewPrefs, so loading a saved value doesn't
+  // immediately "persist" it right back unchanged.
+  const skipNextPersist = useRef(true);
+  useEffect(() => {
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      return;
+    }
+    void setInventoryViewPrefsAction({ groupBy, category, location, status, updatedFilter });
+  }, [groupBy, category, location, status, updatedFilter]);
 
   const statusLabels: Record<StockStatus, string> = {
     in: dict.statusIn,

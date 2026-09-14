@@ -7,8 +7,10 @@ import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
+import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
+import { getUserPreferences } from "@/lib/preferences";
 
 // Status values the notification bell's low-stock alerts link to (e.g.
 // `/dashboard/inventory?status=low`) — see src/lib/notifications.ts and
@@ -16,16 +18,21 @@ import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
 
 export default async function InventoryPage(props: PageProps<"/dashboard/inventory">) {
-  const [{ household }, dict, locale, searchParams] = await Promise.all([
+  const [{ household }, dict, locale, searchParams, prefs] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     props.searchParams,
+    getUserPreferences(),
   ]);
 
   const statusParam = searchParams.status;
   const statusParamValue = Array.isArray(statusParam) ? statusParam[0] : statusParam;
+  // A notification-bell link's ?status= (see LINKABLE_STATUSES above) is an
+  // explicit ask to view a specific status right now, so it overrides
+  // whatever status filter was last saved.
   const initialStatus = LINKABLE_STATUSES.find((status) => status === statusParamValue);
+  const initialViewPrefs = parseInventoryViewPrefs(prefs?.inventoryViewPrefs);
 
   const [items, householdMembers] = await Promise.all([
     prisma.inventoryItem.findMany({
@@ -112,6 +119,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
         dict={dict.inventory}
         barcodeDict={dict.barcodeScanner}
         initialStatus={initialStatus}
+        initialViewPrefs={initialViewPrefs}
       />
     </div>
   );

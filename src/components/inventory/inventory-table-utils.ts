@@ -1,4 +1,11 @@
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { StockStatus } from "@/lib/stock-status";
+
+// Sentinel values InventoryClient's filter selects use for "no filter
+// applied" / "no location set", shared here so parseInventoryViewPrefs below
+// can recognize them as always-valid without importing a "use client" module.
+export const ALL_FILTER = "__all__";
+export const UNASSIGNED_LOCATION = "__unassigned__";
 
 export type InventoryItemRow = {
   id: string;
@@ -21,6 +28,49 @@ export type InventoryGroupBy = "none" | "category" | "location" | "both";
 // matchesUpdatedFilter below. Kept as a plain union (not derived from the
 // dict) so InventoryClient's filtering logic doesn't depend on translations.
 export type UpdatedFilter = "all" | "today" | "week" | "stale30" | "stale90";
+
+// The inventory view's grouping + filter selections, persisted to
+// User.inventoryViewPrefs (src/lib/actions/preferences.ts) so they survive
+// reloads and follow the account across devices. category/location are
+// free-text (they mirror whatever categories/locations the household has
+// actually used) or ALL_FILTER/UNASSIGNED_LOCATION; InventoryClient discards
+// a saved category/location that's no longer in the household's current list.
+export type InventoryViewPrefs = {
+  groupBy: InventoryGroupBy;
+  category: string;
+  location: string;
+  status: string;
+  updatedFilter: UpdatedFilter;
+};
+
+const GROUP_BY_VALUES = new Set<InventoryGroupBy>(["none", "category", "location", "both"]);
+const UPDATED_FILTER_VALUES = new Set<UpdatedFilter>(["all", "today", "week", "stale30", "stale90"]);
+const STATUS_VALUES = new Set<StockStatus>(["in", "low", "out"]);
+
+// Reads back whatever's in User.inventoryViewPrefs (untyped JSON — could be
+// null, stale from a schema change, or missing fields) and keeps only the
+// fields that still parse as a known value, so a corrupt/outdated row can
+// never crash the inventory page. Fields it drops fall back to
+// InventoryClient's own defaults.
+export function parseInventoryViewPrefs(value: unknown): Partial<InventoryViewPrefs> {
+  if (!value || typeof value !== "object") return {};
+  const v = value as Record<string, unknown>;
+  const prefs: Partial<InventoryViewPrefs> = {};
+
+  if (typeof v.groupBy === "string" && GROUP_BY_VALUES.has(v.groupBy as InventoryGroupBy)) {
+    prefs.groupBy = v.groupBy as InventoryGroupBy;
+  }
+  if (typeof v.category === "string") prefs.category = v.category;
+  if (typeof v.location === "string") prefs.location = v.location;
+  if (typeof v.status === "string" && (v.status === ALL_FILTER || STATUS_VALUES.has(v.status as StockStatus))) {
+    prefs.status = v.status;
+  }
+  if (typeof v.updatedFilter === "string" && UPDATED_FILTER_VALUES.has(v.updatedFilter as UpdatedFilter)) {
+    prefs.updatedFilter = v.updatedFilter as UpdatedFilter;
+  }
+
+  return prefs;
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

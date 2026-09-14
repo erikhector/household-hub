@@ -3,6 +3,8 @@ import { Nunito, Baloo_2, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { getUserPreferences } from "@/lib/preferences";
+import { isThemeChoice } from "@/components/theme/theme-choice";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -34,7 +36,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const locale = await getLocale();
+  const [locale, prefs] = await Promise.all([getLocale(), getUserPreferences()]);
+  // next-themes still checks its own localStorage first on the client and
+  // wins there if present — this only matters for a browser with no stored
+  // theme yet (first visit on a new device), where it lets a signed-in
+  // user's account preference apply instead of the hardcoded "dark" default.
+  const defaultTheme = prefs && isThemeChoice(prefs.theme) ? prefs.theme : "dark";
 
   return (
     <html
@@ -43,7 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
           {children}
           <Toaster />
         </ThemeProvider>

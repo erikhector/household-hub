@@ -26,6 +26,20 @@ model User {
   // rather than being blocked anywhere.
   emailVerifiedAt DateTime?
 
+  // Account-level UI preferences, synced across every device the user signs
+  // into (src/lib/preferences.ts). "dark"/"en" mirror the app's pre-existing
+  // hardcoded defaults (src/app/layout.tsx's old defaultTheme, LOCALE_COOKIE's
+  // defaultLocale) so existing users see no change until they pick otherwise.
+  // Anonymous/pre-auth pages still fall back to the theme/locale cookies —
+  // see getLocale() and RootLayout.
+  theme              String @default("dark")
+  locale             String @default("en")
+  // { groupBy, category, location, status, updatedFilter } from
+  // src/components/inventory/inventory-client.tsx — validated on read via
+  // parseInventoryViewPrefs (src/components/inventory/inventory-table-utils.ts)
+  // since this is user-controlled JSON, not schema-checked.
+  inventoryViewPrefs Json?
+
   memberships                HouseholdMember[]
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
