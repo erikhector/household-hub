@@ -244,7 +244,7 @@ async function createAdHocShoppingListItem(
 export async function addAdHocItemAction(
   _prevState: ActionState,
   formData: FormData,
-): Promise<ActionState & { autoLinkedName?: string }> {
+): Promise<ActionState & { autoLinkedName?: string; needsMapping?: boolean }> {
   const { household } = await requireHousehold();
 
   const parsed = addItemSchema.safeParse({
@@ -267,7 +267,14 @@ export async function addAdHocItemAction(
     );
     if ("error" in result) return { error: result.error };
     revalidatePath(`/dashboard/shopping-list/${result.list.id}`);
-    return { autoLinkedName: result.autoLinkedName ?? undefined };
+    // Lets the add form surface the "needs mapping" explanation the moment
+    // the item lands, instead of only via the persistent row badge — this
+    // just reads back the link createAdHocShoppingListItem already decided,
+    // it doesn't change what that decision is.
+    return {
+      autoLinkedName: result.autoLinkedName ?? undefined,
+      needsMapping: result.item.inventoryItemId === null,
+    };
   } catch (error) {
     return toFriendlyError(error);
   }

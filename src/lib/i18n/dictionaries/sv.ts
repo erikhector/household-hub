@@ -232,6 +232,8 @@ export const sv = {
     expenseLogged: "Loggade {amount} i din budget för Livsmedel",
     expenseDescription: 'Från "{name}"',
     needsMappingBadge: "Behöver kopplas",
+    needsMappingHint: "Ny i ditt skafferi — koppla den eller lägg till den som en ny vara så uppdateras lagret när du köper den.",
+    needsMappingToast: "{name} är ny i ditt skafferi — koppla den eller lägg till den som en ny vara för att hålla lagret synkat.",
     matchItemButton: "Koppla vara",
     autoLinkedName: "Kopplad till {name}",
     unresolvedNotice: {
