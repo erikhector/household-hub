@@ -832,11 +832,11 @@ export const sv = {
       spendingSubtitle:
         "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
       noSpendingData:
-        "Inga prissatta matinköp än. Markera en vara som köpt med ett uppskattat pris på en inköpslista för att börja följa utgifterna här.",
+        "Inga prissatta matinköp än. Skanna ett kvitto eller en streckkod när du bockar av en vara på inköpslistan — det är just nu det enda sättet ett pris registreras på, så utgifter visas här automatiskt när du gör det.",
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
       noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här.",
+        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
       latestPrice: "Senaste",
     },
     split: {

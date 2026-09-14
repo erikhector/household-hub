@@ -44,11 +44,19 @@ export const navItems: NavItem[] = [
 
 // The mobile bottom bar only has room for ~5 icons. These four see the most
 // day-to-day use; everything else lives behind the "More" menu.
+//
+// Meal planning takes Household budget's old slot here
+// (UX_FRICTION_BACKLOG.md item 5): pantry/shopping/meal-planning are the
+// hands-on trio someone reaches for while actually cooking or shopping —
+// "what's for dinner" standing in the kitchen is arguably meal planning's
+// primary real-world moment, same immediacy as the other two. Budget
+// (checked periodically, not mid-task) joins Personal budget, Tasks,
+// Household, and Profile behind "More" instead.
 const primaryMobileHrefs = new Set([
   "/dashboard",
   "/dashboard/inventory",
   "/dashboard/shopping-list",
-  "/dashboard/budget",
+  "/dashboard/meal-planning",
 ]);
 
 export const primaryMobileNavItems = navItems.filter((item) => primaryMobileHrefs.has(item.href));

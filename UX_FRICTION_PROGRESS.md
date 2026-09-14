@@ -14,12 +14,24 @@ restart) without re-deriving what's done.
 |---|------|-------|-------|--------|
 | 1 | Email verification banner dismiss | `email-verification-banner.tsx`, `dashboard/layout.tsx`, dictionaries, Profile page | subagent A | todo |
 | 2 | Needs-mapping inline hint at add-time | `shopping-list-client.tsx`, dictionaries | subagent B | todo |
-| 3 | Cost analyzer empty-state hint copy | `cost-analyzer.tsx`, dictionaries | orchestrator (direct) | todo |
-| 4 | At-threshold restock badge (`<=` → `<`) | `stock-status.ts` | orchestrator (direct) | todo |
-| 5 | Meal planning in primary mobile nav | `nav-items.ts` | orchestrator (direct) | todo |
+| 3 | Cost analyzer empty-state hint copy | dictionaries (`en.ts`/`sv.ts` `costAnalyzer.noSpendingData`/`noTrendData`) | orchestrator (direct) | done |
+| 4 | At-threshold restock badge (`<=` → `<`) | `stock-status.ts`, `stock-status.test.ts` | orchestrator (direct) | done |
+| 5 | Meal planning in primary mobile nav | `nav-items.ts` (swapped Household budget → Meal planning; product call made per backlog's own reasoning) | orchestrator (direct) | done |
 | 6+7 | Starter categories + persistent "Manage categories" entry | `budget-onboarding.tsx`, `category-manager.tsx`, `budget-tabs.tsx`, `budget/page.tsx`, dictionaries | subagent C | todo |
-| HK | Next.js dev-mode build-activity indicator overlap | `next.config.ts` | orchestrator (direct) | todo |
+| HK | Next.js dev-mode build-activity indicator overlap | `next.config.ts` (`devIndicators: false`) | orchestrator (direct) | done |
 | 8 | Manual purchase-price collection | — | deferred: needs a product decision per backlog's own note, revisit once item 3 has shipped and there's usage signal | deferred |
+
+## Known pre-existing issue found during verification (out of scope, not fixed here)
+
+`next build`'s TypeScript pass fails on `prisma7.config.ts(13,5)`: `directUrl`
+does not exist on the installed `@prisma/config`'s `Datasource` type (only
+`url`/`shadowDatabaseUrl` are valid there). This predates this branch —
+already present on `origin/master` as of commit `9a93cd5` ("Fix migrate
+deploy P1002 timeout by wiring DIRECT_URL into Prisma config"). It blocks a
+full production build today on master, independent of anything in this
+backlog. Left unfixed here since it's unrelated to the UX friction backlog
+and touches deployment/DB config — flagged for a separate fix. `next lint`
+and `vitest run` are unaffected and pass.
 
 ## Notes
 - Items 2 and 3 do NOT overlap in practice: item 2's fix lives entirely in
