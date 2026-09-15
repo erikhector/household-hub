@@ -112,7 +112,10 @@ build if a key is missing in either locale).
       with `npm run lint`, `npx tsc --noEmit`, `npm run test`, and a manual check that both
       the Budget and Meal Planning tab bars still look and behave identically to before.
 
-- [~] **E. Convert Profile's inline success text to the shared toast pattern** —
+- [x] **E. Convert Profile's inline success text to the shared toast pattern** — Merged
+      `d285d29`. Both forms now call `toast.success(dict.saved)` (each form's own scoped
+      `dict.saved` already had distinct copy — "Saved" / "Email updated" — so no new i18n
+      keys needed). Error handling unchanged. Full suite green.
       `src/components/profile/display-name-form.tsx:43` and the equivalent block in
       `src/components/profile/email-form.tsx`. These two forms show success via `{
       state.success && <p className="text-sm text-emerald-500">{dict.saved}</p> }`, the
