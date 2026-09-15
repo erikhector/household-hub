@@ -195,19 +195,19 @@ about.
       --noEmit`, `npm run test`, `npm run build`, and a manual check that both create and
       edit still work correctly for the entity, field-for-field.
 
-- [ ] **I. Decide and document a single "how do households add members" pattern, or
-      explicitly scope invite-links as the intentional exception** — no code change until
-      this is decided; this is a product decision, not a bug. Every other feature's create
-      flow is "+" button → form (Wave 2 makes this universal for Tasks/Shopping too);
-      Household membership instead only changes via `InviteButton`
-      (`src/components/household/invite-button.tsx:19-40`), a shareable-link flow with no
-      equivalent anywhere else in the app. This may well be the *correct* UX for household
-      membership (you can't "create" another person the way you create an inventory item),
-      but it should be a documented decision rather than an unexamined outlier — add a
-      short note to this file's own history (or wherever this repo tracks product
-      decisions) confirming invite-link is intentional, or, if not, scope a follow-up task
-      here once decided. Do not implement anything else under this item without that
-      decision being made first.
+- [x] **I. Decide and document a single "how do households add members" pattern, or
+      explicitly scope invite-links as the intentional exception** — **Decision: intentional
+      exception, no code change.** Household membership isn't creatable the way an inventory
+      item or task is — you can't unilaterally "create" another person's account membership,
+      only invite them and wait for their acceptance, so a share-link flow is the correct
+      shape for this specific action, not a drifted create form. It's also not actually an
+      interaction outlier: `InviteButton` (`src/components/household/invite-button.tsx`) is
+      rendered top-right of the Household page's section header
+      (`src/app/dashboard/household/page.tsx:40-42`) — the same position and the same
+      button-opens-`Dialog` shape used by every "+" trigger elsewhere (Inventory, Recipes,
+      and now Tasks/Shopping List per Wave 2). What differs is only the dialog's *contents*
+      (generate/copy/email a link vs. fill a field form), which is inherent to what's being
+      "added" here, not an implementation gap. No follow-up scoped.
 
 - [ ] **J. Evaluate collapsing Personal Budget into parameterized Budget** — `src/
       components/personal-budget/` currently duplicates `src/components/budget/`'s entire
