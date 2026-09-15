@@ -41,7 +41,14 @@ build if a key is missing in either locale).
       `npm run test`, and a manual check in the browser that deleting a shopping-list item
       now requires confirming.
 
-- [~] **B. Extract a shared `Checkbox` component and adopt it everywhere** —
+- [x] **B. Extract a shared `Checkbox` component and adopt it everywhere** — Merged
+      `f98cc64`. New `src/components/ui/checkbox.tsx` (plain native input; `@base-ui/react`'s
+      checkbox export uses `onCheckedChange` rather than native `onChange`, so a wrapper was
+      used instead, per the task's own fallback). Adopted at all 5 call sites (inventory,
+      shopping list, tasks, mark-cooked dialog, budget transaction). `missing-ingredients-
+      dialog.tsx`, `personal-transaction-dialog.tsx`, and `shared-shopping-list-client.tsx`
+      have the same hand-rolled pattern but were out of this task's explicit scope — worth a
+      follow-up. Full suite green.
       new file `src/components/ui/checkbox.tsx`. Every feature currently hand-rolls its own
       native `<input type="checkbox">` with a different (or no) className, so the same
       control renders differently across the app: unstyled/bare in
