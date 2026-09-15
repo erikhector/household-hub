@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateProfileAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type FormState = { error?: string; success?: boolean };
+type FormState = { error?: string };
 
 const initialState: FormState = {};
 
@@ -23,7 +24,9 @@ export function DisplayNameForm({
     formData: FormData,
   ): Promise<FormState> => {
     const result = await updateProfileAction(prevState, formData);
-    return result.error ? { error: result.error } : { success: true };
+    if (result.error) return { error: result.error };
+    toast.success(dict.saved);
+    return {};
   }, initialState);
 
   return (
@@ -40,7 +43,6 @@ export function DisplayNameForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state.success && <p className="text-sm text-emerald-500">{dict.saved}</p>}
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? dict.saving : dict.save}
       </Button>

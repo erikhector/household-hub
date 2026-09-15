@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Mail, Lock, MailWarning } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { updateEmailAction } from "@/app/dashboard/profile/actions";
 import { resendVerificationEmailAction, type ResendVerificationState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type FormState = { error?: string; success?: boolean };
+type FormState = { error?: string };
 
 const initialState: FormState = {};
 const initialResendState: ResendVerificationState = {};
@@ -33,7 +34,9 @@ export function EmailForm({
     formData: FormData,
   ): Promise<FormState> => {
     const result = await updateEmailAction(prevState, formData);
-    return result.error ? { error: result.error } : { success: true };
+    if (result.error) return { error: result.error };
+    toast.success(dict.saved);
+    return {};
   }, initialState);
   const [resendState, resendFormAction, resendPending] = useActionState(
     resendVerificationEmailAction,
@@ -98,7 +101,6 @@ export function EmailForm({
           </div>
         </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-        {state.success && <p className="text-sm text-emerald-500">{dict.saved}</p>}
         <Button type="submit" disabled={pending} className="self-start">
           {pending ? dict.saving : dict.save}
         </Button>
