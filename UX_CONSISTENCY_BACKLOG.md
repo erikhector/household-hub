@@ -209,7 +209,7 @@ about.
       (generate/copy/email a link vs. fill a field form), which is inherent to what's being
       "added" here, not an implementation gap. No follow-up scoped.
 
-- [ ] **J. Evaluate collapsing Personal Budget into parameterized Budget** — `src/
+- [~] **J. Evaluate collapsing Personal Budget into parameterized Budget** — `src/
       components/personal-budget/` currently duplicates `src/components/budget/`'s entire
       component tree (`personal-transaction-dialog.tsx` vs. `transaction-dialog.tsx`,
       `personal-category-manager.tsx` vs. `category-manager.tsx`,
