@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ExportButton } from "@/components/export/export-button";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import { ComboField } from "@/components/inventory/combo-field";
@@ -64,12 +65,14 @@ function AddItemForm({
   units,
   dict,
   barcodeDict,
+  onSuccess,
 }: {
   listId: string;
   inventoryItems: InventoryItemOption[];
   units: string[];
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
+  onSuccess?: () => void;
 }) {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
@@ -107,6 +110,7 @@ function AddItemForm({
       setName("");
       setUnit("");
       setScannedBarcode(null);
+      onSuccess?.();
     }
     return result;
   }, initialState);
@@ -169,6 +173,52 @@ function AddItemForm({
   );
 }
 
+// "+"-button-triggered create dialog, matching Tasks (see
+// UX_CONSISTENCY_BACKLOG.md item G, which follows item F's shape) and
+// Inventory/Recipes. AddItemForm's fields/validation/action are untouched;
+// this just relocates them behind a modal and closes it on successful add.
+function AddItemDialog({
+  listId,
+  inventoryItems,
+  units,
+  dict,
+  barcodeDict,
+}: {
+  listId: string;
+  inventoryItems: InventoryItemOption[];
+  units: string[];
+  dict: ShoppingListDict;
+  barcodeDict: Dictionary["barcodeScanner"];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button className="gap-1.5">
+            <Plus className="size-4" />
+            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{dict.addItemDialogTitle}</DialogTitle>
+        </DialogHeader>
+        <AddItemForm
+          listId={listId}
+          inventoryItems={inventoryItems}
+          units={units}
+          dict={dict}
+          barcodeDict={barcodeDict}
+          onSuccess={() => setOpen(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ShoppingListClient({
   list,
   inventoryItems,
@@ -224,7 +274,7 @@ export function ShoppingListClient({
         {dict.backToAll}
       </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{list.name}</h1>
@@ -232,6 +282,15 @@ export function ShoppingListClient({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isActive && (
+            <AddItemDialog
+              listId={list.id}
+              inventoryItems={inventoryItems}
+              units={units}
+              dict={dict}
+              barcodeDict={barcodeDict}
+            />
+          )}
           <ExportButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
           {isActive && <ShareListButton shoppingListId={list.id} dict={dict.shareLink} />}
           {isActive && (
@@ -335,16 +394,6 @@ export function ShoppingListClient({
           />
         </div>
       </div>
-
-      {isActive && (
-        <AddItemForm
-          listId={list.id}
-          inventoryItems={inventoryItems}
-          units={units}
-          dict={dict}
-          barcodeDict={barcodeDict}
-        />
-      )}
 
       <div className="flex flex-col gap-2">
         {showCleared ? (
