@@ -16,7 +16,14 @@ const itemSchema = z.object({
   // under the locale's "Uncategorized" label (resolved below) instead of
   // blocking the add on picking a category up front.
   category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
-  quantity: z.coerce.number().min(0, "Quantity can't be negative"),
+  // Rounded to at most 2 decimal places at the boundary — the display and
+  // meal-cooking decrement (cooking-actions.ts) assume the same precision,
+  // and rounding here keeps stray float drift (e.g. entering 0.1 + 0.2) out
+  // of storage rather than just hiding it later.
+  quantity: z.coerce
+    .number()
+    .min(0, "Quantity can't be negative")
+    .transform((n) => Math.round(n * 100) / 100),
   unit: z.string().trim().min(1).max(20, "Unit must be 20 characters or fewer").default("pcs"),
   lowStockThreshold: z.coerce.number().min(0, "Threshold can't be negative"),
   location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
@@ -154,7 +161,11 @@ export async function quickAddInventoryItemAction(input: {
 
 const bulkCreateItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  quantity: z.coerce.number().min(0).default(1),
+  quantity: z.coerce
+    .number()
+    .min(0)
+    .default(1)
+    .transform((n) => Math.round(n * 100) / 100),
   unit: z.string().trim().min(1).max(20).default("pcs"),
 });
 
@@ -206,7 +217,10 @@ export async function bulkCreateInventoryItemsAction(
         continue;
       }
       const prev = merged.get(key);
-      merged.set(key, prev ? { ...prev, quantity: prev.quantity + item.quantity } : item);
+      merged.set(
+        key,
+        prev ? { ...prev, quantity: Math.round((prev.quantity + item.quantity) * 100) / 100 } : item,
+      );
     }
 
     const toAdd = [...merged.values()];
@@ -294,7 +308,7 @@ export async function adjustQuantityAction(
   });
   if (!item) return { error: "Item not found" };
 
-  const nextQuantity = Math.max(0, item.quantity + delta);
+  const nextQuantity = Math.round(Math.max(0, item.quantity + delta) * 100) / 100;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },

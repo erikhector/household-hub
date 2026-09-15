@@ -148,7 +148,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                       <input
                         type="number"
                         min={0}
-                        step="any"
+                        step="0.01"
                         className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
                         value={item.quantity}
                         disabled={!item.included}

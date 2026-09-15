@@ -37,6 +37,7 @@ import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { getStockStatus } from "@/lib/stock-status";
+import { formatQuantity } from "@/lib/format-quantity";
 import {
   groupItems,
   type HouseholdMemberOption,
@@ -384,9 +385,9 @@ export function InventoryTable({
                     </Button>
                     <span
                       className="block w-14 shrink-0 truncate text-center tabular-nums"
-                      title={`${item.quantity} ${item.unit}`}
+                      title={`${formatQuantity(item.quantity)} ${item.unit}`}
                     >
-                      {item.quantity} {item.unit}
+                      {formatQuantity(item.quantity)} {item.unit}
                     </span>
                     <Button
                       variant="outline"
@@ -490,9 +491,9 @@ export function InventoryTable({
                         the same fix. */}
                     <span
                       className="max-w-24 truncate text-center text-sm tabular-nums"
-                      title={`${item.quantity} ${item.unit}`}
+                      title={`${formatQuantity(item.quantity)} ${item.unit}`}
                     >
-                      {item.quantity} {item.unit}
+                      {formatQuantity(item.quantity)} {item.unit}
                     </span>
                     <Button
                       variant="outline"

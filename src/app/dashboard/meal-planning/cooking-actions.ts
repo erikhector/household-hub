@@ -39,6 +39,13 @@ async function findOrCreateInventoryItem(householdId: string, name: string) {
 // reason as findOrCreateInventoryItem above.
 const MAX_INGREDIENT_QUANTITY = 1_000_000;
 
+// Inventory quantities are stored to at most 2 decimal places (matches the
+// precision cooked-ingredients.ts already suggests in the confirm dialog).
+// Rounding both the submitted decrement/increment amount and the resulting
+// stored quantity keeps float arithmetic (e.g. 0.1 - 0.03) from drifting
+// into long repeating decimals like 0.06999999999999999.
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 // --- Meal-plan → shopping-list bridge ---------------------------------------
 //
 // Diffs a planned week's recipe ingredients against current inventory and
@@ -334,7 +341,7 @@ export async function markMealEntryCookedAction(
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
 
   const rows = itemIds
-    .map((itemId, i) => ({ itemId, quantity: quantities[i] }))
+    .map((itemId, i) => ({ itemId, quantity: round2(quantities[i]) }))
     .filter(
       (row) =>
         row.itemId &&
@@ -354,7 +361,7 @@ export async function markMealEntryCookedAction(
         for (const row of rows) {
           const item = itemsById.get(row.itemId);
           if (!item) continue; // not this household's item — silently skip, mirrors bulkUpdateFieldAction
-          const nextQuantity = Math.max(0, item.quantity - row.quantity);
+          const nextQuantity = round2(Math.max(0, item.quantity - row.quantity));
           await tx.inventoryItem.update({
             where: { id: item.id },
             data: { quantity: nextQuantity, updatedByUserId: userId },
@@ -402,13 +409,15 @@ export async function undoMarkMealEntryCookedAction(
   // inventory back twice, mirroring markMealEntryCookedAction's own guard.
   if (!entry.consumedAt) return {};
 
-  const validRows = rows.filter(
-    (row) =>
-      row.itemId &&
-      Number.isFinite(row.quantity) &&
-      row.quantity >= 0 &&
-      row.quantity <= MAX_INGREDIENT_QUANTITY,
-  );
+  const validRows = rows
+    .map((row) => ({ ...row, quantity: round2(row.quantity) }))
+    .filter(
+      (row) =>
+        row.itemId &&
+        Number.isFinite(row.quantity) &&
+        row.quantity >= 0 &&
+        row.quantity <= MAX_INGREDIENT_QUANTITY,
+    );
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -421,7 +430,7 @@ export async function undoMarkMealEntryCookedAction(
         for (const row of validRows) {
           const item = itemsById.get(row.itemId);
           if (!item) continue; // not this household's item — silently skip, mirrors markMealEntryCookedAction
-          const nextQuantity = item.quantity + row.quantity;
+          const nextQuantity = round2(item.quantity + row.quantity);
           await tx.inventoryItem.update({
             where: { id: item.id },
             data: { quantity: nextQuantity, updatedByUserId: userId },
