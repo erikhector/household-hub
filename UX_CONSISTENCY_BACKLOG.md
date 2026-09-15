@@ -20,7 +20,9 @@ build if a key is missing in either locale).
 
 ## Wave 1 — independent, parallel (disjoint files, no shared-component changes)
 
-- [~] **A. Add a confirmation step to shopping-list item delete** —
+- [x] **A. Add a confirmation step to shopping-list item delete** — Merged `a03bba9`.
+      Item delete now goes through `ConfirmDialog`, matching list delete. Added
+      `confirmDeleteItem` i18n key (en/sv). Full suite green.
       `src/components/shopping/shopping-list-client.tsx:479-493`. Deleting a shopping
       *list* already confirms via `ConfirmDialog`
       (`src/components/shopping/shopping-lists-overview.tsx:316-334`), but deleting an
@@ -63,7 +65,9 @@ build if a key is missing in either locale).
       recurring/split toggles) to confirm the checkbox now looks identical across all of
       them.
 
-- [~] **C. Fix the Budget categories empty state to match the shared convention** —
+- [x] **C. Fix the Budget categories empty state to match the shared convention** — Merged
+      `99435e5`. Empty state now uses the shared dashed-box className; verified visually
+      against inventory/task/recipe empty states. Full suite green.
       `src/components/budget/category-manager.tsx:62`. Every other list view's empty state
       uses `rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground`
       (see `src/components/inventory/inventory-table.tsx:151`,
