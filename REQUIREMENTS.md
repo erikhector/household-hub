@@ -1208,11 +1208,23 @@ actually used, once they've cooked it.
   item belongs to the household, clamps each decrement at 0 (same as
   `adjustQuantityAction` in `src/app/dashboard/inventory/actions.ts`), and
   sets `consumedAt`, all inside one `$transaction`.
-- **No undo**: once marked cooked, it's final — consistent with "no
-  in-place edit for meal entries" above. A wrong decrement is corrected
-  the same way any inventory number is corrected today: the existing +/-
-  adjuster on the inventory page. Deleting the meal-plan entry afterward
-  doesn't reverse the decrement either, for the same reason.
+- **Short-lived undo only**: once marked cooked, it's final — consistent
+  with "no in-place edit for meal entries" above, and for the same inventory-
+  drift reason a meal plan can diverge from what was actually cooked. The one
+  exception is `undoMarkMealEntryCookedAction`
+  (`src/app/dashboard/meal-planning/cooking-actions.ts`), fired from an
+  "Undo" action on the confirmation toast (`MarkCookedDialog`) that's visible
+  for a few seconds after submitting — it targets the fat-finger case (an
+  accidental tap on the wrong entry), not a considered correction made later.
+  It reverses the exact rows just submitted (re-verified against the
+  household, same as the commit path) and clears `consumedAt`, inside its own
+  `$transaction`; it's idempotent like the commit action (a no-op once
+  `consumedAt` is already null, so a stale/double-clicked toast can't credit
+  inventory back twice). Once that window closes there's no further undo — a
+  wrong decrement discovered later is corrected the same way any inventory
+  number is corrected: the existing +/- adjuster on the inventory page.
+  Deleting the meal-plan entry afterward doesn't reverse the decrement
+  either, for the same reason.
 
 ## Household tasks
 

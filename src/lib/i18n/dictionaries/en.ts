@@ -688,6 +688,8 @@ export const en = {
     markCookedSubmit: "Mark as cooked",
     markingCooked: "Marking…",
     mealMarkedCookedToast: "Marked as cooked — inventory updated",
+    undoMarkCooked: "Undo",
+    mealCookedUndoneToast: "Undone — inventory restored",
   },
   tasks: {
     title: "Tasks",

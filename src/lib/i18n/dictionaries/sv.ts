@@ -680,6 +680,8 @@ export const sv = {
     markCookedSubmit: "Markera som lagad",
     markingCooked: "Markerar…",
     mealMarkedCookedToast: "Markerad som lagad — lagret uppdaterat",
+    undoMarkCooked: "Ångra",
+    mealCookedUndoneToast: "Ångrat — lagret återställt",
   },
   tasks: {
     title: "Uppgifter",

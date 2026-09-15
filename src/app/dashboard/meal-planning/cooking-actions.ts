@@ -12,7 +12,7 @@ import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
-import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -366,6 +366,81 @@ export async function markMealEntryCookedAction(
       await tx.mealPlanEntry.update({
         where: { id: entry.id },
         data: { consumedAt: new Date() },
+      });
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {};
+}
+
+// --- Undo mark-as-cooked (short-lived toast action) --------------------------
+//
+// Reverses the exact decrement markMealEntryCookedAction just applied.
+// Deliberately not a permanent unmark control — REQUIREMENTS.md's "No undo"
+// rationale for this feature still holds (a meal plan can diverge from what
+// was actually cooked, and a stale undo could drift inventory the other
+// way). This only covers the fat-finger case: MarkCookedDialog surfaces it
+// as an "Undo" action on the confirmation toast for a few seconds, then it's
+// gone and the entry is final again, same as before.
+export async function undoMarkMealEntryCookedAction(
+  entryId: string,
+  rows: { itemId: string; quantity: number }[],
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const entry = await prisma.mealPlanEntry.findFirst({
+    where: { id: entryId, mealPlan: { householdId: household.id } },
+    select: { id: true, consumedAt: true },
+  });
+  if (!entry) return { error: "Meal not found" };
+  // Idempotent no-op — a stale/double-clicked undo shouldn't credit
+  // inventory back twice, mirroring markMealEntryCookedAction's own guard.
+  if (!entry.consumedAt) return {};
+
+  const validRows = rows.filter(
+    (row) =>
+      row.itemId &&
+      Number.isFinite(row.quantity) &&
+      row.quantity >= 0 &&
+      row.quantity <= MAX_INGREDIENT_QUANTITY,
+  );
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (validRows.length > 0) {
+        const items = await tx.inventoryItem.findMany({
+          where: { id: { in: validRows.map((r) => r.itemId) }, householdId: household.id },
+        });
+        const itemsById = new Map(items.map((item) => [item.id, item]));
+
+        for (const row of validRows) {
+          const item = itemsById.get(row.itemId);
+          if (!item) continue; // not this household's item — silently skip, mirrors markMealEntryCookedAction
+          const nextQuantity = item.quantity + row.quantity;
+          await tx.inventoryItem.update({
+            where: { id: item.id },
+            data: { quantity: nextQuantity, updatedByUserId: userId },
+          });
+          await recordRestockTransition(
+            tx,
+            household.id,
+            item.id,
+            item.quantity,
+            item.lowStockThreshold,
+            nextQuantity,
+            item.lowStockThreshold,
+          );
+        }
+      }
+
+      await tx.mealPlanEntry.update({
+        where: { id: entry.id },
+        data: { consumedAt: null },
       });
     });
   } catch (error) {

@@ -15,6 +15,7 @@ import {
 import {
   markMealEntryCookedAction,
   previewCookedIngredientsAction,
+  undoMarkMealEntryCookedAction,
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { format } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
@@ -39,8 +40,27 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
   ) => {
     const result = await markMealEntryCookedAction(prevState, formData);
     if (!result.error) {
-      toast.success(dict.mealMarkedCookedToast);
       setOpen(false);
+
+      // Captured from the just-submitted form (not the `items` state, which
+      // may have moved on by the time the toast's action fires) so Undo can
+      // credit inventory back by the exact amounts that were decremented.
+      const itemIds = formData.getAll("itemId").map((v) => String(v));
+      const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
+      const rows = itemIds.map((itemId, i) => ({ itemId, quantity: quantities[i] }));
+
+      toast.success(dict.mealMarkedCookedToast, {
+        duration: 8000,
+        action: {
+          label: dict.undoMarkCooked,
+          onClick: () => {
+            void undoMarkMealEntryCookedAction(entry.id, rows).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(dict.mealCookedUndoneToast);
+            });
+          },
+        },
+      });
     }
     return result;
   }, initialState);
