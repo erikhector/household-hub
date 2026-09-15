@@ -79,7 +79,11 @@ build if a key is missing in either locale).
       categories shows the same dashed-box empty state as an empty inventory/task/recipe
       list.
 
-- [~] **D. Share one `Tabs` sub-navigation component between Budget and Meal Planning** —
+- [x] **D. Share one `Tabs` sub-navigation component between Budget and Meal Planning** —
+      Merged `1205755`. New `src/components/ui/tabs.tsx` wraps `@base-ui/react/tabs`;
+      `budget-tabs.tsx` and `meal-planning-view.tsx` both use it now. Visual/behavioral
+      parity verified manually; `personal-budget-tabs.tsx` intentionally left as-is
+      (scoped to item J instead). Full suite green (lint/tsc/649 tests).
       `src/components/budget/budget-tabs.tsx` and the equivalent pill-tab component in
       `src/components/meal-planning/meal-planning-view.tsx`. These are two independently
       written implementations of the same pill-button tab pattern — the comment at
