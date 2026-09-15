@@ -24,7 +24,15 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
   );
 }
 
-export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recipes: RecipeData[] }) {
+export function RecipeManager({
+  dict,
+  recipes,
+  ingredientNames,
+}: {
+  dict: MealPlanningDict;
+  recipes: RecipeData[];
+  ingredientNames: string[];
+}) {
   const [query, setQuery] = useState("");
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesQuery(recipe, query)),
@@ -42,6 +50,7 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
           dict={dict}
           mode="create"
           allRecipes={recipes}
+          ingredientNames={ingredientNames}
           trigger={
             <Button type="button">
               <Plus className="size-4" />
@@ -76,7 +85,13 @@ export function RecipeManager({ dict, recipes }: { dict: MealPlanningDict; recip
           ) : (
             <div className="flex flex-col divide-y rounded-md border">
               {filteredRecipes.map((recipe) => (
-                <RecipeRow key={recipe.id} dict={dict} recipe={recipe} allRecipes={recipes} />
+                <RecipeRow
+                  key={recipe.id}
+                  dict={dict}
+                  recipe={recipe}
+                  allRecipes={recipes}
+                  ingredientNames={ingredientNames}
+                />
               ))}
             </div>
           )}
@@ -90,10 +105,12 @@ function RecipeRow({
   dict,
   recipe,
   allRecipes,
+  ingredientNames,
 }: {
   dict: MealPlanningDict;
   recipe: RecipeData;
   allRecipes: RecipeData[];
+  ingredientNames: string[];
 }) {
   const [isPending, startTransition] = useTransition();
   const ingredientSummary = recipe.ingredients.map((ingredient) => ingredient.name).join(", ");
@@ -166,6 +183,7 @@ function RecipeRow({
           mode="edit"
           recipe={recipe}
           allRecipes={allRecipes}
+          ingredientNames={ingredientNames}
           trigger={
             <Button type="button" variant="ghost" size="icon-sm" aria-label={dict.editAriaLabel}>
               <Pencil className="size-3.5" />

@@ -24,6 +24,7 @@ export function MealPlanningView({
   activeShoppingLists,
   varietyCount,
   cookableRecipes,
+  ingredientNames,
 }: {
   dict: Dictionary["mealPlanning"];
   weekStartKey: string;
@@ -32,6 +33,7 @@ export function MealPlanningView({
   activeShoppingLists: ActiveShoppingListOption[];
   varietyCount: number;
   cookableRecipes: CookableRecipeData[];
+  ingredientNames: string[];
 }) {
   const [tab, setTab] = useState<Tab>("planner");
 
@@ -80,7 +82,7 @@ export function MealPlanningView({
           activeShoppingLists={activeShoppingLists}
         />
       ) : tab === "recipes" ? (
-        <RecipeManager dict={dict} recipes={recipes} />
+        <RecipeManager dict={dict} recipes={recipes} ingredientNames={ingredientNames} />
       ) : (
         <CookNowList dict={dict} cookableRecipes={cookableRecipes} recipes={recipes} />
       )}

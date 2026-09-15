@@ -613,6 +613,8 @@ export const sv = {
     nutritionFatValue: "{value} g fett",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",
+    comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",
+    comboboxAddNew: 'Använd "{value}"',
     ingredientQuantityPlaceholder: "Antal",
     ingredientUnitPlaceholder: "Enhet",
     addIngredient: "Lägg till ingrediens",

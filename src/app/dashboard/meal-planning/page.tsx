@@ -20,7 +20,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const now = new Date();
   const varietyWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const [recipes, mealPlan, activeShoppingLists, varietyEntries] = await Promise.all([
+  const [recipes, mealPlan, activeShoppingLists, varietyEntries, inventoryItems] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId: household.id },
       include: {
@@ -45,7 +45,17 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       where: { mealPlan: { householdId: household.id }, date: { gte: varietyWindowStart, lte: now } },
       select: { date: true, recipeId: true },
     }),
+    // Feeds the ingredient-name autocomplete in RecipeFormDialog — surfacing
+    // the household's existing inventory item names steers users toward
+    // reusing "Tomato" instead of typing a near-duplicate like "tomatoes",
+    // which findOrCreateInventoryItem's case-insensitive match wouldn't catch.
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { name: true },
+    }),
   ]);
+
+  const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
 
   const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
 
@@ -95,6 +105,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       activeShoppingLists={activeShoppingLists}
       varietyCount={distinctRecipeCount}
       cookableRecipes={cookableRecipes}
+      ingredientNames={ingredientNames}
     />
   );
 }

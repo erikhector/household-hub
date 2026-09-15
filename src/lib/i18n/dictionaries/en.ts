@@ -621,6 +621,8 @@ export const en = {
     nutritionFatValue: "{value}g fat",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
+    comboboxNoMatches: "No matches yet — keep typing to add a new one.",
+    comboboxAddNew: 'Use "{value}"',
     ingredientQuantityPlaceholder: "Qty",
     ingredientUnitPlaceholder: "Unit",
     addIngredient: "Add ingredient",
