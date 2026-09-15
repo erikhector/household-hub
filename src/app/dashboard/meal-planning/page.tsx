@@ -51,11 +51,19 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
     // which findOrCreateInventoryItem's case-insensitive match wouldn't catch.
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { name: true },
+      select: { name: true, unit: true },
     }),
   ]);
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
+  // Lets the ingredient row preselect a unit once the name matches a known
+  // inventory item — keyed case-insensitively since the combo field also
+  // accepts free-typed names that may not match an option's exact casing.
+  const ingredientUnits: Record<string, string> = {};
+  for (const item of inventoryItems) {
+    const key = item.name.toLowerCase();
+    if (!(key in ingredientUnits)) ingredientUnits[key] = item.unit;
+  }
 
   const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
 
@@ -106,6 +114,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       varietyCount={distinctRecipeCount}
       cookableRecipes={cookableRecipes}
       ingredientNames={ingredientNames}
+      ingredientUnits={ingredientUnits}
     />
   );
 }

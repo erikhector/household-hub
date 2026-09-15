@@ -28,10 +28,12 @@ export function RecipeManager({
   dict,
   recipes,
   ingredientNames,
+  ingredientUnits,
 }: {
   dict: MealPlanningDict;
   recipes: RecipeData[];
   ingredientNames: string[];
+  ingredientUnits: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
   const filteredRecipes = useMemo(
@@ -51,6 +53,7 @@ export function RecipeManager({
           mode="create"
           allRecipes={recipes}
           ingredientNames={ingredientNames}
+          ingredientUnits={ingredientUnits}
           trigger={
             <Button type="button">
               <Plus className="size-4" />
@@ -91,6 +94,7 @@ export function RecipeManager({
                   recipe={recipe}
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
+                  ingredientUnits={ingredientUnits}
                 />
               ))}
             </div>
@@ -106,11 +110,13 @@ function RecipeRow({
   recipe,
   allRecipes,
   ingredientNames,
+  ingredientUnits,
 }: {
   dict: MealPlanningDict;
   recipe: RecipeData;
   allRecipes: RecipeData[];
   ingredientNames: string[];
+  ingredientUnits: Record<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
   const ingredientSummary = recipe.ingredients.map((ingredient) => ingredient.name).join(", ");
@@ -184,6 +190,7 @@ function RecipeRow({
           recipe={recipe}
           allRecipes={allRecipes}
           ingredientNames={ingredientNames}
+          ingredientUnits={ingredientUnits}
           trigger={
             <Button type="button" variant="ghost" size="icon-sm" aria-label={dict.editAriaLabel}>
               <Pencil className="size-3.5" />

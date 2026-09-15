@@ -37,10 +37,16 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 const initialState: ActionState = {};
 const initialImportState: ImportRecipeState = {};
 
-type IngredientRow = { uid: string; name: string; quantity: string; unit: string };
+// `unitTouched` tracks whether the user has explicitly set the unit for a
+// row, so picking an ingredient name can preselect its usual unit (from
+// ingredientUnits) without ever overwriting a unit the user chose on
+// purpose. Rows that already carry a real unit (loaded from a saved recipe
+// or a URL import) start touched — flipping the name there swaps out the
+// ingredient, not its already-deliberate unit.
+type IngredientRow = { uid: string; name: string; quantity: string; unit: string; unitTouched: boolean };
 
 function blankRow(): IngredientRow {
-  return { uid: crypto.randomUUID(), name: "", quantity: "1", unit: "pcs" };
+  return { uid: crypto.randomUUID(), name: "", quantity: "1", unit: "pcs", unitTouched: false };
 }
 
 function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
@@ -50,6 +56,7 @@ function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
     name: ingredient.name,
     quantity: String(ingredient.quantity),
     unit: ingredient.unit,
+    unitTouched: true,
   }));
 }
 
@@ -70,6 +77,7 @@ export function RecipeFormDialog({
   recipe,
   allRecipes,
   ingredientNames,
+  ingredientUnits,
   trigger,
 }: {
   dict: MealPlanningDict;
@@ -77,6 +85,7 @@ export function RecipeFormDialog({
   recipe?: RecipeData;
   allRecipes: RecipeData[];
   ingredientNames: string[];
+  ingredientUnits: Record<string, string>;
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
@@ -158,6 +167,7 @@ export function RecipeFormDialog({
             name: ingredient.name,
             quantity: String(ingredient.quantity),
             unit: ingredient.unit,
+            unitTouched: true,
           })),
         );
       }
@@ -190,7 +200,18 @@ export function RecipeFormDialog({
   const removeRow = (uid: string) =>
     setIngredients((rows) => (rows.length > 1 ? rows.filter((r) => r.uid !== uid) : rows));
   const updateRow = (uid: string, field: "name" | "quantity" | "unit", value: string) =>
-    setIngredients((rows) => rows.map((r) => (r.uid === uid ? { ...r, [field]: value } : r)));
+    setIngredients((rows) =>
+      rows.map((r) => {
+        if (r.uid !== uid) return r;
+        if (field === "unit") return { ...r, unit: value, unitTouched: true };
+        if (field === "name") {
+          const matchedUnit = ingredientUnits[value.trim().toLowerCase()];
+          if (!r.unitTouched && matchedUnit) return { ...r, name: value, unit: matchedUnit };
+          return { ...r, name: value };
+        }
+        return { ...r, [field]: value };
+      }),
+    );
 
   // A fresh row always starts pointed at a real, not-yet-used recipe (never
   // an empty selection) — addComponentRow is a no-op once every candidate is
