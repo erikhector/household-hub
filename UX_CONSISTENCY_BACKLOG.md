@@ -20,7 +20,7 @@ build if a key is missing in either locale).
 
 ## Wave 1 — independent, parallel (disjoint files, no shared-component changes)
 
-- [ ] **A. Add a confirmation step to shopping-list item delete** —
+- [~] **A. Add a confirmation step to shopping-list item delete** —
       `src/components/shopping/shopping-list-client.tsx:479-493`. Deleting a shopping
       *list* already confirms via `ConfirmDialog`
       (`src/components/shopping/shopping-lists-overview.tsx:316-334`), but deleting an
@@ -39,7 +39,7 @@ build if a key is missing in either locale).
       `npm run test`, and a manual check in the browser that deleting a shopping-list item
       now requires confirming.
 
-- [ ] **B. Extract a shared `Checkbox` component and adopt it everywhere** —
+- [~] **B. Extract a shared `Checkbox` component and adopt it everywhere** —
       new file `src/components/ui/checkbox.tsx`. Every feature currently hand-rolls its own
       native `<input type="checkbox">` with a different (or no) className, so the same
       control renders differently across the app: unstyled/bare in
@@ -63,7 +63,7 @@ build if a key is missing in either locale).
       recurring/split toggles) to confirm the checkbox now looks identical across all of
       them.
 
-- [ ] **C. Fix the Budget categories empty state to match the shared convention** —
+- [~] **C. Fix the Budget categories empty state to match the shared convention** —
       `src/components/budget/category-manager.tsx:62`. Every other list view's empty state
       uses `rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground`
       (see `src/components/inventory/inventory-table.tsx:151`,
@@ -79,7 +79,7 @@ build if a key is missing in either locale).
       categories shows the same dashed-box empty state as an empty inventory/task/recipe
       list.
 
-- [ ] **D. Share one `Tabs` sub-navigation component between Budget and Meal Planning** —
+- [~] **D. Share one `Tabs` sub-navigation component between Budget and Meal Planning** —
       `src/components/budget/budget-tabs.tsx` and the equivalent pill-tab component in
       `src/components/meal-planning/meal-planning-view.tsx`. These are two independently
       written implementations of the same pill-button tab pattern — the comment at
@@ -97,7 +97,7 @@ build if a key is missing in either locale).
       with `npm run lint`, `npx tsc --noEmit`, `npm run test`, and a manual check that both
       the Budget and Meal Planning tab bars still look and behave identically to before.
 
-- [ ] **E. Convert Profile's inline success text to the shared toast pattern** —
+- [~] **E. Convert Profile's inline success text to the shared toast pattern** —
       `src/components/profile/display-name-form.tsx:43` and the equivalent block in
       `src/components/profile/email-form.tsx`. These two forms show success via `{
       state.success && <p className="text-sm text-emerald-500">{dict.saved}</p> }`, the
