@@ -7,12 +7,13 @@ describe("getStockStatus", () => {
     expect(getStockStatus(-1, 5)).toBe("out");
   });
 
-  it("returns 'low' when quantity is above zero but at or below the threshold", () => {
+  it("returns 'low' when quantity is above zero but below the threshold", () => {
     expect(getStockStatus(1, 5)).toBe("low");
-    expect(getStockStatus(5, 5)).toBe("low");
+    expect(getStockStatus(4, 5)).toBe("low");
   });
 
-  it("returns 'in' when quantity is above the threshold", () => {
+  it("returns 'in' when quantity is at or above the threshold", () => {
+    expect(getStockStatus(5, 5)).toBe("in");
     expect(getStockStatus(6, 5)).toBe("in");
   });
 

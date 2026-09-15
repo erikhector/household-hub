@@ -3,13 +3,25 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// `directUrl` genuinely works here — `npx prisma validate`/`migrate deploy`
+// both accept and use it — but @prisma/config@7.10.0's bundled `Datasource`
+// type only declares `url`/`shadowDatabaseUrl`, so passing it as an inline
+// object literal to `defineConfig()` trips TypeScript's excess-property
+// check (verified: moving `directUrl` into schema.prisma instead, which the
+// v6-era pattern used, is explicitly rejected by `prisma validate` with
+// "no longer supported in schema files" — this config file is the only
+// place it can live). Assigning through a separately-typed const sidesteps
+// the excess-property check on the literal without touching runtime
+// behavior; safe to drop once @prisma/config's types catch up.
+const datasource: { url?: string; directUrl?: string } = {
+  url: process.env["DATABASE_URL"],
+  directUrl: process.env["DIRECT_URL"],
+};
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
-  datasource: {
-    url: process.env["DATABASE_URL"],
-    directUrl: process.env["DIRECT_URL"],
-  },
+  datasource,
 });

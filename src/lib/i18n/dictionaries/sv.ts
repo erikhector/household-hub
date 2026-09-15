@@ -44,6 +44,7 @@ export const sv = {
     resend: "Skicka verifieringsmejl igen",
     resending: "Skickar…",
     sent: "Verifieringsmejl skickat — kolla din inkorg.",
+    dismissAriaLabel: "Påminn mig senare",
   },
   household: {
     switcher: {
@@ -231,6 +232,8 @@ export const sv = {
     expenseLogged: "Loggade {amount} i din budget för Livsmedel",
     expenseDescription: 'Från "{name}"',
     needsMappingBadge: "Behöver kopplas",
+    needsMappingHint: "Ny i ditt skafferi — koppla den eller lägg till den som en ny vara så uppdateras lagret när du köper den.",
+    needsMappingToast: "{name} är ny i ditt skafferi — koppla den eller lägg till den som en ny vara för att hålla lagret synkat.",
     matchItemButton: "Koppla vara",
     autoLinkedName: "Kopplad till {name}",
     unresolvedNotice: {
@@ -819,6 +822,32 @@ export const sv = {
       title: "Sätt igång din budget",
       body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
     },
+    starterCategories: {
+      heading: "Eller lägg till ett startpaket",
+      description: "Välj de kategorier du vill ha och lägg till dem alla på en gång.",
+      addSelected: {
+        one: "Lägg till {count} kategori",
+        other: "Lägg till {count} kategorier",
+      },
+      addedToast: {
+        one: "La till {count} kategori",
+        other: "La till {count} kategorier",
+      },
+      allAlreadyAdded: "De kategorierna finns redan i din budget.",
+      noneSelected: "Välj minst en kategori att lägga till.",
+      items: [
+        { id: "groceries", name: "Mat", type: "EXPENSE" },
+        { id: "rent", name: "Hyra", type: "EXPENSE" },
+        { id: "utilities", name: "Räkningar", type: "EXPENSE" },
+        { id: "transportation", name: "Transport", type: "EXPENSE" },
+        { id: "salary", name: "Lön", type: "INCOME" },
+        { id: "savings", name: "Sparande", type: "SAVINGS" },
+      ],
+    },
+    manageCategories: {
+      trigger: "Hantera kategorier",
+      dialogTitle: "Hantera kategorier",
+    },
     dueWidget: {
       title: "Att göra denna period",
       subtitle: "Återkommande räkningar och inkomster du inte loggat än.",
@@ -832,11 +861,11 @@ export const sv = {
       spendingSubtitle:
         "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
       noSpendingData:
-        "Inga prissatta matinköp än. Markera en vara som köpt med ett uppskattat pris på en inköpslista för att börja följa utgifterna här.",
+        "Inga prissatta matinköp än. Skanna ett kvitto eller en streckkod när du bockar av en vara på inköpslistan — det är just nu det enda sättet ett pris registreras på, så utgifter visas här automatiskt när du gör det.",
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
       noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här.",
+        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
       latestPrice: "Senaste",
     },
     split: {
@@ -1150,6 +1179,10 @@ export const sv = {
       saved: "E-post uppdaterad",
       saving: "Uppdaterar…",
       save: "Uppdatera e-post",
+      notVerified: "Inte verifierad än.",
+      resendVerification: "Skicka verifieringsmejl igen",
+      resendingVerification: "Skickar…",
+      verificationSent: "Verifieringsmejl skickat — kolla din inkorg.",
     },
     passwordForm: {
       title: "Lösenord",

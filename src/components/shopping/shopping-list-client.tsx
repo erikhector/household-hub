@@ -91,10 +91,17 @@ function AddItemForm({
     prevState: ActionState,
     formData: FormData,
   ) => {
+    const submittedName = String(formData.get("name") ?? "").trim();
     const result = await addAdHocItemAction(prevState, formData);
     if (!result.error) {
       if (result.autoLinkedName) {
         toast.success(format(dict.autoLinkedName, { name: result.autoLinkedName }));
+      } else if (result.needsMapping && submittedName) {
+        // Add-time heads-up so the pantry-sync exception is explained the
+        // moment the item lands, not only once the list is completed (see
+        // unresolvedNotice) — the row's own inline hint (below) is what
+        // stays visible for as long as the item is unresolved.
+        toast.info(format(dict.needsMappingToast, { name: submittedName }));
       }
       setName("");
       setUnit("");
@@ -423,65 +430,78 @@ function ShoppingRow({
   units: string[];
   dict: ShoppingListDict;
 }) {
+  const needsMapping = item.inventoryItemId === null;
+
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
-      <label className="flex min-w-0 flex-1 items-center gap-3">
-        <input
-          type="checkbox"
-          checked={item.purchased}
-          disabled={isPending || !editable}
-          onChange={() =>
-            startTransition(async () => {
-              const result = await togglePurchasedAction(item.id);
-              if (result.error) toast.error(result.error);
-            })
-          }
-          className="size-4 shrink-0"
-        />
-        <span
-          className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
-          title={`${item.name} × ${item.quantity} ${item.unit}`}
-        >
-          {item.name} × {item.quantity} {item.unit}
-        </span>
-        {item.addedAutomatically && (
-          <Badge variant="secondary" className="shrink-0">
-            {dict.lowStockBadge}
-          </Badge>
-        )}
-        {!editable && item.inventoryItemId === null && (
-          <Badge variant="outline" className="shrink-0 border-dashed">
-            {dict.needsMappingBadge}
-          </Badge>
-        )}
-      </label>
-      {editable && (
-        <div className="flex shrink-0 items-center gap-1">
-          <EditShoppingItemDialog
-            item={item}
-            inventoryItems={inventoryItems}
-            categories={categories}
-            units={units}
-            dict={dict.editItem}
-            editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
-            matchItemLabel={dict.matchItemButton}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-destructive"
-            disabled={isPending}
-            aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-            onClick={() =>
+    <div className="flex flex-col gap-1 rounded-md border px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex min-w-0 flex-1 items-center gap-3">
+          <input
+            type="checkbox"
+            checked={item.purchased}
+            disabled={isPending || !editable}
+            onChange={() =>
               startTransition(async () => {
-                const result = await deleteShoppingListItemAction(item.id);
+                const result = await togglePurchasedAction(item.id);
                 if (result.error) toast.error(result.error);
               })
             }
+            className="size-4 shrink-0"
+          />
+          <span
+            className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+            title={`${item.name} × ${item.quantity} ${item.unit}`}
           >
-            <Trash2 className="size-3.5" />
-          </Button>
-        </div>
+            {item.name} × {item.quantity} {item.unit}
+          </span>
+          {item.addedAutomatically && (
+            <Badge variant="secondary" className="shrink-0">
+              {dict.lowStockBadge}
+            </Badge>
+          )}
+          {!editable && needsMapping && (
+            <Badge variant="outline" className="shrink-0 border-dashed">
+              {dict.needsMappingBadge}
+            </Badge>
+          )}
+        </label>
+        {editable && (
+          <div className="flex shrink-0 items-center gap-1">
+            <EditShoppingItemDialog
+              item={item}
+              inventoryItems={inventoryItems}
+              categories={categories}
+              units={units}
+              dict={dict.editItem}
+              editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
+              matchItemLabel={dict.matchItemButton}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 text-muted-foreground hover:text-destructive"
+              disabled={isPending}
+              aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await deleteShoppingListItemAction(item.id);
+                  if (result.error) toast.error(result.error);
+                })
+              }
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+      {/* Persistent, always-visible explanation for as long as the item
+          stays unlinked — the "Match item" badge above (in
+          EditShoppingItemDialog) is easy to miss on its own, so this spells
+          out the consequence (buying it won't update pantry stock) right
+          under the item the moment it's added, rather than only at
+          list-completion time (see unresolvedNotice). */}
+      {editable && needsMapping && (
+        <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
       )}
     </div>
   );

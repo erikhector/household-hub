@@ -52,6 +52,7 @@ export const en = {
     resend: "Resend verification email",
     resending: "Sending…",
     sent: "Verification email sent — check your inbox.",
+    dismissAriaLabel: "Remind me later",
   },
   household: {
     switcher: {
@@ -239,6 +240,8 @@ export const en = {
     expenseLogged: "Logged {amount} to your Groceries budget",
     expenseDescription: 'From "{name}"',
     needsMappingBadge: "Needs mapping",
+    needsMappingHint: "New to your pantry — match it or add it as a new item so buying it updates your stock.",
+    needsMappingToast: "{name} is new to your pantry — match it or add it as a new item to keep stock in sync.",
     matchItemButton: "Match item",
     autoLinkedName: "Linked to {name}",
     unresolvedNotice: {
@@ -827,6 +830,32 @@ export const en = {
       title: "Let's set up your budget",
       body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
     },
+    starterCategories: {
+      heading: "Or add a starter set",
+      description: "Pick the categories you want, then add them all at once.",
+      addSelected: {
+        one: "Add {count} category",
+        other: "Add {count} categories",
+      },
+      addedToast: {
+        one: "Added {count} category",
+        other: "Added {count} categories",
+      },
+      allAlreadyAdded: "Those categories are already in your budget.",
+      noneSelected: "Pick at least one category to add.",
+      items: [
+        { id: "groceries", name: "Groceries", type: "EXPENSE" },
+        { id: "rent", name: "Rent", type: "EXPENSE" },
+        { id: "utilities", name: "Utilities", type: "EXPENSE" },
+        { id: "transportation", name: "Transportation", type: "EXPENSE" },
+        { id: "salary", name: "Salary", type: "INCOME" },
+        { id: "savings", name: "Savings", type: "SAVINGS" },
+      ],
+    },
+    manageCategories: {
+      trigger: "Manage categories",
+      dialogTitle: "Manage categories",
+    },
     dueWidget: {
       title: "Due this period",
       subtitle: "Recurring bills and income you haven't logged yet.",
@@ -840,11 +869,11 @@ export const en = {
       spendingSubtitle:
         "Total estimated spend per month, from shopping list items marked purchased with a price.",
       noSpendingData:
-        "No priced grocery purchases yet. Mark an item purchased with an estimated price on a shopping list to start tracking spend here.",
+        "No priced grocery purchases yet. Scan a receipt or a barcode when checking off a shopping list item — that's currently the only way an item's price gets recorded, so spend shows up here automatically once you do.",
       trendsTitle: "Price trends",
       trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
       noTrendData:
-        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here.",
+        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
       latestPrice: "Latest",
     },
     split: {
@@ -1158,6 +1187,10 @@ export const en = {
       saved: "Email updated",
       saving: "Updating…",
       save: "Update email",
+      notVerified: "Not verified yet.",
+      resendVerification: "Resend verification email",
+      resendingVerification: "Sending…",
+      verificationSent: "Verification email sent — check your inbox.",
     },
     passwordForm: {
       title: "Password",

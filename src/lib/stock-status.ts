@@ -12,6 +12,9 @@ export type StockStatus = "out" | "low" | "in";
 
 export function getStockStatus(quantity: number, threshold: number): StockStatus {
   if (quantity <= 0) return "out";
-  if (quantity <= threshold) return "low";
+  // Strict: restocking back up to exactly your own threshold should read as
+  // "in stock," not "still low" (UX_FRICTION_BACKLOG.md item 4) — otherwise
+  // the badge never confirms the good news a restock notification just sent.
+  if (quantity < threshold) return "low";
   return "in";
 }

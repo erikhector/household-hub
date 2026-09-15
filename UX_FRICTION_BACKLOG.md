@@ -48,7 +48,7 @@ product, not a rewrite request:
 
 ## Wave 1 — now, copy/UI only, no schema changes
 
-- [ ] **1. Email verification banner never goes away**
+- [x] **1. Email verification banner never goes away**
       — `src/components/dashboard/email-verification-banner.tsx`,
       `src/app/dashboard/layout.tsx`
       **Problem:** the amber "Please verify your email address" bar renders
@@ -66,7 +66,7 @@ product, not a rewrite request:
       hatch. Keep it reachable afterward from Profile, where the
       email-address section already lives.
 
-- [ ] **2. "Needs mapping" is easy to miss and only explained after the fact**
+- [x] **2. "Needs mapping" is easy to miss and only explained after the fact**
       — `src/components/shopping/shopping-list-client.tsx` (`needsMappingBadge`,
       `unresolvedNotice`), `src/components/shopping/edit-shopping-item-dialog.tsx`
       **Problem:** an ad-hoc shopping list item whose name doesn't
@@ -85,7 +85,7 @@ product, not a rewrite request:
       ("New to your pantry — match it or add it as a new item") rather than
       relying on the badge alone being noticed.
 
-- [ ] **3. Cost analyzer and the auto-logged Groceries expense are effectively dead
+- [x] **3. Cost analyzer and the auto-logged Groceries expense are effectively dead
       for anyone who doesn't use receipt scanning**
       — `src/components/budget/cost-analyzer.tsx`,
       `src/app/dashboard/shopping-list/actions.ts` (`estimatedPrice`),
@@ -108,7 +108,7 @@ product, not a rewrite request:
       optional inline price field in the manual purchase flow) is Wave 3
       below, since it's a real flow-design call, not just copy.
 
-- [ ] **4. "At-threshold" restock still reads as low stock**
+- [x] **4. "At-threshold" restock still reads as low stock**
       — `src/components/inventory/stock-badge.tsx`, low-stock comparison in
       inventory logic (`quantity <= lowStockThreshold`)
       **Problem:** buying an item back up to exactly its own configured
@@ -128,7 +128,7 @@ product, not a rewrite request:
 
 ## Wave 2 — next, small additive UI, no schema changes
 
-- [ ] **5. Meal planning is one of four marketed pillars but two taps away on
+- [x] **5. Meal planning is one of four marketed pillars but two taps away on
       mobile**
       — `src/components/dashboard/nav-items.ts` (`primaryMobileHrefs`)
       **Problem:** the landing page pitches four feature pillars in roughly
@@ -144,7 +144,7 @@ product, not a rewrite request:
       a product call, ideally informed by actual usage data if any exists
       yet, rather than prescribing the swap outright.
 
-- [ ] **6. No "starter categories" shortcut for Budget, unlike Inventory**
+- [x] **6. No "starter categories" shortcut for Budget, unlike Inventory**
       — `src/components/budget/category-manager.tsx` (or equivalent),
       mirrors Inventory's `AddItemDialog` starter-kit chips
       **Problem:** Inventory's empty state offers one-click starter kits
@@ -161,7 +161,7 @@ product, not a rewrite request:
       locations/units) on the first-visit banner — same interaction
       pattern already proven in Inventory, not a new pattern to design.
 
-- [ ] **7. Category management relocates and gets harder to find after first use**
+- [x] **7. Category management relocates and gets harder to find after first use**
       — `src/app/dashboard/budget/page.tsx`, `BudgetTabs`, the "Categories"
       card in the Activity tab
       **Problem:** before any category exists, "Add category" is the most
