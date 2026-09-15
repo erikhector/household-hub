@@ -184,8 +184,23 @@ about.
 ## Wave 3 — independent of Waves 1-2, isolated due to size/risk (own PR, needs a product
 ## decision before implementation)
 
-- [~] **H. Unify Create/Edit into one form component per entity, for Tasks and Shopping
-      Items** — `src/components/tasks/` (`AddTaskForm` vs. `EditTaskDialog`) and
+- [x] **H. Unify Create/Edit into one form component per entity, for Tasks and Shopping
+      Items** — Done as two separate merges. Tasks: merged `8727f8b`, new `TaskFormDialog`
+      (`mode="create"|"edit"`) replaces `AddTaskForm`/`AddTaskDialog`/`EditTaskDialog`; no
+      i18n changes needed since the required dict keys already existed. Shopping Items:
+      merged `f270d7a`, new `ShoppingItemFormDialog` replaces `AddItemForm`/`AddItemDialog`/
+      `EditShoppingItemDialog` — kept create's compact quick-add layout and edit's fuller
+      inventory-link management as distinct branches inside one component (they're
+      legitimately different field sets, not driftable duplication) rather than forcing one
+      shared JSX tree. Both manually verified end-to-end (create/edit/delete); full suite
+      green each time.
+
+      Note for future readers: both background agents that implemented this hit the session
+      rate limit mid-verification, after finishing their code but before committing. Their
+      finished components were reviewed for correctness and then applied by hand directly
+      onto master (one agent's worktree had also fallen behind by several merges by the time
+      it was revisited) rather than merged from a branch — see the two commit messages above
+      for detail. `src/components/tasks/` (`AddTaskForm` vs. `EditTaskDialog`) and
       `src/components/shopping/` (`AddItemForm` vs. `EditShoppingItemDialog`). Unlike
       Inventory (`ItemFormDialog` with a `mode="create"|"edit"` prop —
       `src/components/inventory/add-item-dialog.tsx:25,37,80`) and Recipes
