@@ -139,7 +139,7 @@ Run one at a time, each rebased on the previous one's merge, since both change
 `AddTaskForm`/`AddItemForm`'s on-page presence and a mid-air merge would be hard to reason
 about.
 
-- [ ] **F. Give Tasks a "+"-button-triggered create dialog, matching Inventory/Recipes** —
+- [~] **F. Give Tasks a "+"-button-triggered create dialog, matching Inventory/Recipes** —
       `src/components/tasks/tasks-client.tsx`. Tasks currently has no "+" affordance at
       all — `AddTaskForm` (line 44) is permanently rendered above the task list (mounted at
       line 157), unlike Inventory (`src/app/dashboard/inventory/page.tsx:96-109`) and
