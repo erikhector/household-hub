@@ -228,6 +228,13 @@ export const en = {
     adding: "Adding…",
     add: "Add",
     deleteItemAriaLabel: "Remove {name}",
+    confirmDeleteItem: {
+      title: "Remove {name}?",
+      description: "This can't be undone.",
+      cancel: "Cancel",
+      confirm: "Delete",
+      confirming: "Deleting…",
+    },
     editItemAriaLabel: "Edit {name}",
     emptyListActive: "Nothing on this list yet. Add items manually, or pull in what's low on stock.",
     emptyListOther: "Nothing on this list.",

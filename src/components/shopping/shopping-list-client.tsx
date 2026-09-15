@@ -476,21 +476,30 @@ function ShoppingRow({
               editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
               matchItemLabel={dict.matchItemButton}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground hover:text-destructive"
-              disabled={isPending}
-              aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-              onClick={() =>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-destructive"
+                  disabled={isPending}
+                  aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              }
+              title={format(dict.confirmDeleteItem.title, { name: item.name })}
+              description={dict.confirmDeleteItem.description}
+              cancelLabel={dict.confirmDeleteItem.cancel}
+              confirmLabel={dict.confirmDeleteItem.confirm}
+              pendingLabel={dict.confirmDeleteItem.confirming}
+              onConfirm={() =>
                 startTransition(async () => {
                   const result = await deleteShoppingListItemAction(item.id);
                   if (result.error) toast.error(result.error);
                 })
               }
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
+            />
           </div>
         )}
       </div>

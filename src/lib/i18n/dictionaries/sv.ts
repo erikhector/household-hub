@@ -220,6 +220,13 @@ export const sv = {
     adding: "Lägger till…",
     add: "Lägg till",
     deleteItemAriaLabel: "Ta bort {name}",
+    confirmDeleteItem: {
+      title: "Ta bort {name}?",
+      description: "Det går inte att ångra.",
+      cancel: "Avbryt",
+      confirm: "Ta bort",
+      confirming: "Tar bort…",
+    },
     editItemAriaLabel: "Redigera {name}",
     emptyListActive: "Inget på listan än. Lägg till varor manuellt, eller hämta det som har lågt lager.",
     emptyListOther: "Inget på listan.",
