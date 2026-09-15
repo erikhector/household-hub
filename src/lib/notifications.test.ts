@@ -1,5 +1,5 @@
-// Tests recordOutOfStockTransition(), recordRestockTransition(),
-// recordListClearedTransition() and getActiveNotifications()
+// Tests recordOutOfStockTransition(), recordListClearedTransition() and
+// getActiveNotifications()
 // (src/lib/notifications.ts) — the persisted notification model (see the
 // Notification model's doc comment in prisma/schema.prisma). Prisma is
 // mocked so this never touches a real database — see REQUIREMENTS.md's
@@ -45,7 +45,7 @@ vi.mock("@/lib/push", () => ({
   sendPushToHousehold: sendPushToHouseholdMock,
 }));
 
-const { recordOutOfStockTransition, recordRestockTransition, recordListClearedTransition, getActiveNotifications } =
+const { recordOutOfStockTransition, recordListClearedTransition, getActiveNotifications } =
   await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
 const { Prisma } = await import("@/generated/prisma/client");
@@ -80,11 +80,25 @@ describe("recordOutOfStockTransition", () => {
   it("sends a push notification for the newly out-of-stock item", async () => {
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
 
-    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
-      title: "Out of stock",
-      body: "Eggs is out of stock",
-      url: "/dashboard/inventory?status=out",
-    });
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      {
+        title: "Out of stock",
+        body: "Eggs is out of stock",
+        url: "/dashboard/inventory?status=out",
+      },
+      undefined,
+    );
+  });
+
+  it("excludes the acting user from the push notification", async () => {
+    await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0, "user-1");
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      expect.objectContaining({ title: "Out of stock" }),
+      "user-1",
+    );
   });
 
   it("does nothing when the item was already out of stock", async () => {
@@ -115,67 +129,6 @@ describe("recordOutOfStockTransition", () => {
   });
 });
 
-describe("recordRestockTransition", () => {
-  it("creates a RESTOCKED notification when quantity crosses back above the threshold", async () => {
-    await recordRestockTransition(prisma, "household-1", "item-1", 0, 2, 5, 2);
-
-    expect(notificationCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", kind: "RESTOCKED", inventoryItemId: "item-1" },
-    });
-  });
-
-  it("sends a push notification for the newly restocked item", async () => {
-    await recordRestockTransition(prisma, "household-1", "item-1", 0, 2, 5, 2);
-
-    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
-      title: "Back in stock",
-      body: "Eggs is back in stock",
-      url: "/dashboard/inventory",
-    });
-  });
-
-  it("does nothing when the item was already in stock", async () => {
-    await recordRestockTransition(prisma, "household-1", "item-1", 5, 2, 8, 2);
-
-    expect(notificationFindFirstMock).not.toHaveBeenCalled();
-    expect(notificationCreateMock).not.toHaveBeenCalled();
-    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when the item is still low or out after the change", async () => {
-    await recordRestockTransition(prisma, "household-1", "item-1", 0, 2, 1, 2);
-
-    expect(notificationCreateMock).not.toHaveBeenCalled();
-    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
-  });
-
-  it("reacts to a threshold change alongside a quantity change (both passed by the caller)", async () => {
-    // A single-item edit that changes quantity and threshold together
-    // (updateInventoryItemAction) resolves off the actual before/after
-    // status rather than assuming the threshold held steady. Callers that
-    // want to exclude pure threshold recalibrations (e.g.
-    // bulkUpdateFieldAction's bulk lowStockThreshold edit) simply don't
-    // call this function for that case — see its own doc comment.
-    await recordRestockTransition(prisma, "household-1", "item-1", 3, 5, 3, 2);
-
-    expect(notificationCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", kind: "RESTOCKED", inventoryItemId: "item-1" },
-    });
-  });
-
-  it("does not duplicate an already-active alert for the same item", async () => {
-    notificationFindFirstMock.mockResolvedValue({ id: "existing-notif" });
-
-    await recordRestockTransition(prisma, "household-1", "item-1", 0, 2, 5, 2);
-
-    expect(notificationFindFirstMock).toHaveBeenCalledWith({
-      where: { inventoryItemId: "item-1", kind: "RESTOCKED", dismissedAt: null },
-    });
-    expect(notificationCreateMock).not.toHaveBeenCalled();
-    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
-  });
-});
-
 describe("recordListClearedTransition", () => {
   it("creates a LIST_CLEARED notification when pending count crosses from >0 to 0", async () => {
     await recordListClearedTransition(prisma, "household-1", "list-1", 1, 0);
@@ -188,11 +141,25 @@ describe("recordListClearedTransition", () => {
   it("sends a push notification for the newly cleared list", async () => {
     await recordListClearedTransition(prisma, "household-1", "list-1", 1, 0);
 
-    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
-      title: "Shopping list cleared",
-      body: "Weekly shop is all checked off",
-      url: "/dashboard/shopping-list/list-1",
-    });
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      {
+        title: "Shopping list cleared",
+        body: "Weekly shop is all checked off",
+        url: "/dashboard/shopping-list/list-1",
+      },
+      undefined,
+    );
+  });
+
+  it("excludes the acting user from the push notification", async () => {
+    await recordListClearedTransition(prisma, "household-1", "list-1", 1, 0, "user-1");
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      expect.objectContaining({ title: "Shopping list cleared" }),
+      "user-1",
+    );
   });
 
   it("does nothing when the list was already fully cleared", async () => {
@@ -377,30 +344,13 @@ describe("getActiveNotifications", () => {
     expect(await getActiveNotifications("household-1")).toEqual([]);
   });
 
-  it("maps a RESTOCKED row using the linked item's current name", async () => {
+  it("always drops legacy RESTOCKED rows (the trigger is retired)", async () => {
     notificationFindManyMock.mockResolvedValue([
       {
         id: "notif-4",
         kind: "RESTOCKED",
         inventoryItemId: "item-1",
         inventoryItem: { name: "Eggs" },
-        mealPlanEntry: null,
-        shoppingList: null,
-      },
-    ]);
-
-    const notifications = await getActiveNotifications("household-1");
-
-    expect(notifications).toEqual([{ id: "notif-4", kind: "restocked", itemId: "item-1", name: "Eggs" }]);
-  });
-
-  it("drops a RESTOCKED row whose inventory item no longer exists", async () => {
-    notificationFindManyMock.mockResolvedValue([
-      {
-        id: "notif-4",
-        kind: "RESTOCKED",
-        inventoryItemId: "item-1",
-        inventoryItem: null,
         mealPlanEntry: null,
         shoppingList: null,
       },

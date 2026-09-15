@@ -35,11 +35,24 @@ type PushPayload = {
 // open. Push delivery has no guarantee from the Push API itself either way,
 // so losing a send if the surrounding write later rolls back is an
 // acceptable trade for not blocking on network I/O mid-transaction.
-export async function sendPushToHousehold(householdId: string, payload: PushPayload): Promise<void> {
+//
+// `excludeUserId`, when given, drops that user's own subscriptions from the
+// fan-out — by product decision, the household member who just performed
+// the action that triggered this notification shouldn't be pushed a
+// notification about their own action. Triggers with no single actor (the
+// lazy background syncs in notifications.ts) simply omit it.
+export async function sendPushToHousehold(
+  householdId: string,
+  payload: PushPayload,
+  excludeUserId?: string,
+): Promise<void> {
   if (!configured) return;
 
   const subscriptions = await prisma.pushSubscription.findMany({
-    where: { user: { memberships: { some: { householdId } } } },
+    where: {
+      user: { memberships: { some: { householdId } } },
+      ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
+    },
   });
   if (subscriptions.length === 0) return;
 

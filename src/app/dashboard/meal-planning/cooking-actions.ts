@@ -12,7 +12,7 @@ import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
-import { recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
+import { recordOutOfStockTransition } from "@/lib/notifications";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -359,7 +359,7 @@ export async function markMealEntryCookedAction(
             where: { id: item.id },
             data: { quantity: nextQuantity, updatedByUserId: userId },
           });
-          await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity);
+          await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
         }
       }
 
@@ -426,15 +426,6 @@ export async function undoMarkMealEntryCookedAction(
             where: { id: item.id },
             data: { quantity: nextQuantity, updatedByUserId: userId },
           });
-          await recordRestockTransition(
-            tx,
-            household.id,
-            item.id,
-            item.quantity,
-            item.lowStockThreshold,
-            nextQuantity,
-            item.lowStockThreshold,
-          );
         }
       }
 

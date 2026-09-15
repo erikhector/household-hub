@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordListClearedTransition, recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
+import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
 // src/app/share/shopping-list/[token]/page.tsx — there is no session on this
@@ -127,15 +127,6 @@ export async function toggleItemViaShareTokenAction(
             item.inventoryItem.id,
             item.inventoryItem.quantity,
             nextQuantity,
-          );
-          await recordRestockTransition(
-            tx,
-            list.householdId,
-            item.inventoryItem.id,
-            item.inventoryItem.quantity,
-            item.inventoryItem.lowStockThreshold,
-            nextQuantity,
-            item.inventoryItem.lowStockThreshold,
           );
         }
 

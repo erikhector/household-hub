@@ -215,17 +215,19 @@ enum NotificationKind {
   OUT_OF_STOCK
   MEAL_NOT_LOGGED
   EXPIRING_SOON
-  // Good-news kinds (see JOY_GAP_BACKLOG.md item 4) — RESTOCKED and
-  // LIST_CLEARED are the only two kinds that aren't a warning; the bell
-  // gives them a distinct treatment. Same lifecycle as every other kind
-  // (fired once at the transition, cleared only by dismissal).
+  // Retired (see src/lib/notifications.ts's top doc comment) — nothing
+  // creates these anymore; kept only so any pre-existing rows still
+  // deserialize. getActiveNotifications drops them rather than showing them.
   RESTOCKED
+  // Good news (see JOY_GAP_BACKLOG.md item 4) — the bell gives this a
+  // distinct treatment from the warning kinds. Same lifecycle as every
+  // other kind (fired once at the transition, cleared only by dismissal).
   LIST_CLEARED
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
 // earlier design with no table at all, where every alert was recomputed
-// live on each render. Five triggers, all fired at the moment they happen
+// live on each render. Four triggers, all fired at the moment they happen
 // rather than recomputed:
 // - OUT_OF_STOCK: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0. Never fired for items created at zero (recipe-ingredient
@@ -243,23 +245,27 @@ enum NotificationKind {
 //   alert for the same item, not a DB unique constraint) since an item can
 //   legitimately be re-stocked with a new expiry date after the old alert
 //   was dismissed. See syncExpiringSoonNotifications.
-// - RESTOCKED (good news — see JOY_GAP_BACKLOG.md item 4): the inverse of
-//   OUT_OF_STOCK — an existing InventoryItem's quantity crossing back above
-//   its low-stock threshold. Deduped the same way OUT_OF_STOCK is. See
-//   recordRestockTransition.
 // - LIST_CLEARED (good news): a ShoppingList's unpurchased item count
 //   crossing from >0 to 0 — every item got checked off or removed. Fired at
 //   most once per crossing (checking/removing another item while already
 //   at 0 is a no-op), and can fire again the next time the list refills and
 //   clears again. See recordListClearedTransition.
+// RESTOCKED (the inverse of OUT_OF_STOCK — an item crossing back above its
+// low-stock threshold) used to be a fifth trigger; it's retired by product
+// decision (see src/lib/notifications.ts) and no longer fires.
 // `dismissedAt` is set the moment a user clicks the notification (see
 // dismissNotificationAction) — dismissed rows are kept, not deleted, so
 // MEAL_NOT_LOGGED's once-ever guarantee holds, and are simply excluded from
 // what the bell displays. Unlike the old live-computed model, a
 // notification does NOT clear itself when the underlying condition
 // resolves — e.g. an OUT_OF_STOCK alert doesn't disappear just because the
-// item is later restocked, that fires its own separate RESTOCKED alert
-// instead; dismissal is the only way to clear any alert.
+// item is later restocked; dismissal is the only way to clear any alert.
+//
+// Every trigger fired from a specific user action (as opposed to the lazy
+// background syncs above, which have no single actor) also excludes that
+// user from the resulting push notification — see sendPushToHousehold in
+// src/lib/push.ts. The person who just did the thing doesn't need to be
+// told they did it; their other household members still get pushed.
 model Notification {
   id              String           @id @default(cuid())
   householdId     String

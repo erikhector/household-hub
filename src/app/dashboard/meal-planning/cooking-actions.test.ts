@@ -22,7 +22,6 @@ const {
   shoppingListItemCreateMock,
   transactionMock,
   revalidatePathMock,
-  recordRestockTransitionMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   inventoryItemFindFirstMock: vi.fn(),
@@ -39,7 +38,6 @@ const {
   shoppingListItemCreateMock: vi.fn(),
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
-  recordRestockTransitionMock: vi.fn(),
 }));
 
 const txClient = {
@@ -71,7 +69,6 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: vi.fn(),
-  recordRestockTransition: recordRestockTransitionMock,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
@@ -260,7 +257,6 @@ describe("undoMarkMealEntryCookedAction", () => {
       where: { id: "entry-1" },
       data: { consumedAt: null },
     });
-    expect(recordRestockTransitionMock).toHaveBeenCalledWith(txClient, "household-1", "inv-1", 3, 1, 5, 1);
   });
 
   it("silently skips a row whose inventory item isn't in this household (IDOR guard)", async () => {

@@ -74,6 +74,27 @@ describe("sendPushToHousehold", () => {
     );
   });
 
+  it("excludes the acting user's own subscriptions when excludeUserId is given", async () => {
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "pub";
+    process.env.VAPID_PRIVATE_KEY = "priv";
+    findManyMock.mockResolvedValue([{ id: "sub-1", endpoint: "https://push.example/1", p256dh: "p1", auth: "a1" }]);
+    sendNotificationMock.mockResolvedValue(undefined);
+    const { sendPushToHousehold } = await loadPush();
+
+    await sendPushToHousehold(
+      "household-1",
+      { title: "Out of stock", body: "Eggs is out of stock", url: "/dashboard/inventory?status=out" },
+      "user-1",
+    );
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: {
+        user: { memberships: { some: { householdId: "household-1" } } },
+        userId: { not: "user-1" },
+      },
+    });
+  });
+
   it("deletes a subscription the push service reports as gone (410) and doesn't throw", async () => {
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "pub";
     process.env.VAPID_PRIVATE_KEY = "priv";

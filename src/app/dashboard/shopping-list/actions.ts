@@ -12,7 +12,7 @@ import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordListClearedTransition, recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
+import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 
 /**
@@ -552,7 +552,7 @@ export async function resolveShoppingListMappingsAction(
 }
 
 export async function togglePurchasedAction(itemId: string): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
@@ -576,15 +576,13 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
           where: { id: item.inventoryItem.id },
           data: { quantity: nextQuantity },
         });
-        await recordOutOfStockTransition(tx, household.id, item.inventoryItem.id, item.inventoryItem.quantity, nextQuantity);
-        await recordRestockTransition(
+        await recordOutOfStockTransition(
           tx,
           household.id,
           item.inventoryItem.id,
           item.inventoryItem.quantity,
-          item.inventoryItem.lowStockThreshold,
           nextQuantity,
-          item.inventoryItem.lowStockThreshold,
+          userId,
         );
 
         if (nextPurchased && item.estimatedPrice != null) {
@@ -598,7 +596,7 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
         const remainingPending = await tx.shoppingListItem.count({
           where: { shoppingListId: item.shoppingListId, purchased: false },
         });
-        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending);
+        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending, userId);
       }
     });
   } catch (error) {
@@ -700,7 +698,7 @@ export async function applyReceiptScanAction(
 }
 
 export async function deleteShoppingListItemAction(itemId: string): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
@@ -719,7 +717,7 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
         const remainingPending = await tx.shoppingListItem.count({
           where: { shoppingListId: item.shoppingListId, purchased: false },
         });
-        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending);
+        await recordListClearedTransition(tx, household.id, item.shoppingListId, remainingPending + 1, remainingPending, userId);
       });
     }
   } catch (error) {

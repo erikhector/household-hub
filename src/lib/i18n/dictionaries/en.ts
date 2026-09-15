@@ -32,7 +32,6 @@ export const en = {
     empty: "You're all caught up!",
     outOfStock: "{name} is out of stock",
     expiringSoon: "{name} is expiring soon",
-    restocked: "{name} is back in stock",
     listCleared: "{name} is all checked off",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",

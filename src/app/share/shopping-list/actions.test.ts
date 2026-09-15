@@ -24,7 +24,6 @@ const {
   notificationCreateMock,
   transactionMock,
   recordOutOfStockTransitionMock,
-  recordRestockTransitionMock,
   recordListClearedTransitionMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
@@ -39,7 +38,6 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   recordOutOfStockTransitionMock: vi.fn(async () => {}),
-  recordRestockTransitionMock: vi.fn(async () => {}),
   recordListClearedTransitionMock: vi.fn(async () => {}),
   revalidatePathMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
@@ -64,7 +62,6 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: recordOutOfStockTransitionMock,
-  recordRestockTransition: recordRestockTransitionMock,
   recordListClearedTransition: recordListClearedTransitionMock,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
@@ -206,15 +203,6 @@ describe("toggleItemViaShareTokenAction", () => {
       "inv-1",
       2,
       5,
-    );
-    expect(recordRestockTransitionMock).toHaveBeenCalledWith(
-      expect.anything(),
-      "household-1",
-      "inv-1",
-      2,
-      1,
-      5,
-      1,
     );
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 25 },

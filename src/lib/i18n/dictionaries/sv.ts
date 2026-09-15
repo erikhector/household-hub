@@ -29,7 +29,6 @@ export const sv = {
     empty: "Allt är under kontroll!",
     outOfStock: "{name} har tagit slut",
     expiringSoon: "{name} går snart ut",
-    restocked: "{name} finns i lager igen",
     listCleared: "{name} är helt avbockad",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",

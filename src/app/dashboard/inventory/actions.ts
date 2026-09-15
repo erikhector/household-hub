@@ -8,7 +8,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
-import { recordOutOfStockTransition, recordRestockTransition } from "@/lib/notifications";
+import { recordOutOfStockTransition } from "@/lib/notifications";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -103,16 +103,7 @@ export async function updateInventoryItemAction(
       // leave a stale location in place.
       data: { ...parsed.data, category, location: parsed.data.location ?? null, updatedByUserId: userId },
     });
-    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
-    await recordRestockTransition(
-      prisma,
-      household.id,
-      item.id,
-      item.quantity,
-      item.lowStockThreshold,
-      parsed.data.quantity,
-      parsed.data.lowStockThreshold,
-    );
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -309,16 +300,7 @@ export async function adjustQuantityAction(
       where: { id: item.id },
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
-    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity);
-    await recordRestockTransition(
-      prisma,
-      household.id,
-      item.id,
-      item.quantity,
-      item.lowStockThreshold,
-      nextQuantity,
-      item.lowStockThreshold,
-    );
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -350,7 +332,7 @@ export async function markItemEmptyAction(
       where: { id: item.id },
       data: { quantity: 0, updatedByUserId: userId },
     });
-    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0);
+    await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0, userId);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -457,11 +439,8 @@ export async function bulkUpdateFieldAction(
 
   let updated = 0;
   try {
-    // Only needed to detect an out-of-stock/restock transition below —
-    // skipped for every other field. A bulk lowStockThreshold edit is
-    // deliberately excluded even though it can affect "low" status: that's
-    // a threshold recalibration, not a restock, and firing RESTOCKED for it
-    // would be a false positive (see recordRestockTransition's doc comment).
+    // Only needed to detect an out-of-stock transition below — skipped for
+    // every other field.
     const previousQuantities =
       field === "quantity"
         ? await prisma.inventoryItem.findMany({
@@ -480,20 +459,7 @@ export async function bulkUpdateFieldAction(
       const nextQuantity = parsed.data as number;
       await Promise.all(
         previousQuantities.map((item) =>
-          recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity),
-        ),
-      );
-      await Promise.all(
-        previousQuantities.map((item) =>
-          recordRestockTransition(
-            prisma,
-            household.id,
-            item.id,
-            item.quantity,
-            item.lowStockThreshold,
-            nextQuantity,
-            item.lowStockThreshold,
-          ),
+          recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId),
         ),
       );
     }
