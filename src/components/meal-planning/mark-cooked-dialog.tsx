@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { ChefHat } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -131,9 +132,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                 {items.map((item) => (
                   <div key={item.key} className="flex flex-col gap-1 rounded-md bg-muted px-2 py-1.5 text-sm">
                     <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
+                      <Checkbox
                         checked={item.included}
                         onChange={() => toggleItem(item.key)}
                       />
