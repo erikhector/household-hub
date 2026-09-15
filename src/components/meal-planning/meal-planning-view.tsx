@@ -4,11 +4,17 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
+import { CookNowList } from "@/components/meal-planning/cook-now-list";
 import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
-import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
+import type {
+  ActiveShoppingListOption,
+  CookableRecipeData,
+  MealPlanEntryData,
+  RecipeData,
+} from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type Tab = "planner" | "recipes";
+type Tab = "planner" | "recipes" | "cook";
 
 export function MealPlanningView({
   dict,
@@ -17,6 +23,7 @@ export function MealPlanningView({
   entries,
   activeShoppingLists,
   varietyCount,
+  cookableRecipes,
 }: {
   dict: Dictionary["mealPlanning"];
   weekStartKey: string;
@@ -24,6 +31,7 @@ export function MealPlanningView({
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
   varietyCount: number;
+  cookableRecipes: CookableRecipeData[];
 }) {
   const [tab, setTab] = useState<Tab>("planner");
 
@@ -53,6 +61,14 @@ export function MealPlanningView({
         >
           {dict.tabRecipes}
         </Button>
+        <Button
+          type="button"
+          variant={tab === "cook" ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => setTab("cook")}
+        >
+          {dict.tabCookNow}
+        </Button>
       </div>
 
       {tab === "planner" ? (
@@ -63,8 +79,10 @@ export function MealPlanningView({
           entries={entries}
           activeShoppingLists={activeShoppingLists}
         />
-      ) : (
+      ) : tab === "recipes" ? (
         <RecipeManager dict={dict} recipes={recipes} />
+      ) : (
+        <CookNowList dict={dict} cookableRecipes={cookableRecipes} recipes={recipes} />
       )}
     </div>
   );

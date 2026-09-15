@@ -66,6 +66,15 @@ export type ActiveShoppingListOption = {
   name: string;
 };
 
+// A recipe the household is close to having everything for (missing at most
+// a couple of ingredients, see MAX_MISSING_TO_SURFACE in
+// cookable-recipes.ts), for the "Cook now" tab.
+export type CookableRecipeData = {
+  recipeId: string;
+  recipeName: string;
+  missingIngredientNames: string[];
+};
+
 // One inventory item a "mark as cooked" confirmation can decrement — see
 // previewCookedIngredientsAction and computeCookedIngredients.
 export type CookedIngredientData = {

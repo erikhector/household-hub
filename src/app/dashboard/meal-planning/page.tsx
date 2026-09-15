@@ -4,6 +4,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { MealPlanningView } from "@/components/meal-planning/meal-planning-view";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
+import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
 
 export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
   const [{ household }, dict, searchParams] = await Promise.all([
@@ -48,6 +49,13 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
 
   const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
 
+  // Depends on `recipes` above, so it can't join the Promise.all batch —
+  // runs after, one expansion per recipe plus (at most) one inventory query.
+  const cookableRecipes = await getCookableRecipes(
+    household.id,
+    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
+  );
+
   return (
     <MealPlanningView
       dict={dict.mealPlanning}
@@ -86,6 +94,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       }))}
       activeShoppingLists={activeShoppingLists}
       varietyCount={distinctRecipeCount}
+      cookableRecipes={cookableRecipes}
     />
   );
 }
