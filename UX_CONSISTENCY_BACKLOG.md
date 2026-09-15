@@ -184,7 +184,7 @@ about.
 ## Wave 3 — independent of Waves 1-2, isolated due to size/risk (own PR, needs a product
 ## decision before implementation)
 
-- [ ] **H. Unify Create/Edit into one form component per entity, for Tasks and Shopping
+- [~] **H. Unify Create/Edit into one form component per entity, for Tasks and Shopping
       Items** — `src/components/tasks/` (`AddTaskForm` vs. `EditTaskDialog`) and
       `src/components/shopping/` (`AddItemForm` vs. `EditShoppingItemDialog`). Unlike
       Inventory (`ItemFormDialog` with a `mode="create"|"edit"` prop —
