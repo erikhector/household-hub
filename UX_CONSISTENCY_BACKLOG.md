@@ -162,7 +162,12 @@ about.
       tsc --noEmit`, `npm run test`, and a manual check that creating a task now goes
       through a "+" button and modal, matching Inventory's interaction.
 
-- [~] **G. Give shopping-list items the same "+"-button-triggered create dialog** —
+- [x] **G. Give shopping-list items the same "+"-button-triggered create dialog** — Merged
+      `f3d5cf6`. New `AddItemDialog` wraps the unchanged `AddItemForm` behind a `<Plus>`
+      trigger, matching Tasks' (item F) and Inventory/Recipes' shape exactly. Active-list
+      empty-state copy now points at the "+" button; archived/cleared-list empty state
+      unchanged (no add affordance there). Manually verified create → list update → dialog
+      auto-close → delete. Full suite green.
       `src/components/shopping/shopping-list-client.tsx`. Same change as item F, applied to
       `AddItemForm` (currently rendered unconditionally at lines 338-346, form itself at
       lines 118-133). Convert it to a `<Plus>`-button-triggered `Dialog`, using
