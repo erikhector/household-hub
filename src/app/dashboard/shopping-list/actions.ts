@@ -21,7 +21,7 @@ import { findInventoryMatches } from "@/lib/item-matching";
  * matches something in inventory, but left unlinked (rather than spawning a
  * near-duplicate item) when it doesn't; the user then resolves it via
  * linkShoppingListItemAction/createInventoryItemFromShoppingListItemAction
- * below (see EditShoppingItemDialog).
+ * below (see ShoppingItemFormDialog's edit mode).
  */
 async function findExactInventoryItem(householdId: string, name: string) {
   return prisma.inventoryItem.findFirst({
@@ -380,7 +380,7 @@ export async function updateShoppingListItemAction(
  * Links a shopping-list item that didn't resolve to an exact inventory-item
  * match (see findExactInventoryItem above) to an existing inventory item the
  * user picked themselves — the "choose an existing item" half of the
- * mapping dialog (EditShoppingItemDialog).
+ * mapping dialog (ShoppingItemFormDialog's edit mode).
  */
 export async function linkShoppingListItemAction(
   itemId: string,
@@ -749,7 +749,7 @@ export async function completeShoppingListAction(
   // item.inventoryItem), so nothing about the actual data changes here —
   // this only relaxes the completion gate, surfacing a heads-up afterward
   // instead of a hard stop. Items stay resolvable anytime via the "needs
-  // mapping" row UI (EditShoppingItemDialog / linkShoppingListItemAction /
+  // mapping" row UI (ShoppingItemFormDialog's edit mode / linkShoppingListItemAction /
   // createInventoryItemFromShoppingListItemAction above / batch resolution
   // via resolveShoppingListMappingsAction below), completed list or not.
   const unresolvedCount = list.items.filter((item) => item.inventoryItemId === null).length;

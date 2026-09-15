@@ -1,24 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ExportButton } from "@/components/export/export-button";
-import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
-import { ComboField } from "@/components/inventory/combo-field";
-import { EditShoppingItemDialog } from "@/components/shopping/edit-shopping-item-dialog";
+import { ShoppingItemFormDialog } from "@/components/shopping/shopping-item-form-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import {
-  addAdHocItemAction,
   archiveShoppingListAction,
   completeShoppingListAction,
   deleteShoppingListAction,
@@ -27,7 +22,6 @@ import {
   togglePurchasedAction,
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
-import type { ActionState } from "@/lib/actions/auth";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -56,168 +50,6 @@ type ShoppingListData = {
 };
 
 type ShoppingListDict = Dictionary["shoppingList"];
-
-const initialState: ActionState = {};
-
-function AddItemForm({
-  listId,
-  inventoryItems,
-  units,
-  dict,
-  barcodeDict,
-  onSuccess,
-}: {
-  listId: string;
-  inventoryItems: InventoryItemOption[];
-  units: string[];
-  dict: ShoppingListDict;
-  barcodeDict: Dictionary["barcodeScanner"];
-  onSuccess?: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [unit, setUnit] = useState("");
-  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
-  const itemNames = [...new Set(inventoryItems.map((item) => item.name))].sort((a, b) =>
-    a.localeCompare(b),
-  );
-
-  const handleNameChange = (nextName: string) => {
-    setName(nextName);
-    if (!unit) {
-      const matched = inventoryItems.find(
-        (item) => item.name.toLowerCase() === nextName.trim().toLowerCase(),
-      );
-      if (matched?.unit) setUnit(matched.unit);
-    }
-  };
-
-  const [state, formAction, pending] = useActionState(async (
-    prevState: ActionState,
-    formData: FormData,
-  ) => {
-    const submittedName = String(formData.get("name") ?? "").trim();
-    const result = await addAdHocItemAction(prevState, formData);
-    if (!result.error) {
-      if (result.autoLinkedName) {
-        toast.success(format(dict.autoLinkedName, { name: result.autoLinkedName }));
-      } else if (result.needsMapping && submittedName) {
-        // Add-time heads-up so the pantry-sync exception is explained the
-        // moment the item lands, not only once the list is completed (see
-        // unresolvedNotice) — the row's own inline hint (below) is what
-        // stays visible for as long as the item is unresolved.
-        toast.info(format(dict.needsMappingToast, { name: submittedName }));
-      }
-      setName("");
-      setUnit("");
-      setScannedBarcode(null);
-      onSuccess?.();
-    }
-    return result;
-  }, initialState);
-
-  const handleScanResult = ({ barcode, name: scannedName }: BarcodeScanResult) => {
-    setScannedBarcode(barcode);
-    if (scannedName) setName(scannedName);
-  };
-
-  return (
-    <form action={formAction} className="flex flex-col gap-2">
-      <input type="hidden" name="listId" value={listId} />
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="flex min-w-0 flex-1 basis-full flex-col gap-1 sm:basis-auto">
-          <ComboField
-            id="add-item-name"
-            name="name"
-            items={itemNames}
-            value={name}
-            onValueChange={handleNameChange}
-            placeholder={dict.addItemNamePlaceholder}
-            maxLength={120}
-            dict={dict}
-          />
-        </div>
-        <Input
-          name="quantity"
-          type="number"
-          min={0.01}
-          step="any"
-          defaultValue={1}
-          className="w-20"
-          aria-label={dict.addItemQuantityAriaLabel}
-        />
-        <div className="w-24">
-          <ComboField
-            id="add-item-unit"
-            name="unit"
-            items={units}
-            value={unit}
-            onValueChange={setUnit}
-            placeholder={dict.addItemUnitPlaceholder}
-            maxLength={20}
-            dict={dict}
-          />
-        </div>
-        <BarcodeScannerButton dict={barcodeDict} onResult={handleScanResult} />
-        <Button type="submit" variant="outline" disabled={pending}>
-          {pending ? dict.adding : dict.add}
-        </Button>
-      </div>
-      {scannedBarcode && (
-        <div className="flex flex-col gap-0.5">
-          <ScannedBarcodeNote barcode={scannedBarcode} dict={barcodeDict} />
-          {!name && <p className="text-xs text-muted-foreground">{barcodeDict.notFound}</p>}
-        </div>
-      )}
-      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-    </form>
-  );
-}
-
-// "+"-button-triggered create dialog, matching Tasks (see
-// UX_CONSISTENCY_BACKLOG.md item G, which follows item F's shape) and
-// Inventory/Recipes. AddItemForm's fields/validation/action are untouched;
-// this just relocates them behind a modal and closes it on successful add.
-function AddItemDialog({
-  listId,
-  inventoryItems,
-  units,
-  dict,
-  barcodeDict,
-}: {
-  listId: string;
-  inventoryItems: InventoryItemOption[];
-  units: string[];
-  dict: ShoppingListDict;
-  barcodeDict: Dictionary["barcodeScanner"];
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button className="gap-1.5">
-            <Plus className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
-          </Button>
-        }
-      />
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{dict.addItemDialogTitle}</DialogTitle>
-        </DialogHeader>
-        <AddItemForm
-          listId={listId}
-          inventoryItems={inventoryItems}
-          units={units}
-          dict={dict}
-          barcodeDict={barcodeDict}
-          onSuccess={() => setOpen(false)}
-        />
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export function ShoppingListClient({
   list,
@@ -283,7 +115,8 @@ export function ShoppingListClient({
         </div>
         <div className="flex flex-wrap gap-2">
           {isActive && (
-            <AddItemDialog
+            <ShoppingItemFormDialog
+              mode="create"
               listId={list.id}
               inventoryItems={inventoryItems}
               units={units}
@@ -515,12 +348,13 @@ function ShoppingRow({
         </label>
         {editable && (
           <div className="flex shrink-0 items-center gap-1">
-            <EditShoppingItemDialog
+            <ShoppingItemFormDialog
+              mode="edit"
               item={item}
               inventoryItems={inventoryItems}
               categories={categories}
               units={units}
-              dict={dict.editItem}
+              dict={dict}
               editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
               matchItemLabel={dict.matchItemButton}
             />
@@ -553,7 +387,7 @@ function ShoppingRow({
       </div>
       {/* Persistent, always-visible explanation for as long as the item
           stays unlinked — the "Match item" badge above (in
-          EditShoppingItemDialog) is easy to miss on its own, so this spells
+          ShoppingItemFormDialog) is easy to miss on its own, so this spells
           out the consequence (buying it won't update pantry stock) right
           under the item the moment it's added, rather than only at
           list-completion time (see unresolvedNotice). */}

@@ -38,8 +38,8 @@ function buildRow(item: UnresolvedItem, inventoryItems: InventoryItemOption[]): 
 
 /**
  * Compact review screen for resolving several unlinked shopping-list items
- * at once — the batch counterpart to EditShoppingItemDialog's one-at-a-time
- * link picker, offered once a list has enough unmapped items
+ * at once — the batch counterpart to ShoppingItemFormDialog's (edit mode)
+ * one-at-a-time link picker, offered once a list has enough unmapped items
  * (BATCH_RESOLVE_THRESHOLD in shopping-list-client.tsx) that clicking into
  * that dialog repeatedly would be tedious. Modeled on ReceiptScanDialog's
  * row-based review UI, minus the price/OCR parts this doesn't need.
