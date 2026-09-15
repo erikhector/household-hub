@@ -209,7 +209,15 @@ about.
       (generate/copy/email a link vs. fill a field form), which is inherent to what's being
       "added" here, not an implementation gap. No follow-up scoped.
 
-- [~] **J. Evaluate collapsing Personal Budget into parameterized Budget** — `src/
+- [x] **J. Evaluate collapsing Personal Budget into parameterized Budget** — Design spike
+      done, see `PERSONAL_BUDGET_UNIFICATION.md` (merged `bb2f56b`). Recommends thin
+      scope-specific wrapper components over 7 real file pairs; leaves the Prisma data layer
+      untouched (already an intentional, documented duplication). Confirms Wave 1 items B/C/D
+      have already drifted into `personal-budget/` (E hasn't, since both trees already used
+      toasts). Found two real feature gaps (missing starter-category picker, missing "Manage
+      categories" tab shortcut) and one bug (`deletePersonalCategoryAction` missing
+      try/catch). No implementation done — plan only, per the task's own scope. Needs a human
+      decision on which proposed wave(s) to schedule next. `src/
       components/personal-budget/` currently duplicates `src/components/budget/`'s entire
       component tree (`personal-transaction-dialog.tsx` vs. `transaction-dialog.tsx`,
       `personal-category-manager.tsx` vs. `category-manager.tsx`,
