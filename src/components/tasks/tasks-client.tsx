@@ -10,6 +10,7 @@ import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Trash2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -225,8 +226,7 @@ function TaskItemRow({
           buttons (all shrink-0) crowd the flex-1 title span down to just a
           few visible characters. */}
       <label className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={task.completed}
           disabled={isPending}
           aria-label={format(dict.toggleCompleteAriaLabel, { title: task.title })}
@@ -236,7 +236,6 @@ function TaskItemRow({
               if (result.error) toast.error(result.error);
             })
           }
-          className="size-4 shrink-0"
         />
         <span
           className={`min-w-0 flex-1 truncate ${task.completed ? "text-muted-foreground line-through" : ""}`}

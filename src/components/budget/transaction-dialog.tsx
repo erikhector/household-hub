@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -242,12 +243,10 @@ export function TransactionDialog({
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
             <label className="flex items-center gap-2 text-sm font-medium">
-              <input
-                type="checkbox"
+              <Checkbox
                 name="isRecurring"
                 checked={isRecurring}
                 onChange={(e) => setIsRecurring(e.target.checked)}
-                className="size-4"
               />
               {dict.recurringLabel}
             </label>
@@ -283,12 +282,10 @@ export function TransactionDialog({
           {canSplit && (
             <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
               <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
+                <Checkbox
                   name="splitEnabled"
                   checked={splitEnabled}
                   onChange={(e) => setSplitEnabled(e.target.checked)}
-                  className="size-4"
                 />
                 {dict.split.toggleLabel}
               </label>

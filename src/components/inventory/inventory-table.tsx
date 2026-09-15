@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import { Minus, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -319,8 +320,7 @@ export function InventoryTable({
       <TableHeader>
         <TableRow>
           <TableHead className="w-10">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={allSelected}
               onChange={toggleSelectAll}
               aria-label={dict.bulkActions.selectAllAriaLabel}
@@ -350,8 +350,7 @@ export function InventoryTable({
             {group.items.map((item) => (
               <TableRow key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
                 <TableCell>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.has(item.id)}
                     onChange={() => toggleItem(item.id)}
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
@@ -452,12 +451,11 @@ export function InventoryTable({
                 className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
               >
                 <div className="flex min-w-0 items-start gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.has(item.id)}
                     onChange={() => toggleItem(item.id)}
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                    className="mt-1 size-4 shrink-0"
+                    className="mt-1"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium" title={item.name}>

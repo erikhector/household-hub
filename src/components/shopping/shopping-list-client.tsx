@@ -5,6 +5,7 @@ import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -436,8 +437,7 @@ function ShoppingRow({
     <div className="flex flex-col gap-1 rounded-md border px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <label className="flex min-w-0 flex-1 items-center gap-3">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={item.purchased}
             disabled={isPending || !editable}
             onChange={() =>
@@ -446,7 +446,6 @@ function ShoppingRow({
                 if (result.error) toast.error(result.error);
               })
             }
-            className="size-4 shrink-0"
           />
           <span
             className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
