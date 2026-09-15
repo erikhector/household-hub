@@ -139,7 +139,11 @@ Run one at a time, each rebased on the previous one's merge, since both change
 `AddTaskForm`/`AddItemForm`'s on-page presence and a mid-air merge would be hard to reason
 about.
 
-- [~] **F. Give Tasks a "+"-button-triggered create dialog, matching Inventory/Recipes** —
+- [x] **F. Give Tasks a "+"-button-triggered create dialog, matching Inventory/Recipes** —
+      Merged `a73893b`. New `AddTaskDialog` wraps the unchanged `AddTaskForm` behind a
+      `<Plus>` trigger top-right of the header, matching Inventory/Recipes placement.
+      Empty-state copy now points at the "+" button. Manually verified create → list update
+      → dialog auto-close → delete. Full suite green.
       `src/components/tasks/tasks-client.tsx`. Tasks currently has no "+" affordance at
       all — `AddTaskForm` (line 44) is permanently rendered above the task list (mounted at
       line 157), unlike Inventory (`src/app/dashboard/inventory/page.tsx:96-109`) and
@@ -158,7 +162,7 @@ about.
       tsc --noEmit`, `npm run test`, and a manual check that creating a task now goes
       through a "+" button and modal, matching Inventory's interaction.
 
-- [ ] **G. Give shopping-list items the same "+"-button-triggered create dialog** —
+- [~] **G. Give shopping-list items the same "+"-button-triggered create dialog** —
       `src/components/shopping/shopping-list-client.tsx`. Same change as item F, applied to
       `AddItemForm` (currently rendered unconditionally at lines 338-346, form itself at
       lines 118-133). Convert it to a `<Plus>`-button-triggered `Dialog`, using
