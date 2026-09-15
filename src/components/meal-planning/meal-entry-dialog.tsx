@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useRef, useState, type ReactElement } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
+import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { CUSTOM_RECIPE_SENTINEL, type MealType } from "@/app/dashboard/meal-planning/meal-types";
-import type { RecipeData } from "@/components/meal-planning/types";
+import type { MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -30,32 +30,49 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 
 const initialState: ActionState = {};
 
-export function AddMealDialog({
-  dict,
-  weekStartKey,
-  dateKey,
-  mealType,
-  recipes,
-}: {
+type CommonProps = {
   dict: MealPlanningDict;
+  recipes: RecipeData[];
+};
+
+// "create" adds a new entry to a given day/slot; "edit" (an existing entry's
+// own dish/portions) reuses the same form — see MealEntryDialog below.
+type CreateProps = CommonProps & {
+  mode?: "create";
   weekStartKey: string;
   dateKey: string;
   mealType: MealType;
-  recipes: RecipeData[];
-}) {
+};
+
+type EditProps = CommonProps & {
+  mode: "edit";
+  entry: MealPlanEntryData;
+  trigger: ReactElement;
+};
+
+export function MealEntryDialog(props: CreateProps | EditProps) {
+  const { dict, recipes } = props;
+  const isEdit = props.mode === "edit";
+
   const [open, setOpen] = useState(false);
   const freeformNameRef = useRef<HTMLInputElement>(null);
-  const [recipeChoice, setRecipeChoice] = useState(CUSTOM_RECIPE_SENTINEL);
-  const [portions, setPortions] = useState("4");
+  const [recipeChoice, setRecipeChoice] = useState(
+    isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : CUSTOM_RECIPE_SENTINEL,
+  );
+  const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
+
+  const action = isEdit ? updateMealEntryAction : addMealEntryAction;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
   ) => {
-    const result = await addMealEntryAction(prevState, formData);
+    const result = await action(prevState, formData);
     if (!result.error) {
       setOpen(false);
-      setRecipeChoice(CUSTOM_RECIPE_SENTINEL);
-      setPortions("4");
+      if (!isEdit) {
+        setRecipeChoice(CUSTOM_RECIPE_SENTINEL);
+        setPortions("4");
+      }
     }
     return result;
   }, initialState);
@@ -78,9 +95,13 @@ export function AddMealDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button type="button" variant="ghost" size="icon-xs" aria-label={dict.addMeal}>
-            <Plus className="size-3.5" />
-          </Button>
+          isEdit ? (
+            props.trigger
+          ) : (
+            <Button type="button" variant="ghost" size="icon-xs" aria-label={dict.addMeal}>
+              <Plus className="size-3.5" />
+            </Button>
+          )
         }
       />
       <DialogContent
@@ -89,12 +110,18 @@ export function AddMealDialog({
         }
       >
         <DialogHeader>
-          <DialogTitle>{dict.addMealDialogTitle}</DialogTitle>
+          <DialogTitle>{isEdit ? dict.editMealDialogTitle : dict.addMealDialogTitle}</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
-          <input type="hidden" name="weekStartDate" value={weekStartKey} />
-          <input type="hidden" name="date" value={dateKey} />
-          <input type="hidden" name="mealType" value={mealType} />
+          {isEdit ? (
+            <input type="hidden" name="entryId" value={props.entry.id} />
+          ) : (
+            <>
+              <input type="hidden" name="weekStartDate" value={props.weekStartKey} />
+              <input type="hidden" name="date" value={props.dateKey} />
+              <input type="hidden" name="mealType" value={props.mealType} />
+            </>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipeId">{dict.recipeLabel}</Label>
@@ -126,6 +153,7 @@ export function AddMealDialog({
                 name="freeformName"
                 placeholder={dict.customMealNamePlaceholder}
                 maxLength={120}
+                defaultValue={isEdit ? (props.entry.freeformName ?? "") : undefined}
               />
             </div>
           ) : (
@@ -149,7 +177,7 @@ export function AddMealDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.adding : dict.add}
+              {pending ? (isEdit ? dict.saving : dict.adding) : isEdit ? dict.save : dict.add}
             </Button>
           </DialogFooter>
         </form>

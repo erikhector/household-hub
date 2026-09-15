@@ -579,6 +579,8 @@ export const en = {
     emptyDay: "Nothing planned",
     addMeal: "Add meal",
     addMealDialogTitle: "Add a meal",
+    editMealAriaLabel: "Edit meal",
+    editMealDialogTitle: "Edit meal",
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     customMealNameLabel: "Meal name",

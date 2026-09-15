@@ -571,6 +571,8 @@ export const sv = {
     emptyDay: "Inget planerat",
     addMeal: "Lägg till måltid",
     addMealDialogTitle: "Lägg till en måltid",
+    editMealAriaLabel: "Redigera måltid",
+    editMealDialogTitle: "Redigera måltid",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
     customMealNameLabel: "Måltidens namn",

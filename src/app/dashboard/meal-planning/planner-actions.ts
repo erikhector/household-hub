@@ -90,6 +90,65 @@ export async function addMealEntryAction(
   return {};
 }
 
+const updateEntrySchema = z.object({
+  entryId: z.string().min(1),
+  recipeId: z.string().optional(),
+  freeformName: z.string().trim().max(120).optional(),
+  portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
+});
+
+export async function updateMealEntryAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = updateEntrySchema.safeParse({
+    entryId: formData.get("entryId"),
+    recipeId: formData.get("recipeId") || undefined,
+    freeformName: formData.get("freeformName") || undefined,
+    portions: formData.get("portions") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { entryId, recipeId, freeformName } = parsed.data;
+
+  const entry = await prisma.mealPlanEntry.findFirst({
+    where: { id: entryId, mealPlan: { householdId: household.id } },
+  });
+  if (!entry) return { error: "Meal not found" };
+
+  let linkedRecipeId: string | null = null;
+  let freeformMealName: string | null = null;
+  let portions = parsed.data.portions ?? 4;
+
+  if (recipeId && recipeId !== CUSTOM_RECIPE_SENTINEL) {
+    const recipe = await prisma.recipe.findFirst({
+      where: { id: recipeId, householdId: household.id },
+    });
+    if (!recipe) return { error: "Recipe not found" };
+    linkedRecipeId = recipe.id;
+    portions = parsed.data.portions ?? recipe.servings;
+  } else {
+    if (!freeformName) return { error: "Choose a recipe or enter a meal name" };
+    freeformMealName = freeformName;
+  }
+
+  await prisma.mealPlanEntry.update({
+    where: { id: entry.id },
+    data: {
+      recipeId: linkedRecipeId,
+      freeformName: freeformMealName,
+      portions,
+    },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return {};
+}
+
 export async function deleteMealEntryAction(entryId: string) {
   const { household } = await requireHousehold();
 

@@ -10,6 +10,7 @@ const {
   recipeFindFirstMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryCreateMock,
+  mealPlanEntryUpdateMock,
   mealPlanEntryDeleteMock,
   mealPlanUpsertMock,
   revalidatePathMock,
@@ -18,6 +19,7 @@ const {
   recipeFindFirstMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryCreateMock: vi.fn(),
+  mealPlanEntryUpdateMock: vi.fn(),
   mealPlanEntryDeleteMock: vi.fn(),
   mealPlanUpsertMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
     mealPlanEntry: {
       findFirst: mealPlanEntryFindFirstMock,
       create: mealPlanEntryCreateMock,
+      update: mealPlanEntryUpdateMock,
       delete: mealPlanEntryDeleteMock,
     },
     mealPlan: { upsert: mealPlanUpsertMock },
@@ -37,7 +40,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { addMealEntryAction, deleteMealEntryAction } = await import(
+const { addMealEntryAction, updateMealEntryAction, deleteMealEntryAction } = await import(
   "@/app/dashboard/meal-planning/planner-actions"
 );
 
@@ -120,6 +123,88 @@ describe("addMealEntryAction", () => {
     expect(mealPlanEntryCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ portions: 2 }) }),
     );
+  });
+});
+
+describe("updateMealEntryAction", () => {
+  it("returns 'Meal not found' for an entry outside the caller's household (IDOR guard)", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(null);
+
+    const result = await updateMealEntryAction(
+      {},
+      formData({ entryId: "someone-elses-entry", freeformName: "Taco night" }),
+    );
+
+    expect(result.error).toBe("Meal not found");
+    expect(mealPlanEntryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 'Recipe not found' for a recipe outside the caller's household (IDOR guard)", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+    recipeFindFirstMock.mockResolvedValue(null);
+
+    const result = await updateMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", recipeId: "someone-elses-recipe" }),
+    );
+
+    expect(result.error).toBe("Recipe not found");
+    expect(mealPlanEntryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a freeform name when no recipe is chosen", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+
+    const result = await updateMealEntryAction({}, formData({ entryId: "entry-1" }));
+    expect(result.error).toBe("Choose a recipe or enter a meal name");
+  });
+
+  it("switches an entry to a different linked recipe, defaulting portions to its servings", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-2", servings: 3 });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    const result = await updateMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", recipeId: "recipe-2" }),
+    );
+
+    expect(result).toEqual({});
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { recipeId: "recipe-2", freeformName: null, portions: 3 },
+    });
+  });
+
+  it("uses an explicit portions count instead of the recipe's own servings when the form sends one", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-2", servings: 3 });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    await updateMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", recipeId: "recipe-2", portions: "2" }),
+    );
+
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ portions: 2 }) }),
+    );
+  });
+
+  it("switches an entry to a freeform name, clearing the linked recipe", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    const result = await updateMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", freeformName: "Taco night" }),
+    );
+
+    expect(result).toEqual({});
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { recipeId: null, freeformName: "Taco night", portions: 4 },
+    });
   });
 });
 

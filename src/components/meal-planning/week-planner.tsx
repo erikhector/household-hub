@@ -1,11 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, type ReactNode } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AddMealDialog } from "@/components/meal-planning/add-meal-dialog";
+import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
 import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
@@ -156,7 +156,7 @@ function MealTypeSlot({
         <p className="text-xs font-medium uppercase text-muted-foreground">
           {dict[mealTypeDictKey[mealType]]}
         </p>
-        <AddMealDialog
+        <MealEntryDialog
           dict={dict}
           weekStartKey={weekStartKey}
           dateKey={dateKey}
@@ -169,7 +169,7 @@ function MealTypeSlot({
       ) : (
         <div className="flex flex-col gap-1">
           {entries.map((entry) => (
-            <MealEntryRow key={entry.id} dict={dict} entry={entry} />
+            <MealEntryRow key={entry.id} dict={dict} entry={entry} recipes={recipes} />
           ))}
         </div>
       )}
@@ -177,7 +177,23 @@ function MealTypeSlot({
   );
 }
 
-function MealEntryRow({ dict, entry }: { dict: MealPlanningDict; entry: MealPlanEntryData }) {
+// Every row reserves the same three fixed-width slots after the label (edit,
+// cooked-status, delete) — even when a slot has nothing to show — so the
+// icon column lines up across rows instead of shifting with each entry's
+// state (freeform vs. recipe-linked, cooked vs. not).
+function IconSlot({ children }: { children?: ReactNode }) {
+  return <span className="flex size-6 shrink-0 items-center justify-center">{children}</span>;
+}
+
+function MealEntryRow({
+  dict,
+  entry,
+  recipes,
+}: {
+  dict: MealPlanningDict;
+  entry: MealPlanEntryData;
+  recipes: RecipeData[];
+}) {
   const [isPending, startTransition] = useTransition();
   const label = entry.recipeName ?? entry.freeformName ?? "";
   // Portions only mean something next to a linked recipe — a freeform entry
@@ -188,16 +204,43 @@ function MealEntryRow({ dict, entry }: { dict: MealPlanningDict; entry: MealPlan
 
   return (
     <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-      <span className="min-w-0 truncate" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
+      <span className="min-w-0 flex-1 truncate" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
-      {entry.recipeId && !entry.consumedAt && <MarkCookedDialog dict={dict} entry={entry} />}
-      {entry.consumedAt && (
-        <span className="shrink-0 text-muted-foreground" title={dict.mealCookedBadgeLabel}>
-          <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
-        </span>
-      )}
+
+      <IconSlot>
+        {!entry.consumedAt && (
+          <MealEntryDialog
+            dict={dict}
+            recipes={recipes}
+            mode="edit"
+            entry={entry}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={dict.editMealAriaLabel}
+              >
+                <Pencil className="size-3" />
+              </Button>
+            }
+          />
+        )}
+      </IconSlot>
+
+      <IconSlot>
+        {entry.consumedAt ? (
+          <span className="text-muted-foreground" title={dict.mealCookedBadgeLabel}>
+            <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
+          </span>
+        ) : (
+          entry.recipeId && <MarkCookedDialog dict={dict} entry={entry} />
+        )}
+      </IconSlot>
+
       <Button
         type="button"
         variant="ghost"
