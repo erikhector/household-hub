@@ -8,11 +8,12 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Trash2, Repeat } from "lucide-react";
+import { Trash2, Repeat, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { createTaskAction, deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { EditTaskDialog } from "@/components/tasks/edit-task-dialog";
@@ -41,7 +42,15 @@ const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
 
-function AddTaskForm({ members, dict }: { members: MemberOption[]; dict: TasksDict }) {
+function AddTaskForm({
+  members,
+  dict,
+  onSuccess,
+}: {
+  members: MemberOption[];
+  dict: TasksDict;
+  onSuccess?: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [assignedToMemberId, setAssignedToMemberId] = useState(UNASSIGNED_VALUE);
   const [recurrence, setRecurrence] = useState(NO_REPEAT_VALUE);
@@ -55,6 +64,7 @@ function AddTaskForm({ members, dict }: { members: MemberOption[]; dict: TasksDi
       setTitle("");
       setAssignedToMemberId(UNASSIGNED_VALUE);
       setRecurrence(NO_REPEAT_VALUE);
+      onSuccess?.();
     }
     return result;
   }, initialState);
@@ -128,6 +138,33 @@ function AddTaskForm({ members, dict }: { members: MemberOption[]; dict: TasksDi
   );
 }
 
+// "+"-button-triggered create dialog, matching Inventory/Recipes (see
+// UX_CONSISTENCY_BACKLOG.md item F) — structured after EditTaskDialog's
+// Dialog shell. AddTaskForm's fields/validation/action are untouched; this
+// just relocates them behind a modal and closes it on successful create.
+function AddTaskDialog({ members, dict }: { members: MemberOption[]; dict: TasksDict }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button className="gap-1.5">
+            <Plus className="size-4" />
+            <span className="sr-only sm:not-sr-only">{dict.addTask}</span>
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{dict.addTaskDialogTitle}</DialogTitle>
+        </DialogHeader>
+        <AddTaskForm members={members} dict={dict} onSuccess={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function TasksClient({
   dict,
   members,
@@ -147,14 +184,15 @@ export function TasksClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{dict.title}</h1>
-        <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">{dict.title}</h1>
+          <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
+        </div>
+        <AddTaskDialog members={members} dict={dict} />
       </div>
 
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
-
-      <AddTaskForm members={members} dict={dict} />
 
       <div className="flex flex-col gap-2">
         {tasks.length === 0 ? (
