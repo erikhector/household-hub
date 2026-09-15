@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
 import { CookNowList } from "@/components/meal-planning/cook-now-list";
@@ -39,6 +39,12 @@ export function MealPlanningView({
 }) {
   const [tab, setTab] = useState<Tab>("planner");
 
+  const tabItems: TabItem<Tab>[] = [
+    { value: "planner", label: dict.tabPlanner },
+    { value: "recipes", label: dict.tabRecipes },
+    { value: "cook", label: dict.tabCookNow },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -48,32 +54,7 @@ export function MealPlanningView({
 
       {varietyCount > 0 && <MealVarietyRecap count={varietyCount} dict={dict} />}
 
-      <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
-        <Button
-          type="button"
-          variant={tab === "planner" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("planner")}
-        >
-          {dict.tabPlanner}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "recipes" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("recipes")}
-        >
-          {dict.tabRecipes}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "cook" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("cook")}
-        >
-          {dict.tabCookNow}
-        </Button>
-      </div>
+      <Tabs tabs={tabItems} value={tab} onChange={setTab} />
 
       {tab === "planner" ? (
         <WeekPlanner

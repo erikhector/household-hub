@@ -1,10 +1,9 @@
 "use client";
 
-// Client-side tab switch between the budget page's sections, mirroring
-// MealPlanningView's pill-button tab pattern
-// (src/components/meal-planning/meal-planning-view.tsx) rather than adding a
-// new UI primitive or a new route (see AGENT_TASKS.md's Task 6 — this stays
-// a section/tab on the existing Budget page).
+// Client-side tab switch between the budget page's sections, using the
+// shared pill-button `Tabs` component (src/components/ui/tabs.tsx, also used
+// by MealPlanningView) rather than adding a new route (see AGENT_TASKS.md's
+// Task 6 — this stays a section/tab on the existing Budget page).
 //
 // Also owns everything that renders ABOVE the tab bar and needs to be
 // reachable regardless of which tab is active: the zero-category onboarding
@@ -35,6 +34,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -94,6 +94,15 @@ export function BudgetTabs({
   const [tab, setTab] = useState<Tab>("fixed");
   const hasCategories = categories.length > 0;
 
+  const tabItems: TabItem<Tab>[] = [
+    { value: "fixed", label: dict.tabFixed },
+    { value: "overview", label: dict.tabOverview },
+    { value: "costAnalyzer", label: dict.tabCostAnalyzer },
+  ];
+  if (balances) {
+    tabItems.push({ value: "balances", label: dict.tabBalances });
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {hasCategories ? (
@@ -121,42 +130,7 @@ export function BudgetTabs({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
-          <Button
-            type="button"
-            variant={tab === "fixed" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setTab("fixed")}
-          >
-            {dict.tabFixed}
-          </Button>
-          <Button
-            type="button"
-            variant={tab === "overview" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setTab("overview")}
-          >
-            {dict.tabOverview}
-          </Button>
-          <Button
-            type="button"
-            variant={tab === "costAnalyzer" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setTab("costAnalyzer")}
-          >
-            {dict.tabCostAnalyzer}
-          </Button>
-          {balances && (
-            <Button
-              type="button"
-              variant={tab === "balances" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setTab("balances")}
-            >
-              {dict.tabBalances}
-            </Button>
-          )}
-        </div>
+        <Tabs tabs={tabItems} value={tab} onChange={setTab} />
         <Dialog>
           <DialogTrigger
             render={
