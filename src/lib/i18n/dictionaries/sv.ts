@@ -444,6 +444,22 @@ export const sv = {
       scannedFlash: "La till {name}",
       scannedAgainFlash: "{name} — nu ×{count}",
     },
+    aiShelfScan: {
+      triggerLabel: "Skanna en hylla",
+      betaBadge: "Beta",
+      dialogTitle: "Skanna en hylla med AI",
+      subtitle:
+        "Ta ett foto av en hylla, kylskåp eller skåp så gissar AI vad som finns där — granska och rätta innan det läggs till. Fotot skickas till Anthropics API för detta; det sparas inte någonstans.",
+      takePhoto: "Ta foto",
+      choosePhoto: "Välj foto",
+      analyzing: "Tittar på ditt foto…",
+      reviewSubtitle: "Så här tror AI att det ser ut — kontrollera namn och antal innan du lägger till.",
+      noItemsFoundError: "Kunde inte identifiera något på fotot. Prova ett tydligare, närmare foto.",
+      analysisFailedError: "Något gick fel när fotot analyserades. Försök igen.",
+      rateLimitedError: "För många skanningar på kort tid — vänta lite och försök igen.",
+      notConfiguredError: "AI-hyllskanning är inte konfigurerat för den här appen än.",
+      tryAgain: "Försök igen",
+    },
     pasteList: {
       triggerLabel: "Klistra in en lista",
       dialogTitle: "Lägg till varor i bulk",

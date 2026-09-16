@@ -928,6 +928,59 @@ so it directly serves "keep track of household spending".
 - **i18n**: all new strings live under `shoppingList.receiptScan` in
   `en.ts`/`sv.ts`.
 
+## AI shelf scan (beta)
+
+A "Scan a shelf" button (with a "Beta" badge, `AiShelfScanDialog`,
+`src/components/inventory/ai-shelf-scan-dialog.tsx`) on the Inventory page
+toolbar (`src/app/dashboard/inventory/page.tsx`) lets a household member
+photograph a shelf, fridge, or cupboard and have AI guess the items on it
+and how many — reviewed and corrected before anything is added, same
+"AI/OCR suggests, human confirms" shape as barcode scanning and receipt
+scanning above. Marked beta because vision-based counting is inherently
+approximate (packaging occludes items, similar products get merged or
+split) in a way this app's other scan features aren't.
+
+- **Genuinely unlike barcode/receipt scanning on privacy**: those two never
+  send the camera image anywhere — decoding/OCR both run entirely
+  client-side. There's no equivalent client-side model for "what groceries
+  are in this photo", so this feature's photo **is** uploaded to a
+  third-party API (Anthropic's) for analysis. The dialog says so before the
+  camera opens, and the photo itself is never persisted anywhere (not
+  written to disk, not stored in the database) — only the reviewed
+  name/quantity guesses are, exactly like the other two features' review
+  step.
+- **Vision call** (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
+  a Server Action that calls the Anthropic Messages API directly via `fetch`
+  (no SDK dependency added, matching this app's existing
+  fetch-a-JSON-API convention in `lookupBarcodeAction`/`fetchExchangeRate`),
+  forcing a `report_shelf_items` tool call so the response is
+  structured `{ items: [{ name, quantity }] }` rather than free text to
+  parse. Requires `ANTHROPIC_API_KEY` (see `.env.example`); without it set,
+  the dialog explains the feature isn't configured instead of erroring
+  after a photo is taken, same fails-gracefully pattern as
+  `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`. Rate-limited per household
+  (`checkRateLimit`, 20/hour) since every scan costs real money, unlike the
+  free Open Food Facts/Frankfurter lookups the other scan features call.
+- **Client-side downscale**: the captured/chosen photo is drawn onto an
+  off-screen `<canvas>` and re-encoded as JPEG capped at 1568px on its
+  longest edge before being sent, both to keep the Server Action's request
+  body small (Next's default 1MB body limit is raised to 6MB for this one
+  action in `next.config.ts`) and because that's roughly the resolution
+  past which Claude's vision models stop gaining any accuracy.
+- **Review before anything is written**: identical shape to the other bulk
+  inventory flows — a shared category/location applies to the whole batch
+  (`ComboField`, matching `BulkScanDialog`/`BulkPasteDialog`'s existing "one
+  shelf/drawer per session" assumption rather than per-item category,
+  which isn't something `bulkCreateInventoryItemsAction` supports today),
+  each guessed row's name/quantity is freely editable, rows can be removed,
+  and nothing reaches the database until "Add N items" is pressed —
+  reusing `bulkCreateInventoryItemsAction` unchanged, including its
+  existing case-insensitive dedupe against what the household already has.
+- **i18n**: all new strings live under `inventory.aiShelfScan` in
+  `en.ts`/`sv.ts`; the shared category/location/remove/add-all copy is
+  reused from `inventory.bulkScan` rather than duplicated, since it's the
+  same UI pattern with identical wording.
+
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch

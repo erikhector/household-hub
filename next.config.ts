@@ -107,6 +107,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  experimental: {
+    // scanShelfPhotoAction (src/lib/actions/inventory-scan.ts) is the one
+    // Server Action in this app that takes a photo as its payload — a
+    // base64 data URL comfortably clears Next's 1MB default body limit even
+    // after ai-shelf-scan-dialog.tsx's client-side downscale.
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
   // Dev-only build-activity badge (bottom-left "N" indicator, never shown in
   // a production build) overlaps the sidebar's "Log out" link on desktop and
   // sits on the first bottom-nav tab at phone width — never affects real

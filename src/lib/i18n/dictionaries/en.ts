@@ -452,6 +452,22 @@ export const en = {
       scannedFlash: "Added {name}",
       scannedAgainFlash: "{name} — now ×{count}",
     },
+    aiShelfScan: {
+      triggerLabel: "Scan a shelf",
+      betaBadge: "Beta",
+      dialogTitle: "Scan a shelf with AI",
+      subtitle:
+        "Take a photo of a shelf, fridge, or cupboard and AI will guess what's on it — review and fix anything before it's added. Your photo is sent to Anthropic's API for this; it isn't stored anywhere.",
+      takePhoto: "Take photo",
+      choosePhoto: "Choose photo",
+      analyzing: "Looking at your photo…",
+      reviewSubtitle: "Here's what AI thinks it sees — check the names and counts before adding.",
+      noItemsFoundError: "Couldn't identify anything in that photo. Try a clearer, closer shot.",
+      analysisFailedError: "Something went wrong analyzing that photo. Try again.",
+      rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
+      notConfiguredError: "AI shelf scanning isn't set up for this app yet.",
+      tryAgain: "Try again",
+    },
     pasteList: {
       triggerLabel: "Paste a list",
       dialogTitle: "Add items in bulk",

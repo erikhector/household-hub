@@ -1,11 +1,13 @@
-import { ClipboardList, Plus, ScanLine } from "lucide-react";
+import { ClipboardList, Plus, ScanLine, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
+import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
@@ -90,6 +92,21 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
               <Button variant="outline" className="gap-1.5">
                 <ScanLine className="size-4" />
                 <span className="sr-only sm:not-sr-only">{dict.inventory.bulkScan.triggerLabel}</span>
+              </Button>
+            }
+          />
+          <AiShelfScanDialog
+            dict={dict.inventory}
+            categories={categories}
+            locations={locations}
+            configured={Boolean(process.env.ANTHROPIC_API_KEY)}
+            trigger={
+              <Button variant="outline" className="gap-1.5">
+                <Sparkles className="size-4" />
+                <span className="sr-only sm:not-sr-only">{dict.inventory.aiShelfScan.triggerLabel}</span>
+                <Badge variant="secondary" className="hidden sm:inline-flex">
+                  {dict.inventory.aiShelfScan.betaBadge}
+                </Badge>
               </Button>
             }
           />
