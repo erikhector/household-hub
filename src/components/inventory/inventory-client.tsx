@@ -168,6 +168,7 @@ export function InventoryClient({
       <div className="flex flex-col gap-2 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2">
         <div className="flex items-center gap-2">
           <Input
+            type="search"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={dict.searchPlaceholder}
