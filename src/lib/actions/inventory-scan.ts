@@ -31,10 +31,11 @@ import { logger } from "@/lib/logger";
 // one successful call (thinking + image tokens both add latency there) —
 // comfortably past a shorter timeout, which would abort a call that was
 // actually going to succeed. Shared across every attempt in a call (see
-// MAX_ATTEMPTS below): a retry only eats meaningfully into this budget when
-// the first attempt was a slow success (no retry needed) rather than a fast
-// overload rejection (which is what's actually retried).
-const REQUEST_TIMEOUT_MS = 45_000;
+// MAX_ATTEMPTS below) — kept a bit under the inventory page's
+// maxDuration = 60 (src/app/dashboard/inventory/page.tsx) so this action's
+// own graceful abort-handling always wins the race against Vercel's harder
+// kill, which wouldn't return a clean { error } result at all.
+const REQUEST_TIMEOUT_MS = 50_000;
 
 // A household doing a full pantry audit might scan several shelves in one
 // sitting — generous enough for that, tight enough that a buggy client
@@ -94,6 +95,13 @@ class ScanError extends Error {}
 const RETRYABLE_STATUS = new Set([429, 503, 529]);
 const MAX_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 1500;
+// A retry is only worth attempting if there's realistically enough of the
+// shared REQUEST_TIMEOUT_MS budget left for it to complete — a first
+// attempt that was itself slow (rather than a fast overload rejection)
+// can leave too little time for a second try to do anything but get
+// aborted mid-flight, which is exactly what surfaced as a raw AbortError
+// instead of a sensible message before this check existed.
+const MIN_RETRY_BUDGET_MS = 15_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -150,6 +158,7 @@ async function callGemini(
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
+  deadlineAt: number,
 ): Promise<ScannedShelfItem[]> {
   const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
   const requestBody = JSON.stringify({
@@ -186,7 +195,9 @@ async function callGemini(
       message: body?.error?.message,
     });
     if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
-    if (attempt === MAX_ATTEMPTS) throw new ScanError("provider_busy");
+    if (attempt === MAX_ATTEMPTS || deadlineAt - Date.now() < MIN_RETRY_BUDGET_MS) {
+      throw new ScanError("provider_busy");
+    }
     await sleep(RETRY_DELAY_MS);
   }
 
@@ -262,6 +273,7 @@ async function callAnthropic(
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
+  deadlineAt: number,
 ): Promise<ScannedShelfItem[]> {
   const requestBody = JSON.stringify({
     model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
@@ -301,7 +313,9 @@ async function callAnthropic(
       message: body?.error?.message,
     });
     if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
-    if (attempt === MAX_ATTEMPTS) throw new ScanError("provider_busy");
+    if (attempt === MAX_ATTEMPTS || deadlineAt - Date.now() < MIN_RETRY_BUDGET_MS) {
+      throw new ScanError("provider_busy");
+    }
     await sleep(RETRY_DELAY_MS);
   }
 
@@ -352,17 +366,26 @@ export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanSh
   const [, mediaType, base64Data] = match;
   if (!ALLOWED_MEDIA_TYPES.has(mediaType)) return { error: "invalid_photo" };
 
+  const deadlineAt = Date.now() + REQUEST_TIMEOUT_MS;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
     const items =
       provider.name === "gemini"
-        ? await callGemini(provider.apiKey, mediaType, base64Data, controller.signal)
-        : await callAnthropic(provider.apiKey, mediaType, base64Data, controller.signal);
+        ? await callGemini(provider.apiKey, mediaType, base64Data, controller.signal, deadlineAt)
+        : await callAnthropic(provider.apiKey, mediaType, base64Data, controller.signal, deadlineAt);
     return { items };
   } catch (error) {
     if (error instanceof ScanError) return { error: error.message };
+    // The shared timeout above firing mid-request surfaces here as a plain
+    // AbortError, not a ScanError — report it as the same "busy, try
+    // again" case as a provider overload rather than the generic failure
+    // message, since that's exactly what it is from the user's side.
+    if (error instanceof Error && error.name === "AbortError") {
+      logger.error(`AI shelf scan (${provider.name}) timed out`, { error });
+      return { error: "provider_busy" };
+    }
     logger.error(`AI shelf scan (${provider.name}) request errored`, { error });
     return { error: "analysis_failed" };
   } finally {

@@ -978,17 +978,27 @@ split) in a way this app's other scan features aren't.
   `inventory-scan.ts`) — matching Google's own documented guidance for the
   503 case — before surfacing a distinct `provider_busy` error ("The AI
   service is busy right now") instead of the generic failure message.
-  `REQUEST_TIMEOUT_MS` is 45s (a live test measured ~40s for one
+  `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
-  and is shared across every attempt in a call, since only a fast-fail
-  rejection actually gets retried in practice — a slow call is almost
-  always a slow *success*, not a hang. On Vercel, a Server Action's own
-  runtime is capped well below a Route Handler's regardless of plan, and
-  since a `"use server"` file can only export async functions,
+  and is shared as one deadline across every attempt in a call — before
+  actually retrying, each provider function checks `deadlineAt - Date.now()`
+  against `MIN_RETRY_BUDGET_MS` (15s) and skips straight to `provider_busy`
+  if a second attempt couldn't realistically finish in what's left, rather
+  than starting one doomed to be aborted mid-flight. That shared deadline
+  firing itself (a first attempt slow enough to eat the whole budget) is
+  caught in `scanShelfPhotoAction` as a plain `AbortError` and mapped to
+  the same `provider_busy` message, not the generic failure — the raw
+  `{name: "AbortError", message: "This operation was aborted"}` this
+  produces if left unmapped is exactly what surfaced in testing before
+  this handling existed. On Vercel, a Server Action's own runtime is
+  capped well below a Route Handler's regardless of plan, and since a
+  `"use server"` file can only export async functions,
   `src/app/dashboard/inventory/page.tsx` (the route invoking this action)
   exports `maxDuration = 60` instead — Next.js/Vercel honor that as the
-  invoked action's own ceiling. No effect on a self-hosted deployment,
-  which has no such ceiling to begin with.
+  invoked action's own ceiling, kept comfortably above
+  `REQUEST_TIMEOUT_MS` so this action's own graceful handling always wins
+  the race against Vercel's harder kill. No effect on a self-hosted
+  deployment, which has no such ceiling to begin with.
 - **Client-side downscale**: the captured/chosen photo is drawn onto an
   off-screen `<canvas>` and re-encoded as JPEG capped at 1568px on its
   longest edge before being sent, both to keep the Server Action's request
