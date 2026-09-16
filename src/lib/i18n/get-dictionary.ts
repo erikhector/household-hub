@@ -2,11 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { defaultLocale, isLocale, LOCALE_COOKIE, type Locale } from "@/lib/i18n/locales";
-import { en, type Dictionary } from "@/lib/i18n/dictionaries/en";
-import { sv } from "@/lib/i18n/dictionaries/sv";
+import { dictionaries, getDictionaryForLocale, type Dictionary } from "@/lib/i18n/dictionaries";
 import { getUserPreferences } from "@/lib/preferences";
-
-const dictionaries: Record<Locale, Dictionary> = { en, sv };
 
 // Cached per-request: every Server Component that needs translations calls
 // this independently (no [locale] route segment to thread a param through —
@@ -33,4 +30,5 @@ export const getDictionary = cache(async (): Promise<Dictionary> => {
   return dictionaries[locale];
 });
 
+export { getDictionaryForLocale };
 export type { Dictionary, Locale };
