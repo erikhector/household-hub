@@ -1,13 +1,28 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
+import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 
-export default async function ShoppingListPage() {
-  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+function ShoppingListsSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-16 rounded-md border bg-muted/40" />
+      ))}
+    </div>
+  );
+}
 
+async function ShoppingListsSection({
+  householdId,
+  dict,
+}: {
+  householdId: string;
+  dict: Awaited<ReturnType<typeof getDictionary>>["shoppingList"];
+}) {
   const lists = await prisma.shoppingList.findMany({
-    where: { householdId: household.id },
+    where: { householdId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { items: { where: { purchased: false } } } } },
   });
@@ -21,10 +36,29 @@ export default async function ShoppingListPage() {
 
   return (
     <ShoppingListsOverview
-      dict={dict.shoppingList}
+      dict={dict}
       active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
       completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
       archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
     />
+  );
+}
+
+export default async function ShoppingListPage() {
+  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.shoppingList.title}</h1>
+          <p className="text-sm text-muted-foreground">{dict.shoppingList.subtitle}</p>
+        </div>
+        <NewListDialog dict={dict.shoppingList} />
+      </div>
+      <Suspense fallback={<ShoppingListsSkeleton />}>
+        <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} />
+      </Suspense>
+    </div>
   );
 }

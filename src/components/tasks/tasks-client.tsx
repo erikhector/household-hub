@@ -8,7 +8,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Trash2, Repeat, Plus, Pencil } from "lucide-react";
+import { Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -51,24 +51,6 @@ export function TasksClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.title}</h1>
-          <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
-        </div>
-        <TaskFormDialog
-          mode="create"
-          members={members}
-          dict={dict}
-          trigger={
-            <Button className="gap-1.5">
-              <Plus className="size-4" />
-              <span className="sr-only sm:not-sr-only">{dict.addTask}</span>
-            </Button>
-          }
-        />
-      </div>
-
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
 
       <div className="flex flex-col gap-2">

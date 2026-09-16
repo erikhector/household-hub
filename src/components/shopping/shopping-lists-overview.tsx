@@ -38,7 +38,7 @@ type ShoppingListDict = Dictionary["shoppingList"];
 
 const initialState: ActionState = {};
 
-function NewListDialog({ dict }: { dict: ShoppingListDict }) {
+export function NewListDialog({ dict }: { dict: ShoppingListDict }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -203,27 +203,13 @@ export function ShoppingListsOverview({
 }) {
   const isEmpty = active.length === 0 && completed.length === 0 && archived.length === 0;
 
-  return (
+  return isEmpty ? (
+    <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">{dict.empty}</p>
+  ) : (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.title}</h1>
-          <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
-        </div>
-        <NewListDialog dict={dict} />
-      </div>
-
-      {isEmpty ? (
-        <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {dict.empty}
-        </p>
-      ) : (
-        <>
-          <ListSection title={dict.sectionActive} lists={active} dict={dict} />
-          <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
-          <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />
-        </>
-      )}
+      <ListSection title={dict.sectionActive} lists={active} dict={dict} />
+      <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
+      <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />
     </div>
   );
 }
