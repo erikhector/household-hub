@@ -22,7 +22,7 @@ import { parseImportCsv, type ImportCsvError } from "@/lib/inventory/parse-impor
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type Row = { key: string; name: string; quantity: number; unit: string };
+type Row = { key: string; name: string; quantity: string; unit: string };
 type Step = "paste" | "review";
 type PasteTab = "text" | "csv";
 
@@ -72,7 +72,13 @@ export function BulkPasteDialog({
   };
 
   const applyParsedItems = (parsed: { name: string; quantity: number; unit: string }[]) => {
-    setRows(parsed.map((item, i) => ({ key: `${i}-${item.name}`, ...item })));
+    setRows(
+      parsed.map((item, i) => ({
+        key: `${i}-${item.name}`,
+        ...item,
+        quantity: String(item.quantity),
+      })),
+    );
     setStep("review");
   };
 
@@ -129,7 +135,7 @@ export function BulkPasteDialog({
     }
     setSubmitting(true);
     const result = await bulkCreateInventoryItemsAction(
-      rows.map((row) => ({ name: row.name.trim(), quantity: row.quantity, unit: row.unit })),
+      rows.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: row.unit })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);
@@ -266,7 +272,7 @@ export function BulkPasteDialog({
                     min={0}
                     step="any"
                     value={row.quantity}
-                    onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 0 })}
+                    onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                     className="w-16"
                     aria-label={dict.quantityLabel}
                   />

@@ -32,7 +32,7 @@ const COOLDOWN_MS = 1400;
 type Phase = "idle" | "starting" | "scanning" | "error";
 type Step = "scan" | "review";
 
-type QueuedScan = { key: string; barcode: string; name: string; quantity: number };
+type QueuedScan = { key: string; barcode: string; name: string; quantity: string };
 
 export function BulkScanDialog({
   dict,
@@ -209,12 +209,13 @@ export function BulkScanDialog({
         const idx = prev.findIndex((q) => q.barcode === barcode);
         if (idx >= 0) {
           const next = [...prev];
-          next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+          const nextQuantity = (Number(next[idx].quantity) || 0) + 1;
+          next[idx] = { ...next[idx], quantity: String(nextQuantity) };
           addedName = next[idx].name || barcode;
-          becameQuantity = next[idx].quantity;
+          becameQuantity = nextQuantity;
           return next;
         }
-        return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: 1 }];
+        return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: "1" }];
       });
 
       const result = await lookupBarcodeAction(barcode);
@@ -265,7 +266,7 @@ export function BulkScanDialog({
     }
     setSubmitting(true);
     const result = await bulkCreateInventoryItemsAction(
-      queue.map((row) => ({ name: row.name.trim(), quantity: row.quantity, unit: "pcs" })),
+      queue.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);
@@ -309,9 +310,15 @@ export function BulkScanDialog({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">
                   {queue.length > 0
-                    ? format(plural(queue.reduce((n, r) => n + r.quantity, 0), t.queuedCount), {
-                        count: queue.reduce((n, r) => n + r.quantity, 0),
-                      })
+                    ? format(
+                        plural(
+                          queue.reduce((n, r) => n + (Number(r.quantity) || 0), 0),
+                          t.queuedCount,
+                        ),
+                        {
+                          count: queue.reduce((n, r) => n + (Number(r.quantity) || 0), 0),
+                        },
+                      )
                     : t.queueEmptyHint}
                 </span>
               </div>
@@ -394,7 +401,7 @@ export function BulkScanDialog({
                     min={0}
                     step="any"
                     value={row.quantity}
-                    onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 0 })}
+                    onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                     className="w-16"
                     aria-label={dict.quantityLabel}
                   />

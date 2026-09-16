@@ -25,7 +25,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
-type ReviewItem = CookedIngredientData & { included: boolean; quantity: number };
+type ReviewItem = CookedIngredientData & { included: boolean; quantity: string };
 
 const initialState: ActionState = {};
 
@@ -80,7 +80,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
         setPreviewError(result.error);
       } else {
         setItems(
-          result.items.map((item) => ({ ...item, included: true, quantity: item.suggestedQuantity })),
+          result.items.map((item) => ({ ...item, included: true, quantity: String(item.suggestedQuantity) })),
         );
       }
     });
@@ -92,7 +92,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
     );
   }
 
-  function updateQuantity(key: string, quantity: number) {
+  function updateQuantity(key: string, quantity: string) {
     setItems((prev) =>
       prev ? prev.map((item) => (item.key === key ? { ...item, quantity } : item)) : prev,
     );
@@ -151,7 +151,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                         className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
                         value={item.quantity}
                         disabled={!item.included}
-                        onChange={(e) => updateQuantity(item.key, Number(e.target.value))}
+                        onChange={(e) => updateQuantity(item.key, e.target.value)}
                         aria-label={format(dict.cookedQuantityAriaLabel, { name: item.name })}
                       />
                       <span className="text-xs text-muted-foreground">{item.unit}</span>

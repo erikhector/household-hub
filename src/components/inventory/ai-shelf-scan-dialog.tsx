@@ -52,7 +52,7 @@ type Phase = "idle" | "analyzing" | "review" | "applying" | "error";
 type Row = {
   key: string;
   name: string;
-  quantity: number;
+  quantity: string;
   /** Set only in "restock" mode, when scanShelfPhotoAction matched this
    * guess to a real household item — see the mode comment above. Cleared
    * by the "Not a match" button, which turns the row back into a plain
@@ -174,7 +174,7 @@ export function AiShelfScanDialog({
       items.map((item, index) => ({
         key: `${index}-${item.name}`,
         name: item.name,
-        quantity: item.quantity,
+        quantity: String(item.quantity),
         matchedItemId: item.matchedItemId,
         matchedItemName: item.matchedItemName,
         previousQuantity: item.previousQuantity,
@@ -217,7 +217,7 @@ export function AiShelfScanDialog({
     setSubmitting(true);
     setErrorMessage(null);
     const result = await bulkCreateInventoryItemsAction(
-      rows.map((row) => ({ name: row.name.trim(), quantity: row.quantity, unit: "pcs" })),
+      rows.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);
@@ -247,11 +247,13 @@ export function AiShelfScanDialog({
 
     const [updateResult, createResult] = await Promise.all([
       matched.length > 0
-        ? bulkSetInventoryQuantitiesAction(matched.map((row) => ({ itemId: row.matchedItemId, quantity: row.quantity })))
+        ? bulkSetInventoryQuantitiesAction(
+            matched.map((row) => ({ itemId: row.matchedItemId, quantity: Number(row.quantity) || 0 })),
+          )
         : Promise.resolve<Awaited<ReturnType<typeof bulkSetInventoryQuantitiesAction>>>({ updated: 0 }),
       unmatched.length > 0
         ? bulkCreateInventoryItemsAction(
-            unmatched.map((row) => ({ name: row.name.trim(), quantity: row.quantity, unit: "pcs" })),
+            unmatched.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
             { category: category.trim() || undefined, location: location.trim() || undefined },
           )
         : Promise.resolve<Awaited<ReturnType<typeof bulkCreateInventoryItemsAction>>>({ added: 0 }),
@@ -420,7 +422,7 @@ export function AiShelfScanDialog({
                         min={0}
                         step="any"
                         value={row.quantity}
-                        onChange={(e) => updateRow(row.key, { quantity: Number(e.target.value) || 0 })}
+                        onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
                         className="w-16"
                         aria-label={dict.quantityLabel}
                       />
