@@ -948,55 +948,61 @@ split) in a way this app's other scan features aren't.
   and the photo itself is never persisted anywhere (not written to disk,
   not stored in the database) — only the reviewed name/quantity guesses
   are, exactly like the other two features' review step.
-- **Two providers, ordered at runtime, with mid-scan fallback**
+- **An ordered attempt chain, not a single provider pick**
   (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  `resolveProviders()` returns **Gemini** (Google AI Studio,
-  `generativelanguage.googleapis.com`) when `GEMINI_API_KEY` is set,
-  followed by **Anthropic** (Claude) when `ANTHROPIC_API_KEY` is set — an
-  empty list means the feature reports itself unconfigured. Gemini goes
-  first because its free tier (no card required) makes this feature
-  genuinely free to run at a single-household scale, where Anthropic's is
-  metered from the first request — see `.env.example` for both. When
-  *both* are set, `callProviders` doesn't just pick Gemini and stop: if it
-  reports itself busy (`provider_busy` — see the retry section just below)
-  and there's still time left in the shared request deadline, it falls
-  through to Anthropic next rather than failing the scan, since Gemini's
-  free tier is meaningfully more prone to overload than a paid API. A real
-  analysis failure (bad response shape, non-JSON output, ...) does **not**
-  fall through to the next provider — that's worth surfacing, not papering
-  over by trying a different vendor. Both providers are called directly
-  via `fetch` (no SDK dependency added, matching this app's existing
-  fetch-a-JSON-API convention in `lookupBarcodeAction`/`fetchExchangeRate`),
-  each constrained to the same `{ items: [{ name, quantity }] }` output
-  shape — Anthropic via a forced `report_shelf_items` tool call, Gemini via
+  `resolveAttempts()` builds a chain of up to three attempts — Gemini's
+  primary model (`GEMINI_MODEL`, default the auto-updating
+  `gemini-flash-latest` alias), then Gemini's *fallback* model
+  (`GEMINI_FALLBACK_MODEL`, default `gemini-flash-lite-latest` — a
+  genuinely smaller/separate model, not just a rename, so it's its own
+  capacity pool), then Anthropic (Claude) — each entry only included when
+  its provider's key is set, and an empty chain means the feature reports
+  itself unconfigured. Gemini goes first because its free tier
+  (`generativelanguage.googleapis.com`, no card required) makes this
+  feature genuinely free to run at a single-household scale, where
+  Anthropic's is metered from the first request — see `.env.example` for
+  all three env vars. `callAttempts` walks the chain in order and moves to
+  the *next* entry only when the current one reports itself busy
+  (`provider_busy` — see the retry section just below), trying a different
+  Gemini model before ever spending real money falling through to
+  Anthropic, since Google's own guidance for an overloaded model is to try
+  a different one rather than hammer the same one again. A real analysis
+  failure (bad response shape, non-JSON output, ...) does **not** advance
+  the chain — that's worth surfacing, not papering over by trying
+  something else. Both providers are called directly via `fetch` (no SDK
+  dependency added, matching this app's existing fetch-a-JSON-API
+  convention in `lookupBarcodeAction`/`fetchExchangeRate`), each
+  constrained to the same `{ items: [{ name, quantity }] }` output shape —
+  Anthropic via a forced `report_shelf_items` tool call, Gemini via
   `responseSchema`-constrained JSON output (Gemini has no
   forced-tool-choice equivalent) — and validated through the same Zod
   schema either way, so the rest of the action and the whole review UI stay
-  provider-agnostic. Without either key set, the dialog explains the
-  feature isn't configured instead of erroring after a photo is taken, same
+  provider-agnostic. Without any key set, the dialog explains the feature
+  isn't configured instead of erroring after a photo is taken, same
   fails-gracefully pattern as `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`.
-  Rate-limited per household (`checkRateLimit`, 20/hour) since a scan
-  against Anthropic costs real money — on Gemini's free tier, Google's own
+  Rate-limited per household (`checkRateLimit`, 20/hour) since a scan that
+  reaches Anthropic costs real money — on Gemini's free tier, Google's own
   per-minute cap binds first.
-- **Transient-failure retry**: both providers occasionally reject a request
-  with a fast "the model is overloaded, try again" (Gemini: `503
+- **Transient-failure handling**: each attempt in the chain is a single
+  fetch, not its own internal retry loop — a busy response (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
-  Anthropic: `529 overloaded_error`) or plain rate limiting (`429`) rather
-  than a real failure. Each provider function retries once after a short
-  delay on exactly those statuses (`RETRYABLE_STATUS`,
-  `inventory-scan.ts`) — matching Google's own documented guidance for the
-  503 case — before surfacing a distinct `provider_busy` error ("The AI
-  service is busy right now") instead of the generic failure message.
+  Anthropic: `529 overloaded_error`; either: plain rate limiting, `429`)
+  throws `provider_busy` and lets `callAttempts` move on to the next
+  *different* model/provider rather than retrying the same one — that's
+  both faster (no artificial backoff delay for a request that isn't being
+  identically repeated) and, per Google's own guidance for the 503 case,
+  more effective than hammering the same overloaded backend twice.
   `REQUEST_TIMEOUT_MS` is 50s (a live test measured ~40s for one
   successful Gemini free-tier call, comfortably past a shorter timeout)
-  and is shared as one deadline across every attempt in a call — before
-  actually retrying, each provider function checks `deadlineAt - Date.now()`
-  against `MIN_RETRY_BUDGET_MS` (15s) and skips straight to `provider_busy`
-  if a second attempt couldn't realistically finish in what's left, rather
-  than starting one doomed to be aborted mid-flight. That shared deadline
-  firing itself (a first attempt slow enough to eat the whole budget) is
-  caught in `scanShelfPhotoAction` as a plain `AbortError` and mapped to
-  the same `provider_busy` message, not the generic failure — the raw
+  and is shared as one deadline across the *entire chain* — before
+  actually starting the next attempt, `callAttempts` checks
+  `deadlineAt - Date.now()` against `MIN_ATTEMPT_BUDGET_MS` (15s) and
+  returns `provider_busy` immediately if another attempt couldn't
+  realistically finish in what's left, rather than starting one doomed to
+  be aborted mid-flight. That shared deadline firing itself (an attempt
+  slow enough to eat the whole remaining budget) is caught in
+  `scanShelfPhotoAction` as a plain `AbortError` and mapped to the same
+  `provider_busy` message, not the generic failure — the raw
   `{name: "AbortError", message: "This operation was aborted"}` this
   produces if left unmapped is exactly what surfaced in testing before
   this handling existed. On Vercel, a Server Action's own runtime is

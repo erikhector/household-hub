@@ -14,17 +14,16 @@
 // third-party API — there's no client-side vision model to run this against
 // instead. The dialog discloses that before the camera opens.
 //
-// Two providers, ordered at runtime by which keys are set (see
-// resolveProviders below) — Gemini goes first when both are configured,
-// since Google AI Studio's free tier (generativelanguage.googleapis.com,
-// no card required) makes this feature genuinely free to run for a single
-// household, where Anthropic's is metered from the first request. When
-// only one key is set, that's the only provider tried, same as before.
-// When both are set, Anthropic is also a genuine mid-scan fallback — if
-// Gemini reports itself busy (its free tier gets overloaded under load
-// more often than a paid API does) and there's still time left in the
-// request's budget, callProviders tries Anthropic next rather than just
-// giving up, so a busy Gemini doesn't have to mean a failed scan.
+// An ordered chain of attempts, built by resolveAttempts — Gemini's primary
+// model, then Gemini's fallback model, then Anthropic, skipping whichever
+// provider has no key set. Gemini goes first because its free tier
+// (generativelanguage.googleapis.com, no card required) makes this feature
+// genuinely free to run for a single household, where Anthropic's is
+// metered from the first request. callAttempts (below) walks the chain and
+// moves to the next entry only when the current one reports itself busy —
+// Google's own guidance for an overloaded model is to try a different one
+// (a different model is a different capacity pool), so that's tried before
+// spending real money falling through to Anthropic.
 
 import { z } from "zod";
 import { requireHousehold } from "@/lib/session";
@@ -34,11 +33,11 @@ import { logger } from "@/lib/logger";
 // A live test against Gemini's free-tier gemini-flash-latest took ~41s for
 // one successful call (thinking + image tokens both add latency there) —
 // comfortably past a shorter timeout, which would abort a call that was
-// actually going to succeed. Shared across every attempt in a call (see
-// MAX_ATTEMPTS below) — kept a bit under the inventory page's
-// maxDuration = 60 (src/app/dashboard/inventory/page.tsx) so this action's
-// own graceful abort-handling always wins the race against Vercel's harder
-// kill, which wouldn't return a clean { error } result at all.
+// actually going to succeed. Shared as one deadline across every attempt in
+// the chain (see callAttempts below) — kept a bit under the inventory
+// page's maxDuration = 60 (src/app/dashboard/inventory/page.tsx) so this
+// action's own graceful abort-handling always wins the race against
+// Vercel's harder kill, which wouldn't return a clean { error } result at all.
 const REQUEST_TIMEOUT_MS = 50_000;
 
 // A household doing a full pantry audit might scan several shelves in one
@@ -92,40 +91,40 @@ class ScanError extends Error {}
 // Both Gemini and Anthropic occasionally reject a request with a transient
 // "the model is overloaded, try again" (Gemini: 503 UNAVAILABLE; Anthropic:
 // 529 overloaded_error) or plain rate limiting (429) rather than a real
-// failure — Google's own guidance for the 503 case is exactly this: retry
-// with backoff. These are typically fast rejections (the provider declines
-// before doing any generation work), so one retry costs little even though
-// a *successful* call can itself take tens of seconds on the free tier.
+// failure. Each is a single fetch, no same-model retry — a busy response
+// moves on to the *next attempt in the chain* (a different model or
+// provider, a different capacity pool) instead of hammering the same
+// overloaded one twice, which both wastes shared deadline budget and,
+// per Google's own guidance for the 503 case, is less effective than
+// trying something different.
 const RETRYABLE_STATUS = new Set([429, 503, 529]);
-const MAX_ATTEMPTS = 2;
-const RETRY_DELAY_MS = 1500;
-// A retry is only worth attempting if there's realistically enough of the
-// shared REQUEST_TIMEOUT_MS budget left for it to complete — a first
-// attempt that was itself slow (rather than a fast overload rejection)
-// can leave too little time for a second try to do anything but get
-// aborted mid-flight, which is exactly what surfaced as a raw AbortError
-// instead of a sensible message before this check existed.
-const MIN_RETRY_BUDGET_MS = 15_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// An attempt is only worth starting if there's realistically enough of the
+// shared REQUEST_TIMEOUT_MS budget left for it to complete — a slow attempt
+// (rather than a fast overload rejection) can leave too little time for
+// another to do anything but get aborted mid-flight, which is exactly what
+// surfaced as a raw AbortError instead of a sensible message before this
+// check existed.
+const MIN_ATTEMPT_BUDGET_MS = 15_000;
 
 // ---------------------------------------------------------------------------
-// Gemini (Google AI Studio) — tried first when configured. Uses the REST
-// generateContent endpoint directly (no @google/genai dependency added, same
-// fetch-a-JSON-API convention this app already uses for Anthropic below and
-// for lookupBarcodeAction/fetchExchangeRate) with responseSchema-constrained
+// Gemini (Google AI Studio). Uses the REST generateContent endpoint directly
+// (no @google/genai dependency added, same fetch-a-JSON-API convention this
+// app already uses for Anthropic below and for
+// lookupBarcodeAction/fetchExchangeRate) with responseSchema-constrained
 // JSON output instead of Anthropic's forced tool-use — Gemini has no
 // tool-choice-style "force this exact tool" mode, but a JSON schema on
 // generationConfig gets the same guarantee.
 // ---------------------------------------------------------------------------
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-// "-latest" is a Google-maintained alias that always resolves to the current
-// stable Flash release, so this doesn't need bumping by hand as new Gemini
-// versions ship — see GEMINI_MODEL below to pin a specific one instead.
+// Both "-latest" values are Google-maintained aliases that always resolve
+// to the current stable release of that tier, so neither needs bumping by
+// hand as new Gemini versions ship. Flash-Lite is a genuinely separate,
+// smaller model — its own capacity pool, not just a renamed Flash — which
+// is what makes it worth trying when Flash itself reports overloaded,
+// rather than just being another name for the same busy backend.
 const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest";
 
 const GEMINI_ITEMS_SCHEMA = {
   type: "OBJECT",
@@ -159,53 +158,40 @@ type GeminiResponse = {
 
 async function callGemini(
   apiKey: string,
+  model: string,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-  deadlineAt: number,
 ): Promise<ScannedShelfItem[]> {
-  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-  const requestBody = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { inlineData: { mimeType: mediaType, data: base64Data } },
-          { text: "Here's the shelf. What's on it?" },
-        ],
+  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+    method: "POST",
+    signal,
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { inlineData: { mimeType: mediaType, data: base64Data } },
+            { text: "Here's the shelf. What's on it?" },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: GEMINI_ITEMS_SCHEMA,
       },
-    ],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: GEMINI_ITEMS_SCHEMA,
-    },
+    }),
   });
 
-  let response: Response | undefined;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-      method: "POST",
-      signal,
-      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-      body: requestBody,
-    });
-    if (response.ok) break;
-
+  if (!response.ok) {
     const body = (await response.json().catch(() => null)) as GeminiResponse | null;
-    logger.error("AI shelf scan (Gemini) request failed", {
-      attempt,
-      status: response.status,
-      message: body?.error?.message,
-    });
-    if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
-    if (attempt === MAX_ATTEMPTS || deadlineAt - Date.now() < MIN_RETRY_BUDGET_MS) {
-      throw new ScanError("provider_busy");
-    }
-    await sleep(RETRY_DELAY_MS);
+    logger.error("AI shelf scan (Gemini) request failed", { model, status: response.status, message: body?.error?.message });
+    throw new ScanError(RETRYABLE_STATUS.has(response.status) ? "provider_busy" : "analysis_failed");
   }
 
-  const data = (await response!.json()) as GeminiResponse;
+  const data = (await response.json()) as GeminiResponse;
   const text = data.candidates?.[0]?.content?.parts?.find((p) => typeof p.text === "string")?.text;
   if (!text) throw new ScanError("analysis_failed");
 
@@ -213,20 +199,20 @@ async function callGemini(
   try {
     json = JSON.parse(text);
   } catch {
-    logger.error("AI shelf scan (Gemini) returned non-JSON text", { text });
+    logger.error("AI shelf scan (Gemini) returned non-JSON text", { model, text });
     throw new ScanError("analysis_failed");
   }
 
   const parsed = shelfItemsSchema.safeParse(json);
   if (!parsed.success) {
-    logger.error("AI shelf scan (Gemini) returned an unexpected shape", { issues: parsed.error.issues });
+    logger.error("AI shelf scan (Gemini) returned an unexpected shape", { model, issues: parsed.error.issues });
     throw new ScanError("analysis_failed");
   }
   return parsed.data.items;
 }
 
 // ---------------------------------------------------------------------------
-// Anthropic (Claude) — fallback provider.
+// Anthropic (Claude) — last in the chain.
 // ---------------------------------------------------------------------------
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -277,53 +263,40 @@ async function callAnthropic(
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-  deadlineAt: number,
 ): Promise<ScannedShelfItem[]> {
-  const requestBody = JSON.stringify({
-    model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    tools: [SHELF_SCAN_TOOL],
-    tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-          { type: "text", text: "Here's the shelf. What's on it?" },
-        ],
-      },
-    ],
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_VERSION,
+    },
+    body: JSON.stringify({
+      model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      tools: [SHELF_SCAN_TOOL],
+      tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+            { type: "text", text: "Here's the shelf. What's on it?" },
+          ],
+        },
+      ],
+    }),
   });
 
-  let response: Response | undefined;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    response = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-      },
-      body: requestBody,
-    });
-    if (response.ok) break;
-
+  if (!response.ok) {
     const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
-    logger.error("AI shelf scan (Anthropic) request failed", {
-      attempt,
-      status: response.status,
-      message: body?.error?.message,
-    });
-    if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
-    if (attempt === MAX_ATTEMPTS || deadlineAt - Date.now() < MIN_RETRY_BUDGET_MS) {
-      throw new ScanError("provider_busy");
-    }
-    await sleep(RETRY_DELAY_MS);
+    logger.error("AI shelf scan (Anthropic) request failed", { status: response.status, message: body?.error?.message });
+    throw new ScanError(RETRYABLE_STATUS.has(response.status) ? "provider_busy" : "analysis_failed");
   }
 
-  const data = (await response!.json()) as AnthropicResponse;
+  const data = (await response.json()) as AnthropicResponse;
   const toolUse = data.content?.find(
     (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
   );
@@ -339,70 +312,84 @@ async function callAnthropic(
 
 // ---------------------------------------------------------------------------
 
-type Provider = { name: "gemini"; apiKey: string } | { name: "anthropic"; apiKey: string };
+type Attempt =
+  | { label: string; kind: "gemini"; apiKey: string; model: string }
+  | { label: string; kind: "anthropic"; apiKey: string };
 
-// Ordered: Gemini first (see the file header for why), Anthropic second.
-// Both present means Anthropic now also serves as a genuine mid-scan
-// fallback, not just a fallback for GEMINI_API_KEY being entirely unset —
-// see callProviders below. That's a real (if small, ~$0.01/scan) cost a
-// household with both keys configured should know it can incur, so this
-// is documented in .env.example alongside GEMINI_API_KEY.
-function resolveProviders(): Provider[] {
-  const providers: Provider[] = [];
-  if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", apiKey: process.env.GEMINI_API_KEY });
-  if (process.env.ANTHROPIC_API_KEY) providers.push({ name: "anthropic", apiKey: process.env.ANTHROPIC_API_KEY });
-  return providers;
+/** Builds the ordered attempt chain: Gemini's primary model, then Gemini's
+ * fallback model (skipped if it resolves to the same model id as the
+ * primary — e.g. both env vars pointing at the same pin), then Anthropic —
+ * each only included when its provider's key is set. With both keys set,
+ * Anthropic is a genuine mid-scan fallback for a busy Gemini, not just a
+ * fallback for GEMINI_API_KEY being entirely unset — a real (if small,
+ * ~$0.01/scan) cost documented in .env.example next to ANTHROPIC_API_KEY. */
+function resolveAttempts(): Attempt[] {
+  const attempts: Attempt[] = [];
+
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey) {
+    const primaryModel = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || DEFAULT_GEMINI_FALLBACK_MODEL;
+    attempts.push({ label: `gemini:${primaryModel}`, kind: "gemini", apiKey: geminiKey, model: primaryModel });
+    if (fallbackModel && fallbackModel !== primaryModel) {
+      attempts.push({ label: `gemini:${fallbackModel}`, kind: "gemini", apiKey: geminiKey, model: fallbackModel });
+    }
+  }
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) attempts.push({ label: "anthropic", kind: "anthropic", apiKey: anthropicKey });
+
+  return attempts;
 }
 
-function callProvider(
-  provider: Provider,
+function callAttempt(
+  attempt: Attempt,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-  deadlineAt: number,
 ): Promise<ScannedShelfItem[]> {
-  return provider.name === "gemini"
-    ? callGemini(provider.apiKey, mediaType, base64Data, signal, deadlineAt)
-    : callAnthropic(provider.apiKey, mediaType, base64Data, signal, deadlineAt);
+  return attempt.kind === "gemini"
+    ? callGemini(attempt.apiKey, attempt.model, mediaType, base64Data, signal)
+    : callAnthropic(attempt.apiKey, mediaType, base64Data, signal);
 }
 
-/** Tries each configured provider in order, moving to the next only when
- * the current one reports itself busy (not for a real analysis failure —
- * that's a bug worth seeing, not something to paper over by trying a
- * second vendor) and there's still enough of the shared deadline left for
+/** Walks the attempt chain in order, moving to the next entry only when the
+ * current one reports itself busy (not for a real analysis failure —
+ * that's a bug worth seeing, not something to paper over by trying
+ * something else) and there's still enough of the shared deadline left for
  * another attempt to be worth starting. */
-async function callProviders(
-  providers: Provider[],
+async function callAttempts(
+  attempts: Attempt[],
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
   deadlineAt: number,
 ): Promise<ScanShelfPhotoResult> {
-  for (let i = 0; i < providers.length; i++) {
-    const provider = providers[i];
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
     try {
-      return { items: await callProvider(provider, mediaType, base64Data, signal, deadlineAt) };
+      return { items: await callAttempt(attempt, mediaType, base64Data, signal) };
     } catch (error) {
-      const hasNext = i < providers.length - 1;
-      const hasTime = deadlineAt - Date.now() > MIN_RETRY_BUDGET_MS;
+      const hasNext = i < attempts.length - 1;
+      const hasTime = deadlineAt - Date.now() > MIN_ATTEMPT_BUDGET_MS;
 
       if (error instanceof ScanError) {
         if (error.message === "provider_busy" && hasNext && hasTime) {
-          logger.warn(`AI shelf scan: ${provider.name} busy, falling back to ${providers[i + 1].name}`);
+          logger.warn(`AI shelf scan: ${attempt.label} busy, falling back to ${attempts[i + 1].label}`);
           continue;
         }
         return { error: error.message };
       }
       // The shared timeout firing mid-request surfaces here as a plain
       // AbortError, not a ScanError — the deadline is spent either way, so
-      // there's no point trying another provider; report it as the same
+      // there's no point trying anything else; report it as the same
       // "busy, try again" case as a provider overload rather than the
       // generic failure message, since that's what it is from the user's side.
       if (error instanceof Error && error.name === "AbortError") {
-        logger.error(`AI shelf scan (${provider.name}) timed out`, { error });
+        logger.error(`AI shelf scan (${attempt.label}) timed out`, { error });
         return { error: "provider_busy" };
       }
-      logger.error(`AI shelf scan (${provider.name}) request errored`, { error });
+      logger.error(`AI shelf scan (${attempt.label}) request errored`, { error });
       return { error: "analysis_failed" };
     }
   }
@@ -410,15 +397,15 @@ async function callProviders(
   return { error: "analysis_failed" };
 }
 
-/** Takes a client-captured photo (as a data URL) and returns the configured
- * provider's best guess at the grocery/household items visible in it. Every
- * guess is a starting point for the review step in
+/** Takes a client-captured photo (as a data URL) and returns the first
+ * successful attempt's best guess at the grocery/household items visible
+ * in it. Every guess is a starting point for the review step in
  * ai-shelf-scan-dialog.tsx, never written to the database directly. */
 export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanShelfPhotoResult> {
   const { household } = await requireHousehold();
 
-  const providers = resolveProviders();
-  if (providers.length === 0) return { error: "not_configured" };
+  const attempts = resolveAttempts();
+  if (attempts.length === 0) return { error: "not_configured" };
 
   if (!(await checkRateLimit(`ai-shelf-scan:${household.id}`, SCAN_RATE_LIMIT, SCAN_RATE_LIMIT_WINDOW_MS))) {
     return { error: "rate_limited" };
@@ -438,7 +425,7 @@ export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanSh
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    return await callProviders(providers, mediaType, base64Data, controller.signal, deadlineAt);
+    return await callAttempts(attempts, mediaType, base64Data, controller.signal, deadlineAt);
   } finally {
     clearTimeout(timeout);
   }
