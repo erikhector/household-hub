@@ -449,7 +449,7 @@ export const sv = {
       betaBadge: "Beta",
       dialogTitle: "Skanna en hylla med AI",
       subtitle:
-        "Ta ett foto av en hylla, kylskåp eller skåp så gissar AI vad som finns där — granska och rätta innan det läggs till. Fotot skickas till Anthropics API för detta; det sparas inte någonstans.",
+        "Ta ett foto av en hylla, kylskåp eller skåp så gissar AI vad som finns där — granska och rätta innan det läggs till. Fotot skickas till en extern AI-tjänst för detta; det sparas inte någonstans.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
       analyzing: "Tittar på ditt foto…",

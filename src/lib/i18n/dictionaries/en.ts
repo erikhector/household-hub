@@ -457,7 +457,7 @@ export const en = {
       betaBadge: "Beta",
       dialogTitle: "Scan a shelf with AI",
       subtitle:
-        "Take a photo of a shelf, fridge, or cupboard and AI will guess what's on it — review and fix anything before it's added. Your photo is sent to Anthropic's API for this; it isn't stored anywhere.",
+        "Take a photo of a shelf, fridge, or cupboard and AI will guess what's on it — review and fix anything before it's added. Your photo is sent to a third-party AI service for this; it isn't stored anywhere.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
       analyzing: "Looking at your photo…",
