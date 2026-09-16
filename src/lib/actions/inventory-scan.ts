@@ -111,11 +111,16 @@ const MAX_EXISTING_ITEMS_IN_PROMPT = 300;
 
 const BASE_SYSTEM_PROMPT =
   "You are helping someone take inventory of their kitchen by photographing a shelf, fridge, or cupboard. " +
-  "Identify each distinct item visible and estimate how many of each there are. Group identical items into " +
-  "one entry with a combined quantity rather than listing them one by one. Skip anything that clearly isn't " +
-  "food or a household product (people, furniture, walls). If you can't tell exactly what something is, use " +
-  "a generic descriptive name rather than inventing a specific brand or flavor. Report your findings even if " +
-  "it's just one or two items — never report nothing if anything identifiable is visible.";
+  "Identify each distinct item visible and estimate how many of each there are. Only combine multiple units " +
+  "into one entry with a combined quantity when they are the exact same product — different products in the " +
+  "same category (e.g. different spices, different flavors, different varieties of the same brand) are " +
+  "separate entries with their own name, even if they look similar or sit on the same shelf; never lump a " +
+  "row of distinct products together under one generic category name and a total count. Read each item's " +
+  "name directly off its label or packaging whenever the text is legible, rather than describing the category " +
+  "it belongs to. Skip anything that clearly isn't food or a household product (people, furniture, walls). " +
+  "Only fall back to a generic descriptive name for an item whose label you genuinely can't read or make out — " +
+  "don't invent a specific brand, flavor, or variety in that case. Report your findings even if it's just one " +
+  "or two items — never report nothing if anything identifiable is visible.";
 
 /** Appends matching instructions when doing a restock scan against a
  * non-empty inventory; unchanged from the plain add-mode prompt otherwise
@@ -211,7 +216,9 @@ const GEMINI_ITEMS_SCHEMA = {
           name: {
             type: "STRING",
             description:
-              "Short, generic product name in Title Case (e.g. 'Milk', 'Canned Tomatoes'). Don't guess a brand you can't actually read on the packaging.",
+              "Specific product name in Title Case, read off the label when legible (e.g. 'Ground Cumin', " +
+              "'Smoked Paprika'), or a short generic description only when the label can't actually be read " +
+              "(e.g. 'Canned Tomatoes'). Never merge distinct products into one category name.",
           },
           quantity: {
             type: "NUMBER",
@@ -316,7 +323,9 @@ const SHELF_SCAN_TOOL = {
             name: {
               type: "string",
               description:
-                "Short, generic product name in Title Case (e.g. 'Milk', 'Canned Tomatoes'). Don't guess a brand you can't actually read on the packaging.",
+                "Specific product name in Title Case, read off the label when legible (e.g. 'Ground Cumin', " +
+                "'Smoked Paprika'), or a short generic description only when the label can't actually be read " +
+                "(e.g. 'Canned Tomatoes'). Never merge distinct products into one category name.",
             },
             quantity: {
               type: "number",
