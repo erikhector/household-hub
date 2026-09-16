@@ -948,27 +948,36 @@ split) in a way this app's other scan features aren't.
   and the photo itself is never persisted anywhere (not written to disk,
   not stored in the database) — only the reviewed name/quantity guesses
   are, exactly like the other two features' review step.
-- **Two providers, picked at runtime** (`scanShelfPhotoAction`,
-  `src/lib/actions/inventory-scan.ts`): `resolveProvider()` uses
-  **Gemini** (Google AI Studio, `generativelanguage.googleapis.com`) when
-  `GEMINI_API_KEY` is set, else **Anthropic** (Claude) when
-  `ANTHROPIC_API_KEY` is set, else the feature reports itself unconfigured.
-  Gemini goes first because its free tier (no card required) makes this
-  feature genuinely free to run at a single-household scale, where
-  Anthropic's is metered from the first request — see `.env.example` for
-  both. Both are called directly via `fetch` (no SDK dependency added,
-  matching this app's existing fetch-a-JSON-API convention in
-  `lookupBarcodeAction`/`fetchExchangeRate`), each constrained to the same
-  `{ items: [{ name, quantity }] }` output shape — Anthropic via a forced
-  `report_shelf_items` tool call, Gemini via `responseSchema`-constrained
-  JSON output (Gemini has no forced-tool-choice equivalent) — and validated
-  through the same Zod schema either way, so the rest of the action and the
-  whole review UI are provider-agnostic. Without either key set, the dialog
-  explains the feature isn't configured instead of erroring after a photo
-  is taken, same fails-gracefully pattern as
-  `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`. Rate-limited per household
-  (`checkRateLimit`, 20/hour) since a scan against Anthropic costs real
-  money — on Gemini's free tier, Google's own per-minute cap binds first.
+- **Two providers, ordered at runtime, with mid-scan fallback**
+  (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
+  `resolveProviders()` returns **Gemini** (Google AI Studio,
+  `generativelanguage.googleapis.com`) when `GEMINI_API_KEY` is set,
+  followed by **Anthropic** (Claude) when `ANTHROPIC_API_KEY` is set — an
+  empty list means the feature reports itself unconfigured. Gemini goes
+  first because its free tier (no card required) makes this feature
+  genuinely free to run at a single-household scale, where Anthropic's is
+  metered from the first request — see `.env.example` for both. When
+  *both* are set, `callProviders` doesn't just pick Gemini and stop: if it
+  reports itself busy (`provider_busy` — see the retry section just below)
+  and there's still time left in the shared request deadline, it falls
+  through to Anthropic next rather than failing the scan, since Gemini's
+  free tier is meaningfully more prone to overload than a paid API. A real
+  analysis failure (bad response shape, non-JSON output, ...) does **not**
+  fall through to the next provider — that's worth surfacing, not papering
+  over by trying a different vendor. Both providers are called directly
+  via `fetch` (no SDK dependency added, matching this app's existing
+  fetch-a-JSON-API convention in `lookupBarcodeAction`/`fetchExchangeRate`),
+  each constrained to the same `{ items: [{ name, quantity }] }` output
+  shape — Anthropic via a forced `report_shelf_items` tool call, Gemini via
+  `responseSchema`-constrained JSON output (Gemini has no
+  forced-tool-choice equivalent) — and validated through the same Zod
+  schema either way, so the rest of the action and the whole review UI stay
+  provider-agnostic. Without either key set, the dialog explains the
+  feature isn't configured instead of erroring after a photo is taken, same
+  fails-gracefully pattern as `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`.
+  Rate-limited per household (`checkRateLimit`, 20/hour) since a scan
+  against Anthropic costs real money — on Gemini's free tier, Google's own
+  per-minute cap binds first.
 - **Transient-failure retry**: both providers occasionally reject a request
   with a fast "the model is overloaded, try again" (Gemini: `503
   UNAVAILABLE`, commonly hit on the free-tier Flash model under load;

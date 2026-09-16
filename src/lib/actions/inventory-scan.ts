@@ -14,13 +14,17 @@
 // third-party API — there's no client-side vision model to run this against
 // instead. The dialog discloses that before the camera opens.
 //
-// Two providers, picked at runtime by which key is set (see resolveProvider
-// below) — Gemini is tried first when both are configured, since Google AI
-// Studio's free tier (generativelanguage.googleapis.com, no card required)
-// makes this feature genuinely free to run for a single household, where
-// Anthropic's is metered from the first request. Anthropic remains the
-// fallback for anyone who'd rather keep every AI vendor in the stack the
-// same, or who hits Gemini's free-tier rate limit.
+// Two providers, ordered at runtime by which keys are set (see
+// resolveProviders below) — Gemini goes first when both are configured,
+// since Google AI Studio's free tier (generativelanguage.googleapis.com,
+// no card required) makes this feature genuinely free to run for a single
+// household, where Anthropic's is metered from the first request. When
+// only one key is set, that's the only provider tried, same as before.
+// When both are set, Anthropic is also a genuine mid-scan fallback — if
+// Gemini reports itself busy (its free tier gets overloaded under load
+// more often than a paid API does) and there's still time left in the
+// request's budget, callProviders tries Anthropic next rather than just
+// giving up, so a busy Gemini doesn't have to mean a failed scan.
 
 import { z } from "zod";
 import { requireHousehold } from "@/lib/session";
@@ -337,10 +341,73 @@ async function callAnthropic(
 
 type Provider = { name: "gemini"; apiKey: string } | { name: "anthropic"; apiKey: string };
 
-function resolveProvider(): Provider | null {
-  if (process.env.GEMINI_API_KEY) return { name: "gemini", apiKey: process.env.GEMINI_API_KEY };
-  if (process.env.ANTHROPIC_API_KEY) return { name: "anthropic", apiKey: process.env.ANTHROPIC_API_KEY };
-  return null;
+// Ordered: Gemini first (see the file header for why), Anthropic second.
+// Both present means Anthropic now also serves as a genuine mid-scan
+// fallback, not just a fallback for GEMINI_API_KEY being entirely unset —
+// see callProviders below. That's a real (if small, ~$0.01/scan) cost a
+// household with both keys configured should know it can incur, so this
+// is documented in .env.example alongside GEMINI_API_KEY.
+function resolveProviders(): Provider[] {
+  const providers: Provider[] = [];
+  if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", apiKey: process.env.GEMINI_API_KEY });
+  if (process.env.ANTHROPIC_API_KEY) providers.push({ name: "anthropic", apiKey: process.env.ANTHROPIC_API_KEY });
+  return providers;
+}
+
+function callProvider(
+  provider: Provider,
+  mediaType: string,
+  base64Data: string,
+  signal: AbortSignal,
+  deadlineAt: number,
+): Promise<ScannedShelfItem[]> {
+  return provider.name === "gemini"
+    ? callGemini(provider.apiKey, mediaType, base64Data, signal, deadlineAt)
+    : callAnthropic(provider.apiKey, mediaType, base64Data, signal, deadlineAt);
+}
+
+/** Tries each configured provider in order, moving to the next only when
+ * the current one reports itself busy (not for a real analysis failure —
+ * that's a bug worth seeing, not something to paper over by trying a
+ * second vendor) and there's still enough of the shared deadline left for
+ * another attempt to be worth starting. */
+async function callProviders(
+  providers: Provider[],
+  mediaType: string,
+  base64Data: string,
+  signal: AbortSignal,
+  deadlineAt: number,
+): Promise<ScanShelfPhotoResult> {
+  for (let i = 0; i < providers.length; i++) {
+    const provider = providers[i];
+    try {
+      return { items: await callProvider(provider, mediaType, base64Data, signal, deadlineAt) };
+    } catch (error) {
+      const hasNext = i < providers.length - 1;
+      const hasTime = deadlineAt - Date.now() > MIN_RETRY_BUDGET_MS;
+
+      if (error instanceof ScanError) {
+        if (error.message === "provider_busy" && hasNext && hasTime) {
+          logger.warn(`AI shelf scan: ${provider.name} busy, falling back to ${providers[i + 1].name}`);
+          continue;
+        }
+        return { error: error.message };
+      }
+      // The shared timeout firing mid-request surfaces here as a plain
+      // AbortError, not a ScanError — the deadline is spent either way, so
+      // there's no point trying another provider; report it as the same
+      // "busy, try again" case as a provider overload rather than the
+      // generic failure message, since that's what it is from the user's side.
+      if (error instanceof Error && error.name === "AbortError") {
+        logger.error(`AI shelf scan (${provider.name}) timed out`, { error });
+        return { error: "provider_busy" };
+      }
+      logger.error(`AI shelf scan (${provider.name}) request errored`, { error });
+      return { error: "analysis_failed" };
+    }
+  }
+  // Unreachable: scanShelfPhotoAction only calls this with a non-empty array.
+  return { error: "analysis_failed" };
 }
 
 /** Takes a client-captured photo (as a data URL) and returns the configured
@@ -350,8 +417,8 @@ function resolveProvider(): Provider | null {
 export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanShelfPhotoResult> {
   const { household } = await requireHousehold();
 
-  const provider = resolveProvider();
-  if (!provider) return { error: "not_configured" };
+  const providers = resolveProviders();
+  if (providers.length === 0) return { error: "not_configured" };
 
   if (!(await checkRateLimit(`ai-shelf-scan:${household.id}`, SCAN_RATE_LIMIT, SCAN_RATE_LIMIT_WINDOW_MS))) {
     return { error: "rate_limited" };
@@ -371,23 +438,7 @@ export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanSh
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const items =
-      provider.name === "gemini"
-        ? await callGemini(provider.apiKey, mediaType, base64Data, controller.signal, deadlineAt)
-        : await callAnthropic(provider.apiKey, mediaType, base64Data, controller.signal, deadlineAt);
-    return { items };
-  } catch (error) {
-    if (error instanceof ScanError) return { error: error.message };
-    // The shared timeout above firing mid-request surfaces here as a plain
-    // AbortError, not a ScanError — report it as the same "busy, try
-    // again" case as a provider overload rather than the generic failure
-    // message, since that's exactly what it is from the user's side.
-    if (error instanceof Error && error.name === "AbortError") {
-      logger.error(`AI shelf scan (${provider.name}) timed out`, { error });
-      return { error: "provider_busy" };
-    }
-    logger.error(`AI shelf scan (${provider.name}) request errored`, { error });
-    return { error: "analysis_failed" };
+    return await callProviders(providers, mediaType, base64Data, controller.signal, deadlineAt);
   } finally {
     clearTimeout(timeout);
   }
