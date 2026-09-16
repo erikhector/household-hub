@@ -23,7 +23,7 @@ export default async function VerifyEmailPage(props: PageProps<"/verify-email/[t
   const [{ token }, session, dict] = await Promise.all([props.params, auth(), getDictionary()]);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">{dict.auth.verifyEmail.pageTitle}</CardTitle>

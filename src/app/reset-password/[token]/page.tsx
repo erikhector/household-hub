@@ -13,7 +13,7 @@ export default async function ResetPasswordPage(props: PageProps<"/reset-passwor
   const [{ token }, dict] = await Promise.all([props.params, getDictionary()]);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-xl">{dict.auth.resetPassword.pageTitle}</CardTitle>
