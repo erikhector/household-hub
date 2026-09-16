@@ -1467,7 +1467,7 @@ export const en = {
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
   email: {
-    copyLinkPrefix: "Or copy and paste this link into your browser:",
+    copyLinkPrefix: "If the button doesn't work, use this link:",
     invite: {
       subject: "You're invited to join {householdName} on Squirrel",
       heading: "You're invited!",

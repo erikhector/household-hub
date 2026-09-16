@@ -83,14 +83,33 @@ function renderEmailHtml({
             <a href="${ctaUrl}" style="display:inline-block;background-color:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 28px;border-radius:9999px;">${ctaLabel}</a>
           </div>
           <p style="font-size:13px;line-height:1.6;color:#71717a;margin:0 0 8px;">
-            ${copyLinkPrefix}<br />
-            <a href="${ctaUrl}" style="color:${BRAND_COLOR};word-break:break-all;">${ctaUrl}</a>
+            ${copyLinkPrefix} <a href="${ctaUrl}" style="color:${BRAND_COLOR};">${ctaLabel}</a>
           </p>
           <p style="font-size:12px;line-height:1.5;color:#a1a1aa;margin:16px 0 0;">${footerNote}</p>
         </div>
       </div>
     </div>
   `;
+}
+
+// Plain-text alternative sent alongside the HTML part (multipart), matching
+// renderEmailHtml's content — mail clients that prefer/require text fall
+// back to this, and its presence is itself a positive signal to spam
+// filters versus an HTML-only send.
+function renderEmailText({
+  heading,
+  bodyText,
+  ctaLabel,
+  ctaUrl,
+  footerNote,
+}: {
+  heading: string;
+  bodyText: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  footerNote: string;
+}): string {
+  return [heading, bodyText, `${ctaLabel}: ${ctaUrl}`, footerNote].join("\n\n");
 }
 
 export async function sendHouseholdInviteEmail({
@@ -121,6 +140,13 @@ export async function sendHouseholdInviteEmail({
         ctaLabel: dict.invite.cta,
         ctaUrl: inviteUrl,
         copyLinkPrefix: dict.copyLinkPrefix,
+        footerNote: dict.invite.expiry,
+      }),
+      text: renderEmailText({
+        heading: dict.invite.heading,
+        bodyText: format(dict.invite.body, { householdName }),
+        ctaLabel: dict.invite.cta,
+        ctaUrl: inviteUrl,
         footerNote: dict.invite.expiry,
       }),
     });
@@ -169,6 +195,13 @@ export async function sendPasswordResetEmail({
         copyLinkPrefix: dict.copyLinkPrefix,
         footerNote: dict.passwordReset.expiry,
       }),
+      text: renderEmailText({
+        heading: dict.passwordReset.heading,
+        bodyText: dict.passwordReset.body,
+        ctaLabel: dict.passwordReset.cta,
+        ctaUrl: resetUrl,
+        footerNote: dict.passwordReset.expiry,
+      }),
     });
 
     if (error) {
@@ -213,6 +246,13 @@ export async function sendVerificationEmail({
         ctaLabel: dict.verification.cta,
         ctaUrl: verifyUrl,
         copyLinkPrefix: dict.copyLinkPrefix,
+        footerNote: dict.verification.expiry,
+      }),
+      text: renderEmailText({
+        heading: dict.verification.heading,
+        bodyText: dict.verification.body,
+        ctaLabel: dict.verification.cta,
+        ctaUrl: verifyUrl,
         footerNote: dict.verification.expiry,
       }),
     });

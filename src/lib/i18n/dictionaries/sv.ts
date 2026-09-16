@@ -1441,7 +1441,7 @@ export const sv = {
     consentSuffix: ".",
   },
   email: {
-    copyLinkPrefix: "Eller kopiera och klistra in den här länken i din webbläsare:",
+    copyLinkPrefix: "Om knappen inte fungerar, använd den här länken:",
     invite: {
       subject: "Du är inbjuden till {householdName} på Squirrel",
       heading: "Du är inbjuden!",

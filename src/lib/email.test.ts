@@ -68,6 +68,24 @@ describe("when RESEND_API_KEY is configured", () => {
       expect(call.html).toContain("https://app.example.com/join/abc123");
       expect(call.html).toContain('href="https://app.example.com/join/abc123"');
       expect(call.html).toContain("The Smiths");
+      expect(call.text).toContain("https://app.example.com/join/abc123");
+      expect(call.text).toContain("The Smiths");
+    });
+
+    it("shows a readable link label instead of the raw URL as link text", async () => {
+      setConfigured();
+      sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+      const { sendHouseholdInviteEmail } = await loadEmail();
+
+      await sendHouseholdInviteEmail({
+        to: "invitee@example.com",
+        householdName: "The Smiths",
+        inviteUrl: "https://app.example.com/join/abc123",
+      });
+
+      const call = sendMock.mock.calls[0][0];
+      expect(call.html).toContain(">Accept the invite</a>");
+      expect(call.html).not.toContain(">https://app.example.com/join/abc123<");
     });
 
     it("HTML-escapes the household name but not the invite URL", async () => {
@@ -165,6 +183,7 @@ describe("when RESEND_API_KEY is configured", () => {
       expect(call.subject).toBe("Reset your Squirrel password");
       expect(call.html).toContain("https://app.example.com/reset-password/tok-1");
       expect(call.html).toContain('href="https://app.example.com/reset-password/tok-1"');
+      expect(call.text).toContain("https://app.example.com/reset-password/tok-1");
     });
 
     it("renders in Swedish when locale is 'sv'", async () => {
@@ -215,6 +234,7 @@ describe("when RESEND_API_KEY is configured", () => {
       expect(call.subject).toBe("Verify your Squirrel email address");
       expect(call.html).toContain("https://app.example.com/verify-email/tok-2");
       expect(call.html).toContain('href="https://app.example.com/verify-email/tok-2"');
+      expect(call.text).toContain("https://app.example.com/verify-email/tok-2");
     });
   });
 
