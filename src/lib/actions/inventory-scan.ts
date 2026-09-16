@@ -27,7 +27,14 @@ import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
-const REQUEST_TIMEOUT_MS = 30_000;
+// A live test against Gemini's free-tier gemini-flash-latest took ~41s for
+// one successful call (thinking + image tokens both add latency there) —
+// comfortably past a shorter timeout, which would abort a call that was
+// actually going to succeed. Shared across every attempt in a call (see
+// MAX_ATTEMPTS below): a retry only eats meaningfully into this budget when
+// the first attempt was a slow success (no retry needed) rather than a fast
+// overload rejection (which is what's actually retried).
+const REQUEST_TIMEOUT_MS = 45_000;
 
 // A household doing a full pantry audit might scan several shelves in one
 // sitting — generous enough for that, tight enough that a buggy client
@@ -76,6 +83,21 @@ const SYSTEM_PROMPT =
  * scanShelfPhotoAction already maps to a translated string in
  * ai-shelf-scan-dialog.tsx, so callers can just re-throw it. */
 class ScanError extends Error {}
+
+// Both Gemini and Anthropic occasionally reject a request with a transient
+// "the model is overloaded, try again" (Gemini: 503 UNAVAILABLE; Anthropic:
+// 529 overloaded_error) or plain rate limiting (429) rather than a real
+// failure — Google's own guidance for the 503 case is exactly this: retry
+// with backoff. These are typically fast rejections (the provider declines
+// before doing any generation work), so one retry costs little even though
+// a *successful* call can itself take tens of seconds on the free tier.
+const RETRYABLE_STATUS = new Set([429, 503, 529]);
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 1500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // ---------------------------------------------------------------------------
 // Gemini (Google AI Studio) — tried first when configured. Uses the REST
@@ -130,36 +152,45 @@ async function callGemini(
   signal: AbortSignal,
 ): Promise<ScannedShelfItem[]> {
   const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-
-  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
-    method: "POST",
-    signal,
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType: mediaType, data: base64Data } },
-            { text: "Here's the shelf. What's on it?" },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: GEMINI_ITEMS_SCHEMA,
+  const requestBody = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: mediaType, data: base64Data } },
+          { text: "Here's the shelf. What's on it?" },
+        ],
       },
-    }),
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: GEMINI_ITEMS_SCHEMA,
+    },
   });
 
-  if (!response.ok) {
+  let response: Response | undefined;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      body: requestBody,
+    });
+    if (response.ok) break;
+
     const body = (await response.json().catch(() => null)) as GeminiResponse | null;
-    logger.error("AI shelf scan (Gemini) request failed", { status: response.status, message: body?.error?.message });
-    throw new ScanError("analysis_failed");
+    logger.error("AI shelf scan (Gemini) request failed", {
+      attempt,
+      status: response.status,
+      message: body?.error?.message,
+    });
+    if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
+    if (attempt === MAX_ATTEMPTS) throw new ScanError("provider_busy");
+    await sleep(RETRY_DELAY_MS);
   }
 
-  const data = (await response.json()) as GeminiResponse;
+  const data = (await response!.json()) as GeminiResponse;
   const text = data.candidates?.[0]?.content?.parts?.find((p) => typeof p.text === "string")?.text;
   if (!text) throw new ScanError("analysis_failed");
 
@@ -232,42 +263,49 @@ async function callAnthropic(
   base64Data: string,
   signal: AbortSignal,
 ): Promise<ScannedShelfItem[]> {
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-    },
-    body: JSON.stringify({
-      model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools: [SHELF_SCAN_TOOL],
-      tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-            { type: "text", text: "Here's the shelf. What's on it?" },
-          ],
-        },
-      ],
-    }),
+  const requestBody = JSON.stringify({
+    model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
+    max_tokens: 2048,
+    system: SYSTEM_PROMPT,
+    tools: [SHELF_SCAN_TOOL],
+    tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: "Here's the shelf. What's on it?" },
+        ],
+      },
+    ],
   });
 
-  if (!response.ok) {
+  let response: Response | undefined;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+      },
+      body: requestBody,
+    });
+    if (response.ok) break;
+
     const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
     logger.error("AI shelf scan (Anthropic) request failed", {
+      attempt,
       status: response.status,
       message: body?.error?.message,
     });
-    throw new ScanError("analysis_failed");
+    if (!RETRYABLE_STATUS.has(response.status)) throw new ScanError("analysis_failed");
+    if (attempt === MAX_ATTEMPTS) throw new ScanError("provider_busy");
+    await sleep(RETRY_DELAY_MS);
   }
 
-  const data = (await response.json()) as AnthropicResponse;
+  const data = (await response!.json()) as AnthropicResponse;
   const toolUse = data.content?.find(
     (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
   );

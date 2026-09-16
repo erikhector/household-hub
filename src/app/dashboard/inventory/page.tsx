@@ -14,6 +14,18 @@ import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { getUserPreferences } from "@/lib/preferences";
 
+// Vercel caps a Server Action's own runtime well below a Route Handler's
+// (15s by default, regardless of function region/plan) — too tight for
+// scanShelfPhotoAction (src/lib/actions/inventory-scan.ts), which has been
+// observed taking ~40s for one Gemini free-tier call plus a possible retry
+// on a transient "model overloaded" error. A "use server" file can only
+// export async functions, so this can't be set in inventory-scan.ts itself
+// — it has to live on the Server Component route that renders the trigger
+// invoking it, which Next.js/Vercel honor as that action's own timeout.
+// No effect outside Vercel (e.g. self-hosted Node/Docker per DEPLOYMENT.md
+// has no such ceiling to begin with).
+export const maxDuration = 60;
+
 // Status values the notification bell's low-stock alerts link to (e.g.
 // `/dashboard/inventory?status=low`) — see src/lib/notifications.ts and
 // src/components/notifications/notification-bell.tsx.

@@ -465,6 +465,7 @@ export const en = {
       noItemsFoundError: "Couldn't identify anything in that photo. Try a clearer, closer shot.",
       analysisFailedError: "Something went wrong analyzing that photo. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
+      providerBusyError: "The AI service is busy right now — wait a moment and try again.",
       notConfiguredError: "AI shelf scanning isn't set up for this app yet.",
       tryAgain: "Try again",
     },

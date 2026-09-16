@@ -98,6 +98,8 @@ export function AiShelfScanDialog({
         return t.notConfiguredError;
       case "rate_limited":
         return t.rateLimitedError;
+      case "provider_busy":
+        return t.providerBusyError;
       default:
         return t.analysisFailedError;
     }

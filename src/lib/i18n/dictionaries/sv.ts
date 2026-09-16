@@ -457,6 +457,7 @@ export const sv = {
       noItemsFoundError: "Kunde inte identifiera något på fotot. Prova ett tydligare, närmare foto.",
       analysisFailedError: "Något gick fel när fotot analyserades. Försök igen.",
       rateLimitedError: "För många skanningar på kort tid — vänta lite och försök igen.",
+      providerBusyError: "AI-tjänsten är upptagen just nu — vänta en stund och försök igen.",
       notConfiguredError: "AI-hyllskanning är inte konfigurerat för den här appen än.",
       tryAgain: "Försök igen",
     },

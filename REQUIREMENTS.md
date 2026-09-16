@@ -969,6 +969,26 @@ split) in a way this app's other scan features aren't.
   `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`. Rate-limited per household
   (`checkRateLimit`, 20/hour) since a scan against Anthropic costs real
   money — on Gemini's free tier, Google's own per-minute cap binds first.
+- **Transient-failure retry**: both providers occasionally reject a request
+  with a fast "the model is overloaded, try again" (Gemini: `503
+  UNAVAILABLE`, commonly hit on the free-tier Flash model under load;
+  Anthropic: `529 overloaded_error`) or plain rate limiting (`429`) rather
+  than a real failure. Each provider function retries once after a short
+  delay on exactly those statuses (`RETRYABLE_STATUS`,
+  `inventory-scan.ts`) — matching Google's own documented guidance for the
+  503 case — before surfacing a distinct `provider_busy` error ("The AI
+  service is busy right now") instead of the generic failure message.
+  `REQUEST_TIMEOUT_MS` is 45s (a live test measured ~40s for one
+  successful Gemini free-tier call, comfortably past a shorter timeout)
+  and is shared across every attempt in a call, since only a fast-fail
+  rejection actually gets retried in practice — a slow call is almost
+  always a slow *success*, not a hang. On Vercel, a Server Action's own
+  runtime is capped well below a Route Handler's regardless of plan, and
+  since a `"use server"` file can only export async functions,
+  `src/app/dashboard/inventory/page.tsx` (the route invoking this action)
+  exports `maxDuration = 60` instead — Next.js/Vercel honor that as the
+  invoked action's own ceiling. No effect on a self-hosted deployment,
+  which has no such ceiling to begin with.
 - **Client-side downscale**: the captured/chosen photo is drawn onto an
   off-screen `<canvas>` and re-encoded as JPEG capped at 1568px on its
   longest edge before being sent, both to keep the Server Action's request
