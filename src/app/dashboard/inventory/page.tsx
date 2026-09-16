@@ -99,7 +99,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
             dict={dict.inventory}
             categories={categories}
             locations={locations}
-            configured={Boolean(process.env.ANTHROPIC_API_KEY)}
+            configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
             trigger={
               <Button variant="outline" className="gap-1.5">
                 <Sparkles className="size-4" />

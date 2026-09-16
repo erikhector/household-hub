@@ -1,14 +1,15 @@
 "use client";
 
-// "Scan a shelf" (beta) — take a photo of a shelf/fridge/cupboard and let
-// Claude's vision API guess what's on it, following the same "scan, review,
+// "Scan a shelf" (beta) — take a photo of a shelf/fridge/cupboard and let a
+// vision model guess what's on it, following the same "scan, review,
 // confirm" shape as BulkScanDialog (barcode) and ReceiptScanDialog (OCR)
 // alongside it. The one real difference from those two: this genuinely
-// uploads the photo to Anthropic's API (there's no client-side vision model
-// to run this against instead) — the dialog says so up front, and the photo
-// is never written to the database, only the reviewed name/quantity guesses
-// are (via bulkCreateInventoryItemsAction, same as every other bulk-add path
-// in this file's siblings).
+// uploads the photo to a third-party API — Gemini or Anthropic, whichever
+// scanShelfPhotoAction finds configured (there's no client-side vision
+// model to run this against instead) — the dialog says so up front, and
+// the photo is never written to the database, only the reviewed
+// name/quantity guesses are (via bulkCreateInventoryItemsAction, same as
+// every other bulk-add path in this file's siblings).
 
 import { useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { toast } from "sonner";
@@ -75,7 +76,7 @@ export function AiShelfScanDialog({
   dict: Dictionary["inventory"];
   categories: string[];
   locations: string[];
-  /** Whether ANTHROPIC_API_KEY is set server-side — see src/lib/actions/inventory-scan.ts. */
+  /** Whether GEMINI_API_KEY or ANTHROPIC_API_KEY is set server-side — see src/lib/actions/inventory-scan.ts. */
   configured: boolean;
   trigger: ReactElement;
 }) {

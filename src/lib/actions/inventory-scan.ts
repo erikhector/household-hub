@@ -1,32 +1,38 @@
 "use server";
 
 // AI shelf scan (beta) — src/components/inventory/ai-shelf-scan-dialog.tsx.
-// Takes a photo of a shelf/fridge/cupboard and asks Claude's vision API to
-// guess what's in it, following the same "AI suggests, human confirms"
-// shape as the barcode lookup (src/lib/actions/barcode.ts) and receipt scan
+// Takes a photo of a shelf/fridge/cupboard and asks a vision model to guess
+// what's in it, following the same "AI suggests, human confirms" shape as
+// the barcode lookup (src/lib/actions/barcode.ts) and receipt scan
 // (src/lib/receipt-parsing.ts): nothing here ever writes to the database —
 // the dialog feeds the guesses into bulkCreateInventoryItemsAction (see
 // src/app/dashboard/inventory/actions.ts) only after the user reviews and
 // confirms them.
 //
 // Unlike the barcode scanner and receipt OCR (both fully client-side, photo
-// never leaves the device), this genuinely uploads the photo to Anthropic's
-// API — there's no client-side vision model to run this against instead.
-// The dialog discloses that before the camera opens.
+// never leaves the device), this genuinely uploads the photo to a
+// third-party API — there's no client-side vision model to run this against
+// instead. The dialog discloses that before the camera opens.
+//
+// Two providers, picked at runtime by which key is set (see resolveProvider
+// below) — Gemini is tried first when both are configured, since Google AI
+// Studio's free tier (generativelanguage.googleapis.com, no card required)
+// makes this feature genuinely free to run for a single household, where
+// Anthropic's is metered from the first request. Anthropic remains the
+// fallback for anyone who'd rather keep every AI vendor in the stack the
+// same, or who hits Gemini's free-tier rate limit.
 
 import { z } from "zod";
 import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
-const DEFAULT_MODEL = "claude-sonnet-5";
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
 const REQUEST_TIMEOUT_MS = 30_000;
 
 // A household doing a full pantry audit might scan several shelves in one
 // sitting — generous enough for that, tight enough that a buggy client
-// (or a misuse) can't run up an unbounded API bill.
+// (or a misuse) can't run up an unbounded API bill. Whoever's on Gemini's
+// free tier will likely hit Google's own per-minute cap before this does.
 const SCAN_RATE_LIMIT = 20;
 const SCAN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
@@ -47,7 +53,7 @@ const DATA_URL_RE = /^data:([\w./+-]+);base64,([\s\S]+)$/;
 export type ScannedShelfItem = { name: string; quantity: number };
 export type ScanShelfPhotoResult = { items?: ScannedShelfItem[]; error?: string };
 
-const toolResultSchema = z.object({
+const shelfItemsSchema = z.object({
   items: z
     .array(
       z.object({
@@ -57,6 +63,129 @@ const toolResultSchema = z.object({
     )
     .max(MAX_ITEMS_PER_SCAN),
 });
+
+const SYSTEM_PROMPT =
+  "You are helping someone take inventory of their kitchen by photographing a shelf, fridge, or cupboard. " +
+  "Identify each distinct item visible and estimate how many of each there are. Group identical items into " +
+  "one entry with a combined quantity rather than listing them one by one. Skip anything that clearly isn't " +
+  "food or a household product (people, furniture, walls). If you can't tell exactly what something is, use " +
+  "a generic descriptive name rather than inventing a specific brand or flavor. Report your findings even if " +
+  "it's just one or two items — never report nothing if anything identifiable is visible.";
+
+/** A provider-specific failure — the message is one of the codes
+ * scanShelfPhotoAction already maps to a translated string in
+ * ai-shelf-scan-dialog.tsx, so callers can just re-throw it. */
+class ScanError extends Error {}
+
+// ---------------------------------------------------------------------------
+// Gemini (Google AI Studio) — tried first when configured. Uses the REST
+// generateContent endpoint directly (no @google/genai dependency added, same
+// fetch-a-JSON-API convention this app already uses for Anthropic below and
+// for lookupBarcodeAction/fetchExchangeRate) with responseSchema-constrained
+// JSON output instead of Anthropic's forced tool-use — Gemini has no
+// tool-choice-style "force this exact tool" mode, but a JSON schema on
+// generationConfig gets the same guarantee.
+// ---------------------------------------------------------------------------
+
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// "-latest" is a Google-maintained alias that always resolves to the current
+// stable Flash release, so this doesn't need bumping by hand as new Gemini
+// versions ship — see GEMINI_MODEL below to pin a specific one instead.
+const DEFAULT_GEMINI_MODEL = "gemini-flash-latest";
+
+const GEMINI_ITEMS_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          name: {
+            type: "STRING",
+            description:
+              "Short, generic product name in Title Case (e.g. 'Milk', 'Canned Tomatoes'). Don't guess a brand you can't actually read on the packaging.",
+          },
+          quantity: {
+            type: "NUMBER",
+            description: "How many separate units of this item are visible in the photo.",
+          },
+        },
+        required: ["name", "quantity"],
+      },
+    },
+  },
+  required: ["items"],
+};
+
+type GeminiResponse = {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+  error?: { message?: string };
+};
+
+async function callGemini(
+  apiKey: string,
+  mediaType: string,
+  base64Data: string,
+  signal: AbortSignal,
+): Promise<ScannedShelfItem[]> {
+  const model = process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+
+  const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
+    method: "POST",
+    signal,
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { inlineData: { mimeType: mediaType, data: base64Data } },
+            { text: "Here's the shelf. What's on it?" },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: GEMINI_ITEMS_SCHEMA,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as GeminiResponse | null;
+    logger.error("AI shelf scan (Gemini) request failed", { status: response.status, message: body?.error?.message });
+    throw new ScanError("analysis_failed");
+  }
+
+  const data = (await response.json()) as GeminiResponse;
+  const text = data.candidates?.[0]?.content?.parts?.find((p) => typeof p.text === "string")?.text;
+  if (!text) throw new ScanError("analysis_failed");
+
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    logger.error("AI shelf scan (Gemini) returned non-JSON text", { text });
+    throw new ScanError("analysis_failed");
+  }
+
+  const parsed = shelfItemsSchema.safeParse(json);
+  if (!parsed.success) {
+    logger.error("AI shelf scan (Gemini) returned an unexpected shape", { issues: parsed.error.issues });
+    throw new ScanError("analysis_failed");
+  }
+  return parsed.data.items;
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic (Claude) — fallback provider.
+// ---------------------------------------------------------------------------
+
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_VERSION = "2023-06-01";
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
 
 const SHELF_SCAN_TOOL = {
   name: "report_shelf_items",
@@ -88,14 +217,6 @@ const SHELF_SCAN_TOOL = {
   },
 };
 
-const SYSTEM_PROMPT =
-  "You are helping someone take inventory of their kitchen by photographing a shelf, fridge, or cupboard. " +
-  "Identify each distinct item visible and estimate how many of each there are. Group identical items into " +
-  "one entry with a combined quantity rather than listing them one by one. Skip anything that clearly isn't " +
-  "food or a household product (people, furniture, walls). If you can't tell exactly what something is, use " +
-  "a generic descriptive name rather than inventing a specific brand or flavor. Call report_shelf_items with " +
-  "your findings, even if it's just one or two items — never leave it empty if anything identifiable is visible.";
-
 type AnthropicContentBlock =
   | { type: "text"; text: string }
   | { type: "tool_use"; name: string; input: unknown };
@@ -105,17 +226,80 @@ type AnthropicResponse = {
   error?: { message?: string };
 };
 
-/** Takes a client-captured photo (as a data URL) and returns Claude's best
- * guess at the grocery/household items visible in it. Every guess is a
- * starting point for the review step in ai-shelf-scan-dialog.tsx, never
- * written to the database directly. */
+async function callAnthropic(
+  apiKey: string,
+  mediaType: string,
+  base64Data: string,
+  signal: AbortSignal,
+): Promise<ScannedShelfItem[]> {
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_VERSION,
+    },
+    body: JSON.stringify({
+      model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      tools: [SHELF_SCAN_TOOL],
+      tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+            { type: "text", text: "Here's the shelf. What's on it?" },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
+    logger.error("AI shelf scan (Anthropic) request failed", {
+      status: response.status,
+      message: body?.error?.message,
+    });
+    throw new ScanError("analysis_failed");
+  }
+
+  const data = (await response.json()) as AnthropicResponse;
+  const toolUse = data.content?.find(
+    (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
+  );
+  if (!toolUse) throw new ScanError("analysis_failed");
+
+  const parsed = shelfItemsSchema.safeParse(toolUse.input);
+  if (!parsed.success) {
+    logger.error("AI shelf scan (Anthropic) returned an unexpected shape", { issues: parsed.error.issues });
+    throw new ScanError("analysis_failed");
+  }
+  return parsed.data.items;
+}
+
+// ---------------------------------------------------------------------------
+
+type Provider = { name: "gemini"; apiKey: string } | { name: "anthropic"; apiKey: string };
+
+function resolveProvider(): Provider | null {
+  if (process.env.GEMINI_API_KEY) return { name: "gemini", apiKey: process.env.GEMINI_API_KEY };
+  if (process.env.ANTHROPIC_API_KEY) return { name: "anthropic", apiKey: process.env.ANTHROPIC_API_KEY };
+  return null;
+}
+
+/** Takes a client-captured photo (as a data URL) and returns the configured
+ * provider's best guess at the grocery/household items visible in it. Every
+ * guess is a starting point for the review step in
+ * ai-shelf-scan-dialog.tsx, never written to the database directly. */
 export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanShelfPhotoResult> {
   const { household } = await requireHousehold();
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { error: "not_configured" };
-  }
+  const provider = resolveProvider();
+  if (!provider) return { error: "not_configured" };
 
   if (!(await checkRateLimit(`ai-shelf-scan:${household.id}`, SCAN_RATE_LIMIT, SCAN_RATE_LIMIT_WINDOW_MS))) {
     return { error: "rate_limited" };
@@ -134,53 +318,14 @@ export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanSh
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify({
-        model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_MODEL,
-        max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        tools: [SHELF_SCAN_TOOL],
-        tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-              { type: "text", text: "Here's the shelf. What's on it?" },
-            ],
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as AnthropicResponse | null;
-      logger.error("AI shelf scan request failed", { status: response.status, message: body?.error?.message });
-      return { error: "analysis_failed" };
-    }
-
-    const data = (await response.json()) as AnthropicResponse;
-    const toolUse = data.content?.find(
-      (block): block is Extract<AnthropicContentBlock, { type: "tool_use" }> => block.type === "tool_use",
-    );
-    if (!toolUse) return { error: "analysis_failed" };
-
-    const parsed = toolResultSchema.safeParse(toolUse.input);
-    if (!parsed.success) {
-      logger.error("AI shelf scan returned an unexpected shape", { issues: parsed.error.issues });
-      return { error: "analysis_failed" };
-    }
-
-    return { items: parsed.data.items };
+    const items =
+      provider.name === "gemini"
+        ? await callGemini(provider.apiKey, mediaType, base64Data, controller.signal)
+        : await callAnthropic(provider.apiKey, mediaType, base64Data, controller.signal);
+    return { items };
   } catch (error) {
-    logger.error("AI shelf scan request errored", { error });
+    if (error instanceof ScanError) return { error: error.message };
+    logger.error(`AI shelf scan (${provider.name}) request errored`, { error });
     return { error: "analysis_failed" };
   } finally {
     clearTimeout(timeout);

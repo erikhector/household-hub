@@ -944,29 +944,37 @@ split) in a way this app's other scan features aren't.
   send the camera image anywhere — decoding/OCR both run entirely
   client-side. There's no equivalent client-side model for "what groceries
   are in this photo", so this feature's photo **is** uploaded to a
-  third-party API (Anthropic's) for analysis. The dialog says so before the
-  camera opens, and the photo itself is never persisted anywhere (not
-  written to disk, not stored in the database) — only the reviewed
-  name/quantity guesses are, exactly like the other two features' review
-  step.
-- **Vision call** (`scanShelfPhotoAction`, `src/lib/actions/inventory-scan.ts`):
-  a Server Action that calls the Anthropic Messages API directly via `fetch`
-  (no SDK dependency added, matching this app's existing
-  fetch-a-JSON-API convention in `lookupBarcodeAction`/`fetchExchangeRate`),
-  forcing a `report_shelf_items` tool call so the response is
-  structured `{ items: [{ name, quantity }] }` rather than free text to
-  parse. Requires `ANTHROPIC_API_KEY` (see `.env.example`); without it set,
-  the dialog explains the feature isn't configured instead of erroring
-  after a photo is taken, same fails-gracefully pattern as
+  third-party API for analysis. The dialog says so before the camera opens,
+  and the photo itself is never persisted anywhere (not written to disk,
+  not stored in the database) — only the reviewed name/quantity guesses
+  are, exactly like the other two features' review step.
+- **Two providers, picked at runtime** (`scanShelfPhotoAction`,
+  `src/lib/actions/inventory-scan.ts`): `resolveProvider()` uses
+  **Gemini** (Google AI Studio, `generativelanguage.googleapis.com`) when
+  `GEMINI_API_KEY` is set, else **Anthropic** (Claude) when
+  `ANTHROPIC_API_KEY` is set, else the feature reports itself unconfigured.
+  Gemini goes first because its free tier (no card required) makes this
+  feature genuinely free to run at a single-household scale, where
+  Anthropic's is metered from the first request — see `.env.example` for
+  both. Both are called directly via `fetch` (no SDK dependency added,
+  matching this app's existing fetch-a-JSON-API convention in
+  `lookupBarcodeAction`/`fetchExchangeRate`), each constrained to the same
+  `{ items: [{ name, quantity }] }` output shape — Anthropic via a forced
+  `report_shelf_items` tool call, Gemini via `responseSchema`-constrained
+  JSON output (Gemini has no forced-tool-choice equivalent) — and validated
+  through the same Zod schema either way, so the rest of the action and the
+  whole review UI are provider-agnostic. Without either key set, the dialog
+  explains the feature isn't configured instead of erroring after a photo
+  is taken, same fails-gracefully pattern as
   `RESEND_API_KEY`/`VAPID_PRIVATE_KEY`. Rate-limited per household
-  (`checkRateLimit`, 20/hour) since every scan costs real money, unlike the
-  free Open Food Facts/Frankfurter lookups the other scan features call.
+  (`checkRateLimit`, 20/hour) since a scan against Anthropic costs real
+  money — on Gemini's free tier, Google's own per-minute cap binds first.
 - **Client-side downscale**: the captured/chosen photo is drawn onto an
   off-screen `<canvas>` and re-encoded as JPEG capped at 1568px on its
   longest edge before being sent, both to keep the Server Action's request
   body small (Next's default 1MB body limit is raised to 6MB for this one
   action in `next.config.ts`) and because that's roughly the resolution
-  past which Claude's vision models stop gaining any accuracy.
+  past which either provider's vision models stop gaining any accuracy.
 - **Review before anything is written**: identical shape to the other bulk
   inventory flows — a shared category/location applies to the whole batch
   (`ComboField`, matching `BulkScanDialog`/`BulkPasteDialog`'s existing "one
