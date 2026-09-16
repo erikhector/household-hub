@@ -456,12 +456,29 @@ export const en = {
       triggerLabel: "Scan a shelf",
       betaBadge: "Beta",
       dialogTitle: "Scan a shelf with AI",
+      modeAddLabel: "Add items",
+      modeRestockLabel: "Take stock",
       subtitle:
         "Take a photo of a shelf, fridge, or cupboard and AI will guess what's on it — review and fix anything before it's added. Your photo is sent to a third-party AI service for this; it isn't stored anywhere.",
+      restockSubtitle:
+        "Take a photo and AI will try to match what it sees against items you already track, so you can update their counts to what's actually there. Anything it doesn't recognize is still added as new. Your photo is sent to a third-party AI service for this; it isn't stored anywhere.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
       analyzing: "Looking at your photo…",
       reviewSubtitle: "Here's what AI thinks it sees — check the names and counts before adding.",
+      reviewSubtitleRestock:
+        "Here's what AI thinks it sees. Matched items will have their count updated to what's shown; anything else will be added as new — check both before saving.",
+      matchedItemLabel: "Matches {name} (was {quantity} {unit})",
+      newItemLabel: "New item",
+      unmatchButton: "Not a match",
+      applyRestockButton: {
+        one: "Save {count} change",
+        other: "Save {count} changes",
+      },
+      updatedToast: {
+        one: "Updated {count} item",
+        other: "Updated {count} items",
+      },
       noItemsFoundError: "Couldn't identify anything in that photo. Try a clearer, closer shot.",
       analysisFailedError: "Something went wrong analyzing that photo. Try again.",
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",

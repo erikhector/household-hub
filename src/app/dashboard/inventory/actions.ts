@@ -248,6 +248,65 @@ export async function bulkCreateInventoryItemsAction(
   return { added, skipped };
 }
 
+const bulkSetQuantitySchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        itemId: z.string().trim().min(1),
+        quantity: z.coerce
+          .number()
+          .min(0)
+          .transform((n) => Math.round(n * 100) / 100),
+      }),
+    )
+    .min(1)
+    .max(300),
+});
+
+// "Take stock" path for the AI shelf scan's restock mode
+// (src/components/inventory/ai-shelf-scan-dialog.tsx, src/lib/actions/inventory-scan.ts):
+// unlike bulkCreateInventoryItemsAction's additive dedupe, every update here
+// *sets* an already-existing item's quantity to what was just counted —
+// the household looked straight at the shelf, so the scanned count is the
+// new truth, not a delta to add on top of what was already on record.
+// Silently skips any itemId that isn't (or is no longer) one of this
+// household's items rather than erroring the whole batch over it.
+export async function bulkSetInventoryQuantitiesAction(
+  updates: { itemId: string; quantity: number }[],
+): Promise<{ error?: string; updated?: number }> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = bulkSetQuantitySchema.safeParse({ updates });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  let updated = 0;
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { householdId: household.id, id: { in: parsed.data.updates.map((u) => u.itemId) } },
+    });
+    const itemsById = new Map(items.map((item) => [item.id, item]));
+
+    for (const update of parsed.data.updates) {
+      const item = itemsById.get(update.itemId);
+      if (!item) continue;
+      await prisma.inventoryItem.update({
+        where: { id: item.id },
+        data: { quantity: update.quantity, updatedByUserId: userId },
+      });
+      await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, update.quantity, userId);
+      updated += 1;
+    }
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return { updated };
+}
+
 // Bulk-inserts a starter kit's selected items in one round trip. `category`
 // and `names` arrive already translated by the client — it rendered them
 // from the same locale dictionary this server action would otherwise have

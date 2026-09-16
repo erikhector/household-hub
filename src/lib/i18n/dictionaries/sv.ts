@@ -448,12 +448,29 @@ export const sv = {
       triggerLabel: "Skanna en hylla",
       betaBadge: "Beta",
       dialogTitle: "Skanna en hylla med AI",
+      modeAddLabel: "Lägg till varor",
+      modeRestockLabel: "Inventera",
       subtitle:
         "Ta ett foto av en hylla, kylskåp eller skåp så gissar AI vad som finns där — granska och rätta innan det läggs till. Fotot skickas till en extern AI-tjänst för detta; det sparas inte någonstans.",
+      restockSubtitle:
+        "Ta ett foto så försöker AI matcha det den ser mot varor du redan har registrerade, så att du kan uppdatera antalet till vad som faktiskt finns. Sådant den inte känner igen läggs ändå till som nytt. Fotot skickas till en extern AI-tjänst för detta; det sparas inte någonstans.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
       analyzing: "Tittar på ditt foto…",
       reviewSubtitle: "Så här tror AI att det ser ut — kontrollera namn och antal innan du lägger till.",
+      reviewSubtitleRestock:
+        "Så här tror AI att det ser ut. Matchade varor får sitt antal uppdaterat till det som visas; allt annat läggs till som nytt — kontrollera båda innan du sparar.",
+      matchedItemLabel: "Matchar {name} (var {quantity} {unit})",
+      newItemLabel: "Ny vara",
+      unmatchButton: "Inte en matchning",
+      applyRestockButton: {
+        one: "Spara {count} ändring",
+        other: "Spara {count} ändringar",
+      },
+      updatedToast: {
+        one: "Uppdaterade {count} vara",
+        other: "Uppdaterade {count} varor",
+      },
       noItemsFoundError: "Kunde inte identifiera något på fotot. Prova ett tydligare, närmare foto.",
       analysisFailedError: "Något gick fel när fotot analyserades. Försök igen.",
       rateLimitedError: "För många skanningar på kort tid — vänta lite och försök igen.",

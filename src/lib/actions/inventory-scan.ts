@@ -5,9 +5,9 @@
 // what's in it, following the same "AI suggests, human confirms" shape as
 // the barcode lookup (src/lib/actions/barcode.ts) and receipt scan
 // (src/lib/receipt-parsing.ts): nothing here ever writes to the database —
-// the dialog feeds the guesses into bulkCreateInventoryItemsAction (see
-// src/app/dashboard/inventory/actions.ts) only after the user reviews and
-// confirms them.
+// the dialog feeds the guesses into bulkCreateInventoryItemsAction or
+// bulkSetInventoryQuantitiesAction (see src/app/dashboard/inventory/actions.ts)
+// only after the user reviews and confirms them.
 //
 // Unlike the barcode scanner and receipt OCR (both fully client-side, photo
 // never leaves the device), this genuinely uploads the photo to a
@@ -24,8 +24,19 @@
 // Google's own guidance for an overloaded model is to try a different one
 // (a different model is a different capacity pool), so that's tried before
 // spending real money falling through to Anthropic.
+//
+// Two modes, chosen by the dialog's mode toggle:
+// - "add": the default — every identified item is a candidate to create.
+// - "restock" ("Take stock"): for a household doing a walkthrough recount
+//   rather than a first-time cupboard fill. The household's current item
+//   names are included in the prompt and the model is asked to line up
+//   each thing it sees against one of them (matchedExistingItem below) —
+//   resolveMatches then turns a confident match back into a real item id
+//   so the dialog can offer to *set* that item's quantity to what was just
+//   counted, instead of creating a duplicate row.
 
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
@@ -61,27 +72,90 @@ const MAX_BASE64_LENGTH = 6_000_000;
 
 const DATA_URL_RE = /^data:([\w./+-]+);base64,([\s\S]+)$/;
 
-export type ScannedShelfItem = { name: string; quantity: number };
+export type ScanShelfMode = "add" | "restock";
+
+export type ScannedShelfItem = {
+  name: string;
+  quantity: number;
+  /** Set only in "restock" mode, and only when resolveMatches found a
+   * confident, real household item for the model's matchedExistingItem
+   * guess — see the mode comment at the top of this file. */
+  matchedItemId?: string;
+  matchedItemName?: string;
+  previousQuantity?: number;
+  previousUnit?: string;
+};
 export type ScanShelfPhotoResult = { items?: ScannedShelfItem[]; error?: string };
 
+// What the model itself reports — matchedExistingItem is a free-text guess
+// at one of the existingNames passed into buildSystemPrompt, not yet a
+// verified item id. resolveMatches (below) is what turns this into a real
+// ScannedShelfItem, so a hallucinated name that isn't actually in the
+// household's inventory just falls back to being treated as a new item.
+const rawScannedItemSchema = z.object({
+  name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
+  quantity: z.coerce.number().positive().max(999).default(1),
+  matchedExistingItem: z.string().trim().min(1).max(NAME_MAX_LENGTH).nullable().optional(),
+});
+type RawScannedItem = z.infer<typeof rawScannedItemSchema>;
+
 const shelfItemsSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
-        quantity: z.coerce.number().positive().max(999).default(1),
-      }),
-    )
-    .max(MAX_ITEMS_PER_SCAN),
+  items: z.array(rawScannedItemSchema).max(MAX_ITEMS_PER_SCAN),
 });
 
-const SYSTEM_PROMPT =
+// Sent in the prompt for "restock" mode only — bounds token cost and, more
+// importantly, keeps a household with a large inventory from blowing past a
+// model's context window. Alphabetical (not, say, most-recently-updated) so
+// which items make the cut is at least predictable.
+const MAX_EXISTING_ITEMS_IN_PROMPT = 300;
+
+const BASE_SYSTEM_PROMPT =
   "You are helping someone take inventory of their kitchen by photographing a shelf, fridge, or cupboard. " +
   "Identify each distinct item visible and estimate how many of each there are. Group identical items into " +
   "one entry with a combined quantity rather than listing them one by one. Skip anything that clearly isn't " +
   "food or a household product (people, furniture, walls). If you can't tell exactly what something is, use " +
   "a generic descriptive name rather than inventing a specific brand or flavor. Report your findings even if " +
   "it's just one or two items — never report nothing if anything identifiable is visible.";
+
+/** Appends matching instructions when doing a restock scan against a
+ * non-empty inventory; unchanged from the plain add-mode prompt otherwise
+ * (an empty households.list means there's nothing to match against). */
+function buildSystemPrompt(existingNames: string[]): string {
+  if (existingNames.length === 0) return BASE_SYSTEM_PROMPT;
+  return (
+    BASE_SYSTEM_PROMPT +
+    " The household's current inventory already includes these items: " +
+    existingNames.join(", ") +
+    ". For each item you identify in the photo, if it clearly is one of the items in that list — even if " +
+    "worded differently (e.g. 'Milk' vs 'Whole Milk 1L') — copy that list entry's name exactly into " +
+    "matchedExistingItem. If it doesn't clearly match any of them, leave matchedExistingItem null so a new " +
+    "item can be created instead. Never invent a matchedExistingItem name that isn't verbatim in that list."
+  );
+}
+
+function normalizeItemName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+/** Turns the model's free-text matchedExistingItem guesses into real item
+ * ids, ignoring any guess that doesn't exactly (case/whitespace-insensitively)
+ * match a name the household actually has — see the mode comment above. */
+function resolveMatches(
+  items: RawScannedItem[],
+  existingByName: Map<string, { id: string; name: string; quantity: number; unit: string }>,
+): ScannedShelfItem[] {
+  return items.map(({ matchedExistingItem, ...item }) => {
+    const match = matchedExistingItem ? existingByName.get(normalizeItemName(matchedExistingItem)) : undefined;
+    if (!match) return item;
+    return {
+      ...item,
+      matchedItemId: match.id,
+      matchedItemName: match.name,
+      previousQuantity: match.quantity,
+      previousUnit: match.unit,
+    };
+  });
+}
 
 /** A provider-specific failure — the message is one of the codes
  * scanShelfPhotoAction already maps to a translated string in
@@ -143,6 +217,13 @@ const GEMINI_ITEMS_SCHEMA = {
             type: "NUMBER",
             description: "How many separate units of this item are visible in the photo.",
           },
+          matchedExistingItem: {
+            type: "STRING",
+            nullable: true,
+            description:
+              "Only set when the system prompt lists the household's existing items and this one clearly " +
+              "matches one of them — copy that list entry's name exactly. Otherwise omit or leave null.",
+          },
         },
         required: ["name", "quantity"],
       },
@@ -159,16 +240,17 @@ type GeminiResponse = {
 async function callGemini(
   apiKey: string,
   model: string,
+  systemPrompt: string,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-): Promise<ScannedShelfItem[]> {
+): Promise<RawScannedItem[]> {
   const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
     method: "POST",
     signal,
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [
         {
           role: "user",
@@ -240,6 +322,12 @@ const SHELF_SCAN_TOOL = {
               type: "number",
               description: "How many separate units of this item are visible in the photo.",
             },
+            matchedExistingItem: {
+              type: ["string", "null"],
+              description:
+                "Only set when the system prompt lists the household's existing items and this one clearly " +
+                "matches one of them — copy that list entry's name exactly. Otherwise omit or leave null.",
+            },
           },
           required: ["name", "quantity"],
         },
@@ -260,10 +348,11 @@ type AnthropicResponse = {
 
 async function callAnthropic(
   apiKey: string,
+  systemPrompt: string,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-): Promise<ScannedShelfItem[]> {
+): Promise<RawScannedItem[]> {
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
     signal,
@@ -275,7 +364,7 @@ async function callAnthropic(
     body: JSON.stringify({
       model: process.env.INVENTORY_SCAN_MODEL || DEFAULT_ANTHROPIC_MODEL,
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       tools: [SHELF_SCAN_TOOL],
       tool_choice: { type: "tool", name: SHELF_SCAN_TOOL.name },
       messages: [
@@ -344,14 +433,17 @@ function resolveAttempts(): Attempt[] {
 
 function callAttempt(
   attempt: Attempt,
+  systemPrompt: string,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
-): Promise<ScannedShelfItem[]> {
+): Promise<RawScannedItem[]> {
   return attempt.kind === "gemini"
-    ? callGemini(attempt.apiKey, attempt.model, mediaType, base64Data, signal)
-    : callAnthropic(attempt.apiKey, mediaType, base64Data, signal);
+    ? callGemini(attempt.apiKey, attempt.model, systemPrompt, mediaType, base64Data, signal)
+    : callAnthropic(attempt.apiKey, systemPrompt, mediaType, base64Data, signal);
 }
+
+type RawScanResult = { items?: RawScannedItem[]; error?: string };
 
 /** Walks the attempt chain in order, moving to the next entry only when the
  * current one reports itself busy (not for a real analysis failure —
@@ -360,15 +452,16 @@ function callAttempt(
  * another attempt to be worth starting. */
 async function callAttempts(
   attempts: Attempt[],
+  systemPrompt: string,
   mediaType: string,
   base64Data: string,
   signal: AbortSignal,
   deadlineAt: number,
-): Promise<ScanShelfPhotoResult> {
+): Promise<RawScanResult> {
   for (let i = 0; i < attempts.length; i++) {
     const attempt = attempts[i];
     try {
-      return { items: await callAttempt(attempt, mediaType, base64Data, signal) };
+      return { items: await callAttempt(attempt, systemPrompt, mediaType, base64Data, signal) };
     } catch (error) {
       const hasNext = i < attempts.length - 1;
       const hasTime = deadlineAt - Date.now() > MIN_ATTEMPT_BUDGET_MS;
@@ -400,8 +493,17 @@ async function callAttempts(
 /** Takes a client-captured photo (as a data URL) and returns the first
  * successful attempt's best guess at the grocery/household items visible
  * in it. Every guess is a starting point for the review step in
- * ai-shelf-scan-dialog.tsx, never written to the database directly. */
-export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanShelfPhotoResult> {
+ * ai-shelf-scan-dialog.tsx, never written to the database directly.
+ *
+ * In "restock" mode (the dialog's "Take stock" toggle), the household's
+ * current item names are folded into the prompt so the model can also
+ * report which existing item each guess corresponds to — resolveMatches
+ * turns a confident guess into a real matchedItemId/previousQuantity pair
+ * the dialog can offer to overwrite instead of creating a duplicate. */
+export async function scanShelfPhotoAction(
+  photoDataUrl: string,
+  mode: ScanShelfMode = "add",
+): Promise<ScanShelfPhotoResult> {
   const { household } = await requireHousehold();
 
   const attempts = resolveAttempts();
@@ -420,12 +522,26 @@ export async function scanShelfPhotoAction(photoDataUrl: string): Promise<ScanSh
   const [, mediaType, base64Data] = match;
   if (!ALLOWED_MEDIA_TYPES.has(mediaType)) return { error: "invalid_photo" };
 
+  const existingItems =
+    mode === "restock"
+      ? await prisma.inventoryItem.findMany({
+          where: { householdId: household.id },
+          select: { id: true, name: true, quantity: true, unit: true },
+          orderBy: { name: "asc" },
+          take: MAX_EXISTING_ITEMS_IN_PROMPT,
+        })
+      : [];
+  const existingByName = new Map(existingItems.map((item) => [normalizeItemName(item.name), item]));
+  const systemPrompt = buildSystemPrompt([...existingByName.values()].map((item) => item.name));
+
   const deadlineAt = Date.now() + REQUEST_TIMEOUT_MS;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    return await callAttempts(attempts, mediaType, base64Data, controller.signal, deadlineAt);
+    const result = await callAttempts(attempts, systemPrompt, mediaType, base64Data, controller.signal, deadlineAt);
+    if (result.error) return { error: result.error };
+    return { items: resolveMatches(result.items ?? [], existingByName) };
   } finally {
     clearTimeout(timeout);
   }
