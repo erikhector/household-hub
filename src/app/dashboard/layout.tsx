@@ -67,7 +67,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             dismissed={emailVerificationDismissed}
           />
         </Suspense>
-        <header className="border-b bg-background px-4 py-3 sm:hidden">
+        <header className="border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
         </header>
         <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 py-8 pb-24 sm:max-w-5xl sm:pb-8">{children}</main>

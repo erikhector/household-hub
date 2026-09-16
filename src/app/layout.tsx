@@ -44,6 +44,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Without this, iOS reserves the notch/Dynamic Island and home-indicator
+  // strips itself and never lets content draw there — which also means
+  // env(safe-area-inset-*) resolves to 0, so the padding BottomNav and the
+  // bottom-sheet Dialog already apply for the home indicator (see
+  // bottom-nav.tsx, dialog.tsx) has no effect. "cover" hands that area to us
+  // instead, so those existing safe-area paddings actually take over it.
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
