@@ -260,7 +260,7 @@ export function ShoppingItemFormDialog({
               render={
                 <Badge
                   variant="outline"
-                  className="shrink-0 cursor-pointer border-dashed text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950"
+                  className="shrink-0 cursor-pointer border-dashed text-warning hover:bg-warning/10"
                 >
                   {matchItemLabel}
                 </Badge>

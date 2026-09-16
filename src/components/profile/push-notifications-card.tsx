@@ -118,7 +118,7 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
       {status === "denied" && <p className="text-sm text-muted-foreground">{dict.permissionDenied}</p>}
       {status === "subscribed" && (
         <div className="flex items-center gap-3">
-          <p className="text-sm text-emerald-500">{dict.enabled}</p>
+          <p className="text-sm text-chart-5">{dict.enabled}</p>
           <Button type="button" variant="outline" size="sm" onClick={handleUnsubscribe} disabled={pending}>
             <BellOff className="size-4" />
             {dict.disableButton}

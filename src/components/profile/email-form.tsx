@@ -53,7 +53,7 @@ export function EmailForm({
         <Label htmlFor="currentEmail">{dict.currentEmailLabel}</Label>
         <Input key={email} id="currentEmail" defaultValue={email} disabled />
         {!verified && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-amber-900 dark:text-amber-400">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-warning">
             <MailWarning className="size-3.5 shrink-0" />
             <span>{resendState.sent ? dict.verificationSent : dict.notVerified}</span>
             <form action={resendFormAction}>
@@ -62,7 +62,7 @@ export function EmailForm({
                 variant="outline"
                 size="sm"
                 disabled={resendPending || resendState.sent}
-                className="h-6 border-amber-500/30 bg-transparent px-2 text-xs text-amber-900 hover:bg-amber-500/10 dark:text-amber-400"
+                className="h-6 border-warning/30 bg-transparent px-2 text-xs text-warning hover:bg-warning/10"
               >
                 {resendPending ? dict.resendingVerification : dict.resendVerification}
               </Button>

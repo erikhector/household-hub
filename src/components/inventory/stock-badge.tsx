@@ -6,6 +6,6 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 export function StockBadge({ status, dict }: { status: StockStatus; dict: Dictionary["inventory"] }) {
   if (status === "out") return <Badge variant="destructive">{dict.statusOut}</Badge>;
-  if (status === "low") return <Badge className="bg-amber-500 text-white">{dict.statusLow}</Badge>;
+  if (status === "low") return <Badge variant="warning">{dict.statusLow}</Badge>;
   return <Badge variant="secondary">{dict.statusIn}</Badge>;
 }

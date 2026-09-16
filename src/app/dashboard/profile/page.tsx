@@ -19,7 +19,7 @@ export default async function ProfilePage() {
       <div className="flex items-center gap-4">
         <UserAvatar displayName={user.displayName} seed={user.id} />
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{dict.profile.title}</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.profile.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.profile.subtitle}</p>
           <p className="mt-1 text-xs text-muted-foreground">{dict.profile.avatar.description}</p>
         </div>

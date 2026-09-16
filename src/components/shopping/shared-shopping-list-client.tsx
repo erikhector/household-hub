@@ -49,7 +49,7 @@ export function SharedShoppingListClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight break-words">{list.name}</h1>
+      <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">{list.name}</h1>
 
       {items.length === 0 ? (
         <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

@@ -35,7 +35,7 @@ export function VerifyEmailClient({
   if (state.status === "verified" || state.status === "alreadyVerified") {
     return (
       <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <CheckCircle2 className="size-10 text-emerald-500" />
+        <CheckCircle2 className="size-10 text-chart-5" />
         <p className="text-sm text-muted-foreground">
           {state.status === "verified" ? dict.verifiedDescription : dict.alreadyVerifiedDescription}
         </p>

@@ -48,7 +48,7 @@ export function MealPlanningView({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{dict.title}</h1>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.title}</h1>
         <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
       </div>
 

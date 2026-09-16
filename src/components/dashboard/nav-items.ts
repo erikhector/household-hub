@@ -24,22 +24,40 @@ export type NavKey =
   | "household"
   | "profile";
 
+// Each section (other than the neutral "overview"/home tab) gets one of the
+// app's existing --chart-1..5 hues as a wayfinding accent, applied as a
+// tinted icon tile (see NAV_ICON_TILE_CLASSES below) — the same "recognize
+// the screen by color before reading the label" pattern Apple's system apps
+// use. Deliberately skips chart-4, whose hue is identical to --primary (the
+// active-row fill color), to avoid a section tile reading as indistinguishable
+// from the active state. Full literal class strings below (not built from
+// the token name) so Tailwind's JIT scanner can see them statically.
+export type NavColor = "chart-1" | "chart-2" | "chart-3" | "chart-5";
+
+export const NAV_ICON_TILE_CLASSES: Record<NavColor, string> = {
+  "chart-1": "bg-chart-1/15 text-chart-1",
+  "chart-2": "bg-chart-2/15 text-chart-2",
+  "chart-3": "bg-chart-3/15 text-chart-3",
+  "chart-5": "bg-chart-5/15 text-chart-5",
+};
+
 export type NavItem = {
   href: string;
   key: NavKey;
   icon: ComponentType<{ className?: string }>;
+  color?: NavColor;
 };
 
 export const navItems: NavItem[] = [
   { href: "/dashboard", key: "overview", icon: LayoutDashboard },
-  { href: "/dashboard/inventory", key: "inventory", icon: Package },
-  { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart },
-  { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays },
-  { href: "/dashboard/tasks", key: "tasks", icon: ListChecks },
-  { href: "/dashboard/budget", key: "budget", icon: Wallet },
-  { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank },
-  { href: "/dashboard/household", key: "household", icon: Users },
-  { href: "/dashboard/profile", key: "profile", icon: User },
+  { href: "/dashboard/inventory", key: "inventory", icon: Package, color: "chart-1" },
+  { href: "/dashboard/shopping-list", key: "shoppingList", icon: ShoppingCart, color: "chart-2" },
+  { href: "/dashboard/meal-planning", key: "mealPlanning", icon: CalendarDays, color: "chart-3" },
+  { href: "/dashboard/tasks", key: "tasks", icon: ListChecks, color: "chart-5" },
+  { href: "/dashboard/budget", key: "budget", icon: Wallet, color: "chart-1" },
+  { href: "/dashboard/personal-budget", key: "personalBudget", icon: PiggyBank, color: "chart-2" },
+  { href: "/dashboard/household", key: "household", icon: Users, color: "chart-3" },
+  { href: "/dashboard/profile", key: "profile", icon: User, color: "chart-5" },
 ];
 
 // The mobile bottom bar only has room for ~5 icons. These four see the most

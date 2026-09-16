@@ -16,6 +16,7 @@ import {
   primaryMobileNavItems,
   overflowMobileNavItems,
   isNavItemActive,
+  NAV_ICON_TILE_CLASSES,
 } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
@@ -79,7 +80,7 @@ export function BottomNav({
             opacity: activeIndex === -1 ? 0 : 1,
           }}
         />
-        {primaryMobileNavItems.map(({ href, key, icon: Icon }) => {
+        {primaryMobileNavItems.map(({ href, key, icon: Icon, color }) => {
           const active = isNavItemActive(pathname, href);
           return (
             <Link
@@ -90,7 +91,14 @@ export function BottomNav({
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <Icon className="size-5" />
+              <span
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  !active && color && NAV_ICON_TILE_CLASSES[color],
+                )}
+              >
+                <Icon className="size-5" />
+              </span>
               <span className="w-full text-center leading-tight break-words">{dict.nav[key]}</span>
             </Link>
           );
@@ -119,9 +127,16 @@ export function BottomNav({
             {dict.nav.more}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" sideOffset={8}>
-            {overflowMobileNavItems.map(({ href, key, icon: Icon }) => (
+            {overflowMobileNavItems.map(({ href, key, icon: Icon, color }) => (
               <DropdownMenuItem key={href} render={<Link href={href} />}>
-                <Icon className="size-4" />
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded-md",
+                    color && NAV_ICON_TILE_CLASSES[color],
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                </span>
                 {dict.nav[key]}
               </DropdownMenuItem>
             ))}

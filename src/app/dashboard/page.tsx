@@ -109,7 +109,7 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight break-words">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">
           {format(dict.dashboard.greeting[greetingKey(now)], { name: user.displayName })}
         </h1>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
@@ -121,7 +121,9 @@ export default async function DashboardOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-              <ListChecks className="size-4 shrink-0 text-muted-foreground" />
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-5/15 text-chart-5">
+                <ListChecks className="size-4 shrink-0" />
+              </span>
               {dict.dashboard.yourTasksTitle}
             </CardTitle>
           </CardHeader>
@@ -171,7 +173,9 @@ export default async function DashboardOverviewPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-                <PiggyBank className="size-4 shrink-0 text-muted-foreground" />
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-2/15 text-chart-2">
+                  <PiggyBank className="size-4 shrink-0" />
+                </span>
                 {dict.dashboard.yourBudgetTitle}
               </CardTitle>
             </CardHeader>
@@ -221,7 +225,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">{lowStock.length}</p>
+              <p className="font-display text-3xl font-semibold text-chart-1">{lowStock.length}</p>
               {outOfStock.length > 0 && (
                 <p className="text-sm text-destructive">
                   {format(plural(outOfStock.length, dict.dashboard.outOfStock), {
@@ -247,7 +251,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">{pendingShoppingItems}</p>
+              <p className="font-display text-3xl font-semibold text-chart-2">{pendingShoppingItems}</p>
               <p className="text-sm text-muted-foreground">
                 {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
                   count: activeLists.length,
@@ -271,7 +275,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-semibold">{items.length}</p>
+              <p className="font-display text-3xl font-semibold text-chart-1">{items.length}</p>
               <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
             </CardContent>
           </Card>

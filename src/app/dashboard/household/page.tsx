@@ -26,7 +26,7 @@ export default async function HouseholdPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{dict.household.title}</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.household.title}</h1>
           <p className="truncate text-sm text-muted-foreground" title={household.name}>
             {household.name}
           </p>

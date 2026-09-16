@@ -13,5 +13,5 @@ export function ExpiryBadge({ expiresAt, dict }: { expiresAt: Date | null; dict:
   const status = getExpiryStatus(expiresAt, now);
   if (!status) return null;
   if (status === "expired") return <Badge variant="destructive">{dict.expired}</Badge>;
-  return <Badge className="bg-amber-500 text-white">{dict.expiringSoon}</Badge>;
+  return <Badge variant="attention">{dict.expiringSoon}</Badge>;
 }

@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Languages, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
-import { navItems, isNavItemActive, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
+import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
@@ -81,7 +81,7 @@ export function Sidebar({
         )}
       </div>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {navItems.map(({ href, key, icon: Icon }) => {
+        {navItems.map(({ href, key, icon: Icon, color }) => {
           const active = isNavItemActive(pathname, href);
           const label = dict.nav[key];
           return (
@@ -97,7 +97,14 @@ export function Sidebar({
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <Icon className="size-4 shrink-0" />
+              <span
+                className={cn(
+                  "flex size-6 shrink-0 items-center justify-center rounded-md transition-colors",
+                  !active && color && NAV_ICON_TILE_CLASSES[color],
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+              </span>
               {expanded && <span className="truncate">{label}</span>}
             </Link>
           );

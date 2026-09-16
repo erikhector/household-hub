@@ -14,7 +14,7 @@ import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-
 // alarming as actually being over.
 const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
   healthy: "text-chart-5",
-  tight: "text-amber-600 dark:text-amber-500",
+  tight: "text-warning",
   over: "text-destructive",
 };
 

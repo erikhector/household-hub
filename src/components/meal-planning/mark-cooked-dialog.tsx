@@ -156,7 +156,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                       />
                       <span className="text-xs text-muted-foreground">{item.unit}</span>
                       {item.unitMismatch && (
-                        <span className="text-xs text-amber-600 dark:text-amber-500">
+                        <span className="text-xs text-warning">
                           {format(dict.cookedIngredientUnitMismatchNote, {
                             quantity: item.requiredQuantity,
                             unit: item.requiredUnit,

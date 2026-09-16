@@ -64,7 +64,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
           {isWellStocked && <p className="text-xs text-muted-foreground">{dict.inventory.wellStocked}</p>}
         </div>

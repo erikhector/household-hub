@@ -31,10 +31,10 @@ export default async function LoginPage(props: PageProps<"/login">) {
         </CardHeader>
         <CardContent>
           {showPasswordResetSuccess && (
-            <p className="mb-4 text-sm text-emerald-500">{dict.auth.login.passwordResetSuccess}</p>
+            <p className="mb-4 text-sm text-chart-5">{dict.auth.login.passwordResetSuccess}</p>
           )}
           {showAccountDeletedSuccess && (
-            <p className="mb-4 text-sm text-emerald-500">{dict.auth.login.accountDeletedSuccess}</p>
+            <p className="mb-4 text-sm text-chart-5">{dict.auth.login.accountDeletedSuccess}</p>
           )}
           <LoginForm dict={dict.auth.login} />
         </CardContent>

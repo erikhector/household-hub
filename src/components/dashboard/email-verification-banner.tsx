@@ -43,7 +43,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-400">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-sm text-warning">
       <MailWarning className="size-4 shrink-0" />
       <span className="flex-1">
         {state.sent ? dict.sent : state.error ? state.error : dict.message}
@@ -54,7 +54,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
           variant="outline"
           size="sm"
           disabled={pending || state.sent}
-          className="h-7 border-amber-500/30 bg-transparent text-xs text-amber-900 hover:bg-amber-500/10 dark:text-amber-400"
+          className="h-7 border-warning/30 bg-transparent text-xs text-warning hover:bg-warning/10"
         >
           {pending ? dict.resending : dict.resend}
         </Button>
@@ -65,7 +65,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
         size="icon"
         onClick={dismiss}
         aria-label={dict.dismissAriaLabel}
-        className="size-7 shrink-0 text-amber-900 hover:bg-amber-500/10 dark:text-amber-400"
+        className="size-7 shrink-0 text-warning hover:bg-warning/10"
       >
         <X className="size-3.5" />
       </Button>

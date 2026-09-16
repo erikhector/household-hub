@@ -109,7 +109,7 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{list.name}</h1>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">{list.name}</h1>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
         </div>
