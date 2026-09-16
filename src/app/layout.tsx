@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { getUserPreferences } from "@/lib/preferences";
 import { isThemeChoice } from "@/components/theme/theme-choice";
+import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -25,6 +26,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Squirrel",
   description: "Inventory, shopping, meal planning, and budgeting for your household.",
+  // manifest.ts's "display": "standalone" is enough for Chrome/Android, but
+  // pre-16.4 iOS only launches Add to Home Screen as standalone (rather than
+  // opening in Safari's normal chrome) when this legacy meta tag is present
+  // — without it, `display-mode: standalone` never matches there and
+  // PwaSplashScreen never gets a chance to show.
+  appleWebApp: {
+    capable: true,
+    title: "Squirrel",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 // Next.js doesn't inject a default viewport meta tag — without this, phones
@@ -50,6 +61,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <PwaSplashScreen />
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
           {children}
           <Toaster />

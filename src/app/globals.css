@@ -142,3 +142,39 @@
     @apply font-sans;
   }
 }
+
+/* Only matches an installed/standalone launch (see PwaSplashScreen for why) —
+   invisible in a regular browser tab. Colors are manifest.ts's
+   background_color (#0a0a0a); duration/keyframes hold at full opacity long
+   enough to bridge the OS-native splash handoff, then fade out and drop out
+   of hit-testing via `visibility`. */
+.pwa-splash-screen {
+  display: none;
+}
+
+@media (display-mode: standalone) {
+  .pwa-splash-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: #0a0a0a;
+    animation: pwa-splash-fade-out 1.4s ease-out forwards;
+  }
+}
+
+@keyframes pwa-splash-fade-out {
+  0%,
+  60% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
