@@ -87,6 +87,51 @@ describe("when RESEND_API_KEY is configured", () => {
       expect(call.html).toContain("https://app.example.com/join/abc123?x=1&y=2");
     });
 
+    it("renders the invite in Swedish when locale is 'sv', still escaping the household name", async () => {
+      setConfigured();
+      sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+      const { sendHouseholdInviteEmail } = await loadEmail();
+
+      await sendHouseholdInviteEmail({
+        to: "invitee@example.com",
+        householdName: "Familjen <Svensson>",
+        inviteUrl: "https://app.example.com/join/abc123",
+        locale: "sv",
+      });
+
+      const call = sendMock.mock.calls[0][0];
+      expect(call.subject).toBe("Du är inbjuden till Familjen <Svensson> på Squirrel");
+      expect(call.html).toContain("Du är inbjuden!");
+      expect(call.html).toContain("Familjen &lt;Svensson&gt;");
+      expect(call.html).not.toContain("Familjen <Svensson>");
+    });
+
+    it("includes the app logo when APP_URL is configured, omits it otherwise", async () => {
+      setConfigured();
+      sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+
+      process.env.APP_URL = "https://app.example.com";
+      const { sendHouseholdInviteEmail: sendWithLogo } = await loadEmail();
+      await sendWithLogo({
+        to: "invitee@example.com",
+        householdName: "The Smiths",
+        inviteUrl: "https://app.example.com/join/abc123",
+      });
+      expect(sendMock.mock.calls[0][0].html).toContain(
+        '<img src="https://app.example.com/icon-192.png"',
+      );
+
+      sendMock.mockClear();
+      delete process.env.APP_URL;
+      const { sendHouseholdInviteEmail: sendWithoutLogo } = await loadEmail();
+      await sendWithoutLogo({
+        to: "invitee@example.com",
+        householdName: "The Smiths",
+        inviteUrl: "https://app.example.com/join/abc123",
+      });
+      expect(sendMock.mock.calls[0][0].html).not.toContain("<img");
+    });
+
     it("respects EMAIL_FROM when set", async () => {
       setConfigured();
       process.env.EMAIL_FROM = "Squirrel <hello@example.com>";
@@ -120,6 +165,36 @@ describe("when RESEND_API_KEY is configured", () => {
       expect(call.subject).toBe("Reset your Squirrel password");
       expect(call.html).toContain("https://app.example.com/reset-password/tok-1");
       expect(call.html).toContain('href="https://app.example.com/reset-password/tok-1"');
+    });
+
+    it("renders in Swedish when locale is 'sv'", async () => {
+      setConfigured();
+      sendMock.mockResolvedValue({ data: { id: "email-2" }, error: null });
+      const { sendPasswordResetEmail } = await loadEmail();
+
+      await sendPasswordResetEmail({
+        to: "user@example.com",
+        resetUrl: "https://app.example.com/reset-password/tok-1",
+        locale: "sv",
+      });
+
+      const call = sendMock.mock.calls[0][0];
+      expect(call.subject).toBe("Återställ ditt Squirrel-lösenord");
+      expect(call.html).toContain("Återställ ditt lösenord");
+    });
+
+    it("falls back to English for an unrecognized locale", async () => {
+      setConfigured();
+      sendMock.mockResolvedValue({ data: { id: "email-2" }, error: null });
+      const { sendPasswordResetEmail } = await loadEmail();
+
+      await sendPasswordResetEmail({
+        to: "user@example.com",
+        resetUrl: "https://app.example.com/reset-password/tok-1",
+        locale: "fr",
+      });
+
+      expect(sendMock.mock.calls[0][0].subject).toBe("Reset your Squirrel password");
     });
   });
 

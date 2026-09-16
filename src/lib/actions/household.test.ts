@@ -30,6 +30,7 @@ const {
   revalidatePathMock,
   signInMock,
   sendHouseholdInviteEmailMock,
+  getLocaleMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
   householdDeleteMock: vi.fn(),
@@ -62,6 +63,7 @@ const {
   revalidatePathMock: vi.fn(),
   signInMock: vi.fn(),
   sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
+  getLocaleMock: vi.fn(async () => "en"),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -87,6 +89,9 @@ vi.mock("@/lib/auth", () => ({ signIn: signInMock }));
 // can't resolve outside a Next.js build (same class of issue as the
 // next-auth mock above) — stub it out.
 vi.mock("@/lib/email", () => ({ sendHouseholdInviteEmail: sendHouseholdInviteEmailMock }));
+// See the identical note in src/lib/actions/auth.test.ts — avoids pulling in
+// next/headers cookies()/@/lib/preferences's auth+Prisma chain transitively.
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
   headers: headersMock,

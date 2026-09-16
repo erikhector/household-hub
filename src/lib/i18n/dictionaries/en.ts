@@ -1461,6 +1461,37 @@ export const en = {
     privacyLink: "Privacy Policy",
     consentSuffix: ".",
   },
+  // The HTML emails built in src/lib/email.ts — rendered server-side into a
+  // fixed-language email per send (see sendHouseholdInviteEmail /
+  // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
+  // read client-side, so these strings live here purely for translation
+  // reuse rather than for a live language switch.
+  email: {
+    copyLinkPrefix: "Or copy and paste this link into your browser:",
+    invite: {
+      subject: "You're invited to join {householdName} on Squirrel",
+      heading: "You're invited!",
+      body: "You've been invited to join {householdName} on Squirrel.",
+      cta: "Accept the invite",
+      expiry: "This link expires in 7 days.",
+    },
+    passwordReset: {
+      subject: "Reset your Squirrel password",
+      heading: "Reset your password",
+      body: "We received a request to reset your Squirrel password.",
+      cta: "Reset your password",
+      expiry:
+        "This link expires in 1 hour. If you didn't request this, you can safely ignore this email.",
+    },
+    verification: {
+      subject: "Verify your Squirrel email address",
+      heading: "Welcome to Squirrel!",
+      body: "Please confirm this is your email address.",
+      cta: "Verify your email",
+      expiry:
+        "This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.",
+    },
+  },
 };
 
 export type Dictionary = typeof en;

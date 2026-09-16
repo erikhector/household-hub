@@ -30,6 +30,7 @@ const {
   requireUserIdMock,
   headersMock,
   redirectMock,
+  getLocaleMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
@@ -66,6 +67,7 @@ const {
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
   }),
+  getLocaleMock: vi.fn(async () => "en"),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -97,6 +99,11 @@ vi.mock("@/lib/email", () => ({
 // resolved userId, so stub the whole module rather than mock those
 // transitively.
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
+// src/lib/i18n/get-dictionary.ts pulls in next/headers cookies() and
+// @/lib/preferences (itself pulling in @/lib/auth + @/lib/prisma) — mock the
+// whole module rather than those transitively, same reasoning as the
+// @/lib/session mock above.
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
 vi.mock("next/headers", () => ({ headers: headersMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
@@ -145,6 +152,7 @@ afterEach(() => {
   }));
   sendVerificationEmailMock.mockImplementation(async () => ({}));
   requireUserIdMock.mockImplementation(async () => "user-1");
+  getLocaleMock.mockImplementation(async () => "en");
   if (originalAppUrl === undefined) delete process.env.APP_URL;
   else process.env.APP_URL = originalAppUrl;
 });
@@ -213,6 +221,7 @@ describe("signupAction behavior", () => {
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: validSignup.email,
       verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      locale: "en",
     });
   });
 
@@ -362,7 +371,7 @@ describe("requestPasswordResetAction behavior", () => {
 
   it("invalidates old tokens, creates a fresh one, and emails it for a known address", async () => {
     delete process.env.APP_URL;
-    findUniqueMock.mockResolvedValue({ id: "user-1", email: "erik@example.com" });
+    findUniqueMock.mockResolvedValue({ id: "user-1", email: "erik@example.com", locale: "en" });
     headersMock.mockResolvedValue(new Map([["host", "localhost:3000"]]));
 
     const result = await requestPasswordResetAction(
@@ -380,6 +389,7 @@ describe("requestPasswordResetAction behavior", () => {
     expect(sendPasswordResetEmailMock).toHaveBeenCalledWith({
       to: "erik@example.com",
       resetUrl: "http://localhost:3000/reset-password/generated-token",
+      locale: "en",
     });
   });
 
@@ -650,6 +660,7 @@ describe("resendVerificationEmailAction", () => {
       id: "user-1",
       email: "erik@example.com",
       emailVerifiedAt: null,
+      locale: "en",
     });
 
     const result = await resendVerificationEmailAction({});
@@ -664,6 +675,7 @@ describe("resendVerificationEmailAction", () => {
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: "erik@example.com",
       verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      locale: "en",
     });
   });
 

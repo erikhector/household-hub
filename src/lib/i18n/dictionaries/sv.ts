@@ -1440,4 +1440,30 @@ export const sv = {
     privacyLink: "integritetspolicy",
     consentSuffix: ".",
   },
+  email: {
+    copyLinkPrefix: "Eller kopiera och klistra in den här länken i din webbläsare:",
+    invite: {
+      subject: "Du är inbjuden till {householdName} på Squirrel",
+      heading: "Du är inbjuden!",
+      body: "Du har blivit inbjuden att gå med i {householdName} på Squirrel.",
+      cta: "Acceptera inbjudan",
+      expiry: "Den här länken slutar gälla om 7 dagar.",
+    },
+    passwordReset: {
+      subject: "Återställ ditt Squirrel-lösenord",
+      heading: "Återställ ditt lösenord",
+      body: "Vi har fått en förfrågan om att återställa ditt Squirrel-lösenord.",
+      cta: "Återställ lösenord",
+      expiry:
+        "Den här länken slutar gälla om 1 timme. Om du inte har begärt detta kan du bortse från det här mejlet.",
+    },
+    verification: {
+      subject: "Verifiera din Squirrel-e-postadress",
+      heading: "Välkommen till Squirrel!",
+      body: "Bekräfta att det här är din e-postadress.",
+      cta: "Verifiera din e-post",
+      expiry:
+        "Den här länken slutar gälla om 36 timmar. Om du inte har skapat det här kontot kan du bortse från det här mejlet.",
+    },
+  },
 } satisfies Dictionary;

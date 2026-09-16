@@ -12,6 +12,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
+import { getLocale } from "@/lib/i18n/get-dictionary";
 
 export type ActionState = { error?: string };
 
@@ -165,7 +166,13 @@ export async function signupAction(
       },
     });
     const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
-    await sendVerificationEmail({ to: email, verifyUrl });
+    // No account row's own locale to read yet at this point in signup (see
+    // requestPasswordResetAction/resendVerificationEmailAction, which use
+    // the target account's stored `locale` instead) — getLocale() falls
+    // back to the pre-auth `locale` cookie, which is the best signal
+    // available here (see its own doc comment).
+    const locale = await getLocale();
+    await sendVerificationEmail({ to: email, verifyUrl, locale });
   } catch (error) {
     toFriendlyError(error);
   }
@@ -288,7 +295,10 @@ export async function requestPasswordResetAction(
       const resetUrl = await absoluteAppUrl(`/reset-password/${resetToken.token}`);
       // Deliberately not awaited-into-the-response: whether this succeeds or
       // fails must never change what the caller sees (see doc comment above).
-      await sendPasswordResetEmail({ to: user.email, resetUrl });
+      // The account's own stored locale, not the requester's — this action
+      // is reachable from a different browser/device than the account owner
+      // normally uses (that's the whole point of a password reset).
+      await sendPasswordResetEmail({ to: user.email, resetUrl, locale: user.locale });
     } catch (error) {
       // Swallow: surfacing this would either leak account existence (on a
       // lookup/create failure) or contradict the "never expose delivery
@@ -502,7 +512,7 @@ export async function resendVerificationEmailAction(
       },
     });
     const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
-    const { error } = await sendVerificationEmail({ to: user.email, verifyUrl });
+    const { error } = await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
     if (error) {
       return { error: "Couldn't send the verification email. Please try again later." };
     }

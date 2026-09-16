@@ -14,6 +14,7 @@ import { sendHouseholdInviteEmail } from "@/lib/email";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getLocale } from "@/lib/i18n/get-dictionary";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -87,10 +88,15 @@ export async function sendInviteEmailAction(token: string, email: string): Promi
   }
 
   const inviteUrl = await absoluteAppUrl(`/join/${invitation.token}`);
+  // The invitee has no account/preference of their own yet — the inviter's
+  // own locale (getLocale() reads their stored account preference, since
+  // they're signed in here) is the best available signal.
+  const locale = await getLocale();
   return sendHouseholdInviteEmail({
     to: parsed.data.email,
     householdName: household.name,
     inviteUrl,
+    locale,
   });
 }
 

@@ -1,6 +1,9 @@
 import "server-only";
 import { Resend } from "resend";
 import { logger } from "@/lib/logger";
+import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
+import { isLocale, defaultLocale } from "@/lib/i18n/locales";
+import { format } from "@/lib/i18n/format";
 
 // Resend chosen over alternatives (Nodemailer+SMTP, SendGrid, Postmark) as
 // the least-friction option for a Next.js app: no SMTP server to run, a
@@ -20,30 +23,106 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // deployments should set EMAIL_FROM to a verified sending address instead.
 const DEFAULT_FROM = "Squirrel <onboarding@resend.dev>";
 
+// Matches manifest.ts's theme_color / globals.css's --primary (oklch(0.56
+// 0.22 300)) — kept as a plain hex here since email clients don't support
+// oklch(), and hardcoded rather than themed since an email is rendered once,
+// server-side, with no CSS variables or dark-mode media query support to
+// rely on across mail clients.
+const BRAND_COLOR = "#a855f7";
+
+// APP_URL is the same "deployer-controlled base URL" env var absoluteAppUrl()
+// in auth.ts/household.ts builds links from — reused here (rather than
+// threading a resolved origin through every send call) purely to point the
+// logo <img> at a real, publicly-reachable URL. Left out entirely in local
+// dev without APP_URL set, since a bare-hostname/localhost logo URL
+// wouldn't load in an email client anyway; the text wordmark alone still
+// reads fine.
+const APP_URL = process.env.APP_URL?.trim().replace(/\/+$/, "");
+const LOGO_URL = APP_URL ? `${APP_URL}/icon-192.png` : undefined;
+
+function normalizeLocale(locale: string | undefined) {
+  return isLocale(locale) ? locale : defaultLocale;
+}
+
+// Shared chrome (logo, card, button, footer) around each email's own
+// heading/body/CTA text — kept intentionally simple (plain divs, inline
+// styles, no external stylesheet) rather than a bulletproof-table layout:
+// this app's recipients are read in modern mail clients (Gmail, Apple Mail,
+// Outlook.com), not legacy desktop Outlook, so that complexity isn't earning
+// its keep here.
+function renderEmailHtml({
+  heading,
+  bodyHtml,
+  ctaLabel,
+  ctaUrl,
+  copyLinkPrefix,
+  footerNote,
+}: {
+  heading: string;
+  bodyHtml: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  copyLinkPrefix: string;
+  footerNote: string;
+}): string {
+  const logo = LOGO_URL
+    ? `<img src="${LOGO_URL}" width="48" height="48" alt="" style="display:block;margin:0 auto 8px;border-radius:12px;" />`
+    : "";
+
+  return `
+    <div style="background-color:#f4f4f5;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div style="max-width:480px;margin:0 auto;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;">
+        <div style="padding:32px 32px 0;text-align:center;">
+          ${logo}
+          <div style="font-size:18px;font-weight:700;color:#18181b;">Squirrel</div>
+        </div>
+        <div style="padding:24px 32px 32px;">
+          <h1 style="font-size:20px;line-height:1.3;margin:0 0 12px;color:#18181b;">${heading}</h1>
+          <p style="font-size:15px;line-height:1.6;color:#3f3f46;margin:0 0 24px;">${bodyHtml}</p>
+          <div style="text-align:center;margin-bottom:24px;">
+            <a href="${ctaUrl}" style="display:inline-block;background-color:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 28px;border-radius:9999px;">${ctaLabel}</a>
+          </div>
+          <p style="font-size:13px;line-height:1.6;color:#71717a;margin:0 0 8px;">
+            ${copyLinkPrefix}<br />
+            <a href="${ctaUrl}" style="color:${BRAND_COLOR};word-break:break-all;">${ctaUrl}</a>
+          </p>
+          <p style="font-size:12px;line-height:1.5;color:#a1a1aa;margin:16px 0 0;">${footerNote}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 export async function sendHouseholdInviteEmail({
   to,
   householdName,
   inviteUrl,
+  locale,
 }: {
   to: string;
   householdName: string;
   inviteUrl: string;
+  locale?: string;
 }): Promise<{ error?: string }> {
   if (!resend) {
     return { error: "Email delivery isn't configured" };
   }
 
+  const dict = getDictionaryForLocale(normalizeLocale(locale)).email;
+
   try {
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: `You're invited to join ${householdName} on Squirrel`,
-      html: `
-        <p>You've been invited to join <strong>${escapeHtml(householdName)}</strong> on Squirrel.</p>
-        <p><a href="${inviteUrl}">Accept the invite</a></p>
-        <p>Or copy and paste this link into your browser:<br />${inviteUrl}</p>
-        <p style="color:#666;font-size:12px;">This link expires in 7 days.</p>
-      `,
+      subject: format(dict.invite.subject, { householdName }),
+      html: renderEmailHtml({
+        heading: dict.invite.heading,
+        bodyHtml: format(dict.invite.body, { householdName: escapeHtml(householdName) }),
+        ctaLabel: dict.invite.cta,
+        ctaUrl: inviteUrl,
+        copyLinkPrefix: dict.copyLinkPrefix,
+        footerNote: dict.invite.expiry,
+      }),
     });
 
     if (error) {
@@ -65,25 +144,31 @@ export async function sendHouseholdInviteEmail({
 export async function sendPasswordResetEmail({
   to,
   resetUrl,
+  locale,
 }: {
   to: string;
   resetUrl: string;
+  locale?: string;
 }): Promise<{ error?: string }> {
   if (!resend) {
     return { error: "Email delivery isn't configured" };
   }
 
+  const dict = getDictionaryForLocale(normalizeLocale(locale)).email;
+
   try {
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: "Reset your Squirrel password",
-      html: `
-        <p>We received a request to reset your Squirrel password.</p>
-        <p><a href="${resetUrl}">Reset your password</a></p>
-        <p>Or copy and paste this link into your browser:<br />${resetUrl}</p>
-        <p style="color:#666;font-size:12px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
-      `,
+      subject: dict.passwordReset.subject,
+      html: renderEmailHtml({
+        heading: dict.passwordReset.heading,
+        bodyHtml: dict.passwordReset.body,
+        ctaLabel: dict.passwordReset.cta,
+        ctaUrl: resetUrl,
+        copyLinkPrefix: dict.copyLinkPrefix,
+        footerNote: dict.passwordReset.expiry,
+      }),
     });
 
     if (error) {
@@ -105,25 +190,31 @@ export async function sendPasswordResetEmail({
 export async function sendVerificationEmail({
   to,
   verifyUrl,
+  locale,
 }: {
   to: string;
   verifyUrl: string;
+  locale?: string;
 }): Promise<{ error?: string }> {
   if (!resend) {
     return { error: "Email delivery isn't configured" };
   }
 
+  const dict = getDictionaryForLocale(normalizeLocale(locale)).email;
+
   try {
     const { error } = await resend.emails.send({
       from: process.env.EMAIL_FROM || DEFAULT_FROM,
       to,
-      subject: "Verify your Squirrel email address",
-      html: `
-        <p>Welcome to Squirrel! Please confirm this is your email address.</p>
-        <p><a href="${verifyUrl}">Verify your email</a></p>
-        <p>Or copy and paste this link into your browser:<br />${verifyUrl}</p>
-        <p style="color:#666;font-size:12px;">This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.</p>
-      `,
+      subject: dict.verification.subject,
+      html: renderEmailHtml({
+        heading: dict.verification.heading,
+        bodyHtml: dict.verification.body,
+        ctaLabel: dict.verification.cta,
+        ctaUrl: verifyUrl,
+        copyLinkPrefix: dict.copyLinkPrefix,
+        footerNote: dict.verification.expiry,
+      }),
     });
 
     if (error) {
