@@ -72,7 +72,7 @@ export function BottomNav({
     // Fixed to the viewport's bottom edge rather than living in normal flow —
     // see dashboard/layout.tsx's `main` for the matching reserved bottom
     // padding so scrolled content never ends up hidden underneath it.
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden

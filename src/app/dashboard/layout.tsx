@@ -99,7 +99,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
             <HouseholdSwitcher current={current} households={households} dict={dict} />
           </header>
-          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-14 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
             {children}
           </main>
         </div>
