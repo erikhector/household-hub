@@ -103,7 +103,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
               gap stays put as the page scrolls, whereas padding would get
               scrolled away — breaking the inventory search bar's sticky-to-top
               behavior by leaving it flush against the header once scrolled. */}
-          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 max-sm:pb-14 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
             {children}
           </main>
         </div>
