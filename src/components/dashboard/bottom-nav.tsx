@@ -76,7 +76,7 @@ export function BottomNav({
     // iOS Safari's toolbar-driven viewport resizing, and `sticky` visibly
     // lagged during momentum scroll. Being a plain flex child of a shell
     // that itself doesn't scroll sidesteps both.
-    <nav className="shrink-0 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="shrink-0 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden
