@@ -60,44 +60,51 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // This also keeps the header (and its safe-area-inset-top padding)
     // permanently on screen instead of scrolling away, which is what was
     // letting the inventory page's sticky search bar stick up under the
-    // notch. BottomNav is pinned separately via `fixed inset-x-0 bottom-0`
-    // (see bottom-nav.tsx); `main` below reserves matching bottom padding
-    // so its scrolled content doesn't end up underneath it.
+    // notch. `main` below reserves bottom padding matching BottomNav's
+    // height so its scrolled content doesn't end up underneath it.
     //
     // `overflow-hidden` here + `min-h-0` cascaded down through every flex
     // level to `main` guards against Safari's flexbox quirk where a nested
     // flex child ignores its container's bound and keeps `min-height: auto`
     // (growing to fit all content instead of scrolling internally) — which
-    // would let the whole shell, nav included, overflow and become
-    // draggable as part of the page instead of staying put. `main`'s
-    // overscroll-contain stops the same thing happening transiently: iOS
-    // rubber-banding past the end of the inner scroll and bleeding into a
-    // drag of the outer page.
-    <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
-      <Sidebar
-        defaultExpanded={sidebarExpanded}
-        current={current}
-        households={households}
-        dict={dict}
-        locale={locale}
-        notifications={notifications}
-      />
-      <div className="flex flex-1 flex-col max-sm:min-h-0">
-        <Suspense fallback={null}>
-          <EmailVerificationCheck
-            userId={userId}
-            dict={dict.emailVerification}
-            dismissed={emailVerificationDismissed}
-          />
-        </Suspense>
-        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
-          <HouseholdSwitcher current={current} households={households} dict={dict} />
-        </header>
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
-          {children}
-        </main>
-        <BottomNav dict={dict} locale={locale} notifications={notifications} />
+    // would let the whole shell overflow and become draggable as part of
+    // the page instead of staying put. `main`'s overscroll-contain stops
+    // the same thing happening transiently: iOS rubber-banding past the end
+    // of the inner scroll and bleeding into a drag of the outer page.
+    //
+    // BottomNav is rendered as a sibling of this shell rather than nested
+    // inside it, deliberately: Safari clips a `position: fixed` descendant
+    // to the bounds of any `overflow: hidden` ancestor (even one that's
+    // itself `fixed inset-0` and should coincide exactly), which was
+    // cutting the nav's safe-area padding off the bottom of the screen.
+    // Living outside this overflow-hidden shell sidesteps that entirely.
+    <>
+      <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
+        <Sidebar
+          defaultExpanded={sidebarExpanded}
+          current={current}
+          households={households}
+          dict={dict}
+          locale={locale}
+          notifications={notifications}
+        />
+        <div className="flex flex-1 flex-col max-sm:min-h-0">
+          <Suspense fallback={null}>
+            <EmailVerificationCheck
+              userId={userId}
+              dict={dict.emailVerification}
+              dismissed={emailVerificationDismissed}
+            />
+          </Suspense>
+          <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
+            <HouseholdSwitcher current={current} households={households} dict={dict} />
+          </header>
+          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+      <BottomNav dict={dict} locale={locale} notifications={notifications} />
+    </>
   );
 }
