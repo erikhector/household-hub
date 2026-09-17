@@ -69,10 +69,14 @@ export function BottomNav({
   const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
 
   return (
-    // Fixed to the viewport's bottom edge rather than living in normal flow —
-    // see dashboard/layout.tsx's `main` for the matching reserved bottom
-    // padding so scrolled content never ends up hidden underneath it.
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
+    // A plain static flex child of the dashboard shell (see
+    // dashboard/layout.tsx) rather than `position: fixed` — see that
+    // file's comment for why fixed positioning left a gap below this nav
+    // in a real iOS standalone PWA. pb-[env(safe-area-inset-bottom)] keeps
+    // the tap targets off the home-indicator gesture area; being normal
+    // flow, that padding just reserves real layout space, no separate
+    // safe-area/fixed-positioning interaction to fight.
+    <nav className="shrink-0 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden

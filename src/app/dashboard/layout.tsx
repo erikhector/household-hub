@@ -55,13 +55,20 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // A bottom nav living inside a page that scrolls at the document level
     // is what caused an earlier bug: `sticky` visibly lags/jumps during
     // momentum scrolling. Taking the whole shell out of document flow
-    // removes that document-level scroll, so the header can be a plain,
-    // static, unmoving flex child — no position tricks needed on it at all.
-    // This also keeps the header (and its safe-area-inset-top padding)
-    // permanently on screen instead of scrolling away, which is what was
-    // letting the inventory page's sticky search bar stick up under the
-    // notch. `main` below reserves bottom padding matching BottomNav's
-    // height so its scrolled content doesn't end up underneath it.
+    // removes that document-level scroll, so the header and BottomNav can
+    // both be plain, static, unmoving flex children — no position tricks
+    // needed on either of them. This also keeps the header (and its
+    // safe-area-inset-top padding) permanently on screen instead of
+    // scrolling away, which is what was letting the inventory page's
+    // sticky search bar stick up under the notch.
+    //
+    // BottomNav deliberately isn't `position: fixed`: on a real iOS
+    // standalone PWA, a fixed bottom-anchored element doesn't reliably
+    // resolve `bottom: 0` flush with the true screen edge — it left a
+    // visible gap below the nav no matter how its own safe-area padding
+    // was tuned. As a normal flex child of this already viewport-pinned
+    // shell, its position falls out of ordinary layout instead, with no
+    // separate fixed-positioning/safe-area resolution involved at all.
     //
     // `overflow-hidden` here + `min-h-0` cascaded down through every flex
     // level to `main` guards against Safari's flexbox quirk where a nested
@@ -71,44 +78,35 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // the page instead of staying put. `main`'s overscroll-contain stops
     // the same thing happening transiently: iOS rubber-banding past the end
     // of the inner scroll and bleeding into a drag of the outer page.
-    //
-    // BottomNav is rendered as a sibling of this shell rather than nested
-    // inside it, deliberately: Safari clips a `position: fixed` descendant
-    // to the bounds of any `overflow: hidden` ancestor (even one that's
-    // itself `fixed inset-0` and should coincide exactly), which was
-    // cutting the nav's safe-area padding off the bottom of the screen.
-    // Living outside this overflow-hidden shell sidesteps that entirely.
-    <>
-      <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
-        <Sidebar
-          defaultExpanded={sidebarExpanded}
-          current={current}
-          households={households}
-          dict={dict}
-          locale={locale}
-          notifications={notifications}
-        />
-        <div className="flex flex-1 flex-col max-sm:min-h-0">
-          <Suspense fallback={null}>
-            <EmailVerificationCheck
-              userId={userId}
-              dict={dict.emailVerification}
-              dismissed={emailVerificationDismissed}
-            />
-          </Suspense>
-          <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
-            <HouseholdSwitcher current={current} households={households} dict={dict} />
-          </header>
-          {/* mt-3, not pt-3: margin sits outside main's scrollport so this
-              gap stays put as the page scrolls, whereas padding would get
-              scrolled away — breaking the inventory search bar's sticky-to-top
-              behavior by leaving it flush against the header once scrolled. */}
-          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 max-sm:pb-14 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
-            {children}
-          </main>
-        </div>
+    <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
+      <Sidebar
+        defaultExpanded={sidebarExpanded}
+        current={current}
+        households={households}
+        dict={dict}
+        locale={locale}
+        notifications={notifications}
+      />
+      <div className="flex flex-1 flex-col max-sm:min-h-0">
+        <Suspense fallback={null}>
+          <EmailVerificationCheck
+            userId={userId}
+            dict={dict.emailVerification}
+            dismissed={emailVerificationDismissed}
+          />
+        </Suspense>
+        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
+          <HouseholdSwitcher current={current} households={households} dict={dict} />
+        </header>
+        {/* mt-3, not pt-3: margin sits outside main's scrollport so this
+            gap stays put as the page scrolls, whereas padding would get
+            scrolled away — breaking the inventory search bar's sticky-to-top
+            behavior by leaving it flush against the header once scrolled. */}
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+          {children}
+        </main>
+        <BottomNav dict={dict} locale={locale} notifications={notifications} />
       </div>
-      <BottomNav dict={dict} locale={locale} notifications={notifications} />
-    </>
+    </div>
   );
 }
