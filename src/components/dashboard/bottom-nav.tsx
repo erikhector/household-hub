@@ -69,7 +69,7 @@ export function BottomNav({
   const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="shrink-0 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden

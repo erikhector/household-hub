@@ -59,7 +59,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         locale={locale}
         notifications={notifications}
       />
-      <div className="flex flex-1 flex-col">
+      {/* max-sm: pins this column to the dynamic viewport height and scrolls
+          only `main` inside it, with BottomNav as a normal flow child rather
+          than `position: fixed`. On a page short enough not to need
+          scrolling, a fixed bottom nav tracks iOS Safari's layout viewport,
+          which resizes independently of what's on screen as the toolbar
+          shows/hides — visible as the nav "jumping". Keeping the nav in
+          flow inside a dvh-bounded column sidesteps that entirely. */}
+      <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden">
         <Suspense fallback={null}>
           <EmailVerificationCheck
             userId={userId}
@@ -70,9 +77,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <header className="border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
         </header>
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 py-8 pb-24 sm:max-w-5xl sm:pb-8">{children}</main>
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 py-8 pb-8 sm:max-w-5xl max-sm:min-h-0 max-sm:overflow-y-auto">
+          {children}
+        </main>
+        <BottomNav dict={dict} locale={locale} notifications={notifications} />
       </div>
-      <BottomNav dict={dict} locale={locale} notifications={notifications} />
     </div>
   );
 }
