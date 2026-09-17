@@ -53,7 +53,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // max-sm: pinned to the actual device viewport bounds (not just sized to
     // match them) and never itself scrolls — only `main` does, internally.
     // A bottom nav living inside a page that scrolls at the document level
-    // is what caused both earlier bugs: `fixed` desyncs from iOS Safari's
+    // is what caused earlier bugs: `fixed` desyncs from iOS Safari's
     // toolbar-driven viewport resizing when the page is short, and `sticky`
     // visibly lags/jumps during momentum scrolling. Taking the whole shell
     // out of document flow removes the document-level scroll that drives
@@ -62,7 +62,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // keeps the header (and its safe-area-inset-top padding) permanently
     // on screen instead of scrolling away, which is what was letting the
     // inventory page's sticky search bar stick up under the notch.
-    <div className="flex flex-1 max-sm:fixed max-sm:inset-0">
+    //
+    // `overflow-hidden` here + `min-h-0` cascaded down through every flex
+    // level to `main` guards against Safari's flexbox quirk where a nested
+    // flex child ignores its container's bound and keeps `min-height: auto`
+    // (growing to fit all content instead of scrolling internally) — which
+    // would let the whole shell, nav included, overflow and become
+    // draggable as part of the page instead of staying put. `main`'s
+    // overscroll-contain stops the same thing happening transiently: iOS
+    // rubber-banding past the end of the inner scroll and bleeding into a
+    // drag of the outer page.
+    <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
       <Sidebar
         defaultExpanded={sidebarExpanded}
         current={current}
@@ -71,7 +81,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         locale={locale}
         notifications={notifications}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col max-sm:min-h-0">
         <Suspense fallback={null}>
           <EmailVerificationCheck
             userId={userId}
@@ -82,7 +92,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
         </header>
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto">
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
           {children}
         </main>
         <BottomNav dict={dict} locale={locale} notifications={notifications} />
