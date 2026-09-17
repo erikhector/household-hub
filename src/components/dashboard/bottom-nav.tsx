@@ -69,13 +69,14 @@ export function BottomNav({
   const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
 
   return (
-    // `sticky`, not `fixed`: a fixed bottom nav tracks iOS Safari's layout
-    // viewport, which can resize independently of what's on screen as the
-    // toolbar shows/hides, and on a page too short to scroll that shows up
-    // as the nav visibly jumping. Sticky positions itself from real document
-    // flow/scroll instead, so it stays put at the bottom without that
-    // desync — and still stays on screen while a taller page scrolls.
-    <nav className="sticky bottom-0 z-40 shrink-0 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
+    // Plain static positioning, deliberately no `fixed`/`sticky`: the
+    // dashboard shell (see dashboard/layout.tsx) keeps this nav outside the
+    // document's scrolling region entirely on mobile, so it never needs to
+    // track scroll or viewport changes to stay put — `fixed` desynced from
+    // iOS Safari's toolbar-driven viewport resizing, and `sticky` visibly
+    // lagged during momentum scroll. Being a plain flex child of a shell
+    // that itself doesn't scroll sidesteps both.
+    <nav className="shrink-0 border-t bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden
