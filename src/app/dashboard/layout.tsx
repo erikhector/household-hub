@@ -53,15 +53,16 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // max-sm: pinned to the actual device viewport bounds (not just sized to
     // match them) and never itself scrolls — only `main` does, internally.
     // A bottom nav living inside a page that scrolls at the document level
-    // is what caused earlier bugs: `fixed` desyncs from iOS Safari's
-    // toolbar-driven viewport resizing when the page is short, and `sticky`
-    // visibly lags/jumps during momentum scrolling. Taking the whole shell
-    // out of document flow removes the document-level scroll that drives
-    // both problems, so the header and nav can be plain, static, unmoving
-    // flex children — no position tricks needed on them at all. This also
-    // keeps the header (and its safe-area-inset-top padding) permanently
-    // on screen instead of scrolling away, which is what was letting the
-    // inventory page's sticky search bar stick up under the notch.
+    // is what caused an earlier bug: `sticky` visibly lags/jumps during
+    // momentum scrolling. Taking the whole shell out of document flow
+    // removes that document-level scroll, so the header can be a plain,
+    // static, unmoving flex child — no position tricks needed on it at all.
+    // This also keeps the header (and its safe-area-inset-top padding)
+    // permanently on screen instead of scrolling away, which is what was
+    // letting the inventory page's sticky search bar stick up under the
+    // notch. BottomNav is pinned separately via `fixed inset-x-0 bottom-0`
+    // (see bottom-nav.tsx); `main` below reserves matching bottom padding
+    // so its scrolled content doesn't end up underneath it.
     //
     // `overflow-hidden` here + `min-h-0` cascaded down through every flex
     // level to `main` guards against Safari's flexbox quirk where a nested
@@ -92,7 +93,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
         </header>
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-24 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
           {children}
         </main>
         <BottomNav dict={dict} locale={locale} notifications={notifications} />

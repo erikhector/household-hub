@@ -69,14 +69,10 @@ export function BottomNav({
   const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
 
   return (
-    // Plain static positioning, deliberately no `fixed`/`sticky`: the
-    // dashboard shell (see dashboard/layout.tsx) keeps this nav outside the
-    // document's scrolling region entirely on mobile, so it never needs to
-    // track scroll or viewport changes to stay put — `fixed` desynced from
-    // iOS Safari's toolbar-driven viewport resizing, and `sticky` visibly
-    // lagged during momentum scroll. Being a plain flex child of a shell
-    // that itself doesn't scroll sidesteps both.
-    <nav className="shrink-0 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
+    // Fixed to the viewport's bottom edge rather than living in normal flow —
+    // see dashboard/layout.tsx's `main` for the matching reserved bottom
+    // padding so scrolled content never ends up hidden underneath it.
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden
