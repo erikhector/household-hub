@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -168,12 +168,12 @@ export function InventoryClient({
           scrolling back up — desktop has room to spare and stays static. */}
       <div className="flex flex-col gap-2 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2">
         <div className="flex items-center gap-2">
-          <Input
-            type="search"
+          <SearchInput
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onValueChange={setName}
             placeholder={dict.searchPlaceholder}
-            className="flex-1 sm:flex-none sm:w-48"
+            clearLabel={dict.clearSearch}
+            containerClassName="flex-1 sm:flex-none sm:w-48"
           />
           {/* Mobile only: the five selects below fold into this single
               button instead of eating several rows above the fold — see the

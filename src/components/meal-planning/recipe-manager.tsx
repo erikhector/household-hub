@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { ChefHat, Layers, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChefHat, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
@@ -69,17 +69,13 @@ export function RecipeManager({
         </p>
       ) : (
         <>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={dict.searchRecipesPlaceholder}
-              aria-label={dict.searchRecipesPlaceholder}
-              className="pl-8"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={dict.searchRecipesPlaceholder}
+            aria-label={dict.searchRecipesPlaceholder}
+            clearLabel={dict.clearSearch}
+          />
 
           {filteredRecipes.length === 0 ? (
             <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

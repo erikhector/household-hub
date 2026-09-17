@@ -390,6 +390,7 @@ export const sv = {
       other: "{count} varor tillagda denna gång",
     },
     searchPlaceholder: "Sök på namn…",
+    clearSearch: "Rensa sökning",
     allCategories: "Alla kategorier",
     allLocations: "Alla platser",
     allStatuses: "Alla statusar",
@@ -683,6 +684,7 @@ export const sv = {
     },
     emptyRecipes: "Inga recept än. Lägg till ditt första recept för att börja planera måltider.",
     searchRecipesPlaceholder: "Sök recept…",
+    clearSearch: "Rensa sökning",
     noRecipeSearchResults: "Inga recept matchar din sökning.",
     ingredientCount: {
       one: "{count} ingrediens",

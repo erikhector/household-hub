@@ -398,6 +398,7 @@ export const en = {
       other: "{count} items added this session",
     },
     searchPlaceholder: "Search by name…",
+    clearSearch: "Clear search",
     allCategories: "All categories",
     allLocations: "All locations",
     allStatuses: "All statuses",
@@ -691,6 +692,7 @@ export const en = {
     },
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
     searchRecipesPlaceholder: "Search recipes…",
+    clearSearch: "Clear search",
     noRecipeSearchResults: "No recipes match your search.",
     ingredientCount: {
       one: "{count} ingredient",
