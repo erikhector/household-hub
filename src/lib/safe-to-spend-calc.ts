@@ -8,10 +8,13 @@
 export type SafeToSpendTransaction = {
   categoryId: string;
   categoryName: string;
-  // SAVINGS transactions are ignored below (filtered out alongside INCOME
-  // by the `type !== "EXPENSE"` check) — this type only needs to accept
-  // them so callers can pass a household's/user's full transaction list
-  // as-is, without filtering SAVINGS out themselves first.
+  // Only EXPENSE transactions feed the "not yet logged" recurring estimate
+  // below (filtered out alongside INCOME by the `type !== "EXPENSE"`
+  // check) — this type only needs to accept INCOME/SAVINGS too so callers
+  // can pass a household's/user's full transaction list as-is, without
+  // filtering it down themselves first. Savings still reduces the headline
+  // number, just via the separate `savingsSoFar` total below rather than
+  // this per-transaction list.
   type: "INCOME" | "EXPENSE" | "SAVINGS";
   amount: number;
   date: Date;
@@ -31,8 +34,9 @@ const TIGHT_THRESHOLD_RATIO = 0.1;
 export type SafeToSpendStatus = "over" | "tight" | "healthy";
 
 export type SafeToSpendResult = {
-  /** Income so far this month, minus expenses so far this month, minus the
-   * sum of `expectedRecurring` amounts below. */
+  /** Income so far this month, minus expenses so far this month, minus
+   * savings so far this month, minus the sum of `expectedRecurring` amounts
+   * below. */
   safeToSpend: number;
   /** Recurring expense categories estimated as "expected but not yet
    * logged" this month, sorted largest-first for the breakdown UI. */
@@ -59,7 +63,8 @@ export type SafeToSpendResult = {
  * month; if not, take the amount of its most recent recurring transaction
  * (by date) as the "expected but not yet logged" amount for that category.
  * Subtract the sum of all such amounts from this month's income-so-far
- * minus expense-so-far.
+ * minus expense-so-far minus savings-so-far — savings put aside is money
+ * that isn't safe to spend either, same as an expense already paid.
  */
 export function computeSafeToSpend({
   transactions,
@@ -67,12 +72,14 @@ export function computeSafeToSpend({
   monthEnd,
   incomeSoFar,
   expenseSoFar,
+  savingsSoFar,
 }: {
   transactions: SafeToSpendTransaction[];
   monthStart: Date;
   monthEnd: Date;
   incomeSoFar: number;
   expenseSoFar: number;
+  savingsSoFar: number;
 }): SafeToSpendResult {
   const expenseTxByCategory = new Map<string, SafeToSpendTransaction[]>();
   for (const t of transactions) {
@@ -111,7 +118,7 @@ export function computeSafeToSpend({
   expectedRecurring.sort((a, b) => b.amount - a.amount);
 
   const expectedTotal = expectedRecurring.reduce((sum, e) => sum + e.amount, 0);
-  const safeToSpend = incomeSoFar - expenseSoFar - expectedTotal;
+  const safeToSpend = incomeSoFar - expenseSoFar - savingsSoFar - expectedTotal;
 
   const status: SafeToSpendStatus =
     safeToSpend < 0

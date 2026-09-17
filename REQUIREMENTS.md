@@ -533,10 +533,13 @@ than inlining it, since a Server Component page function can't itself be
 unit-tested.
 
 - **The headline number**: this month's income so far minus this month's
-  expenses so far (the same `[monthStart, monthEnd)` totals `PeriodSummary`
-  already computes from the page's one `transaction.findMany` query) minus
-  an estimate of recurring expense categories that haven't posted a
-  transaction yet this month (below).
+  expenses so far minus this month's savings so far (the same
+  `[monthStart, monthEnd)` totals `PeriodSummary` already computes from the
+  page's one `transaction.findMany` query) minus an estimate of recurring
+  expense categories that haven't posted a transaction yet this month
+  (below). Savings is subtracted too — money moved into a `SAVINGS`
+  category is money that's no longer safe to spend, same as an expense
+  already paid, even though it isn't a cost.
 - **The recurring-expense estimate**: for every `EXPENSE`-type
   `BudgetCategory` with at least one `isRecurring` transaction dated before
   the current month, check whether that category already has *any*

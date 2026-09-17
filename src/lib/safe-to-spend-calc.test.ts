@@ -24,8 +24,36 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 500,
+      savingsSoFar: 0,
     });
     expect(result.safeToSpend).toBe(2500);
+    expect(result.expectedRecurring).toEqual([]);
+  });
+
+  it("subtracts savings so far from the headline number, same as expenses", () => {
+    const result = computeSafeToSpend({
+      transactions: [],
+      monthStart,
+      monthEnd,
+      incomeSoFar: 3000,
+      expenseSoFar: 500,
+      savingsSoFar: 400,
+    });
+    expect(result.safeToSpend).toBe(3000 - 500 - 400);
+  });
+
+  it("ignores SAVINGS transactions in the recurring 'not yet logged' estimate", () => {
+    const transactions = [
+      tx({ type: "SAVINGS", categoryId: "cat-savings", categoryName: "Emergency fund", date: new Date(2026, 7, 1) }),
+    ];
+    const result = computeSafeToSpend({
+      transactions,
+      monthStart,
+      monthEnd,
+      incomeSoFar: 1000,
+      expenseSoFar: 0,
+      savingsSoFar: 0,
+    });
     expect(result.expectedRecurring).toEqual([]);
   });
 
@@ -37,6 +65,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 500,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
       { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
@@ -55,6 +84,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 1250,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([]);
     expect(result.safeToSpend).toBe(3000 - 1250);
@@ -68,6 +98,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 1000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([]);
   });
@@ -82,6 +113,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 1000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([]);
   });
@@ -98,6 +130,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
       { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
@@ -115,6 +148,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([
       { categoryId: "cat-1", categoryName: "Rent", amount: 1200 },
@@ -131,6 +165,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 1000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.safeToSpend).toBe(1000 - 5000);
   });
@@ -142,6 +177,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 0,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.safeToSpend).toBe(0);
     expect(result.expectedRecurring).toEqual([]);
@@ -160,6 +196,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual([]);
     expect(result.safeToSpend).toBe(3000);
@@ -186,6 +223,7 @@ describe("computeSafeToSpend", () => {
       monthEnd,
       incomeSoFar: 3000,
       expenseSoFar: 0,
+      savingsSoFar: 0,
     });
     expect(result.expectedRecurring).toEqual(
       expect.arrayContaining([
@@ -206,6 +244,7 @@ describe("computeSafeToSpend", () => {
         monthEnd,
         incomeSoFar: 1000,
         expenseSoFar: 1050,
+        savingsSoFar: 0,
       });
       expect(result.safeToSpend).toBe(-50);
       expect(result.status).toBe("over");
@@ -218,6 +257,7 @@ describe("computeSafeToSpend", () => {
         monthEnd,
         incomeSoFar: 1000,
         expenseSoFar: 920, // 80 left, exactly 8% of income
+        savingsSoFar: 0,
       });
       expect(result.safeToSpend).toBe(80);
       expect(result.status).toBe("tight");
@@ -230,6 +270,7 @@ describe("computeSafeToSpend", () => {
         monthEnd,
         incomeSoFar: 1000,
         expenseSoFar: 500,
+        savingsSoFar: 0,
       });
       expect(result.safeToSpend).toBe(500);
       expect(result.status).toBe("healthy");
@@ -242,6 +283,7 @@ describe("computeSafeToSpend", () => {
         monthEnd,
         incomeSoFar: 0,
         expenseSoFar: 0,
+        savingsSoFar: 0,
       });
       expect(result.safeToSpend).toBe(0);
       expect(result.status).toBe("healthy");

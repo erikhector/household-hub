@@ -74,6 +74,9 @@ export default async function DashboardOverviewPage() {
   const personalExpense = personalMonthTransactions
     .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + t.amount, 0);
+  const personalSavings = personalMonthTransactions
+    .filter((t) => t.type === "SAVINGS")
+    .reduce((sum, t) => sum + t.amount, 0);
   const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
     transactions: personalTransactions.map((t) => ({
       categoryId: t.categoryId,
@@ -87,6 +90,7 @@ export default async function DashboardOverviewPage() {
     monthEnd,
     incomeSoFar: personalIncome,
     expenseSoFar: personalExpense,
+    savingsSoFar: personalSavings,
   });
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);

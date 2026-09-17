@@ -106,6 +106,7 @@ export default async function PersonalBudgetPage() {
     monthEnd,
     incomeSoFar: income,
     expenseSoFar: expense,
+    savingsSoFar: savings,
   });
 
   // --- Recurring templates --------------------------------------------------

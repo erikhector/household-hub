@@ -149,11 +149,11 @@ export default async function BudgetPage() {
 
   // --- Safe to spend --------------------------------------------------------
   // See REQUIREMENTS.md's "Safe to spend" subsection: this month's income so
-  // far minus expenses so far, minus an estimate of recurring expense
-  // categories that haven't posted a transaction yet this month. All pure
-  // logic lives in computeSafeToSpend (@/lib/safe-to-spend-calc.ts) so it's
-  // unit-testable without Prisma; this just feeds it the transactions the
-  // page already fetched above.
+  // far minus expenses so far minus savings so far, minus an estimate of
+  // recurring expense categories that haven't posted a transaction yet this
+  // month. All pure logic lives in computeSafeToSpend
+  // (@/lib/safe-to-spend-calc.ts) so it's unit-testable without Prisma; this
+  // just feeds it the transactions the page already fetched above.
   const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
     transactions: transactions.map((t) => ({
       categoryId: t.categoryId,
@@ -167,6 +167,7 @@ export default async function BudgetPage() {
     monthEnd,
     incomeSoFar: income,
     expenseSoFar: expense,
+    savingsSoFar: savings,
   });
 
   // --- Recurring templates --------------------------------------------------
