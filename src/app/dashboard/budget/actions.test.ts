@@ -12,6 +12,7 @@ const {
   categoryFindManyMock,
   categoryCreateMock,
   categoryCreateManyMock,
+  categoryUpdateMock,
   categoryDeleteMock,
   transactionFindFirstMock,
   transactionCreateMock,
@@ -32,6 +33,7 @@ const {
   categoryFindManyMock: vi.fn(),
   categoryCreateMock: vi.fn(),
   categoryCreateManyMock: vi.fn(),
+  categoryUpdateMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
   transactionFindFirstMock: vi.fn(),
   transactionCreateMock: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: categoryFindManyMock,
       create: categoryCreateMock,
       createMany: categoryCreateManyMock,
+      update: categoryUpdateMock,
       delete: categoryDeleteMock,
     },
     transaction: {
@@ -85,6 +88,7 @@ const {
   findOrCreateGroceriesCategory,
   createCategoryAction,
   createStarterCategoriesAction,
+  updateCategoryAction,
   deleteCategoryAction,
   createTransactionAction,
   updateTransactionAction,
@@ -232,6 +236,50 @@ describe("createStarterCategoriesAction", () => {
 
     expect(result).toEqual({ added: 0 });
     expect(categoryCreateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateCategoryAction", () => {
+  it("rejects an empty name", async () => {
+    const result = await updateCategoryAction({}, formData({ id: "cat-1", name: " " }));
+    expect(result.error).toBe("Name is required");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 'Category not found' for a category outside the caller's household (IDOR guard)", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+
+    const result = await updateCategoryAction(
+      {},
+      formData({ id: "someone-elses-category", name: "Renamed" }),
+    );
+
+    expect(result.error).toBe("Category not found");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a duplicate name within the household (case-insensitive), excluding itself", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1" })
+      .mockResolvedValueOnce({ id: "cat-2" });
+
+    const result = await updateCategoryAction({}, formData({ id: "cat-1", name: "Groceries" }));
+
+    expect(result.error).toBe("A category with that name already exists");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("renames the category scoped to the caller's household", async () => {
+    categoryFindFirstMock.mockResolvedValueOnce({ id: "cat-1" }).mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    const result = await updateCategoryAction({}, formData({ id: "cat-1", name: "Fun money" }));
+
+    expect(result).toEqual({});
+    expect(categoryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Fun money" },
+    });
   });
 });
 

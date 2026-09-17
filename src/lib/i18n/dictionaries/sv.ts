@@ -846,6 +846,10 @@ export const sv = {
       adding: "Lägger till…",
       add: "Lägg till kategori",
       empty: "Inga kategorier än. Lägg till en för att börja registrera transaktioner.",
+      editAriaLabel: "Redigera {name}",
+      editDialogTitle: "Redigera kategori",
+      save: "Spara",
+      saving: "Sparar…",
       deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
@@ -1063,6 +1067,10 @@ export const sv = {
       adding: "Lägger till…",
       add: "Lägg till kategori",
       empty: "Inga kategorier än. Lägg till en för att börja registrera transaktioner.",
+      editAriaLabel: "Redigera {name}",
+      editDialogTitle: "Redigera kategori",
+      save: "Spara",
+      saving: "Sparar…",
       deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",

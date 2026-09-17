@@ -854,6 +854,10 @@ export const en = {
       adding: "Adding…",
       add: "Add category",
       empty: "No categories yet. Add one to start recording transactions.",
+      editAriaLabel: "Edit {name}",
+      editDialogTitle: "Edit category",
+      save: "Save",
+      saving: "Saving…",
       deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
@@ -1071,6 +1075,10 @@ export const en = {
       adding: "Adding…",
       add: "Add category",
       empty: "No categories yet. Add one to start recording transactions.",
+      editAriaLabel: "Edit {name}",
+      editDialogTitle: "Edit category",
+      save: "Save",
+      saving: "Saving…",
       deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
