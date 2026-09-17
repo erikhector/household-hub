@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { Button } from "@/components/ui/button";
 import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { CategoryManager } from "@/components/budget/category-manager";
@@ -18,7 +17,6 @@ import {
   type PausedRecurringTemplateRow,
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
-import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import {
@@ -272,21 +270,44 @@ export default async function BudgetPage() {
     })
     .sort((a, b) => b.points.length - a.points.length);
 
-  const overview = (
+  // --- Manage tab: recurring items + categories -----------------------------
+  // Grouped together — both are setup/maintenance actions you reach for far
+  // less often than logging a transaction, so they share one tab instead of
+  // categories being duplicated across the page (see budget-tabs.tsx's doc
+  // comment).
+  const manage = (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end gap-2">
-        <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
-        <TransactionDialog
-          dict={dict.budget}
-          categories={categoryRows}
-          members={memberOptions}
-          currentMemberId={currentMemberId}
-          trigger={
-            <Button disabled={categoryRows.length === 0}>{dict.budget.addTransaction}</Button>
-          }
-        />
-      </div>
+      <RecurringTemplatesPanel
+        templates={recurringTemplateRows}
+        pausedTemplates={pausedRecurringTemplateRows}
+        categories={categoryRows}
+        members={memberOptions}
+        currentMemberId={currentMemberId}
+        dict={dict.budget}
+        locale={locale}
+      />
+      <CategoryManager categories={categoryRows} dict={dict.budget} />
+    </div>
+  );
 
+  const transactionsTab = (
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
+      </div>
+      <TransactionList
+        transactions={transactionRows}
+        categories={categoryRows}
+        members={memberOptions}
+        currentMemberId={currentMemberId}
+        dict={dict.budget}
+        locale={locale}
+      />
+    </div>
+  );
+
+  const insights = (
+    <div className="flex flex-col gap-6">
       <PeriodSummary
         income={income}
         expense={expense}
@@ -297,18 +318,28 @@ export default async function BudgetPage() {
         dict={dict.budget.summary}
         locale={locale}
       />
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <TransactionList
-          transactions={transactionRows}
-          categories={categoryRows}
+      <FixedBudgetSummary
+        monthlyIncome={fixedMonthlySummary.monthlyIncome}
+        monthlyExpense={fixedMonthlySummary.monthlyExpense}
+        monthlySavings={fixedMonthlySummary.monthlySavings}
+        monthlyTotals={fixedMonthlyTotals}
+        dict={dict.budget.fixedSummary}
+        locale={locale}
+      />
+      <CostAnalyzer
+        monthlySpending={monthlySpending}
+        itemTrends={itemTrends}
+        dict={dict.budget.costAnalyzer}
+        locale={locale}
+      />
+      {memberOptions.length > 1 && (
+        <HouseholdBalances
+          settlements={settlements}
           members={memberOptions}
-          currentMemberId={currentMemberId}
-          dict={dict.budget}
+          dict={dict.budget.balances}
           locale={locale}
         />
-        <CategoryManager categories={categoryRows} dict={dict.budget} />
-      </div>
+      )}
     </div>
   );
 
@@ -330,46 +361,9 @@ export default async function BudgetPage() {
         hasRecurringTemplates={recurringTemplateRows.length > 0}
         members={memberOptions}
         currentMemberId={currentMemberId}
-        overview={overview}
-        costAnalyzer={
-          <CostAnalyzer
-            monthlySpending={monthlySpending}
-            itemTrends={itemTrends}
-            dict={dict.budget.costAnalyzer}
-            locale={locale}
-          />
-        }
-        balances={
-          memberOptions.length > 1 ? (
-            <HouseholdBalances
-              settlements={settlements}
-              members={memberOptions}
-              dict={dict.budget.balances}
-              locale={locale}
-            />
-          ) : undefined
-        }
-        fixed={
-          <div className="flex flex-col gap-6">
-            <FixedBudgetSummary
-              monthlyIncome={fixedMonthlySummary.monthlyIncome}
-              monthlyExpense={fixedMonthlySummary.monthlyExpense}
-              monthlySavings={fixedMonthlySummary.monthlySavings}
-              monthlyTotals={fixedMonthlyTotals}
-              dict={dict.budget.fixedSummary}
-              locale={locale}
-            />
-            <RecurringTemplatesPanel
-              templates={recurringTemplateRows}
-              pausedTemplates={pausedRecurringTemplateRows}
-              categories={categoryRows}
-              members={memberOptions}
-              currentMemberId={currentMemberId}
-              dict={dict.budget}
-              locale={locale}
-            />
-          </div>
-        }
+        manage={manage}
+        transactions={transactionsTab}
+        insights={insights}
       />
     </div>
   );

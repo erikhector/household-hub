@@ -792,10 +792,10 @@ export const sv = {
   budget: {
     title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
-    tabFixed: "Plan",
-    tabOverview: "Aktivitet",
-    tabCostAnalyzer: "Kostnadsanalys",
-    tabBalances: "Saldon",
+    tabOverview: "Översikt",
+    tabManage: "Hantera",
+    tabTransactions: "Transaktioner",
+    tabInsights: "Insikter",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -911,10 +911,6 @@ export const sv = {
         { id: "savings", name: "Sparande", type: "SAVINGS" },
       ],
     },
-    manageCategories: {
-      trigger: "Hantera kategorier",
-      dialogTitle: "Hantera kategorier",
-    },
     dueWidget: {
       title: "Att göra denna period",
       subtitle: "Återkommande räkningar och inkomster du inte loggat än.",
@@ -1007,7 +1003,7 @@ export const sv = {
       trendTitle: "Hur det förändras",
       trendSubtitle: "Loggade fasta transaktioner per månad.",
       noTrendData:
-        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post nedan för att börja följa detta över tid.",
+        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post under fliken Hantera för att börja följa detta över tid.",
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
@@ -1016,8 +1012,10 @@ export const sv = {
   personalBudget: {
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
-    tabFixed: "Plan",
-    tabOverview: "Aktivitet",
+    tabOverview: "Översikt",
+    tabManage: "Hantera",
+    tabTransactions: "Transaktioner",
+    tabInsights: "Insikter",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -1174,7 +1172,7 @@ export const sv = {
       trendTitle: "Hur det förändras",
       trendSubtitle: "Loggade fasta transaktioner per månad.",
       noTrendData:
-        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post nedan för att börja följa detta över tid.",
+        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post under fliken Hantera för att börja följa detta över tid.",
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
