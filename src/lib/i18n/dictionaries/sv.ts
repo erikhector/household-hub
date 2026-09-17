@@ -32,6 +32,14 @@ export const sv = {
     listCleared: "{name} är helt avbockad",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
+    viewAll: "Visa alla aviseringar",
+    history: {
+      title: "Aviseringar",
+      subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
+      markAllRead: "Markera alla som lästa",
+      empty: "Inga aviseringar än.",
+      unread: "Oläst",
+    },
   },
   language: {
     english: "Engelska",

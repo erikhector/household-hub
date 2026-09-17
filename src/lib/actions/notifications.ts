@@ -20,3 +20,18 @@ export async function dismissNotificationAction(notificationId: string): Promise
 
   revalidatePath("/dashboard");
 }
+
+// "Mark all as read" for the notification center (see
+// src/app/dashboard/notifications/page.tsx) — clears every currently-active
+// alert for the household in one go, same as clicking each individually.
+export async function dismissAllNotificationsAction(): Promise<void> {
+  const { household } = await requireHousehold();
+
+  await prisma.notification.updateMany({
+    where: { householdId: household.id, dismissedAt: null },
+    data: { dismissedAt: new Date() },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/notifications");
+}

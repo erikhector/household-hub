@@ -35,6 +35,14 @@ export const en = {
     listCleared: "{name} is all checked off",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
+    viewAll: "View all notifications",
+    history: {
+      title: "Notifications",
+      subtitle: "Everything sent to your household, read or not.",
+      markAllRead: "Mark all as read",
+      empty: "No notifications yet.",
+      unread: "Unread",
+    },
   },
   language: {
     english: "English",

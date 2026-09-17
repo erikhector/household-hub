@@ -1622,6 +1622,32 @@ dismissing a second out-of-stock alert while already on
   search param (`src/app/dashboard/inventory/page.tsx`) so the status filter
   can be preset on navigation.
 
+**History page**: `/dashboard/notifications` (linked from a "View all
+notifications" footer row at the bottom of both the sidebar dropdown and the
+mobile "More" submenu, below a separator) shows every notification the
+household has ever received, dismissed or not — the same rows the
+`Notification` table already keeps (`dismissedAt` marks a row read rather
+than deleting it), just never queried without that filter until now.
+`getNotificationHistory` (`src/lib/notifications.ts`) fetches up to 200 rows
+regardless of `dismissedAt` and maps them through the same row→item logic
+`getActiveNotifications` uses (extracted into `toNotificationItem`), plus
+each row's `createdAt`/`dismissedAt`. It deliberately doesn't re-run the
+lazy meal-not-logged/expiring-soon syncs itself — this page is still nested
+under `dashboard/layout.tsx`, whose own `getActiveNotifications` call
+already syncs them once per request; syncing a second time here could race
+it and (for `EXPIRING_SOON`, whose dedup is an application-level check, not
+a DB constraint) create duplicate rows for the same item.
+`NotificationsHistory` (`src/components/notifications/notifications-history.tsx`,
+a Client Component) renders the list — an unread (undismissed) row gets a
+tinted background and a small dot, reusing the bell's own
+href/label/icon mapping so a given notification reads identically in both
+places — and a "Mark all as read" button that calls
+`dismissAllNotificationsAction` (`src/lib/actions/notifications.ts`), a
+household-scoped `updateMany` sibling to `dismissNotificationAction` that
+clears every currently-active alert in one go. Clicking an individual
+still-unread row dismisses just that one (same as the bell) before letting
+the link navigate; an already-read row is just a link.
+
 ## PWA install & push notifications
 
 Two independent, opt-in cards on `/dashboard/profile`, both following
