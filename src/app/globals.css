@@ -134,8 +134,14 @@
   }
   body {
     @apply text-foreground;
+    /* No background-attachment: fixed — body itself never scrolls (the
+       dashboard shell scrolls only `main`, internally), so it did nothing
+       functional, and Safari has a standalone-PWA quirk where a
+       fixed-attachment background paints against a viewport reference that
+       excludes the safe-area insets, even though the element's own box
+       correctly extends into them via viewport-fit=cover — leaving the
+       home-indicator strip unpainted. */
     background: radial-gradient(circle, var(--gradient-start), var(--gradient-end));
-    background-attachment: fixed;
     background-repeat: no-repeat;
   }
   html {
