@@ -94,17 +94,17 @@ export function BottomNav({
               key={href}
               href={href}
               className={cn(
-                "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
+                "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-1.5 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
-                  "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                  "flex size-6 shrink-0 items-center justify-center rounded-lg transition-colors",
                   !active && color && NAV_ICON_TILE_CLASSES[color],
                 )}
               >
-                <Icon className="size-5" />
+                <Icon className="size-4" />
               </span>
               <span className="w-full text-center leading-tight break-words">{dict.nav[key]}</span>
             </Link>
@@ -116,14 +116,14 @@ export function BottomNav({
               <button
                 type="button"
                 className={cn(
-                  "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
+                  "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 pt-1.5 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
                   moreActive ? "text-primary" : "text-muted-foreground",
                 )}
               />
             }
           >
             <span className="relative inline-flex">
-              <MoreHorizontal className="size-5" />
+              <MoreHorizontal className="size-4" />
               <Suspense fallback={null}>
                 <NotificationBadgeContent
                   notifications={notifications}
