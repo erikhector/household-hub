@@ -223,8 +223,16 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
   const initialViewPrefs = parseInventoryViewPrefs(prefs?.inventoryViewPrefs);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    // sm:h-[calc(100dvh-4rem)] pins this page's total height to the
+    // viewport on desktop (4rem = main's own sm:pt-8 + pb-8 in the
+    // dashboard shell — see layout.tsx), so the title/filters row below
+    // keeps its natural size and the table area (sm:flex-1 sm:min-h-0,
+    // set on InventoryClient/InventoryTable's own root) absorbs the rest
+    // and scrolls internally instead of the whole document scrolling and
+    // carrying the filters out of view. Mobile is unaffected (already
+    // scrolls via `main` itself — see layout.tsx).
+    <div className="flex flex-col gap-6 sm:h-[calc(100dvh-4rem)] sm:min-h-0">
+      <div className="flex flex-col gap-3 sm:shrink-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>

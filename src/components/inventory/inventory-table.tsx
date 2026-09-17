@@ -235,9 +235,9 @@ export function InventoryTable({
   const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0">
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>
@@ -315,9 +315,9 @@ export function InventoryTable({
           </Button>
         </div>
       )}
-      <div className="hidden sm:block">
+      <div className="hidden sm:block sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
       <Table>
-      <TableHeader>
+      <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>
           <TableHead className="w-10">
             <Checkbox
