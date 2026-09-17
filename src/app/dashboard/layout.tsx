@@ -99,7 +99,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
             <HouseholdSwitcher current={current} households={households} dict={dict} />
           </header>
-          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:pb-14 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+          {/* mt-3, not pt-3: margin sits outside main's scrollport so this
+              gap stays put as the page scrolls, whereas padding would get
+              scrolled away — breaking the inventory search bar's sticky-to-top
+              behavior by leaving it flush against the header once scrolled. */}
+          <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 max-sm:pb-14 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
             {children}
           </main>
         </div>
