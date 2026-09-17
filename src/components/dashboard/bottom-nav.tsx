@@ -69,14 +69,22 @@ export function BottomNav({
   const activeIndex = primaryActiveIndex !== -1 ? primaryActiveIndex : moreActive ? primaryMobileNavItems.length : -1;
 
   return (
-    // A plain static flex child of the dashboard shell (see
-    // dashboard/layout.tsx) rather than `position: fixed` — see that
-    // file's comment for why fixed positioning left a gap below this nav
-    // in a real iOS standalone PWA. pb-[env(safe-area-inset-bottom)] keeps
-    // the tap targets off the home-indicator gesture area; being normal
-    // flow, that padding just reserves real layout space, no separate
-    // safe-area/fixed-positioning interaction to fight.
-    <nav className="shrink-0 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
+    // Standard bottom-nav pattern: `position: fixed` pinned to the true
+    // viewport edge, with env(safe-area-inset-bottom) reserving room for
+    // the home-indicator gesture area. dashboard/layout.tsx reserves
+    // matching space at the bottom of `main`'s scroll content so page
+    // content never sits underneath this bar.
+    //
+    // The inset is capped at 34px (min(2.125rem, env(...))) because iOS
+    // standalone PWAs are documented to report an inflated/stale
+    // safe-area-inset-bottom value right at launch, which only resolves to
+    // the real ~34px home-indicator height after a reflow (e.g. a
+    // rotation) — see
+    // https://developer.apple.com/forums/thread/685481 and
+    // https://developer.apple.com/forums/thread/744327. Capping avoids
+    // that launch-time inflated value pushing the bar up with an
+    // oversized gap beneath it.
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[min(2.125rem,env(safe-area-inset-bottom))] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden

@@ -50,25 +50,26 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const current = { id: household.id, name: household.name, role };
 
   return (
-    // max-sm: pinned to the actual device viewport bounds (not just sized to
-    // match them) and never itself scrolls — only `main` does, internally.
-    // A bottom nav living inside a page that scrolls at the document level
-    // is what caused an earlier bug: `sticky` visibly lags/jumps during
-    // momentum scrolling. Taking the whole shell out of document flow
-    // removes that document-level scroll, so the header and BottomNav can
-    // both be plain, static, unmoving flex children — no position tricks
-    // needed on either of them. This also keeps the header (and its
-    // safe-area-inset-top padding) permanently on screen instead of
-    // scrolling away, which is what was letting the inventory page's
-    // sticky search bar stick up under the notch.
+    // max-sm: pinned to the actual device viewport bounds via `h-dvh` and
+    // never itself scrolls — only `main` does, internally. A bottom nav
+    // living inside a page that scrolls at the document level is what
+    // caused an earlier bug: `sticky` visibly lags/jumps during momentum
+    // scrolling. Taking the whole shell out of document flow removes that
+    // document-level scroll, so the header can stay a plain, static,
+    // unmoving flex child with no position tricks needed. This also keeps
+    // the header (and its safe-area-inset-top padding) permanently on
+    // screen instead of scrolling away, which is what was letting the
+    // inventory page's sticky search bar stick up under the notch.
     //
-    // BottomNav deliberately isn't `position: fixed`: on a real iOS
-    // standalone PWA, a fixed bottom-anchored element doesn't reliably
-    // resolve `bottom: 0` flush with the true screen edge — it left a
-    // visible gap below the nav no matter how its own safe-area padding
-    // was tuned. As a normal flex child of this already viewport-pinned
-    // shell, its position falls out of ordinary layout instead, with no
-    // separate fixed-positioning/safe-area resolution involved at all.
+    // This column is sized with `h-dvh`, the unit purpose-built to resolve
+    // to the true visible viewport (it's what stays correct as a browser's
+    // dynamic toolbar shows/hides — irrelevant in standalone PWA mode, but
+    // the unit still resolves against the real device screen there too).
+    //
+    // BottomNav itself is `position: fixed` (see bottom-nav.tsx) — the
+    // standard pattern for a PWA bottom bar — rendered as a sibling here
+    // rather than inside `main`/this column so it's unambiguously pinned
+    // to the viewport regardless of this column's own layout.
     //
     // `overflow-hidden` here + `min-h-0` cascaded down through every flex
     // level to `main` guards against Safari's flexbox quirk where a nested
@@ -78,7 +79,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // the page instead of staying put. `main`'s overscroll-contain stops
     // the same thing happening transiently: iOS rubber-banding past the end
     // of the inner scroll and bleeding into a drag of the outer page.
-    <div className="flex flex-1 max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden">
+    <div className="flex flex-1">
       <Sidebar
         defaultExpanded={sidebarExpanded}
         current={current}
@@ -87,7 +88,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         locale={locale}
         notifications={notifications}
       />
-      <div className="flex flex-1 flex-col max-sm:min-h-0">
+      <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden">
         <Suspense fallback={null}>
           <EmailVerificationCheck
             userId={userId}
@@ -101,12 +102,18 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         {/* mt-3, not pt-3: margin sits outside main's scrollport so this
             gap stays put as the page scrolls, whereas padding would get
             scrolled away — breaking the inventory search bar's sticky-to-top
-            behavior by leaving it flush against the header once scrolled. */}
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain">
+            behavior by leaving it flush against the header once scrolled.
+            max-sm:pb-[...] reserves room for BottomNav, which is
+            `position: fixed` (see bottom-nav.tsx) and so sits outside
+            normal flow — without this, its last ~3.75rem of tap targets
+            would sit on top of this page's own content instead of below
+            it. The value mirrors BottomNav's own rendered height (icon
+            tile + label + padding) plus its capped safe-area inset. */}
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))]">
           {children}
         </main>
-        <BottomNav dict={dict} locale={locale} notifications={notifications} />
       </div>
+      <BottomNav dict={dict} locale={locale} notifications={notifications} />
     </div>
   );
 }
