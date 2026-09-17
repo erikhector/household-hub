@@ -141,9 +141,9 @@ export function BottomNav({
             </span>
             {dict.nav.more}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" sideOffset={8}>
+          <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56">
             {overflowMobileNavItems.map(({ href, key, icon: Icon, color }) => (
-              <DropdownMenuItem key={href} render={<Link href={href} />}>
+              <DropdownMenuItem key={href} className="min-w-0" render={<Link href={href} />}>
                 <span
                   className={cn(
                     "flex size-5 shrink-0 items-center justify-center rounded-md",
@@ -152,7 +152,7 @@ export function BottomNav({
                 >
                   <Icon className="size-3.5" />
                 </span>
-                {dict.nav[key]}
+                <span className="min-w-0 truncate">{dict.nav[key]}</span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
