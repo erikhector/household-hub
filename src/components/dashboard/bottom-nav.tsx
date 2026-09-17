@@ -72,7 +72,15 @@ export function BottomNav({
     // Fixed to the viewport's bottom edge rather than living in normal flow —
     // see dashboard/layout.tsx's `main` for the matching reserved bottom
     // padding so scrolled content never ends up hidden underneath it.
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background sm:hidden">
+    //
+    // pb-[env(safe-area-inset-bottom)] isn't just for keeping the icons off
+    // the home indicator: on real iOS standalone/PWA, a fixed element whose
+    // box doesn't itself reserve that inset can leave the safe-area strip
+    // unpainted by its own background, showing the page's background
+    // through underneath instead — the same class of bug already hit (and
+    // fixed) for body's background, see globals.css. Without this padding
+    // that showed up as a visible gap under the nav on-device.
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] sm:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden
