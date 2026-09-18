@@ -63,11 +63,12 @@ const {
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
       shoppingListItem: {
+        create: shoppingListItemCreateMock,
         update: shoppingListItemUpdateMock,
         delete: shoppingListItemDeleteMock,
         count: shoppingListItemCountMock,
       },
-      shoppingList: { findUnique: shoppingListFindUniqueMock },
+      shoppingList: { create: shoppingListCreateMock, findUnique: shoppingListFindUniqueMock },
       inventoryItem: {
         update: inventoryItemUpdateMock,
         findUnique: inventoryItemFindUniqueMock,
@@ -126,6 +127,9 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
         one: "{count} item wasn't linked",
         other: "{count} items weren't linked",
       },
+      registerReceipt: {
+        namePlaceholderPrefix: "Receipt",
+      },
     },
   })),
   getLocale: vi.fn(async () => "en"),
@@ -158,6 +162,7 @@ const {
   applyReceiptScanAction,
   deleteShoppingListItemAction,
   completeShoppingListAction,
+  registerReceiptAction,
 } = await import("@/app/dashboard/shopping-list/actions");
 
 function formData(fields: Record<string, string>) {
@@ -763,6 +768,134 @@ describe("deleteShoppingListItemAction", () => {
     await deleteShoppingListItemAction("item-1");
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("registerReceiptAction", () => {
+  it("rejects an empty items array", async () => {
+    const result = await registerReceiptAction("My receipt", "SEK", []);
+
+    expect(result.error).toBeTruthy();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a completed list with items auto-linked by exact name match, updates inventory and logs a Groceries expense", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+    findOrCreateGroceriesCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    transactionCreateMock.mockResolvedValue({});
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Milk", quantity: 2, unit: "l", price: 15 },
+    ]);
+
+    expect(shoppingListCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "household-1",
+        name: "My receipt",
+        status: "COMPLETED",
+      }),
+    });
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: {
+        shoppingListId: "list-1",
+        inventoryItemId: "inv-1",
+        name: "Milk",
+        quantity: 2,
+        unit: "l",
+        purchased: true,
+        estimatedPrice: 15,
+      },
+    });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 4 },
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 15 },
+    });
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ categoryId: "cat-groceries", amount: 15, type: "EXPENSE" }),
+      }),
+    );
+    expect(result.unresolvedNotice).toBeUndefined();
+    expect(result).toEqual(
+      expect.objectContaining({ listId: "list-1", itemsAdded: 1, totalAmount: 15 }),
+    );
+  });
+
+  it("falls back to a default list name and leaves an unmatched item unlinked, reporting it via unresolvedNotice", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "Receipt — today" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await registerReceiptAction(undefined, "SEK", [
+      { name: "Mystery item", quantity: 1, price: 10 },
+    ]);
+
+    expect(shoppingListCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: expect.stringContaining("Receipt") }) }),
+    );
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: {
+        shoppingListId: "list-1",
+        inventoryItemId: null,
+        name: "Mystery item",
+        quantity: 1,
+        unit: "pcs",
+        purchased: true,
+        estimatedPrice: 10,
+      },
+    });
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(result.unresolvedNotice).toBe("1 item wasn't linked");
+  });
+
+  it("sums quantity across two lines matching the same inventory item instead of overwriting each other", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [
+      { name: "Apple", quantity: 2, price: 5 },
+      { name: "Apple", quantity: 3, price: 6 },
+    ]);
+
+    expect(inventoryItemUpdateMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 15 }, // 10 + 2 + 3
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("converts a foreign-currency price using the fetched exchange rate", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+    fetchExchangeRateMock.mockResolvedValue(0.5);
+
+    const result = await registerReceiptAction("My receipt", "EUR", [
+      { name: "Cheese", quantity: 1, price: 20 },
+    ]);
+
+    expect(fetchExchangeRateMock).toHaveBeenCalledWith("EUR", "SEK");
+    expect(result.totalAmount).toBe(10);
+  });
+
+  it("returns an error and creates nothing when the exchange rate can't be fetched", async () => {
+    fetchExchangeRateMock.mockResolvedValue(null);
+
+    const result = await registerReceiptAction("My receipt", "EUR", [
+      { name: "Cheese", quantity: 1, price: 20 },
+    ]);
+
+    expect(result.error).toContain("exchange rate");
+    expect(shoppingListCreateMock).not.toHaveBeenCalled();
   });
 });
 

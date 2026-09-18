@@ -697,6 +697,203 @@ export async function applyReceiptScanAction(
   return { itemsUpdated: validMatches.length, totalAmount };
 }
 
+export type ReceiptRegistrationItem = { name: string; quantity: number; unit?: string; price: number };
+
+const registerReceiptItemSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  quantity: z.coerce.number().min(0.01),
+  unit: z.string().trim().max(20).optional(),
+  price: z.coerce.number().min(0.01),
+});
+
+const registerReceiptSchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  currency: z.string().trim().min(1).max(10),
+  items: z.array(registerReceiptItemSchema).min(1, "Add at least one item"),
+});
+
+/**
+ * "Register receipt" — the alternative entry point to ReceiptScanDialog /
+ * applyReceiptScanAction above for when there's no shopping list yet to
+ * match scanned lines against: building that list by hand first, just to
+ * immediately scan a receipt against it, is the tedious round trip this
+ * skips. Instead this creates the list from the receipt itself, one already-
+ * purchased item per reviewed line (auto-linked to inventory exactly like
+ * createAdHocShoppingListItem: an exact case-insensitive name match, else a
+ * single confident fuzzy match, else left unlinked for later), and completes
+ * it in the same call — the same end state completeShoppingListAction
+ * reaches (a logged Groceries expense, an unresolved-items count) but
+ * reached in one step instead of create → add → check off → complete.
+ *
+ * Inventory matches are resolved up front (plain reads, same as
+ * createAdHocShoppingListItem) before the transaction below, which only
+ * performs writes. Quantity deltas are accumulated per inventory item first
+ * so two receipt lines naming the same item don't clobber each other by both
+ * computing their new quantity from the same stale snapshot.
+ */
+export async function registerReceiptAction(
+  listName: string | undefined,
+  currency: string,
+  items: ReceiptRegistrationItem[],
+): Promise<
+  ActionState & {
+    listId?: string;
+    itemsAdded?: number;
+    totalAmount?: number;
+    expenseLoggedMessage?: string;
+    unresolvedNotice?: string;
+  }
+> {
+  const { household, userId } = await requireHousehold();
+  const dict = await getDictionary();
+
+  const parsed = registerReceiptSchema.safeParse({ name: listName, currency, items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const upperCurrency = parsed.data.currency.toUpperCase();
+  let rate = 1;
+  if (upperCurrency !== HOUSEHOLD_BASE_CURRENCY) {
+    const fetched = await fetchExchangeRate(upperCurrency, HOUSEHOLD_BASE_CURRENCY);
+    if (fetched === null) {
+      return {
+        error: `Couldn't fetch a ${upperCurrency} → ${HOUSEHOLD_BASE_CURRENCY} exchange rate right now. Try again shortly.`,
+      };
+    }
+    rate = fetched;
+  }
+
+  const finalListName =
+    parsed.data.name ||
+    `${dict.shoppingList.registerReceipt.namePlaceholderPrefix} — ${new Date().toLocaleDateString()}`;
+
+  const preparedItems: {
+    name: string;
+    quantity: number;
+    unit: string;
+    convertedPrice: number;
+    inventoryItem: { id: string; quantity: number; unit: string } | null;
+  }[] = [];
+  let totalAmount = 0;
+  let unresolvedCount = 0;
+
+  for (const line of parsed.data.items) {
+    let inventoryItem = await findExactInventoryItem(household.id, line.name);
+    if (!inventoryItem) inventoryItem = await findFuzzyInventoryItem(household.id, line.name);
+    if (!inventoryItem) unresolvedCount++;
+
+    const convertedPrice = Math.round(line.price * rate * 100) / 100;
+    totalAmount += convertedPrice;
+
+    preparedItems.push({
+      name: line.name,
+      quantity: line.quantity,
+      unit: line.unit || inventoryItem?.unit || "pcs",
+      convertedPrice,
+      inventoryItem,
+    });
+  }
+
+  const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number }>();
+  for (const item of preparedItems) {
+    if (!item.inventoryItem) continue;
+    const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
+      currentQuantity: item.inventoryItem.quantity,
+      delta: 0,
+    };
+    existing.delta += item.quantity;
+    inventoryDeltas.set(item.inventoryItem.id, existing);
+  }
+
+  let listId: string;
+  try {
+    listId = await prisma.$transaction(async (tx) => {
+      const list = await tx.shoppingList.create({
+        data: {
+          householdId: household.id,
+          name: finalListName,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+
+      for (const item of preparedItems) {
+        await tx.shoppingListItem.create({
+          data: {
+            shoppingListId: list.id,
+            inventoryItemId: item.inventoryItem?.id ?? null,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            purchased: true,
+            estimatedPrice: item.convertedPrice,
+          },
+        });
+
+        if (item.inventoryItem) {
+          await tx.priceHistory.create({
+            data: { inventoryItemId: item.inventoryItem.id, price: item.convertedPrice },
+          });
+        }
+      }
+
+      for (const [inventoryItemId, { currentQuantity, delta }] of inventoryDeltas) {
+        await tx.inventoryItem.update({
+          where: { id: inventoryItemId },
+          data: { quantity: currentQuantity + delta },
+        });
+      }
+
+      return list.id;
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  let expenseLoggedMessage: string | undefined;
+  if (totalAmount > 0) {
+    const category = await findOrCreateGroceriesCategory(household.id);
+    await prisma.transaction.create({
+      data: {
+        householdId: household.id,
+        categoryId: category.id,
+        amount: totalAmount,
+        type: "EXPENSE",
+        description: format(dict.shoppingList.expenseDescription, { name: finalListName }),
+        date: new Date(),
+        createdByUserId: userId,
+      },
+    });
+
+    const locale = await getLocale();
+    const amountLabel = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(totalAmount);
+    expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
+  }
+
+  const unresolvedNotice =
+    unresolvedCount > 0
+      ? format(plural(unresolvedCount, dict.shoppingList.unresolvedNotice), { count: unresolvedCount })
+      : undefined;
+
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath(`/dashboard/shopping-list/${listId}`);
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard/budget");
+  revalidatePath("/dashboard");
+
+  return {
+    listId,
+    itemsAdded: preparedItems.length,
+    totalAmount,
+    expenseLoggedMessage,
+    unresolvedNotice,
+  };
+}
+
 export async function deleteShoppingListItemAction(itemId: string): Promise<ActionState> {
   const { household, userId } = await requireHousehold();
 

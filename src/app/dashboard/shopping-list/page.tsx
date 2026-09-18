@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
+import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
 
 function ShoppingListsSkeleton() {
   return (
@@ -47,6 +48,14 @@ async function ShoppingListsSection({
 export default async function ShoppingListPage() {
   const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { householdId: household.id },
+    select: { id: true, name: true, category: true, unit: true },
+    orderBy: { name: "asc" },
+  });
+
+  const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -54,7 +63,14 @@ export default async function ShoppingListPage() {
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.shoppingList.title}</h1>
           <p className="text-sm text-muted-foreground">{dict.shoppingList.subtitle}</p>
         </div>
-        <NewListDialog dict={dict.shoppingList} />
+        <div className="flex flex-wrap gap-2">
+          <RegisterReceiptDialog
+            inventoryItems={inventoryItems}
+            units={units}
+            dict={dict.shoppingList.registerReceipt}
+          />
+          <NewListDialog dict={dict.shoppingList} />
+        </div>
       </div>
       <Suspense fallback={<ShoppingListsSkeleton />}>
         <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} />
