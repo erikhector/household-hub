@@ -156,13 +156,51 @@ export function computeRecurringMonthlyTotals({
   return months;
 }
 
-export type TemplateStatus = "posted" | "acknowledged" | "due";
+export type TemplateStatus = "posted" | "acknowledged" | "due" | "upcoming" | "scheduled";
 
 export type RecurringTemplateInput = {
   id: string;
   frequency: TemplateFrequency;
   active: boolean;
+  /** Day-of-month hint (1-31) — see RecurringTemplate.dayOfMonth's doc
+   * comment in schema.prisma. Used here (only here) to hold a MONTHLY
+   * template at "scheduled"/"upcoming" instead of "due" until that day
+   * arrives — see classifyByDueDay below. */
+  dayOfMonth?: number | null;
 };
+
+/** How many days before a MONTHLY template's due-day hint it switches from
+ * "scheduled" (quietly not due yet) to "upcoming" (due soon) — see
+ * classifyByDueDay. */
+const UPCOMING_WINDOW_DAYS = 5;
+
+function daysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+/**
+ * How far a MONTHLY template with a dayOfMonth hint is from its due day,
+ * relative to `referenceDate`: "due" once that day has arrived, "upcoming"
+ * within UPCOMING_WINDOW_DAYS days before it, else "scheduled" (not due soon
+ * — quietly waiting, no nag). WEEKLY/YEARLY templates have no
+ * day-within-period a 1-31 hint can anchor to, and a template with no hint
+ * at all has nothing to count down to, so both always read "due" from the
+ * start of their period — unchanged from before this distinction existed. A
+ * dayOfMonth past the current month's length (e.g. 31 in February) clamps to
+ * that month's last day, so "due on the 31st" reads as "due at month end"
+ * everywhere rather than never triggering.
+ */
+function classifyByDueDay(
+  template: RecurringTemplateInput,
+  referenceDate: Date,
+): "due" | "upcoming" | "scheduled" {
+  if (template.frequency !== "MONTHLY" || !template.dayOfMonth) return "due";
+  const effectiveDay = Math.min(template.dayOfMonth, daysInMonth(referenceDate));
+  const today = referenceDate.getDate();
+  if (today >= effectiveDay) return "due";
+  if (today >= effectiveDay - UPCOMING_WINDOW_DAYS) return "upcoming";
+  return "scheduled";
+}
 
 export type TemplateTransactionInput = {
   recurringTemplateId: string | null;
@@ -183,9 +221,10 @@ export type TemplateStatusRow<T extends RecurringTemplateInput> = {
 /**
  * For every active template, determines this period's status: "posted" if a
  * transaction was logged from it for the current period, else
- * "acknowledged" if it was explicitly checked off without one, else "due".
- * Inactive (paused) templates are omitted entirely — see
- * RecurringTemplate.active's doc comment.
+ * "acknowledged" if it was explicitly checked off without one, else
+ * "due"/"upcoming"/"scheduled" per classifyByDueDay. Inactive (paused)
+ * templates are omitted entirely — see RecurringTemplate.active's doc
+ * comment.
  */
 export function computeTemplateStatuses<T extends RecurringTemplateInput>({
   templates,
@@ -215,7 +254,7 @@ export function computeTemplateStatuses<T extends RecurringTemplateInput>({
         ? "posted"
         : ackedPeriods.has(`${template.id}:${periodKey}`)
           ? "acknowledged"
-          : "due";
+          : classifyByDueDay(template, referenceDate);
 
       return { template, periodKey, status };
     });

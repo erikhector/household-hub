@@ -952,7 +952,7 @@ export const sv = {
       subtitle:
         "Inkomster, räkningar och sparande du väntar dig varje period. Bocka av en genom att logga dess transaktion, eller markera den som klar om den hanteras utanför appen.",
       statusLegend:
-        "Att göra: inte loggat än denna period. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
+        "Att göra: inte loggat än denna period. Kommande: dags inom 5 dagar. Inte dags än: längre bort, inget att göra ännu. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
       addTemplate: "Lägg till återkommande post",
       addDialogTitle: "Lägg till återkommande post",
       editDialogTitle: "Redigera återkommande post",
@@ -967,6 +967,8 @@ export const sv = {
       add: "Lägg till post",
       empty: "Inga återkommande poster än. Lägg till dem du väntar dig varje period.",
       sectionDue: "Att göra denna period",
+      sectionUpcoming: "Kommande",
+      sectionScheduled: "Inte dags än",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
       logTransaction: "Logga transaktion",
@@ -1115,7 +1117,7 @@ export const sv = {
       subtitle:
         "Inkomster, räkningar och sparande du väntar dig varje period. Bocka av en genom att logga dess transaktion, eller markera den som klar om den hanteras utanför appen.",
       statusLegend:
-        "Att göra: inte loggat än denna period. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
+        "Att göra: inte loggat än denna period. Kommande: dags inom 5 dagar. Inte dags än: längre bort, inget att göra ännu. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
       addTemplate: "Lägg till återkommande post",
       addDialogTitle: "Lägg till återkommande post",
       editDialogTitle: "Redigera återkommande post",
@@ -1130,6 +1132,8 @@ export const sv = {
       add: "Lägg till post",
       empty: "Inga återkommande poster än. Lägg till dem du väntar dig varje period.",
       sectionDue: "Att göra denna period",
+      sectionUpcoming: "Kommande",
+      sectionScheduled: "Inte dags än",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
       logTransaction: "Logga transaktion",

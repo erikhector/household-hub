@@ -113,6 +113,83 @@ describe("computeTemplateStatuses", () => {
     expect(rows.find((r) => r.template.id === "rent")?.status).toBe("posted");
     expect(rows.find((r) => r.template.id === "gym")?.status).toBe("acknowledged");
   });
+
+  it("marks a MONTHLY template with a far-off dayOfMonth hint as scheduled, not upcoming or due", () => {
+    // referenceDate is 2026-09-06; due day 25 is more than 5 days away.
+    const rows = computeTemplateStatuses({
+      templates: [{ ...rent, dayOfMonth: 25 }],
+      transactions: [],
+      acks: [],
+      referenceDate,
+    });
+    expect(rows[0].status).toBe("scheduled");
+  });
+
+  it("marks a MONTHLY template as upcoming within 5 days of its dayOfMonth hint", () => {
+    // referenceDate is 2026-09-06; due day 11 is exactly 5 days out.
+    const rows = computeTemplateStatuses({
+      templates: [{ ...rent, dayOfMonth: 11 }],
+      transactions: [],
+      acks: [],
+      referenceDate,
+    });
+    expect(rows[0].status).toBe("upcoming");
+  });
+
+  it("keeps a template scheduled one day outside the 5-day upcoming window", () => {
+    // referenceDate is 2026-09-06; due day 12 is 6 days out.
+    const rows = computeTemplateStatuses({
+      templates: [{ ...rent, dayOfMonth: 12 }],
+      transactions: [],
+      acks: [],
+      referenceDate,
+    });
+    expect(rows[0].status).toBe("scheduled");
+  });
+
+  it("marks a MONTHLY template as due once its dayOfMonth hint has arrived", () => {
+    const rows = computeTemplateStatuses({
+      templates: [{ ...rent, dayOfMonth: 6 }],
+      transactions: [],
+      acks: [],
+      referenceDate, // 2026-09-06
+    });
+    expect(rows[0].status).toBe("due");
+  });
+
+  it("clamps a dayOfMonth hint past the current month's length to that month's last day", () => {
+    // February 2026 (not a leap year) has 28 days; a "due on the 31st"
+    // template should read as due once Feb 28 arrives, not never.
+    const rows = computeTemplateStatuses({
+      templates: [{ ...rent, dayOfMonth: 31 }],
+      transactions: [],
+      acks: [],
+      referenceDate: new Date(2026, 1, 28),
+    });
+    expect(rows[0].status).toBe("due");
+  });
+
+  it("treats a template with no dayOfMonth hint as due from the start of the period", () => {
+    const rows = computeTemplateStatuses({
+      templates: [rent],
+      transactions: [],
+      acks: [],
+      referenceDate,
+    });
+    expect(rows[0].status).toBe("due");
+  });
+
+  it("never marks a WEEKLY or YEARLY template as upcoming or scheduled, even with a dayOfMonth hint", () => {
+    const weekly = { id: "weekly", frequency: "WEEKLY" as const, active: true, dayOfMonth: 25 };
+    const yearly = { id: "yearly", frequency: "YEARLY" as const, active: true, dayOfMonth: 25 };
+    const rows = computeTemplateStatuses({
+      templates: [weekly, yearly],
+      transactions: [],
+      acks: [],
+      referenceDate,
+    });
+    expect(rows.map((r) => r.status)).toEqual(["due", "due"]);
+  });
 });
 
 describe("monthlyEquivalentAmount", () => {
