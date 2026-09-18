@@ -87,7 +87,92 @@ export type NotificationItem =
   | ExpiringSoonNotification
   | ListClearedNotification;
 
+// A history-list entry: the same shape as the bell's NotificationItem, plus
+// the timestamps the notification center page needs to show "when" and
+// whether it's still unread — `getActiveNotifications` below has no need for
+// either since it only ever returns undismissed rows.
+export type NotificationHistoryItem = NotificationItem & {
+  createdAt: Date;
+  dismissedAt: Date | null;
+};
+
 type DbClient = typeof prisma | Prisma.TransactionClient;
+
+type NotificationRow = Prisma.NotificationGetPayload<{
+  include: {
+    inventoryItem: { select: { name: true } };
+    mealPlanEntry: { select: { date: true; freeformName: true; recipe: { select: { name: true } } } };
+    shoppingList: { select: { name: true } };
+  };
+}>;
+
+// Shared by getActiveNotifications and getNotificationHistory below — maps
+// one Notification row (with its related-record names already joined in) to
+// the discriminated-union shape the bell and the history page both render.
+// Returns [] for a row whose related record is gone (see the inline comments
+// this replaces) or a retired RESTOCKED row (see this file's top doc comment).
+function toNotificationItem(row: NotificationRow): NotificationItem[] {
+  if (row.kind === "OUT_OF_STOCK") {
+    if (!row.inventoryItem) return [];
+    return [{ id: row.id, kind: "outOfStock", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+  }
+
+  if (row.kind === "EXPIRING_SOON") {
+    if (!row.inventoryItem) return [];
+    return [{ id: row.id, kind: "expiringSoon", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+  }
+
+  if (row.kind === "RESTOCKED") return [];
+
+  if (row.kind === "LIST_CLEARED") {
+    if (!row.shoppingList) return [];
+    return [{ id: row.id, kind: "listCleared", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
+  }
+
+  if (!row.mealPlanEntry) return [];
+  const entryDate = row.mealPlanEntry.date;
+  return [
+    {
+      id: row.id,
+      kind: "mealNotLogged",
+      entryId: row.mealPlanEntryId!,
+      dateKey: toDateKey(entryDate),
+      weekStartKey: toDateKey(getWeekStart(entryDate)),
+      name: row.mealPlanEntry.recipe?.name ?? row.mealPlanEntry.freeformName ?? "",
+    },
+  ];
+}
+
+const notificationRowInclude = {
+  inventoryItem: { select: { name: true } },
+  mealPlanEntry: {
+    select: { date: true, freeformName: true, recipe: { select: { name: true } } },
+  },
+  shoppingList: { select: { name: true } },
+} satisfies Prisma.NotificationInclude;
+
+// Every notification ever recorded for the household, dismissed or not — the
+// notification center page's data source (see
+// src/app/dashboard/notifications/page.tsx). Deliberately doesn't sync the
+// lazy background kinds itself (unlike getActiveNotifications): this page
+// lives under dashboard/layout.tsx same as everything else, so that layout's
+// own getActiveNotifications call already syncs them once per request — a
+// second, concurrent sync call here could race it and (for EXPIRING_SOON,
+// whose dedup is an application-level check rather than a DB constraint)
+// create duplicate rows for the same item. Capped at 200 rows — a household
+// generating more than that is not a case worth paginating for yet.
+export async function getNotificationHistory(householdId: string): Promise<NotificationHistoryItem[]> {
+  const rows = await prisma.notification.findMany({
+    where: { householdId },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    include: notificationRowInclude,
+  });
+
+  return rows.flatMap((row): NotificationHistoryItem[] =>
+    toNotificationItem(row).map((item) => ({ ...item, createdAt: row.createdAt, dismissedAt: row.dismissedAt })),
+  );
+}
 
 // Called from every action that can decrease an already-existing
 // InventoryItem's quantity, right after computing its new value. Only fires
@@ -280,49 +365,8 @@ export async function getActiveNotifications(householdId: string): Promise<Notif
   const rows = await prisma.notification.findMany({
     where: { householdId, dismissedAt: null },
     orderBy: { createdAt: "desc" },
-    include: {
-      inventoryItem: { select: { name: true } },
-      mealPlanEntry: {
-        select: { date: true, freeformName: true, recipe: { select: { name: true } } },
-      },
-      shoppingList: { select: { name: true } },
-    },
+    include: notificationRowInclude,
   });
 
-  return rows.flatMap((row): NotificationItem[] => {
-    if (row.kind === "OUT_OF_STOCK") {
-      // The item was deleted after the alert fired (onDelete: Cascade would
-      // normally remove this row too, but a concurrent transaction could
-      // leave a brief gap) — nothing meaningful to show.
-      if (!row.inventoryItem) return [];
-      return [{ id: row.id, kind: "outOfStock", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
-    }
-
-    if (row.kind === "EXPIRING_SOON") {
-      if (!row.inventoryItem) return [];
-      return [{ id: row.id, kind: "expiringSoon", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
-    }
-
-    // Legacy rows from the retired "restocked" trigger (see this file's top
-    // doc comment) — never shown, dismissed or not.
-    if (row.kind === "RESTOCKED") return [];
-
-    if (row.kind === "LIST_CLEARED") {
-      if (!row.shoppingList) return [];
-      return [{ id: row.id, kind: "listCleared", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
-    }
-
-    if (!row.mealPlanEntry) return [];
-    const entryDate = row.mealPlanEntry.date;
-    return [
-      {
-        id: row.id,
-        kind: "mealNotLogged",
-        entryId: row.mealPlanEntryId!,
-        dateKey: toDateKey(entryDate),
-        weekStartKey: toDateKey(getWeekStart(entryDate)),
-        name: row.mealPlanEntry.recipe?.name ?? row.mealPlanEntry.freeformName ?? "",
-      },
-    ];
-  });
+  return rows.flatMap(toNotificationItem);
 }

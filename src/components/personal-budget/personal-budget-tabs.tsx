@@ -1,22 +1,26 @@
 "use client";
 
-// Two-tab switch (Plan / Activity) for the personal budget page, mirroring
-// BudgetTabs's pattern (src/components/budget/budget-tabs.tsx) at a smaller
-// scale — no cost analyzer or balances tab exists here, so there's nothing to
-// gate. See BudgetTabs's doc comment for why the onboarding/Safe to
-// Spend/Due widget row lives here rather than in the page.
+// Four-tab switch for the personal budget page, mirroring BudgetTabs's
+// pattern (src/components/budget/budget-tabs.tsx) at a smaller scale — no
+// cost analyzer or balances section exists here, so Insights is just the
+// period summary and the fixed-cost trend. See BudgetTabs's doc comment for
+// the full rationale behind the Overview/Manage/Transactions/Insights split
+// and for building the "Add transaction" trigger here rather than passing it
+// down from the page.
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { PersonalDueRecurringWidget } from "@/components/personal-budget/personal-due-recurring-widget";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
+import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
-type Tab = "fixed" | "overview";
+type Tab = "overview" | "manage" | "transactions" | "insights";
 
 export function PersonalBudgetTabs({
   dict,
@@ -27,8 +31,9 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
-  fixed,
-  overview,
+  manage,
+  transactions,
+  insights,
 }: {
   dict: Dictionary["personalBudget"];
   locale: Locale;
@@ -38,58 +43,59 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
-  // The primary tab — see BudgetTabs's `fixed` prop doc comment.
-  fixed: ReactNode;
-  overview: ReactNode;
+  // Recurring items + categories — see BudgetTabs's doc comment.
+  manage: ReactNode;
+  transactions: ReactNode;
+  insights: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("fixed");
+  const [tab, setTab] = useState<Tab>("overview");
   const hasCategories = categories.length > 0;
+
+  const tabItems: TabItem<Tab>[] = [
+    { value: "overview", label: dict.tabOverview },
+    { value: "manage", label: dict.tabManage },
+    { value: "transactions", label: dict.tabTransactions },
+    { value: "insights", label: dict.tabInsights },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
-      {hasCategories ? (
-        <>
-          <SafeToSpend
-            amount={safeToSpendAmount}
-            status={safeToSpendStatus}
-            expectedRecurring={safeToSpendExpectedRecurring}
-            dict={dict.safeToSpend}
-            locale={locale}
-          />
-          <PersonalDueRecurringWidget
-            templates={dueTemplates}
-            hasTemplates={hasRecurringTemplates}
-            categories={categories}
-            dict={dict}
-            locale={locale}
-            onManageClick={() => setTab("fixed")}
-          />
-        </>
-      ) : (
-        <PersonalBudgetOnboarding dict={dict} />
-      )}
-
-      <div className="flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1">
-        <Button
-          type="button"
-          variant={tab === "fixed" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("fixed")}
-        >
-          {dict.tabFixed}
-        </Button>
-        <Button
-          type="button"
-          variant={tab === "overview" ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => setTab("overview")}
-        >
-          {dict.tabOverview}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs tabs={tabItems} value={tab} onChange={setTab} />
+        <PersonalTransactionDialog
+          dict={dict}
+          categories={categories}
+          trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
+        />
       </div>
 
-      <div hidden={tab !== "fixed"}>{fixed}</div>
-      <div hidden={tab !== "overview"}>{overview}</div>
+      <div hidden={tab !== "overview"} className="flex flex-col gap-6">
+        {hasCategories ? (
+          <>
+            <SafeToSpend
+              amount={safeToSpendAmount}
+              status={safeToSpendStatus}
+              expectedRecurring={safeToSpendExpectedRecurring}
+              dict={dict.safeToSpend}
+              locale={locale}
+            />
+            <PersonalDueRecurringWidget
+              templates={dueTemplates}
+              hasTemplates={hasRecurringTemplates}
+              categories={categories}
+              dict={dict}
+              locale={locale}
+              onManageClick={() => setTab("manage")}
+            />
+          </>
+        ) : (
+          <PersonalBudgetOnboarding dict={dict} />
+        )}
+      </div>
+
+      <div hidden={tab !== "manage"}>{manage}</div>
+      <div hidden={tab !== "transactions"}>{transactions}</div>
+      <div hidden={tab !== "insights"}>{insights}</div>
     </div>
   );
 }

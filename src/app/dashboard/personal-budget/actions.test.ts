@@ -12,6 +12,7 @@ const {
   requireUserIdMock,
   categoryFindFirstMock,
   categoryCreateMock,
+  categoryUpdateMock,
   categoryDeleteMock,
   transactionFindFirstMock,
   transactionCreateMock,
@@ -29,6 +30,7 @@ const {
   requireUserIdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
   categoryCreateMock: vi.fn(),
+  categoryUpdateMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
   transactionFindFirstMock: vi.fn(),
   transactionCreateMock: vi.fn(),
@@ -49,6 +51,7 @@ vi.mock("@/lib/prisma", () => ({
     personalBudgetCategory: {
       findFirst: categoryFindFirstMock,
       create: categoryCreateMock,
+      update: categoryUpdateMock,
       delete: categoryDeleteMock,
     },
     personalTransaction: {
@@ -75,6 +78,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
   createPersonalCategoryAction,
+  updatePersonalCategoryAction,
   deletePersonalCategoryAction,
   createPersonalTransactionAction,
   updatePersonalTransactionAction,
@@ -124,6 +128,44 @@ describe("createPersonalCategoryAction", () => {
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ userId }) }),
     );
+  });
+});
+
+describe("updatePersonalCategoryAction", () => {
+  it("returns 'Category not found' for another user's category (IDOR guard)", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+
+    const result = await updatePersonalCategoryAction(
+      {},
+      formData({ id: "someone-elses-category", name: "Renamed" }),
+    );
+
+    expect(result.error).toBe("Category not found");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a duplicate name for this user (case-insensitive), excluding itself", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1" })
+      .mockResolvedValueOnce({ id: "cat-2" });
+
+    const result = await updatePersonalCategoryAction({}, formData({ id: "cat-1", name: "Groceries" }));
+
+    expect(result.error).toBe("A category with that name already exists");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("renames the category scoped to the caller's own userId", async () => {
+    categoryFindFirstMock.mockResolvedValueOnce({ id: "cat-1" }).mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    const result = await updatePersonalCategoryAction({}, formData({ id: "cat-1", name: "Fun money" }));
+
+    expect(result).toEqual({});
+    expect(categoryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Fun money" },
+    });
   });
 });
 

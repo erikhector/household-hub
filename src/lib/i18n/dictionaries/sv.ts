@@ -32,6 +32,14 @@ export const sv = {
     listCleared: "{name} är helt avbockad",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
+    viewAll: "Visa alla aviseringar",
+    history: {
+      title: "Aviseringar",
+      subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
+      markAllRead: "Markera alla som lästa",
+      empty: "Inga aviseringar än.",
+      unread: "Oläst",
+    },
   },
   language: {
     english: "Engelska",
@@ -792,10 +800,10 @@ export const sv = {
   budget: {
     title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
-    tabFixed: "Plan",
-    tabOverview: "Aktivitet",
-    tabCostAnalyzer: "Kostnadsanalys",
-    tabBalances: "Saldon",
+    tabOverview: "Översikt",
+    tabManage: "Hantera",
+    tabTransactions: "Transaktioner",
+    tabInsights: "Insikter",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -846,6 +854,10 @@ export const sv = {
       adding: "Lägger till…",
       add: "Lägg till kategori",
       empty: "Inga kategorier än. Lägg till en för att börja registrera transaktioner.",
+      editAriaLabel: "Redigera {name}",
+      editDialogTitle: "Redigera kategori",
+      save: "Spara",
+      saving: "Sparar…",
       deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
@@ -906,10 +918,6 @@ export const sv = {
         { id: "salary", name: "Lön", type: "INCOME" },
         { id: "savings", name: "Sparande", type: "SAVINGS" },
       ],
-    },
-    manageCategories: {
-      trigger: "Hantera kategorier",
-      dialogTitle: "Hantera kategorier",
     },
     dueWidget: {
       title: "Att göra denna period",
@@ -1005,7 +1013,7 @@ export const sv = {
       trendTitle: "Hur det förändras",
       trendSubtitle: "Loggade fasta transaktioner per månad.",
       noTrendData:
-        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post nedan för att börja följa detta över tid.",
+        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post under fliken Hantera för att börja följa detta över tid.",
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
@@ -1014,8 +1022,10 @@ export const sv = {
   personalBudget: {
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
-    tabFixed: "Plan",
-    tabOverview: "Aktivitet",
+    tabOverview: "Översikt",
+    tabManage: "Hantera",
+    tabTransactions: "Transaktioner",
+    tabInsights: "Insikter",
     addTransaction: "Lägg till transaktion",
     addTransactionDialogTitle: "Lägg till transaktion",
     editTransactionDialogTitle: "Redigera transaktion",
@@ -1065,6 +1075,10 @@ export const sv = {
       adding: "Lägger till…",
       add: "Lägg till kategori",
       empty: "Inga kategorier än. Lägg till en för att börja registrera transaktioner.",
+      editAriaLabel: "Redigera {name}",
+      editDialogTitle: "Redigera kategori",
+      save: "Spara",
+      saving: "Sparar…",
       deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
@@ -1170,7 +1184,7 @@ export const sv = {
       trendTitle: "Hur det förändras",
       trendSubtitle: "Loggade fasta transaktioner per månad.",
       noTrendData:
-        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post nedan för att börja följa detta över tid.",
+        "Inte tillräckligt med historik än. Logga en transaktion från en återkommande post under fliken Hantera för att börja följa detta över tid.",
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",

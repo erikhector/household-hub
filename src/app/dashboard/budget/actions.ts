@@ -82,6 +82,52 @@ export async function createCategoryAction(
   return {};
 }
 
+const updateCategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+});
+
+export async function updateCategoryAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = updateCategorySchema.safeParse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const category = await prisma.budgetCategory.findFirst({
+    where: { id: parsed.data.id, householdId: household.id },
+  });
+  if (!category) return { error: "Category not found" };
+
+  const existing = await prisma.budgetCategory.findFirst({
+    where: {
+      householdId: household.id,
+      name: { equals: parsed.data.name, mode: "insensitive" },
+      NOT: { id: category.id },
+    },
+  });
+  if (existing) return { error: "A category with that name already exists" };
+
+  try {
+    await prisma.budgetCategory.update({
+      where: { id: category.id },
+      data: { name: parsed.data.name },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/budget");
+  return {};
+}
+
 const starterCategorySchema = z.object({
   items: z
     .array(

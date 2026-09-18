@@ -35,6 +35,14 @@ export const en = {
     listCleared: "{name} is all checked off",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
+    viewAll: "View all notifications",
+    history: {
+      title: "Notifications",
+      subtitle: "Everything sent to your household, read or not.",
+      markAllRead: "Mark all as read",
+      empty: "No notifications yet.",
+      unread: "Unread",
+    },
   },
   language: {
     english: "English",
@@ -800,10 +808,10 @@ export const en = {
   budget: {
     title: "Household budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
-    tabFixed: "Plan",
-    tabOverview: "Activity",
-    tabCostAnalyzer: "Cost analyzer",
-    tabBalances: "Balances",
+    tabOverview: "Overview",
+    tabManage: "Manage",
+    tabTransactions: "Transactions",
+    tabInsights: "Insights",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
     editTransactionDialogTitle: "Edit transaction",
@@ -854,6 +862,10 @@ export const en = {
       adding: "Adding…",
       add: "Add category",
       empty: "No categories yet. Add one to start recording transactions.",
+      editAriaLabel: "Edit {name}",
+      editDialogTitle: "Edit category",
+      save: "Save",
+      saving: "Saving…",
       deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
@@ -914,10 +926,6 @@ export const en = {
         { id: "salary", name: "Salary", type: "INCOME" },
         { id: "savings", name: "Savings", type: "SAVINGS" },
       ],
-    },
-    manageCategories: {
-      trigger: "Manage categories",
-      dialogTitle: "Manage categories",
     },
     dueWidget: {
       title: "Due this period",
@@ -1013,7 +1021,7 @@ export const en = {
       trendTitle: "How it's changing",
       trendSubtitle: "Logged fixed transactions by month.",
       noTrendData:
-        "Not enough history yet. Log a transaction from a recurring item below to start tracking this over time.",
+        "Not enough history yet. Log a transaction from a recurring item on the Manage tab to start tracking this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
@@ -1022,8 +1030,10 @@ export const en = {
   personalBudget: {
     title: "Personal budget",
     subtitle: "Your own income and expenses — separate from any household you're part of.",
-    tabFixed: "Plan",
-    tabOverview: "Activity",
+    tabOverview: "Overview",
+    tabManage: "Manage",
+    tabTransactions: "Transactions",
+    tabInsights: "Insights",
     addTransaction: "Add transaction",
     addTransactionDialogTitle: "Add transaction",
     editTransactionDialogTitle: "Edit transaction",
@@ -1073,6 +1083,10 @@ export const en = {
       adding: "Adding…",
       add: "Add category",
       empty: "No categories yet. Add one to start recording transactions.",
+      editAriaLabel: "Edit {name}",
+      editDialogTitle: "Edit category",
+      save: "Save",
+      saving: "Saving…",
       deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
@@ -1178,7 +1192,7 @@ export const en = {
       trendTitle: "How it's changing",
       trendSubtitle: "Logged fixed transactions by month.",
       noTrendData:
-        "Not enough history yet. Log a transaction from a recurring item below to start tracking this over time.",
+        "Not enough history yet. Log a transaction from a recurring item on the Manage tab to start tracking this over time.",
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",

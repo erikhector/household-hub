@@ -24,6 +24,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -34,24 +35,34 @@ import { dismissNotificationAction } from "@/lib/actions/notifications";
 import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-function notificationHref(item: NotificationItem): string {
+// Exported for reuse by the notification center's history list (see
+// src/components/notifications/notifications-history.tsx), which renders
+// the same rows this dropdown does, plus dismissed ones.
+export function notificationHref(item: NotificationItem): string {
   if (item.kind === "outOfStock") return `/dashboard/inventory?status=out`;
   if (item.kind === "expiringSoon") return `/dashboard/inventory`;
   if (item.kind === "listCleared") return `/dashboard/shopping-list/${item.shoppingListId}`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
-function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
+export function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
   if (item.kind === "outOfStock") return format(dict.outOfStock, { name: item.name });
   if (item.kind === "expiringSoon") return format(dict.expiringSoon, { name: item.name });
   if (item.kind === "listCleared") return format(dict.listCleared, { name: item.name });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 
+export function notificationIcon(kind: NotificationItem["kind"]) {
+  if (kind === "outOfStock") return Package;
+  if (kind === "expiringSoon") return CalendarClock;
+  if (kind === "listCleared") return CheckCircle2;
+  return CalendarDays;
+}
+
 // Good-news kinds (see JOY_GAP_BACKLOG.md item 4) get their own icon and a
 // calm green accent, distinct from the warning kinds' default (inherited)
 // color — a different row treatment, not just a recolor of the same one.
-const GOOD_NEWS_KINDS = new Set<NotificationItem["kind"]>(["listCleared"]);
+export const GOOD_NEWS_KINDS = new Set<NotificationItem["kind"]>(["listCleared"]);
 
 export function NotificationCountBadge({ count, className }: { count: number; className?: string }) {
   if (count <= 0) return null;
@@ -90,14 +101,7 @@ function NotificationEntries({
   return (
     <>
       {items.map((item) => {
-        const Icon =
-          item.kind === "outOfStock"
-            ? Package
-            : item.kind === "expiringSoon"
-              ? CalendarClock
-              : item.kind === "listCleared"
-                ? CheckCircle2
-                : CalendarDays;
+        const Icon = notificationIcon(item.kind);
         const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);
         return (
           <DropdownMenuItem
@@ -111,6 +115,18 @@ function NotificationEntries({
         );
       })}
     </>
+  );
+}
+
+// Footer link into the full history page (see
+// src/app/dashboard/notifications/page.tsx) — always shown, even with the
+// list empty, since "view all" also means past/dismissed alerts this panel
+// never shows.
+function ViewAllLink({ dict }: { dict: Dictionary["notifications"] }) {
+  return (
+    <DropdownMenuItem render={<Link href="/dashboard/notifications" />} className="justify-center text-center">
+      {dict.viewAll}
+    </DropdownMenuItem>
   );
 }
 
@@ -141,6 +157,8 @@ export function NotificationBell({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <NotificationEntries items={items} dict={dict} />
+        <DropdownMenuSeparator />
+        <ViewAllLink dict={dict} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -161,6 +179,8 @@ export function NotificationMenuItem({
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className="w-64">
         <NotificationEntries items={items} dict={dict} />
+        <DropdownMenuSeparator />
+        <ViewAllLink dict={dict} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   );

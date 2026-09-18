@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { Button } from "@/components/ui/button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { PersonalBudgetTabs } from "@/components/personal-budget/personal-budget-tabs";
 import { PersonalCategoryManager } from "@/components/personal-budget/personal-category-manager";
@@ -10,7 +9,6 @@ import {
   type PausedPersonalRecurringTemplateRow,
   type PersonalRecurringTemplateListRow,
 } from "@/components/personal-budget/personal-recurring-templates-panel";
-import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import { PersonalTransactionList } from "@/components/personal-budget/personal-transaction-list";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import {
@@ -108,6 +106,7 @@ export default async function PersonalBudgetPage() {
     monthEnd,
     incomeSoFar: income,
     expenseSoFar: expense,
+    savingsSoFar: savings,
   });
 
   // --- Recurring templates --------------------------------------------------
@@ -165,18 +164,33 @@ export default async function PersonalBudgetPage() {
     monthsBack: MAX_FIXED_TREND_MONTHS,
   });
 
-  const overview = (
+  // --- Manage tab: recurring items + categories -----------------------------
+  // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
+  // household budget's own Manage tab).
+  const manage = (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
-        <PersonalTransactionDialog
-          dict={dict.personalBudget}
-          categories={categoryRows}
-          trigger={
-            <Button disabled={categoryRows.length === 0}>{dict.personalBudget.addTransaction}</Button>
-          }
-        />
-      </div>
+      <PersonalRecurringTemplatesPanel
+        templates={recurringTemplateRows}
+        pausedTemplates={pausedRecurringTemplateRows}
+        categories={categoryRows}
+        dict={dict.personalBudget}
+        locale={locale}
+      />
+      <PersonalCategoryManager categories={categoryRows} dict={dict.personalBudget} />
+    </div>
+  );
 
+  const transactionsTab = (
+    <PersonalTransactionList
+      transactions={transactionRows}
+      categories={categoryRows}
+      dict={dict.personalBudget}
+      locale={locale}
+    />
+  );
+
+  const insights = (
+    <div className="flex flex-col gap-6">
       <PeriodSummary
         income={income}
         expense={expense}
@@ -187,16 +201,14 @@ export default async function PersonalBudgetPage() {
         dict={dict.personalBudget.summary}
         locale={locale}
       />
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <PersonalTransactionList
-          transactions={transactionRows}
-          categories={categoryRows}
-          dict={dict.personalBudget}
-          locale={locale}
-        />
-        <PersonalCategoryManager categories={categoryRows} dict={dict.personalBudget} />
-      </div>
+      <FixedBudgetSummary
+        monthlyIncome={fixedMonthlySummary.monthlyIncome}
+        monthlyExpense={fixedMonthlySummary.monthlyExpense}
+        monthlySavings={fixedMonthlySummary.monthlySavings}
+        monthlyTotals={fixedMonthlyTotals}
+        dict={dict.personalBudget.fixedSummary}
+        locale={locale}
+      />
     </div>
   );
 
@@ -216,26 +228,9 @@ export default async function PersonalBudgetPage() {
         safeToSpendExpectedRecurring={expectedRecurring}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}
-        overview={overview}
-        fixed={
-          <div className="flex flex-col gap-6">
-            <FixedBudgetSummary
-              monthlyIncome={fixedMonthlySummary.monthlyIncome}
-              monthlyExpense={fixedMonthlySummary.monthlyExpense}
-              monthlySavings={fixedMonthlySummary.monthlySavings}
-              monthlyTotals={fixedMonthlyTotals}
-              dict={dict.personalBudget.fixedSummary}
-              locale={locale}
-            />
-            <PersonalRecurringTemplatesPanel
-              templates={recurringTemplateRows}
-              pausedTemplates={pausedRecurringTemplateRows}
-              categories={categoryRows}
-              dict={dict.personalBudget}
-              locale={locale}
-            />
-          </div>
-        }
+        manage={manage}
+        transactions={transactionsTab}
+        insights={insights}
       />
     </div>
   );

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, type ReactElement } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createCategoryAction, deleteCategoryAction } from "@/app/dashboard/budget/actions";
+import {
+  createCategoryAction,
+  deleteCategoryAction,
+  updateCategoryAction,
+} from "@/app/dashboard/budget/actions";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -113,11 +117,25 @@ function CategoryGroup({
           <Badge
             key={category.id}
             variant="outline"
-            className="max-w-[10rem] gap-1.5 py-1 pl-2.5"
+            className="max-w-[12rem] gap-1.5 py-1 pl-2.5"
           >
             <span className="min-w-0 truncate" title={category.name}>
               {category.name}
             </span>
+            <EditCategoryDialog
+              category={category}
+              dict={dict}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={format(dict.categories.editAriaLabel, { name: category.name })}
+                  disabled={isPending}
+                  className="-m-1.5 p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  <Pencil className="size-3" />
+                </button>
+              }
+            />
             <ConfirmDialog
               trigger={
                 <button
@@ -140,6 +158,57 @@ function CategoryGroup({
         ))}
       </div>
     </div>
+  );
+}
+
+function EditCategoryDialog({
+  category,
+  dict,
+  trigger,
+}: {
+  category: CategoryRow;
+  dict: Dictionary["budget"];
+  trigger: ReactElement;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction, pending] = useActionState(async (
+    prevState: ActionState,
+    formData: FormData,
+  ) => {
+    const result = await updateCategoryAction(prevState, formData);
+    if (!result.error) setOpen(false);
+    return result;
+  }, initialState);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={trigger} />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{dict.categories.editDialogTitle}</DialogTitle>
+        </DialogHeader>
+        <form action={formAction} className="flex flex-col gap-4">
+          <input type="hidden" name="id" value={category.id} />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`category-name-${category.id}`}>{dict.categories.nameLabel}</Label>
+            <Input
+              id={`category-name-${category.id}`}
+              name="name"
+              required
+              maxLength={60}
+              defaultValue={category.name}
+              placeholder={dict.categories.namePlaceholder}
+            />
+          </div>
+          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              {pending ? dict.categories.saving : dict.categories.save}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
