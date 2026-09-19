@@ -4,6 +4,12 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
 
+// Same reasoning as inventory/page.tsx's maxDuration: ReceiptScanDialog can
+// call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which has
+// been observed taking up to ~40s for a vision API call — well past
+// Vercel's 15s default Server Action timeout.
+export const maxDuration = 60;
+
 export default async function ShoppingListDetailPage(
   props: PageProps<"/dashboard/shopping-list/[id]">,
 ) {

@@ -5,6 +5,12 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
 
+// Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
+// can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
+// has been observed taking up to ~40s for a vision API call — well past
+// Vercel's 15s default Server Action timeout.
+export const maxDuration = 60;
+
 function ShoppingListsSkeleton() {
   return (
     <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">

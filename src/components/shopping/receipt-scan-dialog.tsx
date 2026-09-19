@@ -7,14 +7,18 @@
 // it's what feeds PriceHistory and therefore the household's spend
 // tracking.
 //
-// OCR runs entirely client-side with Tesseract.js (dynamically imported so
-// it never bloats the initial bundle) — the receipt photo itself is never
-// uploaded anywhere, only the extracted text/numbers ever reach the server
-// (applyReceiptScanAction), same privacy stance as the barcode scanner
-// (src/components/shared/barcode-scanner.tsx). Parsing (which lines look
-// like priced items) and currency detection are pure functions in
-// receipt-parsing.ts, unit-tested there; this component is just the
-// review/confirm UI wrapped around them.
+// A vision model (scanReceiptPhotoAction, same Gemini/Anthropic chain as
+// AiShelfScanDialog) reads the receipt photo directly when a provider key is
+// configured — a genuine improvement over pattern-matching printed columns,
+// which is what made this feature unreliable across the range of real
+// receipt layouts. The photo is uploaded to that third-party API for this
+// (never stored). When no provider is configured, this falls back to the
+// original fully client-side pipeline — Tesseract.js OCR (dynamically
+// imported so it never bloats the initial bundle) followed by the regex
+// heuristics in receipt-parsing.ts — so receipt scanning still works
+// without any AI setup, just less reliably. Either path ends at the same
+// review rows; only the extracted name/quantity/price ever reach the server
+// (applyReceiptScanAction), never the photo itself in the OCR fallback.
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
@@ -34,7 +38,9 @@ import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
 import { findInventoryMatches } from "@/lib/item-matching";
-import { detectReceiptCurrency, parseReceiptText, type ParsedReceiptLine } from "@/lib/receipt-parsing";
+import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
+import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
+import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -58,7 +64,7 @@ type ReviewRow = {
  * is common, and auto-mapping can't guess a category or unit at all. */
 type NewItemDraft = { name: string; quantity: string; unit: string; category: string };
 
-type Phase = "idle" | "reading" | "review" | "applying" | "error";
+type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
 
 const SKIP_VALUE = "__skip__";
 // A parsed line only auto-suggests a match above this similarity — below
@@ -118,14 +124,14 @@ export function ReceiptScanDialog({
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
   }
 
-  function buildRows(lines: ParsedReceiptLine[]): ReviewRow[] {
+  function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
     return lines.map((line, index) => {
       const [suggestion] = findInventoryMatches(line.name, pendingItems, {
         limit: 1,
         minScore: AUTO_MATCH_MIN_SCORE,
       });
       return {
-        key: `${index}-${line.rawLine}`,
+        key: `${index}-${line.name}`,
         name: line.name,
         quantity: line.quantity,
         price: line.price.toFixed(2),
@@ -134,9 +140,21 @@ export function ReceiptScanDialog({
     });
   }
 
-  async function handleFile(file: File) {
+  function errorMessageFor(code: string | undefined): string {
+    switch (code) {
+      case "rate_limited":
+        return dict.rateLimitedError;
+      case "provider_busy":
+        return dict.providerBusyError;
+      default:
+        return dict.analysisFailedError;
+    }
+  }
+
+  /** OCR + regex fallback (receipt-parsing.ts), used only when no vision
+   * provider is configured server-side — see scanReceiptPhotoAction. */
+  async function handleFileWithOcr(file: File) {
     setPhase("reading");
-    setErrorMessage(null);
     try {
       const { createWorker } = await import("tesseract.js");
       const worker = await createWorker(["eng", "swe"]);
@@ -162,6 +180,42 @@ export function ReceiptScanDialog({
       setPhase("error");
       setErrorMessage(dict.ocrError);
     }
+  }
+
+  async function handleFile(file: File) {
+    setPhase("analyzing");
+    setErrorMessage(null);
+
+    let dataUrl: string;
+    try {
+      dataUrl = await fileToResizedDataUrl(file);
+    } catch {
+      setPhase("error");
+      setErrorMessage(dict.ocrError);
+      return;
+    }
+
+    const result = await scanReceiptPhotoAction(dataUrl);
+    if (result.error === "not_configured") {
+      await handleFileWithOcr(file);
+      return;
+    }
+    if (result.error) {
+      setPhase("error");
+      setErrorMessage(errorMessageFor(result.error));
+      return;
+    }
+
+    const lines = result.lines ?? [];
+    if (lines.length === 0) {
+      setPhase("error");
+      setErrorMessage(dict.noLinesFound);
+      return;
+    }
+
+    setCurrency(result.currency ?? HOUSEHOLD_BASE_CURRENCY);
+    setRows(buildRows(lines));
+    setPhase("review");
   }
 
   function updateRow(key: string, patch: Partial<ReviewRow>) {
@@ -299,6 +353,13 @@ export function ReceiptScanDialog({
           <DialogHeader>
             <DialogTitle>{dict.dialogTitle}</DialogTitle>
           </DialogHeader>
+
+          {phase === "analyzing" && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+              <Loader2 className="size-6 animate-spin" />
+              {dict.analyzing}
+            </div>
+          )}
 
           {phase === "reading" && (
             <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">

@@ -1,17 +1,20 @@
 // Pure, dependency-free parsing of OCR'd receipt text into candidate line
-// items — used by ReceiptScanDialog (src/components/shopping/
-// receipt-scan-dialog.tsx) after Tesseract.js extracts raw text from a
-// photo client-side. Kept free of any OCR/DOM dependency so it's
-// unit-testable with plain fixture strings, same convention as
-// item-matching.ts / recipe-import.ts.
+// items — the *fallback* path used by ReceiptScanDialog/RegisterReceiptDialog
+// (src/components/shopping/) when no vision provider is configured for
+// scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), after
+// Tesseract.js extracts raw text from a photo client-side. Kept free of any
+// OCR/DOM dependency so it's unit-testable with plain fixture strings, same
+// convention as item-matching.ts / recipe-import.ts.
 //
 // This is deliberately a heuristic, not a real receipt-format parser: real
 // receipts vary wildly by store/country/printer. It optimizes for the
 // common case (one item name, one trailing total price per line) and skips
 // anything it isn't confident about — a missed line is just an item the
 // user adds/matches manually, same as today; a wrongly-parsed line is
-// reviewed and can be corrected/skipped in ReceiptScanDialog before
-// anything is written to the database.
+// reviewed and can be corrected/skipped before anything is written to the
+// database. scanReceiptPhotoAction's vision model doesn't have this
+// column-matching limitation (it reads the receipt the way a human would),
+// which is why it's preferred whenever a provider key is set.
 //
 // Article numbers / PLU codes / barcodes that often sit next to the name
 // (leading or trailing) are stripped before the name is extracted — we only

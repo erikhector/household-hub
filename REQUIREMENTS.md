@@ -862,7 +862,29 @@ receipt after a shop and, in one step, mark every matched list item
 purchased with its actual price — instead of pricing and checking off each
 item by hand. This is what feeds `PriceHistory` (and therefore the budget's
 Cost analyzer and Groceries expense on list completion) in the common case,
-so it directly serves "keep track of household spending".
+so it directly serves "keep track of household spending". `RegisterReceiptDialog`
+(the "Register receipt" button on the shopping-list overview page) is the
+same photo → reviewed line items pipeline, just landing in a freshly created,
+already-completed list instead of matching against one you built by hand.
+
+**AI-first, OCR fallback.** The original client-side OCR pipeline
+(`Tesseract.js` + the regex heuristics below) turned out to be the weak
+link: real receipts vary enough in layout — multi-line item names, a store
+that prints both a unit price and a line total, a slightly crumpled
+receipt — that the "one name, one trailing price per line" heuristic
+regularly missed or garbled lines. `scanReceiptPhotoAction`
+(`src/lib/actions/receipt-scan.ts`) instead uploads the photo to a vision
+model (the same Gemini → Gemini fallback → Anthropic attempt chain as AI
+shelf scan below, sharing its `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` config)
+and asks it to read the line items and currency directly — a vision model
+reads a receipt the way a person would, rather than pattern-matching
+printed columns, which is what actually fixes unreliable scans. When
+neither key is configured, both dialogs fall back to the original fully
+client-side OCR pipeline described below instead of losing the feature
+outright — so receipt scanning still works with zero setup, just less
+reliably than with a provider key set. Either path lands at the same
+reviewable rows and the same `applyReceiptScanAction`/`registerReceiptAction`
+below.
 
 - **This was flagged as needing a paid vendor — it doesn't.** "Not yet
   built" previously bucketed receipt OCR with bank-sync and social login as
@@ -872,7 +894,7 @@ so it directly serves "keep track of household spending".
   of the Tesseract OCR engine) runs entirely client-side with no API key,
   no account, and no per-scan cost — so this shipped as a normal task
   instead of staying deferred.
-- **OCR flow**: the "Scan receipt" button is a plain `<Button>` that clicks
+- **OCR fallback flow**: the "Scan receipt" button is a plain `<Button>` that clicks
   a hidden `<input type="file" accept="image/*" capture="environment">` —
   `capture="environment"` opens the device's rear camera directly on
   mobile, and falls back to a normal file picker on desktop (no
@@ -924,12 +946,16 @@ so it directly serves "keep track of household spending".
   transaction instead of one checkbox at a time. De-dupes by
   `shoppingListItemId` server-side (in case two OCR'd lines were ever
   matched to the same item) so nothing is double-counted.
-- **Privacy**: exactly the same stance as barcode scanning — the receipt
-  photo is only ever read by the client-side OCR worker and never uploaded
-  anywhere; the server only ever receives the extracted item names, prices,
-  and currency the user has already reviewed.
-- **i18n**: all new strings live under `shoppingList.receiptScan` in
-  `en.ts`/`sv.ts`.
+- **Privacy**: when a vision provider is configured, the photo is uploaded
+  to it for analysis — same tradeoff as AI shelf scan below, disclosed in
+  this feature's comments the same way. In the OCR fallback path only
+  (no provider configured), the photo is exactly the same stance as barcode
+  scanning: read entirely client-side by the OCR worker and never uploaded
+  anywhere. Either way, the server only ever receives the extracted item
+  names, prices, and currency the user has already reviewed — never the
+  photo itself.
+- **i18n**: all new strings live under `shoppingList.receiptScan`/
+  `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
 
 ## AI shelf scan (beta)
 
@@ -941,12 +967,15 @@ and how many — reviewed and corrected before anything is added, same
 "AI/OCR suggests, human confirms" shape as barcode scanning and receipt
 scanning above. Marked beta because vision-based counting is inherently
 approximate (packaging occludes items, similar products get merged or
-split) in a way this app's other scan features aren't.
+split) in a way this app's other scan features aren't; receipt scanning
+above shares this feature's vision-provider chain but isn't itself beta,
+since it has a fully client-side fallback for anyone without a key set,
+where this feature has none.
 
-- **Genuinely unlike barcode/receipt scanning on privacy**: those two never
-  send the camera image anywhere — decoding/OCR both run entirely
-  client-side. There's no equivalent client-side model for "what groceries
-  are in this photo", so this feature's photo **is** uploaded to a
+- **Unlike barcode scanning (and receipt scanning's own OCR fallback) on
+  privacy**: those never send the camera image anywhere — decoding/OCR both
+  run entirely client-side. There's no equivalent client-side model for
+  "what groceries are in this photo", so this feature's photo **is** uploaded to a
   third-party API for analysis. The dialog says so before the camera opens,
   and the photo itself is never persisted anywhere (not written to disk,
   not stored in the database) — only the reviewed name/quantity guesses

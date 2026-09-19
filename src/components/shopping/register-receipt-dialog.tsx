@@ -7,8 +7,12 @@
 // skips: instead it creates the list *from* the receipt and completes it in
 // one step, via registerReceiptAction.
 //
-// Same privacy stance and OCR pipeline as ReceiptScanDialog: Tesseract.js
-// runs client-side, only the extracted text/numbers ever reach the server.
+// Same hybrid AI-first/OCR-fallback pipeline as ReceiptScanDialog (see its
+// top comment for the reasoning): scanReceiptPhotoAction uploads the photo
+// to a configured vision provider when one is set, falling back to the
+// original client-side Tesseract.js + receipt-parsing.ts pipeline
+// (never uploading the photo) when neither GEMINI_API_KEY nor
+// ANTHROPIC_API_KEY is configured.
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -27,7 +31,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComboField } from "@/components/inventory/combo-field";
 import { registerReceiptAction } from "@/app/dashboard/shopping-list/actions";
-import { detectReceiptCurrency, parseReceiptText, type ParsedReceiptLine } from "@/lib/receipt-parsing";
+import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
+import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
+import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -43,7 +49,7 @@ type ReviewRow = {
   price: string;
 };
 
-type Phase = "idle" | "reading" | "review" | "applying" | "error";
+type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
 
 export function RegisterReceiptDialog({
   inventoryItems,
@@ -75,9 +81,9 @@ export function RegisterReceiptDialog({
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
   }
 
-  function buildRows(lines: ParsedReceiptLine[]): ReviewRow[] {
+  function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
     return lines.map((line, index) => ({
-      key: `${index}-${line.rawLine}`,
+      key: `${index}-${line.name}`,
       name: line.name,
       quantity: String(line.quantity),
       unit: "pcs",
@@ -85,9 +91,21 @@ export function RegisterReceiptDialog({
     }));
   }
 
-  async function handleFile(file: File) {
+  function errorMessageFor(code: string | undefined): string {
+    switch (code) {
+      case "rate_limited":
+        return dict.rateLimitedError;
+      case "provider_busy":
+        return dict.providerBusyError;
+      default:
+        return dict.analysisFailedError;
+    }
+  }
+
+  /** OCR + regex fallback (receipt-parsing.ts), used only when no vision
+   * provider is configured server-side — see scanReceiptPhotoAction. */
+  async function handleFileWithOcr(file: File) {
     setPhase("reading");
-    setErrorMessage(null);
     try {
       const { createWorker } = await import("tesseract.js");
       const worker = await createWorker(["eng", "swe"]);
@@ -113,6 +131,42 @@ export function RegisterReceiptDialog({
       setPhase("error");
       setErrorMessage(dict.ocrError);
     }
+  }
+
+  async function handleFile(file: File) {
+    setPhase("analyzing");
+    setErrorMessage(null);
+
+    let dataUrl: string;
+    try {
+      dataUrl = await fileToResizedDataUrl(file);
+    } catch {
+      setPhase("error");
+      setErrorMessage(dict.ocrError);
+      return;
+    }
+
+    const result = await scanReceiptPhotoAction(dataUrl);
+    if (result.error === "not_configured") {
+      await handleFileWithOcr(file);
+      return;
+    }
+    if (result.error) {
+      setPhase("error");
+      setErrorMessage(errorMessageFor(result.error));
+      return;
+    }
+
+    const lines = result.lines ?? [];
+    if (lines.length === 0) {
+      setPhase("error");
+      setErrorMessage(dict.noLinesFound);
+      return;
+    }
+
+    setCurrency(result.currency ?? HOUSEHOLD_BASE_CURRENCY);
+    setRows(buildRows(lines));
+    setPhase("review");
   }
 
   function updateRow(key: string, patch: Partial<ReviewRow>) {
@@ -229,6 +283,13 @@ export function RegisterReceiptDialog({
           <DialogHeader>
             <DialogTitle>{dict.dialogTitle}</DialogTitle>
           </DialogHeader>
+
+          {phase === "analyzing" && (
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">
+              <Loader2 className="size-6 animate-spin" />
+              {dict.analyzing}
+            </div>
+          )}
 
           {phase === "reading" && (
             <div className="flex flex-col items-center gap-3 py-8 text-center text-sm text-muted-foreground">

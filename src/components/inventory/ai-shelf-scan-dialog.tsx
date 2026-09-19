@@ -45,6 +45,7 @@ import {
 import { ComboField } from "@/components/inventory/combo-field";
 import { bulkCreateInventoryItemsAction, bulkSetInventoryQuantitiesAction } from "@/app/dashboard/inventory/actions";
 import { scanShelfPhotoAction, type ScanShelfMode } from "@/lib/actions/inventory-scan";
+import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -62,31 +63,6 @@ type Row = {
   previousQuantity?: number;
   previousUnit?: string;
 };
-
-// The vision API charges (and performs) roughly the same either way past
-// this edge length, so downscaling here keeps the upload small without
-// throwing away anything the model could actually use.
-const MAX_IMAGE_EDGE = 1568;
-const JPEG_QUALITY = 0.85;
-
-async function fileToResizedDataUrl(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const scale = Math.min(1, MAX_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context unavailable");
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    return canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-  } finally {
-    bitmap.close();
-  }
-}
 
 export function AiShelfScanDialog({
   dict,
