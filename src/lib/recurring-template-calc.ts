@@ -65,6 +65,9 @@ export type FixedTemplateSummaryInput = {
   frequency: TemplateFrequency;
   type: FixedItemType;
   active: boolean;
+  /** When this template was created — see computeFixedMonthlySummary's doc
+   * comment for why this gates inclusion per viewed month. */
+  createdAt: Date;
 };
 
 export type FixedMonthlySummary = {
@@ -78,17 +81,21 @@ export type FixedMonthlySummary = {
  * amount, normalized to a monthly equivalent (see monthlyEquivalentAmount)
  * and summed by type. SAVINGS is kept as its own total rather than folded
  * into income or expense — see TransactionType's doc comment in
- * schema.prisma for why it's excluded from both.
+ * schema.prisma for why it's excluded from both. A template created on or
+ * after `monthEnd` is excluded too, so a past month's headline doesn't
+ * inflate with templates that didn't exist yet ("not backward propagating"
+ * — same createdAt cutoff as computeTemplateStatuses).
  */
 export function computeFixedMonthlySummary(
   templates: FixedTemplateSummaryInput[],
+  monthEnd: Date,
 ): FixedMonthlySummary {
   let monthlyIncome = 0;
   let monthlyExpense = 0;
   let monthlySavings = 0;
 
   for (const template of templates) {
-    if (!template.active) continue;
+    if (!template.active || template.createdAt >= monthEnd) continue;
     const monthly = monthlyEquivalentAmount(template.amount, template.frequency);
     if (template.type === "INCOME") monthlyIncome += monthly;
     else if (template.type === "EXPENSE") monthlyExpense += monthly;
@@ -156,51 +163,16 @@ export function computeRecurringMonthlyTotals({
   return months;
 }
 
-export type TemplateStatus = "posted" | "acknowledged" | "due" | "upcoming" | "scheduled";
+export type TemplateStatus = "posted" | "acknowledged" | "due";
 
 export type RecurringTemplateInput = {
   id: string;
   frequency: TemplateFrequency;
   active: boolean;
-  /** Day-of-month hint (1-31) — see RecurringTemplate.dayOfMonth's doc
-   * comment in schema.prisma. Used here (only here) to hold a MONTHLY
-   * template at "scheduled"/"upcoming" instead of "due" until that day
-   * arrives — see classifyByDueDay below. */
-  dayOfMonth?: number | null;
+  /** When this template was created — see computeTemplateStatuses's doc
+   * comment for why this gates inclusion per viewed month. */
+  createdAt: Date;
 };
-
-/** How many days before a MONTHLY template's due-day hint it switches from
- * "scheduled" (quietly not due yet) to "upcoming" (due soon) — see
- * classifyByDueDay. */
-const UPCOMING_WINDOW_DAYS = 5;
-
-function daysInMonth(date: Date): number {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-}
-
-/**
- * How far a MONTHLY template with a dayOfMonth hint is from its due day,
- * relative to `referenceDate`: "due" once that day has arrived, "upcoming"
- * within UPCOMING_WINDOW_DAYS days before it, else "scheduled" (not due soon
- * — quietly waiting, no nag). WEEKLY/YEARLY templates have no
- * day-within-period a 1-31 hint can anchor to, and a template with no hint
- * at all has nothing to count down to, so both always read "due" from the
- * start of their period — unchanged from before this distinction existed. A
- * dayOfMonth past the current month's length (e.g. 31 in February) clamps to
- * that month's last day, so "due on the 31st" reads as "due at month end"
- * everywhere rather than never triggering.
- */
-function classifyByDueDay(
-  template: RecurringTemplateInput,
-  referenceDate: Date,
-): "due" | "upcoming" | "scheduled" {
-  if (template.frequency !== "MONTHLY" || !template.dayOfMonth) return "due";
-  const effectiveDay = Math.min(template.dayOfMonth, daysInMonth(referenceDate));
-  const today = referenceDate.getDate();
-  if (today >= effectiveDay) return "due";
-  if (today >= effectiveDay - UPCOMING_WINDOW_DAYS) return "upcoming";
-  return "scheduled";
-}
 
 export type TemplateTransactionInput = {
   recurringTemplateId: string | null;
@@ -219,28 +191,37 @@ export type TemplateStatusRow<T extends RecurringTemplateInput> = {
 };
 
 /**
- * For every active template, determines this period's status: "posted" if a
- * transaction was logged from it for the current period, else
- * "acknowledged" if it was explicitly checked off without one, else
- * "due"/"upcoming"/"scheduled" per classifyByDueDay. Inactive (paused)
- * templates are omitted entirely — see RecurringTemplate.active's doc
- * comment.
+ * For every active template that already existed by the viewed period,
+ * determines this period's status: "posted" if a transaction was logged
+ * from it for the current period, else "acknowledged" if it was explicitly
+ * checked off without one, else unconditionally "due" — a template's period
+ * always shows in that period's view regardless of day-of-month, and is
+ * cleared purely by a transaction or ack. Inactive (paused) templates are
+ * omitted entirely — see RecurringTemplate.active's doc comment. A template
+ * created after `monthEnd` is also omitted — it shouldn't "backward
+ * propagate" into a budget view of a month before it existed (see
+ * RecurringTemplateInput.createdAt).
  */
 export function computeTemplateStatuses<T extends RecurringTemplateInput>({
   templates,
   transactions,
   acks,
   referenceDate,
+  monthEnd,
 }: {
   templates: T[];
   transactions: TemplateTransactionInput[];
   acks: TemplateAckInput[];
   referenceDate: Date;
+  /** Exclusive upper bound of the viewed period (e.g. budget-date-utils.ts's
+   * getMonthEnd) — a template created on or after this never shows for this
+   * period. */
+  monthEnd: Date;
 }): TemplateStatusRow<T>[] {
   const ackedPeriods = new Set(acks.map((a) => `${a.recurringTemplateId}:${a.periodKey}`));
 
   return templates
-    .filter((template) => template.active)
+    .filter((template) => template.active && template.createdAt < monthEnd)
     .map((template) => {
       const periodKey = getPeriodKey(referenceDate, template.frequency);
 
@@ -254,7 +235,7 @@ export function computeTemplateStatuses<T extends RecurringTemplateInput>({
         ? "posted"
         : ackedPeriods.has(`${template.id}:${periodKey}`)
           ? "acknowledged"
-          : classifyByDueDay(template, referenceDate);
+          : "due";
 
       return { template, periodKey, status };
     });

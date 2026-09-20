@@ -33,6 +33,7 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
+  periodSummary,
   manage,
   transactions,
   insights,
@@ -47,6 +48,9 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
+  /** Selected month's income/expense/savings breakdown (PeriodSummary) —
+   * rendered on both Overview and Insights, see BudgetTabs's doc comment. */
+  periodSummary: ReactNode;
   // Recurring items + categories — see BudgetTabs's doc comment.
   manage: ReactNode;
   transactions: ReactNode;
@@ -85,6 +89,7 @@ export function PersonalBudgetTabs({
               dict={dict.safeToSpend}
               locale={locale}
             />
+            {periodSummary}
             <PersonalDueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}

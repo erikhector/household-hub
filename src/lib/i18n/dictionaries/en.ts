@@ -1012,7 +1012,7 @@ export const en = {
       subtitle:
         "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
       statusLegend:
-        "Due: not yet logged this period. Upcoming: due within 5 days. Not due yet: further off, nothing to do yet. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
+        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
       addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
@@ -1027,8 +1027,6 @@ export const en = {
       add: "Add item",
       empty: "No recurring items yet. Add the ones you expect every period.",
       sectionDue: "Due this period",
-      sectionUpcoming: "Upcoming",
-      sectionScheduled: "Not due yet",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
       logTransaction: "Log transaction",
@@ -1186,7 +1184,7 @@ export const en = {
       subtitle:
         "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
       statusLegend:
-        "Due: not yet logged this period. Upcoming: due within 5 days. Not due yet: further off, nothing to do yet. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
+        "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
       addTemplate: "Add recurring item",
       addDialogTitle: "Add recurring item",
       editDialogTitle: "Edit recurring item",
@@ -1201,8 +1199,6 @@ export const en = {
       add: "Add item",
       empty: "No recurring items yet. Add the ones you expect every period.",
       sectionDue: "Due this period",
-      sectionUpcoming: "Upcoming",
-      sectionScheduled: "Not due yet",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
       logTransaction: "Log transaction",

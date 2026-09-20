@@ -59,6 +59,7 @@ export function BudgetTabs({
   hasRecurringTemplates,
   members,
   currentMemberId,
+  periodSummary,
   manage,
   transactions,
   insights,
@@ -77,6 +78,9 @@ export function BudgetTabs({
   hasRecurringTemplates: boolean;
   members: MemberOption[];
   currentMemberId: string;
+  /** Selected month's income/expense/savings breakdown (PeriodSummary) —
+   * rendered on both Overview and Insights, see page.tsx's doc comment. */
+  periodSummary: ReactNode;
   // Recurring items + categories — see this file's doc comment.
   manage: ReactNode;
   transactions: ReactNode;
@@ -117,6 +121,7 @@ export function BudgetTabs({
               dict={dict.safeToSpend}
               locale={locale}
             />
+            {periodSummary}
             <DueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}

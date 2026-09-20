@@ -26,7 +26,7 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
-  status: "due" | "upcoming" | "scheduled" | "acknowledged" | "posted";
+  status: "due" | "acknowledged" | "posted";
 };
 
 export type PausedRecurringTemplateRow = RecurringTemplateRow & { categoryName: string };
@@ -61,8 +61,6 @@ export function RecurringTemplatesPanel({
   });
 
   const due = templates.filter((t) => t.status === "due");
-  const upcoming = templates.filter((t) => t.status === "upcoming");
-  const scheduled = templates.filter((t) => t.status === "scheduled");
   const acknowledged = templates.filter((t) => t.status === "acknowledged");
   const posted = templates.filter((t) => t.status === "posted");
 
@@ -106,110 +104,6 @@ export function RecurringTemplatesPanel({
         <div className="flex flex-col gap-4">
           <p className="text-xs text-muted-foreground">{dict.recurring.statusLegend}</p>
           <TemplateGroup label={dict.recurring.sectionDue} items={due}>
-            {(template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                dict={dict}
-                numberFormat={numberFormat}
-                isPending={isPending}
-                onDelete={handleDelete}
-                onTogglePause={handleTogglePause}
-                categories={categories}
-                actions={
-                  <>
-                    <TransactionDialog
-                      dict={dict}
-                      categories={categories}
-                      members={members}
-                      currentMemberId={currentMemberId}
-                      prefillFromTemplate={{
-                        templateId: template.id,
-                        categoryId: template.categoryId,
-                        amount: template.amount,
-                        description: template.name,
-                        frequency: template.frequency,
-                      }}
-                      trigger={
-                        <Button size="xs" variant="secondary">
-                          {dict.recurring.logTransaction}
-                        </Button>
-                      }
-                    />
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={isPending}
-                      onClick={() =>
-                        startTransition(async () => {
-                          const result = await acknowledgeTemplatePeriodAction(template.id);
-                          if (result.error) toast.error(result.error);
-                          else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
-                        })
-                      }
-                    >
-                      <Check className="size-3.5" />
-                      {dict.recurring.markAccountedFor}
-                    </Button>
-                  </>
-                }
-              />
-            )}
-          </TemplateGroup>
-
-          <TemplateGroup label={dict.recurring.sectionUpcoming} items={upcoming}>
-            {(template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                dict={dict}
-                numberFormat={numberFormat}
-                isPending={isPending}
-                onDelete={handleDelete}
-                onTogglePause={handleTogglePause}
-                categories={categories}
-                actions={
-                  <>
-                    <TransactionDialog
-                      dict={dict}
-                      categories={categories}
-                      members={members}
-                      currentMemberId={currentMemberId}
-                      prefillFromTemplate={{
-                        templateId: template.id,
-                        categoryId: template.categoryId,
-                        amount: template.amount,
-                        description: template.name,
-                        frequency: template.frequency,
-                      }}
-                      trigger={
-                        <Button size="xs" variant="secondary">
-                          {dict.recurring.logTransaction}
-                        </Button>
-                      }
-                    />
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={isPending}
-                      onClick={() =>
-                        startTransition(async () => {
-                          const result = await acknowledgeTemplatePeriodAction(template.id);
-                          if (result.error) toast.error(result.error);
-                          else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
-                        })
-                      }
-                    >
-                      <Check className="size-3.5" />
-                      {dict.recurring.markAccountedFor}
-                    </Button>
-                  </>
-                }
-              />
-            )}
-          </TemplateGroup>
-
-          <TemplateGroup label={dict.recurring.sectionScheduled} items={scheduled}>
             {(template) => (
               <TemplateRow
                 key={template.id}

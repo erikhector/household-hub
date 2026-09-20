@@ -42,9 +42,6 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
   const monthEnd = getMonthEnd(monthStart);
   const monthKey = toMonthKey(monthStart);
-  // See src/app/dashboard/budget/page.tsx's identical referenceDate comment.
-  const referenceDate =
-    monthKey === toMonthKey(now) ? now : monthStart < now ? new Date(monthEnd.getTime() - 1) : monthStart;
 
   const [categories, transactions, recurringTemplates, recurringTemplateAcks] = await Promise.all([
     prisma.personalBudgetCategory.findMany({
@@ -139,7 +136,8 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
       recurringTemplateId: a.personalRecurringTemplateId,
       periodKey: a.periodKey,
     })),
-    referenceDate,
+    referenceDate: monthStart,
+    monthEnd,
   });
   const recurringTemplateRows: PersonalRecurringTemplateListRow[] = templateStatusRows.map(
     (row) => ({
@@ -167,8 +165,9 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
 
   // --- Fixed income & costs summary -----------------------------------------
   // Mirrors the household budget's (src/app/dashboard/budget/page.tsx) — see
-  // src/lib/recurring-template-calc.ts's doc comments.
-  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates);
+  // src/lib/recurring-template-calc.ts's doc comments, including both calcs'
+  // internal createdAt-vs-monthEnd cutoff.
+  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates, monthEnd);
   const fixedMonthlyTotals = computeRecurringMonthlyTotals({
     transactions: transactions.map((t) => ({
       type: t.type,
@@ -205,18 +204,25 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     />
   );
 
+  // Selected month's income/expense/savings breakdown — shown on both
+  // Overview and Insights, see BudgetTabs's identical periodSummary comment
+  // (src/components/budget/budget-tabs.tsx).
+  const periodSummary = (
+    <PeriodSummary
+      income={income}
+      expense={expense}
+      savings={savings}
+      incomeByCategory={incomeByCategory}
+      expenseByCategory={expenseByCategory}
+      savingsByCategory={savingsByCategory}
+      dict={dict.personalBudget.summary}
+      locale={locale}
+    />
+  );
+
   const insights = (
     <div className="flex flex-col gap-6">
-      <PeriodSummary
-        income={income}
-        expense={expense}
-        savings={savings}
-        incomeByCategory={incomeByCategory}
-        expenseByCategory={expenseByCategory}
-        savingsByCategory={savingsByCategory}
-        dict={dict.personalBudget.summary}
-        locale={locale}
-      />
+      {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedMonthlySummary.monthlyIncome}
         monthlyExpense={fixedMonthlySummary.monthlyExpense}
@@ -245,6 +251,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         safeToSpendExpectedRecurring={expectedRecurring}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}
+        periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}
         insights={insights}

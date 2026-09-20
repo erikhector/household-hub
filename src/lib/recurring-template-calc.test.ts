@@ -39,9 +39,11 @@ describe("getPeriodKey", () => {
 
 describe("computeTemplateStatuses", () => {
   const referenceDate = new Date(2026, 8, 6); // 2026-09-06
-  const rent = { id: "rent", frequency: "MONTHLY" as const, active: true };
-  const gym = { id: "gym", frequency: "MONTHLY" as const, active: true };
-  const paused = { id: "paused", frequency: "MONTHLY" as const, active: false };
+  const monthEnd = new Date(2026, 9, 1); // 2026-10-01, exclusive upper bound for September
+  const createdAt = new Date(2026, 0, 1); // well before referenceDate/monthEnd
+  const rent = { id: "rent", frequency: "MONTHLY" as const, active: true, createdAt };
+  const gym = { id: "gym", frequency: "MONTHLY" as const, active: true, createdAt };
+  const paused = { id: "paused", frequency: "MONTHLY" as const, active: false, createdAt };
 
   it("marks a template as due when nothing was logged or acknowledged this period", () => {
     const rows = computeTemplateStatuses({
@@ -49,6 +51,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [],
       acks: [],
       referenceDate,
+      monthEnd,
     });
     expect(rows).toEqual([{ template: rent, periodKey: "2026-09", status: "due" }]);
   });
@@ -59,6 +62,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [{ recurringTemplateId: "rent", date: new Date(2026, 8, 3) }],
       acks: [],
       referenceDate,
+      monthEnd,
     });
     expect(rows[0].status).toBe("posted");
   });
@@ -69,6 +73,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [],
       acks: [{ recurringTemplateId: "rent", periodKey: "2026-09" }],
       referenceDate,
+      monthEnd,
     });
     expect(rows[0].status).toBe("acknowledged");
   });
@@ -79,6 +84,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [{ recurringTemplateId: "rent", date: new Date(2026, 8, 3) }],
       acks: [{ recurringTemplateId: "rent", periodKey: "2026-09" }],
       referenceDate,
+      monthEnd,
     });
     expect(rows[0].status).toBe("posted");
   });
@@ -89,6 +95,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [{ recurringTemplateId: "rent", date: new Date(2026, 7, 3) }],
       acks: [{ recurringTemplateId: "rent", periodKey: "2026-08" }],
       referenceDate,
+      monthEnd,
     });
     expect(rows[0].status).toBe("due");
   });
@@ -99,6 +106,7 @@ describe("computeTemplateStatuses", () => {
       transactions: [],
       acks: [],
       referenceDate,
+      monthEnd,
     });
     expect(rows.map((r) => r.template.id)).toEqual(["rent"]);
   });
@@ -109,86 +117,36 @@ describe("computeTemplateStatuses", () => {
       transactions: [{ recurringTemplateId: "rent", date: new Date(2026, 8, 3) }],
       acks: [{ recurringTemplateId: "gym", periodKey: "2026-09" }],
       referenceDate,
+      monthEnd,
     });
     expect(rows.find((r) => r.template.id === "rent")?.status).toBe("posted");
     expect(rows.find((r) => r.template.id === "gym")?.status).toBe("acknowledged");
   });
 
-  it("marks a MONTHLY template with a far-off dayOfMonth hint as scheduled, not upcoming or due", () => {
-    // referenceDate is 2026-09-06; due day 25 is more than 5 days away.
+  it("omits a template created on or after monthEnd — it doesn't backward propagate into an earlier period", () => {
+    // Created in October, viewed period is September (monthEnd 2026-10-01).
+    const futureTemplate = { ...rent, id: "future", createdAt: new Date(2026, 9, 1) };
     const rows = computeTemplateStatuses({
-      templates: [{ ...rent, dayOfMonth: 25 }],
+      templates: [rent, futureTemplate],
       transactions: [],
       acks: [],
       referenceDate,
+      monthEnd,
     });
-    expect(rows[0].status).toBe("scheduled");
+    expect(rows.map((r) => r.template.id)).toEqual(["rent"]);
   });
 
-  it("marks a MONTHLY template as upcoming within 5 days of its dayOfMonth hint", () => {
-    // referenceDate is 2026-09-06; due day 11 is exactly 5 days out.
+  it("includes a template starting in its own creation month", () => {
+    // Created within September itself, still before monthEnd (2026-10-01).
+    const sameMonthTemplate = { ...rent, id: "same-month", createdAt: new Date(2026, 8, 15) };
     const rows = computeTemplateStatuses({
-      templates: [{ ...rent, dayOfMonth: 11 }],
+      templates: [sameMonthTemplate],
       transactions: [],
       acks: [],
       referenceDate,
+      monthEnd,
     });
-    expect(rows[0].status).toBe("upcoming");
-  });
-
-  it("keeps a template scheduled one day outside the 5-day upcoming window", () => {
-    // referenceDate is 2026-09-06; due day 12 is 6 days out.
-    const rows = computeTemplateStatuses({
-      templates: [{ ...rent, dayOfMonth: 12 }],
-      transactions: [],
-      acks: [],
-      referenceDate,
-    });
-    expect(rows[0].status).toBe("scheduled");
-  });
-
-  it("marks a MONTHLY template as due once its dayOfMonth hint has arrived", () => {
-    const rows = computeTemplateStatuses({
-      templates: [{ ...rent, dayOfMonth: 6 }],
-      transactions: [],
-      acks: [],
-      referenceDate, // 2026-09-06
-    });
-    expect(rows[0].status).toBe("due");
-  });
-
-  it("clamps a dayOfMonth hint past the current month's length to that month's last day", () => {
-    // February 2026 (not a leap year) has 28 days; a "due on the 31st"
-    // template should read as due once Feb 28 arrives, not never.
-    const rows = computeTemplateStatuses({
-      templates: [{ ...rent, dayOfMonth: 31 }],
-      transactions: [],
-      acks: [],
-      referenceDate: new Date(2026, 1, 28),
-    });
-    expect(rows[0].status).toBe("due");
-  });
-
-  it("treats a template with no dayOfMonth hint as due from the start of the period", () => {
-    const rows = computeTemplateStatuses({
-      templates: [rent],
-      transactions: [],
-      acks: [],
-      referenceDate,
-    });
-    expect(rows[0].status).toBe("due");
-  });
-
-  it("never marks a WEEKLY or YEARLY template as upcoming or scheduled, even with a dayOfMonth hint", () => {
-    const weekly = { id: "weekly", frequency: "WEEKLY" as const, active: true, dayOfMonth: 25 };
-    const yearly = { id: "yearly", frequency: "YEARLY" as const, active: true, dayOfMonth: 25 };
-    const rows = computeTemplateStatuses({
-      templates: [weekly, yearly],
-      transactions: [],
-      acks: [],
-      referenceDate,
-    });
-    expect(rows.map((r) => r.status)).toEqual(["due", "due"]);
+    expect(rows.map((r) => r.template.id)).toEqual(["same-month"]);
   });
 });
 
@@ -207,31 +165,74 @@ describe("monthlyEquivalentAmount", () => {
 });
 
 describe("computeFixedMonthlySummary", () => {
+  const monthEnd = new Date(2026, 9, 1); // 2026-10-01, exclusive upper bound for September
+  const createdAt = new Date(2026, 0, 1); // well before monthEnd
+
   it("sums active templates by type on a monthly-equivalent scale", () => {
-    const summary = computeFixedMonthlySummary([
-      { amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true },
-      { amount: 1200, frequency: "MONTHLY", type: "EXPENSE", active: true },
-      { amount: 1200, frequency: "YEARLY", type: "EXPENSE", active: true },
-      { amount: 200, frequency: "MONTHLY", type: "SAVINGS", active: true },
-    ]);
+    const summary = computeFixedMonthlySummary(
+      [
+        { amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true, createdAt },
+        { amount: 1200, frequency: "MONTHLY", type: "EXPENSE", active: true, createdAt },
+        { amount: 1200, frequency: "YEARLY", type: "EXPENSE", active: true, createdAt },
+        { amount: 200, frequency: "MONTHLY", type: "SAVINGS", active: true, createdAt },
+      ],
+      monthEnd,
+    );
     expect(summary).toEqual({ monthlyIncome: 3000, monthlyExpense: 1300, monthlySavings: 200 });
   });
 
   it("excludes paused (inactive) templates", () => {
-    const summary = computeFixedMonthlySummary([
-      { amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true },
-      { amount: 500, frequency: "MONTHLY", type: "EXPENSE", active: false },
-    ]);
+    const summary = computeFixedMonthlySummary(
+      [
+        { amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true, createdAt },
+        { amount: 500, frequency: "MONTHLY", type: "EXPENSE", active: false, createdAt },
+      ],
+      monthEnd,
+    );
     expect(summary).toEqual({ monthlyIncome: 3000, monthlyExpense: 0, monthlySavings: 0 });
   });
 
   it("keeps savings out of both the income and expense totals", () => {
-    const summary = computeFixedMonthlySummary([
-      { amount: 500, frequency: "MONTHLY", type: "SAVINGS", active: true },
-    ]);
+    const summary = computeFixedMonthlySummary(
+      [{ amount: 500, frequency: "MONTHLY", type: "SAVINGS", active: true, createdAt }],
+      monthEnd,
+    );
     expect(summary.monthlyIncome).toBe(0);
     expect(summary.monthlyExpense).toBe(0);
     expect(summary.monthlySavings).toBe(500);
+  });
+
+  it("excludes a template created on or after monthEnd — it doesn't backward propagate into an earlier period", () => {
+    const summary = computeFixedMonthlySummary(
+      [
+        { amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true, createdAt },
+        {
+          amount: 1000,
+          frequency: "MONTHLY",
+          type: "INCOME",
+          active: true,
+          createdAt: new Date(2026, 9, 1), // created right at monthEnd — October, not September
+        },
+      ],
+      monthEnd,
+    );
+    expect(summary.monthlyIncome).toBe(3000);
+  });
+
+  it("includes a template created within the viewed month itself", () => {
+    const summary = computeFixedMonthlySummary(
+      [
+        {
+          amount: 1000,
+          frequency: "MONTHLY",
+          type: "INCOME",
+          active: true,
+          createdAt: new Date(2026, 8, 15), // created mid-September, before monthEnd
+        },
+      ],
+      monthEnd,
+    );
+    expect(summary.monthlyIncome).toBe(1000);
   });
 });
 

@@ -57,13 +57,6 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
   const monthEnd = getMonthEnd(monthStart);
   const monthKey = toMonthKey(monthStart);
-  // classifyByDueDay (recurring-template-calc.ts) reads a day-of-month off
-  // the reference date to decide "due"/"upcoming"/"scheduled" — meaningful
-  // only relative to today. Viewing the current month keeps that live;
-  // viewing another month has no "today" within it, so a past month reads
-  // as fully elapsed (due) and a future one as not yet started (scheduled).
-  const referenceDate =
-    monthKey === toMonthKey(now) ? now : monthStart < now ? new Date(monthEnd.getTime() - 1) : monthStart;
 
   const [categories, transactions, householdMembers, recurringTemplates, recurringTemplateAcks] =
     await Promise.all([
@@ -206,7 +199,8 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       date: t.date,
     })),
     acks: recurringTemplateAcks,
-    referenceDate,
+    referenceDate: monthStart,
+    monthEnd,
   });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => ({
     id: row.template.id,
@@ -234,8 +228,11 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // The "core of the budget" headline — see computeFixedMonthlySummary's doc
   // comment. Fed every template (active and paused; the calc filters active
   // itself) rather than just activeRecurringTemplates, so it stays symmetric
-  // with computeTemplateStatuses's own internal filtering above.
-  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates);
+  // with computeTemplateStatuses's own internal filtering above. Both calcs
+  // also filter out templates created on or after monthEnd internally, so a
+  // past month's view doesn't backward-propagate templates that didn't exist
+  // yet.
+  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates, monthEnd);
   const fixedMonthlyTotals = computeRecurringMonthlyTotals({
     transactions: transactions.map((t) => ({
       type: t.type,
@@ -330,18 +327,25 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     </div>
   );
 
+  // Selected month's income/expense/savings breakdown — shown on both
+  // Overview (so it's visible the moment you flip months, without switching
+  // tabs) and Insights (its original home, for the fuller analysis context).
+  const periodSummary = (
+    <PeriodSummary
+      income={income}
+      expense={expense}
+      savings={savings}
+      incomeByCategory={incomeByCategory}
+      expenseByCategory={expenseByCategory}
+      savingsByCategory={savingsByCategory}
+      dict={dict.budget.summary}
+      locale={locale}
+    />
+  );
+
   const insights = (
     <div className="flex flex-col gap-6">
-      <PeriodSummary
-        income={income}
-        expense={expense}
-        savings={savings}
-        incomeByCategory={incomeByCategory}
-        expenseByCategory={expenseByCategory}
-        savingsByCategory={savingsByCategory}
-        dict={dict.budget.summary}
-        locale={locale}
-      />
+      {periodSummary}
       <FixedBudgetSummary
         monthlyIncome={fixedMonthlySummary.monthlyIncome}
         monthlyExpense={fixedMonthlySummary.monthlyExpense}
@@ -386,6 +390,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         hasRecurringTemplates={recurringTemplateRows.length > 0}
         members={memberOptions}
         currentMemberId={currentMemberId}
+        periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}
         insights={insights}
