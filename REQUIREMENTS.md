@@ -946,6 +946,22 @@ below.
   transaction instead of one checkbox at a time. De-dupes by
   `shoppingListItemId` server-side (in case two OCR'd lines were ever
   matched to the same item) so nothing is double-counted.
+- **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
+  this flow has no existing shopping list to match against, each reviewed
+  line instead gets matched against the household's *inventory* catalog —
+  same `findInventoryMatches` call, same fuzzy-match-or-not default as
+  `ReceiptScanDialog` above, but a two-mode "Use existing"/"Create new"
+  toggle (mirroring `ResolveMappingsDialog`'s row UI) instead of a
+  skippable dropdown, since every line here always becomes a shopping-list
+  item regardless of whether its inventory link resolves. A confident
+  match pre-selects "Use existing" with that item chosen; anything else
+  (including zero inventory items yet) defaults to "Create new" with an
+  editable category, rather than silently leaving the line unlinked. The
+  user's choice is sent explicitly to `registerReceiptAction`
+  (`inventoryItemId` or `newItemCategory` per line) instead of the action
+  re-guessing server-side — it only falls back to the old silent
+  exact-name-then-fuzzy auto-match when neither is sent, kept for backward
+  compatibility rather than as the primary path.
 - **Privacy**: when a vision provider is configured, the photo is uploaded
   to it for analysis — same tradeoff as AI shelf scan below, disclosed in
   this feature's comments the same way. In the OCR fallback path only

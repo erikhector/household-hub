@@ -872,6 +872,49 @@ describe("registerReceiptAction", () => {
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
   });
 
+  it("links to the inventory item the user explicitly matched in review, skipping exact/fuzzy auto-match", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-2", quantity: 1, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "ORG BANANAS 2LB", quantity: 1, price: 12, inventoryItemId: "inv-2" },
+    ]);
+
+    expect(inventoryItemFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "inv-2", householdId: "household-1" },
+    });
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inventoryItemId: "inv-2", name: "ORG BANANAS 2LB" }),
+    });
+    expect(result.unresolvedNotice).toBeUndefined();
+  });
+
+  it("creates a new inventory item in the chosen category when the user explicitly chose 'create new'", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new", quantity: 0, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Kombucha", quantity: 1, unit: "btl", price: 30, newItemCategory: "Beverages" },
+    ]);
+
+    expect(inventoryItemFindFirstMock).not.toHaveBeenCalled();
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "household-1",
+        name: "Kombucha",
+        category: "Beverages",
+        unit: "btl",
+        quantity: 0,
+      }),
+    });
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ inventoryItemId: "inv-new", name: "Kombucha" }),
+    });
+    expect(result.unresolvedNotice).toBeUndefined();
+  });
+
   it("converts a foreign-currency price using the fetched exchange rate", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue(null);

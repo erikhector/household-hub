@@ -61,6 +61,7 @@ export default async function ShoppingListPage() {
   });
 
   const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+  const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
 
   return (
     <div className="flex flex-col gap-6">
@@ -73,6 +74,7 @@ export default async function ShoppingListPage() {
           <RegisterReceiptDialog
             inventoryItems={inventoryItems}
             units={units}
+            categories={categories}
             dict={dict.shoppingList.registerReceipt}
           />
           <NewListDialog dict={dict.shoppingList} />

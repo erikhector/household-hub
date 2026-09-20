@@ -697,13 +697,28 @@ export async function applyReceiptScanAction(
   return { itemsUpdated: validMatches.length, totalAmount };
 }
 
-export type ReceiptRegistrationItem = { name: string; quantity: number; unit?: string; price: number };
+export type ReceiptRegistrationItem = {
+  name: string;
+  quantity: number;
+  unit?: string;
+  price: number;
+  /** Inventory item the user explicitly matched this line to in the review
+   * step (RegisterReceiptDialog's "Use existing" mode) — takes priority
+   * over the exact/fuzzy auto-match fallback below. */
+  inventoryItemId?: string;
+  /** Set (possibly to "") when the user explicitly chose "Create new" for
+   * this line, so a fresh InventoryItem is created with this category
+   * instead of falling back to a fuzzy auto-match. */
+  newItemCategory?: string;
+};
 
 const registerReceiptItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.coerce.number().min(0.01),
   unit: z.string().trim().max(20).optional(),
   price: z.coerce.number().min(0.01),
+  inventoryItemId: z.string().trim().min(1).optional(),
+  newItemCategory: z.string().trim().max(60).optional(),
 });
 
 const registerReceiptSchema = z.object({
@@ -718,18 +733,24 @@ const registerReceiptSchema = z.object({
  * match scanned lines against: building that list by hand first, just to
  * immediately scan a receipt against it, is the tedious round trip this
  * skips. Instead this creates the list from the receipt itself, one already-
- * purchased item per reviewed line (auto-linked to inventory exactly like
- * createAdHocShoppingListItem: an exact case-insensitive name match, else a
- * single confident fuzzy match, else left unlinked for later), and completes
- * it in the same call — the same end state completeShoppingListAction
- * reaches (a logged Groceries expense, an unresolved-items count) but
- * reached in one step instead of create → add → check off → complete.
+ * purchased item per reviewed line, and completes it in the same call — the
+ * same end state completeShoppingListAction reaches (a logged Groceries
+ * expense, an unresolved-items count) but reached in one step instead of
+ * create → add → check off → complete.
  *
- * Inventory matches are resolved up front (plain reads, same as
- * createAdHocShoppingListItem) before the transaction below, which only
- * performs writes. Quantity deltas are accumulated per inventory item first
- * so two receipt lines naming the same item don't clobber each other by both
- * computing their new quantity from the same stale snapshot.
+ * Each line's inventory link follows what the user chose in
+ * RegisterReceiptDialog's review step (mirroring ResolveMappingsDialog's
+ * existing/new toggle): `inventoryItemId` when they picked a suggested or
+ * manually-chosen existing item, `newItemCategory` when they chose to
+ * create a new one (created here, same shape as createAdHocShoppingListItem's
+ * newItemDetails path). Neither set falls back to the old silent exact/fuzzy
+ * auto-match, kept only for callers that predate the review step.
+ *
+ * Inventory matches/creates are resolved up front (before the transaction
+ * below, which only performs writes). Quantity deltas are accumulated per
+ * inventory item first so two receipt lines naming the same item don't
+ * clobber each other by both computing their new quantity from the same
+ * stale snapshot.
  */
 export async function registerReceiptAction(
   listName: string | undefined,
@@ -779,8 +800,27 @@ export async function registerReceiptAction(
   let unresolvedCount = 0;
 
   for (const line of parsed.data.items) {
-    let inventoryItem = await findExactInventoryItem(household.id, line.name);
-    if (!inventoryItem) inventoryItem = await findFuzzyInventoryItem(household.id, line.name);
+    let inventoryItem: { id: string; quantity: number; unit: string } | null = null;
+
+    if (line.inventoryItemId) {
+      inventoryItem = await prisma.inventoryItem.findFirst({
+        where: { id: line.inventoryItemId, householdId: household.id },
+      });
+    } else if (line.newItemCategory !== undefined) {
+      inventoryItem = await prisma.inventoryItem.create({
+        data: {
+          householdId: household.id,
+          name: line.name,
+          category: line.newItemCategory || "Uncategorized",
+          unit: line.unit || "pcs",
+          quantity: 0,
+          lowStockThreshold: 0,
+        },
+      });
+    } else {
+      inventoryItem = await findExactInventoryItem(household.id, line.name);
+      if (!inventoryItem) inventoryItem = await findFuzzyInventoryItem(household.id, line.name);
+    }
     if (!inventoryItem) unresolvedCount++;
 
     const convertedPrice = Math.round(line.price * rate * 100) / 100;

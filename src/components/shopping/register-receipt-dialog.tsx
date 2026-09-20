@@ -13,6 +13,14 @@
 // original client-side Tesseract.js + receipt-parsing.ts pipeline
 // (never uploading the photo) when neither GEMINI_API_KEY nor
 // ANTHROPIC_API_KEY is configured.
+//
+// Each reviewed line also gets an inventory-match step, same UX as
+// ResolveMappingsDialog: findInventoryMatches (src/lib/item-matching.ts)
+// suggests an existing inventory item by fuzzy name similarity, defaulting
+// each row to "use existing" (pre-selected) when confident or "create new"
+// when not — either can be overridden before applying. registerReceiptAction
+// then links to exactly the item the user confirmed (or creates a new one in
+// the chosen category) instead of silently re-guessing server-side.
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +38,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ComboField } from "@/components/inventory/combo-field";
+import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { registerReceiptAction } from "@/app/dashboard/shopping-list/actions";
+import { findInventoryMatches } from "@/lib/item-matching";
 import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
@@ -47,17 +57,32 @@ type ReviewRow = {
   unit: string;
   /** Editable text so the user can correct an OCR misread digit. */
   price: string;
+  /** "existing" links this line to an inventory item on apply (matchId);
+   * "new" creates a fresh one in `category`. Defaults per-row from a fuzzy
+   * name match against the household's inventory, same threshold/algorithm
+   * as ResolveMappingsDialog — the user can override either the mode or the
+   * suggested match before applying. */
+  mode: "existing" | "new";
+  matchId: string;
+  category: string;
 };
 
 type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
 
+// A parsed/scanned line only auto-suggests a match above this similarity —
+// below it, defaulting to "create new" is safer than confidently linking the
+// wrong inventory item (the user can still pick one manually).
+const AUTO_MATCH_MIN_SCORE = 0.35;
+
 export function RegisterReceiptDialog({
   inventoryItems,
   units,
+  categories,
   dict,
 }: {
   inventoryItems: InventoryItemOption[];
   units: string[];
+  categories: string[];
   dict: Dictionary["shoppingList"]["registerReceipt"];
 }) {
   const router = useRouter();
@@ -82,13 +107,22 @@ export function RegisterReceiptDialog({
   }
 
   function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
-    return lines.map((line, index) => ({
-      key: `${index}-${line.name}`,
-      name: line.name,
-      quantity: String(line.quantity),
-      unit: "pcs",
-      price: line.price.toFixed(2),
-    }));
+    return lines.map((line, index) => {
+      const [suggestion] = findInventoryMatches(line.name, inventoryItems, {
+        limit: 1,
+        minScore: AUTO_MATCH_MIN_SCORE,
+      });
+      return {
+        key: `${index}-${line.name}`,
+        name: line.name,
+        quantity: String(line.quantity),
+        unit: "pcs",
+        price: line.price.toFixed(2),
+        mode: suggestion ? "existing" : "new",
+        matchId: suggestion?.id ?? "",
+        category: "",
+      };
+    });
   }
 
   function errorMessageFor(code: string | undefined): string {
@@ -184,6 +218,14 @@ export function RegisterReceiptDialog({
         quantity: Number(row.quantity),
         unit: row.unit.trim() || "pcs",
         price: Number(row.price),
+        // A row left in "existing" mode without a picked match still needs
+        // to end up somewhere on apply — falling through to "create new"
+        // rather than silently dropping the line, same invariant as
+        // ResolveMappingsDialog's own apply just applied to this dialog's
+        // no-skip-the-whole-line rows.
+        ...(row.mode === "existing" && row.matchId
+          ? { inventoryItemId: row.matchId }
+          : { newItemCategory: row.category.trim() }),
       }))
       .filter(
         (item) =>
@@ -349,7 +391,14 @@ export function RegisterReceiptDialog({
               </div>
 
               <div className="flex flex-col gap-2">
-                {rows.map((row) => (
+                {rows.map((row) => {
+                  const suggestions = findInventoryMatches(row.name, inventoryItems);
+                  const suggestedIds = new Set(suggestions.map((s) => s.id));
+                  const otherItems = [...inventoryItems]
+                    .filter((i) => !suggestedIds.has(i.id))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                  const orderedItems = [...suggestions, ...otherItems];
+                  return (
                   <div key={row.key} className="flex flex-col gap-2 rounded-md border p-2">
                     <div className="flex flex-col gap-1">
                       <Label htmlFor={`${row.key}-name`} className="text-xs">
@@ -421,8 +470,63 @@ export function RegisterReceiptDialog({
                         />
                       </div>
                     </div>
+
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs">{dict.existingItemLabel}</Label>
+                        <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1">
+                          {inventoryItems.length > 0 && (
+                            <Button
+                              type="button"
+                              variant={row.mode === "existing" ? "secondary" : "ghost"}
+                              size="sm"
+                              onClick={() => updateRow(row.key, { mode: "existing" })}
+                            >
+                              {dict.useExisting}
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant={row.mode === "new" ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => updateRow(row.key, { mode: "new" })}
+                          >
+                            {dict.createNew}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {row.mode === "existing" && inventoryItems.length > 0 && (
+                        <ItemCombobox
+                          items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
+                          value={row.matchId}
+                          onValueChange={(v) => updateRow(row.key, { matchId: v })}
+                          ariaLabel={dict.existingItemLabel}
+                          emptyMessage={dict.existingItemNoResults}
+                        />
+                      )}
+
+                      {row.mode === "new" && (
+                        <>
+                          {inventoryItems.length === 0 && (
+                            <p className="text-xs text-muted-foreground">{dict.noInventoryItems}</p>
+                          )}
+                          <ComboField
+                            id={`${row.key}-new-category`}
+                            name="newCategory"
+                            items={categories}
+                            value={row.category}
+                            onValueChange={(v) => updateRow(row.key, { category: v })}
+                            placeholder={dict.newItemCategoryPlaceholder}
+                            maxLength={60}
+                            dict={dict}
+                          />
+                        </>
+                      )}
+                    </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
