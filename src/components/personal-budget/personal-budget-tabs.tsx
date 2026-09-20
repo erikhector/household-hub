@@ -82,14 +82,6 @@ export function PersonalBudgetTabs({
       <div hidden={tab !== "overview"} className="flex flex-col gap-6">
         {hasCategories ? (
           <>
-            <SafeToSpend
-              amount={safeToSpendAmount}
-              status={safeToSpendStatus}
-              expectedRecurring={safeToSpendExpectedRecurring}
-              dict={dict.safeToSpend}
-              locale={locale}
-            />
-            {periodSummary}
             <PersonalDueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}
@@ -98,6 +90,14 @@ export function PersonalBudgetTabs({
               locale={locale}
               onManageClick={() => setTab("manage")}
             />
+            <SafeToSpend
+              amount={safeToSpendAmount}
+              status={safeToSpendStatus}
+              expectedRecurring={safeToSpendExpectedRecurring}
+              dict={dict.safeToSpend}
+              locale={locale}
+            />
+            {periodSummary}
           </>
         ) : (
           <PersonalBudgetOnboarding dict={dict} />

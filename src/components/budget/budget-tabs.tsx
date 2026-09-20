@@ -114,14 +114,6 @@ export function BudgetTabs({
       <div hidden={tab !== "overview"} className="flex flex-col gap-6">
         {hasCategories ? (
           <>
-            <SafeToSpend
-              amount={safeToSpendAmount}
-              status={safeToSpendStatus}
-              expectedRecurring={safeToSpendExpectedRecurring}
-              dict={dict.safeToSpend}
-              locale={locale}
-            />
-            {periodSummary}
             <DueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}
@@ -132,6 +124,14 @@ export function BudgetTabs({
               locale={locale}
               onManageClick={() => setTab("manage")}
             />
+            <SafeToSpend
+              amount={safeToSpendAmount}
+              status={safeToSpendStatus}
+              expectedRecurring={safeToSpendExpectedRecurring}
+              dict={dict.safeToSpend}
+              locale={locale}
+            />
+            {periodSummary}
           </>
         ) : (
           <BudgetOnboarding dict={dict} />
