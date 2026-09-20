@@ -17,20 +17,34 @@ import {
   computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
+import {
+  getMonthEnd,
+  getMonthStart,
+  isMonthKey,
+  parseMonthKey,
+  toMonthKey,
+} from "@/lib/budget-date-utils";
 
 // Same cap as the household budget's cost analyzer / fixed trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
 
-export default async function PersonalBudgetPage() {
-  const [userId, dict, locale] = await Promise.all([
+export default async function PersonalBudgetPage(props: PageProps<"/dashboard/personal-budget">) {
+  const [userId, dict, locale, searchParams] = await Promise.all([
     requireUserId(),
     getDictionary(),
     getLocale(),
+    props.searchParams,
   ]);
 
+  const monthParam = searchParams.month;
+  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
+  const monthEnd = getMonthEnd(monthStart);
+  const monthKey = toMonthKey(monthStart);
+  // See src/app/dashboard/budget/page.tsx's identical referenceDate comment.
+  const referenceDate =
+    monthKey === toMonthKey(now) ? now : monthStart < now ? new Date(monthEnd.getTime() - 1) : monthStart;
 
   const [categories, transactions, recurringTemplates, recurringTemplateAcks] = await Promise.all([
     prisma.personalBudgetCategory.findMany({
@@ -56,7 +70,11 @@ export default async function PersonalBudgetPage() {
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
 
-  const transactionRows = transactions.map((t) => ({
+  // Scoped to the selected month — see the household budget's identical
+  // monthTransactions comment (src/app/dashboard/budget/page.tsx).
+  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
+
+  const transactionRows = monthTransactions.map((t) => ({
     id: t.id,
     categoryId: t.categoryId,
     categoryName: t.category.name,
@@ -67,8 +85,6 @@ export default async function PersonalBudgetPage() {
     isRecurring: t.isRecurring,
     recurrenceFrequency: t.recurrenceFrequency,
   }));
-
-  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
 
   const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
     const totals = new Map<string, CategoryTotal>();
@@ -123,7 +139,7 @@ export default async function PersonalBudgetPage() {
       recurringTemplateId: a.personalRecurringTemplateId,
       periodKey: a.periodKey,
     })),
-    referenceDate: now,
+    referenceDate,
   });
   const recurringTemplateRows: PersonalRecurringTemplateListRow[] = templateStatusRows.map(
     (row) => ({
@@ -222,6 +238,7 @@ export default async function PersonalBudgetPage() {
       <PersonalBudgetTabs
         dict={dict.personalBudget}
         locale={locale}
+        monthKey={monthKey}
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
         safeToSpendStatus={safeToSpendStatus}

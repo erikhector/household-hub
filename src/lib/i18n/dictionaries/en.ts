@@ -849,6 +849,9 @@ export const en = {
   budget: {
     title: "Household budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    thisMonth: "This month",
     tabOverview: "Overview",
     tabManage: "Manage",
     tabTransactions: "Transactions",
@@ -1071,6 +1074,9 @@ export const en = {
   personalBudget: {
     title: "Personal budget",
     subtitle: "Your own income and expenses — separate from any household you're part of.",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    thisMonth: "This month",
     tabOverview: "Overview",
     tabManage: "Manage",
     tabTransactions: "Transactions",

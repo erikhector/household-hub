@@ -24,6 +24,13 @@ import {
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
+import {
+  getMonthEnd,
+  getMonthStart,
+  isMonthKey,
+  parseMonthKey,
+  toMonthKey,
+} from "@/lib/budget-date-utils";
 import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
 
 // An item needs at least this many recorded prices before its trend is
@@ -36,16 +43,27 @@ const MAX_SPENDING_MONTHS = 12;
 // Same cap, for the "Fixed income & costs" trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
 
-export default async function BudgetPage() {
-  const [{ household, userId }, dict, locale] = await Promise.all([
+export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
+  const [{ household, userId }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
+    props.searchParams,
   ]);
 
+  const monthParam = searchParams.month;
+  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
+  const monthEnd = getMonthEnd(monthStart);
+  const monthKey = toMonthKey(monthStart);
+  // classifyByDueDay (recurring-template-calc.ts) reads a day-of-month off
+  // the reference date to decide "due"/"upcoming"/"scheduled" — meaningful
+  // only relative to today. Viewing the current month keeps that live;
+  // viewing another month has no "today" within it, so a past month reads
+  // as fully elapsed (due) and a future one as not yet started (scheduled).
+  const referenceDate =
+    monthKey === toMonthKey(now) ? now : monthStart < now ? new Date(monthEnd.getTime() - 1) : monthStart;
 
   const [categories, transactions, householdMembers, recurringTemplates, recurringTemplateAcks] =
     await Promise.all([
@@ -84,7 +102,14 @@ export default async function BudgetPage() {
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
   const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
 
-  const transactionRows = transactions.map((t) => ({
+  // Scoped to the selected month — see date-utils.ts's monthStart/monthEnd
+  // above. Fed to TransactionList below; the settlements/fixed-trend/
+  // template-status calcs further down each need their own (broader)
+  // window, so they keep reading from the unscoped `transactions` fetched
+  // above instead.
+  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
+
+  const transactionRows = monthTransactions.map((t) => ({
     id: t.id,
     categoryId: t.categoryId,
     categoryName: t.category.name,
@@ -120,8 +145,6 @@ export default async function BudgetPage() {
           ),
         )
       : [];
-
-  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
 
   const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
     const totals = new Map<string, CategoryTotal>();
@@ -183,7 +206,7 @@ export default async function BudgetPage() {
       date: t.date,
     })),
     acks: recurringTemplateAcks,
-    referenceDate: now,
+    referenceDate,
   });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => ({
     id: row.template.id,
@@ -354,6 +377,7 @@ export default async function BudgetPage() {
       <BudgetTabs
         dict={dict.budget}
         locale={locale}
+        monthKey={monthKey}
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
         safeToSpendStatus={safeToSpendStatus}

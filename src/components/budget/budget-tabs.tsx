@@ -37,6 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { DueRecurringWidget } from "@/components/budget/due-recurring-widget";
+import { MonthNavigator } from "@/components/budget/month-navigator";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { TransactionDialog, type MemberOption } from "@/components/budget/transaction-dialog";
 import type { CategoryRow } from "@/components/budget/category-manager";
@@ -49,6 +50,7 @@ type Tab = "overview" | "manage" | "transactions" | "insights";
 export function BudgetTabs({
   dict,
   locale,
+  monthKey,
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
@@ -63,6 +65,9 @@ export function BudgetTabs({
 }: {
   dict: Dictionary["budget"];
   locale: Locale;
+  /** "YYYY-MM" — the month currently selected via the page's `?month=`
+   * search param (see src/app/dashboard/budget/page.tsx). */
+  monthKey: string;
   categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
@@ -89,6 +94,8 @@ export function BudgetTabs({
 
   return (
     <div className="flex flex-col gap-6">
+      <MonthNavigator basePath="/dashboard/budget" monthKey={monthKey} dict={dict} />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
         <TransactionDialog

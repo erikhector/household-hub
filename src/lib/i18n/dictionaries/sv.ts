@@ -841,6 +841,9 @@ export const sv = {
   budget: {
     title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
+    previousMonth: "Föregående månad",
+    nextMonth: "Nästa månad",
+    thisMonth: "Denna månad",
     tabOverview: "Översikt",
     tabManage: "Hantera",
     tabTransactions: "Transaktioner",
@@ -1063,6 +1066,9 @@ export const sv = {
   personalBudget: {
     title: "Personlig budget",
     subtitle: "Dina egna inkomster och utgifter — separat från hushåll du är med i.",
+    previousMonth: "Föregående månad",
+    nextMonth: "Nästa månad",
+    thisMonth: "Denna månad",
     tabOverview: "Översikt",
     tabManage: "Hantera",
     tabTransactions: "Transaktioner",

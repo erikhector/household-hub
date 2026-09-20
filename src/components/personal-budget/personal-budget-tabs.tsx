@@ -12,6 +12,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import { MonthNavigator } from "@/components/budget/month-navigator";
 import { PersonalDueRecurringWidget } from "@/components/personal-budget/personal-due-recurring-widget";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
@@ -25,6 +26,7 @@ type Tab = "overview" | "manage" | "transactions" | "insights";
 export function PersonalBudgetTabs({
   dict,
   locale,
+  monthKey,
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
@@ -37,6 +39,8 @@ export function PersonalBudgetTabs({
 }: {
   dict: Dictionary["personalBudget"];
   locale: Locale;
+  /** "YYYY-MM" — see BudgetTabs's doc comment. */
+  monthKey: string;
   categories: PersonalCategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
@@ -60,6 +64,8 @@ export function PersonalBudgetTabs({
 
   return (
     <div className="flex flex-col gap-6">
+      <MonthNavigator basePath="/dashboard/personal-budget" monthKey={monthKey} dict={dict} />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
         <PersonalTransactionDialog
