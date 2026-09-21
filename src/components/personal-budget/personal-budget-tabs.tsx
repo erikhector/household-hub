@@ -19,6 +19,10 @@ import {
 } from "@/components/personal-budget/personal-due-recurring-widget";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
+import {
+  LogSharedExpenseDialog,
+  type ShareableHousehold,
+} from "@/components/personal-budget/log-shared-expense-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
@@ -38,6 +42,7 @@ export function PersonalBudgetTabs({
   hasRecurringTemplates,
   sharedDueRows,
   showHouseholdName,
+  sharedExpenseHouseholds,
   periodSummary,
   manage,
   transactions,
@@ -61,6 +66,11 @@ export function PersonalBudgetTabs({
   /** Only show which household a shared row belongs to once the user is in
    * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
   showHouseholdName: boolean;
+  /** Households the user can log a shared expense into (more than one
+   * member each) — empty when the user isn't in any such household, in
+   * which case the "Log a shared expense" trigger is omitted entirely. See
+   * LogSharedExpenseDialog. */
+  sharedExpenseHouseholds: ShareableHousehold[];
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see BudgetTabs's doc comment. */
   periodSummary: ReactNode;
@@ -86,6 +96,13 @@ export function PersonalBudgetTabs({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
         <div className="flex flex-wrap items-center gap-2">
+          {sharedExpenseHouseholds.length > 0 && (
+            <LogSharedExpenseDialog
+              dict={dict}
+              households={sharedExpenseHouseholds}
+              trigger={<Button variant="outline">{dict.logShared.button}</Button>}
+            />
+          )}
           <PersonalTransactionDialog
             dict={dict}
             categories={categories}

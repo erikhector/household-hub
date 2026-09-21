@@ -122,11 +122,23 @@ model RecurringTemplateSplit {
   list (`src/components/personal-budget/personal-due-recurring-widget.tsx`), and 3a's posted
   rows render inline in `PersonalTransactionList`
   (`src/components/personal-budget/personal-transaction-list.tsx`), each row badged "Shared"
-  (`Users` icon) rather than shown in a separate section. The "Log a shared expense" button/
-  dialog and the standalone `SharedWithHouseholdCard` were removed entirely — logging or editing
-  a shared expense still only happens in the household budget itself, per §6's "two places to
-  log the same bill" concern below. The text immediately below describes the original,
-  now-superseded shape; kept for context on the read-only-mirror reasoning, which still holds.
+  (`Users` icon) rather than shown in a separate section. The standalone `SharedWithHouseholdCard`
+  was removed entirely, and at the same time the "Log a shared expense" button/dialog was removed
+  too. The text immediately below describes the original, now-superseded card/section shape; kept
+  for context on the read-only-mirror reasoning, which still holds for 3a/3b's *display*.
+- **Restored 2026-09-21 (later the same day)**: a direct follow-up request ("I can not log a
+  transaction from my personal budget that is a shared expense — I want to be able to do it from
+  there also") asked for the entry point back. `LogSharedExpenseDialog`
+  (`src/components/personal-budget/log-shared-expense-dialog.tsx`) and
+  `createSharedExpenseFromPersonalBudgetAction`
+  (`src/app/dashboard/budget/actions.ts`) are back, triggered from a "Log a shared expense" button
+  next to Personal Budget's "Add transaction" button (`PersonalBudgetTabs`), shown only for
+  households the user belongs to with more than one member. This still writes to the same single
+  household `Transaction`/`TransactionSplit` tables `createTransactionAction` does — no
+  `PersonalTransaction` copy, no second ledger — so §2's and §6's "one ledger, no sync, never a
+  second place to log the same bill" reasoning is unaffected: this is a second *entry point* into
+  that one ledger, not a second ledger. The household budget remains the only place to *edit* or
+  *delete* a shared expense once logged.
 - Every row is a link ("View in {household name}'s Budget →") to
   `/dashboard/budget?month=...`, never an edit/delete/log-transaction control. The household
   budget stays the one place these get logged, edited, or acknowledged — the personal side is
