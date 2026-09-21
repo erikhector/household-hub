@@ -15,6 +15,11 @@ import {
   acknowledgePersonalTemplatePeriodAction,
   logPersonalRecurringTemplateAction,
 } from "@/app/dashboard/personal-budget/actions";
+import {
+  LogSharedExpenseDialog,
+  type ShareableHousehold,
+  type SharedExpensePrefill,
+} from "@/components/personal-budget/log-shared-expense-dialog";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
@@ -36,12 +41,16 @@ export type SharedDueRow = {
    * template's full expected amount. */
   amount: number;
   householdName: string;
+  /** What "Log payment" needs to log the whole bill (not just this user's
+   * share) against the template — see SharedExpensePrefill. */
+  logPrefill: SharedExpensePrefill;
 };
 
 export function PersonalDueRecurringWidget({
   templates,
   hasTemplates,
   sharedDueRows,
+  sharedExpenseHouseholds,
   showHouseholdName,
   monthKey,
   categories,
@@ -52,6 +61,9 @@ export function PersonalDueRecurringWidget({
   templates: PersonalRecurringTemplateListRow[];
   hasTemplates: boolean;
   sharedDueRows: SharedDueRow[];
+  /** Households the user can log a shared expense into — a shared row only
+   * gets a "Log payment" button when its household is in here. */
+  sharedExpenseHouseholds: ShareableHousehold[];
   /** Only show which household a shared row belongs to once the user is in
    * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
   showHouseholdName: boolean;
@@ -185,12 +197,26 @@ export function PersonalDueRecurringWidget({
                     {showHouseholdName ? ` · ${row.householdName}` : ""}
                   </p>
                 </div>
-                <Link
-                  href={`/dashboard/budget?month=${monthKey}`}
-                  className="shrink-0 text-sm font-medium text-primary hover:underline"
-                >
-                  {format(dict.shared.viewInHouseholdBudget, { household: row.householdName })}
-                </Link>
+                <div className="flex flex-wrap items-center gap-3">
+                  {sharedExpenseHouseholds.some((h) => h.id === row.logPrefill.householdId) && (
+                    <LogSharedExpenseDialog
+                      dict={dict}
+                      households={sharedExpenseHouseholds}
+                      prefill={row.logPrefill}
+                      trigger={
+                        <Button size="xs" variant="secondary">
+                          {dict.logShared.logPayment}
+                        </Button>
+                      }
+                    />
+                  )}
+                  <Link
+                    href={`/dashboard/budget?month=${monthKey}`}
+                    className="shrink-0 text-sm font-medium text-primary hover:underline"
+                  >
+                    {format(dict.shared.viewInHouseholdBudget, { household: row.householdName })}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

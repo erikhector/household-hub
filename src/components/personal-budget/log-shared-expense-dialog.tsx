@@ -57,6 +57,22 @@ export type ShareableHousehold = {
   categories: ShareableHouseholdCategory[];
 };
 
+/** Seeds the dialog from a shared bill's due row ("Log payment" in
+ * PersonalDueRecurringWidget): the household and category are fixed, the
+ * amount/split come from the template, and the template id is sent along so
+ * the new transaction marks the bill as logged for the period. */
+export type SharedExpensePrefill = {
+  householdId: string;
+  templateId: string;
+  categoryId: string;
+  /** The template's full expected amount (not this user's share). */
+  amount: number;
+  description: string;
+  frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
+  /** Per-member shares saved on the template, keyed by HouseholdMember id. */
+  splits: Record<string, number>;
+};
+
 const initialState: ActionState = {};
 
 function toDateInputValue(date: Date) {
@@ -65,21 +81,29 @@ function toDateInputValue(date: Date) {
   return local.toISOString().slice(0, 10);
 }
 
+function prefillSplitAmounts(prefill: SharedExpensePrefill, household: ShareableHousehold | undefined) {
+  return Object.fromEntries(
+    (household?.members ?? []).map((m) => [m.id, (prefill.splits[m.id] ?? 0).toFixed(2)]),
+  );
+}
+
 export function LogSharedExpenseDialog({
   dict,
   households,
   trigger,
+  prefill,
 }: {
   dict: Dictionary["personalBudget"];
   /** Every household the signed-in user belongs to that has more than one
    * member — see PersonalBudgetPage's sharedExpenseHouseholds query. */
   households: ShareableHousehold[];
   trigger: ReactElement;
+  prefill?: SharedExpensePrefill;
 }) {
   const [open, setOpen] = useState(false);
-  const [householdId, setHouseholdId] = useState(households[0]?.id ?? "");
+  const [householdId, setHouseholdId] = useState(prefill?.householdId ?? households[0]?.id ?? "");
   const household = households.find((h) => h.id === householdId) ?? households[0];
-  const showHouseholdPicker = households.length > 1;
+  const showHouseholdPicker = households.length > 1 && !prefill;
 
   const categoryItems = useMemo(
     () =>
@@ -90,9 +114,11 @@ export function LogSharedExpenseDialog({
     [household],
   );
 
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(prefill ? String(prefill.amount) : "");
   const [paidByMemberId, setPaidByMemberId] = useState(household?.currentMemberId ?? "");
-  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
+    prefill ? prefillSplitAmounts(prefill, household) : {},
+  );
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -107,9 +133,13 @@ export function LogSharedExpenseDialog({
   }, initialState);
 
   function resetForHousehold(next: ShareableHousehold | undefined) {
-    setAmount("");
+    setAmount(prefill ? String(prefill.amount) : "");
     setPaidByMemberId(next?.currentMemberId ?? "");
-    setSplitAmounts(Object.fromEntries((next?.members ?? []).map((m) => [m.id, "0.00"])));
+    setSplitAmounts(
+      prefill
+        ? prefillSplitAmounts(prefill, next)
+        : Object.fromEntries((next?.members ?? []).map((m) => [m.id, "0.00"])),
+    );
   }
 
   function selectHousehold(id: string) {
@@ -136,20 +166,32 @@ export function LogSharedExpenseDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
-          setHouseholdId(households[0].id);
-          resetForHousehold(households[0]);
+          const initial = households.find((h) => h.id === prefill?.householdId) ?? households[0];
+          setHouseholdId(initial.id);
+          resetForHousehold(initial);
         }
       }}
     >
       <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{dict.logShared.dialogTitle}</DialogTitle>
+          <DialogTitle>
+            {prefill
+              ? format(dict.logShared.paymentDialogTitle, { name: prefill.description })
+              : dict.logShared.dialogTitle}
+          </DialogTitle>
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{dict.logShared.subtitle}</p>
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="householdId" value={household.id} />
           <input type="hidden" name="splitEnabled" value="on" />
+          {prefill && (
+            <>
+              <input type="hidden" name="recurringTemplateId" value={prefill.templateId} />
+              <input type="hidden" name="isRecurring" value="on" />
+              <input type="hidden" name="recurrenceFrequency" value={prefill.frequency} />
+            </>
+          )}
 
           {showHouseholdPicker && (
             <div className="flex flex-col gap-2">
@@ -173,7 +215,12 @@ export function LogSharedExpenseDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="shared-expense-category">{dict.logShared.categoryLabel}</Label>
-            <Combobox key={household.id} items={categoryItems} name="categoryId">
+            <Combobox
+              key={household.id}
+              items={categoryItems}
+              name="categoryId"
+              defaultValue={prefill?.categoryId}
+            >
               <ComboboxInputGroup>
                 <ComboboxInput
                   id="shared-expense-category"
@@ -224,6 +271,7 @@ export function LogSharedExpenseDialog({
               name="description"
               maxLength={200}
               placeholder={dict.logShared.descriptionPlaceholder}
+              defaultValue={prefill?.description ?? ""}
             />
           </div>
 

@@ -4,7 +4,7 @@
 // Server Actions. All I/O (Prisma, requireHousehold, next/cache) is mocked
 // — no database is touched. See REQUIREMENTS.md's "Testing" section and the
 // identical convention in src/lib/actions/household.test.ts.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
@@ -571,6 +571,53 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/budget");
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/personal-budget");
+  });
+
+  describe("logging a payment against a shared bill (recurringTemplateId)", () => {
+    beforeEach(() => {
+      householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+      transactionCreateMock.mockResolvedValue({});
+    });
+
+    it("links the transaction to the template so the bill reads as logged", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue({ id: "tpl-1" });
+
+      const result = await createSharedExpenseFromPersonalBudgetAction(
+        {},
+        sharedFormData({
+          recurringTemplateId: "tpl-1",
+          isRecurring: "on",
+          recurrenceFrequency: "MONTHLY",
+        }),
+      );
+
+      expect(result).toEqual({});
+      expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith({
+        where: { id: "tpl-1", householdId: "household-1" },
+        select: { id: true },
+      });
+      expect(transactionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recurringTemplateId: "tpl-1",
+          isRecurring: true,
+          recurrenceFrequency: "MONTHLY",
+        }),
+      });
+    });
+
+    it("rejects a template that isn't in the chosen household (IDOR guard)", async () => {
+      recurringTemplateFindFirstMock.mockResolvedValue(null);
+
+      const result = await createSharedExpenseFromPersonalBudgetAction(
+        {},
+        sharedFormData({ recurringTemplateId: "someone-elses-template" }),
+      );
+
+      expect(result.error).toBe("Recurring template not found");
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
   });
 });
 

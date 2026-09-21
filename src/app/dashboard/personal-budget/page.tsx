@@ -165,7 +165,12 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
           where: { householdMemberId: { in: householdMemberIds } },
           include: {
             recurringTemplate: {
-              include: { category: { select: { name: true } } },
+              include: {
+                category: { select: { name: true } },
+                // Every member's share, not just this user's — "Log payment"
+                // pre-fills the whole bill's split from these.
+                splits: true,
+              },
             },
           },
         })
@@ -207,6 +212,17 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         categoryName: row.template.category.name,
         amount: split.amountOwed,
         householdName: householdNameByMemberId.get(split.householdMemberId)?.name ?? "",
+        logPrefill: {
+          householdId: row.template.householdId,
+          templateId: row.template.id,
+          categoryId: row.template.categoryId,
+          amount: row.template.amount,
+          description: row.template.name,
+          frequency: row.template.frequency,
+          splits: Object.fromEntries(
+            row.template.splits.map((s) => [s.householdMemberId, s.amountOwed]),
+          ),
+        },
       };
     });
 
@@ -226,15 +242,38 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     recurrenceFrequency: t.recurrenceFrequency,
   }));
 
+  // This month's posted shared shares (sharedPostedRows, the user's own
+  // amountOwed) count toward the totals below alongside their own
+  // transactions — otherwise a bill's share would leave "expected" the moment
+  // it's logged (see sharedDueRows) without ever showing up as spent. Still a
+  // read-only reference, not a copy: nothing is written to PersonalTransaction.
+  // Keyed/labelled apart from personal categories so a personal "Rent" and a
+  // shared "Rent" don't merge into one row.
+  const sharedTotalEntries = sharedPostedRows.map((r) => ({
+    categoryId: `shared:${r.categoryName}`,
+    categoryName: `${r.categoryName} (${dict.personalBudget.shared.sharedBadge})`,
+    type: r.type,
+    amount: r.amount,
+  }));
+
   const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
     const totals = new Map<string, CategoryTotal>();
-    for (const t of monthTransactions) {
+    const entries = [
+      ...monthTransactions.map((t) => ({
+        categoryId: t.categoryId,
+        categoryName: t.category.name,
+        type: t.type,
+        amount: t.amount,
+      })),
+      ...sharedTotalEntries,
+    ];
+    for (const t of entries) {
       if (t.type !== type) continue;
       const existing = totals.get(t.categoryId);
       if (existing) {
         existing.total += t.amount;
       } else {
-        totals.set(t.categoryId, { id: t.categoryId, name: t.category.name, total: t.amount });
+        totals.set(t.categoryId, { id: t.categoryId, name: t.categoryName, total: t.amount });
       }
     }
     return [...totals.values()].sort((a, b) => b.total - a.total);

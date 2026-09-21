@@ -139,6 +139,20 @@ model RecurringTemplateSplit {
   second place to log the same bill" reasoning is unaffected: this is a second *entry point* into
   that one ledger, not a second ledger. The household budget remains the only place to *edit* or
   *delete* a shared expense once logged.
+- **Added 2026-09-21 (two follow-ups to the above):**
+  - *Log payment on a due row.* Each shared due row in `PersonalDueRecurringWidget` gets a "Log
+    payment" button that opens `LogSharedExpenseDialog` with a `prefill`
+    (`SharedExpensePrefill`): household and category fixed, the template's full amount and saved
+    per-member split pre-filled, all editable. The template id is sent as `recurringTemplateId`, which
+    `createSharedExpenseFromPersonalBudgetAction` validates against the chosen household and writes onto
+    the transaction — so the bill reads as logged for the period (and drops out of the due list),
+    exactly as logging it from the household budget's Recurring panel would.
+  - *Posted shares count in the personal totals.* The user's own share of every posted split
+    transaction this month (`sharedPostedRows`) is folded into the personal page's income/expense/
+    savings totals and category breakdown (labelled "{category} (Shared)"), hence into safe-to-spend.
+    Without this, a bill's share left "expected" (see above) the moment it was logged without ever
+    counting as spent. Still a display-layer sum over the read-only join — no `PersonalTransaction`
+    copy, so §2's no-sync reasoning is unchanged.
 - Every row is a link ("View in {household name}'s Budget →") to
   `/dashboard/budget?month=...`, never an edit/delete/log-transaction control. The household
   budget stays the one place these get logged, edited, or acknowledged — the personal side is

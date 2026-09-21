@@ -1202,6 +1202,8 @@ export const en = {
       viewInHouseholdBudget: "View in {household} Budget →",
     },
     logShared: {
+      logPayment: "Log payment",
+      paymentDialogTitle: "Log payment for {name}",
       button: "Log a shared expense",
       dialogTitle: "Log a shared expense",
       subtitle:

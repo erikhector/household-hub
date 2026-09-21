@@ -1191,6 +1191,8 @@ export const sv = {
       viewInHouseholdBudget: "Visa i {household}s budget →",
     },
     logShared: {
+      logPayment: "Logga betalning",
+      paymentDialogTitle: "Logga betalning för {name}",
       button: "Registrera en delad utgift",
       dialogTitle: "Registrera en delad utgift",
       subtitle:

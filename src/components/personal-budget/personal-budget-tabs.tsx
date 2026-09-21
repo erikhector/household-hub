@@ -118,6 +118,7 @@ export function PersonalBudgetTabs({
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}
               sharedDueRows={sharedDueRows}
+              sharedExpenseHouseholds={sharedExpenseHouseholds}
               showHouseholdName={showHouseholdName}
               monthKey={monthKey}
               categories={categories}

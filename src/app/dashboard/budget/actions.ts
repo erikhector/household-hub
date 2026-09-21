@@ -429,6 +429,15 @@ export async function createSharedExpenseFromPersonalBudgetAction(
   if (!split) return { error: "Choose how to split this expense" };
   if ("error" in split) return { error: split.error };
 
+  // Set when this is "Log payment" on a shared bill's due row: links the
+  // transaction to the template so the bill reads as logged for the period
+  // (validated against the chosen household, never trusted from the client).
+  const recurringTemplate = await resolveRecurringTemplateId(
+    householdId,
+    parsed.data.recurringTemplateId,
+  );
+  if ("error" in recurringTemplate) return { error: recurringTemplate.error };
+
   try {
     await prisma.transaction.create({
       data: {
@@ -442,6 +451,7 @@ export async function createSharedExpenseFromPersonalBudgetAction(
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         createdByUserId: userId,
         paidByMemberId: split.paidByMemberId,
+        recurringTemplateId: recurringTemplate.id ?? null,
         splits: {
           create: split.splits.map((s) => ({
             householdMemberId: s.householdMemberId,
