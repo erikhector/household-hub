@@ -9,13 +9,11 @@ import {
   type PausedPersonalRecurringTemplateRow,
   type PersonalRecurringTemplateListRow,
 } from "@/components/personal-budget/personal-recurring-templates-panel";
-import { PersonalTransactionList } from "@/components/personal-budget/personal-transaction-list";
 import {
-  SharedWithHouseholdCard,
-  type SharedDueRow,
+  PersonalTransactionList,
   type SharedPostedRow,
-} from "@/components/personal-budget/shared-with-household-card";
-import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
+} from "@/components/personal-budget/personal-transaction-list";
+import type { SharedDueRow } from "@/components/personal-budget/personal-due-recurring-widget";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import {
   computeBudgetBalanceStatus,
@@ -97,35 +95,6 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // case").
   const showHouseholdName = memberships.length > 1;
 
-  // Households the user can log a shared expense into directly from this
-  // page (LogSharedExpenseDialog) — the entry-point half of the personal
-  // ↔ household link, complementing the read-only mirror above. Only
-  // households with more than one member qualify (nothing to split
-  // otherwise), same gating TransactionDialog uses for its own split UI.
-  const sharedExpenseHouseholds: ShareableHousehold[] = (
-    await Promise.all(
-      memberships.map(async (m) => {
-        const [members, householdCategories] = await Promise.all([
-          prisma.householdMember.findMany({
-            where: { householdId: m.household.id },
-            include: { user: { select: { displayName: true } } },
-          }),
-          prisma.budgetCategory.findMany({
-            where: { householdId: m.household.id },
-            orderBy: [{ type: "asc" }, { name: "asc" }],
-          }),
-        ]);
-        return {
-          id: m.household.id,
-          name: m.household.name,
-          currentMemberId: m.id,
-          members: members.map((hm) => ({ id: hm.id, displayName: hm.user.displayName })),
-          categories: householdCategories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
-        };
-      }),
-    )
-  ).filter((h) => h.members.length > 1);
-
   // 3a: already-posted split transactions this month (no schema change
   // needed — a pure join over TransactionSplit/Transaction).
   const sharedSplits =
@@ -150,6 +119,8 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     id: split.id,
     categoryName: split.transaction.category.name,
     amount: split.amountOwed,
+    type: split.transaction.type,
+    date: split.transaction.date,
     householdName: householdNameByMemberId.get(split.householdMemberId)?.name ?? "",
     paidByName: split.transaction.paidByMember?.user.displayName ?? null,
   }));
@@ -370,32 +341,23 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     </div>
   );
 
+  // Shared household costs (sharedPostedRows — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
+  // are merged straight into the normal transaction list, badged as
+  // "Shared" rather than shown in a separate section. Still read-only here:
+  // PersonalTransactionList renders a "View in {household} Budget" link for
+  // these rows instead of edit/delete controls, since the household budget
+  // stays the one place they get logged, edited, or acknowledged.
   const transactionsTab = (
     <PersonalTransactionList
       transactions={transactionRows}
+      sharedRows={sharedPostedRows}
+      showHouseholdName={showHouseholdName}
+      monthKey={monthKey}
       categories={categoryRows}
       dict={dict.personalBudget}
       locale={locale}
     />
   );
-
-  // "Shared with your household" — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
-  // Read-only: nothing here is editable/deletable/loggable from Personal
-  // Budget, only a deep link back to the household budget that owns the
-  // underlying Transaction/RecurringTemplate. Rendered on Overview only when
-  // there's actually something to show, same "zero extra setup, no clutter
-  // for the common case" convention the rest of onboarding follows.
-  const sharedWithHousehold =
-    sharedPostedRows.length > 0 || sharedDueRows.length > 0 ? (
-      <SharedWithHouseholdCard
-        postedRows={sharedPostedRows}
-        dueRows={sharedDueRows}
-        showHouseholdName={showHouseholdName}
-        monthKey={monthKey}
-        dict={dict.personalBudget}
-        locale={locale}
-      />
-    ) : null;
 
   // Selected month's income/expense/savings breakdown — shown on both
   // Overview and Insights, see BudgetTabs's identical periodSummary comment
@@ -447,8 +409,8 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         safeToSpendExpectedRecurring={expectedRecurring}
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}
-        sharedWithHousehold={sharedWithHousehold}
-        sharedExpenseHouseholds={sharedExpenseHouseholds}
+        sharedDueRows={sharedDueRows}
+        showHouseholdName={showHouseholdName}
         periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}

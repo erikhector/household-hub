@@ -1193,38 +1193,13 @@ export const en = {
       body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
     },
     shared: {
-      title: "Shared with your household",
-      subtitle: "Your share of costs split with a household you belong to — read-only here.",
-      dueSectionTitle: "Due",
-      postedSectionTitle: "Posted this month",
-      empty: "Nothing shared with a household yet. Split a bill or a recurring item in a household's budget to see it here.",
+      // Merged inline into the normal due list and transaction list (see
+      // PersonalDueRecurringWidget/PersonalTransactionList) rather than a
+      // separate section — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
+      sharedBadge: "Shared",
       yourShare: "Your share",
       paidBy: "Paid by {name}",
       viewInHouseholdBudget: "View in {household} Budget →",
-      sharedBadge: "Shared",
-    },
-    logShared: {
-      button: "Log a shared expense",
-      dialogTitle: "Log a shared expense",
-      subtitle:
-        "This creates a real transaction in the household's budget, split the way you choose below — it isn't a separate personal entry.",
-      householdLabel: "Household",
-      categoryLabel: "Category",
-      categoryPlaceholder: "Choose a category",
-      categoryNoResults: "No matching categories",
-      categoryToggleLabel: "Category",
-      amountLabel: "Amount",
-      dateLabel: "Date",
-      descriptionLabel: "Description",
-      descriptionPlaceholder: "Optional note",
-      paidByLabel: "Paid by",
-      sharesLabel: "Split between",
-      splitEvenlyButton: "Split evenly",
-      amountAriaLabel: "Amount for {name}",
-      mismatchWarning: "The shares add up to {total}, but the expense is {amount}.",
-      saving: "Logging…",
-      add: "Log expense",
-      loggedToast: "Logged in {household}'s budget.",
     },
     dueWidget: {
       title: "Due this period",

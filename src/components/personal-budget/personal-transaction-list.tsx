@@ -1,8 +1,9 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Pencil, Repeat, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, Repeat, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
   type PersonalTransactionRow,
 } from "@/components/personal-budget/personal-transaction-dialog";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type PersonalTransactionListRow = PersonalTransactionRow & {
@@ -27,16 +29,44 @@ export type PersonalTransactionListRow = PersonalTransactionRow & {
   type: "INCOME" | "EXPENSE" | "SAVINGS";
 };
 
-function amountColor(type: PersonalTransactionListRow["type"]) {
+// This user's own share of a posted split household Transaction (see
+// PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged straight into the normal
+// transaction list, badged "Shared", rather than shown in a separate
+// section. Read-only here: a "View in {household} Budget" link is the only
+// control, since the household budget stays the one place these get
+// logged, edited, or deleted.
+export type SharedPostedRow = {
+  id: string;
+  categoryName: string;
+  /** This user's own share (TransactionSplit.amountOwed) — never the
+   * transaction's full amount. */
+  amount: number;
+  type: "INCOME" | "EXPENSE" | "SAVINGS";
+  date: Date;
+  householdName: string;
+  paidByName: string | null;
+};
+
+type Row =
+  | { kind: "personal"; row: PersonalTransactionListRow }
+  | { kind: "shared"; row: SharedPostedRow };
+
+function amountColor(type: "INCOME" | "EXPENSE" | "SAVINGS") {
   if (type === "INCOME") return "text-chart-5";
   if (type === "SAVINGS") return "text-chart-2";
   return "text-destructive";
 }
 
-function amountSign(type: PersonalTransactionListRow["type"]) {
+function amountSign(type: "INCOME" | "EXPENSE" | "SAVINGS") {
   if (type === "INCOME") return "+";
   if (type === "SAVINGS") return "→";
   return "-";
+}
+
+function categoryBadgeClass(type: "INCOME" | "EXPENSE" | "SAVINGS") {
+  if (type === "INCOME") return "border-chart-5/30 text-chart-5";
+  if (type === "SAVINGS") return "border-chart-2/30 text-chart-2";
+  return "border-destructive/30 text-destructive";
 }
 
 const frequencyLabelKey = {
@@ -50,11 +80,24 @@ const frequencyLabelKey = {
 
 export function PersonalTransactionList({
   transactions,
+  sharedRows = [],
+  showHouseholdName = false,
+  monthKey,
   categories,
   dict,
   locale,
 }: {
   transactions: PersonalTransactionListRow[];
+  /** This user's own share of posted split household transactions this
+   * month (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged into the list
+   * below, badged "Shared". */
+  sharedRows?: SharedPostedRow[];
+  /** Only show which household a shared row belongs to once the user is in
+   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+  showHouseholdName?: boolean;
+  /** "YYYY-MM" — reused for a shared row's "View in {household} Budget"
+   * link, required whenever sharedRows is non-empty. */
+  monthKey?: string;
   categories: PersonalCategoryRow[];
   dict: Dictionary["personalBudget"];
   locale: Locale;
@@ -77,7 +120,12 @@ export function PersonalTransactionList({
     });
   }
 
-  if (transactions.length === 0) {
+  const rows: Row[] = [
+    ...transactions.map((row): Row => ({ kind: "personal", row })),
+    ...sharedRows.map((row): Row => ({ kind: "shared", row })),
+  ].sort((a, b) => b.row.date.getTime() - a.row.date.getTime());
+
+  if (rows.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
         {dict.emptyTransactions}
@@ -99,48 +147,85 @@ export function PersonalTransactionList({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {transactions.map((tx) => (
-          <TableRow key={tx.id}>
+        {rows.map((item) =>
+          item.kind === "shared" ? (
+            <TableRow key={item.row.id}>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                {dateFormat.format(item.row.date)}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={"max-w-[10rem] truncate " + categoryBadgeClass(item.row.type)}
+                    title={item.row.categoryName}
+                  >
+                    {item.row.categoryName}
+                  </Badge>
+                  <Badge variant="secondary" className="gap-1">
+                    <Users className="size-3" />
+                    {dict.shared.sharedBadge}
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell className="max-w-64 truncate text-muted-foreground">
+                {item.row.paidByName ? format(dict.shared.paidBy, { name: item.row.paidByName }) : "—"}
+                {showHouseholdName ? ` · ${item.row.householdName}` : ""}
+              </TableCell>
+              <TableCell className={"text-right font-medium tabular-nums " + amountColor(item.row.type)}>
+                {amountSign(item.row.type)}
+                {numberFormat.format(item.row.amount)}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-end">
+                  <Link
+                    href={`/dashboard/budget?month=${monthKey}`}
+                    className="inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                    title={format(dict.shared.viewInHouseholdBudget, { household: item.row.householdName })}
+                    aria-label={format(dict.shared.viewInHouseholdBudget, {
+                      household: item.row.householdName,
+                    })}
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </Link>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : (
+          <TableRow key={item.row.id}>
             <TableCell className="whitespace-nowrap text-muted-foreground">
-              {dateFormat.format(tx.date)}
+              {dateFormat.format(item.row.date)}
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge
                   variant="outline"
-                  className={
-                    "max-w-[10rem] truncate " +
-                    (tx.type === "INCOME"
-                      ? "border-chart-5/30 text-chart-5"
-                      : tx.type === "SAVINGS"
-                        ? "border-chart-2/30 text-chart-2"
-                        : "border-destructive/30 text-destructive")
-                  }
-                  title={tx.categoryName}
+                  className={"max-w-[10rem] truncate " + categoryBadgeClass(item.row.type)}
+                  title={item.row.categoryName}
                 >
-                  {tx.categoryName}
+                  {item.row.categoryName}
                 </Badge>
-                {tx.isRecurring && tx.recurrenceFrequency && (
+                {item.row.isRecurring && item.row.recurrenceFrequency && (
                   <Badge variant="secondary" className="gap-1">
                     <Repeat className="size-3" />
-                    {dict[frequencyLabelKey[tx.recurrenceFrequency]]}
+                    {dict[frequencyLabelKey[item.row.recurrenceFrequency]]}
                   </Badge>
                 )}
               </div>
             </TableCell>
             <TableCell className="max-w-64 truncate text-muted-foreground">
-              {tx.description || "—"}
+              {item.row.description || "—"}
             </TableCell>
-            <TableCell className={"text-right font-medium tabular-nums " + amountColor(tx.type)}>
-              {amountSign(tx.type)}
-              {numberFormat.format(tx.amount)}
+            <TableCell className={"text-right font-medium tabular-nums " + amountColor(item.row.type)}>
+              {amountSign(item.row.type)}
+              {numberFormat.format(item.row.amount)}
             </TableCell>
             <TableCell>
               <div className="flex items-center justify-end gap-1">
                 <PersonalTransactionDialog
                   dict={dict}
                   categories={categories}
-                  transaction={tx}
+                  transaction={item.row}
                   trigger={
                     <Button
                       variant="ghost"
@@ -169,12 +254,13 @@ export function PersonalTransactionList({
                   cancelLabel={dict.confirmDeleteTransaction.cancel}
                   confirmLabel={dict.confirmDeleteTransaction.confirm}
                   pendingLabel={dict.confirmDeleteTransaction.confirming}
-                  onConfirm={() => handleDelete(tx.id)}
+                  onConfirm={() => handleDelete(item.row.id)}
                 />
               </div>
             </TableCell>
           </TableRow>
-        ))}
+          ),
+        )}
       </TableBody>
       </Table>
       </div>
@@ -182,48 +268,83 @@ export function PersonalTransactionList({
       {/* Mobile: cards instead of a 5-column table — see InventoryTable's
           equivalent split for the same reasoning. */}
       <div className="flex flex-col gap-2 sm:hidden">
-        {transactions.map((tx) => (
-          <div key={tx.id} className="flex flex-col gap-2 rounded-lg border p-3">
+        {rows.map((item) =>
+          item.kind === "shared" ? (
+            <div key={item.row.id} className="flex flex-col gap-2 rounded-lg border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={"max-w-[10rem] truncate " + categoryBadgeClass(item.row.type)}
+                    title={item.row.categoryName}
+                  >
+                    {item.row.categoryName}
+                  </Badge>
+                  <Badge variant="secondary" className="gap-1">
+                    <Users className="size-3" />
+                    {dict.shared.sharedBadge}
+                  </Badge>
+                </div>
+                <span className={"shrink-0 font-medium tabular-nums " + amountColor(item.row.type)}>
+                  {amountSign(item.row.type)}
+                  {numberFormat.format(item.row.amount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-muted-foreground">
+                    {item.row.paidByName ? format(dict.shared.paidBy, { name: item.row.paidByName }) : "—"}
+                    {showHouseholdName ? ` · ${item.row.householdName}` : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{dateFormat.format(item.row.date)}</p>
+                </div>
+                <Link
+                  href={`/dashboard/budget?month=${monthKey}`}
+                  className="inline-flex size-9 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+                  title={format(dict.shared.viewInHouseholdBudget, { household: item.row.householdName })}
+                  aria-label={format(dict.shared.viewInHouseholdBudget, {
+                    household: item.row.householdName,
+                  })}
+                >
+                  <ExternalLink className="size-4" />
+                </Link>
+              </div>
+            </div>
+          ) : (
+          <div key={item.row.id} className="flex flex-col gap-2 rounded-lg border p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <Badge
                   variant="outline"
-                  className={
-                    "max-w-[10rem] truncate " +
-                    (tx.type === "INCOME"
-                      ? "border-chart-5/30 text-chart-5"
-                      : tx.type === "SAVINGS"
-                        ? "border-chart-2/30 text-chart-2"
-                        : "border-destructive/30 text-destructive")
-                  }
-                  title={tx.categoryName}
+                  className={"max-w-[10rem] truncate " + categoryBadgeClass(item.row.type)}
+                  title={item.row.categoryName}
                 >
-                  {tx.categoryName}
+                  {item.row.categoryName}
                 </Badge>
-                {tx.isRecurring && tx.recurrenceFrequency && (
+                {item.row.isRecurring && item.row.recurrenceFrequency && (
                   <Badge variant="secondary" className="gap-1">
                     <Repeat className="size-3" />
-                    {dict[frequencyLabelKey[tx.recurrenceFrequency]]}
+                    {dict[frequencyLabelKey[item.row.recurrenceFrequency]]}
                   </Badge>
                 )}
               </div>
-              <span className={"shrink-0 font-medium tabular-nums " + amountColor(tx.type)}>
-                {amountSign(tx.type)}
-                {numberFormat.format(tx.amount)}
+              <span className={"shrink-0 font-medium tabular-nums " + amountColor(item.row.type)}>
+                {amountSign(item.row.type)}
+                {numberFormat.format(item.row.amount)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-muted-foreground" title={tx.description || undefined}>
-                  {tx.description || "—"}
+                <p className="truncate text-sm text-muted-foreground" title={item.row.description || undefined}>
+                  {item.row.description || "—"}
                 </p>
-                <p className="text-xs text-muted-foreground">{dateFormat.format(tx.date)}</p>
+                <p className="text-xs text-muted-foreground">{dateFormat.format(item.row.date)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <PersonalTransactionDialog
                   dict={dict}
                   categories={categories}
-                  transaction={tx}
+                  transaction={item.row}
                   trigger={
                     <Button
                       variant="ghost"
@@ -252,12 +373,13 @@ export function PersonalTransactionList({
                   cancelLabel={dict.confirmDeleteTransaction.cancel}
                   confirmLabel={dict.confirmDeleteTransaction.confirm}
                   pendingLabel={dict.confirmDeleteTransaction.confirming}
-                  onConfirm={() => handleDelete(tx.id)}
+                  onConfirm={() => handleDelete(item.row.id)}
                 />
               </div>
             </div>
           </div>
-        ))}
+          ),
+        )}
       </div>
     </>
   );

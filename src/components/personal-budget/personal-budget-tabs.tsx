@@ -13,13 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { MonthNavigator } from "@/components/budget/month-navigator";
-import { PersonalDueRecurringWidget } from "@/components/personal-budget/personal-due-recurring-widget";
+import {
+  PersonalDueRecurringWidget,
+  type SharedDueRow,
+} from "@/components/personal-budget/personal-due-recurring-widget";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
-import {
-  LogSharedExpenseDialog,
-  type ShareableHousehold,
-} from "@/components/personal-budget/log-shared-expense-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
@@ -37,8 +36,8 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
-  sharedWithHousehold,
-  sharedExpenseHouseholds,
+  sharedDueRows,
+  showHouseholdName,
   periodSummary,
   manage,
   transactions,
@@ -54,16 +53,14 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
-  /** "Shared with your household" card (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
-   * — null when the user has nothing shared to show, same as
-   * PersonalDueRecurringWidget's "all caught up" case but hidden entirely
-   * rather than shown empty, since most users never opt into a split. */
-  sharedWithHousehold: ReactNode;
-  /** Households the user can log a shared expense into (more than one
-   * member each) — empty when the user isn't in any such household, in
-   * which case the "Log a shared expense" trigger is omitted entirely. See
-   * LogSharedExpenseDialog. */
-  sharedExpenseHouseholds: ShareableHousehold[];
+  /** The user's own share of due-but-not-yet-posted shared household
+   * RecurringTemplates (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged
+   * straight into PersonalDueRecurringWidget's due list, badged "Shared",
+   * rather than shown in a separate section. */
+  sharedDueRows: SharedDueRow[];
+  /** Only show which household a shared row belongs to once the user is in
+   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+  showHouseholdName: boolean;
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see BudgetTabs's doc comment. */
   periodSummary: ReactNode;
@@ -89,13 +86,6 @@ export function PersonalBudgetTabs({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
         <div className="flex flex-wrap items-center gap-2">
-          {sharedExpenseHouseholds.length > 0 && (
-            <LogSharedExpenseDialog
-              dict={dict}
-              households={sharedExpenseHouseholds}
-              trigger={<Button variant="outline">{dict.logShared.button}</Button>}
-            />
-          )}
           <PersonalTransactionDialog
             dict={dict}
             categories={categories}
@@ -110,12 +100,14 @@ export function PersonalBudgetTabs({
             <PersonalDueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}
+              sharedDueRows={sharedDueRows}
+              showHouseholdName={showHouseholdName}
+              monthKey={monthKey}
               categories={categories}
               dict={dict}
               locale={locale}
               onManageClick={() => setTab("manage")}
             />
-            {sharedWithHousehold}
             <SafeToSpend
               amount={safeToSpendAmount}
               status={safeToSpendStatus}

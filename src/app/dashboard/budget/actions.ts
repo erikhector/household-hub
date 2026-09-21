@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireHousehold, requireUserId } from "@/lib/session";
+import { requireHousehold } from "@/lib/session";
 import { getPeriodKey } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
@@ -379,83 +379,6 @@ export async function createTransactionAction(
   }
 
   revalidatePath("/dashboard/budget");
-  return {};
-}
-
-/**
- * Logs a shared household expense from Personal Budget's "Log a shared
- * expense" dialog (LogSharedExpenseDialog) — the entry-point half of
- * PERSONAL_HOUSEHOLD_BUDGET_LINK.md's read-only surfacing (wave A/B/C
- * already covers "shared costs show up in my personal budget"; this covers
- * "let me register one from my personal budget").
- *
- * This creates exactly the same kind of `Transaction` + `TransactionSplit`
- * rows `createTransactionAction` does — the household budget stays the one
- * ledger of record, per PERSONAL_HOUSEHOLD_BUDGET_LINK.md §2 ("two ledgers,
- * one bill, no sync" is the failure mode this avoids). Personal Budget is
- * just an alternate place to originate that single write; nothing is copied
- * into a `PersonalTransaction`. The split is mandatory here (unlike
- * `createTransactionAction`'s opt-in checkbox) since "shared expense" is the
- * whole point of this entry point — every row must be split.
- *
- * Uses `requireUserId()` rather than `requireHousehold()` so this isn't tied
- * to whichever household happens to be "active" elsewhere in the app — the
- * caller supplies which of the user's households the expense belongs to,
- * and membership is checked directly against that choice.
- */
-export async function createSharedExpenseFromPersonalBudgetAction(
-  _prevState: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const userId = await requireUserId();
-
-  const householdId = String(formData.get("householdId") || "");
-  const member = householdId
-    ? await prisma.householdMember.findFirst({ where: { userId, householdId } })
-    : null;
-  if (!member) return { error: "Choose a household you belong to" };
-
-  const parsed = parseTransactionFormData(formData);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  }
-
-  const category = await prisma.budgetCategory.findFirst({
-    where: { id: parsed.data.categoryId, householdId },
-  });
-  if (!category) return { error: "Category not found" };
-
-  const split = await parseSplitFormData(formData, householdId, parsed.data.amount);
-  if (!split) return { error: "Choose how to split this expense" };
-  if ("error" in split) return { error: split.error };
-
-  try {
-    await prisma.transaction.create({
-      data: {
-        householdId,
-        categoryId: category.id,
-        amount: parsed.data.amount,
-        type: category.type,
-        description: parsed.data.description || null,
-        date: new Date(parsed.data.date),
-        isRecurring: parsed.data.isRecurring,
-        recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-        createdByUserId: userId,
-        paidByMemberId: split.paidByMemberId,
-        splits: {
-          create: split.splits.map((s) => ({
-            householdMemberId: s.householdMemberId,
-            amountOwed: s.amountOwed,
-          })),
-        },
-      },
-    });
-  } catch (error) {
-    return toFriendlyError(error);
-  }
-
-  revalidatePath("/dashboard/budget");
-  revalidatePath("/dashboard/personal-budget");
   return {};
 }
 
