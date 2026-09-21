@@ -2,14 +2,16 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { joinViaInviteSignupAction } from "@/lib/actions/household";
-import type { ActionState } from "@/lib/actions/auth";
+import type { SignupState } from "@/lib/actions/auth";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-const initialState: ActionState = {};
+const initialState: SignupState = {};
 
 export function JoinSignupForm({
   token,
@@ -21,6 +23,23 @@ export function JoinSignupForm({
   legalDict: Dictionary["legal"];
 }) {
   const [state, formAction, pending] = useActionState(joinViaInviteSignupAction, initialState);
+
+  // Same reasoning as SignupForm's identical branch (src/components/auth/
+  // signup-form.tsx): the account exists but can't sign in until its email
+  // is verified (see joinViaInviteSignupAction's doc comment).
+  if (state.status === "verification-sent") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-2 text-center">
+        <MailCheck className="size-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {format(dict.verificationSentDescription, { email: state.email ?? "" })}
+        </p>
+        <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
+          {dict.logIn}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

@@ -19,11 +19,15 @@ model User {
   displayName     String
   createdAt       DateTime  @default(now())
   // Null = unverified. Set once by verifyEmailAction (src/lib/actions/auth.ts)
-  // when a valid EmailVerificationToken is redeemed. This is a soft gate —
-  // see EmailVerificationToken's doc comment below: an unverified user keeps
-  // full access, just with a dismissible-once-verified banner in the
-  // dashboard (src/components/dashboard/email-verification-banner.tsx)
-  // rather than being blocked anywhere.
+  // when a valid EmailVerificationToken is redeemed. A user's first-ever
+  // successful sign-in is hard-gated on this being set — see
+  // EmailNotVerifiedSignin in src/lib/auth.ts and loginAction in
+  // src/lib/actions/auth.ts, which neither signupAction nor
+  // joinViaInviteSignupAction (src/lib/actions/household.ts) sign a new
+  // account into anymore. The dashboard banner
+  // (src/components/dashboard/email-verification-banner.tsx) remains as a
+  // soft nudge for any account that reached a session before this gate
+  // existed — see EmailVerificationToken's doc comment below.
   emailVerifiedAt DateTime?
 
   // Account-level UI preferences, synced across every device the user signs

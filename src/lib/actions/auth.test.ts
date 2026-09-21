@@ -14,6 +14,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 class AuthError extends Error {}
 vi.mock("next-auth", () => ({ AuthError }));
 
+// Real src/lib/auth.ts's EmailNotVerifiedSignin (see its doc comment there)
+// is itself an AuthError subclass — mirrored the same way as the AuthError
+// stand-in above so `error instanceof EmailNotVerifiedSignin` in loginAction
+// still works against the same mocked class this test constructs.
+class EmailNotVerifiedSignin extends AuthError {}
+
 const {
   findUniqueMock,
   transactionMock,
@@ -86,7 +92,11 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
-vi.mock("@/lib/auth", () => ({ signIn: signInMock, signOut: signOutMock }));
+vi.mock("@/lib/auth", () => ({
+  signIn: signInMock,
+  signOut: signOutMock,
+  EmailNotVerifiedSignin,
+}));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build (same class of issue as the
 // next-auth mock above) — stub it out.
@@ -114,6 +124,7 @@ const {
   resetPasswordAction,
   verifyEmailAction,
   resendVerificationEmailAction,
+  resendVerificationEmailForLoginAction,
 } = await import("@/lib/actions/auth");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -190,19 +201,18 @@ describe("signupAction behavior", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
-  it("creates the user/household and signs in on valid input", async () => {
+  // signupAction no longer signs the new account in (see its doc comment in
+  // src/lib/actions/auth.ts) — the first sign-in is hard-gated on email
+  // verification (EmailNotVerifiedSignin, src/lib/auth.ts), so a session
+  // handed out here would bypass that gate entirely.
+  it("creates the user/household, does not sign in, and reports the pending verification", async () => {
     findUniqueMock.mockResolvedValue(null);
-    signInMock.mockResolvedValue(undefined);
 
     const result = await signupAction({}, formData(validSignup));
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(signInMock).toHaveBeenCalledWith("credentials", {
-      email: validSignup.email,
-      password: validSignup.password,
-      redirectTo: "/dashboard",
-    });
-    expect(result).toEqual({});
+    expect(signInMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
   });
 
   // Regression coverage for task L: a fresh signup must also create an
@@ -211,7 +221,6 @@ describe("signupAction behavior", () => {
   it("creates a verification token and emails it for a new signup", async () => {
     delete process.env.APP_URL;
     findUniqueMock.mockResolvedValue(null);
-    signInMock.mockResolvedValue(undefined);
 
     await signupAction({}, formData(validSignup));
 
@@ -226,33 +235,15 @@ describe("signupAction behavior", () => {
   });
 
   // Additive, not a hard dependency (see signupAction's doc comment) — the
-  // account must still be created and signed into even if the verification
-  // email fails to send or the token can't be created.
-  it("still creates the account and signs in when sending the verification email fails", async () => {
+  // account must still be created even if the verification email fails to
+  // send or the token can't be created.
+  it("still creates the account when sending the verification email fails", async () => {
     findUniqueMock.mockResolvedValue(null);
-    signInMock.mockResolvedValue(undefined);
     emailVerificationTokenCreateMock.mockRejectedValue(new Error("db down"));
 
     const result = await signupAction({}, formData(validSignup));
 
-    expect(signInMock).toHaveBeenCalled();
-    expect(result).toEqual({});
-  });
-
-  it("returns a friendly error when sign-in fails after account creation", async () => {
-    findUniqueMock.mockResolvedValue(null);
-    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
-
-    const result = await signupAction({}, formData(validSignup));
-
-    expect(result.error).toBe("Account created. Please log in.");
-  });
-
-  it("re-throws non-auth errors from sign-in", async () => {
-    findUniqueMock.mockResolvedValue(null);
-    signInMock.mockRejectedValue(new Error("boom"));
-
-    await expect(signupAction({}, formData(validSignup))).rejects.toThrow("boom");
+    expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
   });
 });
 
@@ -263,6 +254,23 @@ describe("loginAction", () => {
     const result = await loginAction({}, formData({ email: "erik@example.com", password: "x" }));
 
     expect(result.error).toBe("Invalid email or password");
+    expect(result.unverifiedEmail).toBeUndefined();
+  });
+
+  // Regression coverage for the hard-gated signup flow: a correct password
+  // on an unverified account must be reported distinctly from wrong
+  // credentials, with the offer to resend (see EmailNotVerifiedSignin in
+  // src/lib/auth.ts).
+  it("returns the unverified-email state when the password is correct but the account isn't verified", async () => {
+    signInMock.mockRejectedValue(new EmailNotVerifiedSignin());
+
+    const result = await loginAction(
+      {},
+      formData({ email: "erik@example.com", password: "supersecret" }),
+    );
+
+    expect(result.unverifiedEmail).toBe("erik@example.com");
+    expect(result.error).toBeTruthy();
   });
 
   it("returns no error when sign-in succeeds", async () => {
@@ -749,5 +757,121 @@ describe("resendVerificationEmailAction rate limiting", () => {
     const result = await resendVerificationEmailAction({});
 
     expect(result).toEqual({ sent: true });
+  });
+});
+
+const GENERIC_VERIFICATION_RESENT_MESSAGE =
+  "If that account needs verifying, we've sent a fresh verification link. Check your inbox.";
+
+// The signed-out counterpart to resendVerificationEmailAction above, reached
+// from LoginForm once loginAction reports an unverified account. Mirrors
+// requestPasswordResetAction's enumeration-safety tests: same generic
+// message whether or not the account exists, is already verified, or
+// sending fails.
+describe("resendVerificationEmailForLoginAction", () => {
+  it("returns the generic message and sends no email for an unknown address", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "nobody@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_VERIFICATION_RESENT_MESSAGE });
+    expect(emailVerificationTokenCreateMock).not.toHaveBeenCalled();
+    expect(sendVerificationEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the generic message and sends no email for an already-verified account", async () => {
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: new Date(),
+    });
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "erik@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_VERIFICATION_RESENT_MESSAGE });
+    expect(emailVerificationTokenCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates old tokens, creates a fresh one, and emails it for an unverified account", async () => {
+    delete process.env.APP_URL;
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+      locale: "en",
+    });
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "Erik@Example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_VERIFICATION_RESENT_MESSAGE });
+    expect(emailVerificationTokenDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: "user-1", usedAt: null },
+    });
+    expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "user-1" }),
+    });
+    expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+      to: "erik@example.com",
+      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      locale: "en",
+    });
+  });
+
+  it("still returns the generic message when sending fails", async () => {
+    findUniqueMock.mockResolvedValue({
+      id: "user-1",
+      email: "erik@example.com",
+      emailVerifiedAt: null,
+    });
+    sendVerificationEmailMock.mockResolvedValue({ error: "Email delivery isn't configured" });
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "erik@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_VERIFICATION_RESENT_MESSAGE });
+  });
+});
+
+describe("resendVerificationEmailForLoginAction rate limiting", () => {
+  it("blocks repeated requests for the same email after the limit, without hitting prisma again", async () => {
+    findUniqueMock.mockResolvedValue(null);
+
+    for (let i = 0; i < 3; i++) {
+      await resendVerificationEmailForLoginAction({}, formData({ email: "victim@example.com" }));
+    }
+    findUniqueMock.mockClear();
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "victim@example.com" }),
+    );
+
+    expect(result.error).toBe("Too many attempts. Please wait a while and try again.");
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rate-limit a different email after another is throttled", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 3; i++) {
+      await resendVerificationEmailForLoginAction({}, formData({ email: "victim@example.com" }));
+    }
+
+    const result = await resendVerificationEmailForLoginAction(
+      {},
+      formData({ email: "someone-else@example.com" }),
+    );
+
+    expect(result).toEqual({ message: GENERIC_VERIFICATION_RESENT_MESSAGE });
   });
 });

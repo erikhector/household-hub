@@ -2,14 +2,15 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { User, Home, Mail, Lock, Sparkles } from "lucide-react";
+import { User, Home, Mail, Lock, Sparkles, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signupAction, type ActionState } from "@/lib/actions/auth";
+import { signupAction, type SignupState } from "@/lib/actions/auth";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-const initialState: ActionState = {};
+const initialState: SignupState = {};
 
 export function SignupForm({
   dict,
@@ -19,6 +20,23 @@ export function SignupForm({
   legalDict: Dictionary["legal"];
 }) {
   const [state, formAction, pending] = useActionState(signupAction, initialState);
+
+  // The account now exists but can't sign in until its email is verified
+  // (see signupAction's doc comment in src/lib/actions/auth.ts) — swap the
+  // form out for this confirmation instead of the old auto-sign-in redirect.
+  if (state.status === "verification-sent") {
+    return (
+      <div className="flex flex-col items-center gap-4 py-2 text-center">
+        <MailCheck className="size-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {format(dict.verificationSentDescription, { email: state.email ?? "" })}
+        </p>
+        <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
+          {dict.logIn}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

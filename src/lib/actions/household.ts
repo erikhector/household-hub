@@ -6,12 +6,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold } from "@/lib/session";
-import { signIn } from "@/lib/auth";
-import { sendHouseholdInviteEmail } from "@/lib/email";
-import type { ActionState } from "@/lib/actions/auth";
+import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
+import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
@@ -23,6 +21,11 @@ const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const PASSWORD_MAX_LENGTH = 72;
 
 const INVITE_TTL_DAYS = 7;
+
+// Mirrors auth.ts's EMAIL_VERIFICATION_TOKEN_TTL_MS — duplicated locally
+// rather than imported for the same reason absoluteAppUrl below is: this
+// file shouldn't pick up a dependency on auth.ts's internals.
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 36 * 60 * 60 * 1000;
 
 export async function createInviteAction(): Promise<{ url?: string; token?: string; error?: string }> {
   const { household } = await requireHousehold();
@@ -174,9 +177,9 @@ const joinSignupSchema = z.object({
 });
 
 export async function joinViaInviteSignupAction(
-  _prevState: ActionState,
+  _prevState: SignupState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<SignupState> {
   const parsed = joinSignupSchema.safeParse({
     token: formData.get("token"),
     displayName: formData.get("displayName"),
@@ -201,13 +204,15 @@ export async function joinViaInviteSignupAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  let userId: string;
   try {
-    await prisma.$transaction(async (tx) => {
+    userId = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { email, passwordHash, displayName } });
       await tx.householdMember.create({
         data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
       });
       await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
+      return user.id;
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -219,15 +224,28 @@ export async function joinViaInviteSignupAction(
     path: "/",
   });
 
+  // Same posture as signupAction (src/lib/actions/auth.ts): additive, not a
+  // hard dependency, and no auto sign-in — this account's email must be
+  // verified before its first successful sign-in (see EmailNotVerifiedSignin
+  // in src/lib/auth.ts). A generic invite link carries no proof that
+  // whoever typed this email address actually owns it, so it needs the same
+  // verification gate as a plain signup.
   try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
+    const verificationToken = await prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+      },
+    });
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const locale = await getLocale();
+    await sendVerificationEmail({ to: email, verifyUrl, locale });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Account created. Please log in." };
-    }
-    throw error;
+    toFriendlyError(error);
   }
-  return {};
+
+  return { status: "verification-sent", email };
 }
 
 export async function switchHouseholdAction(householdId: string) {

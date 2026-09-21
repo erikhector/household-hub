@@ -1434,6 +1434,8 @@ export const sv = {
       signUp: "Skapa konto",
       passwordResetSuccess: "Lösenordet har uppdaterats. Logga in med ditt nya lösenord.",
       accountDeletedSuccess: "Ditt konto har raderats.",
+      resendVerification: "Skicka verifieringslänk igen",
+      resendingVerification: "Skickar…",
     },
     forgotPassword: {
       pageTitle: "Återställ ditt lösenord",
@@ -1472,6 +1474,8 @@ export const sv = {
       submit: "Skapa hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
+      verificationSentDescription:
+        "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
     },
     join: {
       invalidTitle: "Ogiltig inbjudan",
@@ -1488,6 +1492,8 @@ export const sv = {
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       logInSuffix: "först, och öppna sedan den här inbjudningslänken igen.",
+      verificationSentDescription:
+        "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
     },
   },
   landing: {

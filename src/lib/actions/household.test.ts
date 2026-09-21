@@ -1,16 +1,13 @@
 // Tests the module-private Zod schemas in src/lib/actions/household.ts
 // (createHouseholdSchema / joinSignupSchema) indirectly through the
 // exported Server Actions, since the schemas themselves aren't exported.
-// All I/O (Prisma, requireHousehold, next-auth, next/headers, next/cache,
+// All I/O (Prisma, requireHousehold, next/headers, next/cache,
 // next/navigation) is mocked — no database is touched. See REQUIREMENTS.md's
-// "Testing" section.
+// "Testing" section. household.ts has no next-auth/@/lib/auth dependency of
+// its own (joinViaInviteSignupAction no longer signs the new account in —
+// see its doc comment), so unlike auth.test.ts this file needs no next-auth
+// stand-in.
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-// The real "next-auth" package's index imports "next/server", which Vitest's
-// Node environment can't resolve outside a Next.js build — mock it with a
-// minimal stand-in (see the identical note in src/lib/actions/auth.test.ts).
-class AuthError extends Error {}
-vi.mock("next-auth", () => ({ AuthError }));
 
 const {
   householdCreateMock,
@@ -22,14 +19,15 @@ const {
   householdMemberFindUniqueMock,
   householdMemberDeleteMock,
   householdMemberUpdateMock,
+  emailVerificationTokenCreateMock,
   transactionMock,
   requireHouseholdMock,
   cookieSetMock,
   headersMock,
   redirectMock,
   revalidatePathMock,
-  signInMock,
   sendHouseholdInviteEmailMock,
+  sendVerificationEmailMock,
   getLocaleMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
@@ -41,6 +39,10 @@ const {
   householdMemberFindUniqueMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
   householdMemberUpdateMock: vi.fn(),
+  emailVerificationTokenCreateMock: vi.fn(async () => ({
+    id: "verify-token-row",
+    token: "generated-verify-token",
+  })),
   // Handles both $transaction call shapes the module uses: an interactive
   // callback (joinViaInviteSignupAction) and a plain array of already-issued
   // mocked-Prisma calls (transferOwnershipAction) — Prisma's array form just
@@ -61,8 +63,8 @@ const {
     throw new Error(`REDIRECT:${path}`);
   }),
   revalidatePathMock: vi.fn(),
-  signInMock: vi.fn(),
   sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
+  sendVerificationEmailMock: vi.fn(async () => ({})),
   getLocaleMock: vi.fn(async () => "en"),
 }));
 
@@ -77,6 +79,7 @@ vi.mock("@/lib/prisma", () => ({
       delete: householdMemberDeleteMock,
       update: householdMemberUpdateMock,
     },
+    emailVerificationToken: { create: emailVerificationTokenCreateMock },
     $transaction: transactionMock,
   },
 }));
@@ -84,11 +87,12 @@ vi.mock("@/lib/session", () => ({
   ACTIVE_HOUSEHOLD_COOKIE: "active_household",
   requireHousehold: requireHouseholdMock,
 }));
-vi.mock("@/lib/auth", () => ({ signIn: signInMock }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
-// can't resolve outside a Next.js build (same class of issue as the
-// next-auth mock above) — stub it out.
-vi.mock("@/lib/email", () => ({ sendHouseholdInviteEmail: sendHouseholdInviteEmailMock }));
+// can't resolve outside a Next.js build — stub it out.
+vi.mock("@/lib/email", () => ({
+  sendHouseholdInviteEmail: sendHouseholdInviteEmailMock,
+  sendVerificationEmail: sendVerificationEmailMock,
+}));
 // See the identical note in src/lib/actions/auth.test.ts — avoids pulling in
 // next/headers cookies()/@/lib/preferences's auth+Prisma chain transitively.
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
@@ -124,6 +128,11 @@ afterEach(() => {
     throw new Error(`REDIRECT:${path}`);
   });
   headersMock.mockImplementation(async () => new Map());
+  emailVerificationTokenCreateMock.mockImplementation(async () => ({
+    id: "verify-token-row",
+    token: "generated-verify-token",
+  }));
+  sendVerificationEmailMock.mockImplementation(async () => ({}));
   if (originalAppUrl === undefined) delete process.env.APP_URL;
   else process.env.APP_URL = originalAppUrl;
 });
@@ -206,7 +215,12 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     expect(result.error).toBe("This invite link is invalid or has expired");
   });
 
-  it("joins the household and signs in for a valid invite", async () => {
+  // joinViaInviteSignupAction no longer signs the new account in — a plain
+  // invite link carries no proof the entered email is actually owned by
+  // whoever followed it, so it's gated the same as signupAction (see its
+  // doc comment in src/lib/actions/household.ts).
+  it("joins the household, sends a verification email, and does not sign in for a valid invite", async () => {
+    delete process.env.APP_URL;
     invitationFindUniqueMock.mockResolvedValue({
       id: "invite-1",
       householdId: "household-1",
@@ -215,25 +229,44 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
       household: { name: "The Hectors" },
     });
     userFindUniqueMock.mockResolvedValue(null);
-    // In the real app, next-auth's signIn() performs the redirect itself
-    // (via redirectTo) once sign-in succeeds — it doesn't throw in that
-    // case, so the mock resolving normally is the "success" path here.
-    signInMock.mockResolvedValue(undefined);
 
     const result = await joinViaInviteSignupAction({}, formData(validInput));
 
-    expect(result).toEqual({});
+    expect(result).toEqual({ status: "verification-sent", email: validInput.email });
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(cookieSetMock).toHaveBeenCalledWith(
       "active_household",
       "household-1",
       expect.objectContaining({ path: "/" }),
     );
-    expect(signInMock).toHaveBeenCalledWith("credentials", {
-      email: validInput.email,
-      password: validInput.password,
-      redirectTo: "/dashboard",
+    expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "new-user" }),
     });
+    expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+      to: validInput.email,
+      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      locale: "en",
+    });
+  });
+
+  // Additive, not a hard dependency (mirrors signupAction) — the account and
+  // household membership must still be created even if the verification
+  // email fails to send.
+  it("still joins the household when sending the verification email fails", async () => {
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      household: { name: "The Hectors" },
+    });
+    userFindUniqueMock.mockResolvedValue(null);
+    emailVerificationTokenCreateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await joinViaInviteSignupAction({}, formData(validInput));
+
+    expect(result).toEqual({ status: "verification-sent", email: validInput.email });
+    expect(cookieSetMock).toHaveBeenCalled();
   });
 });
 

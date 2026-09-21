@@ -1442,6 +1442,8 @@ export const en = {
       signUp: "Sign up",
       passwordResetSuccess: "Password updated. Please log in with your new password.",
       accountDeletedSuccess: "Your account has been deleted.",
+      resendVerification: "Resend verification email",
+      resendingVerification: "Sending…",
     },
     forgotPassword: {
       pageTitle: "Reset your password",
@@ -1480,6 +1482,8 @@ export const en = {
       submit: "Create household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
+      verificationSentDescription:
+        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
     },
     join: {
       invalidTitle: "Invalid invite",
@@ -1496,6 +1500,8 @@ export const en = {
       haveAccount: "Already have an account?",
       logIn: "Log in",
       logInSuffix: "first, then reopen this invite link.",
+      verificationSentDescription:
+        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
     },
   },
   landing: {

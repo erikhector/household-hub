@@ -26,6 +26,12 @@ import bcrypt from "bcryptjs";
 class AuthError extends Error {}
 vi.mock("next-auth", () => ({ AuthError }));
 
+// Mirrors src/lib/auth.ts's real EmailNotVerifiedSignin (see the identical
+// stand-in in auth.test.ts) — signInMock's real implementation below throws
+// this the same way the real `authorize` callback does, so this golden path
+// actually exercises the hard-gate-on-verification bug fix end to end.
+class EmailNotVerifiedSignin extends AuthError {}
+
 const {
   store,
   fakePrisma,
@@ -244,7 +250,11 @@ const {
 });
 
 vi.mock("@/lib/prisma", () => ({ prisma: fakePrisma }));
-vi.mock("@/lib/auth", () => ({ signIn: signInMock, signOut: signOutMock }));
+vi.mock("@/lib/auth", () => ({
+  signIn: signInMock,
+  signOut: signOutMock,
+  EmailNotVerifiedSignin,
+}));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build — stub it out (same as auth.test.ts).
 vi.mock("@/lib/email", () => ({
@@ -278,6 +288,9 @@ signInMock.mockImplementation(async (_provider: string, options: { email: string
   const user = store.users.find((u) => u.email === options.email);
   if (!user || !(await bcrypt.compare(options.password, user.passwordHash as string))) {
     throw new AuthError("CredentialsSignin");
+  }
+  if (!user.emailVerifiedAt) {
+    throw new EmailNotVerifiedSignin();
   }
   store.currentUserId = user.id;
 });
@@ -319,7 +332,10 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
 
     // --- Step 1: signupAction --------------------------------------------
     const signupResult = await signupAction({}, formData(signupData));
-    expect(signupResult).toEqual({});
+    expect(signupResult).toEqual({ status: "verification-sent", email: signupData.email });
+    // No session handed out at signup time (see signupAction's doc comment
+    // in src/lib/actions/auth.ts) — signIn is never even called.
+    expect(signInMock).not.toHaveBeenCalled();
 
     expect(store.users).toHaveLength(1);
     const user = store.users[0];
@@ -343,11 +359,16 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
       expect.objectContaining({ to: signupData.email }),
     );
 
-    // signupAction itself calls signIn on success, which (via our fake)
-    // already logged this session in. Clear that so step 3 below is the
-    // thing that proves loginAction independently re-authenticates against
-    // the stored credentials, not a leftover session from signup.
-    store.currentUserId = null;
+    // --- Step 1.5: loginAction before verifying — this is the exact bug ---
+    // this golden path guards against: the account's correct password must
+    // not be enough to sign in on its own until the email is verified (see
+    // EmailNotVerifiedSignin in src/lib/auth.ts).
+    const preVerifyLogin = await loginAction(
+      {},
+      formData({ email: signupData.email, password: signupData.password }),
+    );
+    expect(preVerifyLogin.unverifiedEmail).toBe(signupData.email);
+    expect(store.currentUserId).toBeNull();
 
     // --- Step 2: verifyEmailAction, using the real token from the store ---
     // (never a hardcoded string — see task brief).

@@ -7,7 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { signIn, signOut } from "@/lib/auth";
+import { signIn, signOut, EmailNotVerifiedSignin } from "@/lib/auth";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -107,13 +107,30 @@ const VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const RESEND_VERIFICATION_RATE_LIMIT = 3;
 const RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
+// Unlike resendVerificationEmailAction above, this is reachable while
+// signed out (from the login page, once loginAction reports an unverified
+// account — see EmailNotVerifiedSignin) — same enumeration exposure as
+// requestPasswordResetAction, so it gets the same generic
+// always-the-same-response treatment and the same rate-limit shape, keyed
+// per-email since there's no session to key on yet.
+const RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT = 3;
+const RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
 const GENERIC_RESET_REQUESTED_MESSAGE =
   "If an account exists for that email, we've sent a password reset link.";
 
+const GENERIC_VERIFICATION_RESENT_MESSAGE =
+  "If that account needs verifying, we've sent a fresh verification link. Check your inbox.";
+
+const UNVERIFIED_LOGIN_MESSAGE =
+  "Please verify your email before signing in. Check your inbox for the link, or resend it below.";
+
+export type SignupState = { error?: string; status?: "verification-sent"; email?: string };
+
 export async function signupAction(
-  _prevState: ActionState,
+  _prevState: SignupState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<SignupState> {
   const parsed = signupSchema.safeParse({
     displayName: formData.get("displayName"),
     householdName: formData.get("householdName"),
@@ -155,8 +172,8 @@ export async function signupAction(
 
   // Additive, not a hard dependency — same posture as household invites
   // (see sendHouseholdInviteEmail): the account already exists regardless
-  // of whether this send succeeds, and resendVerificationEmailAction lets
-  // the user request a new link later from the dashboard banner.
+  // of whether this send succeeds, and resendVerificationEmailForLoginAction
+  // lets the user request a new link later from the login page.
   try {
     const verificationToken = await prisma.emailVerificationToken.create({
       data: {
@@ -177,21 +194,19 @@ export async function signupAction(
     toFriendlyError(error);
   }
 
-  try {
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Account created. Please log in." };
-    }
-    throw error;
-  }
-  return {};
+  // No auto sign-in: the account's email must be verified before its first
+  // successful sign-in (see EmailNotVerifiedSignin in src/lib/auth.ts, which
+  // loginAction below relies on). Signing the user in here would hand out a
+  // working session before that check ever ran.
+  return { status: "verification-sent", email };
 }
 
+export type LoginState = { error?: string; unverifiedEmail?: string };
+
 export async function loginAction(
-  _prevState: ActionState,
+  _prevState: LoginState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<LoginState> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -211,6 +226,12 @@ export async function loginAction(
       redirectTo: "/dashboard",
     });
   } catch (error) {
+    // Checked before the generic AuthError branch below: EmailNotVerifiedSignin
+    // is itself an AuthError subclass (see src/lib/auth.ts), so the order
+    // matters here.
+    if (error instanceof EmailNotVerifiedSignin) {
+      return { error: UNVERIFIED_LOGIN_MESSAGE, unverifiedEmail: parsed.data.email };
+    }
     if (error instanceof AuthError) {
       return { error: "Invalid email or password" };
     }
@@ -521,4 +542,64 @@ export async function resendVerificationEmailAction(
   }
 
   return { sent: true };
+}
+
+export type ResendVerificationForLoginState = { error?: string; message?: string };
+
+const resendVerificationForLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+});
+
+/**
+ * The signed-out counterpart to resendVerificationEmailAction above — reached
+ * from the login page once loginAction reports an account whose password
+ * checked out but whose email isn't verified yet (see EmailNotVerifiedSignin
+ * in src/lib/auth.ts). Since the caller here isn't known to own the email
+ * the way a signed-in session's owner is, this follows
+ * requestPasswordResetAction's enumeration-safe shape instead: the same
+ * generic `message` comes back whether or not the account exists, is
+ * already verified, or the send itself fails.
+ */
+export async function resendVerificationEmailForLoginAction(
+  _prevState: ResendVerificationForLoginState,
+  formData: FormData,
+): Promise<ResendVerificationForLoginState> {
+  const parsed = resendVerificationForLoginSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { email } = parsed.data;
+
+  if (
+    !(await checkRateLimit(
+      `resend-verification-login:${email}`,
+      RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT,
+      RESEND_VERIFICATION_FOR_LOGIN_RATE_LIMIT_WINDOW_MS,
+    ))
+  ) {
+    return { error: "Too many attempts. Please wait a while and try again." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user && !user.emailVerifiedAt) {
+    try {
+      await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id, usedAt: null } });
+      const verificationToken = await prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          token: randomUUID(),
+          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+        },
+      });
+      const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+      await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
+    } catch (error) {
+      // Swallow, same reasoning as requestPasswordResetAction: surfacing
+      // this would leak account existence. Still diagnosable server-side
+      // via toFriendlyError's side effects.
+      toFriendlyError(error);
+    }
+  }
+
+  return { message: GENERIC_VERIFICATION_RESENT_MESSAGE };
 }
