@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
+  requireUserIdMock,
   categoryFindFirstMock,
   categoryFindManyMock,
   categoryCreateMock,
@@ -19,6 +20,7 @@ const {
   transactionDeleteManyMock,
   transactionMock,
   householdMemberFindManyMock,
+  householdMemberFindFirstMock,
   recurringTemplateFindFirstMock,
   recurringTemplateCreateMock,
   recurringTemplateUpdateMock,
@@ -29,6 +31,7 @@ const {
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
+  requireUserIdMock: vi.fn(),
   categoryFindFirstMock: vi.fn(),
   categoryFindManyMock: vi.fn(),
   categoryCreateMock: vi.fn(),
@@ -40,6 +43,7 @@ const {
   transactionDeleteManyMock: vi.fn(),
   transactionMock: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
   householdMemberFindManyMock: vi.fn(),
+  householdMemberFindFirstMock: vi.fn(),
   recurringTemplateFindFirstMock: vi.fn(),
   recurringTemplateCreateMock: vi.fn(),
   recurringTemplateUpdateMock: vi.fn(),
@@ -66,7 +70,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: transactionDeleteManyMock,
     },
     transactionSplit: { deleteMany: vi.fn() },
-    householdMember: { findMany: householdMemberFindManyMock },
+    householdMember: { findMany: householdMemberFindManyMock, findFirst: householdMemberFindFirstMock },
     recurringTemplate: {
       findFirst: recurringTemplateFindFirstMock,
       create: recurringTemplateCreateMock,
@@ -81,7 +85,10 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: transactionMock,
   },
 }));
-vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
+vi.mock("@/lib/session", () => ({
+  requireHousehold: requireHouseholdMock,
+  requireUserId: requireUserIdMock,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
@@ -91,6 +98,7 @@ const {
   updateCategoryAction,
   deleteCategoryAction,
   createTransactionAction,
+  createSharedExpenseFromPersonalBudgetAction,
   updateTransactionAction,
   deleteTransactionAction,
   createRecurringTemplateAction,
@@ -113,8 +121,10 @@ const household = { id: "household-1" };
 afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+  requireUserIdMock.mockResolvedValue("user-1");
 });
 requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+requireUserIdMock.mockResolvedValue("user-1");
 
 describe("findOrCreateGroceriesCategory", () => {
   it("returns the existing category scoped to the given household when present", async () => {
@@ -467,6 +477,100 @@ describe("createTransactionAction", () => {
         }),
       });
     });
+  });
+});
+
+describe("createSharedExpenseFromPersonalBudgetAction", () => {
+  function sharedFormData(overrides: Record<string, string> = {}) {
+    const fd = formData({
+      householdId: "household-1",
+      categoryId: "cat-1",
+      amount: "50",
+      date: "2026-01-15",
+      isRecurring: "",
+      splitEnabled: "on",
+      paidByMemberId: "member-1",
+      ...overrides,
+    });
+    fd.append("splitMemberId", "member-1");
+    fd.append("splitMemberId", "member-2");
+    fd.append("splitAmount", "25");
+    fd.append("splitAmount", "25");
+    return fd;
+  }
+
+  it("rejects a household the caller isn't a member of (IDOR guard)", async () => {
+    householdMemberFindFirstMock.mockResolvedValue(null);
+
+    const result = await createSharedExpenseFromPersonalBudgetAction({}, sharedFormData());
+
+    expect(result.error).toBe("Choose a household you belong to");
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 'Category not found' for a category outside the chosen household", async () => {
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    categoryFindFirstMock.mockResolvedValue(null);
+
+    const result = await createSharedExpenseFromPersonalBudgetAction({}, sharedFormData());
+
+    expect(result.error).toBe("Category not found");
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a split — this entry point never logs an unsplit transaction", async () => {
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+
+    const result = await createSharedExpenseFromPersonalBudgetAction(
+      {},
+      sharedFormData({ splitEnabled: "" }),
+    );
+
+    expect(result.error).toBe("Choose how to split this expense");
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects when split amounts don't sum to the total", async () => {
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+
+    const result = await createSharedExpenseFromPersonalBudgetAction(
+      {},
+      sharedFormData({ amount: "100" }), // splits still sum to 50
+    );
+
+    expect(result.error).toBe("The split amounts must add up to the transaction total");
+  });
+
+  it("creates the household transaction with splits and revalidates both budgets", async () => {
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    transactionCreateMock.mockResolvedValue({});
+
+    const result = await createSharedExpenseFromPersonalBudgetAction({}, sharedFormData());
+
+    expect(result).toEqual({});
+    expect(transactionCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "household-1",
+        categoryId: "cat-1",
+        amount: 50,
+        type: "EXPENSE",
+        createdByUserId: "user-1",
+        paidByMemberId: "member-1",
+        splits: {
+          create: [
+            { householdMemberId: "member-1", amountOwed: 25 },
+            { householdMemberId: "member-2", amountOwed: 25 },
+          ],
+        },
+      }),
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/budget");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/personal-budget");
   });
 });
 

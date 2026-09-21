@@ -15,6 +15,7 @@ import {
   type SharedDueRow,
   type SharedPostedRow,
 } from "@/components/personal-budget/shared-with-household-card";
+import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import {
   computeBudgetBalanceStatus,
@@ -95,6 +96,35 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6 ("don't clutter the common
   // case").
   const showHouseholdName = memberships.length > 1;
+
+  // Households the user can log a shared expense into directly from this
+  // page (LogSharedExpenseDialog) — the entry-point half of the personal
+  // ↔ household link, complementing the read-only mirror above. Only
+  // households with more than one member qualify (nothing to split
+  // otherwise), same gating TransactionDialog uses for its own split UI.
+  const sharedExpenseHouseholds: ShareableHousehold[] = (
+    await Promise.all(
+      memberships.map(async (m) => {
+        const [members, householdCategories] = await Promise.all([
+          prisma.householdMember.findMany({
+            where: { householdId: m.household.id },
+            include: { user: { select: { displayName: true } } },
+          }),
+          prisma.budgetCategory.findMany({
+            where: { householdId: m.household.id },
+            orderBy: [{ type: "asc" }, { name: "asc" }],
+          }),
+        ]);
+        return {
+          id: m.household.id,
+          name: m.household.name,
+          currentMemberId: m.id,
+          members: members.map((hm) => ({ id: hm.id, displayName: hm.user.displayName })),
+          categories: householdCategories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+        };
+      }),
+    )
+  ).filter((h) => h.members.length > 1);
 
   // 3a: already-posted split transactions this month (no schema change
   // needed — a pure join over TransactionSplit/Transaction).
@@ -418,6 +448,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
         hasRecurringTemplates={recurringTemplateRows.length > 0}
         sharedWithHousehold={sharedWithHousehold}
+        sharedExpenseHouseholds={sharedExpenseHouseholds}
         periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}
