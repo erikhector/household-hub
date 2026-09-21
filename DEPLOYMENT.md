@@ -251,6 +251,15 @@ for the full list (including the optional `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/
 `SENTRY_PROJECT` needed only for source-map upload). Requires creating a free
 Sentry project (Platform: Next.js) to get a real DSN.
 
+**Privacy:** with Sentry on, the browser sends error details (message, stack trace, page
+URL, browser/device type, possibly IP address) to a third party. The privacy policy
+(`src/app/privacy/page.tsx`, "Third parties") already describes this as conditional on the
+operator enabling it. Keep it that way: don't enable session replay, tracing of user
+actions, or `sendDefaultPii` without updating that page — and, since those would go beyond
+strictly-necessary processing, adding a real consent flow for them. Likewise, adding any
+analytics or other non-essential cookie/localStorage entry means replacing the informational
+`CookieNotice` (`src/components/legal/cookie-notice.tsx`) with a consent banner first.
+
 ## 6. Rate limiting
 
 `src/lib/rate-limit.ts` throttles brute-force attempts against

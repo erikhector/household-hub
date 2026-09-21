@@ -1584,9 +1584,17 @@ export const en = {
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",
   },
+  cookieNotice: {
+    title: "Cookie notice",
+    message:
+      "Squirrel only uses cookies that keep you signed in and remember your settings (like language and theme). No advertising or tracking.",
+    learnMore: "Learn more",
+    dismiss: "Got it",
+  },
   legal: {
     termsNavLabel: "Terms",
     privacyNavLabel: "Privacy",
+    cookiesNavLabel: "Cookies",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "By creating an account, you agree to the",
     termsLink: "Terms of Service",

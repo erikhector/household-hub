@@ -38,7 +38,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
     // No max-age: a session cookie, so it clears itself once the browser
     // session ends (see the file-level comment above for why that's the
     // right lifetime here).
-    document.cookie = `${EMAIL_VERIFICATION_DISMISSED_COOKIE}=1; path=/`;
+    document.cookie = `${EMAIL_VERIFICATION_DISMISSED_COOKIE}=1; path=/; SameSite=Lax`;
     setDismissed(true);
   }
 

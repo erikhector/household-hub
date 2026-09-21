@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Nunito, Baloo_2, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
-import { getLocale } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { getUserPreferences } from "@/lib/preferences";
 import { isThemeChoice } from "@/components/theme/theme-choice";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
+import { CookieNotice } from "@/components/legal/cookie-notice";
+import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -54,7 +57,13 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [locale, prefs] = await Promise.all([getLocale(), getUserPreferences()]);
+  const [locale, prefs, dict, cookieStore] = await Promise.all([
+    getLocale(),
+    getUserPreferences(),
+    getDictionary(),
+    cookies(),
+  ]);
+  const cookieNoticeAcknowledged = cookieStore.get(COOKIE_NOTICE_COOKIE)?.value === "1";
   // next-themes still checks its own localStorage first on the client and
   // wins there if present — this only matters for a browser with no stored
   // theme yet (first visit on a new device), where it lets a signed-in
@@ -72,6 +81,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
           {children}
           <Toaster />
+          <CookieNotice dict={dict.cookieNotice} acknowledged={cookieNoticeAcknowledged} />
         </ThemeProvider>
       </body>
     </html>

@@ -1,0 +1,99 @@
+// Single source of truth for everything Squirrel stores on a visitor's device
+// (cookies + localStorage). Rendered by the privacy policy's "Cookies and
+// local storage" section (src/app/privacy/page.tsx), and cross-checked
+// against the *_COOKIE constants in src/ by cookie-inventory.test.ts so a
+// newly added cookie can't ship without being listed here.
+//
+// Pure data — safe to import from Server Components, Client Components and
+// tests alike.
+//
+// Every entry below is either strictly necessary for a feature the user
+// asked for, or a preference the user set themselves; none is used for
+// analytics or advertising, so no consent gate is needed (ePrivacy Art. 5(3)
+// exemptions). If you add a cookie that doesn't fit that description —
+// analytics, marketing, or anything third-party — the informational
+// CookieNotice is no longer enough: it needs a real consent flow, and that
+// consent has to gate the new cookie before it is ever set.
+
+export const COOKIE_NOTICE_COOKIE = "cookie_notice_ack";
+export const COOKIE_NOTICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+export type StorageKind = "cookie" | "localStorage";
+export type StorageCategory = "necessary" | "preference";
+
+export type StorageEntry = {
+  /** Exact name, or the un-prefixed name for entries with a production prefix. */
+  name: string;
+  kind: StorageKind;
+  category: StorageCategory;
+  purpose: string;
+  duration: string;
+};
+
+export const STORAGE_INVENTORY: readonly StorageEntry[] = [
+  {
+    // Auth.js (src/lib/auth.ts). Production (HTTPS) adds a `__Secure-` prefix.
+    name: "authjs.session-token",
+    kind: "cookie",
+    category: "necessary",
+    purpose: "Keeps you signed in.",
+    duration: "Until it expires or you log out",
+  },
+  {
+    // Production (HTTPS) uses a `__Host-` prefix.
+    name: "authjs.csrf-token",
+    kind: "cookie",
+    category: "necessary",
+    purpose: "Protects the login form against cross-site request forgery.",
+    duration: "Session",
+  },
+  {
+    name: "authjs.callback-url",
+    kind: "cookie",
+    category: "necessary",
+    purpose: "Returns you to the page you were trying to reach after logging in.",
+    duration: "Session",
+  },
+  {
+    name: "active_household",
+    kind: "cookie",
+    category: "necessary",
+    purpose: "Remembers which of your households you last had active.",
+    duration: "1 year",
+  },
+  {
+    name: "locale",
+    kind: "cookie",
+    category: "preference",
+    purpose: "Remembers your chosen language (English or Swedish).",
+    duration: "1 year",
+  },
+  {
+    name: "sidebar_expanded",
+    kind: "cookie",
+    category: "preference",
+    purpose: "Remembers whether you collapsed the desktop sidebar.",
+    duration: "1 year",
+  },
+  {
+    name: "email_verification_dismissed",
+    kind: "cookie",
+    category: "preference",
+    purpose: "Hides the “verify your email” banner after you dismiss it.",
+    duration: "Session",
+  },
+  {
+    name: COOKIE_NOTICE_COOKIE,
+    kind: "cookie",
+    category: "preference",
+    purpose: "Remembers that you have seen the cookie notice.",
+    duration: "1 year",
+  },
+  {
+    name: "theme",
+    kind: "localStorage",
+    category: "preference",
+    purpose: "Remembers your chosen colour theme (light, dark or system).",
+    duration: "Until you clear site data",
+  },
+];

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { BrandBadge } from "@/components/brand/brand-badge";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
 
 // Long-form legal prose, authored directly here in English rather than
 // routed through src/lib/i18n/dictionaries — see the dictionary's `legal`
@@ -9,16 +10,25 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // is grounded in the actual data model (prisma/schema.prisma's User model),
 // the actual email flow (src/lib/email.ts, Resend), and a repo-wide check
 // that confirmed there are no analytics/tracking scripts anywhere in
-// src/ — don't add either without updating this page.
+// src/ — don't add either without updating this page. The cookie table in
+// section 4 is generated from src/lib/cookie-inventory.ts.
 export const metadata: Metadata = {
   title: "Privacy Policy — Squirrel",
 };
 
-const LAST_UPDATED = "September 7, 2026";
+const LAST_UPDATED = "September 21, 2026";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className="flex scroll-mt-6 flex-col gap-3">
       <h2 className="font-heading text-xl font-semibold tracking-tight">{title}</h2>
       <div className="flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
         {children}
@@ -52,7 +62,8 @@ export default async function PrivacyPage() {
               This policy explains what personal data Squirrel collects, why, and what (if
               anything) is shared with anyone else. Squirrel is a small household-management
               app — it isn&apos;t ad-supported, doesn&apos;t run analytics or tracking scripts of
-              any kind, and doesn&apos;t sell or rent your data to anyone.
+              any kind (see &quot;Cookies and local storage&quot; and &quot;Third parties&quot; below for the
+              small details), and doesn&apos;t sell or rent your data to anyone.
             </p>
           </Section>
 
@@ -79,10 +90,55 @@ export default async function PrivacyPage() {
               <li>Household-shared data: inventory items, shopping lists, recipes, meal plans, and the household&apos;s shared budget categories and transactions — visible to every member of that household;</li>
               <li>Your personal budget: categories and transactions you track for yourself, visible only to you.</li>
             </ul>
-            <p>We also set a small number of functional cookies: one to keep you signed in, one to remember which household you last had active, one to remember your sidebar preference, and one to remember your chosen language (English or Swedish). None of these are advertising or tracking cookies, and none are shared with any third party.</p>
+            <p>Cookies and local storage are covered separately in the next section.</p>
           </Section>
 
-          <Section title="4. Household invites">
+          <Section title="4. Cookies and local storage" id="cookies">
+            <p>
+              Squirrel only stores small pieces of data on your device that are either strictly
+              necessary to provide the features you use (staying signed in, keeping your
+              household selected) or that remember a preference you chose yourself (language,
+              theme, sidebar). None of them is used for advertising, analytics or tracking, and
+              none is shared with a third party. Because of that, we don&apos;t ask for consent
+              — we just tell you here. You can delete any of them through your browser&apos;s
+              site-data settings; the only effect is that you&apos;ll be signed out and your
+              preferences reset.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[32rem] border-collapse text-left text-xs">
+                <thead>
+                  <tr className="border-b text-foreground">
+                    <th className="py-2 pr-3 font-medium">Name</th>
+                    <th className="py-2 pr-3 font-medium">Type</th>
+                    <th className="py-2 pr-3 font-medium">Purpose</th>
+                    <th className="py-2 font-medium">Lasts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {STORAGE_INVENTORY.map((entry) => (
+                    <tr key={entry.name} className="border-b align-top last:border-b-0">
+                      <td className="py-2 pr-3 font-mono">{entry.name}</td>
+                      <td className="py-2 pr-3">
+                        {entry.kind === "cookie" ? "Cookie" : "Local storage"},{" "}
+                        {entry.category === "necessary" ? "necessary" : "preference"}
+                      </td>
+                      <td className="py-2 pr-3">{entry.purpose}</td>
+                      <td className="py-2">{entry.duration}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p>
+              On a secure (HTTPS) connection the sign-in cookies carry a browser-enforced prefix
+              (<code>__Secure-</code> or <code>__Host-</code>) in front of the names above. If you
+              turn on push notifications, your browser also keeps a service worker and a push
+              subscription for this site; that is entirely opt-in through your browser&apos;s own
+              permission prompt and can be revoked from the same place or from your profile page.
+            </p>
+          </Section>
+
+          <Section title="5. Household invites">
             <p>
               When you invite someone to your household by email, we send that email via Resend,
               a transactional-email provider — see &quot;Third parties&quot; below. The
@@ -93,24 +149,34 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="5. Third parties">
+          <Section title="6. Third parties">
             <p>
-              <strong>Resend</strong> is the only third-party service Squirrel sends any
-              personal data to, and only for delivering household-invite emails (recipient email
-              address, the inviting household&apos;s name, and the invite link). Resend processes
-              that data on our behalf as a data processor, under its own privacy policy. If email
-              delivery isn&apos;t configured on your instance, invites work purely through the
-              on-screen shareable link and no email — or data — is sent anywhere.
+              <strong>Resend</strong> receives personal data only to deliver account and
+              household-invite emails (recipient email address, the inviting household&apos;s
+              name, and the link). Resend processes that data on our behalf as a data processor,
+              under its own privacy policy. If email delivery isn&apos;t configured on your
+              instance, invites work purely through the on-screen shareable link and no email —
+              or data — is sent anywhere.
             </p>
             <p>
-              We don&apos;t use any analytics, advertising, or crash-reporting service that
-              collects data about you or your usage. There is no tracking pixel, no ad network,
-              and no third party that receives your inventory, shopping list, meal plan, or
-              budget data.
+              <strong>Sentry</strong> (error reporting) is optional and only active if whoever
+              operates your instance has switched it on. When active, if the app crashes or hits
+              an unexpected error, technical details about that error (the error message and
+              stack trace, the page address, your browser and device type, and possibly your IP
+              address) are sent to Sentry so the problem can be fixed. Sentry acts as a data
+              processor on our behalf. It is not configured to record sessions, track your usage
+              or set cookies, and we don&apos;t send your inventory, shopping list, meal plan or
+              budget contents to it on purpose. If your instance doesn&apos;t use it, nothing is
+              sent.
+            </p>
+            <p>
+              We don&apos;t use any analytics or advertising service. There is no tracking pixel,
+              no ad network, and no third party that receives your inventory, shopping list, meal
+              plan, or budget data.
             </p>
           </Section>
 
-          <Section title="6. Legal basis for processing (EU/EEA users)">
+          <Section title="7. Legal basis for processing (EU/EEA users)">
             <p>
               If you&apos;re in the EU/EEA (including Sweden), our legal basis for processing your
               account and household data is performance of the contract formed by these terms —
@@ -122,7 +188,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="7. How long we keep data">
+          <Section title="8. How long we keep data">
             <p>
               Account and household data is kept for as long as the account or household exists.
               A household owner can permanently delete their household at any time from that
@@ -133,7 +199,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="8. Your rights and how to exercise them">
+          <Section title="9. Your rights and how to exercise them">
             <p>
               Depending on where you live, you may have rights to access, correct, export, or
               delete your personal data, and to object to or restrict certain processing — for
@@ -150,7 +216,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="9. Children">
+          <Section title="10. Children">
             <p>
               Squirrel isn&apos;t directed at children and isn&apos;t knowingly used to
               collect personal data from anyone below the age required to consent to data
@@ -160,7 +226,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="10. Security">
+          <Section title="11. Security">
             <p>
               Passwords are hashed before storage and are never visible to anyone, including
               whoever operates your instance. Login and signup attempts are rate-limited to slow
@@ -169,7 +235,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="11. Changes to this policy">
+          <Section title="12. Changes to this policy">
             <p>
               If this policy changes, we&apos;ll update the &quot;Last updated&quot; date above.
               Material changes — for example, if a new third-party service is ever added — will
@@ -177,7 +243,7 @@ export default async function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="12. Contact">
+          <Section title="13. Contact">
             <p>
               For any question about this policy or your data, contact the household owner who
               invited you, or the person who operates your instance of Squirrel. See also

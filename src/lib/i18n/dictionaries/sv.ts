@@ -1560,9 +1560,17 @@ export const sv = {
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",
   },
+  cookieNotice: {
+    title: "Information om cookies",
+    message:
+      "Squirrel använder bara cookies som håller dig inloggad och kommer ihåg dina inställningar (som språk och tema). Ingen reklam eller spårning.",
+    learnMore: "Läs mer",
+    dismiss: "Uppfattat",
+  },
   legal: {
     termsNavLabel: "Villkor",
     privacyNavLabel: "Integritet",
+    cookiesNavLabel: "Cookies",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "Genom att skapa ett konto godkänner du våra",
     termsLink: "användarvillkor",

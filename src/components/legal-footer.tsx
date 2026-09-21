@@ -22,6 +22,9 @@ export function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
         <Link href="/privacy" className="hover:text-foreground hover:underline">
           {dict.privacyNavLabel}
         </Link>
+        <Link href="/privacy#cookies" className="hover:text-foreground hover:underline">
+          {dict.cookiesNavLabel}
+        </Link>
       </nav>
       <p>{format(dict.footerCopyright, { year: new Date().getFullYear() })}</p>
     </footer>
