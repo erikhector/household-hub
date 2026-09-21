@@ -115,10 +115,18 @@ model RecurringTemplateSplit {
 
 ### Where it renders
 
-- A new read-only section on Personal Budget's Overview tab, placed the same way
-  `DueRecurringWidget` sits above `SafeToSpend` on the household budget (see this repo's own
-  recent commit moving that widget above Safe to Spend) — e.g. "Shared with your household"
-  listing 3a's posted lines and 3b's due lines together, each showing **your share only**.
+- **Superseded 2026-09-21**: the original plan below put 3a/3b in their own dedicated "Shared
+  with your household" card on the Overview tab, plus a separate "Log a shared expense" entry
+  point in the tab bar. Per product feedback, both were merged into the normal personal-budget
+  surfaces instead: 3b's due rows render inline in `PersonalDueRecurringWidget`'s existing due
+  list (`src/components/personal-budget/personal-due-recurring-widget.tsx`), and 3a's posted
+  rows render inline in `PersonalTransactionList`
+  (`src/components/personal-budget/personal-transaction-list.tsx`), each row badged "Shared"
+  (`Users` icon) rather than shown in a separate section. The "Log a shared expense" button/
+  dialog and the standalone `SharedWithHouseholdCard` were removed entirely — logging or editing
+  a shared expense still only happens in the household budget itself, per §6's "two places to
+  log the same bill" concern below. The text immediately below describes the original,
+  now-superseded shape; kept for context on the read-only-mirror reasoning, which still holds.
 - Every row is a link ("View in {household name}'s Budget →") to
   `/dashboard/budget?month=...`, never an edit/delete/log-transaction control. The household
   budget stays the one place these get logged, edited, or acknowledged — the personal side is
@@ -167,8 +175,11 @@ bug.
       decide whether posted shared transactions also belong in Personal Budget's
       Activity/transaction list (making the personal ledger a complete "everything affecting my
       money" view) or stay confined to the Overview section only (§7 leaves this open).
-      Implemented: confined to the new "Shared with your household" Overview section only,
-      per §7/§8 — `PersonalTransactionList` is untouched.
+      Implemented initially confined to a dedicated "Shared with your household" Overview
+      section, per §7/§8. **Superseded 2026-09-21** (see "Where it renders" above): posted
+      shared rows now render inline in `PersonalTransactionList` itself, badged "Shared", so
+      the personal transaction list is now the "everything affecting my money" view §7 asked
+      about — the standalone card was removed.
 
 Wave A alone is shippable and useful on its own; wave B is what the concrete example in the
 request actually needs.

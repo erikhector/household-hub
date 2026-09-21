@@ -5,7 +5,8 @@
 // and the personal recurring-template actions.
 
 import { useTransition } from "react";
-import { Check, CheckCircle2, Zap } from "lucide-react";
+import Link from "next/link";
+import { Check, CheckCircle2, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,29 @@ import { format } from "@/lib/i18n/format";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
+// A household RecurringTemplate the user has opted into a split for (see
+// PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet posted this
+// period — the "Rent pops up under my personal budget" case. Rendered
+// inline with the user's own due templates, badged "Shared" and linking
+// back to the household budget instead of offering log/acknowledge
+// controls, since the household budget stays the one place these get
+// logged or acknowledged.
+export type SharedDueRow = {
+  id: string;
+  name: string;
+  categoryName: string;
+  /** This user's own share (RecurringTemplateSplit.amountOwed) — never the
+   * template's full expected amount. */
+  amount: number;
+  householdName: string;
+};
+
 export function PersonalDueRecurringWidget({
   templates,
   hasTemplates,
+  sharedDueRows,
+  showHouseholdName,
+  monthKey,
   categories,
   dict,
   locale,
@@ -30,6 +51,13 @@ export function PersonalDueRecurringWidget({
 }: {
   templates: PersonalRecurringTemplateListRow[];
   hasTemplates: boolean;
+  sharedDueRows: SharedDueRow[];
+  /** Only show which household a shared row belongs to once the user is in
+   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+  showHouseholdName: boolean;
+  /** "YYYY-MM" — reused for the "View in {household} Budget" link's own
+   * `?month=` param, since a due row is already scoped to this period. */
+  monthKey: string;
   categories: PersonalCategoryRow[];
   dict: Dictionary["personalBudget"];
   locale: Locale;
@@ -53,9 +81,9 @@ export function PersonalDueRecurringWidget({
         </Button>
       </CardHeader>
       <CardContent>
-        {!hasTemplates ? (
+        {!hasTemplates && sharedDueRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
-        ) : templates.length === 0 ? (
+        ) : templates.length === 0 && sharedDueRows.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-chart-5" />
             <span>
@@ -132,6 +160,37 @@ export function PersonalDueRecurringWidget({
                     {dict.recurring.markAccountedFor}
                   </Button>
                 </div>
+              </div>
+            ))}
+            {sharedDueRows.map((row) => (
+              <div
+                key={row.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate font-medium" title={row.name}>
+                      {row.name}
+                    </span>
+                    <Badge variant="secondary" className="max-w-[10rem] truncate" title={row.categoryName}>
+                      {row.categoryName}
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Users className="size-3" />
+                      {dict.shared.sharedBadge}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {numberFormat.format(row.amount)}
+                    {showHouseholdName ? ` · ${row.householdName}` : ""}
+                  </p>
+                </div>
+                <Link
+                  href={`/dashboard/budget?month=${monthKey}`}
+                  className="shrink-0 text-sm font-medium text-primary hover:underline"
+                >
+                  {format(dict.shared.viewInHouseholdBudget, { household: row.householdName })}
+                </Link>
               </div>
             ))}
           </div>
