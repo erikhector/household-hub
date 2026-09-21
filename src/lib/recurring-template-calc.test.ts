@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  computeBudgetBalanceStatus,
   computeFixedMonthlySummary,
+  computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
   getPeriodKey,
@@ -281,5 +283,73 @@ describe("computeRecurringMonthlyTotals", () => {
       monthsBack: 1,
     });
     expect(months).toEqual([{ month: "2026-09", income: 0, expense: 0, savings: 0 }]);
+  });
+});
+
+describe("computeRecurringBreakdown", () => {
+  const monthEnd = new Date(2026, 9, 1); // 2026-10-01, exclusive upper bound for September
+  const createdAt = new Date(2026, 0, 1); // well before monthEnd
+
+  it("returns only the requested type's active templates, on a monthly-equivalent scale, largest first", () => {
+    const items = computeRecurringBreakdown(
+      [
+        { id: "rent", name: "Rent", amount: 1200, frequency: "MONTHLY", type: "EXPENSE", active: true, createdAt },
+        { id: "gym", name: "Gym", amount: 600, frequency: "YEARLY", type: "EXPENSE", active: true, createdAt },
+        { id: "salary", name: "Salary", amount: 3000, frequency: "MONTHLY", type: "INCOME", active: true, createdAt },
+      ],
+      "EXPENSE",
+      monthEnd,
+    );
+    expect(items).toEqual([
+      { id: "rent", name: "Rent", monthlyAmount: 1200 },
+      { id: "gym", name: "Gym", monthlyAmount: 50 },
+    ]);
+  });
+
+  it("excludes paused (inactive) templates", () => {
+    const items = computeRecurringBreakdown(
+      [{ id: "rent", name: "Rent", amount: 1200, frequency: "MONTHLY", type: "EXPENSE", active: false, createdAt }],
+      "EXPENSE",
+      monthEnd,
+    );
+    expect(items).toEqual([]);
+  });
+
+  it("excludes a template created on or after monthEnd — same cutoff as computeFixedMonthlySummary", () => {
+    const items = computeRecurringBreakdown(
+      [
+        {
+          id: "future",
+          name: "Future",
+          amount: 1200,
+          frequency: "MONTHLY",
+          type: "EXPENSE",
+          active: true,
+          createdAt: new Date(2026, 9, 1),
+        },
+      ],
+      "EXPENSE",
+      monthEnd,
+    );
+    expect(items).toEqual([]);
+  });
+});
+
+describe("computeBudgetBalanceStatus", () => {
+  it("is 'deficit' once fixed costs exceed fixed income", () => {
+    expect(computeBudgetBalanceStatus({ monthlyIncome: 1000, monthlyExpense: 1001 })).toBe("deficit");
+  });
+
+  it("is 'tight' when the leftover is within the threshold ratio of income", () => {
+    // 5% left over — under the 10% threshold.
+    expect(computeBudgetBalanceStatus({ monthlyIncome: 1000, monthlyExpense: 950 })).toBe("tight");
+  });
+
+  it("is 'balanced' when the leftover comfortably clears the threshold ratio", () => {
+    expect(computeBudgetBalanceStatus({ monthlyIncome: 1000, monthlyExpense: 500 })).toBe("balanced");
+  });
+
+  it("is 'balanced' at exactly zero net with no income planned, rather than guessing at a ratio", () => {
+    expect(computeBudgetBalanceStatus({ monthlyIncome: 0, monthlyExpense: 0 })).toBe("balanced");
   });
 });
