@@ -79,10 +79,12 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         orderBy: { createdAt: "asc" },
       }),
       // Recurring bill templates — see src/lib/recurring-template-calc.ts and the
-      // "Recurring" tab below.
+      // "Recurring" tab below. `splits` feeds the opt-in template-splitting UI
+      // (RecurringTemplateDialog) and the personal budget's "shared with your
+      // household" surface — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
       prisma.recurringTemplate.findMany({
         where: { householdId: household.id },
-        include: { category: true },
+        include: { category: true, splits: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.recurringTemplateAck.findMany({
@@ -214,6 +216,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     frequency: row.template.frequency,
     dayOfMonth: row.template.dayOfMonth,
     status: row.status,
+    splits: row.template.splits.map((s) => ({
+      householdMemberId: s.householdMemberId,
+      amountOwed: s.amountOwed,
+    })),
   }));
   const pausedRecurringTemplateRows: PausedRecurringTemplateRow[] = recurringTemplates
     .filter((t) => !t.active)
@@ -225,6 +231,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       amount: t.amount,
       frequency: t.frequency,
       dayOfMonth: t.dayOfMonth,
+      splits: t.splits.map((s) => ({
+        householdMemberId: s.householdMemberId,
+        amountOwed: s.amountOwed,
+      })),
     }));
 
   // --- Fixed income & costs summary -----------------------------------------

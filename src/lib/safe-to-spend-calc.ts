@@ -25,6 +25,17 @@ export type ExpectedRecurringExpense = {
   categoryId: string;
   categoryName: string;
   amount: number;
+  // Purely additive, display-layer tags — computeSafeToSpend itself never
+  // sets these (every row it produces is implicitly "personal"); a caller
+  // that wants to show shared-household rows alongside them (see
+  // PERSONAL_HOUSEHOLD_BUDGET_LINK.md and personal-budget/page.tsx) appends
+  // its own rows with `source: "shared"` before re-deriving the headline
+  // number via deriveSafeToSpend below. Household-budget callers never set
+  // either field and keep working exactly as before.
+  source?: "personal" | "shared";
+  /** Which household a `source: "shared"` row's cost is shared with — unset
+   * for "personal" rows. */
+  householdName?: string;
 };
 
 // Ratio of income-so-far below which a still-positive `safeToSpend` counts
@@ -51,6 +62,42 @@ export type SafeToSpendResult = {
    */
   status: SafeToSpendStatus;
 };
+
+/**
+ * The final aggregation step of computeSafeToSpend below, pulled out so a
+ * caller can re-derive the headline number and status after appending its
+ * own extra `ExpectedRecurringExpense` rows to the ones computeSafeToSpend
+ * already estimated — e.g. the personal budget page folding in a signed-in
+ * user's due share of a *shared* household RecurringTemplate (see
+ * PERSONAL_HOUSEHOLD_BUDGET_LINK.md), which computeSafeToSpend's own
+ * category/transaction-based estimate has no way to know about. Kept as a
+ * separate exported function (rather than inlining this into
+ * computeSafeToSpend) precisely so that re-derivation doesn't need to
+ * duplicate the income/expense/savings/status math.
+ */
+export function deriveSafeToSpend({
+  incomeSoFar,
+  expenseSoFar,
+  savingsSoFar,
+  expectedRecurring,
+}: {
+  incomeSoFar: number;
+  expenseSoFar: number;
+  savingsSoFar: number;
+  expectedRecurring: ExpectedRecurringExpense[];
+}): { safeToSpend: number; status: SafeToSpendStatus } {
+  const expectedTotal = expectedRecurring.reduce((sum, e) => sum + e.amount, 0);
+  const safeToSpend = incomeSoFar - expenseSoFar - savingsSoFar - expectedTotal;
+
+  const status: SafeToSpendStatus =
+    safeToSpend < 0
+      ? "over"
+      : incomeSoFar > 0 && safeToSpend <= incomeSoFar * TIGHT_THRESHOLD_RATIO
+        ? "tight"
+        : "healthy";
+
+  return { safeToSpend, status };
+}
 
 /**
  * Estimates recurring EXPENSE categories that haven't posted a transaction
@@ -117,15 +164,12 @@ export function computeSafeToSpend({
 
   expectedRecurring.sort((a, b) => b.amount - a.amount);
 
-  const expectedTotal = expectedRecurring.reduce((sum, e) => sum + e.amount, 0);
-  const safeToSpend = incomeSoFar - expenseSoFar - savingsSoFar - expectedTotal;
-
-  const status: SafeToSpendStatus =
-    safeToSpend < 0
-      ? "over"
-      : incomeSoFar > 0 && safeToSpend <= incomeSoFar * TIGHT_THRESHOLD_RATIO
-        ? "tight"
-        : "healthy";
+  const { safeToSpend, status } = deriveSafeToSpend({
+    incomeSoFar,
+    expenseSoFar,
+    savingsSoFar,
+    expectedRecurring,
+  });
 
   return {
     safeToSpend,

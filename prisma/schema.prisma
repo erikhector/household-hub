@@ -97,12 +97,15 @@ model HouseholdMember {
   role        HouseholdRole @default(CONTRIBUTOR)
   createdAt   DateTime      @default(now())
 
-  household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paidTransactions  Transaction[]      @relation("TransactionPaidBy")
-  transactionSplits TransactionSplit[]
-  assignedTasks     HouseholdTask[]    @relation("TaskAssignedTo")
-  completedTasks    HouseholdTask[]    @relation("TaskCompletedBy")
+  household               Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paidTransactions        Transaction[]            @relation("TransactionPaidBy")
+  transactionSplits       TransactionSplit[]
+  // Recurring-bill splitting (see RecurringTemplateSplit's doc comment
+  // below) — mirrors transactionSplits above.
+  recurringTemplateSplits RecurringTemplateSplit[]
+  assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
+  completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
 
   @@unique([householdId, userId])
 }
@@ -622,13 +625,47 @@ model RecurringTemplate {
   active      Boolean             @default(true)
   createdAt   DateTime            @default(now())
 
-  household        Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category         BudgetCategory         @relation(fields: [categoryId], references: [id])
+  household        Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category         BudgetCategory           @relation(fields: [categoryId], references: [id])
   acknowledgements RecurringTemplateAck[]
   transactions     Transaction[]
+  // Opt-in split of this template's expected cost among household members —
+  // see RecurringTemplateSplit's doc comment below. Empty for every
+  // pre-existing template (no backfill), same "opt-in, unaffected until
+  // used" convention Transaction.splits already follows.
+  splits           RecurringTemplateSplit[]
 
   @@index([householdId])
   @@index([categoryId])
+}
+
+// One row per household member included in a recurring template's expected
+// cost share — mirrors TransactionSplit exactly (see its doc comment above),
+// but for the *template* rather than a posted Transaction. This is what lets
+// a "due" period (no Transaction logged yet) still carry a per-member share,
+// which is what makes it possible to surface e.g. "Rent" as due in a
+// member's Personal Budget before anyone has logged it there (see
+// PERSONAL_HOUSEHOLD_BUDGET_LINK.md). No `paidByMemberId` counterpart here —
+// unlike a Transaction, a template is never itself "paid", so only the
+// split shares matter. `amountOwed` is an absolute currency amount, and the
+// sum of a template's splits is validated server-side to equal the
+// template's `amount`, the same convention parseSplitFormData already
+// enforces for TransactionSplit.
+model RecurringTemplateSplit {
+  id                  String   @id @default(cuid())
+  recurringTemplateId String
+  householdMemberId   String
+  amountOwed          Float
+  createdAt           DateTime @default(now())
+
+  recurringTemplate RecurringTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
+  // Cascade: an ex-member's own split rows are simply removed with them,
+  // same tradeoff TransactionSplit.householdMember makes.
+  householdMember   HouseholdMember   @relation(fields: [householdMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringTemplateId, householdMemberId])
+  @@index([recurringTemplateId])
+  @@index([householdMemberId])
 }
 
 // A period (see recurring-template-calc.ts's getPeriodKey for the string

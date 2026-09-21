@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeSafeToSpend, type SafeToSpendTransaction } from "@/lib/safe-to-spend-calc";
+import {
+  computeSafeToSpend,
+  deriveSafeToSpend,
+  type SafeToSpendTransaction,
+} from "@/lib/safe-to-spend-calc";
 
 const monthStart = new Date(2026, 8, 1); // Sept 2026
 const monthEnd = new Date(2026, 9, 1);
@@ -288,5 +292,64 @@ describe("computeSafeToSpend", () => {
       expect(result.safeToSpend).toBe(0);
       expect(result.status).toBe("healthy");
     });
+  });
+});
+
+describe("deriveSafeToSpend", () => {
+  it("matches computeSafeToSpend's own result when fed the same expectedRecurring list", () => {
+    const transactions = [tx({ date: new Date(2026, 7, 1) })];
+    const computed = computeSafeToSpend({
+      transactions,
+      monthStart,
+      monthEnd,
+      incomeSoFar: 3000,
+      expenseSoFar: 500,
+      savingsSoFar: 0,
+    });
+    const derived = deriveSafeToSpend({
+      incomeSoFar: 3000,
+      expenseSoFar: 500,
+      savingsSoFar: 0,
+      expectedRecurring: computed.expectedRecurring,
+    });
+    expect(derived.safeToSpend).toBe(computed.safeToSpend);
+    expect(derived.status).toBe(computed.status);
+  });
+
+  it("lets a caller fold in extra (e.g. shared-household) rows a category-based estimate can't know about", () => {
+    // PERSONAL_HOUSEHOLD_BUDGET_LINK.md's "Rent pops up" case: a due shared
+    // RecurringTemplate's per-member share, tagged source: "shared", added
+    // on top of whatever computeSafeToSpend already estimated from the
+    // user's own personal transactions.
+    const result = deriveSafeToSpend({
+      incomeSoFar: 3000,
+      expenseSoFar: 500,
+      savingsSoFar: 0,
+      expectedRecurring: [
+        { categoryId: "cat-1", categoryName: "Subscriptions", amount: 20, source: "personal" },
+        {
+          categoryId: "template-1",
+          categoryName: "Rent",
+          amount: 400,
+          source: "shared",
+          householdName: "The Loft",
+        },
+      ],
+    });
+    expect(result.safeToSpend).toBe(3000 - 500 - 20 - 400);
+    expect(result.status).toBe("healthy");
+  });
+
+  it("still reports 'over' once the combined total pushes safe-to-spend negative", () => {
+    const result = deriveSafeToSpend({
+      incomeSoFar: 1000,
+      expenseSoFar: 700,
+      savingsSoFar: 0,
+      expectedRecurring: [
+        { categoryId: "template-1", categoryName: "Rent", amount: 400, source: "shared" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(1000 - 700 - 400);
+    expect(result.status).toBe("over");
   });
 });

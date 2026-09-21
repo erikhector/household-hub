@@ -3,7 +3,10 @@
 // computeSafeToSpend in src/lib/safe-to-spend-calc.ts), this component just renders
 // the result. See REQUIREMENTS.md's "Safe to spend" subsection.
 
+import { Users } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
@@ -60,9 +63,21 @@ export function SafeToSpend({
             <p className="text-xs font-medium text-muted-foreground">{dict.notYetLoggedTitle}</p>
             <ul className="flex flex-col gap-1">
               {expectedRecurring.map((item) => (
-                <li key={item.categoryId} className="flex items-center justify-between text-sm">
-                  <span>{item.categoryName}</span>
-                  <span className="tabular-nums text-destructive">
+                <li key={item.categoryId} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="min-w-0 truncate">{item.categoryName}</span>
+                    {item.source === "shared" && (
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 gap-1"
+                        title={item.householdName ? format(dict.sharedBadgeTitle, { household: item.householdName }) : undefined}
+                      >
+                        <Users className="size-3" />
+                        {dict.sharedBadge}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-destructive">
                     –{numberFormat.format(item.amount)}
                   </span>
                 </li>

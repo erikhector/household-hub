@@ -93,6 +93,9 @@ export function DueRecurringWidget({
                         {template.categoryName}
                       </span>
                     </Badge>
+                    {template.splits.length > 0 && (
+                      <Badge variant="secondary">{dict.recurring.split.splitBadge}</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground tabular-nums">
                     {numberFormat.format(template.amount)}

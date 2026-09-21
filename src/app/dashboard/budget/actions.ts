@@ -495,6 +495,47 @@ function parseRecurringTemplateFormData(formData: FormData) {
   });
 }
 
+/**
+ * Parses the optional "split this bill" section of the recurring-template
+ * form (RecurringTemplateDialog) — same repeated-input convention and
+ * validation as parseSplitFormData above, minus a "paid by" member: a
+ * template is never itself "paid", only its expected shares matter (see
+ * prisma/schema.prisma's RecurringTemplateSplit doc comment). Returns `null`
+ * when splitting wasn't requested, so a plain template is completely
+ * unaffected — no retroactive backfill for existing templates either way.
+ */
+async function parseTemplateSplitFormData(
+  formData: FormData,
+  householdId: string,
+  amount: number,
+): Promise<{ error: string } | { householdMemberId: string; amountOwed: number }[] | null> {
+  if (formData.get("splitEnabled") !== "on") return null;
+
+  const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
+  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
+  if (memberIds.length === 0 || memberIds.length !== amounts.length) {
+    return { error: "Invalid split" };
+  }
+  if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
+    return { error: "Each split amount must be zero or more" };
+  }
+
+  const validMembers = await prisma.householdMember.findMany({
+    where: { id: { in: memberIds }, householdId },
+    select: { id: true },
+  });
+  if (validMembers.length !== new Set(memberIds).size) {
+    return { error: "One of the selected members no longer belongs to this household" };
+  }
+
+  const splitTotal = amounts.reduce((sum, a) => sum + a, 0);
+  if (Math.abs(splitTotal - amount) > SPLIT_SUM_TOLERANCE) {
+    return { error: "The split amounts must add up to the template's amount" };
+  }
+
+  return memberIds.map((householdMemberId, i) => ({ householdMemberId, amountOwed: amounts[i] }));
+}
+
 export async function createRecurringTemplateAction(
   _prevState: ActionState,
   formData: FormData,
@@ -511,6 +552,9 @@ export async function createRecurringTemplateAction(
   });
   if (!category) return { error: "Category not found" };
 
+  const split = await parseTemplateSplitFormData(formData, household.id, parsed.data.amount);
+  if (split && "error" in split) return { error: split.error };
+
   try {
     await prisma.recurringTemplate.create({
       data: {
@@ -521,6 +565,14 @@ export async function createRecurringTemplateAction(
         type: category.type,
         frequency: parsed.data.frequency,
         dayOfMonth: parsed.data.dayOfMonth ?? null,
+        splits: split
+          ? {
+              create: split.map((s) => ({
+                householdMemberId: s.householdMemberId,
+                amountOwed: s.amountOwed,
+              })),
+            }
+          : undefined,
       },
     });
   } catch (error) {
@@ -563,18 +615,34 @@ export async function updateRecurringTemplateAction(
   });
   if (!existing) return { error: "Recurring template not found" };
 
+  const split = await parseTemplateSplitFormData(formData, household.id, parsed.data.amount);
+  if (split && "error" in split) return { error: split.error };
+
+  // Splits are replaced wholesale (delete-all then recreate) rather than
+  // diffed, same convention updateTransactionAction's split handling uses.
   try {
-    await prisma.recurringTemplate.update({
-      where: { id: existing.id },
-      data: {
-        name: parsed.data.name,
-        categoryId: category.id,
-        amount: parsed.data.amount,
-        type: category.type,
-        frequency: parsed.data.frequency,
-        dayOfMonth: parsed.data.dayOfMonth ?? null,
-      },
-    });
+    await prisma.$transaction([
+      prisma.recurringTemplateSplit.deleteMany({ where: { recurringTemplateId: existing.id } }),
+      prisma.recurringTemplate.update({
+        where: { id: existing.id },
+        data: {
+          name: parsed.data.name,
+          categoryId: category.id,
+          amount: parsed.data.amount,
+          type: category.type,
+          frequency: parsed.data.frequency,
+          dayOfMonth: parsed.data.dayOfMonth ?? null,
+          splits: split
+            ? {
+                create: split.map((s) => ({
+                  householdMemberId: s.householdMemberId,
+                  amountOwed: s.amountOwed,
+                })),
+              }
+            : undefined,
+        },
+      }),
+    ]);
   } catch (error) {
     return toFriendlyError(error);
   }

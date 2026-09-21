@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -32,9 +33,14 @@ import {
   createRecurringTemplateAction,
   updateRecurringTemplateAction,
 } from "@/app/dashboard/budget/actions";
+import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { CategoryRow } from "@/components/budget/category-manager";
+import type { MemberOption } from "@/components/budget/transaction-dialog";
+
+export type RecurringTemplateSplitRow = { householdMemberId: string; amountOwed: number };
 
 export type RecurringTemplateRow = {
   id: string;
@@ -43,22 +49,48 @@ export type RecurringTemplateRow = {
   amount: number;
   frequency: "WEEKLY" | "MONTHLY" | "YEARLY";
   dayOfMonth: number | null;
+  // Opt-in split of this template's expected cost among household members —
+  // see prisma/schema.prisma's RecurringTemplateSplit doc comment. Empty for
+  // every template that hasn't opted in, same as TransactionRow.splits.
+  splits: RecurringTemplateSplitRow[];
 };
 
 const initialState: ActionState = {};
 
+function buildInitialSplitAmounts(
+  template: RecurringTemplateRow | undefined,
+  members: MemberOption[],
+): Record<string, string> {
+  if (template && template.splits.length > 0) {
+    const byMember = new Map(template.splits.map((s) => [s.householdMemberId, s.amountOwed]));
+    return Object.fromEntries(members.map((m) => [m.id, (byMember.get(m.id) ?? 0).toFixed(2)]));
+  }
+  const even = evenSplitAmounts(template?.amount ?? 0, members.length);
+  return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
+}
+
 export function RecurringTemplateDialog({
   dict,
   categories,
+  members,
   trigger,
   template,
 }: {
   dict: Dictionary["budget"];
   categories: CategoryRow[];
+  /** Every member of the active household — the split UI is only offered
+   * (and rendered) when there's more than one, mirroring TransactionDialog's
+   * split section. Optional/defaulted to empty so callers that don't have a
+   * household's member list handy (there are none left in this codebase,
+   * but keeps the type from being a breaking change if that ever changes)
+   * simply never see the split section. */
+  members?: MemberOption[];
   trigger: ReactElement;
   template?: RecurringTemplateRow;
 }) {
   const isEdit = !!template;
+  const memberOptions = members ?? [];
+  const canSplit = memberOptions.length > 1;
   const [open, setOpen] = useState(false);
   const categoryItems = useMemo(
     () =>
@@ -67,6 +99,13 @@ export function RecurringTemplateDialog({
         getLabel: (c: CategoryRow) => c.name,
       }),
     [categories],
+  );
+  const [amount, setAmount] = useState(template ? String(template.amount) : "");
+  const [splitEnabled, setSplitEnabled] = useState(
+    canSplit && !!template && template.splits.length > 0,
+  );
+  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
+    buildInitialSplitAmounts(template, memberOptions),
   );
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -78,8 +117,33 @@ export function RecurringTemplateDialog({
     return result;
   }, initialState);
 
+  function resetToEvenSplit(total: string) {
+    const even = evenSplitAmounts(Number(total) || 0, memberOptions.length);
+    setSplitAmounts(Object.fromEntries(memberOptions.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
+  }
+
+  // Reruns on every open, not just mount — the "Add recurring item" trigger
+  // is one persistent dialog instance reused across repeat add-then-close
+  // cycles (unlike an edit dialog, which is remounted per row), so its
+  // amount/split state needs resetting each time it reopens. Mirrors
+  // TransactionDialog's resetForTransaction.
+  function resetForTemplate() {
+    setAmount(template ? String(template.amount) : "");
+    setSplitEnabled(canSplit && !!template && template.splits.length > 0);
+    setSplitAmounts(buildInitialSplitAmounts(template, memberOptions));
+  }
+
+  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const splitMismatch = splitEnabled && Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) resetForTemplate();
+      }}
+    >
       <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
@@ -125,8 +189,9 @@ export function RecurringTemplateDialog({
                 type="number"
                 min={0.01}
                 step="any"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
                 required
-                defaultValue={template?.amount}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -164,9 +229,64 @@ export function RecurringTemplateDialog({
               </SelectContent>
             </Select>
           </div>
+          {canSplit && (
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox
+                  name="splitEnabled"
+                  checked={splitEnabled}
+                  onChange={(e) => setSplitEnabled(e.target.checked)}
+                />
+                {dict.recurring.split.toggleLabel}
+              </label>
+              {splitEnabled && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <Label>{dict.recurring.split.sharesLabel}</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => resetToEvenSplit(amount)}
+                    >
+                      {dict.recurring.split.splitEvenlyButton}
+                    </Button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {memberOptions.map((m) => (
+                      <div key={m.id} className="flex items-center gap-2">
+                        <input type="hidden" name="splitMemberId" value={m.id} />
+                        <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
+                        <Input
+                          name="splitAmount"
+                          type="number"
+                          min={0}
+                          step="any"
+                          className="w-24 shrink-0"
+                          value={splitAmounts[m.id] ?? "0"}
+                          onChange={(e) =>
+                            setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
+                          }
+                          aria-label={format(dict.recurring.split.amountAriaLabel, { name: m.displayName })}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {splitMismatch && (
+                    <p className="text-xs text-destructive">
+                      {format(dict.recurring.split.mismatchWarning, {
+                        total: splitTotal.toFixed(2),
+                        amount: (Number(amount) || 0).toFixed(2),
+                      })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || splitMismatch}>
               {pending ? dict.recurring.saving : isEdit ? dict.recurring.save : dict.recurring.add}
             </Button>
           </DialogFooter>

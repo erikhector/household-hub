@@ -33,6 +33,7 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring,
   dueTemplates,
   hasRecurringTemplates,
+  sharedWithHousehold,
   periodSummary,
   manage,
   transactions,
@@ -48,6 +49,11 @@ export function PersonalBudgetTabs({
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
+  /** "Shared with your household" card (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
+   * — null when the user has nothing shared to show, same as
+   * PersonalDueRecurringWidget's "all caught up" case but hidden entirely
+   * rather than shown empty, since most users never opt into a split. */
+  sharedWithHousehold: ReactNode;
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see BudgetTabs's doc comment. */
   periodSummary: ReactNode;
@@ -90,6 +96,7 @@ export function PersonalBudgetTabs({
               locale={locale}
               onManageClick={() => setTab("manage")}
             />
+            {sharedWithHousehold}
             <SafeToSpend
               amount={safeToSpendAmount}
               status={safeToSpendStatus}

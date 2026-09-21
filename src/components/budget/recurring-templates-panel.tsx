@@ -90,6 +90,7 @@ export function RecurringTemplatesPanel({
         <RecurringTemplateDialog
           dict={dict}
           categories={categories}
+          members={members}
           trigger={
             <Button variant="outline" size="sm" disabled={categories.length === 0}>
               {dict.recurring.addTemplate}
@@ -114,6 +115,7 @@ export function RecurringTemplatesPanel({
                 onDelete={handleDelete}
                 onTogglePause={handleTogglePause}
                 categories={categories}
+                members={members}
                 actions={
                   <>
                     <TransactionDialog
@@ -166,6 +168,7 @@ export function RecurringTemplatesPanel({
                 onDelete={handleDelete}
                 onTogglePause={handleTogglePause}
                 categories={categories}
+                members={members}
                 actions={
                   <Button
                     size="xs"
@@ -198,6 +201,7 @@ export function RecurringTemplatesPanel({
                 onDelete={handleDelete}
                 onTogglePause={handleTogglePause}
                 categories={categories}
+                members={members}
               />
             )}
           </TemplateGroup>
@@ -218,6 +222,7 @@ export function RecurringTemplatesPanel({
                     onDelete={handleDelete}
                     onTogglePause={handleTogglePause}
                     categories={categories}
+                    members={members}
                     paused
                   />
                 ))}
@@ -256,6 +261,7 @@ function TemplateRow({
   onDelete,
   onTogglePause,
   categories,
+  members,
   actions,
   paused = false,
 }: {
@@ -266,6 +272,7 @@ function TemplateRow({
   onDelete: (id: string) => void;
   onTogglePause: (id: string, active: boolean) => void;
   categories: CategoryRow[];
+  members: MemberOption[];
   actions?: ReactNode;
   paused?: boolean;
 }) {
@@ -283,6 +290,11 @@ function TemplateRow({
               {template.categoryName}
             </span>
           </Badge>
+          {template.splits.length > 0 && (
+            <Badge variant="secondary" className="gap-1">
+              {dict.recurring.split.splitBadge}
+            </Badge>
+          )}
           {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -297,6 +309,7 @@ function TemplateRow({
         <RecurringTemplateDialog
           dict={dict}
           categories={categories}
+          members={members}
           template={template}
           trigger={
             <Button

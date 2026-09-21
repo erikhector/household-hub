@@ -936,6 +936,8 @@ export const sv = {
       caveat:
         "En uppskattning, inte en schemaläggare — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",
+      sharedBadge: "Delad",
+      sharedBadgeTitle: "Delad med {household}",
     },
     onboarding: {
       title: "Sätt igång din budget",
@@ -1003,6 +1005,14 @@ export const sv = {
       title: "Återkommande poster",
       subtitle:
         "Inkomster, räkningar och sparande du väntar dig varje period. Bocka av en genom att logga dess transaktion, eller markera den som klar om den hanteras utanför appen.",
+      split: {
+        toggleLabel: "Dela denna räkning",
+        sharesLabel: "Dela mellan",
+        splitEvenlyButton: "Dela jämnt",
+        amountAriaLabel: "Belopp för {name}",
+        mismatchWarning: "Andelarna summerar till {total}, men postens belopp är {amount}.",
+        splitBadge: "Delad",
+      },
       statusLegend:
         "Att göra: inte loggat än denna period. Klarmarkerad: avbockad utan transaktion. Loggad: en transaktion har registrerats.",
       addTemplate: "Lägg till återkommande post",
@@ -1158,10 +1168,23 @@ export const sv = {
       caveat:
         "En uppskattning, inte ett schema — den flaggar återkommande utgiftskategorier som brukar dyka upp vid det här laget men som inte registrerats än denna månad.",
       notYetLoggedTitle: "Inte registrerat än denna månad",
+      sharedBadge: "Delad",
+      sharedBadgeTitle: "Delad med {household}",
     },
     onboarding: {
       title: "Sätt igång din budget",
       body: "Lägg till en kategori för att börja registrera inkomster, utgifter och sparande — du kan alltid lägga till fler senare.",
+    },
+    shared: {
+      title: "Delat med ditt hushåll",
+      subtitle: "Din andel av kostnader delade med ett hushåll du är med i — enbart läsbart här.",
+      dueSectionTitle: "Att göra",
+      postedSectionTitle: "Registrerat denna månad",
+      empty: "Inget delat med ett hushåll än. Dela en räkning eller en återkommande post i ett hushålls budget för att se den här.",
+      yourShare: "Din andel",
+      paidBy: "Betalad av {name}",
+      viewInHouseholdBudget: "Visa i {household}s budget →",
+      sharedBadge: "Delad",
     },
     dueWidget: {
       title: "Att göra denna period",

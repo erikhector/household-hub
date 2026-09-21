@@ -150,23 +150,25 @@ bug.
 
 ## 5. Proposed implementation waves (not started — for a human to schedule)
 
-- [ ] **A. Posted shared transactions surface (no schema change)** — join this month's
+- [x] **A. Posted shared transactions surface (no schema change)** — join this month's
       `TransactionSplit` rows across all the user's `HouseholdMember` ids, show them read-only
       in a new Personal Budget section (§3a). Lowest risk, ships independently, and already
       answers "a split bill I paid/owe shows up in my personal budget" for anything already
       logged.
-- [ ] **B. `RecurringTemplateSplit` + due-widget surfacing** — the schema addition and
+- [x] **B. `RecurringTemplateSplit` + due-widget surfacing** — the schema addition and
       `RecurringTemplateDialog` UI in §3b, plus the personal-side due query. This is the piece
       that actually satisfies the literal "add Rent as a shared cost, it pops up under my
       personal budget" example, since it covers the anticipatory "due" case, not just
       after-the-fact postings. Real migration + UI work; depends on nothing in wave A but is
       the wave that matters most for the stated ask.
-- [ ] **C. Safe-to-spend + ledger polish** — thread wave A/B's rows into
+- [x] **C. Safe-to-spend + ledger polish** — thread wave A/B's rows into
       `computeSafeToSpend`'s breakdown with a `source`/household-name tag, add the "Shared"
       badge treatment (mirroring `TransactionList`'s existing "Split" badge convention), and
       decide whether posted shared transactions also belong in Personal Budget's
       Activity/transaction list (making the personal ledger a complete "everything affecting my
       money" view) or stay confined to the Overview section only (§7 leaves this open).
+      Implemented: confined to the new "Shared with your household" Overview section only,
+      per §7/§8 — `PersonalTransactionList` is untouched.
 
 Wave A alone is shippable and useful on its own; wave B is what the concrete example in the
 request actually needs.

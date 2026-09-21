@@ -944,6 +944,8 @@ export const en = {
       caveat:
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",
+      sharedBadge: "Shared",
+      sharedBadgeTitle: "Shared with {household}",
     },
     onboarding: {
       title: "Let's set up your budget",
@@ -1011,6 +1013,14 @@ export const en = {
       title: "Recurring items",
       subtitle:
         "Income, bills, and savings you expect every period. Check one off by logging its transaction, or by marking it accounted for if it's handled outside this app.",
+      split: {
+        toggleLabel: "Split this bill",
+        sharesLabel: "Split between",
+        splitEvenlyButton: "Split evenly",
+        amountAriaLabel: "Amount for {name}",
+        mismatchWarning: "The shares add up to {total}, but the template's amount is {amount}.",
+        splitBadge: "Split",
+      },
       statusLegend:
         "Due: not yet logged this period. Accounted for: checked off without a transaction. Logged: a transaction was recorded.",
       addTemplate: "Add recurring item",
@@ -1166,10 +1176,23 @@ export const en = {
       caveat:
         "An estimate, not a scheduler — it flags recurring expense categories that usually show up by now but haven't posted this month yet.",
       notYetLoggedTitle: "Not yet logged this month",
+      sharedBadge: "Shared",
+      sharedBadgeTitle: "Shared with {household}",
     },
     onboarding: {
       title: "Let's set up your budget",
       body: "Add a category to start logging income, expenses, and savings — you can always add more later.",
+    },
+    shared: {
+      title: "Shared with your household",
+      subtitle: "Your share of costs split with a household you belong to — read-only here.",
+      dueSectionTitle: "Due",
+      postedSectionTitle: "Posted this month",
+      empty: "Nothing shared with a household yet. Split a bill or a recurring item in a household's budget to see it here.",
+      yourShare: "Your share",
+      paidBy: "Paid by {name}",
+      viewInHouseholdBudget: "View in {household} Budget →",
+      sharedBadge: "Shared",
     },
     dueWidget: {
       title: "Due this period",
