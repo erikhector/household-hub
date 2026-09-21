@@ -996,7 +996,7 @@ export const sv = {
     balances: {
       title: "Vem är skyldig vem",
       subtitle:
-        "Nettosaldon för alla delade transaktioner, förenklade till så få avräkningsöverföringar som möjligt.",
+        "Nettosaldon för denna månads delade transaktioner, förenklade till så få avräkningsöverföringar som möjligt.",
       allSettled: "Alla är uppgjorda — inga delade utgifter är utestående.",
     },
     recurring: {

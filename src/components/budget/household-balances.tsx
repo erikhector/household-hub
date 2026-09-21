@@ -7,7 +7,10 @@
 // Shows the debt-simplified settle-up list (Splitwise's pattern: net every
 // pairwise balance down to the minimum number of transfers), not a raw list
 // of every split — that raw list would double- (or triple-) count shared
-// expenses and obscure who actually needs to pay whom.
+// expenses and obscure who actually needs to pay whom. Scoped to the
+// selected budget month (see page.tsx's monthTransactions), same window as
+// PeriodSummary/SafeToSpend, so balances reset each month instead of
+// accumulating across the household's whole history.
 
 import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

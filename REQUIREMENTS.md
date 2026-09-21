@@ -629,10 +629,14 @@ badge.
 (chosen over the Household page: the view is derived entirely from
 `Transaction`/`TransactionSplit` data the Budget page already scopes and
 fetches, and this keeps the Household page, not a primary file for this
-task, untouched). Like `PeriodSummary`/`CostAnalyzer`/`SafeToSpend`, it's a
-plain presentational component; all netting and debt-simplification logic
-is pure and unit-tested in the colocated
-`src/app/dashboard/budget/settle-up-calc.ts`:
+task, untouched). Scoped to the selected budget month, same
+`monthTransactions` window `PeriodSummary`/`SafeToSpend` use (via the page's
+shared `MonthNavigator`), so balances reset each month instead of
+accumulating across the household's whole history — a transaction split in
+August no longer shows up in September's settle-up list. Like
+`PeriodSummary`/`CostAnalyzer`/`SafeToSpend`, it's a plain presentational
+component; all netting and debt-simplification logic is pure and
+unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
 
 - `computeNetBalances` nets every split transaction to one balance per
   member — the payer's balance increases by the full amount, every member

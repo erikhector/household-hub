@@ -1004,7 +1004,7 @@ export const en = {
     balances: {
       title: "Who owes whom",
       subtitle:
-        "Net balances across every split transaction, simplified to the fewest settle-up transfers.",
+        "Net balances across this month's split transactions, simplified to the fewest settle-up transfers.",
       allSettled: "Everyone's settled up — no split expenses are outstanding.",
     },
     recurring: {

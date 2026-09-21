@@ -3,7 +3,8 @@
 // subsection under Budgeting. Kept dependency-free (no Prisma import), same
 // pattern as src/lib/safe-to-spend-calc.ts, so it's unit-testable with plain
 // fixtures; src/app/dashboard/budget/page.tsx is the only caller, feeding it
-// the splits/payer data from the same `transaction.findMany` query it
+// the splits/payer data already scoped to the selected budget month
+// (monthTransactions) from the same `transaction.findMany` query it
 // already runs for the rest of the page.
 
 export type SplitTransaction = {

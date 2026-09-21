@@ -96,10 +96,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
 
   // Scoped to the selected month — see date-utils.ts's monthStart/monthEnd
-  // above. Fed to TransactionList below; the settlements/fixed-trend/
-  // template-status calcs further down each need their own (broader)
-  // window, so they keep reading from the unscoped `transactions` fetched
-  // above instead.
+  // above. Fed to TransactionList and the settlements calc below; the
+  // fixed-trend/template-status calcs further down each need their own
+  // (broader) window, so they keep reading from the unscoped `transactions`
+  // fetched above instead.
   const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
 
   const transactionRows = monthTransactions.map((t) => ({
@@ -121,11 +121,14 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // meaningful once a household has more than one member; all netting/
   // debt-simplification logic lives in settle-up-calc.ts so it's
   // unit-testable without Prisma, same convention as src/lib/safe-to-spend-calc.ts.
+  // Scoped to the selected budget month (monthTransactions, same window as
+  // PeriodSummary/SafeToSpend) rather than the household's whole history, so
+  // balances reset each month instead of accumulating forever.
   const settlements =
     memberOptions.length > 1
       ? simplifyDebts(
           computeNetBalances(
-            transactions
+            monthTransactions
               .filter((t) => t.paidByMemberId && t.splits.length > 0)
               .map((t) => ({
                 amount: t.amount,
