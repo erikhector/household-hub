@@ -153,6 +153,7 @@ const {
   generateFromLowStockAction,
   addAdHocItemAction,
   quickAddShoppingListItemAction,
+  importShoppingListItemsAction,
   linkShoppingListItemAction,
   createInventoryItemFromShoppingListItemAction,
   updateShoppingListItemAction,
@@ -370,6 +371,62 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
     expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
       data: { shoppingListId: "list-1", inventoryItemId: "inv-existing", name: "Milk", quantity: 1, unit: "l" },
+    });
+  });
+});
+
+describe("importShoppingListItemsAction", () => {
+  it("rejects an empty items array", async () => {
+    const result = await importShoppingListItemsAction("list-1", []);
+
+    expect(result.error).toBeTruthy();
+    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to import into a list from another household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+
+    const result = await importShoppingListItemsAction("someone-elses-list", [{ name: "Milk", quantity: 1 }]);
+
+    expect(result.error).toBe("This list can't be edited right now");
+    expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches inventory once and auto-links each row by exact or single-fuzzy match, in one createMany call", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", unit: "l" },
+      { id: "inv-2", name: "Bread", unit: "pcs" },
+    ]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await importShoppingListItemsAction("list-1", [
+      { name: "Milk", quantity: 1 },
+      { name: "Mystery item", quantity: 2, unit: "kg" },
+    ]);
+
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", quantity: 1, unit: "l" },
+        { shoppingListId: "list-1", inventoryItemId: null, name: "Mystery item", quantity: 2, unit: "kg" },
+      ],
+    });
+    expect(result).toEqual({ added: 2 });
+  });
+
+  it("leaves a row unlinked when two candidates both score above the fuzzy match threshold", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Tomato", unit: "pcs" },
+      { id: "inv-2", name: "Tomatoes", unit: "pcs" },
+    ]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 1 });
+
+    await importShoppingListItemsAction("list-1", [{ name: "Tomatoe", quantity: 1 }]);
+
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [{ shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" }],
     });
   });
 });

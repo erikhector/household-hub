@@ -12,6 +12,7 @@ import { ExportButton } from "@/components/export/export-button";
 import { ShoppingItemFormDialog } from "@/components/shopping/shopping-item-form-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
+import { ImportListDialog } from "@/components/shopping/import-list-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import {
   archiveShoppingListAction,
@@ -122,6 +123,13 @@ export function ShoppingListClient({
               units={units}
               dict={dict}
               barcodeDict={barcodeDict}
+            />
+          )}
+          {isActive && (
+            <ImportListDialog
+              listId={list.id}
+              dict={dict.importList}
+              trigger={<Button variant="outline">{dict.importList.triggerLabel}</Button>}
             />
           )}
           <ExportButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />

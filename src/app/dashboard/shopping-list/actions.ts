@@ -476,6 +476,82 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+const importItemsSchema = z.object({
+  listId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        quantity: z.coerce.number().min(0.01).max(100000),
+        unit: z.string().trim().max(20).optional(),
+      }),
+    )
+    .min(1)
+    .max(300),
+});
+
+/**
+ * Bulk counterpart to createAdHocShoppingListItem, for ImportListDialog
+ * (paste text or upload a CSV — see parsePastedList/parseImportCsv, shared
+ * with the inventory bulk-paste flow) — e.g. a list pasted in from another
+ * app's own share/export text, such as ICA's. Every row gets the same
+ * exact/fuzzy inventory auto-link createAdHocShoppingListItem gives a single
+ * ad-hoc item, just resolved against one household-wide inventory fetch
+ * instead of a query per row, since a pasted list can run to dozens of
+ * lines. Never auto-creates a new InventoryItem — an unlinked row is left
+ * "needs mapping", resolvable afterward the same way any other unlinked item
+ * is (ShoppingItemFormDialog's edit mode, or ResolveMappingsDialog once
+ * there are enough of them).
+ */
+export async function importShoppingListItemsAction(
+  listId: string,
+  items: { name: string; quantity: number; unit?: string }[],
+): Promise<ActionState & { added?: number }> {
+  const { household } = await requireHousehold();
+
+  const parsed = importItemsSchema.safeParse({ listId, items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: parsed.data.listId, householdId: household.id, status: "ACTIVE" },
+  });
+  if (!list) return { error: "This list can't be edited right now" };
+
+  let added = 0;
+  try {
+    const inventoryItems = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
+    const byExactName = new Map(inventoryItems.map((item) => [item.name.trim().toLowerCase(), item]));
+
+    const rows = parsed.data.items.map((item) => {
+      let inventoryItem = byExactName.get(item.name.trim().toLowerCase()) ?? null;
+      if (!inventoryItem) {
+        const matches = findInventoryMatches(item.name, inventoryItems, {
+          minScore: AUTO_FUZZY_MATCH_MIN_SCORE,
+          limit: 2,
+        });
+        inventoryItem = matches.length === 1 ? matches[0] : null;
+      }
+      return {
+        shoppingListId: list.id,
+        inventoryItemId: inventoryItem?.id ?? null,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit || inventoryItem?.unit || "pcs",
+      };
+    });
+
+    await prisma.shoppingListItem.createMany({ data: rows });
+    added = rows.length;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  return { added };
+}
+
 export type MappingResolution =
   | { itemId: string; kind: "existing"; inventoryItemId: string }
   | { itemId: string; kind: "new"; category: string };
