@@ -12,7 +12,9 @@ import {
 import { PersonalTransactionList } from "@/components/personal-budget/personal-transaction-list";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import {
+  computeBudgetBalanceStatus,
   computeFixedMonthlySummary,
+  computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
@@ -178,6 +180,15 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
   });
+  // Mirrors the household budget's breakdown/balance-status calc (see
+  // src/app/dashboard/budget/page.tsx).
+  const fixedIncomeBreakdown = computeRecurringBreakdown(recurringTemplates, "INCOME", monthEnd).map(
+    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
+  );
+  const fixedExpenseBreakdown = computeRecurringBreakdown(recurringTemplates, "EXPENSE", monthEnd).map(
+    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
+  );
+  const budgetBalanceStatus = computeBudgetBalanceStatus(fixedMonthlySummary);
 
   // --- Manage tab: recurring items + categories -----------------------------
   // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
@@ -228,6 +239,9 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         monthlyExpense={fixedMonthlySummary.monthlyExpense}
         monthlySavings={fixedMonthlySummary.monthlySavings}
         monthlyTotals={fixedMonthlyTotals}
+        balanceStatus={budgetBalanceStatus}
+        incomeBreakdown={fixedIncomeBreakdown}
+        expenseBreakdown={fixedExpenseBreakdown}
         dict={dict.personalBudget.fixedSummary}
         locale={locale}
       />

@@ -163,6 +163,75 @@ export function computeRecurringMonthlyTotals({
   return months;
 }
 
+export type RecurringBreakdownInput = {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: TemplateFrequency;
+  type: FixedItemType;
+  active: boolean;
+  /** Same cutoff as computeFixedMonthlySummary/computeTemplateStatuses. */
+  createdAt: Date;
+};
+
+export type RecurringBreakdownItem = {
+  id: string;
+  name: string;
+  /** monthlyEquivalentAmount(amount, frequency) — comparable across
+   * WEEKLY/MONTHLY/YEARLY templates, same scale as computeFixedMonthlySummary. */
+  monthlyAmount: number;
+};
+
+/**
+ * Every active INCOME (or EXPENSE) template's monthly-equivalent amount, one
+ * row per template, sorted largest-first — the per-item breakdown behind
+ * computeFixedMonthlySummary's INCOME/EXPENSE totals, for a proportional-bar
+ * visualization of what makes up the fixed budget (see
+ * components/budget/category-breakdown.tsx). Shares computeFixedMonthlySummary's
+ * "not backward propagating" createdAt cutoff so the two always agree on
+ * which templates count for a given month.
+ */
+export function computeRecurringBreakdown(
+  templates: RecurringBreakdownInput[],
+  type: FixedItemType,
+  monthEnd: Date,
+): RecurringBreakdownItem[] {
+  return templates
+    .filter((t) => t.active && t.type === type && t.createdAt < monthEnd)
+    .map((t) => ({ id: t.id, name: t.name, monthlyAmount: monthlyEquivalentAmount(t.amount, t.frequency) }))
+    .sort((a, b) => b.monthlyAmount - a.monthlyAmount);
+}
+
+// Ratio of fixed monthly income below which a non-negative net counts as
+// "tight" rather than "balanced" — same shape as safe-to-spend-calc.ts's
+// TIGHT_THRESHOLD_RATIO, applied to the planned/fixed budget instead of
+// month-to-date actuals.
+const BALANCE_TIGHT_THRESHOLD_RATIO = 0.1;
+
+export type BudgetBalanceStatus = "balanced" | "tight" | "deficit";
+
+/**
+ * Calmer three-way read on the fixed budget's net (monthlyIncome -
+ * monthlyExpense), for copy/color in the UI — same idea as
+ * safe-to-spend-calc.ts's SafeToSpendStatus: "deficit" once fixed costs
+ * exceed fixed income, "tight" once what's left over drops under
+ * BALANCE_TIGHT_THRESHOLD_RATIO of fixed income, "balanced" otherwise. With
+ * no fixed income planned yet, a non-negative net reads as "balanced" rather
+ * than guessing at a ratio.
+ */
+export function computeBudgetBalanceStatus({
+  monthlyIncome,
+  monthlyExpense,
+}: {
+  monthlyIncome: number;
+  monthlyExpense: number;
+}): BudgetBalanceStatus {
+  const net = monthlyIncome - monthlyExpense;
+  if (net < 0) return "deficit";
+  if (monthlyIncome > 0 && net <= monthlyIncome * BALANCE_TIGHT_THRESHOLD_RATIO) return "tight";
+  return "balanced";
+}
+
 export type TemplateStatus = "posted" | "acknowledged" | "due";
 
 export type RecurringTemplateInput = {

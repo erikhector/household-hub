@@ -20,7 +20,9 @@ import {
 import { TransactionList } from "@/components/budget/transaction-list";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import {
+  computeBudgetBalanceStatus,
   computeFixedMonthlySummary,
+  computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
@@ -246,6 +248,16 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
   });
+  // Per-item breakdown behind the totals above, for the proportional-bar
+  // visualization of what makes up the fixed budget — same shape/component
+  // as PeriodSummary's per-category breakdown (see category-breakdown.tsx).
+  const fixedIncomeBreakdown = computeRecurringBreakdown(recurringTemplates, "INCOME", monthEnd).map(
+    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
+  );
+  const fixedExpenseBreakdown = computeRecurringBreakdown(recurringTemplates, "EXPENSE", monthEnd).map(
+    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
+  );
+  const budgetBalanceStatus = computeBudgetBalanceStatus(fixedMonthlySummary);
 
   // --- Cost analyzer aggregation ------------------------------------------
   // Fed from PriceHistory, populated whenever a shopping list item is marked
@@ -354,6 +366,9 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         monthlyExpense={fixedMonthlySummary.monthlyExpense}
         monthlySavings={fixedMonthlySummary.monthlySavings}
         monthlyTotals={fixedMonthlyTotals}
+        balanceStatus={budgetBalanceStatus}
+        incomeBreakdown={fixedIncomeBreakdown}
+        expenseBreakdown={fixedExpenseBreakdown}
         dict={dict.budget.fixedSummary}
         locale={locale}
       />
