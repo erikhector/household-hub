@@ -19,11 +19,11 @@ clean, `npx vitest run` 712/712 passing, `npx next build` green (25 routes).
 |---|---|---|---|---|
 | A | Auth, invites & household management | dispatched | — | |
 | B | Inventory | merged | `02c581b` → merge commit in this branch | B1, B2 both done |
-| C | Shopping list | dispatched | — | |
-| D | Meal planning | dispatched | — | |
-| E | Tasks | dispatched | — | |
+| C | Shopping list | merged | `ed475cc` → merge commit in this branch | C1-C5 all done |
+| D | Meal planning | merged | `de7633e` → merge commit in this branch | D1-D8 all done |
+| E | Tasks | merged | `b55456f` → merge commit in this branch | E1, E2 both done |
 | F | Household + personal budget (schema migration) | dispatched | — | merge last, after confirming migration applies cleanly |
-| G | Profile, notifications & PWA | dispatched | — | |
+| G | Profile, notifications & PWA | merged | `855ce8a` → merge commit in this branch | G1-G4 all done; added new file `src/components/pwa/service-worker-registration.tsx` |
 | H | Nav shell: toggle labeling convention | merged | `14b4f25` → merge commit in this branch | H1 done, target-state convention |
 
 Merge order once agents report back: A, B, C, D, E, G, H in any order
