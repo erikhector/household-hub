@@ -161,7 +161,11 @@ function TaskItemRow({
           {task.title}
         </span>
       </label>
-      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      {/* w-full below sm gives this group its own full-width row to wrap
+          badges/buttons within — shrink-0 alone left it sized to its
+          unwrapped content width, which could overflow the card on narrow
+          screens instead of actually wrapping. */}
+      <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0">
         {recurrenceLabel && (
           <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
             <Repeat className="size-3" />
