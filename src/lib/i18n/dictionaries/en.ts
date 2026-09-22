@@ -227,7 +227,20 @@ export const en = {
     },
     backToAll: "All shopping lists",
     addLowStock: "Add low-stock items",
+    addLowStockAddedToast: {
+      one: "Added {count} low-stock item to the list",
+      other: "Added {count} low-stock items to the list",
+    },
+    addLowStockNoneToast: "Nothing low on stock right now",
     completeList: "Complete list",
+    confirmCompleteList: {
+      title: "Complete this list?",
+      description:
+        "This marks the list as done and, if items have prices, logs the total to your budget. Completed by accident? Undo it with Archive, then Unarchive on this list.",
+      cancel: "Cancel",
+      confirm: "Complete list",
+      confirming: "Completing…",
+    },
     unarchive: "Unarchive",
     archive: "Archive",
     delete: "Delete",
@@ -315,9 +328,11 @@ export const en = {
         other: "Resolved {count} items",
       },
       errorToast: "Couldn't resolve those items — try again.",
+      existingSelectionRequired: 'Choose an item, or switch to "Create new" or "Skip".',
     },
     receiptScan: {
       scanButton: "Scan receipt",
+      scanDisabledHint: "Add items to this list first — there's nothing yet to match a receipt against.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
       dialogTitle: "Scan receipt",
@@ -393,6 +408,7 @@ export const en = {
       appliedToast: "Registered {count} items ({amount}) as a completed list.",
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
+      existingSelectionRequired: 'Choose an item, or switch to "Create new".',
     },
     shareLink: {
       button: "Share",
@@ -1619,6 +1635,8 @@ export const en = {
     notFoundTitle: "Link not found",
     notFoundDescription:
       "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
+    liveNotice:
+      "This is live — checking an item here updates this household's actual shopping list and inventory right away.",
     purchased: "Purchased",
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",

@@ -131,7 +131,9 @@ export async function deleteShoppingListAction(listId: string): Promise<ActionSt
   redirect("/dashboard/shopping-list");
 }
 
-export async function generateFromLowStockAction(listId: string): Promise<ActionState> {
+export async function generateFromLowStockAction(
+  listId: string,
+): Promise<ActionState & { added?: number }> {
   const { household } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -139,6 +141,7 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
   });
   if (!list) return { error: "This list can't be edited right now" };
 
+  let added = 0;
   try {
     const lowStockItems = await prisma.inventoryItem.findMany({
       where: { householdId: household.id },
@@ -167,13 +170,14 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
           addedAutomatically: true,
         })),
       });
+      added = toAdd.length;
     }
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
-  return {};
+  return { added };
 }
 
 const addItemSchema = z.object({

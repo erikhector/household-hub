@@ -89,6 +89,7 @@ export function RegisterReceiptDialog({
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [attemptedApply, setAttemptedApply] = useState(false);
   const [currency, setCurrency] = useState<string>(HOUSEHOLD_BASE_CURRENCY);
   const [listName, setListName] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
@@ -101,6 +102,7 @@ export function RegisterReceiptDialog({
   function reset() {
     setPhase("idle");
     setErrorMessage(null);
+    setAttemptedApply(false);
     setRows([]);
     setListName("");
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
@@ -212,18 +214,26 @@ export function RegisterReceiptDialog({
   }
 
   function handleApply() {
+    // A row left in "existing" mode without a picked match used to fall
+    // through to "create new" silently — the opposite of
+    // ResolveMappingsDialog's own silent behavior (which used to drop the
+    // row instead), but just as invisible to the user. Both dialogs now
+    // require an explicit choice: block Apply and point at the offending
+    // row rather than guessing either way.
+    const hasUnresolvedExisting = rows.some((row) => row.mode === "existing" && !row.matchId);
+    if (hasUnresolvedExisting) {
+      setAttemptedApply(true);
+      setErrorMessage(dict.existingSelectionRequired);
+      return;
+    }
+
     const items = rows
       .map((row) => ({
         name: row.name.trim(),
         quantity: Number(row.quantity),
         unit: row.unit.trim() || "pcs",
         price: Number(row.price),
-        // A row left in "existing" mode without a picked match still needs
-        // to end up somewhere on apply — falling through to "create new"
-        // rather than silently dropping the line, same invariant as
-        // ResolveMappingsDialog's own apply just applied to this dialog's
-        // no-skip-the-whole-line rows.
-        ...(row.mode === "existing" && row.matchId
+        ...(row.mode === "existing"
           ? { inventoryItemId: row.matchId }
           : { newItemCategory: row.category.trim() }),
       }))
@@ -497,13 +507,18 @@ export function RegisterReceiptDialog({
                       </div>
 
                       {row.mode === "existing" && inventoryItems.length > 0 && (
-                        <ItemCombobox
-                          items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
-                          value={row.matchId}
-                          onValueChange={(v) => updateRow(row.key, { matchId: v })}
-                          ariaLabel={dict.existingItemLabel}
-                          emptyMessage={dict.existingItemNoResults}
-                        />
+                        <>
+                          <ItemCombobox
+                            items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
+                            value={row.matchId}
+                            onValueChange={(v) => updateRow(row.key, { matchId: v })}
+                            ariaLabel={dict.existingItemLabel}
+                            emptyMessage={dict.existingItemNoResults}
+                          />
+                          {attemptedApply && !row.matchId && (
+                            <p className="text-xs text-destructive">{dict.existingSelectionRequired}</p>
+                          )}
+                        </>
                       )}
 
                       {row.mode === "new" && (

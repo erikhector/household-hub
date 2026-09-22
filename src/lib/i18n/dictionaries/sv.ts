@@ -219,7 +219,20 @@ export const sv = {
     },
     backToAll: "Alla inköpslistor",
     addLowStock: "Lägg till varor med lågt lager",
+    addLowStockAddedToast: {
+      one: "La till {count} vara med lågt lager på listan",
+      other: "La till {count} varor med lågt lager på listan",
+    },
+    addLowStockNoneToast: "Inget har lågt lager just nu",
     completeList: "Markera som klar",
+    confirmCompleteList: {
+      title: "Markera listan som klar?",
+      description:
+        "Det här markerar listan som klar och, om varorna har priser, loggar totalsumman i din budget. Klarmarkerade av misstag? Ångra genom att arkivera listan och sedan återställa den.",
+      cancel: "Avbryt",
+      confirm: "Markera som klar",
+      confirming: "Markerar…",
+    },
     unarchive: "Återställ",
     archive: "Arkivera",
     delete: "Ta bort",
@@ -307,9 +320,11 @@ export const sv = {
         other: "Löste {count} varor",
       },
       errorToast: "Kunde inte lösa de varorna — försök igen.",
+      existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny" eller "Hoppa över".',
     },
     receiptScan: {
       scanButton: "Skanna kvitto",
+      scanDisabledHint: "Lägg till varor på listan först — det finns inget att matcha ett kvitto mot ännu.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
       dialogTitle: "Skanna kvitto",
@@ -385,6 +400,7 @@ export const sv = {
       appliedToast: "Registrerade {count} varor ({amount}) som en klarmarkerad lista.",
       ocrError: "Kunde inte läsa bilden. Prova ett tydligare foto av kvittot.",
       noItemsError: "Lägg till minst en vara innan du registrerar.",
+      existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny".',
     },
     shareLink: {
       button: "Dela",
@@ -1595,6 +1611,8 @@ export const sv = {
     notFoundTitle: "Länken hittades inte",
     notFoundDescription:
       "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
+    liveNotice:
+      "Det här sker på riktigt — att bocka av en vara här uppdaterar hushållets faktiska inköpslista och lager direkt.",
     purchased: "Köpt",
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",

@@ -60,6 +60,7 @@ export function ResolveMappingsDialog({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [attemptedApply, setAttemptedApply] = useState(false);
   const [rows, setRows] = useState<RowState[]>(() => items.map((item) => buildRow(item, inventoryItems)));
 
   function handleOpenChange(next: boolean) {
@@ -67,6 +68,7 @@ export function ResolveMappingsDialog({
     if (next) {
       setRows(items.map((item) => buildRow(item, inventoryItems)));
       setError(null);
+      setAttemptedApply(false);
     }
   }
 
@@ -75,12 +77,22 @@ export function ResolveMappingsDialog({
   }
 
   function handleApply() {
+    // A row left in "existing" mode without a picked match used to be
+    // silently dropped (treated the same as an explicit "skip", with no
+    // indication that's what happened) — now it blocks Apply with a visible
+    // reason instead, same explicit-choice invariant RegisterReceiptDialog
+    // enforces for its own "existing" rows (see that dialog's handleApply).
+    const hasUnresolvedExisting = rows.some((row) => row.mode === "existing" && !row.selectedId);
+    if (hasUnresolvedExisting) {
+      setAttemptedApply(true);
+      setError(dict.existingSelectionRequired);
+      return;
+    }
+
     const resolutions: MappingResolution[] = rows.flatMap((row): MappingResolution[] => {
       if (row.mode === "skip") return [];
       if (row.mode === "existing") {
-        return row.selectedId
-          ? [{ itemId: row.itemId, kind: "existing", inventoryItemId: row.selectedId }]
-          : [];
+        return [{ itemId: row.itemId, kind: "existing", inventoryItemId: row.selectedId }];
       }
       return [{ itemId: row.itemId, kind: "new", category: row.newCategory }];
     });
@@ -162,13 +174,18 @@ export function ResolveMappingsDialog({
                   </div>
 
                   {row.mode === "existing" && (
-                    <ItemCombobox
-                      items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
-                      value={row.selectedId}
-                      onValueChange={(v) => updateRow(row.itemId, { selectedId: v })}
-                      ariaLabel={dict.existingItemLabel}
-                      emptyMessage={dict.existingItemNoResults}
-                    />
+                    <>
+                      <ItemCombobox
+                        items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
+                        value={row.selectedId}
+                        onValueChange={(v) => updateRow(row.itemId, { selectedId: v })}
+                        ariaLabel={dict.existingItemLabel}
+                        emptyMessage={dict.existingItemNoResults}
+                      />
+                      {attemptedApply && !row.selectedId && (
+                        <p className="text-xs text-destructive">{dict.existingSelectionRequired}</p>
+                      )}
+                    </>
                   )}
 
                   {row.mode === "new" && (
