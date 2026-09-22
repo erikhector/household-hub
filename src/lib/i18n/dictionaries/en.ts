@@ -692,6 +692,7 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
+    jumpToToday: "Jump to today",
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",
@@ -715,6 +716,15 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
+    confirmDeleteMeal: {
+      title: "Remove {meal}?",
+      description: "This can't be undone.",
+      descriptionCooked:
+        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
+      cancel: "Cancel",
+      confirm: "Remove",
+      confirming: "Removing…",
+    },
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -755,6 +765,8 @@ export const en = {
     addIngredient: "Add ingredient",
     removeIngredientAriaLabel: "Remove ingredient",
     componentsLabel: "Sub-recipes",
+    componentsHint:
+      "A sub-recipe's ingredients count toward this recipe's own inventory decrement and missing-ingredients calculations, scaled by however many batches you add here.",
     addComponent: "Add sub-recipe",
     componentQuantityPlaceholder: "Batches",
     removeComponentAriaLabel: "Remove sub-recipe",
@@ -801,6 +813,8 @@ export const en = {
       one: "{count} ingredient needed",
       other: "{count} ingredients needed",
     },
+    missingIngredientUnitMismatchNote:
+      "You may already have some — its unit can't be compared, so it's counted as fully needed",
     targetListLabel: "Add to",
     newShoppingListOption: "New shopping list…",
     newListNameLabel: "List name",
@@ -808,6 +822,8 @@ export const en = {
     addMissingIngredientsSubmit: "Add to list",
     missingIngredientsAddedToast: 'Added to "{list}"',
     markCookedAriaLabel: "Mark as cooked",
+    markCookedUnavailableForCustomMeal:
+      "Custom meals aren't linked to a recipe, so there's nothing to mark as cooked",
     mealCookedBadgeLabel: "Cooked",
     markCookedDialogTitle: "Mark as cooked",
     markCookedDialogHint: "Review and adjust the inventory this used, then confirm.",
@@ -832,6 +848,8 @@ export const en = {
     mealTypeLabel: "Meal",
     addToPlanSubmit: "Add to plan",
     addedToPlanToast: "Added {recipe} to the plan",
+    addedToPlanDifferentWeekToast: "Added {recipe} to the plan — in a different week than you're viewing",
+    viewThatWeek: "View that week",
   },
   tasks: {
     title: "Tasks",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,22 +48,29 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 // fixed hidden inputs. Reuses addMealEntryAction directly; the week the entry
 // lands in is derived from the picked date rather than the week currently
 // shown in the Planner tab, so a date outside that week won't appear there
-// until the user navigates to it.
+// until the user navigates to it — the success toast below calls that out
+// explicitly (with a shortcut straight there) whenever it happens. See D3 in
+// UX_AUDIT_IMPLEMENTATION_PLAN.md.
 export function AddToPlanDialog({
   dict,
   recipeId,
   recipeName,
   defaultPortions,
+  plannerWeekStartKey,
 }: {
   dict: MealPlanningDict;
   recipeId: string;
   recipeName: string;
   defaultPortions: number;
+  plannerWeekStartKey: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(() => toDateKey(new Date()));
   const [mealType, setMealType] = useState<MealType>("DINNER");
   const [portions, setPortions] = useState(String(defaultPortions));
+
+  const weekStartKey = toDateKey(getWeekStart(parseDateKey(date)));
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -70,13 +78,20 @@ export function AddToPlanDialog({
   ) => {
     const result = await addMealEntryAction(prevState, formData);
     if (!result.error) {
-      toast.success(format(dict.addedToPlanToast, { recipe: recipeName }));
       setOpen(false);
+      if (weekStartKey === plannerWeekStartKey) {
+        toast.success(format(dict.addedToPlanToast, { recipe: recipeName }));
+      } else {
+        toast.success(format(dict.addedToPlanDifferentWeekToast, { recipe: recipeName }), {
+          action: {
+            label: dict.viewThatWeek,
+            onClick: () => router.push(`/dashboard/meal-planning?week=${weekStartKey}`),
+          },
+        });
+      }
     }
     return result;
   }, initialState);
-
-  const weekStartKey = toDateKey(getWeekStart(parseDateKey(date)));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

@@ -72,7 +72,12 @@ export function MealPlanningView({
           ingredientUnits={ingredientUnits}
         />
       ) : (
-        <CookNowList dict={dict} cookableRecipes={cookableRecipes} recipes={recipes} />
+        <CookNowList
+          dict={dict}
+          cookableRecipes={cookableRecipes}
+          recipes={recipes}
+          plannerWeekStartKey={weekStartKey}
+        />
       )}
     </div>
   );

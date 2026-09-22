@@ -70,11 +70,21 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
 
     for (const cluster of clusters) {
       let onHandInClusterUnit = 0;
-      if (onHandUnit !== null && unitsAreComparable(onHandUnit, cluster.unit)) {
-        onHandInClusterUnit =
-          normalizeUnit(onHandUnit) === normalizeUnit(cluster.unit)
-            ? onHandQuantity
-            : convertQuantity(onHandQuantity, onHandUnit, cluster.unit)!;
+      // Distinguishes "no matching inventory item at all" (onHandUnit null —
+      // genuinely fully missing) from "there IS on-hand stock, but its unit
+      // can't be reconciled with this cluster's" (flagged below rather than
+      // silently treated the same way) — mirrors
+      // computeCookedIngredients.unitMismatch handling of the identical case.
+      let unitMismatch = false;
+      if (onHandUnit !== null) {
+        if (unitsAreComparable(onHandUnit, cluster.unit)) {
+          onHandInClusterUnit =
+            normalizeUnit(onHandUnit) === normalizeUnit(cluster.unit)
+              ? onHandQuantity
+              : convertQuantity(onHandQuantity, onHandUnit, cluster.unit)!;
+        } else {
+          unitMismatch = true;
+        }
       }
 
       const missing = cluster.required - onHandInClusterUnit;
@@ -84,6 +94,7 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
           name,
           unit: cluster.unit,
           missingQuantity: round2(missing),
+          unitMismatch,
         });
       }
     }
