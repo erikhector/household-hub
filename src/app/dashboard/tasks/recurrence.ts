@@ -15,6 +15,16 @@ export type RecurrenceFields = {
 };
 
 /**
+ * The date a recurring task becomes due again — `recurrenceIntervalDays`
+ * after its last `completedAt`. Null for a non-recurring task or one that
+ * hasn't been completed yet (there's nothing to count forward from).
+ */
+export function getNextDueDate(task: RecurrenceFields): Date | null {
+  if (task.completedAt === null || task.recurrenceIntervalDays === null) return null;
+  return new Date(task.completedAt.getTime() + task.recurrenceIntervalDays * 24 * 60 * 60 * 1000);
+}
+
+/**
  * Whether the task should currently be treated as open (not completed).
  * A non-recurring task is open iff `completedAt` is null. A recurring task
  * is also open once `now` has reached `completedAt + recurrenceIntervalDays`
@@ -24,10 +34,8 @@ export type RecurrenceFields = {
  */
 export function isTaskOpen(task: RecurrenceFields, now: Date): boolean {
   if (task.completedAt === null) return true;
-  if (task.recurrenceIntervalDays === null) return false;
 
-  const dueAgainAt = new Date(
-    task.completedAt.getTime() + task.recurrenceIntervalDays * 24 * 60 * 60 * 1000,
-  );
+  const dueAgainAt = getNextDueDate(task);
+  if (dueAgainAt === null) return false;
   return now >= dueAgainAt;
 }

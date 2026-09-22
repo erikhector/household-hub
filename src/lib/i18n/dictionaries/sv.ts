@@ -842,6 +842,8 @@ export const sv = {
     completedSectionLabel: "Klara",
     unassignedBadge: "Ingen tilldelad",
     completedByLabel: "Klar av {name}",
+    lastCompletedByLabel: "Senast utförd av {name}",
+    nextDueLabel: "Nästa gång {date}",
     deleteTaskAriaLabel: "Ta bort {title}",
     confirmDelete: {
       title: "Ta bort {name}?",

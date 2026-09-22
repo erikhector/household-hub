@@ -130,23 +130,32 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   const now = new Date();
   const nextCompleted = isTaskOpen(task, now);
 
-  let completedByMemberId: string | null = null;
-  if (nextCompleted) {
-    const member = await prisma.householdMember.findFirst({
-      where: { householdId: household.id, userId },
-      select: { id: true },
-    });
-    completedByMemberId = member?.id ?? null;
-  }
-
   try {
-    await prisma.householdTask.update({
-      where: { id: task.id },
-      data: {
-        completedAt: nextCompleted ? now : null,
-        completedByMemberId,
-      },
-    });
+    if (nextCompleted) {
+      const member = await prisma.householdMember.findFirst({
+        where: { householdId: household.id, userId },
+        select: { id: true },
+      });
+      await prisma.householdTask.update({
+        where: { id: task.id },
+        data: { completedAt: now, completedByMemberId: member?.id ?? null },
+      });
+    } else {
+      // Un-completing: only clear completedAt so isTaskOpen (which is what
+      // "completed" is derived from) sees it as open again.
+      // completedByMemberId is deliberately left as-is rather than nulled
+      // out — it's still accurate "last done by" history until the task is
+      // completed again, and the UI now shows it even while the task is
+      // open (see TaskItemRow's lastCompletedByLabel). There's no separate
+      // history field to move it to without a schema change — HouseholdTask
+      // only has the one completedAt/completedByMemberId pair, which does
+      // double duty as both "is this currently open" state and "last
+      // completion" history.
+      await prisma.householdTask.update({
+        where: { id: task.id },
+        data: { completedAt: null },
+      });
+    }
   } catch (error) {
     return toFriendlyError(error);
   }

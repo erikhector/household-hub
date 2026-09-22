@@ -2,7 +2,7 @@ import { Suspense, cache } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary, type Dictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { Button } from "@/components/ui/button";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
@@ -49,6 +49,7 @@ const getTasksData = cache(async (householdId: string) => {
       completedByMemberId: t.completedByMemberId,
       completed: !isTaskOpen(t, now),
       recurrenceIntervalDays: t.recurrenceIntervalDays,
+      completedAt: t.completedAt,
     })),
     recapGroups,
   };
@@ -81,13 +82,23 @@ function TasksListSkeleton() {
   );
 }
 
-async function TasksSection({ householdId, dict }: { householdId: string; dict: Dictionary["tasks"] }) {
+async function TasksSection({
+  householdId,
+  dict,
+  locale,
+}: {
+  householdId: string;
+  dict: Dictionary["tasks"];
+  locale: Locale;
+}) {
   const { tasks, memberOptions, recapGroups } = await getTasksData(householdId);
-  return <TasksClient dict={dict} members={memberOptions} tasks={tasks} recapGroups={recapGroups} />;
+  return (
+    <TasksClient dict={dict} members={memberOptions} tasks={tasks} recapGroups={recapGroups} locale={locale} />
+  );
 }
 
 export default async function TasksPage() {
-  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -101,7 +112,7 @@ export default async function TasksPage() {
         </Suspense>
       </div>
       <Suspense fallback={<TasksListSkeleton />}>
-        <TasksSection householdId={household.id} dict={dict.tasks} />
+        <TasksSection householdId={household.id} dict={dict.tasks} locale={locale} />
       </Suspense>
     </div>
   );
