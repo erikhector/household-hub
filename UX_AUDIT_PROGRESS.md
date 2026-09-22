@@ -29,8 +29,24 @@ clean, `npx vitest run` 712/712 passing, `npx next build` green (25 routes).
 All 8 Wave 2 scopes are merged into this branch. Each merge was a clean
 auto-merge (no manual dictionary-conflict resolution needed) and verified
 with `npx eslint .` / `npx tsc --noEmit` / `npx vitest run` immediately
-after. Final full-suite verification (including `npx next build`) recorded
-below once complete.
+after.
+
+## Final verification (all scopes merged)
+
+- `npx eslint .` — clean.
+- `npx tsc --noEmit` — clean.
+- `npx vitest run` — 50 files / 724 tests passing.
+- `npx next build` — green, all 26 routes (including the new
+  `/dashboard/personal-budget/export` from F9).
+- `npx prisma migrate status` — up to date (25 migrations, including
+  Scope F's `20260922073128_add_recurring_template_ack_created_by`).
+
+The plan is fully implemented: Wave 1 (5 quick wins) + Wave 2 (all 8
+scopes, ~40 findings). Not done: an actual browser/Playwright walkthrough
+of the changed UI — this sandbox has a local Postgres available so the
+full test suite and build ran against a real schema, but no visual/manual
+check of the new flows (password toggle, confirm dialogs, CSV export
+output, etc.) was performed. Worth doing before merging to `master`.
 
 ## Environment notes for this sandbox
 
