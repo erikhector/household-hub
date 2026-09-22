@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { createTransactionAction, updateTransactionAction } from "@/app/dashboard/budget/actions";
 import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -59,20 +60,46 @@ const initialState: ActionState = {};
 
 function buildInitialSplitAmounts(
   transaction: TransactionRow | undefined,
+  prefillFromTemplate: TransactionTemplatePrefill | undefined,
   members: MemberOption[],
 ): Record<string, string> {
-  if (transaction && transaction.splits.length > 0) {
-    const byMember = new Map(transaction.splits.map((s) => [s.householdMemberId, s.amountOwed]));
+  // Editing an existing transaction's own split wins; otherwise fall back to
+  // the recurring template's saved split (F2 — carrying it forward instead
+  // of silently dropping it), then an even split of whatever amount is known.
+  const splits = transaction && transaction.splits.length > 0 ? transaction.splits : prefillFromTemplate?.splits;
+  if (splits && splits.length > 0) {
+    const byMember = new Map(splits.map((s) => [s.householdMemberId, s.amountOwed]));
     return Object.fromEntries(members.map((m) => [m.id, (byMember.get(m.id) ?? 0).toFixed(2)]));
   }
-  const even = evenSplitAmounts(transaction?.amount ?? 0, members.length);
+  const even = evenSplitAmounts(transaction?.amount ?? prefillFromTemplate?.amount ?? 0, members.length);
   return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
+}
+
+function hasSplit(
+  transaction: TransactionRow | undefined,
+  prefillFromTemplate: TransactionTemplatePrefill | undefined,
+): boolean {
+  if (transaction) return transaction.splits.length > 0;
+  return !!prefillFromTemplate?.splits && prefillFromTemplate.splits.length > 0;
 }
 
 function toDateInputValue(date: Date) {
   const offset = date.getTimezoneOffset();
   const local = new Date(date.getTime() - offset * 60 * 1000);
   return local.toISOString().slice(0, 10);
+}
+
+/** A new transaction's default date (F11): today, when the budget month
+ * currently being browsed is the real current month, otherwise the 1st of
+ * whichever month is being viewed — so adding a transaction while looking
+ * back at a past month doesn't silently date it today, outside that month.
+ * `monthKey` is optional so callers that don't track a viewed month (there
+ * are none left after this fix, but keeps this from being a breaking
+ * signature change) still get today's date, unaffected. */
+function defaultDateForMonth(monthKey: string | undefined): Date {
+  const now = new Date();
+  if (!monthKey || monthKey === toMonthKey(now)) return now;
+  return parseMonthKey(monthKey);
 }
 
 /** Seeds a new transaction's fields from a recurring template's "Log
@@ -84,6 +111,10 @@ export type TransactionTemplatePrefill = {
   amount: number;
   description?: string;
   frequency: RecurrenceFrequency;
+  /** The template's saved split (RecurringTemplateSplit), when it has one —
+   * carried forward as this new transaction's default split (F2) instead of
+   * opening with the split checkbox unchecked and the shares lost. */
+  splits?: TransactionSplitRow[];
 };
 
 export function TransactionDialog({
@@ -91,6 +122,7 @@ export function TransactionDialog({
   categories,
   members,
   currentMemberId,
+  monthKey,
   trigger,
   transaction,
   prefillFromTemplate,
@@ -104,6 +136,11 @@ export function TransactionDialog({
   /** The signed-in user's own household member id, used to default "paid
    * by" to themselves. */
   currentMemberId: string;
+  /** "YYYY-MM" of the month currently being browsed (page.tsx's `?month=`) —
+   * feeds a new transaction's default date (F11, see defaultDateForMonth).
+   * Ignored while editing an existing transaction, which always keeps its
+   * own date. */
+  monthKey?: string;
   trigger: ReactElement;
   transaction?: TransactionRow;
   prefillFromTemplate?: TransactionTemplatePrefill;
@@ -125,12 +162,15 @@ export function TransactionDialog({
   const [amount, setAmount] = useState(
     transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
   );
-  const [splitEnabled, setSplitEnabled] = useState(canSplit && !!transaction && transaction.splits.length > 0);
+  const [date, setDate] = useState(() =>
+    toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)),
+  );
+  const [splitEnabled, setSplitEnabled] = useState(canSplit && hasSplit(transaction, prefillFromTemplate));
   const [paidByMemberId, setPaidByMemberId] = useState(
     transaction?.paidByMemberId ?? currentMemberId,
   );
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
-    buildInitialSplitAmounts(transaction, members),
+    buildInitialSplitAmounts(transaction, prefillFromTemplate, members),
   );
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -152,9 +192,10 @@ export function TransactionDialog({
     setAmount(
       transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
     );
-    setSplitEnabled(canSplit && !!transaction && transaction.splits.length > 0);
+    setSplitEnabled(canSplit && hasSplit(transaction, prefillFromTemplate));
     setPaidByMemberId(transaction?.paidByMemberId ?? currentMemberId);
-    setSplitAmounts(buildInitialSplitAmounts(transaction, members));
+    setSplitAmounts(buildInitialSplitAmounts(transaction, prefillFromTemplate, members));
+    setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
   }
 
   function resetToEvenSplit(total: string) {
@@ -226,7 +267,8 @@ export function TransactionDialog({
                 id="tx-date"
                 name="date"
                 type="date"
-                defaultValue={toDateInputValue(transaction?.date ?? new Date())}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 required
               />
             </div>

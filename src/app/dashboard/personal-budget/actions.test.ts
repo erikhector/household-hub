@@ -15,6 +15,7 @@ const {
   categoryUpdateMock,
   categoryDeleteMock,
   transactionFindFirstMock,
+  transactionFindManyMock,
   transactionCreateMock,
   transactionUpdateMock,
   transactionDeleteManyMock,
@@ -33,6 +34,7 @@ const {
   categoryUpdateMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
   transactionFindFirstMock: vi.fn(),
+  transactionFindManyMock: vi.fn(),
   transactionCreateMock: vi.fn(),
   transactionUpdateMock: vi.fn(),
   transactionDeleteManyMock: vi.fn(),
@@ -56,6 +58,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     personalTransaction: {
       findFirst: transactionFindFirstMock,
+      findMany: transactionFindManyMock,
       create: transactionCreateMock,
       update: transactionUpdateMock,
       deleteMany: transactionDeleteManyMock,
@@ -103,8 +106,10 @@ const userId = "user-1";
 afterEach(() => {
   vi.clearAllMocks();
   requireUserIdMock.mockResolvedValue(userId);
+  transactionFindManyMock.mockResolvedValue([]);
 });
 requireUserIdMock.mockResolvedValue(userId);
+transactionFindManyMock.mockResolvedValue([]);
 
 describe("createPersonalCategoryAction", () => {
   it("rejects a duplicate name for this user (case-insensitive)", async () => {

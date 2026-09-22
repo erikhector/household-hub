@@ -1086,6 +1086,8 @@ export const sv = {
       resume: "Återuppta",
       pausedBadge: "Pausad",
       dueDayLabel: "Förfaller dag {day}",
+      acknowledgedByLabel: "Markerad som klar av {name}",
+      acknowledgedByUnknown: "Markerad som klar",
     },
     fixedSummary: {
       title: "Fasta inkomster & utgifter",
@@ -1237,6 +1239,7 @@ export const sv = {
       categoryNoResults: "Inga matchande kategorier",
       categoryToggleLabel: "Kategori",
       amountLabel: "Belopp",
+      amountLabelFull: "Hela räkningens belopp",
       dateLabel: "Datum",
       descriptionLabel: "Beskrivning",
       descriptionPlaceholder: "Valfri anteckning",
@@ -1354,6 +1357,15 @@ export const sv = {
     },
     budget: {
       fileNamePrefix: "budget-transaktioner",
+      headerDate: "Datum",
+      headerCategory: "Kategori",
+      headerType: "Typ",
+      headerAmount: "Belopp",
+      headerDescription: "Beskrivning",
+      headerRecurring: "Återkommande",
+    },
+    personalBudget: {
+      fileNamePrefix: "personlig-budget-transaktioner",
       headerDate: "Datum",
       headerCategory: "Kategori",
       headerType: "Typ",

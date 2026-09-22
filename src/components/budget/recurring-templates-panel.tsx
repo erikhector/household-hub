@@ -27,6 +27,12 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
   status: "due" | "acknowledged" | "posted";
+  /** Display name of whoever ran "Mark accounted for" for the current
+   * period (F7 — attribution for a household-wide action), resolved from
+   * RecurringTemplateAck.createdByUserId. Only meaningful when
+   * `status === "acknowledged"`; null when the ack predates this field (no
+   * backfill) or its acknowledger has since left the household. */
+  acknowledgedByName?: string | null;
 };
 
 export type PausedRecurringTemplateRow = RecurringTemplateRow & { categoryName: string };
@@ -43,6 +49,7 @@ export function RecurringTemplatesPanel({
   categories,
   members,
   currentMemberId,
+  monthKey,
   dict,
   locale,
 }: {
@@ -51,6 +58,10 @@ export function RecurringTemplatesPanel({
   categories: CategoryRow[];
   members: MemberOption[];
   currentMemberId: string;
+  /** "YYYY-MM" of the month currently being browsed — threaded to the "Log
+   * transaction" dialog below so a new transaction defaults to a date within
+   * it (F11) instead of always today. */
+  monthKey: string;
   dict: Dictionary["budget"];
   locale: Locale;
 }) {
@@ -123,12 +134,14 @@ export function RecurringTemplatesPanel({
                       categories={categories}
                       members={members}
                       currentMemberId={currentMemberId}
+                      monthKey={monthKey}
                       prefillFromTemplate={{
                         templateId: template.id,
                         categoryId: template.categoryId,
                         amount: template.amount,
                         description: template.name,
                         frequency: template.frequency,
+                        splits: template.splits,
                       }}
                       trigger={
                         <Button size="xs" variant="secondary">
@@ -303,6 +316,13 @@ function TemplateRow({
             ? ` · ${format(dict.recurring.dueDayLabel, { day: template.dayOfMonth })}`
             : ""}
         </p>
+        {template.status === "acknowledged" && (
+          <p className="text-xs text-muted-foreground">
+            {template.acknowledgedByName
+              ? format(dict.recurring.acknowledgedByLabel, { name: template.acknowledgedByName })
+              : dict.recurring.acknowledgedByUnknown}
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {actions}

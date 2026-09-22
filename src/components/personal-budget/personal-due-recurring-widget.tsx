@@ -128,6 +128,7 @@ export function PersonalDueRecurringWidget({
                   <PersonalTransactionDialog
                     dict={dict}
                     categories={categories}
+                    monthKey={monthKey}
                     prefillFromTemplate={{
                       templateId: template.id,
                       categoryId: template.categoryId,
@@ -193,7 +194,7 @@ export function PersonalDueRecurringWidget({
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground tabular-nums">
-                    {numberFormat.format(row.amount)}
+                    {dict.shared.yourShare}: {numberFormat.format(row.amount)}
                     {showHouseholdName ? ` · ${row.householdName}` : ""}
                   </p>
                 </div>
@@ -202,6 +203,7 @@ export function PersonalDueRecurringWidget({
                     <LogSharedExpenseDialog
                       dict={dict}
                       households={sharedExpenseHouseholds}
+                      monthKey={monthKey}
                       prefill={row.logPrefill}
                       trigger={
                         <Button size="xs" variant="secondary">
@@ -211,7 +213,7 @@ export function PersonalDueRecurringWidget({
                     />
                   )}
                   <Link
-                    href={`/dashboard/budget?month=${monthKey}`}
+                    href={`/dashboard/budget?month=${monthKey}&household=${row.logPrefill.householdId}`}
                     className="shrink-0 text-sm font-medium text-primary hover:underline"
                   >
                     {format(dict.shared.viewInHouseholdBudget, { household: row.householdName })}

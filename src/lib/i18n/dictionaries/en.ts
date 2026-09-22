@@ -1094,6 +1094,8 @@ export const en = {
       resume: "Resume",
       pausedBadge: "Paused",
       dueDayLabel: "Due on day {day}",
+      acknowledgedByLabel: "Marked accounted for by {name}",
+      acknowledgedByUnknown: "Marked accounted for",
     },
     fixedSummary: {
       title: "Fixed income & costs",
@@ -1248,6 +1250,7 @@ export const en = {
       categoryNoResults: "No matching categories",
       categoryToggleLabel: "Category",
       amountLabel: "Amount",
+      amountLabelFull: "Full bill amount",
       dateLabel: "Date",
       descriptionLabel: "Description",
       descriptionPlaceholder: "Optional note",
@@ -1365,6 +1368,15 @@ export const en = {
     },
     budget: {
       fileNamePrefix: "budget-transactions",
+      headerDate: "Date",
+      headerCategory: "Category",
+      headerType: "Type",
+      headerAmount: "Amount",
+      headerDescription: "Description",
+      headerRecurring: "Recurring",
+    },
+    personalBudget: {
+      fileNamePrefix: "personal-budget-transactions",
       headerDate: "Date",
       headerCategory: "Category",
       headerType: "Type",

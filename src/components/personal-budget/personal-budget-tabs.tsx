@@ -100,12 +100,14 @@ export function PersonalBudgetTabs({
             <LogSharedExpenseDialog
               dict={dict}
               households={sharedExpenseHouseholds}
+              monthKey={monthKey}
               trigger={<Button variant="outline">{dict.logShared.button}</Button>}
             />
           )}
           <PersonalTransactionDialog
             dict={dict}
             categories={categories}
+            monthKey={monthKey}
             trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
           />
         </div>

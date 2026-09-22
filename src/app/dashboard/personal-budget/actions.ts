@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { getPeriodKey } from "@/lib/recurring-template-calc";
+import { getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 
@@ -97,11 +97,22 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
 
   const category = await prisma.personalBudgetCategory.findFirst({
     where: { id: categoryId, userId },
-    include: { _count: { select: { transactions: true } } },
+    include: {
+      _count: { select: { transactions: true } },
+      // See budget/actions.ts's deleteCategoryAction for why this is
+      // checked explicitly rather than just letting the FK restrict fail.
+      recurringTemplates: { select: { name: true }, orderBy: { active: "desc" }, take: 1 },
+    },
   });
   if (!category) return { error: "Category not found" };
   if (category._count.transactions > 0) {
     return { error: "This category has transactions and can't be deleted" };
+  }
+  const blockingTemplate = category.recurringTemplates[0];
+  if (blockingTemplate) {
+    return {
+      error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
+    };
   }
 
   await prisma.personalBudgetCategory.delete({ where: { id: category.id } });
@@ -139,14 +150,34 @@ function parseTransactionFormData(formData: FormData) {
 async function resolvePersonalRecurringTemplateId(
   userId: string,
   recurringTemplateId: string | undefined,
-): Promise<{ error: string } | { id: string | undefined }> {
+): Promise<{ error: string } | { id: undefined } | { id: string; frequency: TemplateFrequency }> {
   if (!recurringTemplateId) return { id: undefined };
   const template = await prisma.personalRecurringTemplate.findFirst({
     where: { id: recurringTemplateId, userId },
-    select: { id: true },
+    select: { id: true, frequency: true },
   });
   if (!template) return { error: "Recurring template not found" };
-  return { id: template.id };
+  return { id: template.id, frequency: template.frequency };
+}
+
+/** Mirrors budget/actions.ts's assertNoDuplicateTemplatePeriod for
+ * PersonalTransaction/PersonalRecurringTemplate — see its doc comment. Only
+ * two entry points here (personal budget has no "Log payment" equivalent),
+ * but the same race is possible between them. */
+async function assertNoDuplicatePersonalTemplatePeriod(
+  recurringTemplateId: string,
+  frequency: TemplateFrequency,
+  date: Date,
+): Promise<{ error: string } | null> {
+  const periodKey = getPeriodKey(date, frequency);
+  const existing = await prisma.personalTransaction.findMany({
+    where: { recurringTemplateId },
+    select: { date: true },
+  });
+  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);
+  return alreadyLogged
+    ? { error: "A transaction for this recurring item already exists for this period" }
+    : null;
 }
 
 export async function createPersonalTransactionAction(
@@ -173,6 +204,14 @@ export async function createPersonalTransactionAction(
     parsed.data.recurringTemplateId,
   );
   if ("error" in recurringTemplate) return { error: recurringTemplate.error };
+  if (recurringTemplate.id) {
+    const dup = await assertNoDuplicatePersonalTemplatePeriod(
+      recurringTemplate.id,
+      recurringTemplate.frequency,
+      new Date(parsed.data.date),
+    );
+    if (dup) return dup;
+  }
 
   try {
     await prisma.personalTransaction.create({
@@ -433,6 +472,9 @@ export async function logPersonalRecurringTemplateAction(templateId: string): Pr
     where: { id: templateId, userId },
   });
   if (!template) return { error: "Recurring template not found" };
+
+  const dup = await assertNoDuplicatePersonalTemplatePeriod(template.id, template.frequency, new Date());
+  if (dup) return dup;
 
   try {
     await prisma.personalTransaction.create({

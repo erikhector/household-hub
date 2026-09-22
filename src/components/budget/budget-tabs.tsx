@@ -51,6 +51,7 @@ export function BudgetTabs({
   dict,
   locale,
   monthKey,
+  householdParam,
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
@@ -69,6 +70,11 @@ export function BudgetTabs({
   /** "YYYY-MM" — the month currently selected via the page's `?month=`
    * search param (see src/app/dashboard/budget/page.tsx). */
   monthKey: string;
+  /** The page's validated `?household=` override, when one was given (F1) —
+   * threaded into MonthNavigator so paging months keeps pointing at that
+   * same explicit household instead of falling back to whichever one is
+   * "active". Undefined for the normal (no deep link) case. */
+  householdParam?: string;
   categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
@@ -98,7 +104,12 @@ export function BudgetTabs({
 
   return (
     <div className="flex flex-col gap-6">
-      <MonthNavigator basePath="/dashboard/budget" monthKey={monthKey} dict={dict} />
+      <MonthNavigator
+        basePath="/dashboard/budget"
+        monthKey={monthKey}
+        dict={dict}
+        extraParams={householdParam ? { household: householdParam } : undefined}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
@@ -107,6 +118,7 @@ export function BudgetTabs({
           categories={categories}
           members={members}
           currentMemberId={currentMemberId}
+          monthKey={monthKey}
           trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
         />
       </div>
@@ -120,6 +132,7 @@ export function BudgetTabs({
               categories={categories}
               members={members}
               currentMemberId={currentMemberId}
+              monthKey={monthKey}
               dict={dict}
               locale={locale}
               onManageClick={() => setTab("manage")}
