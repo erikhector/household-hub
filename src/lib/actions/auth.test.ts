@@ -139,6 +139,7 @@ const validSignup = {
   householdName: "The Hectors",
   email: "erik@example.com",
   password: "supersecret",
+  confirmPassword: "supersecret",
 };
 
 const originalAppUrl = process.env.APP_URL;
@@ -236,14 +237,20 @@ describe("signupAction behavior", () => {
 
   // Additive, not a hard dependency (see signupAction's doc comment) — the
   // account must still be created even if the verification email fails to
-  // send or the token can't be created.
+  // send or the token can't be created. A1: the failure is no longer
+  // silently swallowed — it's surfaced via `emailError` so the UI can tell
+  // the user to use "resend" instead of claiming success outright.
   it("still creates the account when sending the verification email fails", async () => {
     findUniqueMock.mockResolvedValue(null);
     emailVerificationTokenCreateMock.mockRejectedValue(new Error("db down"));
 
     const result = await signupAction({}, formData(validSignup));
 
-    expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
+    expect(result).toEqual({
+      status: "verification-sent",
+      email: validSignup.email,
+      emailError: true,
+    });
   });
 });
 

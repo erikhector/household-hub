@@ -71,6 +71,7 @@ export function MemberList({
 
   return (
     <div className="flex flex-col gap-2">
+      <p className="text-sm text-muted-foreground">{dict.roleExplanation}</p>
       {members.map((member) => {
         const isSelf = member.userId === currentUserId;
         return (
@@ -85,6 +86,9 @@ export function MemberList({
               <p className="truncate text-sm text-muted-foreground" title={member.email}>
                 {member.email}
               </p>
+              {isSelf && member.role === "OWNER" && (
+                <p className="text-xs text-muted-foreground">{dict.leave.ownerExplanation}</p>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>

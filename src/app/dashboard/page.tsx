@@ -6,6 +6,7 @@ import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { isHouseholdStepSkipped } from "@/lib/actions/household";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
@@ -40,6 +41,7 @@ export default async function DashboardOverviewPage() {
     budgetCategoryCount,
     personalCategories,
     personalTransactions,
+    householdStepSkipped,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     prisma.householdMember.findFirst({ where: { householdId: household.id, userId } }),
@@ -55,6 +57,7 @@ export default async function DashboardOverviewPage() {
     prisma.budgetCategory.count({ where: { householdId: household.id } }),
     prisma.personalBudgetCategory.findMany({ where: { userId } }),
     prisma.personalTransaction.findMany({ where: { userId }, include: { category: true } }),
+    isHouseholdStepSkipped(household.id),
   ]);
 
   const myTasks = myMembership
@@ -104,7 +107,12 @@ export default async function DashboardOverviewPage() {
   );
 
   const gettingStartedSteps: GettingStartedStep[] = [
-    { key: "household", href: "/dashboard/household", done: memberCount > 0 },
+    {
+      key: "household",
+      href: "/dashboard/household",
+      done: memberCount > 0,
+      skipped: memberCount === 0 && householdStepSkipped,
+    },
     { key: "inventory", href: "/dashboard/inventory", done: items.length > 0 },
     { key: "shoppingList", href: "/dashboard/shopping-list", done: shoppingListCount > 0 },
     { key: "budget", href: "/dashboard/budget", done: budgetCategoryCount > 0 },

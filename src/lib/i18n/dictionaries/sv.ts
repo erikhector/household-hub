@@ -84,6 +84,8 @@ export const sv = {
       one: "Delas med {count} annan person",
       other: "Delas med {count} andra personer",
     },
+    roleExplanation:
+      "Ägare kan ta bort medlemmar, överföra ägarskap och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
     owner: "Ägare",
     contributor: "Medlem",
     removeAriaLabel: "Ta bort {name}",
@@ -99,6 +101,9 @@ export const sv = {
       "Om hushållet tas bort försvinner det, och allt i det, för alla medlemmar. Det går inte att ångra.",
     delete: {
       trigger: "Ta bort hushåll",
+      checking: "Kontrollerar…",
+      blockedTitle: "Kan inte ta bort hushållet",
+      blockedClose: "OK",
       title: "Ta bort {name}?",
       description:
         "Detta tar permanent bort hushållet och allt i det — lager, inköpslistor, matplaner och budgetdata — för alla medlemmar. Det går inte att ångra.",
@@ -117,6 +122,8 @@ export const sv = {
     },
     leave: {
       ariaLabel: "Lämna hushållet",
+      ownerExplanation:
+        "Som ägare kan du inte lämna direkt — överför ägarskapet till en annan medlem eller ta bort hushållet istället.",
       confirmTitle: "Lämna det här hushållet?",
       confirmDescription:
         "Du förlorar åtkomst till dess lager, inköpslistor, matplaner och budgetdata. Du kan gå med igen senare om någon bjuder in dig på nytt.",
@@ -166,6 +173,8 @@ export const sv = {
     gettingStarted: {
       title: "Kom igång",
       subtitle: "Några snabba steg för att få ut det mesta av Squirrel.",
+      skip: "Hoppa över det här steget",
+      skipped: "Överhoppat — bjud in när som helst från hushållsinställningar.",
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
@@ -1511,6 +1520,8 @@ export const sv = {
       welcomeTitle: "Välkommen tillbaka!",
       email: "E-post",
       password: "Lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       forgotPassword: "Glömt lösenordet?",
       loggingIn: "Loggar in…",
       submit: "Logga in",
@@ -1533,6 +1544,8 @@ export const sv = {
       pageTitle: "Välj ett nytt lösenord",
       newPassword: "Nytt lösenord",
       confirmPassword: "Bekräfta nytt lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       saving: "Uppdaterar…",
       submit: "Uppdatera lösenord",
       backToLogin: "Tillbaka till inloggning",
@@ -1554,30 +1567,48 @@ export const sv = {
       householdNamePlaceholder: "t.ex. Familjen Andersson",
       email: "E-post",
       password: "Lösenord",
+      confirmPassword: "Bekräfta lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       creating: "Skapar konto…",
       submit: "Skapa hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       verificationSentDescription:
         "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+      verificationSendFailedDescription:
+        "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
+      resend: "Skicka verifieringslänk igen",
+      resending: "Skickar…",
     },
     join: {
       invalidTitle: "Ogiltig inbjudan",
       joinTitle: "Gå med i {name}",
       invalidDescription:
         "Den här inbjudningslänken är ogiltig eller har slutat gälla. Be en hushållsmedlem skicka en ny.",
+      backToLogin: "Tillbaka till inloggning",
+      goToDashboard: "Gå till översikten",
+      acceptConsequence:
+        "Du får full åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",
       accepting: "Går med…",
       accept: "Gå med i hushållet",
       yourName: "Ditt namn",
       email: "E-post",
       password: "Lösenord",
+      confirmPassword: "Bekräfta lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       creating: "Går med…",
       submit: "Skapa konto och gå med",
+      orDivider: "eller",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
-      logInSuffix: "först, och öppna sedan den här inbjudningslänken igen.",
       verificationSentDescription:
         "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+      verificationSendFailedDescription:
+        "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
+      resend: "Skicka verifieringslänk igen",
+      resending: "Skickar…",
     },
   },
   landing: {

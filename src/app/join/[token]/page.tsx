@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { getInvitationForDisplay } from "@/lib/actions/household";
@@ -27,7 +28,15 @@ export default async function JoinPage(props: PageProps<"/join/[token]">) {
         </CardHeader>
         <CardContent>
           {!invitation ? (
-            <p className="text-sm text-muted-foreground">{dict.auth.join.invalidDescription}</p>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{dict.auth.join.invalidDescription}</p>
+              <Link
+                href={session?.user ? "/dashboard" : "/login"}
+                className="text-center text-sm font-medium text-primary underline underline-offset-4"
+              >
+                {session?.user ? dict.auth.join.goToDashboard : dict.auth.join.backToLogin}
+              </Link>
+            </div>
           ) : session?.user ? (
             <AcceptInviteForm token={token} dict={dict.auth.join} />
           ) : (
