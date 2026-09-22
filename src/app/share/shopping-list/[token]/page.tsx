@@ -19,7 +19,7 @@ export default async function SharedShoppingListPage(
   const [list, dict] = await Promise.all([getShoppingListByShareToken(token), getDictionary()]);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-12">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Card className="w-full max-w-md">
         {list ? (
           <CardContent>
