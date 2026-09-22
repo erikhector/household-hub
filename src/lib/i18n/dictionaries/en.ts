@@ -77,6 +77,7 @@ export const en = {
       generating: "Generating link…",
       description: "Send this link to whoever should join. It expires in 7 days.",
       copy: "Copy",
+      copiedToast: "Invite link copied",
       linkAriaLabel: "Invite link",
       emailLabel: "Or send it by email",
       emailPlaceholder: "Their email address",
@@ -400,6 +401,7 @@ export const en = {
       description:
         "Anyone with this link can view and check off items on this list — no account needed. Revoke it any time.",
       copy: "Copy",
+      copiedToast: "Share link copied",
       linkAriaLabel: "Share link",
       createError: "Could not create share link",
       activeLabel: "Link is active",
@@ -858,6 +860,7 @@ export const en = {
     },
     editTaskAriaLabel: "Edit {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
+    toggleIncompleteAriaLabel: "Mark {title} as not done",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",
@@ -1424,7 +1427,7 @@ export const en = {
       save: "Update password",
     },
     dataExport: {
-      title: "Export your data",
+      title: "Export your account data",
       description:
         "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
       button: "Export my data",

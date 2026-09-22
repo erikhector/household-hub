@@ -91,7 +91,10 @@ export function ShareListButton({
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigator.clipboard.writeText(link)}
+                  onClick={() => {
+                    navigator.clipboard.writeText(link);
+                    toast.success(dict.copiedToast);
+                  }}
                 >
                   {dict.copy}
                 </Button>

@@ -125,7 +125,10 @@ function TaskItemRow({
         <Checkbox
           checked={task.completed}
           disabled={isPending}
-          aria-label={format(dict.toggleCompleteAriaLabel, { title: task.title })}
+          aria-label={format(
+            task.completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel,
+            { title: task.title },
+          )}
           onChange={() =>
             startTransition(async () => {
               const result = await toggleTaskCompletedAction(task.id);

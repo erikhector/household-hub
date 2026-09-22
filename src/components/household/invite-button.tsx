@@ -79,7 +79,10 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigator.clipboard.writeText(link)}
+                  onClick={() => {
+                    navigator.clipboard.writeText(link);
+                    toast.success(dict.copiedToast);
+                  }}
                 >
                   {dict.copy}
                 </Button>

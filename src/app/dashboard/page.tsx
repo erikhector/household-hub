@@ -10,6 +10,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { getStockStatus } from "@/lib/stock-status";
 
 function greetingKey(now: Date): "morning" | "afternoon" | "evening" {
   const hour = now.getHours();
@@ -95,8 +96,12 @@ export default async function DashboardOverviewPage() {
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
 
-  const lowStock = items.filter((item) => item.quantity <= item.lowStockThreshold);
-  const outOfStock = lowStock.filter((item) => item.quantity <= 0);
+  const lowStock = items.filter(
+    (item) => getStockStatus(item.quantity, item.lowStockThreshold) !== "in",
+  );
+  const outOfStock = lowStock.filter(
+    (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "out",
+  );
 
   const gettingStartedSteps: GettingStartedStep[] = [
     { key: "household", href: "/dashboard/household", done: memberCount > 0 },

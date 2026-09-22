@@ -69,6 +69,7 @@ export const sv = {
       generating: "Skapar länk…",
       description: "Skicka den här länken till den som ska gå med. Den slutar gälla om 7 dagar.",
       copy: "Kopiera",
+      copiedToast: "Inbjudningslänk kopierad",
       linkAriaLabel: "Inbjudningslänk",
       emailLabel: "Eller skicka den via e-post",
       emailPlaceholder: "Mottagarens e-postadress",
@@ -392,6 +393,7 @@ export const sv = {
       description:
         "Alla med den här länken kan se och bocka av varor på listan — inget konto krävs. Återkalla den när som helst.",
       copy: "Kopiera",
+      copiedToast: "Dellänk kopierad",
       linkAriaLabel: "Dellänk",
       createError: "Kunde inte skapa dellänk",
       activeLabel: "Länken är aktiv",
@@ -850,6 +852,7 @@ export const sv = {
     },
     editTaskAriaLabel: "Redigera {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
+    toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
     recurrenceLabel: "Upprepa",
@@ -1413,7 +1416,7 @@ export const sv = {
       save: "Uppdatera lösenord",
     },
     dataExport: {
-      title: "Exportera dina data",
+      title: "Exportera ditt kontos data",
       description:
         "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
       button: "Exportera mina data",

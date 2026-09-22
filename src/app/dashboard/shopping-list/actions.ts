@@ -14,6 +14,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
+import { getStockStatus } from "@/lib/stock-status";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -150,7 +151,9 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
     const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
 
     const toAdd = lowStockItems.filter(
-      (item) => item.quantity <= item.lowStockThreshold && !alreadyOnListIds.has(item.id),
+      (item) =>
+        getStockStatus(item.quantity, item.lowStockThreshold) !== "in" &&
+        !alreadyOnListIds.has(item.id),
     );
 
     if (toAdd.length > 0) {
