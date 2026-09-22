@@ -16,6 +16,7 @@ const {
   categoryUpdateMock,
   categoryDeleteMock,
   transactionFindFirstMock,
+  transactionFindManyMock,
   transactionCreateMock,
   transactionDeleteManyMock,
   transactionMock,
@@ -39,6 +40,7 @@ const {
   categoryUpdateMock: vi.fn(),
   categoryDeleteMock: vi.fn(),
   transactionFindFirstMock: vi.fn(),
+  transactionFindManyMock: vi.fn(),
   transactionCreateMock: vi.fn(),
   transactionDeleteManyMock: vi.fn(),
   transactionMock: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
@@ -66,6 +68,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     transaction: {
       findFirst: transactionFindFirstMock,
+      findMany: transactionFindManyMock,
       create: transactionCreateMock,
       deleteMany: transactionDeleteManyMock,
     },
@@ -122,9 +125,11 @@ afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
   requireUserIdMock.mockResolvedValue("user-1");
+  transactionFindManyMock.mockResolvedValue([]);
 });
 requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
 requireUserIdMock.mockResolvedValue("user-1");
+transactionFindManyMock.mockResolvedValue([]);
 
 describe("findOrCreateGroceriesCategory", () => {
   it("returns the existing category scoped to the given household when present", async () => {
@@ -313,7 +318,11 @@ describe("deleteCategoryAction", () => {
   });
 
   it("deletes a transaction-free category", async () => {
-    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", _count: { transactions: 0 } });
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+    });
     categoryDeleteMock.mockResolvedValue({});
 
     const result = await deleteCategoryAction("cat-1");
@@ -596,7 +605,7 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
       expect(result).toEqual({});
       expect(recurringTemplateFindFirstMock).toHaveBeenCalledWith({
         where: { id: "tpl-1", householdId: "household-1" },
-        select: { id: true },
+        select: { id: true, frequency: true },
       });
       expect(transactionCreateMock).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -775,6 +784,7 @@ describe("recurring templates", () => {
         type: "EXPENSE",
         name: "Rent",
         frequency: "MONTHLY",
+        splits: [],
       });
       transactionCreateMock.mockResolvedValue({});
 

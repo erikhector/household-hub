@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { PersonalBudgetTabs } from "@/components/personal-budget/personal-budget-tabs";
 import { PersonalCategoryManager } from "@/components/personal-budget/personal-category-manager";
@@ -151,6 +152,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     amount: split.amountOwed,
     type: split.transaction.type,
     date: split.transaction.date,
+    householdId: householdNameByMemberId.get(split.householdMemberId)?.id ?? "",
     householdName: householdNameByMemberId.get(split.householdMemberId)?.name ?? "",
     paidByName: split.transaction.paidByMember?.user.displayName ?? null,
   }));
@@ -403,6 +405,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         templates={recurringTemplateRows}
         pausedTemplates={pausedRecurringTemplateRows}
         categories={categoryRows}
+        monthKey={monthKey}
         dict={dict.personalBudget}
         locale={locale}
       />
@@ -417,15 +420,20 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // these rows instead of edit/delete controls, since the household budget
   // stays the one place they get logged, edited, or acknowledged.
   const transactionsTab = (
-    <PersonalTransactionList
-      transactions={transactionRows}
-      sharedRows={sharedPostedRows}
-      showHouseholdName={showHouseholdName}
-      monthKey={monthKey}
-      categories={categoryRows}
-      dict={dict.personalBudget}
-      locale={locale}
-    />
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
+      </div>
+      <PersonalTransactionList
+        transactions={transactionRows}
+        sharedRows={sharedPostedRows}
+        showHouseholdName={showHouseholdName}
+        monthKey={monthKey}
+        categories={categoryRows}
+        dict={dict.personalBudget}
+        locale={locale}
+      />
+    </div>
   );
 
   // Selected month's income/expense/savings breakdown — shown on both

@@ -43,6 +43,11 @@ export type SharedPostedRow = {
   amount: number;
   type: "INCOME" | "EXPENSE" | "SAVINGS";
   date: Date;
+  /** The household this shared row actually belongs to — used to target the
+   * "View in {household} Budget" link explicitly (F1), never left to
+   * whichever household happens to be "active" elsewhere in the app, which
+   * can silently differ when the user belongs to more than one. */
+  householdId: string;
   householdName: string;
   paidByName: string | null;
 };
@@ -172,14 +177,19 @@ export function PersonalTransactionList({
                 {item.row.paidByName ? format(dict.shared.paidBy, { name: item.row.paidByName }) : "—"}
                 {showHouseholdName ? ` · ${item.row.householdName}` : ""}
               </TableCell>
-              <TableCell className={"text-right font-medium tabular-nums " + amountColor(item.row.type)}>
-                {amountSign(item.row.type)}
-                {numberFormat.format(item.row.amount)}
+              <TableCell className={"text-right " + amountColor(item.row.type)}>
+                <span className="block text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                  {dict.shared.yourShare}
+                </span>
+                <span className="font-medium tabular-nums">
+                  {amountSign(item.row.type)}
+                  {numberFormat.format(item.row.amount)}
+                </span>
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-end">
                   <Link
-                    href={`/dashboard/budget?month=${monthKey}`}
+                    href={`/dashboard/budget?month=${monthKey}&household=${item.row.householdId}`}
                     className="inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
                     title={format(dict.shared.viewInHouseholdBudget, { household: item.row.householdName })}
                     aria-label={format(dict.shared.viewInHouseholdBudget, {
@@ -285,9 +295,14 @@ export function PersonalTransactionList({
                     {dict.shared.sharedBadge}
                   </Badge>
                 </div>
-                <span className={"shrink-0 font-medium tabular-nums " + amountColor(item.row.type)}>
-                  {amountSign(item.row.type)}
-                  {numberFormat.format(item.row.amount)}
+                <span className={"shrink-0 text-right " + amountColor(item.row.type)}>
+                  <span className="block text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                    {dict.shared.yourShare}
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    {amountSign(item.row.type)}
+                    {numberFormat.format(item.row.amount)}
+                  </span>
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -299,7 +314,7 @@ export function PersonalTransactionList({
                   <p className="text-xs text-muted-foreground">{dateFormat.format(item.row.date)}</p>
                 </div>
                 <Link
-                  href={`/dashboard/budget?month=${monthKey}`}
+                  href={`/dashboard/budget?month=${monthKey}&household=${item.row.householdId}`}
                   className="inline-flex size-9 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                   title={format(dict.shared.viewInHouseholdBudget, { household: item.row.householdName })}
                   aria-label={format(dict.shared.viewInHouseholdBudget, {

@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/actions";
 import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -81,6 +82,14 @@ function toDateInputValue(date: Date) {
   return local.toISOString().slice(0, 10);
 }
 
+/** Mirrors TransactionDialog's defaultDateForMonth (F11) — see its doc
+ * comment (src/components/budget/transaction-dialog.tsx). */
+function defaultDateForMonth(monthKey: string | undefined): Date {
+  const now = new Date();
+  if (!monthKey || monthKey === toMonthKey(now)) return now;
+  return parseMonthKey(monthKey);
+}
+
 function prefillSplitAmounts(prefill: SharedExpensePrefill, household: ShareableHousehold | undefined) {
   return Object.fromEntries(
     (household?.members ?? []).map((m) => [m.id, (prefill.splits[m.id] ?? 0).toFixed(2)]),
@@ -90,6 +99,7 @@ function prefillSplitAmounts(prefill: SharedExpensePrefill, household: Shareable
 export function LogSharedExpenseDialog({
   dict,
   households,
+  monthKey,
   trigger,
   prefill,
 }: {
@@ -97,6 +107,10 @@ export function LogSharedExpenseDialog({
   /** Every household the signed-in user belongs to that has more than one
    * member — see PersonalBudgetPage's sharedExpenseHouseholds query. */
   households: ShareableHousehold[];
+  /** "YYYY-MM" of the month currently being browsed — feeds a new
+   * transaction's default date (F11). See TransactionDialog's identical
+   * prop (src/components/budget/transaction-dialog.tsx). */
+  monthKey?: string;
   trigger: ReactElement;
   prefill?: SharedExpensePrefill;
 }) {
@@ -115,10 +129,17 @@ export function LogSharedExpenseDialog({
   );
 
   const [amount, setAmount] = useState(prefill ? String(prefill.amount) : "");
+  const [date, setDate] = useState(() => toDateInputValue(defaultDateForMonth(monthKey)));
   const [paidByMemberId, setPaidByMemberId] = useState(household?.currentMemberId ?? "");
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     prefill ? prefillSplitAmounts(prefill, household) : {},
   );
+  // This signed-in user's own share of a prefilled due bill (F4) — never the
+  // full amount above, which is the whole bill being logged. `undefined`
+  // outside the "Log payment" prefill flow, where there's no single "your
+  // share" to call out (the whole form is being filled from scratch).
+  const myShare =
+    prefill && household ? (prefill.splits[household.currentMemberId] ?? undefined) : undefined;
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -134,6 +155,7 @@ export function LogSharedExpenseDialog({
 
   function resetForHousehold(next: ShareableHousehold | undefined) {
     setAmount(prefill ? String(prefill.amount) : "");
+    setDate(toDateInputValue(defaultDateForMonth(monthKey)));
     setPaidByMemberId(next?.currentMemberId ?? "");
     setSplitAmounts(
       prefill
@@ -240,7 +262,13 @@ export function LogSharedExpenseDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="shared-expense-amount">{dict.logShared.amountLabel}</Label>
+              <Label htmlFor="shared-expense-amount">
+                {/* F4: when prefilled from a due bill's "Log payment", this
+                    field holds the whole bill's total (needed for the split
+                    to balance below) — labelled explicitly as such so it
+                    doesn't read as this user's own share. */}
+                {prefill ? dict.logShared.amountLabelFull : dict.logShared.amountLabel}
+              </Label>
               <Input
                 id="shared-expense-amount"
                 name="amount"
@@ -251,6 +279,11 @@ export function LogSharedExpenseDialog({
                 onChange={(e) => setAmount(e.target.value)}
                 required
               />
+              {myShare !== undefined && (
+                <p className="text-xs text-muted-foreground">
+                  {dict.shared.yourShare}: {myShare.toFixed(2)}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="shared-expense-date">{dict.logShared.dateLabel}</Label>
@@ -258,7 +291,8 @@ export function LogSharedExpenseDialog({
                 id="shared-expense-date"
                 name="date"
                 type="date"
-                defaultValue={toDateInputValue(new Date())}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 required
               />
             </div>

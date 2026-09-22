@@ -43,12 +43,17 @@ export function PersonalRecurringTemplatesPanel({
   templates,
   pausedTemplates,
   categories,
+  monthKey,
   dict,
   locale,
 }: {
   templates: PersonalRecurringTemplateListRow[];
   pausedTemplates: PausedPersonalRecurringTemplateRow[];
   categories: PersonalCategoryRow[];
+  /** "YYYY-MM" of the month currently being browsed — threaded to the "Log
+   * transaction" dialog below so a new transaction defaults to a date within
+   * it (F11) instead of always today. */
+  monthKey: string;
   dict: Dictionary["personalBudget"];
   locale: Locale;
 }) {
@@ -117,6 +122,7 @@ export function PersonalRecurringTemplatesPanel({
                     <PersonalTransactionDialog
                       dict={dict}
                       categories={categories}
+                      monthKey={monthKey}
                       prefillFromTemplate={{
                         templateId: template.id,
                         categoryId: template.categoryId,

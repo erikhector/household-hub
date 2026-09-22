@@ -675,11 +675,22 @@ model RecurringTemplateSplit {
 // A period (see recurring-template-calc.ts's getPeriodKey for the string
 // format per frequency) explicitly marked "accounted for" without a
 // logged Transaction. The unique constraint makes acknowledging a period
-// idempotent (repeat clicks just no-op against the same row).
+// idempotent (repeat clicks just no-op against the same row — the upsert in
+// acknowledgeTemplatePeriodAction never overwrites createdByUserId on a
+// repeat click, so the original acknowledger stays attributed).
 model RecurringTemplateAck {
   id                  String   @id @default(cuid())
   recurringTemplateId String
   periodKey           String
+  // Who acknowledged this period — set once, on create, by
+  // acknowledgeTemplatePeriodAction (src/app/dashboard/budget/actions.ts).
+  // Plain-string (no @relation), mirroring Transaction.createdByUserId's
+  // shape: resolved to a display name via a household-member lookup in the
+  // Recurring items panel rather than a Prisma join. Null for any ack row
+  // that predates this field (no backfill) — the UI falls back to an
+  // unattributed "Marked accounted for" in that case, same convention
+  // InventoryItem.updatedByUserId's absent-name fallback uses.
+  createdByUserId     String?
   createdAt           DateTime @default(now())
 
   recurringTemplate RecurringTemplate @relation(fields: [recurringTemplateId], references: [id], onDelete: Cascade)
