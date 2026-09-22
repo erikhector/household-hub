@@ -10,6 +10,7 @@ import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
+import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
@@ -53,6 +54,10 @@ export function Sidebar({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
+  // Label the toggle with the state it will switch *to* (matching the
+  // locale toggle right next to it, which names the target locale rather
+  // than the active one) instead of the currently active theme.
+  const nextTheme = THEME_CHOICES[(THEME_CHOICES.indexOf(themeChoice) + 1) % THEME_CHOICES.length];
   const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
 
   function toggle() {
@@ -134,7 +139,7 @@ export function Sidebar({
           title={dict.theme.toggleLabel}
         >
           <ThemeIcon className="size-4" />
-          {expanded && dict.theme[themeChoice]}
+          {expanded && dict.theme[nextTheme]}
         </Button>
         <form action={logoutAction}>
           <Button
