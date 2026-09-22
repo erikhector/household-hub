@@ -324,6 +324,7 @@ const signupData = {
   householdName: "The Hectors",
   email: "erik@example.com",
   password: "supersecret",
+  confirmPassword: "supersecret",
 };
 
 describe("golden path: signup -> verify email -> log in -> household actions", () => {

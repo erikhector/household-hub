@@ -166,15 +166,21 @@ export async function acceptInviteAction(
 const JOIN_SIGNUP_RATE_LIMIT = 5;
 const JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-const joinSignupSchema = z.object({
-  token: z.string().min(1),
-  displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-});
+const joinSignupSchema = z
+  .object({
+    token: z.string().min(1),
+    displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+    email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 export async function joinViaInviteSignupAction(
   _prevState: SignupState,
@@ -185,6 +191,7 @@ export async function joinViaInviteSignupAction(
     displayName: formData.get("displayName"),
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -229,7 +236,11 @@ export async function joinViaInviteSignupAction(
   // verified before its first successful sign-in (see EmailNotVerifiedSignin
   // in src/lib/auth.ts). A generic invite link carries no proof that
   // whoever typed this email address actually owns it, so it needs the same
-  // verification gate as a plain signup.
+  // verification gate as a plain signup. Same enumeration reasoning as
+  // signupAction too: the caller just typed this email into this form, so
+  // there's nothing lost by telling them plainly if the send failed (see A1
+  // in UX_AUDIT_IMPLEMENTATION_PLAN.md).
+  let emailError = false;
   try {
     const verificationToken = await prisma.emailVerificationToken.create({
       data: {
@@ -240,12 +251,44 @@ export async function joinViaInviteSignupAction(
     });
     const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
     const locale = await getLocale();
-    await sendVerificationEmail({ to: email, verifyUrl, locale });
+    const { error } = await sendVerificationEmail({ to: email, verifyUrl, locale });
+    if (error) emailError = true;
   } catch (error) {
     toFriendlyError(error);
+    emailError = true;
   }
 
-  return { status: "verification-sent", email };
+  return { status: "verification-sent", email, ...(emailError ? { emailError: true } : {}) };
+}
+
+// --- Getting-started household step -------------------------------------
+
+// The getting-started household step's own copy says "or skip it and use it
+// solo" (see dashboard.gettingStarted.steps.household), but with no way to
+// actually record that choice the step never went away for a deliberately
+// solo household — see A11 in UX_AUDIT_IMPLEMENTATION_PLAN.md. This is a
+// lightweight, per-browser dismissal (like ACTIVE_HOUSEHOLD_COOKIE above),
+// not account state, so no schema change is needed for it; keyed per
+// household (rather than one flag for the whole account) since a user can
+// belong to more than one household and skipping the nudge for one solo
+// household shouldn't hide it for a different, genuinely-just-getting-set-up
+// one.
+const HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX = "household_step_skipped_";
+const HOUSEHOLD_STEP_SKIP_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+export async function isHouseholdStepSkipped(householdId: string): Promise<boolean> {
+  const cookieStore = await cookies();
+  return cookieStore.get(`${HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX}${householdId}`)?.value === "1";
+}
+
+export async function skipHouseholdStepAction(): Promise<void> {
+  const { household } = await requireHousehold();
+  const cookieStore = await cookies();
+  cookieStore.set(`${HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX}${household.id}`, "1", {
+    maxAge: HOUSEHOLD_STEP_SKIP_COOKIE_MAX_AGE,
+    path: "/",
+  });
+  revalidatePath("/dashboard");
 }
 
 export async function switchHouseholdAction(householdId: string) {
@@ -325,13 +368,33 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
   return {};
 }
 
+// Shared by deleteHouseholdAction's own guard below and
+// getHouseholdDeleteEligibilityAction, which DeleteHouseholdDialog calls
+// up front (before the type-to-confirm flow even opens) so this is stated
+// before the user invests any effort in confirming, not after — see A9 in
+// UX_AUDIT_IMPLEMENTATION_PLAN.md. Every other piece of a household's data
+// cascades on delete (see schema.prisma's onDelete: Cascade throughout), so
+// "this is your only household" is the one real blocker to surface.
+const ONLY_HOUSEHOLD_BLOCKED_MESSAGE = "You can't delete your only household. Create another one first.";
+
+export async function getHouseholdDeleteEligibilityAction(): Promise<{ blocked: boolean; reason?: string }> {
+  const { role, households } = await requireHousehold();
+  if (role !== "OWNER") {
+    return { blocked: true, reason: "Only the household owner can delete the household" };
+  }
+  if (households.length <= 1) {
+    return { blocked: true, reason: ONLY_HOUSEHOLD_BLOCKED_MESSAGE };
+  }
+  return { blocked: false };
+}
+
 export async function deleteHouseholdAction(): Promise<ActionState> {
   const { household, role, households } = await requireHousehold();
   if (role !== "OWNER") {
     return { error: "Only the household owner can delete the household" };
   }
   if (households.length <= 1) {
-    return { error: "You can't delete your only household. Create another one first." };
+    return { error: ONLY_HOUSEHOLD_BLOCKED_MESSAGE };
   }
 
   try {

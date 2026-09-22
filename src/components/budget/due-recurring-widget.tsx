@@ -31,6 +31,7 @@ export function DueRecurringWidget({
   categories,
   members,
   currentMemberId,
+  monthKey,
   dict,
   locale,
   onManageClick,
@@ -43,6 +44,9 @@ export function DueRecurringWidget({
   categories: CategoryRow[];
   members: MemberOption[];
   currentMemberId: string;
+  /** "YYYY-MM" of the month currently being browsed — threaded to
+   * TransactionDialog's "Log transaction" trigger (F11). */
+  monthKey: string;
   dict: Dictionary["budget"];
   locale: Locale;
   onManageClick: () => void;
@@ -107,12 +111,14 @@ export function DueRecurringWidget({
                     categories={categories}
                     members={members}
                     currentMemberId={currentMemberId}
+                    monthKey={monthKey}
                     prefillFromTemplate={{
                       templateId: template.id,
                       categoryId: template.categoryId,
                       amount: template.amount,
                       description: template.name,
                       frequency: template.frequency,
+                      splits: template.splits,
                     }}
                     trigger={
                       <Button size="xs" variant="secondary">

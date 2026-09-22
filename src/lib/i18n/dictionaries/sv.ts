@@ -33,6 +33,8 @@ export const sv = {
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
+    dismiss: "Avfärda",
+    dismissAll: "Avfärda alla",
     history: {
       title: "Aviseringar",
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
@@ -69,6 +71,7 @@ export const sv = {
       generating: "Skapar länk…",
       description: "Skicka den här länken till den som ska gå med. Den slutar gälla om 7 dagar.",
       copy: "Kopiera",
+      copiedToast: "Inbjudningslänk kopierad",
       linkAriaLabel: "Inbjudningslänk",
       emailLabel: "Eller skicka den via e-post",
       emailPlaceholder: "Mottagarens e-postadress",
@@ -81,6 +84,8 @@ export const sv = {
       one: "Delas med {count} annan person",
       other: "Delas med {count} andra personer",
     },
+    roleExplanation:
+      "Ägare kan ta bort medlemmar, överföra ägarskap och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
     owner: "Ägare",
     contributor: "Medlem",
     removeAriaLabel: "Ta bort {name}",
@@ -96,6 +101,9 @@ export const sv = {
       "Om hushållet tas bort försvinner det, och allt i det, för alla medlemmar. Det går inte att ångra.",
     delete: {
       trigger: "Ta bort hushåll",
+      checking: "Kontrollerar…",
+      blockedTitle: "Kan inte ta bort hushållet",
+      blockedClose: "OK",
       title: "Ta bort {name}?",
       description:
         "Detta tar permanent bort hushållet och allt i det — lager, inköpslistor, matplaner och budgetdata — för alla medlemmar. Det går inte att ångra.",
@@ -114,6 +122,8 @@ export const sv = {
     },
     leave: {
       ariaLabel: "Lämna hushållet",
+      ownerExplanation:
+        "Som ägare kan du inte lämna direkt — överför ägarskapet till en annan medlem eller ta bort hushållet istället.",
       confirmTitle: "Lämna det här hushållet?",
       confirmDescription:
         "Du förlorar åtkomst till dess lager, inköpslistor, matplaner och budgetdata. Du kan gå med igen senare om någon bjuder in dig på nytt.",
@@ -163,6 +173,8 @@ export const sv = {
     gettingStarted: {
       title: "Kom igång",
       subtitle: "Några snabba steg för att få ut det mesta av Squirrel.",
+      skip: "Hoppa över det här steget",
+      skipped: "Överhoppat — bjud in när som helst från hushållsinställningar.",
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
@@ -218,7 +230,20 @@ export const sv = {
     },
     backToAll: "Alla inköpslistor",
     addLowStock: "Lägg till varor med lågt lager",
+    addLowStockAddedToast: {
+      one: "La till {count} vara med lågt lager på listan",
+      other: "La till {count} varor med lågt lager på listan",
+    },
+    addLowStockNoneToast: "Inget har lågt lager just nu",
     completeList: "Markera som klar",
+    confirmCompleteList: {
+      title: "Markera listan som klar?",
+      description:
+        "Det här markerar listan som klar och, om varorna har priser, loggar totalsumman i din budget. Klarmarkerade av misstag? Ångra genom att arkivera listan och sedan återställa den.",
+      cancel: "Avbryt",
+      confirm: "Markera som klar",
+      confirming: "Markerar…",
+    },
     unarchive: "Återställ",
     archive: "Arkivera",
     delete: "Ta bort",
@@ -306,9 +331,11 @@ export const sv = {
         other: "Löste {count} varor",
       },
       errorToast: "Kunde inte lösa de varorna — försök igen.",
+      existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny" eller "Hoppa över".',
     },
     receiptScan: {
       scanButton: "Skanna kvitto",
+      scanDisabledHint: "Lägg till varor på listan först — det finns inget att matcha ett kvitto mot ännu.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
       dialogTitle: "Skanna kvitto",
@@ -384,6 +411,7 @@ export const sv = {
       appliedToast: "Registrerade {count} varor ({amount}) som en klarmarkerad lista.",
       ocrError: "Kunde inte läsa bilden. Prova ett tydligare foto av kvittot.",
       noItemsError: "Lägg till minst en vara innan du registrerar.",
+      existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny".',
     },
     shareLink: {
       button: "Dela",
@@ -392,6 +420,7 @@ export const sv = {
       description:
         "Alla med den här länken kan se och bocka av varor på listan — inget konto krävs. Återkalla den när som helst.",
       copy: "Kopiera",
+      copiedToast: "Dellänk kopierad",
       linkAriaLabel: "Dellänk",
       createError: "Kunde inte skapa dellänk",
       activeLabel: "Länken är aktiv",
@@ -684,6 +713,7 @@ export const sv = {
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",
+    jumpToToday: "Hoppa till idag",
     weekdayMon: "Mån",
     weekdayTue: "Tis",
     weekdayWed: "Ons",
@@ -707,6 +737,15 @@ export const sv = {
     portionsLabel: "Portioner",
     portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
     removeMealAriaLabel: "Ta bort måltid",
+    confirmDeleteMeal: {
+      title: "Ta bort {meal}?",
+      description: "Det går inte att ångra.",
+      descriptionCooked:
+        "Den här måltiden var redan markerad som lagad — lagret som användes återställs inte automatiskt.",
+      cancel: "Avbryt",
+      confirm: "Ta bort",
+      confirming: "Tar bort…",
+    },
     adding: "Lägger till…",
     add: "Lägg till",
     recipesTitle: "Recept",
@@ -747,6 +786,8 @@ export const sv = {
     addIngredient: "Lägg till ingrediens",
     removeIngredientAriaLabel: "Ta bort ingrediens",
     componentsLabel: "Delrecept",
+    componentsHint:
+      "Ett delrecepts ingredienser räknas med i detta recepts eget lageravdrag och beräkning av saknade ingredienser, skalat efter hur många omgångar du lägger till här.",
     addComponent: "Lägg till delrecept",
     componentQuantityPlaceholder: "Antal",
     removeComponentAriaLabel: "Ta bort delrecept",
@@ -793,6 +834,8 @@ export const sv = {
       one: "{count} ingrediens saknas",
       other: "{count} ingredienser saknas",
     },
+    missingIngredientUnitMismatchNote:
+      "Du kanske redan har lite — enheten går inte att jämföra, så den räknas som helt saknad",
     targetListLabel: "Lägg till i",
     newShoppingListOption: "Ny inköpslista…",
     newListNameLabel: "Listans namn",
@@ -800,6 +843,8 @@ export const sv = {
     addMissingIngredientsSubmit: "Lägg till i listan",
     missingIngredientsAddedToast: 'Tillagd i "{list}"',
     markCookedAriaLabel: "Markera som lagad",
+    markCookedUnavailableForCustomMeal:
+      "Egna måltider är inte kopplade till ett recept, så det finns inget att markera som lagat",
     mealCookedBadgeLabel: "Lagad",
     markCookedDialogTitle: "Markera som lagad",
     markCookedDialogHint: "Granska och justera lagret detta använde, bekräfta sedan.",
@@ -824,6 +869,8 @@ export const sv = {
     mealTypeLabel: "Måltid",
     addToPlanSubmit: "Lägg till i planen",
     addedToPlanToast: "{recipe} tillagd i planen",
+    addedToPlanDifferentWeekToast: "{recipe} tillagd i planen — i en annan vecka än den du visar",
+    viewThatWeek: "Visa den veckan",
   },
   tasks: {
     title: "Uppgifter",
@@ -840,6 +887,8 @@ export const sv = {
     completedSectionLabel: "Klara",
     unassignedBadge: "Ingen tilldelad",
     completedByLabel: "Klar av {name}",
+    lastCompletedByLabel: "Senast utförd av {name}",
+    nextDueLabel: "Nästa gång {date}",
     deleteTaskAriaLabel: "Ta bort {title}",
     confirmDelete: {
       title: "Ta bort {name}?",
@@ -850,6 +899,7 @@ export const sv = {
     },
     editTaskAriaLabel: "Redigera {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
+    toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
     recurrenceLabel: "Upprepa",
@@ -1086,6 +1136,8 @@ export const sv = {
       resume: "Återuppta",
       pausedBadge: "Pausad",
       dueDayLabel: "Förfaller dag {day}",
+      acknowledgedByLabel: "Markerad som klar av {name}",
+      acknowledgedByUnknown: "Markerad som klar",
     },
     fixedSummary: {
       title: "Fasta inkomster & utgifter",
@@ -1237,6 +1289,7 @@ export const sv = {
       categoryNoResults: "Inga matchande kategorier",
       categoryToggleLabel: "Kategori",
       amountLabel: "Belopp",
+      amountLabelFull: "Hela räkningens belopp",
       dateLabel: "Datum",
       descriptionLabel: "Beskrivning",
       descriptionPlaceholder: "Valfri anteckning",
@@ -1361,6 +1414,15 @@ export const sv = {
       headerDescription: "Beskrivning",
       headerRecurring: "Återkommande",
     },
+    personalBudget: {
+      fileNamePrefix: "personlig-budget-transaktioner",
+      headerDate: "Datum",
+      headerCategory: "Kategori",
+      headerType: "Typ",
+      headerAmount: "Belopp",
+      headerDescription: "Beskrivning",
+      headerRecurring: "Återkommande",
+    },
   },
   barcodeScanner: {
     scanButton: "Skanna streckkod",
@@ -1395,7 +1457,7 @@ export const sv = {
       currentEmailLabel: "Nuvarande e-post",
       newEmailLabel: "Ny e-post",
       currentPasswordLabel: "Nuvarande lösenord",
-      saved: "E-post uppdaterad",
+      saved: "E-post uppdaterad — kolla din inkorg för att verifiera den nya adressen",
       saving: "Uppdaterar…",
       save: "Uppdatera e-post",
       notVerified: "Inte verifierad än.",
@@ -1413,7 +1475,7 @@ export const sv = {
       save: "Uppdatera lösenord",
     },
     dataExport: {
-      title: "Exportera dina data",
+      title: "Exportera ditt kontos data",
       description:
         "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
       button: "Exportera mina data",
@@ -1458,6 +1520,8 @@ export const sv = {
       welcomeTitle: "Välkommen tillbaka!",
       email: "E-post",
       password: "Lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       forgotPassword: "Glömt lösenordet?",
       loggingIn: "Loggar in…",
       submit: "Logga in",
@@ -1480,6 +1544,8 @@ export const sv = {
       pageTitle: "Välj ett nytt lösenord",
       newPassword: "Nytt lösenord",
       confirmPassword: "Bekräfta nytt lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       saving: "Uppdaterar…",
       submit: "Uppdatera lösenord",
       backToLogin: "Tillbaka till inloggning",
@@ -1501,30 +1567,48 @@ export const sv = {
       householdNamePlaceholder: "t.ex. Familjen Andersson",
       email: "E-post",
       password: "Lösenord",
+      confirmPassword: "Bekräfta lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       creating: "Skapar konto…",
       submit: "Skapa hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       verificationSentDescription:
         "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+      verificationSendFailedDescription:
+        "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
+      resend: "Skicka verifieringslänk igen",
+      resending: "Skickar…",
     },
     join: {
       invalidTitle: "Ogiltig inbjudan",
       joinTitle: "Gå med i {name}",
       invalidDescription:
         "Den här inbjudningslänken är ogiltig eller har slutat gälla. Be en hushållsmedlem skicka en ny.",
+      backToLogin: "Tillbaka till inloggning",
+      goToDashboard: "Gå till översikten",
+      acceptConsequence:
+        "Du får full åtkomst till hushållets lager, inköpslistor, matplaner och budgetdata.",
       accepting: "Går med…",
       accept: "Gå med i hushållet",
       yourName: "Ditt namn",
       email: "E-post",
       password: "Lösenord",
+      confirmPassword: "Bekräfta lösenord",
+      showPassword: "Visa lösenord",
+      hidePassword: "Dölj lösenord",
       creating: "Går med…",
       submit: "Skapa konto och gå med",
+      orDivider: "eller",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
-      logInSuffix: "först, och öppna sedan den här inbjudningslänken igen.",
       verificationSentDescription:
         "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+      verificationSendFailedDescription:
+        "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
+      resend: "Skicka verifieringslänk igen",
+      resending: "Skickar…",
     },
   },
   landing: {
@@ -1590,6 +1674,8 @@ export const sv = {
     notFoundTitle: "Länken hittades inte",
     notFoundDescription:
       "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
+    liveNotice:
+      "Det här sker på riktigt — att bocka av en vara här uppdaterar hushållets faktiska inköpslista och lager direkt.",
     purchased: "Köpt",
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",

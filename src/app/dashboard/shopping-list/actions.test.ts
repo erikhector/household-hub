@@ -243,6 +243,41 @@ describe("household-scoping (IDOR) guards on id-targeted actions", () => {
   });
 });
 
+describe("generateFromLowStockAction", () => {
+  it("reports how many low-stock items it added, so the caller can toast a count", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", quantity: 1, lowStockThreshold: 3, unit: "l" },
+      { id: "inv-2", name: "Eggs", quantity: 5, lowStockThreshold: 2, unit: "pcs" },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await generateFromLowStockAction("list-1");
+
+    expect(result.added).toBe(1);
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ inventoryItemId: "inv-1", name: "Milk" }),
+      ],
+    });
+  });
+
+  it("reports 0 added (not an error) when nothing is low on stock", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", quantity: 5, lowStockThreshold: 2, unit: "l" },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+
+    const result = await generateFromLowStockAction("list-1");
+
+    expect(result.added).toBe(0);
+    expect(result.error).toBeUndefined();
+    expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHocShoppingListItem)", () => {
   it("rejects a zero quantity", async () => {
     const result = await addAdHocItemAction(

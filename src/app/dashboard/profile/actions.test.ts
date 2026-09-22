@@ -17,12 +17,16 @@ const {
   householdMemberFindManyMock,
   householdMemberDeleteMock,
   householdDeleteMock,
+  emailVerificationTokenCreateMock,
+  emailVerificationTokenDeleteManyMock,
   transactionMock,
   signOutMock,
   bcryptCompareMock,
   bcryptHashMock,
   revalidatePathMock,
   toFriendlyErrorMock,
+  sendVerificationEmailMock,
+  headersMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   requireUserIdMock: vi.fn(),
@@ -33,6 +37,8 @@ const {
   householdMemberFindManyMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
   householdDeleteMock: vi.fn(),
+  emailVerificationTokenCreateMock: vi.fn(async () => ({ token: "generated-token" })),
+  emailVerificationTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) =>
     cb({
       household: { delete: householdDeleteMock },
@@ -45,6 +51,8 @@ const {
   bcryptHashMock: vi.fn(async () => "hashed"),
   revalidatePathMock: vi.fn(),
   toFriendlyErrorMock: vi.fn(() => ({ error: "Something went wrong. Please try again." })),
+  sendVerificationEmailMock: vi.fn(async () => ({})),
+  headersMock: vi.fn(async () => new Map([["host", "example.com"]])),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -62,6 +70,10 @@ vi.mock("@/lib/prisma", () => ({
     household: {
       delete: householdDeleteMock,
     },
+    emailVerificationToken: {
+      create: emailVerificationTokenCreateMock,
+      deleteMany: emailVerificationTokenDeleteManyMock,
+    },
     $transaction: transactionMock,
   },
 }));
@@ -75,6 +87,11 @@ vi.mock("bcryptjs", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/actions/errors", () => ({ toFriendlyError: toFriendlyErrorMock }));
+// src/lib/email.ts imports "server-only", which Vitest's Node environment
+// can't resolve outside a Next.js build — stub it out, same as
+// src/lib/actions/auth.test.ts does.
+vi.mock("@/lib/email", () => ({ sendVerificationEmail: sendVerificationEmailMock }));
+vi.mock("next/headers", () => ({ headers: headersMock }));
 
 const { updateProfileAction, updateEmailAction, updatePasswordAction, deleteAccountAction } =
   await import("@/app/dashboard/profile/actions");
@@ -153,8 +170,13 @@ describe("updateEmailAction (re-authentication gate)", () => {
     expect(userUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("updates the email for the caller's own account once password and uniqueness both check out", async () => {
-    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", email: "old@example.com", passwordHash: "hash" });
+  it("updates the email, resets verification status, and sends a fresh verification email to the new address", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({
+      id: "user-1",
+      email: "old@example.com",
+      passwordHash: "hash",
+      locale: "sv",
+    });
     bcryptCompareMock.mockResolvedValue(true);
     userFindUniqueMock.mockResolvedValue(null);
     userUpdateMock.mockResolvedValue({});
@@ -164,7 +186,41 @@ describe("updateEmailAction (re-authentication gate)", () => {
     expect(result).toEqual({});
     expect(userUpdateMock).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { email: "new@example.com" },
+      data: { email: "new@example.com", emailVerifiedAt: null },
+    });
+    // Old unused tokens (e.g. from a previous email change) are invalidated
+    // first, same as resendVerificationEmailAction.
+    expect(emailVerificationTokenDeleteManyMock).toHaveBeenCalledWith({
+      where: { userId: "user-1", usedAt: null },
+    });
+    expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: "user-1" }),
+    });
+    expect(sendVerificationEmailMock).toHaveBeenCalledWith({
+      to: "new@example.com",
+      verifyUrl: expect.stringContaining("/verify-email/generated-token"),
+      locale: "sv",
+    });
+  });
+
+  it("still succeeds when sending the verification email fails — the email change itself is not rolled back", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({
+      id: "user-1",
+      email: "old@example.com",
+      passwordHash: "hash",
+      locale: "en",
+    });
+    bcryptCompareMock.mockResolvedValue(true);
+    userFindUniqueMock.mockResolvedValue(null);
+    userUpdateMock.mockResolvedValue({});
+    sendVerificationEmailMock.mockRejectedValueOnce(new Error("delivery down"));
+
+    const result = await updateEmailAction({}, formData(base));
+
+    expect(result).toEqual({});
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { email: "new@example.com", emailVerifiedAt: null },
     });
   });
 

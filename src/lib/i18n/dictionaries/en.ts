@@ -36,6 +36,8 @@ export const en = {
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
+    dismiss: "Dismiss",
+    dismissAll: "Dismiss all",
     history: {
       title: "Notifications",
       subtitle: "Everything sent to your household, read or not.",
@@ -77,6 +79,7 @@ export const en = {
       generating: "Generating link…",
       description: "Send this link to whoever should join. It expires in 7 days.",
       copy: "Copy",
+      copiedToast: "Invite link copied",
       linkAriaLabel: "Invite link",
       emailLabel: "Or send it by email",
       emailPlaceholder: "Their email address",
@@ -89,6 +92,8 @@ export const en = {
       one: "Shared with {count} other person",
       other: "Shared with {count} other people",
     },
+    roleExplanation:
+      "Owners can remove members, transfer ownership, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
     removeAriaLabel: "Remove {name}",
@@ -104,6 +109,9 @@ export const en = {
       "Deleting this household removes it, and everything in it, for every member. There's no undo.",
     delete: {
       trigger: "Delete household",
+      checking: "Checking…",
+      blockedTitle: "Can't delete household",
+      blockedClose: "OK",
       title: "Delete {name}?",
       description:
         "This permanently deletes the household and everything in it — inventory, shopping lists, meal plans, and budget data — for every member. This can't be undone.",
@@ -122,6 +130,8 @@ export const en = {
     },
     leave: {
       ariaLabel: "Leave household",
+      ownerExplanation:
+        "As the owner, you can't leave directly — transfer ownership to another member or delete the household instead.",
       confirmTitle: "Leave this household?",
       confirmDescription:
         "You'll lose access to its inventory, shopping lists, meal plans, and budget data. You can rejoin later if someone invites you again.",
@@ -171,6 +181,8 @@ export const en = {
     gettingStarted: {
       title: "Get set up",
       subtitle: "A few quick steps to get the most out of Squirrel.",
+      skip: "Skip this step",
+      skipped: "Skipped — invite anytime from Household settings.",
       steps: {
         household: {
           title: "Invite your household",
@@ -226,7 +238,20 @@ export const en = {
     },
     backToAll: "All shopping lists",
     addLowStock: "Add low-stock items",
+    addLowStockAddedToast: {
+      one: "Added {count} low-stock item to the list",
+      other: "Added {count} low-stock items to the list",
+    },
+    addLowStockNoneToast: "Nothing low on stock right now",
     completeList: "Complete list",
+    confirmCompleteList: {
+      title: "Complete this list?",
+      description:
+        "This marks the list as done and, if items have prices, logs the total to your budget. Completed by accident? Undo it with Archive, then Unarchive on this list.",
+      cancel: "Cancel",
+      confirm: "Complete list",
+      confirming: "Completing…",
+    },
     unarchive: "Unarchive",
     archive: "Archive",
     delete: "Delete",
@@ -314,9 +339,11 @@ export const en = {
         other: "Resolved {count} items",
       },
       errorToast: "Couldn't resolve those items — try again.",
+      existingSelectionRequired: 'Choose an item, or switch to "Create new" or "Skip".',
     },
     receiptScan: {
       scanButton: "Scan receipt",
+      scanDisabledHint: "Add items to this list first — there's nothing yet to match a receipt against.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
       dialogTitle: "Scan receipt",
@@ -392,6 +419,7 @@ export const en = {
       appliedToast: "Registered {count} items ({amount}) as a completed list.",
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
+      existingSelectionRequired: 'Choose an item, or switch to "Create new".',
     },
     shareLink: {
       button: "Share",
@@ -400,6 +428,7 @@ export const en = {
       description:
         "Anyone with this link can view and check off items on this list — no account needed. Revoke it any time.",
       copy: "Copy",
+      copiedToast: "Share link copied",
       linkAriaLabel: "Share link",
       createError: "Could not create share link",
       activeLabel: "Link is active",
@@ -692,6 +721,7 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
+    jumpToToday: "Jump to today",
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",
@@ -715,6 +745,15 @@ export const en = {
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
     removeMealAriaLabel: "Remove meal",
+    confirmDeleteMeal: {
+      title: "Remove {meal}?",
+      description: "This can't be undone.",
+      descriptionCooked:
+        "This meal was already marked as cooked — the inventory it used won't be restored automatically.",
+      cancel: "Cancel",
+      confirm: "Remove",
+      confirming: "Removing…",
+    },
     adding: "Adding…",
     add: "Add",
     recipesTitle: "Recipes",
@@ -755,6 +794,8 @@ export const en = {
     addIngredient: "Add ingredient",
     removeIngredientAriaLabel: "Remove ingredient",
     componentsLabel: "Sub-recipes",
+    componentsHint:
+      "A sub-recipe's ingredients count toward this recipe's own inventory decrement and missing-ingredients calculations, scaled by however many batches you add here.",
     addComponent: "Add sub-recipe",
     componentQuantityPlaceholder: "Batches",
     removeComponentAriaLabel: "Remove sub-recipe",
@@ -801,6 +842,8 @@ export const en = {
       one: "{count} ingredient needed",
       other: "{count} ingredients needed",
     },
+    missingIngredientUnitMismatchNote:
+      "You may already have some — its unit can't be compared, so it's counted as fully needed",
     targetListLabel: "Add to",
     newShoppingListOption: "New shopping list…",
     newListNameLabel: "List name",
@@ -808,6 +851,8 @@ export const en = {
     addMissingIngredientsSubmit: "Add to list",
     missingIngredientsAddedToast: 'Added to "{list}"',
     markCookedAriaLabel: "Mark as cooked",
+    markCookedUnavailableForCustomMeal:
+      "Custom meals aren't linked to a recipe, so there's nothing to mark as cooked",
     mealCookedBadgeLabel: "Cooked",
     markCookedDialogTitle: "Mark as cooked",
     markCookedDialogHint: "Review and adjust the inventory this used, then confirm.",
@@ -832,6 +877,8 @@ export const en = {
     mealTypeLabel: "Meal",
     addToPlanSubmit: "Add to plan",
     addedToPlanToast: "Added {recipe} to the plan",
+    addedToPlanDifferentWeekToast: "Added {recipe} to the plan — in a different week than you're viewing",
+    viewThatWeek: "View that week",
   },
   tasks: {
     title: "Tasks",
@@ -848,6 +895,8 @@ export const en = {
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",
+    lastCompletedByLabel: "Last done by {name}",
+    nextDueLabel: "Next due {date}",
     deleteTaskAriaLabel: "Delete {title}",
     confirmDelete: {
       title: "Delete {name}?",
@@ -858,6 +907,7 @@ export const en = {
     },
     editTaskAriaLabel: "Edit {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
+    toggleIncompleteAriaLabel: "Mark {title} as not done",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",
@@ -1094,6 +1144,8 @@ export const en = {
       resume: "Resume",
       pausedBadge: "Paused",
       dueDayLabel: "Due on day {day}",
+      acknowledgedByLabel: "Marked accounted for by {name}",
+      acknowledgedByUnknown: "Marked accounted for",
     },
     fixedSummary: {
       title: "Fixed income & costs",
@@ -1248,6 +1300,7 @@ export const en = {
       categoryNoResults: "No matching categories",
       categoryToggleLabel: "Category",
       amountLabel: "Amount",
+      amountLabelFull: "Full bill amount",
       dateLabel: "Date",
       descriptionLabel: "Description",
       descriptionPlaceholder: "Optional note",
@@ -1372,6 +1425,15 @@ export const en = {
       headerDescription: "Description",
       headerRecurring: "Recurring",
     },
+    personalBudget: {
+      fileNamePrefix: "personal-budget-transactions",
+      headerDate: "Date",
+      headerCategory: "Category",
+      headerType: "Type",
+      headerAmount: "Amount",
+      headerDescription: "Description",
+      headerRecurring: "Recurring",
+    },
   },
   barcodeScanner: {
     scanButton: "Scan barcode",
@@ -1406,7 +1468,7 @@ export const en = {
       currentEmailLabel: "Current email",
       newEmailLabel: "New email",
       currentPasswordLabel: "Current password",
-      saved: "Email updated",
+      saved: "Email updated — check your inbox to verify the new address",
       saving: "Updating…",
       save: "Update email",
       notVerified: "Not verified yet.",
@@ -1424,7 +1486,7 @@ export const en = {
       save: "Update password",
     },
     dataExport: {
-      title: "Export your data",
+      title: "Export your account data",
       description:
         "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
       button: "Export my data",
@@ -1469,6 +1531,8 @@ export const en = {
       welcomeTitle: "Welcome back!",
       email: "Email",
       password: "Password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       forgotPassword: "Forgot password?",
       loggingIn: "Logging in…",
       submit: "Log in",
@@ -1491,6 +1555,8 @@ export const en = {
       pageTitle: "Choose a new password",
       newPassword: "New password",
       confirmPassword: "Confirm new password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       saving: "Updating…",
       submit: "Update password",
       backToLogin: "Back to log in",
@@ -1512,30 +1578,48 @@ export const en = {
       householdNamePlaceholder: "e.g. The Andersson family",
       email: "Email",
       password: "Password",
+      confirmPassword: "Confirm password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       creating: "Creating account…",
       submit: "Create household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
       verificationSentDescription:
         "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+      verificationSendFailedDescription:
+        "Account created, but we couldn't send the verification email just now. Try resending it below.",
+      resend: "Resend verification email",
+      resending: "Sending…",
     },
     join: {
       invalidTitle: "Invalid invite",
       joinTitle: "Join {name}",
       invalidDescription:
         "This invite link is invalid or has expired. Ask a household member to send you a new one.",
+      backToLogin: "Back to log in",
+      goToDashboard: "Go to dashboard",
+      acceptConsequence:
+        "You'll get full access to this household's inventory, shopping lists, meal plans, and budget data.",
       accepting: "Joining…",
       accept: "Join household",
       yourName: "Your name",
       email: "Email",
       password: "Password",
+      confirmPassword: "Confirm password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       creating: "Joining…",
       submit: "Create account & join",
+      orDivider: "or",
       haveAccount: "Already have an account?",
       logIn: "Log in",
-      logInSuffix: "first, then reopen this invite link.",
       verificationSentDescription:
         "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+      verificationSendFailedDescription:
+        "Account created, but we couldn't send the verification email just now. Try resending it below.",
+      resend: "Resend verification email",
+      resending: "Sending…",
     },
   },
   landing: {
@@ -1614,6 +1698,8 @@ export const en = {
     notFoundTitle: "Link not found",
     notFoundDescription:
       "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
+    liveNotice:
+      "This is live — checking an item here updates this household's actual shopping list and inventory right away.",
     purchased: "Purchased",
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",

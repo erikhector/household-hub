@@ -33,11 +33,11 @@ Small, single-purpose, no design judgment calls. Land these before Wave 2
 branches are cut so nobody's worktree carries a stale copy of
 `src/app/dashboard/page.tsx` or the dictionary files.
 
-- [ ] **1.1 Low-stock threshold inconsistency** — `src/app/dashboard/shopping-list/actions.ts:153` (`generateFromLowStockAction`) and `src/app/dashboard/page.tsx:98-99` (Overview's low-stock widget) both still inline `quantity <= lowStockThreshold`; both should import and use `getStockStatus()` from `src/lib/stock-status.ts` instead, matching the strict-`<` fix already shipped there.
-- [ ] **1.2 Privacy Policy & Terms contradict shipped self-service features** — `src/app/privacy/page.tsx` (~208-216, "Your rights…") and `src/app/terms/page.tsx` (~151-163, "Ending your account") both tell users to email the household owner for data export/account deletion; rewrite both to point at Profile's actual "Export my data" and "Delete account" controls.
-- [ ] **1.3 "Copy" gives no confirmation** — `src/components/shopping/share-list-button.tsx:91-97` and `src/components/household/invite-button.tsx:79-86`; add a `toast.success()` or a 2-second "Copied" button-label swap to both.
-- [ ] **1.4 Data-export heading precision** — Profile's "Export your data" heading/dict string could read as "everything"; retitle to something like "Export your account data" (copy-only).
-- [ ] **1.5 Task-toggle aria-label wrong when un-completing** — `en.ts`/`sv.ts` `toggleCompleteAriaLabel` ("Mark {title} as done") used unconditionally at `src/components/tasks/tasks-client.tsx:128` even when the click will un-complete; add a second string selected by `task.completed`.
+- [x] **1.1 Low-stock threshold inconsistency** — `src/app/dashboard/shopping-list/actions.ts:153` (`generateFromLowStockAction`) and `src/app/dashboard/page.tsx:98-99` (Overview's low-stock widget) both still inline `quantity <= lowStockThreshold`; both should import and use `getStockStatus()` from `src/lib/stock-status.ts` instead, matching the strict-`<` fix already shipped there.
+- [x] **1.2 Privacy Policy & Terms contradict shipped self-service features** — `src/app/privacy/page.tsx` (~208-216, "Your rights…") and `src/app/terms/page.tsx` (~151-163, "Ending your account") both tell users to email the household owner for data export/account deletion; rewrite both to point at Profile's actual "Export my data" and "Delete account" controls.
+- [x] **1.3 "Copy" gives no confirmation** — `src/components/shopping/share-list-button.tsx:91-97` and `src/components/household/invite-button.tsx:79-86`; add a `toast.success()` or a 2-second "Copied" button-label swap to both.
+- [x] **1.4 Data-export heading precision** — Profile's "Export your data" heading/dict string could read as "everything"; retitle to something like "Export your account data" (copy-only).
+- [x] **1.5 Task-toggle aria-label wrong when un-completing** — `en.ts`/`sv.ts` `toggleCompleteAriaLabel` ("Mark {title} as done") used unconditionally at `src/components/tasks/tasks-client.tsx:128` even when the click will un-complete; add a second string selected by `task.completed`.
 
 ---
 

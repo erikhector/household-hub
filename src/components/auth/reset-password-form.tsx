@@ -4,8 +4,8 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { KeyRound, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/auth/password-input";
 import { resetPasswordAction, type ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -25,35 +25,31 @@ export function ResetPasswordForm({
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="newPassword">{dict.newPassword}</Label>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="newPassword"
-            name="newPassword"
-            type="password"
-            required
-            minLength={8}
-            maxLength={72}
-            autoComplete="new-password"
-            className="pl-8"
-          />
-        </div>
+        <PasswordInput
+          id="newPassword"
+          name="newPassword"
+          icon={Lock}
+          required
+          minLength={8}
+          maxLength={72}
+          autoComplete="new-password"
+          showLabel={dict.showPassword}
+          hideLabel={dict.hidePassword}
+        />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">{dict.confirmPassword}</Label>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            required
-            minLength={8}
-            maxLength={72}
-            autoComplete="new-password"
-            className="pl-8"
-          />
-        </div>
+        <PasswordInput
+          id="confirmPassword"
+          name="confirmPassword"
+          icon={Lock}
+          required
+          minLength={8}
+          maxLength={72}
+          autoComplete="new-password"
+          showLabel={dict.showPassword}
+          hideLabel={dict.hidePassword}
+        />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-full">

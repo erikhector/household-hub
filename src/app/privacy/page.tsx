@@ -206,13 +206,13 @@ export default async function PrivacyPage() {
               EU/EEA and Swedish users, these come from the GDPR.
             </p>
             <p>
-              Squirrel doesn&apos;t yet have a self-service &quot;export my data&quot; or
-              &quot;delete my account&quot; button built into the app. Until it does, you can
-              exercise any of these rights by contacting the household owner who invited you, or
-              whoever operates your instance of Squirrel — they can look up, correct, export,
-              or delete your account data directly. You can already delete your own content (for
-              example, individual inventory items, shopping lists, or budget entries) yourself at
-              any time through the app.
+              You can exercise most of these rights yourself, without contacting anyone: use
+              &quot;Export my data&quot; in your Profile to download a copy of your personal
+              data, or &quot;Delete account&quot; there to permanently delete your account. You
+              can also delete your own content (for example, individual inventory items,
+              shopping lists, or budget entries) yourself at any time through the app. For
+              anything those self-service tools don&apos;t cover, contact the household owner
+              who invited you, or whoever operates your instance of Squirrel.
             </p>
           </Section>
 

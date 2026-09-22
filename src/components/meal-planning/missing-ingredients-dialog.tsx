@@ -131,30 +131,32 @@ export function MissingIngredientsDialog({
 
             <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
               {items.map((item) => (
-                <label
-                  key={item.key}
-                  className="flex items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
-                    checked={item.included}
-                    onChange={() => toggleItem(item.key)}
-                  />
-                  <span className="min-w-0 flex-1 truncate" title={item.name}>
-                    {item.name}
-                  </span>
-                  <span className="shrink-0 text-muted-foreground">
-                    {item.missingQuantity} {item.unit}
-                  </span>
-                  {item.included && (
-                    <>
-                      <input type="hidden" name="itemName" value={item.name} />
-                      <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
-                      <input type="hidden" name="itemUnit" value={item.unit} />
-                    </>
+                <div key={item.key} className="flex flex-col gap-0.5 rounded-md bg-muted px-2 py-1.5 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-primary"
+                      checked={item.included}
+                      onChange={() => toggleItem(item.key)}
+                    />
+                    <span className="min-w-0 flex-1 truncate" title={item.name}>
+                      {item.name}
+                    </span>
+                    <span className="shrink-0 text-muted-foreground">
+                      {item.missingQuantity} {item.unit}
+                    </span>
+                    {item.included && (
+                      <>
+                        <input type="hidden" name="itemName" value={item.name} />
+                        <input type="hidden" name="itemQuantity" value={item.missingQuantity} />
+                        <input type="hidden" name="itemUnit" value={item.unit} />
+                      </>
+                    )}
+                  </label>
+                  {item.unitMismatch && (
+                    <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
                   )}
-                </label>
+                </div>
               ))}
             </div>
 

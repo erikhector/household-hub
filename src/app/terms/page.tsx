@@ -152,7 +152,10 @@ export default async function TermsPage() {
             <p>
               You can leave any household you belong to at any time. A household owner can
               delete their household at any time from that household&apos;s settings, which is
-              permanent. To close your account entirely, contact whoever administers your
+              permanent. To close your account entirely, use &quot;Delete account&quot; in your
+              Profile — this is permanent and removes your personal data. If you own a household
+              with other members, you&apos;ll need to transfer ownership first. For anything
+              that self-service option doesn&apos;t cover, contact whoever administers your
               household&apos;s Squirrel instance (typically the household owner who invited
               you, or the person who set up the app) — see &quot;Contact&quot; in our{" "}
               <Link href="/privacy" className="text-primary underline underline-offset-4">

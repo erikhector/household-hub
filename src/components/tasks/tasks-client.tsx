@@ -14,10 +14,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
+import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TasksWeeklyRecap, type WeeklyRecapGroupView } from "@/components/tasks/tasks-weekly-recap";
 import { format, plural } from "@/lib/i18n/format";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 type MemberOption = { id: string; displayName: string };
 
@@ -28,6 +29,7 @@ type TaskRow = {
   completedByMemberId: string | null;
   completed: boolean;
   recurrenceIntervalDays: number | null;
+  completedAt: Date | null;
 };
 
 type TasksDict = Dictionary["tasks"];
@@ -37,11 +39,13 @@ export function TasksClient({
   members,
   tasks,
   recapGroups,
+  locale,
 }: {
   dict: TasksDict;
   members: MemberOption[];
   tasks: TaskRow[];
   recapGroups: WeeklyRecapGroupView[];
+  locale: Locale;
 }) {
   const [isPending, startTransition] = useTransition();
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
@@ -69,6 +73,7 @@ export function TasksClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 dict={dict}
+                locale={locale}
               />
             ))}
             {completedTasks.length > 0 && (
@@ -85,6 +90,7 @@ export function TasksClient({
                 isPending={isPending}
                 startTransition={startTransition}
                 dict={dict}
+                locale={locale}
               />
             ))}
           </>
@@ -101,6 +107,7 @@ function TaskItemRow({
   isPending,
   startTransition,
   dict,
+  locale,
 }: {
   task: TaskRow;
   members: MemberOption[];
@@ -108,11 +115,22 @@ function TaskItemRow({
   isPending: boolean;
   startTransition: (fn: () => void) => void;
   dict: TasksDict;
+  locale: Locale;
 }) {
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
   const recurrenceLabel = task.recurrenceIntervalDays
     ? format(plural(task.recurrenceIntervalDays, dict.recurrenceBadge), { count: task.recurrenceIntervalDays })
+    : null;
+  // Only meaningful while the task is still shown completed — a recurring
+  // task's `completedAt` also sticks around once it's auto-reopened past its
+  // interval (see recurrence.ts), at which point "next due" would be a date
+  // in the past, which isn't worth surfacing.
+  const nextDueAt = task.completed ? getNextDueDate(task) : null;
+  const nextDueLabel = nextDueAt
+    ? format(dict.nextDueLabel, {
+        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(nextDueAt),
+      })
     : null;
 
   return (
@@ -125,7 +143,10 @@ function TaskItemRow({
         <Checkbox
           checked={task.completed}
           disabled={isPending}
-          aria-label={format(dict.toggleCompleteAriaLabel, { title: task.title })}
+          aria-label={format(
+            task.completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel,
+            { title: task.title },
+          )}
           onChange={() =>
             startTransition(async () => {
               const result = await toggleTaskCompletedAction(task.id);
@@ -147,6 +168,7 @@ function TaskItemRow({
             {recurrenceLabel}
           </Badge>
         )}
+        {nextDueLabel && <span className="shrink-0 text-xs text-muted-foreground">{nextDueLabel}</span>}
         {!task.completed && (
           <Badge variant={assigneeName ? "secondary" : "outline"} className="shrink-0">
             {assigneeName ?? dict.unassignedBadge}
@@ -155,6 +177,16 @@ function TaskItemRow({
         {task.completed && (
           <span className="shrink-0 text-xs text-muted-foreground">
             {format(dict.completedByLabel, { name: completerName ?? dict.unassignedBadge })}
+          </span>
+        )}
+        {/* An open task can still carry a completedByMemberId from before it
+            was reopened (manually, or automatically once its recurrence
+            interval elapsed — see toggleTaskCompletedAction/recurrence.ts):
+            that's real "last done by" history, not stale data, so surface it
+            rather than letting it silently disappear once the task reopens. */}
+        {!task.completed && completerName && (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {format(dict.lastCompletedByLabel, { name: completerName })}
           </span>
         )}
         <TaskFormDialog

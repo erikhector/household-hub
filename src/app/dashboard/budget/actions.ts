@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold, requireUserId } from "@/lib/session";
-import { getPeriodKey } from "@/lib/recurring-template-calc";
+import { getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 
@@ -200,11 +200,27 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: categoryId, householdId: household.id },
-    include: { _count: { select: { transactions: true } } },
+    include: {
+      _count: { select: { transactions: true } },
+      // Named in the error below rather than just failing generically — a
+      // category can have a blocking RecurringTemplate with zero
+      // transactions of its own (the transactions count above only catches
+      // the category's *own* logged transactions), which would otherwise
+      // hit BudgetCategory→RecurringTemplate's FK restrict and surface as
+      // an opaque "something went wrong". `active` first so a live template
+      // is named ahead of a paused one when a category has both.
+      recurringTemplates: { select: { name: true }, orderBy: { active: "desc" }, take: 1 },
+    },
   });
   if (!category) return { error: "Category not found" };
   if (category._count.transactions > 0) {
     return { error: "This category has transactions and can't be deleted" };
+  }
+  const blockingTemplate = category.recurringTemplates[0];
+  if (blockingTemplate) {
+    return {
+      error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
+    };
   }
 
   try {
@@ -247,19 +263,48 @@ function parseTransactionFormData(formData: FormData) {
 
 /** Validates an optional client-supplied recurringTemplateId actually
  * belongs to the caller's household before it's ever written to a
- * transaction. Returns `undefined` (not provided), the validated id, or an
+ * transaction. Returns `undefined` (not provided), the validated id (plus
+ * its frequency, needed by assertNoDuplicateTemplatePeriod below), or an
  * error. */
 async function resolveRecurringTemplateId(
   householdId: string,
   recurringTemplateId: string | undefined,
-): Promise<{ error: string } | { id: string | undefined }> {
+): Promise<{ error: string } | { id: undefined } | { id: string; frequency: TemplateFrequency }> {
   if (!recurringTemplateId) return { id: undefined };
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: recurringTemplateId, householdId },
-    select: { id: true },
+    select: { id: true, frequency: true },
   });
   if (!template) return { error: "Recurring template not found" };
-  return { id: template.id };
+  return { id: template.id, frequency: template.frequency };
+}
+
+/**
+ * Guards against the same recurring template being logged twice for the
+ * same period — the same period-matching logic computeTemplateStatuses
+ * (src/lib/recurring-template-calc.ts) uses to derive "posted" at read time,
+ * enforced here at write time too. Needed because a template's period can be
+ * logged from three independent entry points (the household budget's "Log
+ * as-is"/"Log transaction", and Personal Budget's "Log payment" via
+ * createSharedExpenseFromPersonalBudgetAction below) that don't otherwise
+ * know about each other within one request — e.g. two household members
+ * racing each other, or Personal Budget's due-row widget being a request
+ * behind the household budget's own revalidation.
+ */
+async function assertNoDuplicateTemplatePeriod(
+  recurringTemplateId: string,
+  frequency: TemplateFrequency,
+  date: Date,
+): Promise<{ error: string } | null> {
+  const periodKey = getPeriodKey(date, frequency);
+  const existing = await prisma.transaction.findMany({
+    where: { recurringTemplateId },
+    select: { date: true },
+  });
+  const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);
+  return alreadyLogged
+    ? { error: "A transaction for this recurring item already exists for this period" }
+    : null;
 }
 
 // Amounts within this tolerance of the transaction total are accepted —
@@ -347,6 +392,14 @@ export async function createTransactionAction(
     parsed.data.recurringTemplateId,
   );
   if ("error" in recurringTemplate) return { error: recurringTemplate.error };
+  if (recurringTemplate.id) {
+    const dup = await assertNoDuplicateTemplatePeriod(
+      recurringTemplate.id,
+      recurringTemplate.frequency,
+      new Date(parsed.data.date),
+    );
+    if (dup) return dup;
+  }
 
   try {
     await prisma.transaction.create({
@@ -437,6 +490,14 @@ export async function createSharedExpenseFromPersonalBudgetAction(
     parsed.data.recurringTemplateId,
   );
   if ("error" in recurringTemplate) return { error: recurringTemplate.error };
+  if (recurringTemplate.id) {
+    const dup = await assertNoDuplicateTemplatePeriod(
+      recurringTemplate.id,
+      recurringTemplate.frequency,
+      new Date(parsed.data.date),
+    );
+    if (dup) return dup;
+  }
 
   try {
     await prisma.transaction.create({
@@ -776,10 +837,12 @@ export async function deleteRecurringTemplateAction(templateId: string): Promise
  * Checks a template off for the current period without logging a
  * transaction — e.g. a bill paid on autopay from an account this app
  * doesn't track. Idempotent: the unique (templateId, periodKey) constraint
- * means a repeat click just no-ops against the existing row.
+ * means a repeat click just no-ops against the existing row (the upsert's
+ * `update: {}` deliberately never overwrites `createdByUserId`, so the
+ * original acknowledger stays attributed even if someone else re-clicks it).
  */
 export async function acknowledgeTemplatePeriodAction(templateId: string): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
@@ -790,7 +853,7 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
   try {
     await prisma.recurringTemplateAck.upsert({
       where: { recurringTemplateId_periodKey: { recurringTemplateId: template.id, periodKey } },
-      create: { recurringTemplateId: template.id, periodKey },
+      create: { recurringTemplateId: template.id, periodKey, createdByUserId: userId },
       update: {},
     });
   } catch (error) {
@@ -808,18 +871,40 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
  * amount doesn't need adjusting this period. This produces the same shape
  * of row `createTransactionAction` would when called from
  * `TransactionDialog`'s `prefillFromTemplate` path — including the
- * `recurringTemplateId` link — so `computeTemplateStatuses` (which derives
- * "posted" purely from a matching transaction's `recurringTemplateId` +
- * period, not from a RecurringTemplateAck row) sees the period as fulfilled
- * without any separate acknowledgement step.
+ * `recurringTemplateId` link and, when the template has a saved split
+ * (RecurringTemplateSplit — see its doc comment in schema.prisma), the same
+ * split rows too, so a split bill's split isn't silently dropped just
+ * because it was logged with this one-click shortcut instead of through the
+ * dialog — so `computeTemplateStatuses` (which derives "posted" purely from
+ * a matching transaction's `recurringTemplateId` + period, not from a
+ * RecurringTemplateAck row) sees the period as fulfilled without any
+ * separate acknowledgement step.
  */
 export async function logRecurringTemplateAction(templateId: string): Promise<ActionState> {
   const { household, userId } = await requireHousehold();
 
   const template = await prisma.recurringTemplate.findFirst({
     where: { id: templateId, householdId: household.id },
+    include: { splits: true },
   });
   if (!template) return { error: "Recurring template not found" };
+
+  const dup = await assertNoDuplicateTemplatePeriod(template.id, template.frequency, new Date());
+  if (dup) return dup;
+
+  // A template has no "paid by" concept of its own (see
+  // RecurringTemplateSplit's doc comment) — default the new transaction's
+  // payer to whoever is clicking "Log as-is", same default TransactionDialog
+  // uses for a manually-logged split. Only looked up when the template
+  // actually has a split to carry forward; an unsplit template's payer stays
+  // null, unaffected, same as before this change.
+  const currentMember =
+    template.splits.length > 0
+      ? await prisma.householdMember.findFirst({
+          where: { userId, householdId: household.id },
+          select: { id: true },
+        })
+      : null;
 
   try {
     await prisma.transaction.create({
@@ -834,6 +919,16 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
         recurrenceFrequency: template.frequency,
         createdByUserId: userId,
         recurringTemplateId: template.id,
+        paidByMemberId: currentMember?.id ?? null,
+        splits:
+          template.splits.length > 0
+            ? {
+                create: template.splits.map((s) => ({
+                  householdMemberId: s.householdMemberId,
+                  amountOwed: s.amountOwed,
+                })),
+              }
+            : undefined,
       },
     });
   } catch (error) {

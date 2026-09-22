@@ -14,6 +14,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
+import { getStockStatus } from "@/lib/stock-status";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -130,7 +131,9 @@ export async function deleteShoppingListAction(listId: string): Promise<ActionSt
   redirect("/dashboard/shopping-list");
 }
 
-export async function generateFromLowStockAction(listId: string): Promise<ActionState> {
+export async function generateFromLowStockAction(
+  listId: string,
+): Promise<ActionState & { added?: number }> {
   const { household } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -138,6 +141,7 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
   });
   if (!list) return { error: "This list can't be edited right now" };
 
+  let added = 0;
   try {
     const lowStockItems = await prisma.inventoryItem.findMany({
       where: { householdId: household.id },
@@ -150,7 +154,9 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
     const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
 
     const toAdd = lowStockItems.filter(
-      (item) => item.quantity <= item.lowStockThreshold && !alreadyOnListIds.has(item.id),
+      (item) =>
+        getStockStatus(item.quantity, item.lowStockThreshold) !== "in" &&
+        !alreadyOnListIds.has(item.id),
     );
 
     if (toAdd.length > 0) {
@@ -164,13 +170,14 @@ export async function generateFromLowStockAction(listId: string): Promise<Action
           addedAutomatically: true,
         })),
       });
+      added = toAdd.length;
     }
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
-  return {};
+  return { added };
 }
 
 const addItemSchema = z.object({

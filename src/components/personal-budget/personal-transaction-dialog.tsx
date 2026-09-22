@@ -33,6 +33,7 @@ import {
   createPersonalTransactionAction,
   updatePersonalTransactionAction,
 } from "@/app/dashboard/personal-budget/actions";
+import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -58,6 +59,14 @@ function toDateInputValue(date: Date) {
   return local.toISOString().slice(0, 10);
 }
 
+/** Mirrors TransactionDialog's defaultDateForMonth (F11) — see its doc
+ * comment (src/components/budget/transaction-dialog.tsx). */
+function defaultDateForMonth(monthKey: string | undefined): Date {
+  const now = new Date();
+  if (!monthKey || monthKey === toMonthKey(now)) return now;
+  return parseMonthKey(monthKey);
+}
+
 /** Seeds a new transaction's fields from a recurring template's "Log
  * transaction" action (PersonalRecurringTemplatesPanel) — only meaningful
  * when `transaction` isn't set. Mirrors TransactionDialog's
@@ -73,12 +82,17 @@ export type PersonalTransactionTemplatePrefill = {
 export function PersonalTransactionDialog({
   dict,
   categories,
+  monthKey,
   trigger,
   transaction,
   prefillFromTemplate,
 }: {
   dict: Dictionary["personalBudget"];
   categories: PersonalCategoryRow[];
+  /** "YYYY-MM" of the month currently being browsed — feeds a new
+   * transaction's default date (F11). See TransactionDialog's identical
+   * prop (src/components/budget/transaction-dialog.tsx). */
+  monthKey?: string;
   trigger: ReactElement;
   transaction?: PersonalTransactionRow;
   prefillFromTemplate?: PersonalTransactionTemplatePrefill;
@@ -87,6 +101,9 @@ export function PersonalTransactionDialog({
   const [open, setOpen] = useState(false);
   const [isRecurring, setIsRecurring] = useState(
     transaction?.isRecurring ?? !!prefillFromTemplate,
+  );
+  const [date, setDate] = useState(() =>
+    toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)),
   );
   const categoryItems = useMemo(
     () =>
@@ -116,7 +133,10 @@ export function PersonalTransactionDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate);
+        if (next) {
+          setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate);
+          setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
+        }
       }}
     >
       <DialogTrigger render={trigger} />
@@ -176,7 +196,8 @@ export function PersonalTransactionDialog({
                 id="personal-tx-date"
                 name="date"
                 type="date"
-                defaultValue={toDateInputValue(transaction?.date ?? new Date())}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 required
               />
             </div>

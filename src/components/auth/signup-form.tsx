@@ -2,15 +2,22 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { User, Home, Mail, Lock, Sparkles, MailCheck } from "lucide-react";
+import { User, Home, Mail, Lock, Sparkles, MailCheck, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signupAction, type SignupState } from "@/lib/actions/auth";
+import { PasswordInput } from "@/components/auth/password-input";
+import {
+  signupAction,
+  resendVerificationEmailForLoginAction,
+  type SignupState,
+  type ResendVerificationForLoginState,
+} from "@/lib/actions/auth";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 const initialState: SignupState = {};
+const initialResendState: ResendVerificationForLoginState = {};
 
 export function SignupForm({
   dict,
@@ -20,6 +27,16 @@ export function SignupForm({
   legalDict: Dictionary["legal"];
 }) {
   const [state, formAction, pending] = useActionState(signupAction, initialState);
+  // Lets the confirmation screen below offer a real retry — either because
+  // the initial send failed (state.emailError, see A1 in
+  // UX_AUDIT_IMPLEMENTATION_PLAN.md) or because the email just never
+  // arrived — without a full page reload (A4). Enumeration-safe: the caller
+  // already knows this is their own email, but this reuses the same action
+  // LoginForm's unverified-login flow uses either way.
+  const [resendState, resendFormAction, resendPending] = useActionState(
+    resendVerificationEmailForLoginAction,
+    initialResendState,
+  );
 
   // The account now exists but can't sign in until its email is verified
   // (see signupAction's doc comment in src/lib/actions/auth.ts) — swap the
@@ -27,10 +44,26 @@ export function SignupForm({
   if (state.status === "verification-sent") {
     return (
       <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <MailCheck className="size-10 text-muted-foreground" />
+        {state.emailError ? (
+          <AlertTriangle className="size-10 text-destructive" />
+        ) : (
+          <MailCheck className="size-10 text-muted-foreground" />
+        )}
         <p className="text-sm text-muted-foreground">
-          {format(dict.verificationSentDescription, { email: state.email ?? "" })}
+          {state.emailError
+            ? dict.verificationSendFailedDescription
+            : format(dict.verificationSentDescription, { email: state.email ?? "" })}
         </p>
+        {resendState.message ? (
+          <p className="text-sm text-muted-foreground">{resendState.message}</p>
+        ) : (
+          <form action={resendFormAction}>
+            <input type="hidden" name="email" value={state.email ?? ""} />
+            <Button type="submit" variant="outline" disabled={resendPending}>
+              {resendPending ? dict.resending : dict.resend}
+            </Button>
+          </form>
+        )}
         <Link href="/login" className="text-sm font-medium text-primary underline underline-offset-4">
           {dict.logIn}
         </Link>
@@ -85,19 +118,31 @@ export function SignupForm({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{dict.password}</Label>
-        <div className="relative">
-          <Lock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            maxLength={72}
-            autoComplete="new-password"
-            className="pl-8"
-          />
-        </div>
+        <PasswordInput
+          id="password"
+          name="password"
+          icon={Lock}
+          required
+          minLength={8}
+          maxLength={72}
+          autoComplete="new-password"
+          showLabel={dict.showPassword}
+          hideLabel={dict.hidePassword}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="confirmPassword">{dict.confirmPassword}</Label>
+        <PasswordInput
+          id="confirmPassword"
+          name="confirmPassword"
+          icon={Lock}
+          required
+          minLength={8}
+          maxLength={72}
+          autoComplete="new-password"
+          showLabel={dict.showPassword}
+          hideLabel={dict.hidePassword}
+        />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <p className="text-center text-xs text-muted-foreground">

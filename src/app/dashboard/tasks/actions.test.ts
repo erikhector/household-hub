@@ -265,7 +265,7 @@ describe("toggleTaskCompletedAction", () => {
     });
   });
 
-  it("re-opens a completed, non-recurring task and clears its completedByMemberId", async () => {
+  it("re-opens a completed, non-recurring task, preserving completedByMemberId as 'last done by' history", async () => {
     requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
     householdTaskFindFirstMock.mockResolvedValue({
       id: "task-1",
@@ -277,9 +277,12 @@ describe("toggleTaskCompletedAction", () => {
 
     expect(result.error).toBeUndefined();
     expect(householdMemberFindFirstMock).not.toHaveBeenCalled();
+    // Only completedAt is cleared — completedByMemberId is intentionally
+    // left out of the update so the previous completer's id survives the
+    // toggle (there's no separate history field to move it to).
     expect(householdTaskUpdateMock).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { completedAt: null, completedByMemberId: null },
+      data: { completedAt: null },
     });
   });
 
@@ -296,7 +299,7 @@ describe("toggleTaskCompletedAction", () => {
     expect(result.error).toBeUndefined();
     expect(householdTaskUpdateMock).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { completedAt: null, completedByMemberId: null },
+      data: { completedAt: null },
     });
   });
 

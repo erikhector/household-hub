@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard/nav-items";
 import { logoutAction } from "@/lib/actions/auth";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
+import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationCountBadge, NotificationMenuItem } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
@@ -62,6 +63,10 @@ export function BottomNav({
   const pathname = usePathname();
   const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
+  // Label the toggle with the state it will switch *to* (matching the
+  // locale toggle right next to it, which names the target locale rather
+  // than the active one) instead of the currently active theme.
+  const nextTheme = THEME_CHOICES[(THEME_CHOICES.indexOf(themeChoice) + 1) % THEME_CHOICES.length];
   const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
 
   const totalItems = primaryMobileNavItems.length + 1;
@@ -165,7 +170,7 @@ export function BottomNav({
             </DropdownMenuItem>
             <DropdownMenuItem onClick={cycleTheme}>
               <ThemeIcon className="size-4" />
-              {dict.theme[themeChoice]}
+              {dict.theme[nextTheme]}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => logoutAction()}>

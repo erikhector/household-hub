@@ -46,7 +46,7 @@ const MAX_SPENDING_MONTHS = 12;
 const MAX_FIXED_TREND_MONTHS = 12;
 
 export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
-  const [{ household, userId }, dict, locale, searchParams] = await Promise.all([
+  const [{ household, userId, households }, dict, locale, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
@@ -60,14 +60,31 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthEnd = getMonthEnd(monthStart);
   const monthKey = toMonthKey(monthStart);
 
+  // F1: "View in {household} Budget" links (from a shared row in Personal
+  // Budget) carry an explicit `?household=` so this page always shows the
+  // bill's *actual* household — never silently falls back to whichever one
+  // happens to be "active" in the session cookie (requireHousehold()'s
+  // `household` above), which can differ once a user belongs to more than
+  // one. Only trusted when it names a household the signed-in user actually
+  // belongs to (`households`, every membership requireHousehold() already
+  // resolved) — anything else is ignored rather than erroring, same
+  // graceful-fallback convention the month param already uses above.
+  const householdParam = searchParams.household;
+  const householdParamValue = Array.isArray(householdParam) ? householdParam[0] : householdParam;
+  const explicitHouseholdId =
+    householdParamValue && households.some((h) => h.id === householdParamValue)
+      ? householdParamValue
+      : undefined;
+  const householdId = explicitHouseholdId ?? household.id;
+
   const [categories, transactions, householdMembers, recurringTemplates, recurringTemplateAcks] =
     await Promise.all([
       prisma.budgetCategory.findMany({
-        where: { householdId: household.id },
+        where: { householdId },
         orderBy: [{ type: "asc" }, { name: "asc" }],
       }),
       prisma.transaction.findMany({
-        where: { householdId: household.id },
+        where: { householdId },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         include: { category: true, splits: true },
       }),
@@ -76,7 +93,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       // balances tab are both only offered when a household has more than
       // one member.
       prisma.householdMember.findMany({
-        where: { householdId: household.id },
+        where: { householdId },
         include: { user: { select: { displayName: true } } },
         orderBy: { createdAt: "asc" },
       }),
@@ -85,12 +102,12 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       // (RecurringTemplateDialog) and the personal budget's "shared with your
       // household" surface — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
       prisma.recurringTemplate.findMany({
-        where: { householdId: household.id },
+        where: { householdId },
         include: { category: true, splits: true },
         orderBy: { createdAt: "asc" },
       }),
       prisma.recurringTemplateAck.findMany({
-        where: { recurringTemplate: { householdId: household.id } },
+        where: { recurringTemplate: { householdId } },
       }),
     ]);
 
@@ -209,20 +226,38 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     referenceDate: monthStart,
     monthEnd,
   });
-  const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => ({
-    id: row.template.id,
-    name: row.template.name,
-    categoryId: row.template.categoryId,
-    categoryName: row.template.category.name,
-    amount: row.template.amount,
-    frequency: row.template.frequency,
-    dayOfMonth: row.template.dayOfMonth,
-    status: row.status,
-    splits: row.template.splits.map((s) => ({
-      householdMemberId: s.householdMemberId,
-      amountOwed: s.amountOwed,
-    })),
-  }));
+  const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {
+    // F7: who ran "Mark accounted for" for this period, if it was
+    // acknowledged rather than posted — resolved from the matching
+    // RecurringTemplateAck row's createdByUserId via the household-member
+    // list already fetched above, same plain-string-id-to-name lookup
+    // InventoryItem.updatedByUserId's UI uses.
+    const ack =
+      row.status === "acknowledged"
+        ? recurringTemplateAcks.find(
+            (a) => a.recurringTemplateId === row.template.id && a.periodKey === row.periodKey,
+          )
+        : undefined;
+    const acknowledgedByName = ack?.createdByUserId
+      ? (householdMembers.find((m) => m.userId === ack.createdByUserId)?.user.displayName ?? null)
+      : null;
+
+    return {
+      id: row.template.id,
+      name: row.template.name,
+      categoryId: row.template.categoryId,
+      categoryName: row.template.category.name,
+      amount: row.template.amount,
+      frequency: row.template.frequency,
+      dayOfMonth: row.template.dayOfMonth,
+      status: row.status,
+      acknowledgedByName,
+      splits: row.template.splits.map((s) => ({
+        householdMemberId: s.householdMemberId,
+        amountOwed: s.amountOwed,
+      })),
+    };
+  });
   const pausedRecurringTemplateRows: PausedRecurringTemplateRow[] = recurringTemplates
     .filter((t) => !t.active)
     .map((t) => ({
@@ -276,7 +311,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // here in the page's Server Component, same convention as the period
   // summary above — CostAnalyzer itself is a plain presentational component.
   const priceHistoryRows = await prisma.priceHistory.findMany({
-    where: { inventoryItem: { householdId: household.id } },
+    where: { inventoryItem: { householdId } },
     include: { inventoryItem: { select: { id: true, name: true } } },
     orderBy: { date: "asc" },
   });
@@ -329,6 +364,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         categories={categoryRows}
         members={memberOptions}
         currentMemberId={currentMemberId}
+        monthKey={monthKey}
         dict={dict.budget}
         locale={locale}
       />

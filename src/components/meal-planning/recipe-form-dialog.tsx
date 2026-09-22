@@ -394,6 +394,7 @@ export function RecipeFormDialog({
                 {dict.addComponent}
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">{dict.componentsHint}</p>
             {components.length === 0 && !hasAvailableComponentRecipe && (
               <p className="text-sm text-muted-foreground">{dict.noAvailableComponentRecipes}</p>
             )}

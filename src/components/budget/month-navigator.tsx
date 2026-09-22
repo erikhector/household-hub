@@ -19,15 +19,27 @@ export function MonthNavigator({
   basePath,
   monthKey,
   dict,
+  extraParams,
 }: {
   basePath: string;
   monthKey: string;
   dict: MonthNavigatorDict;
+  /** Extra query params preserved across prev/next/this-month navigation —
+   * e.g. the household budget's `?household=` deep-link override (F1: a
+   * link from Personal Budget into a *specific* household's budget, not
+   * whichever one happens to be "active"). Omitted by any caller with
+   * nothing to preserve, unaffected. */
+  extraParams?: Record<string, string>;
 }) {
   const monthStart = parseMonthKey(monthKey);
   const prevMonthKey = toMonthKey(addMonths(monthStart, -1));
   const nextMonthKey = toMonthKey(addMonths(monthStart, 1));
   const monthLabel = monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const extraQuery = extraParams
+    ? Object.entries(extraParams)
+        .map(([key, value]) => `&${key}=${encodeURIComponent(value)}`)
+        .join("")
+    : "";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -36,7 +48,7 @@ export function MonthNavigator({
           variant="outline"
           size="icon-sm"
           aria-label={dict.previousMonth}
-          render={<Link href={`${basePath}?month=${prevMonthKey}`} />}
+          render={<Link href={`${basePath}?month=${prevMonthKey}${extraQuery}`} />}
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -44,13 +56,17 @@ export function MonthNavigator({
           variant="outline"
           size="icon-sm"
           aria-label={dict.nextMonth}
-          render={<Link href={`${basePath}?month=${nextMonthKey}`} />}
+          render={<Link href={`${basePath}?month=${nextMonthKey}${extraQuery}`} />}
         >
           <ChevronRight className="size-4" />
         </Button>
       </div>
       <p className="text-sm font-medium">{monthLabel}</p>
-      <Button variant="outline" size="sm" render={<Link href={basePath} />}>
+      <Button
+        variant="outline"
+        size="sm"
+        render={<Link href={extraQuery ? `${basePath}?${extraQuery.slice(1)}` : basePath} />}
+      >
         {dict.thisMonth}
       </Button>
     </div>

@@ -58,6 +58,15 @@ export type MissingIngredientData = {
   name: string;
   unit: string;
   missingQuantity: number;
+  // True when the household does have this ingredient on hand, but in a unit
+  // that can't be reconciled with the recipe's required unit (unrecognized,
+  // or a different dimension, e.g. grams vs. cups) — so the on-hand quantity
+  // couldn't be subtracted and the full required amount is reported missing,
+  // same as if there were none on hand at all. Mirrors
+  // CookedIngredientData.unitMismatch (Mark Cooked's identical case) so the
+  // review dialog can surface it instead of silently treating it as fully
+  // missing. See D5 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  unitMismatch: boolean;
 };
 
 // An ACTIVE shopping list the "add missing ingredients" dialog can add to.

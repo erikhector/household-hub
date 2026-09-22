@@ -1,16 +1,17 @@
 "use client";
 
-import { useTransition, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
 import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
-import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -35,6 +36,45 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
   DINNER: "mealTypeDinner",
   SNACK: "mealTypeSnack",
 };
+
+// The desktop grid (`auto-fit,minmax(16rem,1fr)`) shows every day side by
+// side, but on a phone-width viewport the same grid stacks into one column,
+// so today's card can be several screens below the fold with nothing on
+// screen naming it as "today" — see D8 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+const TODAY_CARD_ID = "meal-planner-today-card";
+
+// Two different jobs depending on whether the currently *displayed* week is
+// the real current week: if it isn't, this is really "go to this week" (same
+// destination as the "This week" button next to it); if it is, the week is
+// already right there in the DOM and this just scrolls the page down to it.
+// Kept mobile-only (`sm:hidden`) since the desktop grid never needs it.
+function JumpToTodayButton({ dict, weekStartKey }: { dict: MealPlanningDict; weekStartKey: string }) {
+  const isCurrentWeek = weekStartKey === toDateKey(getWeekStart(new Date()));
+
+  if (!isCurrentWeek) {
+    return (
+      <Button variant="outline" size="sm" className="sm:hidden" render={<Link href="/dashboard/meal-planning" />}>
+        <CalendarClock className="size-4" />
+        {dict.jumpToToday}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="sm:hidden"
+      onClick={() =>
+        document.getElementById(TODAY_CARD_ID)?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    >
+      <CalendarClock className="size-4" />
+      {dict.jumpToToday}
+    </Button>
+  );
+}
 
 export function WeekPlanner({
   dict,
@@ -98,6 +138,7 @@ export function WeekPlanner({
           <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
             {dict.thisWeek}
           </Button>
+          <JumpToTodayButton dict={dict} weekStartKey={weekStartKey} />
           <MissingIngredientsDialog
             dict={dict}
             weekStartKey={weekStartKey}
@@ -108,7 +149,11 @@ export function WeekPlanner({
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-3">
         {days.map((day) => (
-          <Card key={day.dateKey} className={day.isToday ? "ring-2 ring-primary/50" : undefined}>
+          <Card
+            key={day.dateKey}
+            id={day.isToday ? TODAY_CARD_ID : undefined}
+            className={day.isToday ? "ring-2 ring-primary/50" : undefined}
+          >
             <CardHeader>
               <CardTitle className="flex items-baseline justify-between">
                 <span>{day.weekdayLabel}</span>
@@ -194,7 +239,6 @@ function MealEntryRow({
   entry: MealPlanEntryData;
   recipes: RecipeData[];
 }) {
-  const [isPending, startTransition] = useTransition();
   const label = entry.recipeName ?? entry.freeformName ?? "";
   // Portions only mean something next to a linked recipe — a freeform entry
   // has nothing to scale (see MealPlanEntryData.portions' doc comment).
@@ -236,22 +280,47 @@ function MealEntryRow({
           <span className="text-muted-foreground" title={dict.mealCookedBadgeLabel}>
             <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
           </span>
+        ) : entry.recipeId ? (
+          <MarkCookedDialog dict={dict} entry={entry} />
         ) : (
-          entry.recipeId && <MarkCookedDialog dict={dict} entry={entry} />
+          // Custom (non-recipe) entries have no ingredients to check inventory
+          // against, so "mark cooked" is never available for them — surfaced
+          // as a disabled, explained affordance instead of just omitting the
+          // control, so it doesn't read as a bug. See D4 in
+          // UX_AUDIT_IMPLEMENTATION_PLAN.md.
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-muted-foreground/50"
+            disabled
+            aria-label={dict.markCookedUnavailableForCustomMeal}
+            title={dict.markCookedUnavailableForCustomMeal}
+          >
+            <ChefHat className="size-3" />
+          </Button>
         )}
       </IconSlot>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
-        disabled={isPending}
-        aria-label={dict.removeMealAriaLabel}
-        onClick={() => startTransition(() => deleteMealEntryAction(entry.id))}
-      >
-        <Trash2 className="size-3" />
-      </Button>
+      <ConfirmDialog
+        trigger={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            aria-label={dict.removeMealAriaLabel}
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        }
+        title={format(dict.confirmDeleteMeal.title, { meal: label })}
+        description={entry.consumedAt ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
+        cancelLabel={dict.confirmDeleteMeal.cancel}
+        confirmLabel={dict.confirmDeleteMeal.confirm}
+        pendingLabel={dict.confirmDeleteMeal.confirming}
+        onConfirm={() => deleteMealEntryAction(entry.id)}
+      />
     </div>
   );
 }
