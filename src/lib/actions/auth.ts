@@ -13,6 +13,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { logger } from "@/lib/logger";
 
 export type ActionState = { error?: string };
 
@@ -29,19 +30,25 @@ const PASSWORD_MAX_LENGTH = 72;
 const SIGNUP_RATE_LIMIT = 5;
 const SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
-const signupSchema = z.object({
-  displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
-  householdName: z
-    .string()
-    .trim()
-    .min(1, "Household name is required")
-    .max(60, "Household name is too long"),
-  email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
-});
+const signupSchema = z
+  .object({
+    displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+    householdName: z
+      .string()
+      .trim()
+      .min(1, "Household name is required")
+      .max(60, "Household name is too long"),
+    email: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(PASSWORD_MAX_LENGTH, `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer`),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().max(254, "Enter a valid email"),
@@ -125,7 +132,17 @@ const GENERIC_VERIFICATION_RESENT_MESSAGE =
 const UNVERIFIED_LOGIN_MESSAGE =
   "Please verify your email before signing in. Check your inbox for the link, or resend it below.";
 
-export type SignupState = { error?: string; status?: "verification-sent"; email?: string };
+export type SignupState = {
+  error?: string;
+  status?: "verification-sent";
+  email?: string;
+  // Set when the account was created but the verification email itself
+  // didn't go out (send failure or an exception creating its token) — see
+  // the comment on the try/catch below. Lets the confirmation screen tell
+  // the user honestly instead of claiming a link is on its way when it
+  // isn't (see A1 in UX_AUDIT_IMPLEMENTATION_PLAN.md).
+  emailError?: boolean;
+};
 
 export async function signupAction(
   _prevState: SignupState,
@@ -136,6 +153,7 @@ export async function signupAction(
     householdName: formData.get("householdName"),
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -173,7 +191,12 @@ export async function signupAction(
   // Additive, not a hard dependency — same posture as household invites
   // (see sendHouseholdInviteEmail): the account already exists regardless
   // of whether this send succeeds, and resendVerificationEmailForLoginAction
-  // lets the user request a new link later from the login page.
+  // lets the user request a new link later from the login page. Unlike that
+  // enumeration-safe path, though, the caller here already knows this email
+  // is theirs (they just typed it into this very form), so there's no
+  // enumeration risk in telling them plainly when the send didn't go out —
+  // see A1 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  let emailError = false;
   try {
     const verificationToken = await prisma.emailVerificationToken.create({
       data: {
@@ -189,19 +212,41 @@ export async function signupAction(
     // back to the pre-auth `locale` cookie, which is the best signal
     // available here (see its own doc comment).
     const locale = await getLocale();
-    await sendVerificationEmail({ to: email, verifyUrl, locale });
+    const { error } = await sendVerificationEmail({ to: email, verifyUrl, locale });
+    if (error) emailError = true;
   } catch (error) {
     toFriendlyError(error);
+    emailError = true;
   }
 
   // No auto sign-in: the account's email must be verified before its first
   // successful sign-in (see EmailNotVerifiedSignin in src/lib/auth.ts, which
   // loginAction below relies on). Signing the user in here would hand out a
   // working session before that check ever ran.
-  return { status: "verification-sent", email };
+  return { status: "verification-sent", email, ...(emailError ? { emailError: true } : {}) };
 }
 
 export type LoginState = { error?: string; unverifiedEmail?: string };
+
+const DEFAULT_POST_LOGIN_PATH = "/dashboard";
+
+// A deep link followed while logged out (e.g. proxy.ts redirecting a
+// protected page to /login?next=..., or the join page's "log in" link
+// carrying its invite forward — see A5/A8 in UX_AUDIT_IMPLEMENTATION_PLAN.md)
+// must only ever send the browser back to a path on this same app, never to
+// an attacker-supplied external origin — "next" is trivially caller-set
+// (it's a query param), so treat it the same as absoluteAppUrl's Host-header
+// distrust above: only a same-origin, root-relative path is honored.
+function sanitizeNextPath(value: FormDataEntryValue | null): string {
+  if (typeof value !== "string" || value === "") return DEFAULT_POST_LOGIN_PATH;
+  // "/x" is fine; "//evil.com" and "/\evil.com" are protocol-relative
+  // (browsers treat a leading "//" or "/\" as "same scheme, different
+  // host"), and anything containing "://" is an absolute URL outright.
+  if (!value.startsWith("/") || /^\/[\\/]/.test(value) || value.includes("://")) {
+    return DEFAULT_POST_LOGIN_PATH;
+  }
+  return value;
+}
 
 export async function loginAction(
   _prevState: LoginState,
@@ -219,11 +264,13 @@ export async function loginAction(
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
+  const redirectTo = sanitizeNextPath(formData.get("next"));
+
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: "/dashboard",
+      redirectTo,
     });
   } catch (error) {
     // Checked before the generic AuthError branch below: EmailNotVerifiedSignin
@@ -592,7 +639,16 @@ export async function resendVerificationEmailForLoginAction(
         },
       });
       const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
-      await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
+      const { error } = await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
+      // Logged, not surfaced: unlike signupAction above, the caller here
+      // isn't known to own this email address yet, so this keeps the exact
+      // enumeration-safe shape requestPasswordResetAction uses — a distinct
+      // response only on a real send failure would let an attacker tell a
+      // registered-but-unverified email apart from an unregistered one.
+      // Still diagnosable server-side, which "silently swallowed" wasn't.
+      if (error) {
+        logger.error("Failed to resend verification email", { error });
+      }
     } catch (error) {
       // Swallow, same reasoning as requestPasswordResetAction: surfacing
       // this would leak account existence. Still diagnosable server-side

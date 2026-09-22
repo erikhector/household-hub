@@ -89,6 +89,8 @@ export const en = {
       one: "Shared with {count} other person",
       other: "Shared with {count} other people",
     },
+    roleExplanation:
+      "Owners can remove members, transfer ownership, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
     removeAriaLabel: "Remove {name}",
@@ -104,6 +106,9 @@ export const en = {
       "Deleting this household removes it, and everything in it, for every member. There's no undo.",
     delete: {
       trigger: "Delete household",
+      checking: "Checking…",
+      blockedTitle: "Can't delete household",
+      blockedClose: "OK",
       title: "Delete {name}?",
       description:
         "This permanently deletes the household and everything in it — inventory, shopping lists, meal plans, and budget data — for every member. This can't be undone.",
@@ -122,6 +127,8 @@ export const en = {
     },
     leave: {
       ariaLabel: "Leave household",
+      ownerExplanation:
+        "As the owner, you can't leave directly — transfer ownership to another member or delete the household instead.",
       confirmTitle: "Leave this household?",
       confirmDescription:
         "You'll lose access to its inventory, shopping lists, meal plans, and budget data. You can rejoin later if someone invites you again.",
@@ -171,6 +178,8 @@ export const en = {
     gettingStarted: {
       title: "Get set up",
       subtitle: "A few quick steps to get the most out of Squirrel.",
+      skip: "Skip this step",
+      skipped: "Skipped — invite anytime from Household settings.",
       steps: {
         household: {
           title: "Invite your household",
@@ -1469,6 +1478,8 @@ export const en = {
       welcomeTitle: "Welcome back!",
       email: "Email",
       password: "Password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       forgotPassword: "Forgot password?",
       loggingIn: "Logging in…",
       submit: "Log in",
@@ -1491,6 +1502,8 @@ export const en = {
       pageTitle: "Choose a new password",
       newPassword: "New password",
       confirmPassword: "Confirm new password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       saving: "Updating…",
       submit: "Update password",
       backToLogin: "Back to log in",
@@ -1512,30 +1525,48 @@ export const en = {
       householdNamePlaceholder: "e.g. The Andersson family",
       email: "Email",
       password: "Password",
+      confirmPassword: "Confirm password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       creating: "Creating account…",
       submit: "Create household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
       verificationSentDescription:
         "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+      verificationSendFailedDescription:
+        "Account created, but we couldn't send the verification email just now. Try resending it below.",
+      resend: "Resend verification email",
+      resending: "Sending…",
     },
     join: {
       invalidTitle: "Invalid invite",
       joinTitle: "Join {name}",
       invalidDescription:
         "This invite link is invalid or has expired. Ask a household member to send you a new one.",
+      backToLogin: "Back to log in",
+      goToDashboard: "Go to dashboard",
+      acceptConsequence:
+        "You'll get full access to this household's inventory, shopping lists, meal plans, and budget data.",
       accepting: "Joining…",
       accept: "Join household",
       yourName: "Your name",
       email: "Email",
       password: "Password",
+      confirmPassword: "Confirm password",
+      showPassword: "Show password",
+      hidePassword: "Hide password",
       creating: "Joining…",
       submit: "Create account & join",
+      orDivider: "or",
       haveAccount: "Already have an account?",
       logIn: "Log in",
-      logInSuffix: "first, then reopen this invite link.",
       verificationSentDescription:
         "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+      verificationSendFailedDescription:
+        "Account created, but we couldn't send the verification email just now. Try resending it below.",
+      resend: "Resend verification email",
+      resending: "Sending…",
     },
   },
   landing: {

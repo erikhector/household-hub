@@ -175,6 +175,7 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     displayName: "Erik",
     email: "erik@example.com",
     password: "supersecret",
+    confirmPassword: "supersecret",
   };
 
   it("rejects a missing token", async () => {
@@ -265,7 +266,11 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
 
     const result = await joinViaInviteSignupAction({}, formData(validInput));
 
-    expect(result).toEqual({ status: "verification-sent", email: validInput.email });
+    expect(result).toEqual({
+      status: "verification-sent",
+      email: validInput.email,
+      emailError: true,
+    });
     expect(cookieSetMock).toHaveBeenCalled();
   });
 });

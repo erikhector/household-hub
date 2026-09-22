@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Mail, Lock, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/auth/password-input";
 import {
   loginAction,
   resendVerificationEmailForLoginAction,
@@ -17,16 +18,38 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 const initialState: LoginState = {};
 const initialResendState: ResendVerificationForLoginState = {};
 
+// No-op subscribe: the "next" query param never changes after the initial
+// client render, so there's nothing to subscribe to — this just needs a
+// stable function reference (won't re-subscribe every render).
+function subscribe() {
+  return () => {};
+}
+
 export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
   const [resendState, resendFormAction, resendPending] = useActionState(
     resendVerificationEmailForLoginAction,
     initialResendState,
   );
+  // Read client-side (rather than via a `next`/`callbackUrl` prop threaded
+  // down from src/app/login/page.tsx) so a deep link followed while logged
+  // out lands back where it was headed after login — see proxy.ts, which
+  // sets this param, and A5 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // useSyncExternalStore (not useState+useEffect) reports "" during
+  // SSR/first client render, matching server markup, then the real value
+  // from then on — no setState-in-effect, no hydration mismatch, no
+  // Suspense boundary around useSearchParams() needed in a page this scope
+  // doesn't touch.
+  const nextPath = useSyncExternalStore(
+    subscribe,
+    () => new URLSearchParams(window.location.search).get("next") ?? "",
+    () => "",
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <form action={formAction} className="flex flex-col gap-4">
+        <input type="hidden" name="next" value={nextPath} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{dict.email}</Label>
           <div className="relative">
@@ -52,18 +75,16 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
               {dict.forgotPassword}
             </Link>
           </div>
-          <div className="relative">
-            <Lock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              maxLength={72}
-              autoComplete="current-password"
-              className="pl-8"
-            />
-          </div>
+          <PasswordInput
+            id="password"
+            name="password"
+            icon={Lock}
+            required
+            maxLength={72}
+            autoComplete="current-password"
+            showLabel={dict.showPassword}
+            hideLabel={dict.hidePassword}
+          />
         </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
         <Button type="submit" disabled={pending} className="w-full">
