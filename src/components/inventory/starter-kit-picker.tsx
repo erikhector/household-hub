@@ -90,7 +90,11 @@ export function StarterKitPicker({ dict }: { dict: Dictionary["inventory"] }) {
               aria-pressed={isSelected}
               onClick={() => toggleItem(item)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs transition-colors",
+                // The chip itself stays visually compact (text-xs, tight
+                // padding), but the button's own box is padded out to a
+                // ~44px tall tappable area — comfortable on touch without
+                // making the badge look oversized.
+                "inline-flex min-h-11 items-center justify-center rounded-full border px-3 py-1 text-xs transition-colors",
                 isSelected
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-input text-muted-foreground hover:border-primary/50",
