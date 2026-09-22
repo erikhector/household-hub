@@ -321,26 +321,31 @@ export function ReceiptScanDialog({
         className="hidden"
         onChange={onFileSelected}
       />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button type="button" variant="outline" disabled={pendingItems.length === 0}>
+      <div className="flex flex-col gap-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button type="button" variant="outline" disabled={pendingItems.length === 0}>
+                <Camera className="size-4" />
+                {dict.scanButton}
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
               <Camera className="size-4" />
-              {dict.scanButton}
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem onClick={() => cameraInputRef.current?.click()}>
-            <Camera className="size-4" />
-            {dict.takePhoto}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => libraryInputRef.current?.click()}>
-            <ImageUp className="size-4" />
-            {dict.choosePhoto}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              {dict.takePhoto}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => libraryInputRef.current?.click()}>
+              <ImageUp className="size-4" />
+              {dict.choosePhoto}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {pendingItems.length === 0 && (
+          <p className="text-xs text-muted-foreground">{dict.scanDisabledHint}</p>
+        )}
+      </div>
 
       <Dialog
         open={open}

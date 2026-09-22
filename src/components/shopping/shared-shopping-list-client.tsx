@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Info } from "lucide-react";
 import { toggleItemViaShareTokenAction } from "@/app/share/shopping-list/actions";
 import type { SharedShoppingList } from "@/app/share/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -50,6 +51,11 @@ export function SharedShoppingListClient({
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">{list.name}</h1>
+
+      <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-sm text-warning">
+        <Info className="mt-0.5 size-4 shrink-0" />
+        <p>{dict.liveNotice}</p>
+      </div>
 
       {items.length === 0 ? (
         <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

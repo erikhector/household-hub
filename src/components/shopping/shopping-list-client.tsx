@@ -141,14 +141,23 @@ export function ShoppingListClient({
               onClick={() =>
                 startTransition(async () => {
                   const result = await generateFromLowStockAction(list.id);
-                  if (result.error) toast.error(result.error);
+                  if (result.error) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  const added = result.added ?? 0;
+                  if (added > 0) {
+                    toast.success(format(plural(added, dict.addLowStockAddedToast), { count: added }));
+                  } else {
+                    toast.info(dict.addLowStockNoneToast);
+                  }
                 })
               }
             >
               {dict.addLowStock}
             </Button>
           )}
-          {isActive && pendingItems.length > 0 && (
+          {isActive && (
             <ReceiptScanDialog
               listId={list.id}
               pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name }))}
@@ -170,10 +179,19 @@ export function ShoppingListClient({
             />
           )}
           {isActive && list.items.length > 0 && (
-            <Button
-              variant="secondary"
-              disabled={isPending}
-              onClick={() =>
+            <ConfirmDialog
+              trigger={
+                <Button variant="secondary" disabled={isPending}>
+                  {dict.completeList}
+                </Button>
+              }
+              title={dict.confirmCompleteList.title}
+              description={dict.confirmCompleteList.description}
+              cancelLabel={dict.confirmCompleteList.cancel}
+              confirmLabel={dict.confirmCompleteList.confirm}
+              pendingLabel={dict.confirmCompleteList.confirming}
+              variant="default"
+              onConfirm={() =>
                 startTransition(async () => {
                   const result = await completeShoppingListAction(list.id);
                   if (result.error) toast.error(result.error);
@@ -181,9 +199,7 @@ export function ShoppingListClient({
                   if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
                 })
               }
-            >
-              {dict.completeList}
-            </Button>
+            />
           )}
           {list.status === "ARCHIVED" ? (
             <Button
