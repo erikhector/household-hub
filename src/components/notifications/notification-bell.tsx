@@ -16,8 +16,9 @@
 // (same tier as the theme/language toggle items there) rather than adding a
 // 6th primary icon to the bottom bar.
 
+import { createElement, useTransition } from "react";
 import Link from "next/link";
-import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { format } from "@/lib/i18n/format";
-import { dismissNotificationAction } from "@/lib/actions/notifications";
+import { dismissNotificationAction, dismissAllNotificationsAction } from "@/lib/actions/notifications";
 import type { NotificationItem } from "@/lib/notifications";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -87,6 +88,48 @@ function BellIcon({ count }: { count: number }) {
   );
 }
 
+// One notification row: the label/icon is its own menu item (clicking it
+// still dismisses-then-navigates, same as before), plus a separate
+// icon-only dismiss item alongside it so a notification can be cleared
+// without leaving the page (see this file's own header comment — previously
+// dismissing and navigating away were the same action, with no way to do
+// just the former). `closeOnClick={false}` on the dismiss item keeps the
+// dropdown open so several notifications can be cleared in one sitting.
+function NotificationRow({ item, dict }: { item: NotificationItem; dict: Dictionary["notifications"] }) {
+  const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);
+  const [isDismissing, startDismissing] = useTransition();
+
+  return (
+    <div className="flex items-stretch gap-1">
+      <DropdownMenuItem
+        onClick={() => dismissNotificationAction(item.id)}
+        render={<Link href={notificationHref(item)} />}
+        className="min-w-0 flex-1"
+      >
+        {/* createElement rather than JSX (`<Icon />`) — notificationIcon()
+            just picks among a fixed set of already-existing icon
+            components, but this file's other components call hooks, and
+            eslint's react-hooks/static-components check can't tell a picked
+            existing component apart from a freshly defined one when it's
+            assigned to a capitalized variable and used as a JSX tag; this
+            sidesteps that false positive without changing behavior. */}
+        {createElement(notificationIcon(item.kind), { className: cn("size-4 shrink-0", isGoodNews && "text-chart-5") })}
+        <span className="truncate">{notificationLabel(item, dict)}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        closeOnClick={false}
+        disabled={isDismissing}
+        onClick={() => startDismissing(async () => dismissNotificationAction(item.id))}
+        aria-label={dict.dismiss}
+        title={dict.dismiss}
+        className="shrink-0 justify-center px-1.5 text-muted-foreground"
+      >
+        <X className="size-3.5" />
+      </DropdownMenuItem>
+    </div>
+  );
+}
+
 function NotificationEntries({
   items,
   dict,
@@ -100,21 +143,31 @@ function NotificationEntries({
 
   return (
     <>
-      {items.map((item) => {
-        const Icon = notificationIcon(item.kind);
-        const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);
-        return (
-          <DropdownMenuItem
-            key={item.id}
-            onClick={() => dismissNotificationAction(item.id)}
-            render={<Link href={notificationHref(item)} />}
-          >
-            <Icon className={cn("size-4 shrink-0", isGoodNews && "text-chart-5")} />
-            <span className="truncate">{notificationLabel(item, dict)}</span>
-          </DropdownMenuItem>
-        );
-      })}
+      {items.map((item) => (
+        <NotificationRow key={item.id} item={item} dict={dict} />
+      ))}
     </>
+  );
+}
+
+// Bulk-dismiss for the dropdown itself (the notification center's history
+// page already has this via NotificationsHistory's "mark all read" button —
+// this is the same action, reachable from the bell without a page
+// navigation). Hidden entirely when there's nothing to clear, same
+// threshold as the history page's disabled state.
+function DismissAllItem({ items, dict }: { items: NotificationItem[]; dict: Dictionary["notifications"] }) {
+  const [isPending, startTransition] = useTransition();
+  if (items.length === 0) return null;
+
+  return (
+    <DropdownMenuItem
+      closeOnClick={false}
+      disabled={isPending}
+      onClick={() => startTransition(async () => dismissAllNotificationsAction())}
+      className="justify-center text-center text-muted-foreground"
+    >
+      {dict.dismissAll}
+    </DropdownMenuItem>
   );
 }
 
@@ -158,6 +211,7 @@ export function NotificationBell({
       <DropdownMenuContent align="start" className="w-64">
         <NotificationEntries items={items} dict={dict} />
         <DropdownMenuSeparator />
+        <DismissAllItem items={items} dict={dict} />
         <ViewAllLink dict={dict} />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -180,6 +234,7 @@ export function NotificationMenuItem({
       <DropdownMenuSubContent className="w-64">
         <NotificationEntries items={items} dict={dict} />
         <DropdownMenuSeparator />
+        <DismissAllItem items={items} dict={dict} />
         <ViewAllLink dict={dict} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>

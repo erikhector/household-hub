@@ -36,6 +36,8 @@ export const en = {
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
+    dismiss: "Dismiss",
+    dismissAll: "Dismiss all",
     history: {
       title: "Notifications",
       subtitle: "Everything sent to your household, read or not.",
@@ -1406,7 +1408,7 @@ export const en = {
       currentEmailLabel: "Current email",
       newEmailLabel: "New email",
       currentPasswordLabel: "Current password",
-      saved: "Email updated",
+      saved: "Email updated — check your inbox to verify the new address",
       saving: "Updating…",
       save: "Update email",
       notVerified: "Not verified yet.",

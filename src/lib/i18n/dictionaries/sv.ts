@@ -33,6 +33,8 @@ export const sv = {
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
+    dismiss: "Avfärda",
+    dismissAll: "Avfärda alla",
     history: {
       title: "Aviseringar",
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
@@ -1395,7 +1397,7 @@ export const sv = {
       currentEmailLabel: "Nuvarande e-post",
       newEmailLabel: "Ny e-post",
       currentPasswordLabel: "Nuvarande lösenord",
-      saved: "E-post uppdaterad",
+      saved: "E-post uppdaterad — kolla din inkorg för att verifiera den nya adressen",
       saving: "Uppdaterar…",
       save: "Uppdatera e-post",
       notVerified: "Inte verifierad än.",

@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "crypto";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -9,6 +11,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { sendVerificationEmail } from "@/lib/email";
 
 // Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
 // 72, so anything longer is rejected rather than accepted-but-misleading.
@@ -45,12 +48,14 @@ export async function updateProfileAction(
 
 // Email is the login identifier, so an unverified swap would be a real
 // security regression — anyone with a hijacked/left-open session could lock
-// the real owner out just by typing a new address. This app has no email
-// delivery integration yet (see REQUIREMENTS.md — invite links are
-// copy/paste only), so a send-a-confirmation-link flow isn't available to
-// build on here. Requiring the *current password* is the minimum real gate:
-// it re-proves the caller is the account owner, not just holding a valid
-// session, before the identifier changes.
+// the real owner out just by typing a new address. Requiring the *current
+// password* is the minimum real gate: it re-proves the caller is the
+// account owner, not just holding a valid session, before the identifier
+// changes. On top of that, the new address is marked unverified and sent a
+// fresh verification link below — the same EmailVerificationToken flow
+// signupAction (src/lib/actions/auth.ts) uses — so a swap to an address the
+// caller doesn't actually control can't quietly become the account's login
+// identifier.
 const updateEmailSchema = z.object({
   newEmail: z.string().trim().toLowerCase().email("Enter a valid email").max(254, "Email is too long"),
   // No .max() here: this only ever gets bcrypt.compare()'d against an
@@ -59,6 +64,24 @@ const updateEmailSchema = z.object({
   // needs the bcrypt-truncation cap.
   currentPassword: z.string().min(1, "Current password is required"),
 });
+
+// Mirrors auth.ts's EMAIL_VERIFICATION_TOKEN_TTL_MS — duplicated locally
+// rather than imported so this file doesn't pick up a dependency on
+// auth.ts's internals (same reasoning as household.ts's own copy).
+const EMAIL_VERIFICATION_TOKEN_TTL_MS = 36 * 60 * 60 * 1000;
+
+// Mirrors auth.ts's/household.ts's identically-motivated absoluteAppUrl —
+// duplicated locally for the same "no cross-file dependency" reason as
+// EMAIL_VERIFICATION_TOKEN_TTL_MS above.
+async function absoluteAppUrl(path: string): Promise<string> {
+  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
+  if (configured) return `${configured}${path}`;
+
+  const headerList = await headers();
+  const host = headerList.get("host") ?? "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  return `${proto}://${host}${path}`;
+}
 
 export async function updateEmailAction(
   _prevState: ActionState,
@@ -92,15 +115,43 @@ export async function updateEmailAction(
   }
 
   try {
+    // Resets verification status the same way a brand-new signup starts
+    // out: emailVerifiedAt is cleared, so the account is gated the same as
+    // any other unverified account until the new address is confirmed (see
+    // EmailNotVerifiedSignin in src/lib/auth.ts — this only affects a
+    // future sign-in, not the caller's already-live session).
     await prisma.user.update({
       where: { id: userId },
-      data: { email: newEmail },
+      data: { email: newEmail, emailVerifiedAt: null },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { error: "An account with that email already exists" };
     }
     return toFriendlyError(error);
+  }
+
+  // Additive, not a hard dependency — same posture as signupAction's send
+  // (src/lib/actions/auth.ts): the email change above already succeeded
+  // regardless of whether this send does, and the profile page's
+  // "resend verification" control (EmailForm) lets the caller request
+  // another one later.
+  try {
+    // Invalidate any of this user's old unused tokens first, same as
+    // resendVerificationEmailAction, so a stale link (e.g. from before a
+    // previous email change) stops working once a fresh one is issued.
+    await prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
+    const verificationToken = await prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        token: randomUUID(),
+        expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
+      },
+    });
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    await sendVerificationEmail({ to: newEmail, verifyUrl, locale: user.locale });
+  } catch {
+    // Swallowed deliberately — see the comment above this block.
   }
 
   revalidatePath("/dashboard/profile");
