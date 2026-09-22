@@ -158,7 +158,7 @@ function RecipeRow({
         {componentSummary && (
           <p
             className="flex items-center gap-1 truncate text-sm text-muted-foreground"
-            title={`${dict.includesLabel} ${componentSummary}`}
+            title={`${dict.includesLabel} ${componentSummary} — ${dict.componentsHint}`}
           >
             <Layers className="size-3 shrink-0" />
             <span className="truncate">

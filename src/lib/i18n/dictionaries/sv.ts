@@ -704,6 +704,7 @@ export const sv = {
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",
+    jumpToToday: "Hoppa till idag",
     weekdayMon: "Mån",
     weekdayTue: "Tis",
     weekdayWed: "Ons",
@@ -727,6 +728,15 @@ export const sv = {
     portionsLabel: "Portioner",
     portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
     removeMealAriaLabel: "Ta bort måltid",
+    confirmDeleteMeal: {
+      title: "Ta bort {meal}?",
+      description: "Det går inte att ångra.",
+      descriptionCooked:
+        "Den här måltiden var redan markerad som lagad — lagret som användes återställs inte automatiskt.",
+      cancel: "Avbryt",
+      confirm: "Ta bort",
+      confirming: "Tar bort…",
+    },
     adding: "Lägger till…",
     add: "Lägg till",
     recipesTitle: "Recept",
@@ -767,6 +777,8 @@ export const sv = {
     addIngredient: "Lägg till ingrediens",
     removeIngredientAriaLabel: "Ta bort ingrediens",
     componentsLabel: "Delrecept",
+    componentsHint:
+      "Ett delrecepts ingredienser räknas med i detta recepts eget lageravdrag och beräkning av saknade ingredienser, skalat efter hur många omgångar du lägger till här.",
     addComponent: "Lägg till delrecept",
     componentQuantityPlaceholder: "Antal",
     removeComponentAriaLabel: "Ta bort delrecept",
@@ -813,6 +825,8 @@ export const sv = {
       one: "{count} ingrediens saknas",
       other: "{count} ingredienser saknas",
     },
+    missingIngredientUnitMismatchNote:
+      "Du kanske redan har lite — enheten går inte att jämföra, så den räknas som helt saknad",
     targetListLabel: "Lägg till i",
     newShoppingListOption: "Ny inköpslista…",
     newListNameLabel: "Listans namn",
@@ -820,6 +834,8 @@ export const sv = {
     addMissingIngredientsSubmit: "Lägg till i listan",
     missingIngredientsAddedToast: 'Tillagd i "{list}"',
     markCookedAriaLabel: "Markera som lagad",
+    markCookedUnavailableForCustomMeal:
+      "Egna måltider är inte kopplade till ett recept, så det finns inget att markera som lagat",
     mealCookedBadgeLabel: "Lagad",
     markCookedDialogTitle: "Markera som lagad",
     markCookedDialogHint: "Granska och justera lagret detta använde, bekräfta sedan.",
@@ -844,6 +860,8 @@ export const sv = {
     mealTypeLabel: "Måltid",
     addToPlanSubmit: "Lägg till i planen",
     addedToPlanToast: "{recipe} tillagd i planen",
+    addedToPlanDifferentWeekToast: "{recipe} tillagd i planen — i en annan vecka än den du visar",
+    viewThatWeek: "Visa den veckan",
   },
   tasks: {
     title: "Uppgifter",

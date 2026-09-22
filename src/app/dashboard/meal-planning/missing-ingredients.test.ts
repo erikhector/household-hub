@@ -8,7 +8,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2 },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
     ]);
   });
 
@@ -36,7 +36,7 @@ describe("computeMissingIngredients", () => {
 
     // 4 + 4 = 8 required, 6 on hand (read once, not doubled) -> 2 missing.
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "egg-1::pcs", name: "Eggs", unit: "pcs", missingQuantity: 2 },
+      { key: "egg-1::pcs", name: "Eggs", unit: "pcs", missingQuantity: 2, unitMismatch: false },
     ]);
   });
 
@@ -49,8 +49,8 @@ describe("computeMissingIngredients", () => {
     const result = computeMissingIngredients(needs);
 
     expect(result).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2 },
-      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 200 },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
+      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 200, unitMismatch: false },
     ]);
     // Distinct keys so the review dialog can toggle each unit independently.
     expect(new Set(result.map((item) => item.key)).size).toBe(2);
@@ -63,20 +63,33 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "Cups", missingQuantity: 3 },
+      { key: "flour::cups", name: "Flour", unit: "Cups", missingQuantity: 3, unitMismatch: false },
     ]);
   });
 
-  it("only subtracts on-hand inventory from a required-quantity group whose unit matches the inventory item's own unit", () => {
+  it("flags a unit mismatch (rather than silently reporting it fully missing) when the household has on-hand stock in a unit that can't be reconciled with what's required", () => {
     const needs: IngredientNeed[] = [
       // Required in cups, but the linked inventory item is tracked in
       // grams — can't reconcile without a conversion table, so the full 2
-      // cups is reported missing rather than subtracting the 5g on hand.
+      // cups is reported missing rather than subtracting the 5g on hand —
+      // but flagged as a mismatch, mirroring Mark Cooked's identical case
+      // (computeCookedIngredients.unitMismatch). See D5 in
+      // UX_AUDIT_IMPLEMENTATION_PLAN.md.
       { key: "flour", name: "Flour", unit: "cups", quantity: 2, onHandQuantity: 5, onHandUnit: "g" },
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2 },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: true },
+    ]);
+  });
+
+  it("does not flag a mismatch when there's simply no matching inventory item at all (onHandUnit null)", () => {
+    const needs: IngredientNeed[] = [
+      { key: "flour", name: "Flour", unit: "cups", quantity: 2, onHandQuantity: 0, onHandUnit: null },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 2, unitMismatch: false },
     ]);
   });
 
@@ -125,7 +138,7 @@ describe("computeMissingIngredients", () => {
     ];
 
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 2 },
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 2, unitMismatch: false },
     ]);
   });
 
@@ -138,7 +151,7 @@ describe("computeMissingIngredients", () => {
     // 2 tbsp (30ml) + 3 tsp (15ml) = 45ml = 3 tbsp, expressed in the first
     // cluster's unit (tbsp, from whichever need was seen first).
     expect(computeMissingIngredients(needs)).toEqual([
-      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 3 },
+      { key: "oil::tbsp", name: "Olive oil", unit: "tbsp", missingQuantity: 3, unitMismatch: false },
     ]);
   });
 
@@ -152,8 +165,8 @@ describe("computeMissingIngredients", () => {
     const result = computeMissingIngredients(needs);
     // cups + tbsp merge (both volume); g stays separate (different dimension).
     expect(result).toEqual([
-      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 1.13 },
-      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100 },
+      { key: "flour::cups", name: "Flour", unit: "cups", missingQuantity: 1.13, unitMismatch: false },
+      { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100, unitMismatch: false },
     ]);
   });
 });
