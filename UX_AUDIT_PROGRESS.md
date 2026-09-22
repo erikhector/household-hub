@@ -18,13 +18,13 @@ clean, `npx vitest run` 712/712 passing, `npx next build` green (25 routes).
 | Scope | Area | Status | Branch/worktree | Notes |
 |---|---|---|---|---|
 | A | Auth, invites & household management | dispatched | — | |
-| B | Inventory | dispatched | — | |
+| B | Inventory | merged | `02c581b` → merge commit in this branch | B1, B2 both done |
 | C | Shopping list | dispatched | — | |
 | D | Meal planning | dispatched | — | |
 | E | Tasks | dispatched | — | |
 | F | Household + personal budget (schema migration) | dispatched | — | merge last, after confirming migration applies cleanly |
 | G | Profile, notifications & PWA | dispatched | — | |
-| H | Nav shell: toggle labeling convention | dispatched | — | |
+| H | Nav shell: toggle labeling convention | merged | `14b4f25` → merge commit in this branch | H1 done, target-state convention |
 
 Merge order once agents report back: A, B, C, D, E, G, H in any order
 (zero file overlap besides dictionaries), then F last. After each merge:
