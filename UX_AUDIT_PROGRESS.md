@@ -17,20 +17,20 @@ clean, `npx vitest run` 712/712 passing, `npx next build` green (25 routes).
 
 | Scope | Area | Status | Branch/worktree | Notes |
 |---|---|---|---|---|
-| A | Auth, invites & household management | dispatched | — | |
+| A | Auth, invites & household management | merged | `2271718` → merge commit in this branch | A1-A11 all done; subagent hit a session rate limit mid-task, orchestrator finished it directly in its worktree (fixed a lint error + stale test fixtures/assertions) |
 | B | Inventory | merged | `02c581b` → merge commit in this branch | B1, B2 both done |
 | C | Shopping list | merged | `ed475cc` → merge commit in this branch | C1-C5 all done |
 | D | Meal planning | merged | `de7633e` → merge commit in this branch | D1-D8 all done |
 | E | Tasks | merged | `b55456f` → merge commit in this branch | E1, E2 both done |
-| F | Household + personal budget (schema migration) | dispatched | — | merge last, after confirming migration applies cleanly |
+| F | Household + personal budget (schema migration) | merged | `e4915e0` → merge commit in this branch | F1-F11 all done; subagent hit a session rate limit mid-task, orchestrator finished it directly in its worktree (missing dict keys + test-mock gaps) |
 | G | Profile, notifications & PWA | merged | `855ce8a` → merge commit in this branch | G1-G4 all done; added new file `src/components/pwa/service-worker-registration.tsx` |
 | H | Nav shell: toggle labeling convention | merged | `14b4f25` → merge commit in this branch | H1 done, target-state convention |
 
-Merge order once agents report back: A, B, C, D, E, G, H in any order
-(zero file overlap besides dictionaries), then F last. After each merge:
-`npx eslint .`, `npx tsc --noEmit`, `npx vitest run`, hand-resolving any
-dictionary-file conflicts. Full suite + `npx next build` after all scopes
-are in.
+All 8 Wave 2 scopes are merged into this branch. Each merge was a clean
+auto-merge (no manual dictionary-conflict resolution needed) and verified
+with `npx eslint .` / `npx tsc --noEmit` / `npx vitest run` immediately
+after. Final full-suite verification (including `npx next build`) recorded
+below once complete.
 
 ## Environment notes for this sandbox
 
