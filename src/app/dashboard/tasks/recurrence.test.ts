@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { getNextDueDate, isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 
 const now = new Date("2026-09-14T12:00:00.000Z");
 
@@ -27,5 +27,24 @@ describe("isTaskOpen", () => {
   it("is open again for a recurring task well past its interval", () => {
     const completedAt = new Date("2026-09-01T12:00:00.000Z");
     expect(isTaskOpen({ completedAt, recurrenceIntervalDays: 3 }, now)).toBe(true);
+  });
+});
+
+describe("getNextDueDate", () => {
+  it("is null when never completed, recurring or not", () => {
+    expect(getNextDueDate({ completedAt: null, recurrenceIntervalDays: null })).toBeNull();
+    expect(getNextDueDate({ completedAt: null, recurrenceIntervalDays: 3 })).toBeNull();
+  });
+
+  it("is null for a non-recurring task, however recently it was completed", () => {
+    const completedAt = new Date("2026-09-14T12:00:00.000Z");
+    expect(getNextDueDate({ completedAt, recurrenceIntervalDays: null })).toBeNull();
+  });
+
+  it("is completedAt plus the interval for a recurring task", () => {
+    const completedAt = new Date("2026-09-13T12:00:00.000Z");
+    expect(getNextDueDate({ completedAt, recurrenceIntervalDays: 3 })).toEqual(
+      new Date("2026-09-16T12:00:00.000Z"),
+    );
   });
 });

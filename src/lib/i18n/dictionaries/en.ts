@@ -850,6 +850,8 @@ export const en = {
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",
+    lastCompletedByLabel: "Last done by {name}",
+    nextDueLabel: "Next due {date}",
     deleteTaskAriaLabel: "Delete {title}",
     confirmDelete: {
       title: "Delete {name}?",
