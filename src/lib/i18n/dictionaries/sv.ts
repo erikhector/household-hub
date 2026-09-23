@@ -297,6 +297,7 @@ export const sv = {
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
     clearedDismissAriaLabel: "Stäng",
     purchased: "Köpt",
+    otherCategory: "Övrigt",
     lowStockBadge: "Lågt lager",
     expenseLogged: "Loggade {amount} i din budget för Livsmedel",
     expenseDescription: 'Från "{name}"',
