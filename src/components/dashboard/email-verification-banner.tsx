@@ -43,7 +43,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-sm text-warning">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-warning/20 bg-warning/10 px-4 py-2 text-sm text-warning">
       <MailWarning className="size-4 shrink-0" />
       <span className="flex-1">
         {state.sent ? dict.sent : state.error ? state.error : dict.message}

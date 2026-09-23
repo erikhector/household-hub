@@ -89,6 +89,12 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         notifications={notifications}
       />
       <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden">
+        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
+          <HouseholdSwitcher current={current} households={households} dict={dict} />
+        </header>
+        {/* Below the header, not above it: the header is what carries the
+            safe-area-inset-top padding, so anything rendered before it
+            lands under the iOS status bar / Dynamic Island. */}
         <Suspense fallback={null}>
           <EmailVerificationCheck
             userId={userId}
@@ -96,9 +102,6 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             dismissed={emailVerificationDismissed}
           />
         </Suspense>
-        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
-          <HouseholdSwitcher current={current} households={households} dict={dict} />
-        </header>
         {/* mt-3, not pt-3: margin sits outside main's scrollport so this
             gap stays put as the page scrolls, whereas padding would get
             scrolled away — breaking the inventory search bar's sticky-to-top

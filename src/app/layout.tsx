@@ -35,10 +35,23 @@ export const metadata: Metadata = {
   // opening in Safari's normal chrome) when this legacy meta tag is present
   // — without it, `display-mode: standalone` never matches there and
   // PwaSplashScreen never gets a chance to show.
+  //
+  // statusBarStyle is "black" (opaque), not "black-translucent": with
+  // translucent, iOS 26 WebKit sizes the standalone WebView to screen height
+  // *minus the top safe-area inset* while still anchoring it at the top, so
+  // 100dvh, innerHeight and every `position: fixed; bottom: 0` element end
+  // up that many pixels short of the physical bottom edge. That's what
+  // left BottomNav floating above the home indicator with the page
+  // draggable underneath, and no amount of safe-area padding on the nav
+  // itself could fix it (see bottom-nav.tsx's git history). Opaque makes
+  // WebKit lay the WebView out below the status bar, so the viewport's
+  // bottom is the real screen bottom again. iOS freezes these apple-*
+  // tags at install time, so an already-installed PWA must be removed and
+  // re-added to the Home Screen to pick this up.
   appleWebApp: {
     capable: true,
     title: "Squirrel",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
 };
 
