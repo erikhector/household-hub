@@ -27,6 +27,7 @@ import {
   computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
 import {
+  addMonths,
   getMonthEnd,
   getMonthStart,
   isMonthKey,
@@ -44,6 +45,17 @@ const MIN_PRICE_POINTS_FOR_TREND = 3;
 const MAX_SPENDING_MONTHS = 12;
 // Same cap, for the "Fixed income & costs" trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
+// How far back (in months) computeSafeToSpend and computeTemplateStatuses
+// need to see past the month currently being viewed: the former looks for a
+// category's most recent `isRecurring` transaction dated *before* that
+// month to estimate a bill that hasn't posted yet, and the latter needs a
+// YEARLY RecurringTemplate's whole calendar year to tell whether it's
+// already been paid (see SCALE-F, BACKLOG.md). 12 months covers every
+// WEEKLY/MONTHLY/YEARLY cadence in the common case — a YEARLY template paid
+// *later* in the same calendar year than the month being viewed is the one
+// edge case this trades away, the same trade-off MAX_FIXED_TREND_MONTHS's
+// trailing window already makes for the fixed-cost trend chart below.
+const RECURRING_LOOKBACK_MONTHS = 12;
 
 export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
   const [{ household, userId, households }, dict, locale, searchParams] = await Promise.all([
@@ -77,16 +89,71 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       : undefined;
   const householdId = explicitHouseholdId ?? household.id;
 
-  const [categories, transactions, householdMembers, recurringTemplates, recurringTemplateAcks] =
-    await Promise.all([
+  // Bounds for the two queries below that need to see further than just the
+  // viewed month — see RECURRING_LOOKBACK_MONTHS's and MAX_FIXED_TREND_MONTHS's
+  // doc comments above.
+  const recurringLookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
+  const trendMonthStart = getMonthStart(now);
+  const trendWindowStart = addMonths(trendMonthStart, -(MAX_FIXED_TREND_MONTHS - 1));
+  const trendWindowEnd = getMonthEnd(trendMonthStart);
+
+  const [
+    categories,
+    monthTransactions,
+    recurringLookbackTransactions,
+    fixedTrendTransactions,
+    householdMembers,
+    recurringTemplates,
+    recurringTemplateAcks,
+  ] = await Promise.all([
       prisma.budgetCategory.findMany({
         where: { householdId },
         orderBy: [{ type: "asc" }, { name: "asc" }],
       }),
+      // SCALE-F: the transactions for the month currently being viewed —
+      // feeds the transaction list, the period summary's per-category
+      // totals and the settle-up balances below. Previously this query had
+      // no date filter at all (fetched the household's *entire* transaction
+      // history) and the month was filtered down in JS afterward; that grew
+      // every month a household kept using the app, independent of how many
+      // transactions actually belong to the month being looked at.
       prisma.transaction.findMany({
-        where: { householdId },
+        where: { householdId, date: { gte: monthStart, lt: monthEnd } },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
         include: { category: true, splits: true },
+      }),
+      // A wider trailing window behind monthTransactions, for the two calcs
+      // that need to see more than just the viewed month — see
+      // RECURRING_LOOKBACK_MONTHS's doc comment above. Narrowed with
+      // `select` (rather than `include`) since neither calc needs splits or
+      // a full category row, just the category's name.
+      prisma.transaction.findMany({
+        where: { householdId, date: { gte: recurringLookbackStart, lt: monthEnd } },
+        select: {
+          categoryId: true,
+          category: { select: { name: true } },
+          type: true,
+          amount: true,
+          date: true,
+          isRecurring: true,
+          recurringTemplateId: true,
+        },
+        orderBy: { date: "asc" },
+      }),
+      // The "Fixed income & costs" trend chart (computeRecurringMonthlyTotals
+      // below) always shows the same trailing MAX_FIXED_TREND_MONTHS months
+      // ending at *today's* month, independent of whichever month is being
+      // browsed above via monthStart/monthEnd — so it gets its own window
+      // anchored to `now` instead. Filtered to template-linked transactions
+      // only, since that calc ignores every transaction without a
+      // recurringTemplateId anyway.
+      prisma.transaction.findMany({
+        where: {
+          householdId,
+          recurringTemplateId: { not: null },
+          date: { gte: trendWindowStart, lt: trendWindowEnd },
+        },
+        select: { type: true, amount: true, date: true, recurringTemplateId: true },
       }),
       // Fetched for the expense-splitting feature (see REQUIREMENTS.md's
       // "Household expense splitting" subsection) — the split UI and the
@@ -116,13 +183,12 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
   const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
 
-  // Scoped to the selected month — see date-utils.ts's monthStart/monthEnd
-  // above. Fed to TransactionList and the settlements calc below; the
-  // fixed-trend/template-status calcs further down each need their own
-  // (broader) window, so they keep reading from the unscoped `transactions`
-  // fetched above instead.
-  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
-
+  // monthTransactions is already scoped to [monthStart, monthEnd) by the
+  // query above — fed to TransactionList, the settlements calc below and
+  // totalsByCategory. The fixed-trend/template-status calcs further down
+  // each need their own broader window, so they read from
+  // recurringLookbackTransactions/fixedTrendTransactions instead (see their
+  // query comments above).
   const transactionRows = monthTransactions.map((t) => ({
     id: t.id,
     categoryId: t.categoryId,
@@ -192,10 +258,13 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // far minus expenses so far minus savings so far, minus an estimate of
   // recurring expense categories that haven't posted a transaction yet this
   // month. All pure logic lives in computeSafeToSpend
-  // (@/lib/safe-to-spend-calc.ts) so it's unit-testable without Prisma; this
-  // just feeds it the transactions the page already fetched above.
+  // (@/lib/safe-to-spend-calc.ts) so it's unit-testable without Prisma; fed
+  // recurringLookbackTransactions (not monthTransactions) since it needs to
+  // look further back than the viewed month to find a category's most
+  // recent recurring transaction — see RECURRING_LOOKBACK_MONTHS's doc
+  // comment above.
   const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
-    transactions: transactions.map((t) => ({
+    transactions: recurringLookbackTransactions.map((t) => ({
       categoryId: t.categoryId,
       categoryName: t.category.name,
       type: t.type,
@@ -214,11 +283,14 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // See src/lib/recurring-template-calc.ts's doc comments for the "accounted for"
   // model. Paused (inactive) templates get their own section in the panel
   // instead of a status, since "due/acknowledged/posted" is meaningless
-  // while a template isn't running.
+  // while a template isn't running. Fed recurringLookbackTransactions (not
+  // monthTransactions) since a YEARLY template's period can span months
+  // outside the one being viewed — see RECURRING_LOOKBACK_MONTHS's doc
+  // comment above.
   const activeRecurringTemplates = recurringTemplates.filter((t) => t.active);
   const templateStatusRows = computeTemplateStatuses({
     templates: activeRecurringTemplates,
-    transactions: transactions.map((t) => ({
+    transactions: recurringLookbackTransactions.map((t) => ({
       recurringTemplateId: t.recurringTemplateId,
       date: t.date,
     })),
@@ -283,13 +355,11 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // past month's view doesn't backward-propagate templates that didn't exist
   // yet.
   const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates, monthEnd);
+  // fixedTrendTransactions's query above already selects exactly this shape
+  // and window (trailing MAX_FIXED_TREND_MONTHS months ending at `now`,
+  // template-linked only), so it's passed straight through with no mapping.
   const fixedMonthlyTotals = computeRecurringMonthlyTotals({
-    transactions: transactions.map((t) => ({
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      recurringTemplateId: t.recurringTemplateId,
-    })),
+    transactions: fixedTrendTransactions,
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
   });

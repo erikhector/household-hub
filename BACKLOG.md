@@ -265,27 +265,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       under-limit and over-limit cases (see `src/lib/actions/household.test.ts`'s existing
       style). Verify with `npm run lint`, `npx tsc --noEmit`, `npm run test`.
 
-- [ ] **SCALE-F. Bound the budget transactions query to a period instead of fetching all-time** —
-      `src/app/dashboard/budget/page.tsx` (~line 86). `prisma.transaction.findMany({ where: {
-      householdId: household.id }, ... })` fetches every transaction the household has ever
-      logged, unbounded — this grows every month a household keeps using the app,
-      independent of total user count, and will eventually slow down every load of this
-      page. Default the query to the current calendar month (mirror the precedent already
-      set by `src/app/dashboard/budget/export/route.ts`, which scopes its CSV export to the
-      current calendar month) and add a way to navigate to a different month (prev/next
-      month controls, or a month picker — check whether `budget/page.tsx` already has any
-      period-related UI state before designing new UI from scratch). Check whether any
-      other logic on this page (summary totals, safe-to-spend calc, recurring-template
-      status) depends on seeing *all* transactions rather than just the selected month's —
-      if so, either give that logic its own narrower query or flag it back rather than
-      silently changing its behavior. This one has a product-facing UI surface, not just a
-      backend change — if the exact navigation UX is ambiguous, make a reasonable call and
-      flag it rather than guessing indefinitely. Add English + Swedish copy for any new UI
-      text (`src/lib/i18n/dictionaries/en.ts` / `sv.ts` — `satisfies Dictionary` fails the
-      build if a key is missing in either). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, and a manual check in the browser that a household with transactions
-      across multiple months still shows the right ones per month.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
