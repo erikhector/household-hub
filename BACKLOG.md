@@ -200,21 +200,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       `addedAutomatically: true` flag). Verify with `npm run lint`, `npx tsc --noEmit`,
       `npm run test`.
 
-- [ ] **SCALE-B. Batch ingredient/component resolution in recipe save** —
-      `src/app/dashboard/meal-planning/recipe-actions.ts`. Two separate N+1 patterns in the
-      same file: `parseIngredientRows` (~line 75) runs `Promise.all(rows.map(...
-      findOrCreateInventoryItem...))` — N parallel query pairs for N ingredients — and
-      `parseComponentRows` (~line 140) runs a sequential `for` loop doing
-      `prisma.recipe.findFirst` + `wouldCreateCycle` per component row — N sequential round
-      trips for N components. Batch `parseIngredientRows` the same way as SCALE-A (one
-      `findMany` + one `createMany` instead of N lookup/create pairs, preserving
-      insertion order for the returned `data` array). For `parseComponentRows`, replace the
-      per-row `prisma.recipe.findFirst` with a single `prisma.recipe.findMany({ where: { id:
-      { in: ids }, householdId } })` up front, then look up each id from an in-memory Map
-      inside the loop — but leave `wouldCreateCycle`'s per-row call as-is (it's a graph
-      check, not a flat lookup; don't attempt to batch it in this task). Verify with
-      `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
 - [ ] **SCALE-C. Batch shopping-list mapping resolution and receipt-scan apply** —
       `src/app/dashboard/shopping-list/actions.ts`. Two separate loops issue 2-3 DB writes
       per item inside a `$transaction`: `resolveShoppingListMappingsAction`

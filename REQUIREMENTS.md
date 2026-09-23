@@ -1194,15 +1194,20 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking**: mirrors the shopping list exactly —
-  every ingredient with a name gets find-or-create-matched (case-insensitive,
-  scoped to the household) to an `InventoryItem` via a local copy of the
-  `findOrCreateInventoryItem` pattern from
-  `src/app/dashboard/shopping-list/actions.ts` (duplicated rather than
-  imported, since the two features are owned by independent worktrees/tasks
-  and shouldn't be coupled through a shared internal helper). This happens
-  automatically on every save — there's no "link to inventory?" toggle in
-  the UI, same as shopping list items.
+- **Ingredient → inventory linking**: mirrors the shopping list's
+  find-or-create identity rule (case-insensitive name match, scoped to the
+  household) but batched across every ingredient row on the recipe in one
+  pass — `parseIngredientRows` (`src/app/dashboard/meal-planning/recipe-actions.ts`)
+  runs a single `findMany` for every distinct name, a single
+  `createManyAndReturn` for the ones that don't already exist, then maps
+  each row back to its `InventoryItem` id from the combined result (SCALE-B),
+  rather than a `findFirst`/`create` pair per ingredient. `parseComponentRows`
+  in the same file batches its sub-recipe existence check the same way — one
+  `recipe.findMany` across every candidate id instead of a `findFirst` per
+  row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is
+  (it's not a flat lookup). This happens automatically on every save —
+  there's no "link to inventory?" toggle in the UI, same as shopping list
+  items.
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
@@ -1746,8 +1751,8 @@ Exactly three triggers exist — nothing else creates a notification:
   zero, is a no-op — and it's deduped against any already-active
   (undismissed) alert for the same item.
   - **Deliberately never fires on item creation.** `createInventoryItemAction`,
-    `quickAddInventoryItemAction`, `addStarterKitItemsAction`,
-    `findOrCreateInventoryItem` (meal-planning ingredients and shopping-list
+    `quickAddInventoryItemAction`, `addStarterKitItemsAction`, every
+    find-or-create-linking path (meal-planning ingredients and shopping-list
     items), and `createInventoryItemFromShoppingListItemAction` all can
     create a brand-new `InventoryItem` at quantity 0 (e.g. an ingredient
     auto-linked the moment a recipe is saved, or a manually added item left
