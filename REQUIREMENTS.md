@@ -236,6 +236,39 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the existing stock-status badge in the inventory table/cards, hidden
     entirely when no expiry is set or it's further out than the window. Also
     feeds a third notification trigger — see "Notification center" below.
+  - **Auto-categorization (AUTO-2)**: a new item created without a
+    category is filed under a guessed one instead of `"Uncategorized"`, so
+    things added from a list, receipt, paste or quick-add arrive already
+    sorted and `ResolveMappingsDialog` rarely has sorting work to do. This
+    covers the add form and quick-add bar (blank category), the scan-queue/
+    paste/AI-shelf-scan bulk add (no shared category), and every
+    shopping-list create path (receipt "add as new item", the mapping
+    dialog's single and batch "create new", `registerReceiptAction`). The
+    pure resolver (`src/lib/inventory/auto-category.ts`, unit-tested) runs
+    cheapest-first and needs no AI key: (1) **household memory**: an
+    existing item with the same or a confidently similar name (score ≥ 0.8
+    via `findInventoryMatches`, so "Mjölk 3%" follows "Mjölk") lends its
+    category, skipping items still in any locale's "Uncategorized". This is
+    also how a correction sticks: once the user moves an item, later adds
+    of that name follow it and the dictionary is never consulted. (2) A
+    **built-in bilingual keyword table** maps to nine canonical keys
+    (produce, bakery, dairy, meat, pantry, frozen, drinks, cleaning,
+    bathroom). It matches the head noun (last word first, since both
+    languages put it last), Swedish compounds by suffix ("kycklingfilé",
+    "vispgrädde"), English/Swedish plurals, multi-word phrases before single
+    words ("peanut butter", "dish soap") and a "frozen"/"fryst" modifier.
+    Keys are labelled in the user's locale via `inventory.autoCategories`.
+    The pantry/cleaning/bathroom labels deliberately equal the starter
+    kits' names (test-enforced), so kit items and auto-filed ones share
+    groups. If neither step knows the name, the old "Uncategorized" fallback
+    applies. The server half (`createCategoryResolver`,
+    `src/lib/inventory/category-resolver.ts`) loads the household's items
+    lazily, once per request, and bulk add reuses its own dedupe query.
+    Only a *blank* category is ever filled in: a typed or shared category
+    always wins, and clearing a category on the edit form is respected, not
+    re-guessed. Recipe-ingredient find-or-create
+    (`recipe-actions.ts`/`cooking-actions.ts`) still uses
+    `"Uncategorized"`. See BACKLOG.md AUTO-2b.
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
@@ -819,6 +852,12 @@ never blocks or breaks manual entry, at any failure point.
   swallowed and reported back as `{ name: null }` rather than an error;
   there's nothing actionable a user could do about an Open Food Facts miss
   besides typing the name themselves, which the flow already falls back to.
+  On a hit, the product's `categories_tags` are mapped to an
+  auto-category (`categoryKeyFromOpenFoodFactsTags`, most specific tag
+  first, skipping the catch-all `plant-based-foods-and-beverages` family)
+  and returned as a localized `category`. The add-item form uses it to fill
+  a *blank* Category field, and the scan queue sends it per item to bulk
+  add, where it's used only when no shared category is set.
   Still calls `requireHousehold()` first, matching every other action in
   this app's "never a reachable, unauthenticated Server Action" convention,
   even though the household id itself isn't used for anything here.

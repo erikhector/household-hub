@@ -20,6 +20,9 @@ export type BarcodeScanResult = {
   barcode: string;
   /** Product name from Open Food Facts, or null on a lookup miss/failure. */
   name: string | null;
+  /** Localized auto-category from the product's Open Food Facts tags, or
+   * null when there's none to suggest. */
+  category: string | null;
 };
 
 // The barcode formats an item's grocery/retail packaging actually carries —
@@ -214,7 +217,7 @@ export function BarcodeScannerButton({
       setPhase("looking-up");
       const result = await lookupBarcodeAction(barcode);
       if (cancelled) return;
-      onResult({ barcode, name: result.name });
+      onResult({ barcode, name: result.name, category: result.category ?? null });
       setOpen(false);
     };
 
