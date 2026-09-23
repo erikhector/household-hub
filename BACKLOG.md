@@ -251,20 +251,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       where the data comes from, not the recursion/cycle logic. Verify with `npm run lint`,
       `npx tsc --noEmit`, `npm run test`.
 
-- [ ] **SCALE-E. Rate-limit `sendInviteEmailAction`** —
-      `src/lib/actions/household.ts` (`sendInviteEmailAction`). This lets any authenticated household member
-      trigger an outbound email to an arbitrary address with no throttle — a cost/abuse
-      vector (spamming arbitrary inboxes via this app's sending domain) once there are many
-      real accounts. Mirror the existing pattern in the same file
-      (`JOIN_SIGNUP_RATE_LIMIT`/`JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS`, and the
-      `checkRateLimit` call in the join-signup action): add a rate limit keyed on the *sender*
-      (`invite-email:${household.userId}` — use whatever identifier `requireHousehold()`
-      returns for the acting user) of something like 10 invite emails per hour, returning
-      `{ error: "Too many invite emails sent. Please wait a while and try again." }` when
-      exceeded. Add a test in this file's existing test suite covering both the
-      under-limit and over-limit cases (see `src/lib/actions/household.test.ts`'s existing
-      style). Verify with `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
 - [ ] **SCALE-F. Bound the budget transactions query to a period instead of fetching all-time** —
       `src/app/dashboard/budget/page.tsx` (~line 86). `prisma.transaction.findMany({ where: {
       householdId: household.id }, ... })` fetches every transaction the household has ever

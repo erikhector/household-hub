@@ -113,6 +113,7 @@ const {
   transferOwnershipAction,
   switchHouseholdAction,
 } = await import("@/lib/actions/household");
+const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -124,6 +125,7 @@ const originalAppUrl = process.env.APP_URL;
 
 afterEach(() => {
   vi.clearAllMocks();
+  _resetRateLimitsForTests();
   redirectMock.mockImplementation((path: string) => {
     throw new Error(`REDIRECT:${path}`);
   });
@@ -319,6 +321,77 @@ describe("sendInviteEmailAction (absoluteAppUrl trust boundary)", () => {
     expect(sendHouseholdInviteEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({ inviteUrl: "http://localhost:3000/join/invite-token" }),
     );
+  });
+});
+
+// Regression coverage for the SCALE-E fix: any authenticated household
+// member could otherwise trigger unlimited outbound emails to arbitrary
+// addresses via this app's sending domain. Keyed on the *sender*
+// (requireHousehold()'s userId), not the invitee's email or the household,
+// so one member being throttled doesn't block a different member of the
+// same household from sending invites.
+describe("sendInviteEmailAction rate limiting", () => {
+  const validInvitation = {
+    id: "invite-1",
+    token: "invite-token",
+    householdId: "household-1",
+    acceptedAt: null,
+    expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+  };
+
+  it("allows up to the limit of invite emails from the same sender", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      userId: "sender-1",
+    });
+    invitationFindFirstMock.mockResolvedValue(validInvitation);
+
+    for (let i = 0; i < 10; i++) {
+      const result = await sendInviteEmailAction("invite-token", `friend${i}@example.com`);
+      expect(result.error).toBeUndefined();
+    }
+
+    expect(sendHouseholdInviteEmailMock).toHaveBeenCalledTimes(10);
+  });
+
+  it("blocks further invite emails from the same sender past the limit", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      userId: "sender-1",
+    });
+    invitationFindFirstMock.mockResolvedValue(validInvitation);
+
+    for (let i = 0; i < 10; i++) {
+      await sendInviteEmailAction("invite-token", `friend${i}@example.com`);
+    }
+    sendHouseholdInviteEmailMock.mockClear();
+
+    const result = await sendInviteEmailAction("invite-token", "eleventh@example.com");
+
+    expect(result.error).toBe("Too many invite emails sent. Please wait a while and try again.");
+    expect(sendHouseholdInviteEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("does not rate-limit a different sender in the same household", async () => {
+    invitationFindFirstMock.mockResolvedValue(validInvitation);
+
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      userId: "sender-1",
+    });
+    for (let i = 0; i < 10; i++) {
+      await sendInviteEmailAction("invite-token", `friend${i}@example.com`);
+    }
+    sendHouseholdInviteEmailMock.mockClear();
+
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", name: "The Hectors" },
+      userId: "sender-2",
+    });
+    const result = await sendInviteEmailAction("invite-token", "friend@example.com");
+
+    expect(result.error).toBeUndefined();
+    expect(sendHouseholdInviteEmailMock).toHaveBeenCalledTimes(1);
   });
 });
 

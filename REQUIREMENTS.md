@@ -192,7 +192,11 @@ email is built server-side from request headers (`x-forwarded-host`/
 Action is a POST endpoint reachable by anyone, not just through the UI that
 renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
 adds an email input + send button below the existing link/copy UI, reusing
-the same invitation token the link already points at.
+the same invitation token the link already points at. `sendInviteEmailAction`
+is rate-limited (`checkRateLimit`, 10/hour) keyed on the *sending* household
+member (`invite-email:<userId>`), returning `{ error }` past the limit —
+without it, any authenticated household member could trigger unlimited
+outbound email to arbitrary addresses via this app's sending domain.
 - **Switching households**: a user can belong to multiple households (e.g.
   their own home + a shared vacation home). The active one is tracked by the
   `active_household` cookie (`src/lib/session.ts`), read (never written) by
