@@ -16,6 +16,7 @@ import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/n
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver } from "@/lib/inventory/category-resolver";
+import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -560,6 +561,151 @@ export async function importShoppingListItemsAction(
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return { added };
+}
+
+const smartAddSchema = z.object({
+  listId: z.string().min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        quantity: z.coerce.number().min(0.01).max(100000),
+        unit: z.string().trim().max(20).optional(),
+        inventoryItemId: z.string().min(1).optional(),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+/**
+ * The commit path behind the shopping list's smart add line (AUTO-1,
+ * SmartAddBar): one or more rows, already split by parseSmartAddInput
+ * (src/lib/shopping/smart-add-suggestions.ts — the same path a future voice
+ * input is meant to feed), added in one round trip. Unlike
+ * importShoppingListItemsAction, every row ends up linked, since this is the
+ * everyday "add milk" path and an unlinked row is a chore left for later:
+ *
+ *   1. a picked suggestion's `inventoryItemId` (only if it's this
+ *      household's — anything else is ignored, not trusted);
+ *   2. otherwise matchSmartAddInventoryItem's pick — an exact (normalized)
+ *      name, the one item containing every typed word ("mjölk" →
+ *      "Mjölk 3%"), or a single confident findInventoryMatches hit;
+ *   3. otherwise a new InventoryItem (quantity 0, category guessed by AUTO-2's
+ *      createCategoryResolver), shared by any later row in the same batch
+ *      with the same case-insensitive name.
+ *
+ * Rows whose item is already pending on this list — or earlier in the same
+ * batch — are skipped and reported back in `alreadyOnList` rather than
+ * added as a duplicate or bumping the existing row's quantity, the same
+ * dedupe generateFromLowStockAction does. `addedIds` lets the list briefly
+ * highlight the new rows.
+ */
+export async function smartAddShoppingListItemsAction(
+  listId: string,
+  items: { name: string; quantity: number; unit?: string; inventoryItemId?: string }[],
+): Promise<ActionState & { addedIds?: string[]; alreadyOnList?: string[] }> {
+  const { household } = await requireHousehold();
+
+  const parsed = smartAddSchema.safeParse({ listId, items });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: parsed.data.listId, householdId: household.id, status: "ACTIVE" },
+  });
+  if (!list) return { error: "This list can't be edited right now" };
+
+  const addedIds: string[] = [];
+  const alreadyOnList: string[] = [];
+  let createdInventory = false;
+  try {
+    const [inventoryItems, pending] = await Promise.all([
+      prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
+      prisma.shoppingListItem.findMany({
+        where: { shoppingListId: list.id, purchased: false, inventoryItemId: { not: null } },
+        select: { inventoryItemId: true },
+      }),
+    ]);
+    const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+    const onList = new Set(pending.map((item) => item.inventoryItemId));
+
+    // Planned up front, outside the transaction, so category guesses (which
+    // may query) don't hold it open — same split as
+    // resolveShoppingListMappingsAction. A new item is keyed by its
+    // lowercased name until the transaction gives it an id.
+    const resolveCategory = createCategoryResolver(household.id, inventoryItems);
+    const newItems = new Map<string, { name: string; unit: string; category: string }>();
+    const rows: { name: string; quantity: number; unit: string; inventoryItemId?: string; newKey?: string }[] = [];
+
+    for (const row of parsed.data.items) {
+      let existing = row.inventoryItemId ? inventoryById.get(row.inventoryItemId) : undefined;
+      existing ??= matchSmartAddInventoryItem(row.name, inventoryItems) ?? undefined;
+
+      if (existing) {
+        if (onList.has(existing.id)) {
+          alreadyOnList.push(existing.name);
+          continue;
+        }
+        onList.add(existing.id);
+        rows.push({
+          name: row.name,
+          quantity: row.quantity,
+          unit: row.unit || existing.unit || "pcs",
+          inventoryItemId: existing.id,
+        });
+        continue;
+      }
+
+      const newKey = row.name.toLowerCase();
+      if (newItems.has(newKey)) {
+        alreadyOnList.push(newItems.get(newKey)!.name);
+        continue;
+      }
+      const unit = row.unit || "pcs";
+      newItems.set(newKey, { name: row.name, unit, category: (await resolveCategory(row.name)) || "Uncategorized" });
+      rows.push({ name: row.name, quantity: row.quantity, unit, newKey });
+    }
+
+    if (rows.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        const createdIds = new Map<string, string>();
+        for (const [key, item] of newItems) {
+          const created = await tx.inventoryItem.create({
+            data: {
+              householdId: household.id,
+              name: item.name,
+              category: item.category,
+              unit: item.unit,
+              quantity: 0,
+              lowStockThreshold: 0,
+            },
+          });
+          createdIds.set(key, created.id);
+        }
+        for (const row of rows) {
+          const created = await tx.shoppingListItem.create({
+            data: {
+              shoppingListId: list.id,
+              inventoryItemId: row.inventoryItemId ?? createdIds.get(row.newKey!) ?? null,
+              name: row.name,
+              quantity: row.quantity,
+              unit: row.unit,
+            },
+          });
+          addedIds.push(created.id);
+        }
+      });
+      createdInventory = newItems.size > 0;
+    }
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  if (addedIds.length > 0) revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  if (createdInventory) revalidatePath("/dashboard/inventory");
+  return { addedIds, alreadyOnList };
 }
 
 export type MappingResolution =

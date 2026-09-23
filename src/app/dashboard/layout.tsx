@@ -114,8 +114,12 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             normal flow — without this, its last ~3.75rem of tap targets
             would sit on top of this page's own content instead of below
             it. The value mirrors BottomNav's own rendered height (icon
-            tile + label + padding) plus its capped safe-area inset. */}
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))]">
+            tile + label + padding) plus its capped safe-area inset.
+            max-sm:scroll-pb-[...] is the same reservation for
+            scrollIntoView (e.g. the shopping list scrolling a just-added
+            row into view): without it "nearest" stops at main's bottom
+            edge, which is behind BottomNav. */}
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))]">
           {children}
         </main>
       </div>
