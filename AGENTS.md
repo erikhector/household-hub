@@ -94,6 +94,20 @@ every push and PR. **Run all of these before calling a change done.**
 - Follow the surrounding code's style and comment density. Comments explain
   *why*, often at length. Keep that style.
 
+## Pull requests and releases
+
+- All work lands on `master` through a squash-merged PR. Never push to
+  `master` directly. Only the release workflow does that.
+- **PR title** must be a Conventional Commit. It sets the version bump:
+  `feat:` minor, `fix:`/`perf:` patch, `type!:` major. `refactor`, `docs`,
+  `test`, `ci`, `chore`, `build` and `style` don't release.
+- **Fill in the "Release note" section** of the PR template in English and
+  Swedish. Write it for users, not developers. It's shown in the app under
+  "What's new".
+- Never edit `version` in `package.json` or
+  `src/lib/release-notes/releases.json` by hand. `.github/workflows/release.yml`
+  writes both after merge. See REQUIREMENTS.md, "Releases & What's new".
+
 ## Testing
 
 - Vitest runs in the node environment on `src/**/*.test.ts`. Tests sit next

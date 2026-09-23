@@ -1577,6 +1577,53 @@ components directly.
   (see "Internationalization" on why each Server Component fetches
   independently rather than prop-drilling from one root call).
 
+## Releases & What's new
+
+Every change reaches `master` through a pull request, and every releasing PR
+bumps the app's version and adds a user-facing note. Nobody edits the
+version or the notes by hand.
+
+- **PR title = release type.** Titles follow Conventional Commits
+  (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
+  patch, any type with `!` → major. `refactor`, `docs`, `test`, `ci`,
+  `chore`, `build` and `style` merge without a release. PRs are
+  squash-merged, so the title is also the commit message on `master`.
+- **PR body = release note.** `.github/pull_request_template.md` has a
+  "Release note" section with `### English` and `### Svenska` headings. An
+  empty English note falls back to the title's description. An empty
+  Swedish note is stored as `null` and the app shows the English one.
+- **Before merge**: `.github/workflows/release-preview.yml` fails the check
+  on an invalid title and keeps one PR comment up to date with the version
+  the PR will release and the exact note users will see.
+- **After merge**: `.github/workflows/release.yml` runs
+  `scripts/release.ts apply` on the latest `master`. That bumps
+  `package.json`/`package-lock.json`, prepends an entry to
+  `src/lib/release-notes/releases.json`, commits
+  `chore(release): vX.Y.Z [skip ci]`, tags `vX.Y.Z` and creates a GitHub
+  Release. The bump happens after merge, not inside the PR, because
+  bumping in each PR would make every pair of open PRs conflict on the
+  version line. Concurrent merges retry from the newest `master` instead
+  of using a concurrency group, which would cancel queued runs.
+- The pure logic (title parsing, bump, note extraction) lives in
+  `src/lib/release-notes/release-calc.ts` with tests. It has no imports
+  because `scripts/release.ts` runs it under Node's built-in type stripping
+  without `npm ci`, which is also why `tsconfig.json` sets
+  `allowImportingTsExtensions`.
+
+**In the app**: `releases.json` is bundled into the build, so the notes
+always match the deployed code with no DB table or GitHub API call.
+`src/lib/release-notes/index.ts` exposes `RELEASES`, `CURRENT_VERSION` and
+the locale fallback.
+
+- `/dashboard/whats-new` lists every release, newest first, with version,
+  date and the note in the user's locale.
+- The desktop sidebar footer has a "What's new · vX.Y.Z" link, and the
+  mobile "More" menu has the same item. Both show a dot while the newest
+  release is unseen. Opening the page writes the `last_seen_release`
+  cookie (preference, 1 year) and refreshes the layout to clear the dot.
+- Profile has an "About Squirrel" card with the version and a link to the
+  page.
+
 ## Notification center
 
 A bell icon in the nav (desktop sidebar, mobile bottom nav's "More" menu —

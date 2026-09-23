@@ -90,6 +90,13 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "1 year",
   },
   {
+    name: "last_seen_release",
+    kind: "cookie",
+    category: "preference",
+    purpose: "Remembers the latest update you've seen under “What's new”, so the new-update dot goes away.",
+    duration: "1 year",
+  },
+  {
     name: "theme",
     kind: "localStorage",
     category: "preference",

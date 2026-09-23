@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, use, useState } from "react";
-import { ChevronLeft, ChevronRight, Languages, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, Languages, LogOut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
@@ -14,6 +14,7 @@ import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
+import { CURRENT_VERSION } from "@/lib/release-notes";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -43,6 +44,7 @@ export function Sidebar({
   dict,
   locale,
   notifications,
+  unseenRelease,
 }: {
   defaultExpanded: boolean;
   current: HouseholdOption;
@@ -50,6 +52,7 @@ export function Sidebar({
   dict: Dictionary;
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
+  unseenRelease: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
@@ -116,6 +119,35 @@ export function Sidebar({
         })}
       </nav>
       <div className="flex flex-col gap-1 border-t p-2">
+        {/* Doubles as the app's version display. The dot stays until the
+            user opens What's new for the newest release (see
+            src/lib/release-notes/index.ts). */}
+        <Link
+          href="/dashboard/whats-new"
+          title={expanded ? undefined : `${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
+          className={cn(
+            "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
+            !expanded && "justify-center",
+            isNavItemActive(pathname, "/dashboard/whats-new")
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <span className="relative inline-flex">
+            <Sparkles className="size-4" />
+            {unseenRelease && (
+              <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary">
+                <span className="sr-only">{dict.nav.whatsNewUnseen}</span>
+              </span>
+            )}
+          </span>
+          {expanded && (
+            <>
+              <span className="truncate">{dict.nav.whatsNew}</span>
+              <span className="ml-auto text-xs tabular-nums">v{CURRENT_VERSION}</span>
+            </>
+          )}
+        </Link>
         <Suspense fallback={<NotificationBell items={[]} dict={dict.notifications} expanded={expanded} />}>
           <NotificationBellContent notifications={notifications} dict={dict.notifications} expanded={expanded} />
         </Suspense>

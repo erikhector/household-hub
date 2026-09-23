@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, use } from "react";
-import { Languages, MoreHorizontal, LogOut } from "lucide-react";
+import { Languages, MoreHorizontal, LogOut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
 import { NotificationCountBadge, NotificationMenuItem } from "@/components/notifications/notification-bell";
 import type { NotificationItem } from "@/lib/notifications";
+import { CURRENT_VERSION } from "@/lib/release-notes";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // Each streamed independently under its own Suspense boundary (see BottomNav
@@ -55,10 +56,12 @@ export function BottomNav({
   dict,
   locale,
   notifications,
+  unseenRelease,
 }: {
   dict: Dictionary;
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
+  unseenRelease: boolean;
 }) {
   const pathname = usePathname();
   const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
@@ -161,6 +164,16 @@ export function BottomNav({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="min-w-0" render={<Link href="/dashboard/whats-new" />}>
+              <Sparkles className="size-4" />
+              <span className="min-w-0 truncate">{dict.nav.whatsNew}</span>
+              {unseenRelease && (
+                <span className="size-2 shrink-0 rounded-full bg-primary">
+                  <span className="sr-only">{dict.nav.whatsNewUnseen}</span>
+                </span>
+              )}
+              <span className="ml-auto text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</span>
+            </DropdownMenuItem>
             <Suspense fallback={null}>
               <NotificationMenuItemContent notifications={notifications} dict={dict.notifications} />
             </Suspense>

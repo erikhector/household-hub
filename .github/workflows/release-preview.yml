@@ -1,0 +1,76 @@
+name: Release preview
+
+# Runs on every PR into master. Validates the PR title (Conventional Commits),
+# then posts or updates one comment showing the version this PR will release
+# on merge and the user-facing note that will appear under "What's new".
+# Make the "Release preview" check required in the branch ruleset (see
+# DEPLOYMENT.md) so a PR with an invalid title can't be merged.
+#
+# Nothing is written to the branch here. The bump happens after merge
+# (release.yml), because bumping inside each PR would make every two open
+# PRs conflict on package.json's version line.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A burst of description edits only needs the last one previewed.
+concurrency:
+  group: release-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Release preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Node 22.18+ runs scripts/release.ts directly (built-in type
+      # stripping), so no `npm ci` is needed.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # PR title and body go through env vars and are never interpolated
+      # into the script, so a crafted title can't inject shell commands.
+      - name: Plan release
+        id: plan
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release.ts preview > "$RUNNER_TEMP/preview.md"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # Edits the existing preview comment (found by its hidden marker) so
+      # the PR has one preview comment, not a new one per push.
+      - name: Post preview comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          comment_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- release-preview -->")) | .id' | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@"$RUNNER_TEMP/preview.md" > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$RUNNER_TEMP/preview.md" > /dev/null
+          fi
+
+      - name: Fail on invalid PR title
+        if: steps.plan.outputs.exit_code != '0'
+        run: |
+          echo "::error::PR title must be a Conventional Commit, e.g. 'feat(shopping): barcode scan'. See the preview comment."
+          exit 1
