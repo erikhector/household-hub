@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.0",
+    "date": "2026-09-23",
+    "pr": 6,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Add items to a shopping list by typing them in the box at the top, for example \"2 l milk, bread, 6 eggs\", and pressing Enter. Suggestions show up as you type, with things you're running low on first.",
+      "sv": "Lägg till varor på inköpslistan genom att skriva dem i rutan högst upp, till exempel \"2 l mjölk, bröd, 6 ägg\", och trycka Enter. Förslag visas medan du skriver, med det som håller på att ta slut först."
+    }
+  },
+  {
     "version": "0.2.0",
     "date": "2026-09-23",
     "pr": 5,
