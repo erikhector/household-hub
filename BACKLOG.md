@@ -92,8 +92,7 @@ Parallel-safe except where noted. **File conflicts to watch:**
 AUTO-3, AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
 in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
-`src/app/dashboard/budget/page.tsx`). SCALE-C and AUTO-4 both touch the
-receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
+`src/app/dashboard/budget/page.tsx`).
 
 ### Shopping list & inventory automation
 
@@ -215,23 +214,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       inside the loop — but leave `wouldCreateCycle`'s per-row call as-is (it's a graph
       check, not a flat lookup; don't attempt to batch it in this task). Verify with
       `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
-- [ ] **SCALE-C. Batch shopping-list mapping resolution and receipt-scan apply** —
-      `src/app/dashboard/shopping-list/actions.ts`. Two separate loops issue 2-3 DB writes
-      per item inside a `$transaction`: `resolveShoppingListMappingsAction`
-      loops over `resolutions` doing a conditional `inventoryItem.findFirst`/`create` plus a
-      `shoppingListItem.update` per item, and `applyReceiptScanAction` loops
-      over `validMatches` doing a `shoppingListItem.update` plus a conditional
-      `inventoryItem.update` and `priceHistory.create` per match. In both cases the target
-      rows already exist in the `items`/`itemsById` map fetched before the transaction — the
-      writes are what's per-row, not the reads, and each row's write data differs, so this
-      can't collapse into a single `updateMany`. Instead, parallelize the per-row writes
-      inside each transaction with `Promise.all` (Prisma's interactive `$transaction`
-      callback supports concurrent queries on the same `tx` client) instead of sequential
-      `await`s in a `for` loop, cutting wall-clock transaction hold time roughly in half to a
-      third depending on the row. Do not change the actual data written or the dedupe/
-      validation logic — this is purely reducing sequential round trips within the existing
-      transaction. Verify with `npm run lint`, `npx tsc --noEmit`, `npm run test`.
 
 - [ ] **SCALE-D. Batch the recipe-graph fetch in `expandRecipeIngredients`** —
       `src/app/dashboard/meal-planning/recipe-expansion.ts` (`expandRecipeIngredients`). This recursively calls

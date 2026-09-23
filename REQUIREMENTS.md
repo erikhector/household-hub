@@ -1042,9 +1042,15 @@ below.
   `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
   — bumping the linked inventory item's quantity and recording a
   `PriceHistory` row — just batched across every scanned line in one
-  transaction instead of one checkbox at a time. De-dupes by
-  `shoppingListItemId` server-side (in case two OCR'd lines were ever
-  matched to the same item) so nothing is double-counted.
+  transaction instead of one checkbox at a time, with the per-line writes
+  themselves run concurrently via `Promise.all` inside that transaction
+  rather than sequentially — the same change applied to
+  `resolveShoppingListMappingsAction`'s batch resolution
+  (`src/app/dashboard/shopping-list/actions.ts`, the `ResolveMappingsDialog`
+  commit path) — since each line/resolution only ever touches its own rows
+  (SCALE-C). De-dupes by `shoppingListItemId` server-side (in case two
+  OCR'd lines were ever matched to the same item) so nothing is
+  double-counted.
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
