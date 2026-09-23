@@ -97,7 +97,7 @@ export async function previewMissingIngredientsAction(
     await Promise.all(
       plan.entries.map((entry) => {
         const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
-        return expandRecipeIngredients(entry.recipeId!, multiplier, new Set());
+        return expandRecipeIngredients(household.id, entry.recipeId!, multiplier, new Set());
       }),
     )
   ).flat();
@@ -272,7 +272,7 @@ export async function previewCookedIngredientsAction(
   if (!entry.recipeId) return { error: "No recipe linked to this meal" };
 
   const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
-  const expanded = await expandRecipeIngredients(entry.recipeId, multiplier, new Set());
+  const expanded = await expandRecipeIngredients(household.id, entry.recipeId, multiplier, new Set());
 
   // Same fallback as previewMissingIngredientsAction: an ingredient's
   // inventoryItemId is normally always set (find-or-create-linked at
