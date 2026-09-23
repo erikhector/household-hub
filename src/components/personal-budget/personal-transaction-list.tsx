@@ -30,7 +30,7 @@ export type PersonalTransactionListRow = PersonalTransactionRow & {
 };
 
 // This user's own share of a posted split household Transaction (see
-// PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged straight into the normal
+// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged straight into the normal
 // transaction list, badged "Shared", rather than shown in a separate
 // section. Read-only here: a "View in {household} Budget" link is the only
 // control, since the household budget stays the one place these get
@@ -94,11 +94,11 @@ export function PersonalTransactionList({
 }: {
   transactions: PersonalTransactionListRow[];
   /** This user's own share of posted split household transactions this
-   * month (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged into the list
+   * month (see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged into the list
    * below, badged "Shared". */
   sharedRows?: SharedPostedRow[];
   /** Only show which household a shared row belongs to once the user is in
-   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+   * more than one — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
   showHouseholdName?: boolean;
   /** "YYYY-MM" — reused for a shared row's "View in {household} Budget"
    * link, required whenever sharedRows is non-empty. */

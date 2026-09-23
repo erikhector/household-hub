@@ -1,6 +1,6 @@
 "use client";
 
-// Unified create/edit form for household tasks (see UX_CONSISTENCY_BACKLOG.md
+// Unified create/edit form for household tasks (see docs/archive/UX_CONSISTENCY_BACKLOG.md
 // item H) — follows ItemFormDialog's shape
 // (src/components/inventory/add-item-dialog.tsx) as the reference
 // implementation: one component, a `mode: "create" | "edit"` prop, `task`

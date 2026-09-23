@@ -1,5 +1,5 @@
 // Tests the /dashboard/profile/export-data Route Handler (GDPR data export
-// — see PRODUCTION_READINESS.md task M). Prisma and requireUserId are
+// — see docs/archive/PRODUCTION_READINESS.md task M). Prisma and requireUserId are
 // mocked, same pattern as src/app/api/health/route.test.ts — no database is
 // touched. The core assertion is scope: the export includes the caller's
 // own profile/membership/personal-budget data, never `passwordHash` and

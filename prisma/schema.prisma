@@ -226,7 +226,7 @@ enum NotificationKind {
   // creates these anymore; kept only so any pre-existing rows still
   // deserialize. getActiveNotifications drops them rather than showing them.
   RESTOCKED
-  // Good news (see JOY_GAP_BACKLOG.md item 4) — the bell gives this a
+  // Good news (see docs/archive/JOY_GAP_BACKLOG.md item 4) — the bell gives this a
   // distinct treatment from the warning kinds. Same lifecycle as every
   // other kind (fired once at the transition, cleared only by dismissal).
   LIST_CLEARED
@@ -649,7 +649,7 @@ model RecurringTemplate {
 // a "due" period (no Transaction logged yet) still carry a per-member share,
 // which is what makes it possible to surface e.g. "Rent" as due in a
 // member's Personal Budget before anyone has logged it there (see
-// PERSONAL_HOUSEHOLD_BUDGET_LINK.md). No `paidByMemberId` counterpart here —
+// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md). No `paidByMemberId` counterpart here —
 // unlike a Transaction, a template is never itself "paid", so only the
 // split shares matter. `amountOwed` is an absolute currency amount, and the
 // sum of a template's splits is validated server-side to equal the
@@ -783,7 +783,7 @@ model PersonalRecurringTemplateAck {
 }
 
 // --- Household tasks ---------------------------------------------------------
-// Shared task list for adult household co-managers (see JOY_GAP_BACKLOG.md
+// Shared task list for adult household co-managers (see docs/archive/JOY_GAP_BACKLOG.md
 // item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
 // system like Tody or OurHome (see that item's Scope note): no due date, no
 // per-person scoring. `completedAt` nullable-timestamp-as-status (not a

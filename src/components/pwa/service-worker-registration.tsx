@@ -7,7 +7,7 @@
 // someone who installed the PWA straight from the browser's native "Install
 // app" prompt (see install-app-card.tsx) and never visited that card got no
 // service worker at all, which meant no offline fallback page either (see
-// service-worker.js's own doc comment) — UX_AUDIT_IMPLEMENTATION_PLAN.md's
+// service-worker.js's own doc comment) — docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md's
 // G3. Registration is idempotent — the browser returns the existing
 // registration for the same script URL + scope rather than creating a
 // second one, so this and push-notifications-card.tsx's own call never

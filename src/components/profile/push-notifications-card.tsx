@@ -137,7 +137,7 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
           now-"denied" Notification.permission and switched `status` to
           "denied" too — without this guard, both the generic message here
           and the specific denied-permission message above would show at
-          once. The specific one wins (see UX_AUDIT_IMPLEMENTATION_PLAN.md's
+          once. The specific one wins (see docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md's
           G4). */}
       {error && status !== "denied" && <p className="text-sm text-destructive">{dict.error}</p>}
     </div>

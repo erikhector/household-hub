@@ -28,7 +28,7 @@ export type ExpectedRecurringExpense = {
   // Purely additive, display-layer tags — computeSafeToSpend itself never
   // sets these (every row it produces is implicitly "personal"); a caller
   // that wants to show shared-household rows alongside them (see
-  // PERSONAL_HOUSEHOLD_BUDGET_LINK.md and personal-budget/page.tsx) appends
+  // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md and personal-budget/page.tsx) appends
   // its own rows with `source: "shared"` before re-deriving the headline
   // number via deriveSafeToSpend below. Household-budget callers never set
   // either field and keep working exactly as before.
@@ -53,7 +53,7 @@ export type SafeToSpendResult = {
    * logged" this month, sorted largest-first for the breakdown UI. */
   expectedRecurring: ExpectedRecurringExpense[];
   /** Calmer three-way read on `safeToSpend`, for copy/color in the UI (see
-   * JOY_GAP_BACKLOG.md item 3): "over" once spent past zero, "tight" once
+   * docs/archive/JOY_GAP_BACKLOG.md item 3): "over" once spent past zero, "tight" once
    * what's left drops under `TIGHT_THRESHOLD_RATIO` of this month's income
    * so far, "healthy" otherwise. Ratio-based (not a fixed amount) so it
    * holds up across households and currencies; with no income logged yet
@@ -69,7 +69,7 @@ export type SafeToSpendResult = {
  * own extra `ExpectedRecurringExpense` rows to the ones computeSafeToSpend
  * already estimated — e.g. the personal budget page folding in a signed-in
  * user's due share of a *shared* household RecurringTemplate (see
- * PERSONAL_HOUSEHOLD_BUDGET_LINK.md), which computeSafeToSpend's own
+ * docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md), which computeSafeToSpend's own
  * category/transaction-based estimate has no way to know about. Kept as a
  * separate exported function (rather than inlining this into
  * computeSafeToSpend) precisely so that re-derivation doesn't need to

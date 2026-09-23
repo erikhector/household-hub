@@ -33,7 +33,7 @@ self.addEventListener("notificationclick", (event) => {
 
 // --- Minimal offline fallback -----------------------------------------------
 //
-// UX_AUDIT_IMPLEMENTATION_PLAN.md's G3: installing Squirrel via the browser's
+// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md's G3: installing Squirrel via the browser's
 // native "Install app" prompt implies some baseline resilience, but until
 // now this service worker did nothing but push — no `fetch` handler at all,
 // so a page load with no network just hit the browser's own generic offline

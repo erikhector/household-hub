@@ -1,5 +1,5 @@
 // End-to-end golden-path smoke test (Wave 3, task N — see
-// PRODUCTION_READINESS.md), covering the same Server Action layer as
+// docs/archive/PRODUCTION_READINESS.md), covering the same Server Action layer as
 // auth.test.ts / household.test.ts but with a meaningfully different goal:
 // those files mock Prisma per-test with static `mockResolvedValueOnce`
 // return values for one action in isolation, so nothing actually connects

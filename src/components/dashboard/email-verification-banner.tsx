@@ -4,7 +4,7 @@
 // unverified (see src/app/dashboard/layout.tsx, which fetches
 // User.emailVerifiedAt alongside requireHousehold() and only renders this
 // when it's null). Soft gate only — see AGENTS.md's task L spec /
-// PRODUCTION_READINESS.md: the rest of the dashboard stays fully usable
+// docs/archive/PRODUCTION_READINESS.md: the rest of the dashboard stays fully usable
 // regardless, this is purely a nudge with a resend action.
 //
 // Dismissible via a session cookie (EMAIL_VERIFICATION_DISMISSED_COOKIE):
@@ -13,7 +13,7 @@
 // server-side in DashboardLayout. Deliberately has no max-age, so it's a
 // true session cookie: the browser drops it when the session ends and the
 // banner reappears next visit for as long as the account stays unverified,
-// per UX_FRICTION_BACKLOG.md item 1's "remind me later" fix direction.
+// per docs/archive/UX_FRICTION_BACKLOG.md item 1's "remind me later" fix direction.
 // EmailForm on the Profile page (src/components/profile/email-form.tsx)
 // shows the same resend action for anyone who dismissed this and wants it
 // back.

@@ -219,7 +219,7 @@ const deleteAccountSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
 });
 
-// Per-membership rules (see PRODUCTION_READINESS.md task M for the full
+// Per-membership rules (see docs/archive/PRODUCTION_READINESS.md task M for the full
 // reasoning):
 //  - CONTRIBUTOR: just remove that HouseholdMember row — identical effect
 //    to leaveHouseholdAction (src/lib/actions/household.ts), since the
@@ -303,7 +303,7 @@ export async function deleteAccountAction(
 
   // Same known gap as updatePasswordAction/task K/L: this ends the current
   // session, but a NextAuth JWT session issued before deletion isn't
-  // otherwise invalidated (out of scope here — see PRODUCTION_READINESS.md).
+  // otherwise invalidated (out of scope here — see docs/archive/PRODUCTION_READINESS.md).
   await signOut({ redirectTo: "/login?deleted=success" });
   return {};
 }

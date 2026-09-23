@@ -6,7 +6,7 @@
 // household step: its own copy offers "or skip it and use it solo", so it
 // carries a real dismiss button wired to a persisted (cookie) flag — see
 // skipHouseholdStepAction in src/lib/actions/household.ts and A11 in
-// UX_AUDIT_IMPLEMENTATION_PLAN.md.
+// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
 
 import Link from "next/link";
 import type { ComponentType } from "react";

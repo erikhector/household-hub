@@ -1387,7 +1387,7 @@ actually used, once they've cooked it.
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
-[`JOY_GAP_BACKLOG.md`](./JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
+[`docs/archive/JOY_GAP_BACKLOG.md`](./docs/archive/JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
 that closes an actual product gap (a shared task list) rather than a tone
 change. One flat, shared `HouseholdTask` list per household — deliberately
 **not** a chore-chart/points/rewards system like Tody or OurHome: no due
@@ -1760,7 +1760,7 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     and `notificationclick` (closes it and opens `url`, mirroring
     `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
     handler and does no caching — it exists purely to deliver push, not for
-    offline support (see "Deferred" below).
+    offline support (see `INFRA-5` in BACKLOG.md).
 
 ## Conventions
 
@@ -1843,77 +1843,21 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   or wrap each test in a rolled-back transaction — don't run them against
   the shared dev database by default.
 
-## Not yet built
+## Not yet built / roadmap
 
-Every feature from the original scope is now built. The autonomous agent
-build/improve loop itself is intentionally not set up yet — that's a
-deliberate separate step now that a real test suite exists to gate it on.
+Every feature from the original scope, the competitive-analysis roadmap
+(Waves 1-2), the Joy Gap backlog, and the maintenance, production-readiness,
+UX-consistency, UX-friction and UX-audit passes has been built — each is
+documented in its own section above.
 
-## Roadmap
+**All open work lives in [`BACKLOG.md`](./BACKLOG.md)**, grouped by phase
+(Phase 1: no schema change, parallel-safe · Phase 2: one migration each,
+sequential · Phase 3: large, own PR · items needing a product decision), with
+stable area-prefixed IDs (`AUTO-`, `SCALE-`, `BUDGET-`, `INFRA-`, …). That
+includes what used to be listed here as "Deferred": item photos, bank sync,
+a native app, social login and true offline support (`INFRA-1`…`INFRA-5`).
 
-Prioritized from the competitive analysis in [`Analyis_Comp.MD`](./Analyis_Comp.MD)
-(researched Sept 2026 against 23 competing shopping-list/pantry/meal-planning/
-budgeting apps). Full task specs, ground rules, and worktree coordination
-mechanics are in [`AGENT_TASKS_PHASE2.md`](./AGENT_TASKS_PHASE2.md) — this
-section just tracks status. Each task appends its own subsection here (same
-convention as the original build — see `AGENT_TASKS.md`) once landed, and is
-removed from this list when done.
-
-### Wave 1 — independent, no schema migration needed, built in parallel
-
-All five Wave 1 tasks have landed — see their own sections above (Meal
-planning's "Meal-plan → shopping-list bridge" and "Recipe import from URL"
-subsections, "Notification center", "Data export (CSV)", and Budgeting's
-"Safe to spend" subsection).
-
-### Wave 2
-
-Both Wave 2 tasks have landed — see "Barcode scanning" above and Budgeting's
-"Household expense splitting" subsection below. Every roadmap item from the
-competitive analysis has now been built.
-
-### Deferred — needs an infrastructure or product decision first, not started
-
-- **Item photos on inventory** — needs a blob-storage decision (S3/Vercel
-  Blob/Cloudinary/etc.); this app deliberately has zero file-storage
-  infrastructure today (see the Profile avatar section's rationale for why
-  that was avoided) and shouldn't gain one ad hoc inside an unrelated task.
-- **Bank/account sync, native mobile app, social login (Google/Apple)** —
-  all clearly valuable per the competitive analysis, but each needs a paid
-  third-party service or developer credentials only the product owner can
-  provision (a Plaid account, app store enrollment, an OAuth consent
-  screen). Flagged for a future decision, not started here. (Receipt OCR
-  was in this bucket too, on the assumption it needed a paid vendor — see
-  "Receipt scanning" below for why that turned out not to be true.)
-- **True offline support** — PWA *installability* and *push notifications*
-  are both built now (see "PWA install & push notifications" above), but
-  neither gives the app any ability to work with no connection:
-  `src/lib/service-worker.js` only listens for `push`/`notificationclick`,
-  with no `fetch` handler or Cache API usage, so nothing is actually cached
-  for offline use — a page navigation or Server Action with no network still
-  just fails. Caching app-shell assets and/or data for real offline use is
-  a bigger, separate decision (what's safe to serve stale — e.g. inventory
-  counts — vs. what must always be fresh, like auth) that installability
-  and push didn't need to make, so it's still deferred.
-
-### Joy Gap backlog — Sep 2026
-
-Every roadmap item above is feature parity; every one has landed. A
-follow-up positioning memo ("The Joy Gap," Sep 2026) found the remaining
-gap is no longer functional but emotional — see
-[`JOY_GAP_BACKLOG.md`](./JOY_GAP_BACKLOG.md) for the resulting tickets
-(designer + developer handover, waved and status-tracked the same way as
-`MAINTENANCE_BACKLOG.md`). Waves 1-3 (items 1-6, ending with "Household
-Tasks v1" — see "Household tasks" above) have all landed; item 6d
-(a tasks-cleared bell notification) was evaluated and deliberately deferred
-rather than built — see that section's note.
-
-### Automation backlog — Sep 2026
-
-A follow-up design review of the shopping-list and inventory flows found
-that Squirrel has more ways to get data in than most competitors, but each
-is a manual, one-off trip and the app forgets what it learns. See
-[`AUTOMATION_BACKLOG.md`](./AUTOMATION_BACKLOG.md) for the resulting
-tickets (smart add line, auto-categorization, remembered barcodes, a
-self-filling default list, purchase-rhythm suggestions, …), waved and
-status-tracked the same way as `JOY_GAP_BACKLOG.md`. None started yet.
+When an item ships, document it in the relevant section of this file and
+delete it from `BACKLOG.md`. The planning docs that produced the shipped work
+are kept in [`docs/archive/`](./docs/archive/) because code comments cite
+them by item for design rationale; they're historical and not updated.

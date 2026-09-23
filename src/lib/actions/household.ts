@@ -239,7 +239,7 @@ export async function joinViaInviteSignupAction(
   // verification gate as a plain signup. Same enumeration reasoning as
   // signupAction too: the caller just typed this email into this form, so
   // there's nothing lost by telling them plainly if the send failed (see A1
-  // in UX_AUDIT_IMPLEMENTATION_PLAN.md).
+  // in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md).
   let emailError = false;
   try {
     const verificationToken = await prisma.emailVerificationToken.create({
@@ -266,7 +266,7 @@ export async function joinViaInviteSignupAction(
 // The getting-started household step's own copy says "or skip it and use it
 // solo" (see dashboard.gettingStarted.steps.household), but with no way to
 // actually record that choice the step never went away for a deliberately
-// solo household — see A11 in UX_AUDIT_IMPLEMENTATION_PLAN.md. This is a
+// solo household — see A11 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md. This is a
 // lightweight, per-browser dismissal (like ACTIVE_HOUSEHOLD_COOKIE above),
 // not account state, so no schema change is needed for it; keyed per
 // household (rather than one flag for the whole account) since a user can
@@ -372,7 +372,7 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
 // getHouseholdDeleteEligibilityAction, which DeleteHouseholdDialog calls
 // up front (before the type-to-confirm flow even opens) so this is stated
 // before the user invests any effort in confirming, not after — see A9 in
-// UX_AUDIT_IMPLEMENTATION_PLAN.md. Every other piece of a household's data
+// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md. Every other piece of a household's data
 // cascades on delete (see schema.prisma's onDelete: Cascade throughout), so
 // "this is your only household" is the one real blocker to surface.
 const ONLY_HOUSEHOLD_BLOCKED_MESSAGE = "You can't delete your only household. Create another one first.";

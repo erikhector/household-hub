@@ -19,7 +19,7 @@ export function CookNowList({
   // The week currently shown in the Planner tab — passed through so
   // AddToPlanDialog can tell the user when its date picker (free-ranging,
   // unlike the planner grid's fixed per-slot dates) saves outside it. See D3
-  // in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   plannerWeekStartKey: string;
 }) {
   const recipesById = new Map(recipes.map((recipe) => [recipe.id, recipe]));

@@ -1,6 +1,6 @@
 "use client";
 
-// Small, dismissible recap (see JOY_GAP_BACKLOG.md item 6c) — mirrors
+// Small, dismissible recap (see docs/archive/JOY_GAP_BACKLOG.md item 6c) — mirrors
 // MealVarietyRecap's shape exactly. Framed as coverage, crediting each
 // completer by name against what they did; never a count or a per-person
 // ranking (see item 6's Guardrails scope note) — the caller only renders

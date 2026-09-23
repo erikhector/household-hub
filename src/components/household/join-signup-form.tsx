@@ -28,7 +28,7 @@ export function JoinSignupForm({
 }) {
   const [state, formAction, pending] = useActionState(joinViaInviteSignupAction, initialState);
   // Same retry-without-reload treatment as SignupForm (A4 in
-  // UX_AUDIT_IMPLEMENTATION_PLAN.md).
+  // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md).
   const [resendState, resendFormAction, resendPending] = useActionState(
     resendVerificationEmailForLoginAction,
     initialResendState,
@@ -37,7 +37,7 @@ export function JoinSignupForm({
   // Carries the invite forward through login (A5's redirect-back param) so
   // "log in, then reopen this invite link" is a real, working path instead
   // of a footnote the user has to act on manually — see A8 in
-  // UX_AUDIT_IMPLEMENTATION_PLAN.md. loginAction returns here once signed
+  // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md. loginAction returns here once signed
   // in, where JoinPage (src/app/join/[token]/page.tsx) then renders
   // AcceptInviteForm for an already-authenticated visitor.
   const loginHref = `/login?next=${encodeURIComponent(`/join/${token}`)}`;
@@ -131,7 +131,7 @@ export function JoinSignupForm({
       </Button>
       {/* Equal visual weight with the "create account" path above — an
           existing account is a real, first-class way through this page, not
-          a footnote (A8 in UX_AUDIT_IMPLEMENTATION_PLAN.md). */}
+          a footnote (A8 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md). */}
       <div className="flex items-center gap-2">
         <Separator className="flex-1" />
         <span className="text-xs text-muted-foreground">{dict.orDivider}</span>

@@ -19,7 +19,7 @@ const initialResendState: ResendVerificationState = {};
 // src/components/dashboard/email-verification-banner.tsx) reachable after
 // someone dismisses it for the session — same resendVerificationEmailAction,
 // surfaced here so "not verified" isn't only ever visible as chrome you can
-// make disappear (UX_FRICTION_BACKLOG.md item 1).
+// make disappear (docs/archive/UX_FRICTION_BACKLOG.md item 1).
 export function EmailForm({
   email,
   verified,

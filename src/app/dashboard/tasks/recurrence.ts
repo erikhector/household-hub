@@ -1,4 +1,4 @@
-// Household task recurrence (see JOY_GAP_BACKLOG.md item 6, superseded for
+// Household task recurrence (see docs/archive/JOY_GAP_BACKLOG.md item 6, superseded for
 // recurring tasks per later request) — deliberately not an rrule/weekday
 // schedule, just "reopen N days after it was last completed". There's no
 // completion-history table, so a recurring task's open/completed state is

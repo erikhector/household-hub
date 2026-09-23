@@ -1281,7 +1281,7 @@ export const en = {
     shared: {
       // Merged inline into the normal due list and transaction list (see
       // PersonalDueRecurringWidget/PersonalTransactionList) rather than a
-      // separate section — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
+      // separate section — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
       sharedBadge: "Shared",
       yourShare: "Your share",
       paidBy: "Paid by {name}",

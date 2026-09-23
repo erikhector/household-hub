@@ -317,7 +317,7 @@ describe("deriveSafeToSpend", () => {
   });
 
   it("lets a caller fold in extra (e.g. shared-household) rows a category-based estimate can't know about", () => {
-    // PERSONAL_HOUSEHOLD_BUDGET_LINK.md's "Rent pops up" case: a due shared
+    // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md's "Rent pops up" case: a due shared
     // RecurringTemplate's per-member share, tagged source: "shared", added
     // on top of whatever computeSafeToSpend already estimated from the
     // user's own personal transactions.

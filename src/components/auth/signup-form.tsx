@@ -29,7 +29,7 @@ export function SignupForm({
   const [state, formAction, pending] = useActionState(signupAction, initialState);
   // Lets the confirmation screen below offer a real retry — either because
   // the initial send failed (state.emailError, see A1 in
-  // UX_AUDIT_IMPLEMENTATION_PLAN.md) or because the email just never
+  // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md) or because the email just never
   // arrived — without a full page reload (A4). Enumeration-safe: the caller
   // already knows this is their own email, but this reuses the same action
   // LoginForm's unverified-login flow uses either way.

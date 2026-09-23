@@ -140,7 +140,7 @@ export type SignupState = {
   // didn't go out (send failure or an exception creating its token) — see
   // the comment on the try/catch below. Lets the confirmation screen tell
   // the user honestly instead of claiming a link is on its way when it
-  // isn't (see A1 in UX_AUDIT_IMPLEMENTATION_PLAN.md).
+  // isn't (see A1 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md).
   emailError?: boolean;
 };
 
@@ -195,7 +195,7 @@ export async function signupAction(
   // enumeration-safe path, though, the caller here already knows this email
   // is theirs (they just typed it into this very form), so there's no
   // enumeration risk in telling them plainly when the send didn't go out —
-  // see A1 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // see A1 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   let emailError = false;
   try {
     const verificationToken = await prisma.emailVerificationToken.create({
@@ -232,7 +232,7 @@ const DEFAULT_POST_LOGIN_PATH = "/dashboard";
 
 // A deep link followed while logged out (e.g. proxy.ts redirecting a
 // protected page to /login?next=..., or the join page's "log in" link
-// carrying its invite forward — see A5/A8 in UX_AUDIT_IMPLEMENTATION_PLAN.md)
+// carrying its invite forward — see A5/A8 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md)
 // must only ever send the browser back to a path on this same app, never to
 // an attacker-supplied external origin — "next" is trivially caller-set
 // (it's a query param), so treat it the same as absoluteAppUrl's Host-header
@@ -299,7 +299,7 @@ export async function logoutAction() {
 // from a value only the deployer controls. Mirrors
 // src/lib/actions/household.ts's identically-motivated `absoluteAppUrl` —
 // duplicated locally rather than imported so this file (and the sequential
-// Wave 2 tasks that follow it — see PRODUCTION_READINESS.md) doesn't pick up
+// Wave 2 tasks that follow it — see docs/archive/PRODUCTION_READINESS.md) doesn't pick up
 // a dependency on household.ts.
 async function absoluteAppUrl(path: string): Promise<string> {
   const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");

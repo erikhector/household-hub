@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 
 // Shared pill-button tab bar used by Budget and Meal Planning's section
 // sub-navigation (previously two independently hand-rolled implementations —
-// see UX_CONSISTENCY_BACKLOG.md item D). Wraps @base-ui/react's Tabs
+// see docs/archive/UX_CONSISTENCY_BACKLOG.md item D). Wraps @base-ui/react's Tabs
 // primitive the same way components/ui/select.tsx wraps its Select
 // primitive, rather than hand-rolling tab semantics.
 //

@@ -65,7 +65,7 @@ export type MissingIngredientData = {
   // same as if there were none on hand at all. Mirrors
   // CookedIngredientData.unitMismatch (Mark Cooked's identical case) so the
   // review dialog can surface it instead of silently treating it as fully
-  // missing. See D5 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // missing. See D5 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   unitMismatch: boolean;
 };
 

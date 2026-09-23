@@ -46,7 +46,7 @@ const initialState: ActionState = {};
 
 /**
  * One component for both creating a new shopping-list item (the "+" button
- * next to the list, see UX_CONSISTENCY_BACKLOG.md item G) and editing an
+ * next to the list, see docs/archive/UX_CONSISTENCY_BACKLOG.md item G) and editing an
  * existing one (the pencil icon / "Match item" badge on each row) — merged
  * per item H of that same backlog, which previously lived as two
  * independently written components (AddItemForm/AddItemDialog and

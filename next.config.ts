@@ -120,7 +120,7 @@ const nextConfig: NextConfig = {
   // a production build) overlaps the sidebar's "Log out" link on desktop and
   // sits on the first bottom-nav tab at phone width — never affects real
   // users, but gets in the way of manual/Playwright testing against a local
-  // dev server (see UX_FRICTION_BACKLOG.md's Housekeeping section).
+  // dev server (see docs/archive/UX_FRICTION_BACKLOG.md's Housekeeping section).
   devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

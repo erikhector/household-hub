@@ -1,6 +1,6 @@
 "use client";
 
-// Household Tasks v1 (see JOY_GAP_BACKLOG.md item 6b) — one shared task list
+// Household Tasks v1 (see docs/archive/JOY_GAP_BACKLOG.md item 6b) — one shared task list
 // per household. Mirrors ShoppingListClient's shape: an add-task form, a
 // flat list split into an open section and a completed section. Creating and
 // editing a task both go through the shared TaskFormDialog (see

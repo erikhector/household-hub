@@ -100,7 +100,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       // Recurring bill templates — see src/lib/recurring-template-calc.ts and the
       // "Recurring" tab below. `splits` feeds the opt-in template-splitting UI
       // (RecurringTemplateDialog) and the personal budget's "shared with your
-      // household" surface — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
+      // household" surface — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
       prisma.recurringTemplate.findMany({
         where: { householdId },
         include: { category: true, splits: true },

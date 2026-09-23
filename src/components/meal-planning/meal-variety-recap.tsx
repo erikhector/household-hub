@@ -1,6 +1,6 @@
 "use client";
 
-// Small, dismissible recap (see JOY_GAP_BACKLOG.md item 5) — framed as
+// Small, dismissible recap (see docs/archive/JOY_GAP_BACKLOG.md item 5) — framed as
 // variety, not a score, so it never renders for a quiet month rather than
 // showing a zero or shaming copy (the caller only renders this component
 // when `count > 0`).
@@ -10,7 +10,7 @@
 // navigating away and back (e.g. switching tabs and back to Planner, or a
 // route change) doesn't bring it back, but a genuinely new count (the
 // trailing-30-day distinct-recipe tally changed) does. See D7 in
-// UX_AUDIT_IMPLEMENTATION_PLAN.md, and TasksWeeklyRecap (Scope E, finding
+// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md, and TasksWeeklyRecap (Scope E, finding
 // E2) for the identical gap in Tasks — no shared dismiss-persistence helper
 // exists yet, so this is a self-contained implementation, not (yet) a
 // reusable one.

@@ -438,13 +438,13 @@ export async function createTransactionAction(
 /**
  * Logs a shared household expense from Personal Budget's "Log a shared
  * expense" dialog (LogSharedExpenseDialog) — the entry-point half of
- * PERSONAL_HOUSEHOLD_BUDGET_LINK.md's read-only surfacing (wave A/B/C
+ * docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md's read-only surfacing (wave A/B/C
  * already covers "shared costs show up in my personal budget"; this covers
  * "let me register one from my personal budget").
  *
  * This creates exactly the same kind of `Transaction` + `TransactionSplit`
  * rows `createTransactionAction` does — the household budget stays the one
- * ledger of record, per PERSONAL_HOUSEHOLD_BUDGET_LINK.md §2 ("two ledgers,
+ * ledger of record, per docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §2 ("two ledgers,
  * one bill, no sync" is the failure mode this avoids). Personal Budget is
  * just an alternate place to originate that single write; nothing is copied
  * into a `PersonalTransaction`. The split is mandatory here (unlike

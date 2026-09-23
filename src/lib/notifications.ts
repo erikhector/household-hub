@@ -218,7 +218,7 @@ export async function recordOutOfStockTransition(
 }
 
 // Fires when a ShoppingList's unpurchased item count crosses from >0 to 0 —
-// "the shopping is done" (see JOY_GAP_BACKLOG.md item 4). Takes the
+// "the shopping is done" (see docs/archive/JOY_GAP_BACKLOG.md item 4). Takes the
 // before/after pending counts rather than re-querying them, since every
 // caller already knows both from the mutation it just made. Deduped like
 // recordOutOfStockTransition so re-triggering while already at 0 (e.g.

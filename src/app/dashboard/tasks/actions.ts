@@ -1,6 +1,6 @@
 "use server";
 
-// Household Tasks v1 (see JOY_GAP_BACKLOG.md item 6a) — a shared task list for
+// Household Tasks v1 (see docs/archive/JOY_GAP_BACKLOG.md item 6a) — a shared task list for
 // adult household co-managers. Every action follows the household-scoping
 // convention used throughout the app (requireHousehold() first, every
 // query/mutation filtered by householdId, never trust a client-supplied

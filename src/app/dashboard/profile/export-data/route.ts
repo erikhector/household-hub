@@ -3,7 +3,7 @@ import { requireUserId } from "@/lib/session";
 
 // Streams a GDPR data-export download of the caller's own personal data —
 // deliberately bounded, mirroring the scope decision in
-// PRODUCTION_READINESS.md's task M: this includes only data that's
+// docs/archive/PRODUCTION_READINESS.md's task M: this includes only data that's
 // genuinely *this user's own*, never household-*shared* operational data
 // (InventoryItem, Transaction, ShoppingList, ...), which other members
 // co-own and which is already reachable to anyone with household access via

@@ -10,7 +10,7 @@ import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 
-// Calmer three-way read on the amount (see JOY_GAP_BACKLOG.md item 3): a
+// Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
 // tight-but-not-empty balance gets its own amber tone instead of being
 // lumped in with either a comfortably healthy or a truly over-budget
 // number, so "$4 left" doesn't read as either as fine as "$400 left" or as

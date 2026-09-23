@@ -38,7 +38,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true },
     }),
-    // Feeds the "variety recap" (see JOY_GAP_BACKLOG.md item 5) — a
+    // Feeds the "variety recap" (see docs/archive/JOY_GAP_BACKLOG.md item 5) — a
     // trailing-30-day window across all weeks, independent of whichever
     // week is currently displayed above.
     prisma.mealPlanEntry.findMany({

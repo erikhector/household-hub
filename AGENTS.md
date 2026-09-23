@@ -6,6 +6,12 @@ planning, tasks, and household and personal budgets. The full spec, data
 model and conventions are in [REQUIREMENTS.md](./REQUIREMENTS.md). Read the
 section for the feature you're touching before you change it.
 
+Open work is in [BACKLOG.md](./BACKLOG.md), grouped by phase with stable IDs
+(`AUTO-3`, `SCALE-H`, …). When you finish an item, document it in
+REQUIREMENTS.md and delete it from BACKLOG.md. `docs/archive/` holds the
+finished planning docs that code comments cite. They're history, so don't
+update them or add new work there.
+
 ## Stack
 
 - **Next.js 16** (App Router, Turbopack) with React 19, in TypeScript

@@ -1,7 +1,7 @@
 "use client";
 
 // Register a shared household expense straight from Personal Budget — see
-// PERSONAL_HOUSEHOLD_BUDGET_LINK.md and createSharedExpenseFromPersonalBudgetAction's
+// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md and createSharedExpenseFromPersonalBudgetAction's
 // doc comment (src/app/dashboard/budget/actions.ts) for why this creates a
 // real household Transaction (with a mandatory split) rather than a
 // PersonalTransaction: the household budget stays the one ledger of record,

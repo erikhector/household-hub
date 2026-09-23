@@ -64,7 +64,7 @@ export const navItems: NavItem[] = [
 // day-to-day use; everything else lives behind the "More" menu.
 //
 // Meal planning takes Household budget's old slot here
-// (UX_FRICTION_BACKLOG.md item 5): pantry/shopping/meal-planning are the
+// (docs/archive/UX_FRICTION_BACKLOG.md item 5): pantry/shopping/meal-planning are the
 // hands-on trio someone reaches for while actually cooking or shopping —
 // "what's for dinner" standing in the kitchen is arguably meal planning's
 // primary real-world moment, same immediacy as the other two. Budget

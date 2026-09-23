@@ -21,7 +21,7 @@ export default auth((req) => {
     // loginAction (src/lib/actions/auth.ts) reads and validates it, then
     // sends them there instead of the /dashboard default once they sign in,
     // so a deep link followed while logged out isn't lost. See A5 in
-    // UX_AUDIT_IMPLEMENTATION_PLAN.md.
+    // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
     const loginUrl = new URL("/login", req.nextUrl);
     loginUrl.searchParams.set("next", pathname + req.nextUrl.search);
     return NextResponse.redirect(loginUrl);

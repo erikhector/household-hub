@@ -59,12 +59,12 @@ export function PersonalBudgetTabs({
   dueTemplates: PersonalRecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
   /** The user's own share of due-but-not-yet-posted shared household
-   * RecurringTemplates (see PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged
+   * RecurringTemplates (see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged
    * straight into PersonalDueRecurringWidget's due list, badged "Shared",
    * rather than shown in a separate section. */
   sharedDueRows: SharedDueRow[];
   /** Only show which household a shared row belongs to once the user is in
-   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+   * more than one — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
   showHouseholdName: boolean;
   /** Households the user can log a shared expense into (more than one
    * member each) — empty when the user isn't in any such household, in

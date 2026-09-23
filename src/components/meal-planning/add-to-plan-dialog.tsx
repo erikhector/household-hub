@@ -50,7 +50,7 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 // shown in the Planner tab, so a date outside that week won't appear there
 // until the user navigates to it — the success toast below calls that out
 // explicitly (with a shortcut straight there) whenever it happens. See D3 in
-// UX_AUDIT_IMPLEMENTATION_PLAN.md.
+// docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
 export function AddToPlanDialog({
   dict,
   recipeId,

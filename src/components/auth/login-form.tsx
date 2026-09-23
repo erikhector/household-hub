@@ -34,7 +34,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
   // Read client-side (rather than via a `next`/`callbackUrl` prop threaded
   // down from src/app/login/page.tsx) so a deep link followed while logged
   // out lands back where it was headed after login — see proxy.ts, which
-  // sets this param, and A5 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // sets this param, and A5 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   // useSyncExternalStore (not useState+useEffect) reports "" during
   // SSR/first client render, matching server markup, then the real value
   // from then on — no setState-in-effect, no hydration mismatch, no

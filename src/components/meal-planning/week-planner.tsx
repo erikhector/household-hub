@@ -40,7 +40,7 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 // The desktop grid (`auto-fit,minmax(16rem,1fr)`) shows every day side by
 // side, but on a phone-width viewport the same grid stacks into one column,
 // so today's card can be several screens below the fold with nothing on
-// screen naming it as "today" — see D8 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+// screen naming it as "today" — see D8 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
 const TODAY_CARD_ID = "meal-planner-today-card";
 
 // Two different jobs depending on whether the currently *displayed* week is
@@ -287,7 +287,7 @@ function MealEntryRow({
           // against, so "mark cooked" is never available for them — surfaced
           // as a disabled, explained affordance instead of just omitting the
           // control, so it doesn't read as a bug. See D4 in
-          // UX_AUDIT_IMPLEMENTATION_PLAN.md.
+          // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
           <Button
             type="button"
             variant="ghost"

@@ -80,7 +80,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
 
   // --- Shared with your household -------------------------------------------
-  // See PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only mirror of the user's
+  // See docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only mirror of the user's
   // own share of split household costs, aggregated across every household
   // they belong to (not just the "active" one — a user's rent share
   // shouldn't disappear from their personal budget just because a different
@@ -93,7 +93,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   const householdMemberIds = memberships.map((m) => m.id);
   const householdNameByMemberId = new Map(memberships.map((m) => [m.id, m.household]));
   // Only shown on each row once the user is in more than one household —
-  // see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6 ("don't clutter the common
+  // see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6 ("don't clutter the common
   // case").
   const showHouseholdName = memberships.length > 1;
 
@@ -311,7 +311,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // — this is what makes the headline safe-to-spend number actually account
   // for an unpaid share of Rent, not just list it separately. Tagged with a
   // `source` so SafeToSpend's breakdown can badge shared rows distinctly
-  // from the user's own personal estimate — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
+  // from the user's own personal estimate — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
   const expectedRecurring: ExpectedRecurringExpense[] = [
     ...personalExpectedRecurring.map((e) => ({ ...e, source: "personal" as const })),
     ...sharedDueRows.map((row) => ({
@@ -413,7 +413,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     </div>
   );
 
-  // Shared household costs (sharedPostedRows — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
+  // Shared household costs (sharedPostedRows — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
   // are merged straight into the normal transaction list, badged as
   // "Shared" rather than shown in a separate section. Still read-only here:
   // PersonalTransactionList renders a "View in {household} Budget" link for

@@ -27,7 +27,7 @@ import type { PersonalCategoryRow } from "@/components/personal-budget/personal-
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // A household RecurringTemplate the user has opted into a split for (see
-// PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet posted this
+// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet posted this
 // period — the "Rent pops up under my personal budget" case. Rendered
 // inline with the user's own due templates, badged "Shared" and linking
 // back to the household budget instead of offering log/acknowledge
@@ -65,7 +65,7 @@ export function PersonalDueRecurringWidget({
    * gets a "Log payment" button when its household is in here. */
   sharedExpenseHouseholds: ShareableHousehold[];
   /** Only show which household a shared row belongs to once the user is in
-   * more than one — see PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
+   * more than one — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
   showHouseholdName: boolean;
   /** "YYYY-MM" — reused for the "View in {household} Budget" link's own
    * `?month=` param, since a due row is already scoped to this period. */

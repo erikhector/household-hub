@@ -60,7 +60,7 @@ export function notificationIcon(kind: NotificationItem["kind"]) {
   return CalendarDays;
 }
 
-// Good-news kinds (see JOY_GAP_BACKLOG.md item 4) get their own icon and a
+// Good-news kinds (see docs/archive/JOY_GAP_BACKLOG.md item 4) get their own icon and a
 // calm green accent, distinct from the warning kinds' default (inherited)
 // color — a different row treatment, not just a recolor of the same one.
 export const GOOD_NEWS_KINDS = new Set<NotificationItem["kind"]>(["listCleared"]);

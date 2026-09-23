@@ -58,7 +58,7 @@ const getInventoryData = cache(async (householdId: string) => {
   const locations = [...new Set(items.flatMap((item) => (item.location ? [item.location] : [])))].sort();
   const units = [...new Set(items.map((item) => item.unit))].sort();
 
-  // Footnote-weight positive state (see JOY_GAP_BACKLOG.md item 2): the
+  // Footnote-weight positive state (see docs/archive/JOY_GAP_BACKLOG.md item 2): the
   // common case right after a restock — nothing low or out — otherwise gets
   // no acknowledgment at all. Deliberately quiet (small, muted text, no
   // badge/icon) so it doesn't compete with the item table below it.

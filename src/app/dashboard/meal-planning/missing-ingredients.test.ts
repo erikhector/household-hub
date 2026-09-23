@@ -74,7 +74,7 @@ describe("computeMissingIngredients", () => {
       // cups is reported missing rather than subtracting the 5g on hand —
       // but flagged as a mismatch, mirroring Mark Cooked's identical case
       // (computeCookedIngredients.unitMismatch). See D5 in
-      // UX_AUDIT_IMPLEMENTATION_PLAN.md.
+      // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
       { key: "flour", name: "Flour", unit: "cups", quantity: 2, onHandQuantity: 5, onHandUnit: "g" },
     ];
 

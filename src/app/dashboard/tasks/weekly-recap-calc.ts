@@ -1,5 +1,5 @@
 // Pure aggregation logic for the household-tasks "weekly recap" (see
-// JOY_GAP_BACKLOG.md item 6c) — split out from page.tsx so it's unit-testable
+// docs/archive/JOY_GAP_BACKLOG.md item 6c) — split out from page.tsx so it's unit-testable
 // without Prisma, mirroring meal-variety-calc.ts's shape. Groups this week's
 // completed tasks by whoever completed them, framed as coverage rather than
 // a score: display names are resolved by the caller (page/component layer),
@@ -9,7 +9,7 @@
 // Grouping is by first-appearance order (the order `tasks` was given in),
 // never by how many tasks a group has — sorting by count would turn this
 // into a per-person leaderboard, which the feature explicitly must not be
-// (see Guardrails in JOY_GAP_BACKLOG.md). No count is exposed either; the
+// (see Guardrails in docs/archive/JOY_GAP_BACKLOG.md). No count is exposed either; the
 // caller renders each group's task titles, never a number.
 
 import { getWeekStart } from "@/app/dashboard/meal-planning/date-utils";

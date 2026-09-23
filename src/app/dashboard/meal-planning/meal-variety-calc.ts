@@ -1,5 +1,5 @@
 // Pure aggregation logic for the meal-planning "variety recap" (see
-// JOY_GAP_BACKLOG.md item 5) — split out from page.tsx so it's unit-testable
+// docs/archive/JOY_GAP_BACKLOG.md item 5) — split out from page.tsx so it's unit-testable
 // without Prisma, mirroring missing-ingredients.ts/cooked-ingredients.ts.
 // Counts distinct recipes cooked/planned across a trailing window, framed as
 // variety rather than a score: a freeform entry (no linked recipe) doesn't

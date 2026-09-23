@@ -34,7 +34,7 @@ export function DeleteHouseholdDialog({
 
   // Checked up front, before the type-to-confirm flow ever opens, so a sole
   // owner learns this is blocked immediately instead of after typing the
-  // household's name to confirm — see A9 in UX_AUDIT_IMPLEMENTATION_PLAN.md.
+  // household's name to confirm — see A9 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   function handleTriggerClick() {
     startCheckTransition(async () => {
       const result = await getHouseholdDeleteEligibilityAction();
