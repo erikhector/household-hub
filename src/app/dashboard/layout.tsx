@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { getActiveNotifications } from "@/lib/notifications";
+import { hasUnseenRelease, LAST_SEEN_RELEASE_COOKIE } from "@/lib/release-notes";
 
 // Isolated behind its own Suspense boundary (see below) so the
 // emailVerifiedAt lookup doesn't gate the rest of the dashboard shell —
@@ -47,6 +48,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const notifications = getActiveNotifications(household.id);
   const sidebarExpanded = cookieStore.get(SIDEBAR_COOKIE)?.value !== "0";
   const emailVerificationDismissed = cookieStore.get(EMAIL_VERIFICATION_DISMISSED_COOKIE)?.value === "1";
+  const unseenRelease = hasUnseenRelease(cookieStore.get(LAST_SEEN_RELEASE_COOKIE)?.value);
   const current = { id: household.id, name: household.name, role };
 
   return (
@@ -87,6 +89,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         dict={dict}
         locale={locale}
         notifications={notifications}
+        unseenRelease={unseenRelease}
       />
       <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden">
         <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
@@ -116,7 +119,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           {children}
         </main>
       </div>
-      <BottomNav dict={dict} locale={locale} notifications={notifications} />
+      <BottomNav dict={dict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />
     </div>
   );
 }

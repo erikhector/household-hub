@@ -313,3 +313,34 @@ If Upstash is configured but a call to it fails (network blip, outage), the
 limiter fails over to the in-memory bucket for that single attempt rather
 than throwing — a transient Redis error should never turn into a 500 on
 login/signup — and logs the failure via `console.error`.
+
+## 7. Pull requests and releases (one-time GitHub setup)
+
+The release workflows (see REQUIREMENTS.md, "Releases & What's new") work
+without any of this, but nothing stops a direct push to `master` until you
+set it up. Do it once, in the repo's GitHub settings:
+
+1. **Settings → General → Pull Requests**: enable only **Allow squash
+   merging**, with the default commit message set to **Pull request title**.
+   The PR title is what decides the release.
+2. **Settings → Rules → Rulesets → New branch ruleset**, targeting the
+   default branch (`master`), enforcement **Active**:
+   - **Require a pull request before merging** (0 approvals is fine for a
+     single maintainer).
+   - **Require status checks to pass**: add `Lint, typecheck, test, build`
+     and `Release preview`. They show up in the picker once each has run on
+     a PR.
+   - **Block force pushes** and **Restrict deletions**.
+   - **Bypass list**: add **Repository admin**, so the release token below
+     can push the release commit.
+3. **Release token**: create a fine-grained personal access token (GitHub →
+   Settings → Developer settings) from your admin account, scoped to this
+   repository only, with **Contents: Read and write**. Save it as the
+   Actions secret **`RELEASE_TOKEN`** (repo Settings → Secrets and variables
+   → Actions). Without it, `release.yml` falls back to the default
+   `GITHUB_TOKEN`, which the ruleset will refuse.
+
+Each merged releasing PR produces two commits on `master`: the squash merge
+and `chore(release): vX.Y.Z [skip ci]` a few seconds later. The hosting
+platform deploys both. The second one is the build that shows the new
+version under "What's new".

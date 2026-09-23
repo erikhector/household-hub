@@ -1,0 +1,88 @@
+name: Release
+
+# Cuts a release when a PR is merged into master: bumps the version in
+# package.json/package-lock.json, prepends the PR's release note to
+# src/lib/release-notes/releases.json (what /dashboard/whats-new renders),
+# commits that to master, tags it vX.Y.Z and creates a GitHub Release. See
+# scripts/release.ts for how the PR title and body turn into a release, and
+# DEPLOYMENT.md for the one-time GitHub setup (branch ruleset + RELEASE_TOKEN).
+#
+# Triggered by the merged PR (not by `push`) so the PR's title and body are
+# at hand, and so the release commit this job pushes can't trigger itself.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Bump version and publish release note
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      # RELEASE_TOKEN is a fine-grained PAT (Contents: read and write) from
+      # an account the master ruleset lets bypass "require a pull request".
+      # The default GITHUB_TOKEN can't push past that rule. Falling back to
+      # it keeps releases working before the ruleset exists.
+      - name: Check out master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Retries rather than relying on a concurrency group: GitHub keeps only
+      # one *pending* run per group and cancels the rest, so three quick
+      # merges would silently lose a release. Each attempt starts again
+      # from the latest master, so a release another run pushed in the
+      # meantime is bumped from, not overwritten.
+      - name: Bump, commit, tag and push
+        id: release
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RELEASE_BODY_FILE: ${{ runner.temp }}/release-body.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin master --tags
+            git reset --hard origin/master
+            : > "$RUNNER_TEMP/out"
+            GITHUB_OUTPUT="$RUNNER_TEMP/out" node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release.ts apply
+            if ! grep -q '^released=true$' "$RUNNER_TEMP/out"; then
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            version=$(sed -n 's/^version=//p' "$RUNNER_TEMP/out")
+            git add package.json package-lock.json src/lib/release-notes/releases.json
+            git commit -m "chore(release): v$version [skip ci]" -m "Release note from #$PR_NUMBER."
+            git tag "v$version"
+            if git push --atomic origin HEAD:master "v$version"; then
+              echo "released=true" >> "$GITHUB_OUTPUT"
+              echo "version=$version" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt), master moved; retrying."
+            git tag -d "v$version"
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not push the release commit after 5 attempts."
+          exit 1
+
+      - name: Create GitHub Release
+        if: steps.release.outputs.released == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: gh release create "v$VERSION" --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-body.md"

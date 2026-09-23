@@ -16,6 +16,17 @@ export const sv = {
     expandSidebar: "Fäll ut sidopanelen",
     collapseSidebar: "Fäll ihop sidopanelen",
     more: "Mer",
+    whatsNew: "Nyheter",
+    whatsNewUnseen: "Ny uppdatering",
+  },
+  whatsNew: {
+    title: "Nyheter",
+    subtitle: "Alla uppdateringar av Squirrel och vad de ändrade.",
+    currentVersion: "Du använder version {version}.",
+    version: "Version {version}",
+    latest: "Senaste",
+    breaking: "Stor ändring",
+    empty: "Inga uppdateringar än.",
   },
   theme: {
     light: "Ljust",
@@ -1440,6 +1451,11 @@ export const sv = {
   profile: {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
+    about: {
+      title: "Om Squirrel",
+      version: "Version {version}",
+      whatsNewLink: "Se vad som är nytt",
+    },
     avatar: {
       description: "Din avatar genereras automatiskt utifrån dina initialer — ingen uppladdning behövs.",
     },

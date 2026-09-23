@@ -19,6 +19,17 @@ export const en = {
     expandSidebar: "Expand sidebar",
     collapseSidebar: "Collapse sidebar",
     more: "More",
+    whatsNew: "What's new",
+    whatsNewUnseen: "New update",
+  },
+  whatsNew: {
+    title: "What's new",
+    subtitle: "Every Squirrel update and what it changed.",
+    currentVersion: "You're on version {version}.",
+    version: "Version {version}",
+    latest: "Latest",
+    breaking: "Big change",
+    empty: "No updates yet.",
   },
   theme: {
     light: "Light",
@@ -1451,6 +1462,11 @@ export const en = {
   profile: {
     title: "Profile",
     subtitle: "Your account details.",
+    about: {
+      title: "About Squirrel",
+      version: "Version {version}",
+      whatsNewLink: "See what's new",
+    },
     avatar: {
       description: "Your avatar is generated automatically from your initials — no upload needed.",
     },
