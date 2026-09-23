@@ -1907,3 +1907,13 @@ gap is no longer functional but emotional — see
 Tasks v1" — see "Household tasks" above) have all landed; item 6d
 (a tasks-cleared bell notification) was evaluated and deliberately deferred
 rather than built — see that section's note.
+
+### Automation backlog — Sep 2026
+
+A follow-up design review of the shopping-list and inventory flows found
+that Squirrel has more ways to get data in than most competitors, but each
+is a manual, one-off trip and the app forgets what it learns. See
+[`AUTOMATION_BACKLOG.md`](./AUTOMATION_BACKLOG.md) for the resulting
+tickets (smart add line, auto-categorization, remembered barcodes, a
+self-filling default list, purchase-rhythm suggestions, …), waved and
+status-tracked the same way as `JOY_GAP_BACKLOG.md`. None started yet.
