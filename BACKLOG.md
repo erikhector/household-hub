@@ -88,54 +88,13 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-1, AUTO-3, AUTO-4 and AUTO-5 all edit
+AUTO-3, AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch (build AUTO-1 first; it uses AUTO-2's category lookup,
-which has shipped). AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
+in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
 `src/app/dashboard/budget/page.tsx`). SCALE-C and AUTO-4 both touch the
 receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
 
 ### Shopping list & inventory automation
-
-- [ ] **AUTO-1. Smart add line on the shopping list**
-      — `src/components/shopping/shopping-list-client.tsx`, new
-      `src/components/shopping/smart-add-bar.tsx`,
-      `src/app/dashboard/shopping-list/actions.ts`
-      **Problem:** the everyday "add milk" task goes through a modal with
-      four-plus fields. Competitors (AnyList, Bring!, Apple Reminders) make
-      it a single text line with autocomplete.
-      **Design brief:** a single always-visible input at the top of an
-      `ACTIVE` list (sticky on mobile). Typing `2 l mjölk, bröd, 6 ägg` and
-      pressing Enter adds three items, quantity/unit parsed out. Autocomplete
-      dropdown under the input, ranked: items on this household's inventory
-      that are currently low/out → items previously bought (by recency) →
-      other inventory items. Picking a suggestion commits it in one tap with
-      that item's usual unit. After commit the input clears and keeps focus
-      for the next item (same rhythm as `QuickAddBar`). Each added row
-      briefly highlights so the user sees where it went. The existing
-      `ShoppingItemFormDialog` stays for *editing* a row (and for the
-      advanced link/create choices), but is no longer the primary add path.
-      **Dev notes:** reuse `parsePastedList`
-      (`src/lib/inventory/parse-pasted-list.ts`) — it already splits on
-      commas/lines and understands Swedish + English units ("Mjölk 1 l",
-      "Ägg 12 st", "2 cans tomatoes"); don't write a second parser. Commit
-      through one new batch action (or a loop over
-      `quickAddShoppingListItemAction`) that uses the existing
-      find-or-create inventory linking and the same pending-item dedupe
-      `generateFromLowStockAction` uses (adding "milk" when milk is already
-      pending bumps nothing and shows a "already on the list" hint rather
-      than a duplicate row). Matching to existing inventory should use
-      `findInventoryMatches` (`src/lib/item-matching.ts`) above a confident
-      score before falling back to case-insensitive exact-name
-      find-or-create, so "Mjölk" and "mjölk 3%" converge on one item. When
-      creating a new inventory item, get its category from AUTO-2's
-      `createCategoryResolver` (`src/lib/inventory/category-resolver.ts`). Autocomplete
-      ranking data (inventory list + stock status) is already loaded by the
-      page for `inventoryItems`; extend that query rather than adding a
-      client fetch. i18n: new `shoppingList.smartAdd` namespace in `en.ts`/
-      `sv.ts`. Pure ranking helper in its own `*.ts` with a unit test.
-      **Non-goal:** voice input (AUTO-12) — but build the commit path so
-      voice can feed the same parser later.
 
 - [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2**
       — `src/lib/inventory/category-resolver.ts`,
@@ -209,7 +168,7 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       — `src/components/shopping/shopping-list-client.tsx`
       **Problem:** ~10 header buttons; completing a list is a separate,
       confirm-gated step after you've already checked everything off.
-      **Design brief:** visible: the smart add line (AUTO-1), "Scan
+      **Design brief:** visible: the smart add line (`SmartAddBar`), "Scan
       receipt", and the overflow `⋯` menu. Everything else — import,
       export, share, add low-stock, resolve mappings, archive, delete —
       moves into the menu (delete stays visually destructive there). When
@@ -431,7 +390,7 @@ order below is a suggestion, not a dependency, unless noted.
       toast + Undo and the camera stays open for the next item; an unknown
       barcode shows the Open Food Facts name (and category, via AUTO-2)
       with a one-tap "Add as new item" or "This is…" picker to link it to an
-      existing item. The shopping-list scan button (AUTO-1's bar) adds a
+      existing item. The shopping-list scan button (in the smart add line) adds a
       known barcode's item to the list in one scan.
       **Dev notes:** `barcode String?` on `InventoryItem` plus
       `@@unique([householdId, barcode])` (one product per household per
@@ -619,7 +578,6 @@ job.
 ### Shopping list & inventory automation
 
 AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
-AUTO-12 depends on AUTO-1.
 
 - [ ] **AUTO-10. "You usually buy this about now" suggestions**
       — `prisma/schema.prisma` (`ShoppingListItem`), new
@@ -661,9 +619,10 @@ AUTO-12 depends on AUTO-1.
       barcode exactly.
 
 - [ ] **AUTO-12. Voice add**
-      — `src/components/shopping/smart-add-bar.tsx` (AUTO-1)
+      — `src/components/shopping/smart-add-bar.tsx`
       **Design brief:** a mic button in the smart add line; speech goes
-      into the input as text and commits through AUTO-1's parser ("two
+      into the input as text and commits through the same path typed text
+      does (`parseSmartAddInput` → `smartAddShoppingListItemsAction`) ("two
       liters of milk and eggs" → 2 l milk, eggs). Hidden entirely where the
       browser doesn't support speech recognition — coverage in installed
       iOS PWAs is inconsistent, so this is a bonus, never a required path.

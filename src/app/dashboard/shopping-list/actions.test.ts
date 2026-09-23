@@ -155,6 +155,7 @@ const {
   addAdHocItemAction,
   quickAddShoppingListItemAction,
   importShoppingListItemsAction,
+  smartAddShoppingListItemsAction,
   linkShoppingListItemAction,
   createInventoryItemFromShoppingListItemAction,
   updateShoppingListItemAction,
@@ -464,6 +465,154 @@ describe("importShoppingListItemsAction", () => {
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [{ shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" }],
     });
+  });
+});
+
+describe("smartAddShoppingListItemsAction", () => {
+  function mockCreates() {
+    let n = 0;
+    shoppingListItemCreateMock.mockImplementation(async () => ({ id: `row-${++n}` }));
+    inventoryItemCreateMock.mockImplementation(async ({ data }: { data: { name: string } }) => ({
+      id: `new-${data.name}`,
+    }));
+  }
+
+  it("refuses to add to a list from another household (or one that isn't ACTIVE)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+
+    const result = await smartAddShoppingListItemsAction("someone-elses-list", [{ name: "Milk", quantity: 1 }]);
+
+    expect(result.error).toBe("This list can't be edited right now");
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-list", householdId: "household-1", status: "ACTIVE" },
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty batch without touching the database", async () => {
+    const result = await smartAddShoppingListItemsAction("list-1", []);
+
+    expect(result.error).toBeTruthy();
+    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("links an exact match, converges a size variant (not the look-alike Mjöl), and creates the rest with a guessed category", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-flour", name: "Mjöl", unit: "kg", category: "Pantry" },
+      { id: "inv-milk", name: "Mjölk 3%", unit: "l", category: "Dairy" },
+      { id: "inv-bread", name: "Bröd", unit: "pcs", category: "Bakery" },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    mockCreates();
+
+    const result = await smartAddShoppingListItemsAction("list-1", [
+      { name: "bröd", quantity: 1 },
+      { name: "mjölk", quantity: 2, unit: "l" },
+      { name: "Apples", quantity: 6 },
+    ]);
+
+    expect(inventoryItemCreateMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Apples",
+        category: "Produce",
+        unit: "pcs",
+        quantity: 0,
+        lowStockThreshold: 0,
+      },
+    });
+    expect(shoppingListItemCreateMock.mock.calls.map(([arg]) => arg.data)).toEqual([
+      { shoppingListId: "list-1", inventoryItemId: "inv-bread", name: "bröd", quantity: 1, unit: "pcs" },
+      { shoppingListId: "list-1", inventoryItemId: "inv-milk", name: "mjölk", quantity: 2, unit: "l" },
+      { shoppingListId: "list-1", inventoryItemId: "new-Apples", name: "Apples", quantity: 6, unit: "pcs" },
+    ]);
+    expect(result).toEqual({ addedIds: ["row-1", "row-2", "row-3"], alreadyOnList: [] });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("uses the linked item's unit when none was typed", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-milk", name: "Milk", unit: "l", category: "Dairy" }]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    mockCreates();
+
+    await smartAddShoppingListItemsAction("list-1", [{ name: "milk", quantity: 1 }]);
+
+    expect(shoppingListItemCreateMock.mock.calls[0][0].data.unit).toBe("l");
+    expect(revalidatePathMock).not.toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("skips items already pending on the list (and repeats within the batch), reporting them instead", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-milk", name: "Milk", unit: "l", category: "Dairy" },
+      { id: "inv-eggs", name: "Eggs", unit: "pcs", category: "Dairy" },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([{ inventoryItemId: "inv-milk" }]);
+    mockCreates();
+
+    const result = await smartAddShoppingListItemsAction("list-1", [
+      { name: "milk", quantity: 1 },
+      { name: "eggs", quantity: 6 },
+      { name: "Eggs", quantity: 12 },
+      { name: "Kiwi", quantity: 1 },
+      { name: "kiwi", quantity: 2 },
+    ]);
+
+    expect(shoppingListItemFindManyMock).toHaveBeenCalledWith({
+      where: { shoppingListId: "list-1", purchased: false, inventoryItemId: { not: null } },
+      select: { inventoryItemId: true },
+    });
+    expect(inventoryItemCreateMock).toHaveBeenCalledTimes(1);
+    expect(shoppingListItemCreateMock.mock.calls.map(([arg]) => arg.data.name)).toEqual(["eggs", "Kiwi"]);
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ addedIds: ["row-1", "row-2"], alreadyOnList: ["Milk", "Eggs", "Kiwi"] });
+  });
+
+  it("doesn't write or revalidate anything when every row is already on the list", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-milk", name: "Milk", unit: "l", category: "Dairy" }]);
+    shoppingListItemFindManyMock.mockResolvedValue([{ inventoryItemId: "inv-milk" }]);
+
+    const result = await smartAddShoppingListItemsAction("list-1", [{ name: "Milk", quantity: 1 }]);
+
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ addedIds: [], alreadyOnList: ["Milk"] });
+  });
+
+  it("links a picked suggestion by id, but ignores an id from outside the household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-oat", name: "Havremjölk", unit: "l", category: "Dairy" }]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    mockCreates();
+
+    await smartAddShoppingListItemsAction("list-1", [
+      { name: "Havremjölk", quantity: 1, unit: "l", inventoryItemId: "inv-oat" },
+      { name: "Stolen", quantity: 1, inventoryItemId: "other-households-item" },
+    ]);
+
+    expect(shoppingListItemCreateMock.mock.calls.map(([arg]) => arg.data.inventoryItemId)).toEqual([
+      "inv-oat",
+      "new-Stolen",
+    ]);
+  });
+
+  it("creates a new item rather than guessing when two existing items are equally plausible", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Tomato", unit: "pcs", category: "Produce" },
+      { id: "inv-2", name: "Tomatoes", unit: "pcs", category: "Produce" },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    mockCreates();
+
+    await smartAddShoppingListItemsAction("list-1", [{ name: "Tomatoe", quantity: 1 }]);
+
+    expect(shoppingListItemCreateMock.mock.calls[0][0].data.inventoryItemId).toBe("new-Tomatoe");
   });
 });
 

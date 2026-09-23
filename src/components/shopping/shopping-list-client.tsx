@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
 import { ImportListDialog } from "@/components/shopping/import-list-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
+import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
@@ -24,12 +25,18 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
+import { cn } from "@/lib/utils";
+import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
 // offered instead so the user isn't clicking into the same dialog N times.
 const BATCH_RESOLVE_THRESHOLD = 3;
+
+// How long a row the smart add line just added stays highlighted — long
+// enough to spot where it landed, short enough to be gone by the next add.
+const ADDED_HIGHLIGHT_MS = 2000;
 
 type ShoppingListItemRow = {
   id: string;
@@ -55,6 +62,7 @@ type ShoppingListDict = Dictionary["shoppingList"];
 export function ShoppingListClient({
   list,
   inventoryItems,
+  smartAddCandidates,
   categories,
   units,
   dict,
@@ -63,6 +71,7 @@ export function ShoppingListClient({
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
+  smartAddCandidates: SmartAddCandidate[];
   categories: string[];
   units: string[];
   dict: ShoppingListDict;
@@ -96,6 +105,17 @@ export function ShoppingListClient({
     if (!isCleared) setClearedDismissed(false);
   }
   const showCleared = isCleared && !clearedDismissed;
+
+  const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+  }, []);
+  const highlightAdded = (ids: string[]) => {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    setHighlightedIds(new Set(ids));
+    highlightTimer.current = setTimeout(() => setHighlightedIds(new Set()), ADDED_HIGHLIGHT_MS);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -252,6 +272,16 @@ export function ShoppingListClient({
         </div>
       </div>
 
+      {isActive && (
+        <SmartAddBar
+          listId={list.id}
+          candidates={smartAddCandidates}
+          pendingInventoryItemIds={pendingItems.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : []))}
+          dict={dict.smartAdd}
+          onAdded={highlightAdded}
+        />
+      )}
+
       <div className="flex flex-col gap-2">
         {showCleared ? (
           <ClearedState dict={dict} onDismiss={() => setClearedDismissed(true)} />
@@ -265,6 +295,7 @@ export function ShoppingListClient({
               <ShoppingRow
                 key={item.id}
                 item={item}
+                highlighted={highlightedIds.has(item.id)}
                 editable={isActive}
                 isPending={isPending}
                 startTransition={startTransition}
@@ -320,6 +351,7 @@ function ClearedState({ dict, onDismiss }: { dict: ShoppingListDict; onDismiss: 
 
 function ShoppingRow({
   item,
+  highlighted = false,
   editable,
   isPending,
   startTransition,
@@ -329,6 +361,7 @@ function ShoppingRow({
   dict,
 }: {
   item: ShoppingListItemRow;
+  highlighted?: boolean;
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
@@ -339,8 +372,24 @@ function ShoppingRow({
 }) {
   const needsMapping = item.inventoryItemId === null;
 
+  // A just-added row scrolls into view if the list is long enough to have
+  // hidden it ("nearest" leaves it alone if it's already on screen). New
+  // rows always land at the bottom of the pending section, so the sticky add
+  // line above never covers them; the phone BottomNav below is cleared by
+  // main's scroll-padding in the dashboard layout.
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
   return (
-    <div className="flex flex-col gap-1 rounded-md border px-3 py-2">
+    <div
+      ref={rowRef}
+      className={cn(
+        "flex flex-col gap-1 rounded-md border px-3 py-2 transition-colors duration-700",
+        highlighted && "border-primary/50 bg-primary/10",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <label className="flex min-w-0 flex-1 items-center gap-3">
           <Checkbox

@@ -242,8 +242,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     sorted and `ResolveMappingsDialog` rarely has sorting work to do. This
     covers the add form and quick-add bar (blank category), the scan-queue/
     paste/AI-shelf-scan bulk add (no shared category), and every
-    shopping-list create path (receipt "add as new item", the mapping
-    dialog's single and batch "create new", `registerReceiptAction`). The
+    shopping-list create path (the smart add line, receipt "add as new
+    item", the mapping dialog's single and batch "create new",
+    `registerReceiptAction`). The
     pure resolver (`src/lib/inventory/auto-category.ts`, unit-tested) runs
     cheapest-first and needs no AI key: (1) **household memory**: an
     existing item with the same or a confidently similar name (score ≥ 0.8
@@ -296,6 +297,61 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   purchased amount (and records a `PriceHistory` row if an estimated price
   was given); un-marking it reverses the increment. The dashboard overview
   card sums pending items across every `ACTIVE` list, not just one.
+- **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
+  list: one always-visible input (`SmartAddBar`,
+  `src/components/shopping/smart-add-bar.tsx`) between the header and the
+  items, sticky to the top of the scroll area on phones (same treatment as
+  the inventory search bar). Typing `2 l mjölk, bröd, 6 ägg` and pressing
+  Enter adds three rows; the text goes through the shared
+  `parsePastedList` (via `parseSmartAddInput`), and a row with no typed
+  unit takes its inventory item's usual unit rather than "pcs". The input
+  clears as soon as it's submitted and keeps focus, so the next item can be
+  typed straight away (it's put back if the add fails). Each added row
+  highlights for ~2 s and scrolls into view if it was off-screen (the
+  dashboard `main` has a matching phone `scroll-padding-bottom` so it isn't
+  left behind `BottomNav`); a screen-reader live region announces the
+  count. `ShoppingItemFormDialog` stays for editing a row and for the
+  advanced add (barcode, explicit link/create).
+  - **Autocomplete** for the segment being typed (after the last comma, with
+    any count/unit in front parsed off, so `2 l mj` suggests for "mj" and
+    keeps the "2 l"). `rankSmartAddSuggestions`
+    (`src/lib/shopping/smart-add-suggestions.ts`, unit-tested) matches names
+    containing the query (normalized) and orders them: an exact name
+    first, then low/out-of-stock items, then previously bought items, then
+    the rest of the inventory; within a tier a name that starts with the
+    query beats one that only contains it, then the more recently bought,
+    then the name. Items already pending on the list aren't suggested.
+    Picking one (click, or arrow keys + Enter) commits it immediately,
+    linked by id, in its usual unit unless one was typed. The data comes
+    from the detail page's existing `inventoryItems` query, extended with
+    quantity/threshold (→ `getStockStatus`) and the item's newest purchased
+    `ShoppingListItem`. There's no `purchasedAt`, so that row's `createdAt`
+    stands in for "last bought".
+  - **Commit path**: one batch Server Action,
+    `smartAddShoppingListItemsAction(listId, rows)`
+    (`src/app/dashboard/shopping-list/actions.ts`), up to 50 rows,
+    `ACTIVE` list only. Unlike the paste import, every row ends up linked:
+    a picked suggestion's id (ignored unless it's this household's), else
+    `matchSmartAddInventoryItem`: an exact normalized name, else the one
+    item that is the typed words plus only size/strength tokens (words
+    with a digit, so "mjölk" converges on "Mjölk 3%" but "milk" never
+    becomes "Milk chocolate"), else a single `findInventoryMatches` hit
+    scoring ≥ 0.8. A tie at either fuzzy step creates rather than guesses.
+    Otherwise a new `InventoryItem` is created (quantity 0, category from
+    AUTO-2's `createCategoryResolver`), shared by any repeat of the same
+    name in the batch. The whole-word step runs before the bigram score
+    because bigrams can't tell a size suffix from a different word: "Mjöl"
+    (flour) scores higher against "mjölk" than "Mjölk 3%" does. Known gap:
+    with *only* "Mjölk" in the pantry, "mjöl" still links to it by score.
+    The autocomplete (which shows "Mjölk" while typing) and the row's edit
+    dialog ("Change" link) are the ways out.
+  - **Dedupe** is the same as "Add low-stock items": a row whose item is
+    already pending on the list, or earlier in the same batch, is skipped,
+    not added again or merged into the existing row's quantity, and named
+    in an "already on the list" toast (`shoppingList.smartAdd` in both
+    dictionaries).
+  - **Voice (AUTO-12, not built)** should put its transcript through the
+    same `parseSmartAddInput` → `smartAddShoppingListItemsAction` path.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
 - **Share link** (`ShoppingListShareLink`) — lets a household member hand a
   single `ShoppingList` to someone outside the household (a roommate not on
