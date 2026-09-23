@@ -68,8 +68,15 @@ export function QuickAddBar({
 
   return (
     <div className="flex w-full max-w-md flex-col gap-1.5">
-      <div className="flex items-end gap-1.5">
-        <div className="flex flex-1 flex-col gap-1">
+      {/* Wraps on phones with the name on its own line: inside the empty
+          state's padded card the row is under ~300px wide, and five fields
+          side by side left the flexible columns too narrow to use — while
+          their inputs' intrinsic width (flex items default to
+          min-width: auto) pushed the row past the viewport, giving `main`
+          a horizontal scroll. min-w-0 on the flex-1 columns lets them
+          actually shrink instead. */}
+      <div className="flex flex-wrap items-end gap-1.5 sm:flex-nowrap">
+        <div className="flex min-w-0 basis-full flex-col gap-1 sm:flex-1 sm:basis-0">
           <Label htmlFor="quick-add-name" className="text-[11px] font-normal text-muted-foreground">
             {dict.nameLabel}
           </Label>
@@ -114,7 +121,7 @@ export function QuickAddBar({
             dict={dict}
           />
         </div>
-        <div className="flex flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Label htmlFor="quick-add-category" className="text-[11px] font-normal text-muted-foreground">
             {dict.categoryLabel}
           </Label>

@@ -93,7 +93,7 @@ export function InventoryTable({
 
   if (items.length === 0 && isHouseholdEmpty) {
     return (
-      <div className="flex flex-col items-center gap-6 rounded-md border border-dashed p-8 text-center">
+      <div className="flex flex-col items-center gap-6 rounded-md border border-dashed px-4 py-8 text-center sm:p-8">
         <div className="flex flex-col items-center gap-2">
           <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Package className="size-6" />

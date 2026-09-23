@@ -143,6 +143,22 @@
        home-indicator strip unpainted. */
     background: radial-gradient(circle, var(--gradient-start), var(--gradient-end));
     background-repeat: no-repeat;
+    /* Fallback for anywhere the no-repeat gradient doesn't reach (past the
+       first viewport of a scrolling page, overscroll bounce) — otherwise
+       that area shows the bare canvas, which is a different colour. */
+    background-color: var(--gradient-end);
+  }
+  /* On desktop the body *does* scroll (the landing, legal and auth pages,
+     and the dashboard above `sm`, where `main` isn't height-capped). The
+     gradient is sized to the root box, i.e. one viewport tall, so scrolling
+     past it jumped from gradient to flat colour. Pinning it to the viewport
+     keeps the background identical at every scroll position. Scoped to
+     fine-pointer devices so the Safari standalone-PWA quirk described above
+     can't hit phones or tablets. */
+  @media (hover: hover) and (pointer: fine) {
+    body {
+      background-attachment: fixed;
+    }
   }
   html {
     @apply font-sans;
