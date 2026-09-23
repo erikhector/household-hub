@@ -186,20 +186,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
 
 ### Performance & security
 
-- [ ] **SCALE-A. Batch the per-row inventory lookup in `addMissingIngredientsToShoppingListAction`**
-      — `src/app/dashboard/meal-planning/cooking-actions.ts` (the per-row loop, ~line 214). The `for (const row of
-      rows)` loop calls `findOrCreateInventoryItem(household.id, row.name)` (a query, and
-      sometimes a create) followed by a separate `shoppingListItem.create`, once per row —
-      2 round trips per ingredient instead of a single batched pass. Change it to: one
-      `findOrCreateInventoryItem`-equivalent batch lookup (`prisma.inventoryItem.findMany({
-      where: { householdId, name: { in: rows.map(r => r.name) } } })` to find existing
-      matches in one query, then a single `createMany` for the names that don't already
-      exist), followed by a single `shoppingListItem.createMany` for every row not already
-      on the list (the existing `alreadyOnListIds` dedupe logic must still apply). Preserve
-      current behavior exactly (same dedupe against `alreadyOnListIds`, same
-      `addedAutomatically: true` flag). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`.
-
 - [ ] **SCALE-B. Batch ingredient/component resolution in recipe save** —
       `src/app/dashboard/meal-planning/recipe-actions.ts`. Two separate N+1 patterns in the
       same file: `parseIngredientRows` (~line 75) runs `Promise.all(rows.map(...
