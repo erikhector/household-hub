@@ -15,6 +15,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
+import { createCategoryResolver } from "@/lib/inventory/category-resolver";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -221,7 +222,9 @@ async function createAdHocShoppingListItem(
       data: {
         householdId,
         name,
-        category: newItemDetails.category || "Uncategorized",
+        // Blank → guessed from the name (AUTO-2) rather than dumped in
+        // "Uncategorized"; same for every create path below.
+        category: newItemDetails.category || (await createCategoryResolver(householdId)(name)) || "Uncategorized",
         unit: newItemDetails.unit || "pcs",
         quantity: 0,
         lowStockThreshold: 0,
@@ -440,7 +443,7 @@ export async function createInventoryItemFromShoppingListItemAction(
       data: {
         householdId: household.id,
         name: item.name,
-        category: trimmedCategory || "Uncategorized",
+        category: trimmedCategory || (await createCategoryResolver(household.id)(item.name)) || "Uncategorized",
         quantity: 0,
         lowStockThreshold: 0,
       },
@@ -589,6 +592,17 @@ export async function resolveShoppingListMappingsAction(
   let resolvedCount = 0;
 
   try {
+    // Categories for "new" rows left blank are guessed up front (AUTO-2) so
+    // the transaction below stays writes-only.
+    const resolveCategory = createCategoryResolver(household.id);
+    const guessedCategories = new Map<string, string>();
+    for (const resolution of resolutions) {
+      const item = itemsById.get(resolution.itemId);
+      if (resolution.kind !== "new" || !item || item.inventoryItemId !== null || resolution.category.trim()) continue;
+      const guess = await resolveCategory(item.name);
+      if (guess) guessedCategories.set(item.id, guess);
+    }
+
     await prisma.$transaction(async (tx) => {
       for (const resolution of resolutions) {
         const item = itemsById.get(resolution.itemId);
@@ -610,7 +624,7 @@ export async function resolveShoppingListMappingsAction(
             data: {
               householdId: household.id,
               name: item.name,
-              category: trimmedCategory || "Uncategorized",
+              category: trimmedCategory || guessedCategories.get(item.id) || "Uncategorized",
               quantity: 0,
               lowStockThreshold: 0,
             },
@@ -881,6 +895,7 @@ export async function registerReceiptAction(
   }[] = [];
   let totalAmount = 0;
   let unresolvedCount = 0;
+  const resolveCategory = createCategoryResolver(household.id);
 
   for (const line of parsed.data.items) {
     let inventoryItem: { id: string; quantity: number; unit: string } | null = null;
@@ -894,7 +909,7 @@ export async function registerReceiptAction(
         data: {
           householdId: household.id,
           name: line.name,
-          category: line.newItemCategory || "Uncategorized",
+          category: line.newItemCategory || (await resolveCategory(line.name)) || "Uncategorized",
           unit: line.unit || "pcs",
           quantity: 0,
           lowStockThreshold: 0,

@@ -90,8 +90,8 @@ enough to trust.
 Parallel-safe except where noted. **File conflicts to watch:**
 AUTO-1, AUTO-3, AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch (build AUTO-1 → AUTO-2 first; they share the parser and
-category lookup). SCALE-F conflicts with SCALE-J (both touch
+in one branch (build AUTO-1 first; it uses AUTO-2's category lookup,
+which has shipped). AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
 `src/app/dashboard/budget/page.tsx`). SCALE-C and AUTO-4 both touch the
 receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
 
@@ -128,7 +128,8 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       `findInventoryMatches` (`src/lib/item-matching.ts`) above a confident
       score before falling back to case-insensitive exact-name
       find-or-create, so "Mjölk" and "mjölk 3%" converge on one item. When
-      creating a new inventory item, category comes from AUTO-2. Autocomplete
+      creating a new inventory item, get its category from AUTO-2's
+      `createCategoryResolver` (`src/lib/inventory/category-resolver.ts`). Autocomplete
       ranking data (inventory list + stock status) is already loaded by the
       page for `inventoryItems`; extend that query rather than adding a
       client fetch. i18n: new `shoppingList.smartAdd` namespace in `en.ts`/
@@ -136,39 +137,27 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       **Non-goal:** voice input (AUTO-12) — but build the commit path so
       voice can feed the same parser later.
 
-- [ ] **AUTO-2. Auto-categorize, so "Uncategorized" stops appearing**
-      — new `src/lib/inventory/auto-category.ts` (+ test),
-      `src/app/dashboard/shopping-list/actions.ts` (every find-or-create
-      path), `src/app/dashboard/inventory/actions.ts` (quick-add / bulk)
-      **Problem:** items created from a list, a receipt or a paste land in
-      `"Uncategorized"`, and `ResolveMappingsDialog` turns that into a manual
-      sorting job. Apple Reminders, Bring! and AnyList all file "milk" under
-      Dairy on their own.
-      **Design brief:** no new UI in the happy path — items just arrive in
-      a sensible category. The category chip on a row is tappable to change
-      it. `ResolveMappingsDialog` remains as a fallback but should be rare.
-      **Dev notes:** three-step resolution, cheapest first:
-      (a) **Household memory** — if this household already has an inventory
-      item whose normalized name (`normalizeItemName`) matches or
-      fuzzy-matches confidently, reuse its category (this is also how a user
-      correction "sticks" — see Guardrails).
-      (b) **Built-in dictionary** — a bilingual keyword → canonical-category
-      table (e.g. `mjölk|milk|yoghurt|ost|cheese → Dairy`), a few hundred
-      common grocery words, matched on normalized name tokens. Canonical
-      category keys map to localized display names via the dictionaries,
-      and should line up with the starter kits' existing categories
-      (`inventory.starterKits` in `en.ts`/`sv.ts`) so a
-      starter-kit household and an auto-categorized one look the same.
-      (c) **AI fallback (optional)** — only when (a) and (b) miss and a key
-      is configured: batch the unknown *names only* into one small
-      classification call through the existing provider chain, constrained
-      to the canonical category list. Must not block the add: commit the
-      item as "Uncategorized" immediately and patch the category when the
-      call returns (or leave it if it fails). Rate-limited.
-      Also use the Open Food Facts product categories when a barcode scan
-      matched (`lookupBarcodeAction` currently discards them).
-      Pure resolver with unit tests covering Swedish and English words,
-      plural forms, and "household memory beats dictionary".
+- [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2**
+      — `src/lib/inventory/category-resolver.ts`,
+      `src/app/dashboard/meal-planning/{recipe,cooking}-actions.ts`,
+      `src/components/shopping/shopping-list-client.tsx`
+      AUTO-2 shipped the deterministic part: household memory, the
+      bilingual dictionary and Open Food Facts categories, wired into every
+      inventory and shopping-list create path (see REQUIREMENTS.md, "Data
+      model" → Auto-categorization). Still open:
+      (a) **AI fallback (optional)**. Only when memory and the dictionary
+      both miss and a key is configured: batch the unknown *names only* into
+      one small classification call through the existing provider chain,
+      constrained to `AUTO_CATEGORY_KEYS`. Must not block the add: commit the
+      item as "Uncategorized" immediately, then patch the category when the
+      call returns (or leave it if the call fails). Rate-limited.
+      (b) **Recipe-ingredient find-or-create** still writes
+      `"Uncategorized"`. Use `createCategoryResolver` there, but only once
+      SCALE-B/SCALE-D batch those lookups, so it doesn't add a query per
+      ingredient.
+      (c) **Tappable category chip on shopping-list rows**, to correct a
+      guess in place. Build it with AUTO-3, which adds the category to each
+      row.
 
 - [ ] **AUTO-3. Shopping mode: group the list by category**
       — `src/components/shopping/shopping-list-client.tsx`
@@ -182,7 +171,9 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       (Screen Wake Lock API, feature-detected, silently skipped where
       unsupported — no permission prompt involved). Group order in this
       wave is a fixed sensible default (produce → bakery → dairy → meat →
-      dry goods → frozen → household → other); AUTO-9 makes it learn.
+      dry goods → frozen → household → other; `AUTO_CATEGORY_KEYS` in
+      `src/lib/inventory/auto-category.ts` is already in that order);
+      AUTO-9 makes it learn.
       **Dev notes:** needs the linked `InventoryItem.category` on each row
       — extend the `[id]/page.tsx` query's `include`. Grouping/sort is a pure
       helper with a unit test. Items without a category group under

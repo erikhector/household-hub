@@ -9,6 +9,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   requireHouseholdMock,
   createMock,
+  createManyMock,
+  findManyMock,
   updateMock,
   findFirstMock,
   deleteManyMock,
@@ -23,6 +25,8 @@ const {
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
+  createManyMock: vi.fn(),
+  findManyMock: vi.fn(),
   updateMock: vi.fn(),
   findFirstMock: vi.fn(),
   deleteManyMock: vi.fn(),
@@ -40,6 +44,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     inventoryItem: {
       create: createMock,
+      createMany: createManyMock,
+      findMany: findManyMock,
       update: updateMock,
       findFirst: findFirstMock,
       findUnique: inventoryItemFindUniqueMock,
@@ -51,17 +57,22 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
-vi.mock("@/lib/i18n/get-dictionary", () => ({
-  getDictionary: vi.fn(async () => ({
-    shoppingList: { defaultNamePrefix: "Shopping list" },
-    inventory: { uncategorized: "Uncategorized" },
-  })),
-}));
+vi.mock("@/lib/i18n/get-dictionary", async () => {
+  const { en } = await import("@/lib/i18n/dictionaries/en");
+  return {
+    getDictionary: vi.fn(async () => ({
+      shoppingList: { defaultNamePrefix: "Shopping list" },
+      inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
+    })),
+  };
+});
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
   createInventoryItemAction,
   updateInventoryItemAction,
+  quickAddInventoryItemAction,
+  bulkCreateInventoryItemsAction,
   adjustQuantityAction,
   markItemEmptyAction,
   deleteInventoryItemAction,
@@ -79,6 +90,7 @@ const userId = "user-1";
 afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ household, userId });
+  findManyMock.mockResolvedValue([]);
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
@@ -100,10 +112,33 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
-  it("defaults a blank category to the locale's 'Uncategorized' label instead of rejecting it", async () => {
+  it("guesses a blank category from the name instead of rejecting it (AUTO-2)", async () => {
     createMock.mockResolvedValue({});
 
     const result = await createInventoryItemAction({}, formData({ ...validItem, category: " " }));
+
+    expect(result).toEqual({});
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Pantry basics" }) }),
+    );
+  });
+
+  it("reuses the household's own category for a name it already has, over the built-in guess", async () => {
+    createMock.mockResolvedValue({});
+    findManyMock.mockResolvedValue([{ name: "flour", category: "Baking" }]);
+
+    await createInventoryItemAction({}, formData({ ...validItem, category: "" }));
+
+    expect(findManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { householdId: household.id } }));
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Baking" }) }),
+    );
+  });
+
+  it("falls back to the locale's 'Uncategorized' label when the name can't be guessed", async () => {
+    createMock.mockResolvedValue({});
+
+    const result = await createInventoryItemAction({}, formData({ ...validItem, name: "AA batteries", category: " " }));
 
     expect(result).toEqual({});
     expect(createMock).toHaveBeenCalledWith(
@@ -344,5 +379,58 @@ describe("deleteInventoryItemAction", () => {
     expect(deleteManyMock).toHaveBeenCalledWith({
       where: { id: "some-item", householdId: "household-1" },
     });
+  });
+});
+
+describe("auto-categorizing quick-add and bulk-add (AUTO-2)", () => {
+  it("quick-add guesses a category when none is given", async () => {
+    createMock.mockResolvedValue({});
+
+    await quickAddInventoryItemAction({ name: "Mjölk" });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Dairy & eggs" }) }),
+    );
+  });
+
+  it("quick-add keeps a category the user typed", async () => {
+    createMock.mockResolvedValue({});
+
+    await quickAddInventoryItemAction({ name: "Mjölk", category: "Kylskåp" });
+
+    expect(findManyMock).not.toHaveBeenCalled();
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Kylskåp" }) }),
+    );
+  });
+
+  it("bulk-add files each item on its own when there's no shared category", async () => {
+    createManyMock.mockResolvedValue({ count: 3 });
+
+    await bulkCreateInventoryItemsAction([
+      { name: "Bananer" },
+      { name: "Zoégas Skånerost", category: "Pantry basics" },
+      { name: "AA batteries" },
+    ]);
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows.map((row: { category: string }) => row.category)).toEqual([
+      "Produce",
+      "Pantry basics",
+      "Uncategorized",
+    ]);
+    // The dedupe query doubles as the resolver's household memory — no second read.
+    expect(findManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("bulk-add applies a shared category to every item, over any guess or suggestion", async () => {
+    createManyMock.mockResolvedValue({ count: 2 });
+
+    await bulkCreateInventoryItemsAction([{ name: "Bananer" }, { name: "Milk", category: "Dairy & eggs" }], {
+      category: "Skafferi",
+    });
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows.map((row: { category: string }) => row.category)).toEqual(["Skafferi", "Skafferi"]);
   });
 });

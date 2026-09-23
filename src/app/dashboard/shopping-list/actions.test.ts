@@ -117,8 +117,9 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
-vi.mock("@/lib/i18n/get-dictionary", () => ({
+vi.mock("@/lib/i18n/get-dictionary", async () => ({
   getDictionary: vi.fn(async () => ({
+    inventory: { autoCategories: (await import("@/lib/i18n/dictionaries/en")).en.inventory.autoCategories },
     shoppingList: {
       defaultNamePrefix: "Shopping list",
       expenseDescription: "Groceries: {name}",
@@ -518,8 +519,22 @@ describe("createInventoryItemFromShoppingListItemAction", () => {
     expect(result.error).toBe("Category must be 60 characters or fewer");
   });
 
-  it("falls back to 'Uncategorized' for a blank category", async () => {
+  it("guesses a blank category from the item's name (AUTO-2)", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", shoppingListId: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    await createInventoryItemFromShoppingListItemAction("item-1", "   ");
+
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Dairy & eggs" }) }),
+    );
+  });
+
+  it("falls back to 'Uncategorized' for a blank category it can't guess", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", name: "AA batteries", shoppingListId: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([]);
     inventoryItemCreateMock.mockResolvedValue({ id: "inv-1" });
     shoppingListItemUpdateMock.mockResolvedValue({});
 
@@ -662,6 +677,22 @@ describe("resolveShoppingListMappingsAction", () => {
 
     expect(result).toEqual({ resolvedCount: 0 });
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("guesses the category of a 'new' resolution left blank (AUTO-2)", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-2", shoppingListId: "list-1", name: "Ägg", inventoryItemId: null },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await resolveShoppingListMappingsAction([{ itemId: "item-2", kind: "new", category: " " }]);
+
+    expect(result).toEqual({ resolvedCount: 1 });
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: "Ägg", category: "Dairy & eggs" }) }),
+    );
   });
 });
 
@@ -1005,6 +1036,21 @@ describe("registerReceiptAction", () => {
       data: expect.objectContaining({ inventoryItemId: "inv-new", name: "Kombucha" }),
     });
     expect(result.unresolvedNotice).toBeUndefined();
+  });
+
+  it("guesses the category for a 'create new' line whose category was left blank (AUTO-2)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new", quantity: 0, unit: "pcs" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [
+      { name: "Apelsinjuice", quantity: 1, price: 30, newItemCategory: "" },
+    ]);
+
+    expect(inventoryItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ name: "Apelsinjuice", category: "Drinks" }),
+    });
   });
 
   it("converts a foreign-currency price using the fetched exchange rate", async () => {

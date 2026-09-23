@@ -72,9 +72,12 @@ export function ItemFormDialog({
     }
   };
 
-  const handleScanResult = ({ barcode, name: scannedName }: BarcodeScanResult) => {
+  const handleScanResult = ({ barcode, name: scannedName, category: scannedCategory }: BarcodeScanResult) => {
     setScannedBarcode(barcode);
     if (scannedName) setName(scannedName);
+    // Only fills a blank field — a category the user already picked (or kept
+    // from the previous "add another") wins over the product database's.
+    if (scannedCategory) setCategory((current) => current || scannedCategory);
   };
 
   const action = mode === "create" ? createInventoryItemAction : updateInventoryItemAction;

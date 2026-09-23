@@ -9,12 +9,15 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { createCategoryResolver } from "@/lib/inventory/category-resolver";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
-  // Left blank on the create/edit form or the quick-add bar, an item files
-  // under the locale's "Uncategorized" label (resolved below) instead of
-  // blocking the add on picking a category up front.
+  // Left blank on the create form or the quick-add bar, a new item gets a
+  // category guessed from its name (AUTO-2, see createCategoryResolver),
+  // falling back to the locale's "Uncategorized" label — never blocking the
+  // add on picking a category up front. On the edit form, blank means the
+  // user cleared it on purpose, so it's never re-guessed there.
   category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
   // Rounded to at most 2 decimal places at the boundary — the display and
   // meal-cooking decrement (cooking-actions.ts) assume the same precision,
@@ -59,9 +62,11 @@ export async function createInventoryItemAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
-
   try {
+    const category =
+      parsed.data.category ||
+      (await createCategoryResolver(household.id)(parsed.data.name)) ||
+      (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
       data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
@@ -124,7 +129,8 @@ export async function updateInventoryItemAction(
 // household starting from zero items (or blitzing through a shelf) can fire
 // off several adds in a row by typing and pressing Enter. `quantity`/`unit`/
 // `category` are optional — left out entirely, this defaults exactly the
-// way a blank create-form submission would (qty 1, "pcs", "Uncategorized").
+// way a blank create-form submission would (qty 1, "pcs", a category guessed
+// from the name or else "Uncategorized").
 export async function quickAddInventoryItemAction(input: {
   name: string;
   quantity?: number;
@@ -144,9 +150,11 @@ export async function quickAddInventoryItemAction(input: {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
-
   try {
+    const category =
+      parsed.data.category ||
+      (await createCategoryResolver(household.id)(parsed.data.name)) ||
+      (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
       data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
@@ -167,6 +175,9 @@ const bulkCreateItemSchema = z.object({
     .default(1)
     .transform((n) => Math.round(n * 100) / 100),
   unit: z.string().trim().min(1).max(20).default("pcs"),
+  // Per-item suggestion (a barcode scan's Open Food Facts category) — used
+  // only when the batch's shared category is blank.
+  category: z.string().trim().max(60).optional(),
 });
 
 const bulkCreateSchema = z.object({
@@ -178,12 +189,14 @@ const bulkCreateSchema = z.object({
 // Shared batch-insert path for the scan queue and the pasted-list review
 // screen — both land here with a flat list of {name, quantity, unit} plus
 // one category/location applied to the whole batch (a scanning or unpacking
-// session is almost always one shelf/drawer at a time). Mirrors
+// session is almost always one shelf/drawer at a time). With no shared
+// category, each item gets its own: the per-item suggestion if there is one,
+// else a guess from its name (AUTO-2), else "Uncategorized". Mirrors
 // addStarterKitItemsAction's case-insensitive dedupe against what the
 // household already has, so re-running a scan session over the same shelf
 // doesn't create duplicate rows — it just skips the repeats.
 export async function bulkCreateInventoryItemsAction(
-  items: { name: string; quantity?: number; unit?: string }[],
+  items: { name: string; quantity?: number; unit?: string; category?: string }[],
   shared?: { category?: string; location?: string },
 ): Promise<{ error?: string; added?: number; skipped?: number }> {
   const { household, userId } = await requireHousehold();
@@ -194,7 +207,6 @@ export async function bulkCreateInventoryItemsAction(
   }
 
   const dict = await getDictionary();
-  const category = parsed.data.category || dict.inventory.uncategorized;
   const location = parsed.data.location || null;
 
   let added = 0;
@@ -202,14 +214,15 @@ export async function bulkCreateInventoryItemsAction(
   try {
     const existing = await prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { name: true },
+      select: { name: true, category: true },
     });
     const existingNames = new Set(existing.map((item) => item.name.trim().toLowerCase()));
+    const resolveCategory = createCategoryResolver(household.id, existing);
 
     // Later duplicates within the same batch (two rows scanned/pasted for
     // the same item) merge into one row by summing quantity, rather than
     // creating two rows or silently dropping the second.
-    const merged = new Map<string, { name: string; quantity: number; unit: string }>();
+    const merged = new Map<string, { name: string; quantity: number; unit: string; category?: string }>();
     for (const item of parsed.data.items) {
       const key = item.name.toLowerCase();
       if (existingNames.has(key)) {
@@ -223,7 +236,12 @@ export async function bulkCreateInventoryItemsAction(
       );
     }
 
-    const toAdd = [...merged.values()];
+    const toAdd = [];
+    for (const item of merged.values()) {
+      const category =
+        parsed.data.category || item.category || (await resolveCategory(item.name)) || dict.inventory.uncategorized;
+      toAdd.push({ ...item, category });
+    }
     if (toAdd.length > 0) {
       await prisma.inventoryItem.createMany({
         data: toAdd.map((item) => ({
@@ -231,7 +249,7 @@ export async function bulkCreateInventoryItemsAction(
           name: item.name,
           quantity: item.quantity,
           unit: item.unit,
-          category,
+          category: item.category,
           location,
           lowStockThreshold: 1,
           updatedByUserId: userId,

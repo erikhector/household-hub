@@ -32,7 +32,9 @@ const COOLDOWN_MS = 1400;
 type Phase = "idle" | "starting" | "scanning" | "error";
 type Step = "scan" | "review";
 
-type QueuedScan = { key: string; barcode: string; name: string; quantity: string };
+// `category` is Open Food Facts' suggestion for the product (AUTO-2), used
+// only when the review step's shared category is left blank.
+type QueuedScan = { key: string; barcode: string; name: string; quantity: string; category: string | null };
 
 export function BulkScanDialog({
   dict,
@@ -215,7 +217,7 @@ export function BulkScanDialog({
           becameQuantity = nextQuantity;
           return next;
         }
-        return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: "1" }];
+        return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: "1", category: null }];
       });
 
       const result = await lookupBarcodeAction(barcode);
@@ -223,7 +225,9 @@ export function BulkScanDialog({
       if (result.name) {
         addedName = result.name;
         setQueue((prev) =>
-          prev.map((q) => (q.barcode === barcode && !q.name ? { ...q, name: result.name ?? "" } : q)),
+          prev.map((q) =>
+            q.barcode === barcode && !q.name ? { ...q, name: result.name ?? "", category: result.category ?? null } : q,
+          ),
         );
       }
       toast.success(
@@ -266,7 +270,12 @@ export function BulkScanDialog({
     }
     setSubmitting(true);
     const result = await bulkCreateInventoryItemsAction(
-      queue.map((row) => ({ name: row.name.trim(), quantity: Number(row.quantity) || 0, unit: "pcs" })),
+      queue.map((row) => ({
+        name: row.name.trim(),
+        quantity: Number(row.quantity) || 0,
+        unit: "pcs",
+        category: row.category ?? undefined,
+      })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );
     setSubmitting(false);

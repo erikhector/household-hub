@@ -501,8 +501,23 @@ export const en = {
     nameLabel: "Name",
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
-    categoryHint: 'Optional — leave blank for "Uncategorized".',
+    categoryHint: "Optional — leave blank and we'll pick one from the name.",
     uncategorized: "Uncategorized",
+    // Canonical categories new items are auto-filed under when added without
+    // one (src/lib/inventory/auto-category.ts). Pantry/cleaning/bathroom
+    // deliberately reuse the starter kits' labels below so a starter-kit
+    // household and an auto-filed one end up with the same groups.
+    autoCategories: {
+      produce: "Produce",
+      bakery: "Bakery",
+      dairy: "Dairy & eggs",
+      meat: "Meat & fish",
+      pantry: "Pantry basics",
+      frozen: "Frozen",
+      drinks: "Drinks",
+      cleaning: "Cleaning supplies",
+      bathroom: "Bathroom essentials",
+    },
     locationLabel: "Location",
     locationPlaceholder: "e.g. Fridge",
     quantityLabel: "Quantity",
