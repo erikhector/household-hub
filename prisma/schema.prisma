@@ -216,6 +216,10 @@ model InventoryItem {
   notifications     Notification[]
 
   @@index([householdId])
+  // The "expiring soon" notification sync (syncExpiringSoonNotifications in
+  // src/lib/notifications.ts) filters by householdId and expiresAt — this
+  // composite index serves that access pattern directly.
+  @@index([householdId, expiresAt])
 }
 
 enum NotificationKind {
@@ -580,6 +584,11 @@ model Transaction {
 
   @@index([householdId])
   @@index([categoryId])
+  // Budget queries filter by householdId and order/filter by date (see
+  // SCALE-F's period-bounded budget query) — this composite index serves
+  // that access pattern directly instead of falling back to the
+  // householdId-only index above plus a sort.
+  @@index([householdId, date])
 }
 
 // One row per household member included in a split transaction's cost
