@@ -509,16 +509,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-1. "Use it up" recipe suggestions from expiring/low stock** —
-      `src/app/dashboard/meal-planning/`. Grocy's headline feature: surface
-      recipes whose ingredients overlap with what's expiring soon or
-      already low, instead of only listing all recipes flat. A pure helper
-      (e.g. `src/lib/inventory/use-it-up-calc.ts`) that ranks a household's
-      `Recipe`s by overlap with `getExpiryStatus`/low-stock `InventoryItem`
-      rows, surfaced as a dismissible chip row on the Recipes tab or the
-      Planner ("Chicken stir-fry uses 2 things expiring soon"). Read-only
-      suggestion, never an auto-added meal-plan entry (Guardrails).
-
 - [ ] **GAP-2. Weekly nutrition recap for the meal plan** —
       `src/app/dashboard/meal-planning/`. The per-serving nutrition fields
       (`caloriesPerServing` etc., see REQUIREMENTS.md "Recipe nutrition

@@ -84,6 +84,23 @@ export type CookableRecipeData = {
   missingIngredientNames: string[];
 };
 
+// One "use it up" match backing a suggestion chip — see
+// computeUseItUpSuggestions (src/lib/inventory/use-it-up-calc.ts).
+export type UseItUpMatchData = {
+  name: string;
+  reason: "expiring" | "lowStock";
+};
+
+// A recipe that uses at least one ingredient that's expiring soon or
+// low/out of stock — a dismissible nudge on the Recipes tab, distinct from
+// CookableRecipeData above (this ranks by overlap with what's about to go to
+// waste, not by "almost everything on hand").
+export type UseItUpSuggestionData = {
+  recipeId: string;
+  recipeName: string;
+  matches: UseItUpMatchData[];
+};
+
 // One inventory item a "mark as cooked" confirmation can decrement — see
 // previewCookedIngredientsAction and computeCookedIngredients.
 export type CookedIngredientData = {
