@@ -67,7 +67,9 @@ export function PersonalCategoryManager({
         <AddCategoryDialog dict={dict} />
       </div>
       {categories.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{dict.categories.empty}</p>
+        <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+          {dict.categories.empty}
+        </p>
       ) : (
         <div className="flex flex-col gap-4">
           <CategoryGroup
