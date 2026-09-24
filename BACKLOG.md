@@ -89,7 +89,7 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b (c), AUTO-4 and AUTO-5 all edit
+AUTO-2b (c) and AUTO-5 both edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
 in one branch. SCALE-F conflicts with SCALE-J (both touch
 `src/app/dashboard/budget/page.tsx`).
@@ -118,31 +118,6 @@ in one branch. SCALE-F conflicts with SCALE-J (both touch
       guess in place. The category is already on each row (AUTO-3's
       `ShoppingListItemRow.category`, sourced from the linked
       `InventoryItem`) — this just needs the chip UI to edit it there.
-
-- [ ] **AUTO-4. Prices fill themselves in**
-      — `src/app/dashboard/shopping-list/actions.ts`,
-      `src/app/share/shopping-list/actions.ts`,
-      `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** `lastKnownPrice` is never written, `estimatedPrice` has
-      no UI, so the automatic Groceries expense on list completion is 0 in
-      practice unless a receipt was scanned.
-      **Design brief:** each row shows a muted "≈ 24 kr" when a price is
-      known, and the list header shows a running estimated total (Listonic
-      does this). Tapping a price lets you correct it inline. Receipt scan
-      stays the way to record *actual* prices; this just means the estimate
-      is never empty.
-      **Dev notes:** (1) start maintaining `InventoryItem.lastKnownPrice`
-      wherever a `PriceHistory` row is written (the four
-      `tx.priceHistory.create` call sites in the two actions files above —
-      set it in the same transaction). (2) When a shopping-list item is
-      created with a linked inventory item that has a `lastKnownPrice`,
-      default `estimatedPrice` to it (per-unit semantics: keep matching how
-      `completeShoppingListAction` already sums `estimatedPrice`
-      unmultiplied — document the choice either way). A one-off backfill of
-      `lastKnownPrice` from the latest `PriceHistory` row per item can ship
-      as a data migration or be skipped (the value fills in naturally on
-      the next purchase). Money formatting via the existing budget
-      `Intl.NumberFormat` convention.
 
 - [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
       — `src/components/shopping/shopping-list-client.tsx`
