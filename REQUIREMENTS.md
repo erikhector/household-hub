@@ -1362,8 +1362,8 @@ Paprika, Plan to Eat, Whisk) uses:
   always set (every ingredient is find-or-create-linked at recipe-save
   time — see "Ingredient → inventory linking" above), but the relation is
   `onDelete: SetNull`, so a since-deleted inventory item can leave one
-  unlinked; that case falls back to the same case-insensitive name match
-  `findOrCreateInventoryItem` uses everywhere else, against a fresh query of
+  unlinked; that case falls back to the same case-insensitive name match the
+  find-or-create paths elsewhere in this app use, against a fresh query of
   the household's current inventory.
 - **Aggregation/diff**: the pure "sum required quantity per resolved item
   across every recipe/day, subtract what's on hand once (not per
@@ -1401,14 +1401,17 @@ Paprika, Plan to Eat, Whisk) uses:
   written until the user confirms.
 - **Committing**: `addMissingIngredientsToShoppingListAction` (same file)
   creates the new list if requested (defaulting its name the same way
-  `createShoppingListAction` does), then find-or-create-links each checked
-  ingredient to an `InventoryItem` (`findOrCreateInventoryItem`, the
-  existing pattern already duplicated into this file — not invented here)
-  and adds it as a `ShoppingListItem` with `addedAutomatically: true`. Items
-  already pending (unpurchased) on the target list are skipped rather than
-  duplicated, mirroring `generateFromLowStockAction`'s existing dedupe in
-  `src/app/dashboard/shopping-list/actions.ts`. On success the dialog closes
-  and a `sonner` toast confirms which list the items were added to.
+  `createShoppingListAction` does), then find-or-create-links every checked
+  ingredient to an `InventoryItem` in one batched pass — a single
+  case-insensitive `findMany` across all the row names, a single
+  `createManyAndReturn` for whichever names don't already exist, then a
+  single `shoppingListItem.createMany` for every row not already pending —
+  rather than a `findFirst`/`create`/`create` round trip per ingredient
+  (SCALE-A). Items already pending (unpurchased) on the target list are
+  skipped rather than duplicated, mirroring `generateFromLowStockAction`'s
+  existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
+  success the dialog closes and a `sonner` toast confirms which list the
+  items were added to.
 
 ### Mark meal as cooked → inventory decrement
 

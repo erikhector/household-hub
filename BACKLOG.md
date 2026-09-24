@@ -30,6 +30,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `SCALE-` | Performance, scale and security | `docs/archive/SCALABILITY_BACKLOG.md` (2026-09-15 review) |
 | `BUDGET-` | Collapse `personal-budget/` components into the household ones | `docs/archive/PERSONAL_BUDGET_UNIFICATION.md` (design spike) |
 | `PRICE-`, `TASKS-`, `INFRA-` | Open product decisions | `docs/archive/UX_FRICTION_BACKLOG.md`, `docs/archive/JOY_GAP_BACKLOG.md`, REQUIREMENTS.md |
+| `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -185,20 +186,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
 
 ### Performance & security
-
-- [ ] **SCALE-A. Batch the per-row inventory lookup in `addMissingIngredientsToShoppingListAction`**
-      — `src/app/dashboard/meal-planning/cooking-actions.ts` (the per-row loop, ~line 214). The `for (const row of
-      rows)` loop calls `findOrCreateInventoryItem(household.id, row.name)` (a query, and
-      sometimes a create) followed by a separate `shoppingListItem.create`, once per row —
-      2 round trips per ingredient instead of a single batched pass. Change it to: one
-      `findOrCreateInventoryItem`-equivalent batch lookup (`prisma.inventoryItem.findMany({
-      where: { householdId, name: { in: rows.map(r => r.name) } } })` to find existing
-      matches in one query, then a single `createMany` for the names that don't already
-      exist), followed by a single `shoppingListItem.createMany` for every row not already
-      on the list (the existing `alreadyOnListIds` dedupe logic must still apply). Preserve
-      current behavior exactly (same dedupe against `alreadyOnListIds`, same
-      `addedAutomatically: true` flag). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`.
 
 - [ ] **SCALE-C. Batch shopping-list mapping resolution and receipt-scan apply** —
       `src/app/dashboard/shopping-list/actions.ts`. Two separate loops issue 2-3 DB writes
@@ -615,6 +602,132 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       household's language cookie. Needs a small word-to-number step
       ("två", "two") before `parsePastedList`. Disclose in the privacy page
       that some browsers process speech on the vendor's servers.
+
+---
+
+## Competitive gap scan
+
+A running log, appended to at most once a day, of feature gaps found by
+comparing Squirrel against competing single-purpose apps (AnyList, Bring!,
+Listonic, Out of Milk for shopping lists; Grocy for pantry/inventory;
+Mealime/Plan to Eat for meal planning; Splitwise for expense splitting;
+Cozi for family-organizer/calendar features). Each dated entry is capped at
+10 items and only adds items not already covered elsewhere in this file.
+Treat these the same as any other backlog item once picked up: move it into
+the right phase section above (or straight into a PR) rather than leaving
+it here, and delete it from this section when it ships. An entry that turns
+out to be a product-scope question rather than a scoped task should move to
+"Needs a decision" instead, `[!]`-tagged, the same as any other item.
+
+### 2026-09-23 scan
+
+- [ ] **GAP-1. "Use it up" recipe suggestions from expiring/low stock** —
+      `src/app/dashboard/meal-planning/`. Grocy's headline feature: surface
+      recipes whose ingredients overlap with what's expiring soon or
+      already low, instead of only listing all recipes flat. A pure helper
+      (e.g. `src/lib/inventory/use-it-up-calc.ts`) that ranks a household's
+      `Recipe`s by overlap with `getExpiryStatus`/low-stock `InventoryItem`
+      rows, surfaced as a dismissible chip row on the Recipes tab or the
+      Planner ("Chicken stir-fry uses 2 things expiring soon"). Read-only
+      suggestion, never an auto-added meal-plan entry (Guardrails).
+
+- [ ] **GAP-2. Weekly nutrition recap for the meal plan** —
+      `src/app/dashboard/meal-planning/`. The per-serving nutrition fields
+      (`caloriesPerServing` etc., see REQUIREMENTS.md "Recipe nutrition
+      info") are captured per recipe but never aggregated. Sum the current
+      week's planned entries' nutrition (skipping entries with no
+      nutrition set, and freeform meals which have none) into a dismissible
+      recap card mirroring `MealVarietyRecap`'s shape — a soft "here's your
+      week" summary, not a goal/target tracker (no macro-goal-setting; that's
+      a much bigger, opt-in feature to consider only if this gets used).
+
+- [ ] **GAP-3. Read-only calendar feed for the meal plan + recurring bills** —
+      new `src/app/api/calendar/[token]/route.ts`. Cozi's core
+      differentiator is that a household's plan shows up in the calendar app
+      everyone already has open. A per-household, token-scoped (not
+      session-scoped, since calendar apps can't send cookies) `.ics` feed
+      URL, regenerable from the Household page, listing `MealPlanEntry`
+      dates/names and `RecurringTemplate` due dates. Read-only, no write-back
+      from the calendar app. Needs a new random `Household.calendarFeedToken`
+      column (Phase 2 migration) and a decision on whether it's on by default
+      or opt-in (default off is safer — it's a shareable link with no login).
+
+- [ ] **GAP-4. Reusable named shopping list templates** —
+      `src/components/shopping/shopping-list-client.tsx`,
+      `src/app/dashboard/shopping-list/actions.ts`. AnyList/Out of Milk let
+      you save a list of items as a reusable template ("BBQ", "Costco run")
+      distinct from AUTO-8's auto-populated default list. A
+      `saveAsTemplateAction`/`createListFromTemplateAction` pair and a small
+      `ShoppingListTemplate`/`ShoppingListTemplateItem` model pair (Phase 2
+      migration) — copying item names onto a new `ACTIVE` list, re-resolved
+      through `findOrCreateInventoryItem` the same way import/paste already
+      does, so it doesn't need its own linking logic.
+
+- [ ] **GAP-5. Per-item notes on shopping list rows** —
+      `prisma/schema.prisma` (`ShoppingListItem`),
+      `src/components/shopping/shopping-list-client.tsx`. AnyList lets you
+      attach a note to a line ("get the ripe ones", "any brand is fine").
+      Add `note String?` to `ShoppingListItem` (Phase 2 migration), an
+      optional field in the smart-add/edit flow, and a muted second line
+      under the item name when set. Small, low-risk, no automation/AI
+      involved — a good first pick if someone wants a quick Phase 2 win.
+
+- [ ] **GAP-6. Capture purchase store; surface a "cheapest store" insight** —
+      `src/app/dashboard/shopping-list/actions.ts`,
+      `src/app/share/shopping-list/actions.ts`, Cost analyzer
+      (`src/app/dashboard/budget/`). `PriceHistory.store` already exists in
+      the schema (see AUTO-9's dev notes: "`PriceHistory.store` is always
+      null today") but nothing ever writes it — no migration needed, just
+      wiring. Add an optional store name field to receipt scan/register and
+      the manual price-correct flow (AUTO-4), then let Cost analyzer show,
+      per item with ≥2 distinct stores on record, which was cheapest last
+      time — the ICA-app-style comparison this data already supports.
+
+- [ ] **GAP-7. Settle up: record a settlement + a Swish payment link** —
+      `src/app/dashboard/budget/settle-up-calc.ts`,
+      `src/components/budget/household-balances.tsx`. REQUIREMENTS.md's
+      "Household expense splitting" section already flags this as
+      deliberately deferred ("no 'mark as settled' persistence... a note or
+      a zeroing transaction... no payment integration of any kind"). Splitwise
+      covers the first half (settlement records); a Swish deep link
+      (`swish://payment?data=...`, no API key needed, Sweden being this
+      app's primary locale alongside `sv.ts`) covers something Splitwise
+      itself doesn't for Swedish households. Do the settlement-record half
+      first (small, self-contained); treat the Swish link as a follow-on
+      once that's shipped and confirmed useful.
+
+- [ ] **GAP-8. Leftover tracking from "mark meal as cooked"** —
+      `src/app/dashboard/meal-planning/cooking-actions.ts`. Today marking a
+      meal cooked only decrements ingredient quantities (REQUIREMENTS.md,
+      "Mark meal as cooked → inventory decrement"); the extra portions a
+      recipe with `servings` > the household's headcount produces just
+      evaporate. An optional "servings left over" input on the mark-cooked
+      dialog that creates a small `InventoryItem` (or reuses an existing
+      "Leftovers" one) with an estimated 3-4 day expiry, so it shows up in
+      `ExpiryBadge`/expiring-soon before it's forgotten in the fridge — a
+      real food-waste gap none of the meal planners above actually close.
+
+- [ ] **GAP-9. Price-jump alerts from existing price history** —
+      `src/lib/notifications.ts`, `prisma/schema.prisma`
+      (`NotificationKind`). Every price-tracking competitor (ICA, Grocy)
+      surfaces unusual price changes; Squirrel already records every price
+      in `PriceHistory` but never looks back at it. A new `PRICE_SPIKE`
+      notification kind (Phase 2 migration, same pattern as `LIST_CLEARED`)
+      fires when a newly recorded price (receipt scan or manual correction)
+      is materially above that item's trailing median — this is squarely a
+      "something's actually wrong" bell case per the Guardrails, not a
+      dismissible in-list chip like AUTO-9/AUTO-10's suggestions.
+
+- [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
+      needs a product decision, not just an estimate. AnyList and Bring!
+      both support hands-free "add milk to my shopping list" via Alexa/Google
+      Assistant skills — materially different from AUTO-12's in-app Web
+      Speech API mic button, since it requires building and maintaining a
+      third-party voice-platform skill/action, account-linking OAuth, and
+      ongoing certification with Amazon/Google. Belongs alongside the
+      `INFRA-` items as something clearly valuable but gated on
+      infrastructure/credentials only the product owner can provision, not
+      on engineering effort alone.
 
 ---
 
