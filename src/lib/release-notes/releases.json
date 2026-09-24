@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.2",
+    "date": "2026-09-24",
+    "pr": 9,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Saving a recipe with several ingredients or sub-recipes is now faster.",
+      "sv": "Att spara ett recept med flera ingredienser eller delrecept går nu snabbare."
+    }
+  },
+  {
     "version": "0.3.1",
     "date": "2026-09-24",
     "pr": 8,
