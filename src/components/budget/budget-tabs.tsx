@@ -48,6 +48,15 @@
 // staying manual-only) not a mechanical merge — but threading the already-
 // built element through as a prop here, the same way manage/transactions/
 // insights/periodSummary already work, needs no decision at all.
+//
+// `readOnly` (the household page is showing a household other than the
+// active one via `?household=`, see src/lib/budget-household-view.ts): every
+// write control sits inside a `<fieldset disabled>`, which natively disables
+// each descendant <button>/<input> (dialog triggers included, so no form can
+// even open), while the tab bar and MonthNavigator stay outside it and keep
+// working. The budget actions all write to the active household, so letting
+// them fire from here would put rows in a different household than the one
+// on screen. Never set on the personal budget page.
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -96,6 +105,7 @@ export function BudgetTabs({
   monthKey,
   basePath,
   householdParam,
+  readOnly = false,
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
@@ -133,6 +143,8 @@ export function BudgetTabs({
    * whichever one is "active". Always undefined on the personal budget page,
    * which has no such deep link. */
   householdParam?: string;
+  /** Disable every write control, see this file's doc comment. */
+  readOnly?: boolean;
   categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
@@ -203,7 +215,7 @@ export function BudgetTabs({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
-        <div className="flex flex-wrap items-center gap-2">
+        <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
           {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
             <LogSharedExpenseDialog
               dict={logSharedDialogDict}
@@ -222,48 +234,50 @@ export function BudgetTabs({
             updateAction={updateTransactionAction}
             trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
           />
+        </fieldset>
+      </div>
+
+      <fieldset disabled={readOnly} className="contents">
+        <div hidden={tab !== "overview"} className="flex flex-col gap-6">
+          {hasCategories ? (
+            <>
+              <DueRecurringWidget
+                templates={dueTemplates}
+                hasTemplates={hasRecurringTemplates}
+                sharedDueRows={sharedDueRows}
+                sharedExpenseHouseholds={sharedExpenseHouseholds}
+                showHouseholdName={showHouseholdName}
+                categories={categories}
+                members={members}
+                currentMemberId={currentMemberId}
+                monthKey={monthKey}
+                dict={dict}
+                logSharedDialogDict={logSharedDialogDict}
+                locale={locale}
+                onManageClick={() => setTab("manage")}
+                onAcknowledge={onAcknowledgeTemplate}
+                onLogAsIs={onLogTemplateAsIs}
+                createTransactionAction={createTransactionAction}
+                updateTransactionAction={updateTransactionAction}
+              />
+              <SafeToSpend
+                amount={safeToSpendAmount}
+                status={safeToSpendStatus}
+                expectedRecurring={safeToSpendExpectedRecurring}
+                dict={dict.safeToSpend}
+                locale={locale}
+              />
+              {periodSummary}
+            </>
+          ) : (
+            onboarding
+          )}
         </div>
-      </div>
 
-      <div hidden={tab !== "overview"} className="flex flex-col gap-6">
-        {hasCategories ? (
-          <>
-            <DueRecurringWidget
-              templates={dueTemplates}
-              hasTemplates={hasRecurringTemplates}
-              sharedDueRows={sharedDueRows}
-              sharedExpenseHouseholds={sharedExpenseHouseholds}
-              showHouseholdName={showHouseholdName}
-              categories={categories}
-              members={members}
-              currentMemberId={currentMemberId}
-              monthKey={monthKey}
-              dict={dict}
-              logSharedDialogDict={logSharedDialogDict}
-              locale={locale}
-              onManageClick={() => setTab("manage")}
-              onAcknowledge={onAcknowledgeTemplate}
-              onLogAsIs={onLogTemplateAsIs}
-              createTransactionAction={createTransactionAction}
-              updateTransactionAction={updateTransactionAction}
-            />
-            <SafeToSpend
-              amount={safeToSpendAmount}
-              status={safeToSpendStatus}
-              expectedRecurring={safeToSpendExpectedRecurring}
-              dict={dict.safeToSpend}
-              locale={locale}
-            />
-            {periodSummary}
-          </>
-        ) : (
-          onboarding
-        )}
-      </div>
-
-      <div hidden={tab !== "manage"}>{manage}</div>
-      <div hidden={tab !== "transactions"}>{transactions}</div>
-      <div hidden={tab !== "insights"}>{insights}</div>
+        <div hidden={tab !== "manage"}>{manage}</div>
+        <div hidden={tab !== "transactions"}>{transactions}</div>
+        <div hidden={tab !== "insights"}>{insights}</div>
+      </fieldset>
     </div>
   );
 }

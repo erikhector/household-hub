@@ -309,7 +309,19 @@ export async function skipHouseholdStepAction(): Promise<void> {
   revalidatePath("/dashboard");
 }
 
-export async function switchHouseholdAction(householdId: string) {
+// `returnTo` lets a caller land somewhere other than /dashboard after
+// switching, e.g. the budget page's read-only banner going straight back to
+// the same month, now writable (see src/lib/budget-household-view.ts). Only
+// in-app /dashboard paths are honoured, so a crafted value can't turn this
+// into an open redirect; anything else falls back to /dashboard.
+function safeDashboardPath(returnTo: string | undefined): string {
+  if (!returnTo) return "/dashboard";
+  const isDashboardPath =
+    returnTo === "/dashboard" || returnTo.startsWith("/dashboard/") || returnTo.startsWith("/dashboard?");
+  return isDashboardPath && !returnTo.includes("\\") ? returnTo : "/dashboard";
+}
+
+export async function switchHouseholdAction(householdId: string, returnTo?: string) {
   const session = await requireHousehold();
   const isMember = session.households.some((h) => h.id === householdId);
   if (!isMember) return;
@@ -321,7 +333,7 @@ export async function switchHouseholdAction(householdId: string) {
   });
 
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  redirect(safeDashboardPath(returnTo));
 }
 
 const createHouseholdSchema = z.object({

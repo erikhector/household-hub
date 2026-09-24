@@ -738,6 +738,38 @@ describe("switchHouseholdAction", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
   });
 
+  it("redirects to an in-app dashboard returnTo after switching", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      households: [
+        { id: "household-1", name: "The Hectors", role: "OWNER" },
+        { id: "household-2", name: "Lake House", role: "CONTRIBUTOR" },
+      ],
+    });
+
+    await expect(
+      switchHouseholdAction("household-2", "/dashboard/budget?month=2026-09"),
+    ).rejects.toThrow("REDIRECT:/dashboard/budget?month=2026-09");
+    expect(cookieSetMock).toHaveBeenCalledWith("active_household", "household-2", expect.anything());
+  });
+
+  it.each([
+    "https://evil.example/dashboard",
+    "//evil.example/dashboard",
+    "/\evil.example",
+    "/dashboard\..\evil",
+    "/dashboardevil",
+    "/login",
+  ])("falls back to /dashboard for an unsafe returnTo (%s)", async (returnTo) => {
+    requireHouseholdMock.mockResolvedValue({
+      households: [
+        { id: "household-1", name: "The Hectors", role: "OWNER" },
+        { id: "household-2", name: "Lake House", role: "CONTRIBUTOR" },
+      ],
+    });
+
+    await expect(switchHouseholdAction("household-2", returnTo)).rejects.toThrow(/^REDIRECT:\/dashboard$/);
+  });
+
   it("no-ops for a household id the caller isn't a member of (forged id)", async () => {
     requireHouseholdMock.mockResolvedValue({
       households: [{ id: "household-1", name: "The Hectors", role: "OWNER" }],
