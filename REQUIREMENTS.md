@@ -265,15 +265,42 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Keys are labelled in the user's locale via `inventory.autoCategories`.
     The pantry/cleaning/bathroom labels deliberately equal the starter
     kits' names (test-enforced), so kit items and auto-filed ones share
-    groups. If neither step knows the name, the old "Uncategorized" fallback
-    applies. The server half (`createCategoryResolver`,
+    groups. The server half (`createCategoryResolver`,
     `src/lib/inventory/category-resolver.ts`) loads the household's items
     lazily, once per request, and bulk add reuses its own dedupe query.
     Only a *blank* category is ever filled in: a typed or shared category
     always wins, and clearing a category on the edit form is respected, not
-    re-guessed. Recipe-ingredient find-or-create
-    (`recipe-actions.ts`/`cooking-actions.ts`) still uses
-    `"Uncategorized"`. See BACKLOG.md AUTO-2b.
+    re-guessed. Separately, a barcode lookup (`lookupBarcodeAction`,
+    `src/lib/barcode.ts`) maps Open Food Facts' own `categories_tags`
+    through the same dictionary (`categoryKeyFromOpenFoodFactsTags`) before
+    the resolver is ever consulted — that per-item suggestion, when present,
+    wins over a guess the same way a typed category does.
+    **(3) AI fallback (AUTO-2b(a), optional)**: only reached once *both*
+    of the above miss, and only when a Gemini/Anthropic key is configured
+    (`src/lib/inventory/ai-category-fallback.ts`, same env vars and
+    provider order as AI shelf scan's `resolveAttempts` — see "AI shelf
+    scan" below). The item is committed as `"Uncategorized"` immediately,
+    exactly as it would be with no key configured, so this never blocks or
+    slows down the add; `scheduleAiCategoryFallback`
+    (`src/lib/inventory/category-resolver.ts`) then schedules, via Next's
+    `after()`, one small classification call batching every item in the
+    request that missed (never one call per item) — only the bare item
+    *names*, never quantities, prices or any other household data — and
+    patches each resolved name's category afterward. The model is
+    constrained to `AUTO_CATEGORY_KEYS`; anything else it answers (a
+    hallucinated category, or its own "unknown" when it doesn't know
+    either) is clamped away and the item simply stays `"Uncategorized"`,
+    same as any other failure (no key, rate-limited, provider error,
+    timeout) — none of which ever surfaces to the user. Rate-limited per
+    household (`ai-category-fallback:{householdId}`, same 20/hour budget as
+    AI shelf scan/AI receipt scan). The patch only touches a row still
+    sitting in a placeholder "Uncategorized" category, so a correction made
+    in the meantime is never clobbered. Disclosed in the add-item dialog's
+    existing category hint (`categoryHintAi`), shown only when a key is
+    actually configured. Covers every create path listed above except
+    recipe-ingredient find-or-create (`recipe-actions.ts`/
+    `cooking-actions.ts`), which still writes `"Uncategorized"` outright —
+    see BACKLOG.md AUTO-2b.
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:

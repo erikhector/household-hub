@@ -62,6 +62,7 @@ export function InventoryTable({
   isHouseholdEmpty = false,
   dict,
   barcodeDict,
+  aiCategoryFallbackEnabled = false,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -76,6 +77,9 @@ export function InventoryTable({
   isHouseholdEmpty?: boolean;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
+  /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
+   * own doc comment in add-item-dialog.tsx. */
+  aiCategoryFallbackEnabled?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
@@ -112,6 +116,7 @@ export function InventoryTable({
             units={units}
             dict={dict}
             barcodeDict={barcodeDict}
+            aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
             trigger={
               <Button variant="link" size="sm" className="h-auto p-0 text-xs">
                 {dict.addItem}

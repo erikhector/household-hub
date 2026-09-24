@@ -54,6 +54,7 @@ export function InventoryClient({
   barcodeDict,
   initialStatus,
   initialViewPrefs,
+  aiCategoryFallbackEnabled = false,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -65,6 +66,9 @@ export function InventoryClient({
   barcodeDict: Dictionary["barcodeScanner"];
   initialStatus?: StockStatus;
   initialViewPrefs: Partial<InventoryViewPrefs>;
+  /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
+   * own doc comment in add-item-dialog.tsx. */
+  aiCategoryFallbackEnabled?: boolean;
 }) {
   const [name, setName] = useState("");
   // A saved category/location is only honored if it's still one the
@@ -383,6 +387,7 @@ export function InventoryClient({
         barcodeDict={barcodeDict}
         emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
         isHouseholdEmpty={items.length === 0}
+        aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
       />
     </div>
   );

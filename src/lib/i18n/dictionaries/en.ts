@@ -519,6 +519,13 @@ export const en = {
     categoryLabel: "Category",
     categoryPlaceholder: "e.g. Dairy",
     categoryHint: "Optional — leave blank and we'll pick one from the name.",
+    // AUTO-2b(a): only shown when a Gemini/Anthropic key is actually
+    // configured (see AiShelfScanDialog's own "configured" gating) — never
+    // claims AI is in play on a deployment where it isn't. Sent data is
+    // deliberately spelled out, same disclosure spirit as aiShelfScan's
+    // subtitle below, scaled down to match how much smaller this call is
+    // (a name, not a photo).
+    categoryHintAi: "If that doesn't find a match either, AI may suggest one afterward — only the item's name is sent, nothing else.",
     uncategorized: "Uncategorized",
     // Canonical categories new items are auto-filed under when added without
     // one (src/lib/inventory/auto-category.ts). Pantry/cleaning/bathroom

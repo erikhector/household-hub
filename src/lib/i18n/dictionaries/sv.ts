@@ -511,6 +511,7 @@ export const sv = {
     categoryLabel: "Kategori",
     categoryPlaceholder: "t.ex. Mejeri",
     categoryHint: "Valfritt — lämna tomt så väljer vi en utifrån namnet.",
+    categoryHintAi: "Hittar vi ingen träff där heller kan AI föreslå en kategori i efterhand — bara varans namn skickas, inget annat.",
     uncategorized: "Okategoriserat",
     autoCategories: {
       produce: "Frukt & grönt",

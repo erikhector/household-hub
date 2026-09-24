@@ -91,30 +91,25 @@ enough to trust.
 Parallel-safe except where noted. **File conflicts to watch:**
 AUTO-3, AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
+in one branch. AUTO-2b (b) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
 `src/app/dashboard/budget/page.tsx`).
 
 ### Shopping list & inventory automation
 
-- [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2**
-      — `src/lib/inventory/category-resolver.ts`,
-      `src/app/dashboard/meal-planning/{recipe,cooking}-actions.ts`,
+- [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2's AI fallback**
+      — `src/app/dashboard/meal-planning/{recipe,cooking}-actions.ts`,
       `src/components/shopping/shopping-list-client.tsx`
-      AUTO-2 shipped the deterministic part: household memory, the
-      bilingual dictionary and Open Food Facts categories, wired into every
-      inventory and shopping-list create path (see REQUIREMENTS.md, "Data
-      model" → Auto-categorization). Still open:
-      (a) **AI fallback (optional)**. Only when memory and the dictionary
-      both miss and a key is configured: batch the unknown *names only* into
-      one small classification call through the existing provider chain,
-      constrained to `AUTO_CATEGORY_KEYS`. Must not block the add: commit the
-      item as "Uncategorized" immediately, then patch the category when the
-      call returns (or leave it if the call fails). Rate-limited.
-      (b) **Recipe-ingredient find-or-create** still writes
+      AUTO-2 shipped the deterministic part, and this item's own optional
+      AI fallback tier now sits behind it: household memory, the bilingual
+      dictionary, Open Food Facts categories and — only when both of those
+      miss and a key is configured — a batched AI classification call,
+      wired into every inventory and shopping-list create path (see
+      REQUIREMENTS.md, "Data model" → Auto-categorization). Still open:
+      (a) **Recipe-ingredient find-or-create** still writes
       `"Uncategorized"`. Use `createCategoryResolver` there, but only once
       SCALE-B/SCALE-D batch those lookups, so it doesn't add a query per
       ingredient.
-      (c) **Tappable category chip on shopping-list rows**, to correct a
+      (b) **Tappable category chip on shopping-list rows**, to correct a
       guess in place. Build it with AUTO-3, which adds the category to each
       row.
 

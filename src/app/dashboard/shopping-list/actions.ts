@@ -15,7 +15,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
-import { createCategoryResolver } from "@/lib/inventory/category-resolver";
+import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 
 /**
@@ -219,18 +219,22 @@ async function createAdHocShoppingListItem(
 
   let inventoryItem = await findExactInventoryItem(householdId, name);
   if (!inventoryItem && newItemDetails) {
+    // Blank → guessed from the name (AUTO-2) rather than dumped in
+    // "Uncategorized"; same for every create path below. A guess that also
+    // misses schedules AUTO-2b(a)'s AI fallback, a no-op unless a provider
+    // key is configured.
+    const guessed = newItemDetails.category || (await createCategoryResolver(householdId)(name));
     inventoryItem = await prisma.inventoryItem.create({
       data: {
         householdId,
         name,
-        // Blank → guessed from the name (AUTO-2) rather than dumped in
-        // "Uncategorized"; same for every create path below.
-        category: newItemDetails.category || (await createCategoryResolver(householdId)(name)) || "Uncategorized",
+        category: guessed || "Uncategorized",
         unit: newItemDetails.unit || "pcs",
         quantity: 0,
         lowStockThreshold: 0,
       },
     });
+    if (!guessed) scheduleAiCategoryFallback(householdId, [name]);
   } else if (!inventoryItem) {
     inventoryItem = await findFuzzyInventoryItem(householdId, name);
   }
@@ -440,15 +444,17 @@ export async function createInventoryItemFromShoppingListItemAction(
   }
 
   try {
+    const guessed = trimmedCategory || (await createCategoryResolver(household.id)(item.name));
     const inventoryItem = await prisma.inventoryItem.create({
       data: {
         householdId: household.id,
         name: item.name,
-        category: trimmedCategory || (await createCategoryResolver(household.id)(item.name)) || "Uncategorized",
+        category: guessed || "Uncategorized",
         quantity: 0,
         lowStockThreshold: 0,
       },
     });
+    if (!guessed) scheduleAiCategoryFallback(household.id, [item.name]);
 
     await prisma.shoppingListItem.update({
       where: { id: item.id },
@@ -638,6 +644,10 @@ export async function smartAddShoppingListItemsAction(
     const resolveCategory = createCategoryResolver(household.id, inventoryItems);
     const newItems = new Map<string, { name: string; unit: string; category: string }>();
     const rows: { name: string; quantity: number; unit: string; inventoryItemId?: string; newKey?: string }[] = [];
+    // AUTO-2b(a): every new item whose guess misses here is a candidate for
+    // the AI fallback, scheduled once (batched) after the transaction below
+    // actually creates the rows.
+    const aiCandidates: string[] = [];
 
     for (const row of parsed.data.items) {
       let existing = row.inventoryItemId ? inventoryById.get(row.inventoryItemId) : undefined;
@@ -664,7 +674,9 @@ export async function smartAddShoppingListItemsAction(
         continue;
       }
       const unit = row.unit || "pcs";
-      newItems.set(newKey, { name: row.name, unit, category: (await resolveCategory(row.name)) || "Uncategorized" });
+      const guessed = await resolveCategory(row.name);
+      if (!guessed) aiCandidates.push(row.name);
+      newItems.set(newKey, { name: row.name, unit, category: guessed || "Uncategorized" });
       rows.push({ name: row.name, quantity: row.quantity, unit, newKey });
     }
 
@@ -698,6 +710,7 @@ export async function smartAddShoppingListItemsAction(
         }
       });
       createdInventory = newItems.size > 0;
+      if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
     }
   } catch (error) {
     return toFriendlyError(error);
@@ -748,6 +761,16 @@ export async function resolveShoppingListMappingsAction(
       const guess = await resolveCategory(item.name);
       if (guess) guessedCategories.set(item.id, guess);
     }
+    // AUTO-2b(a): "new" rows whose category is still blank after the guess
+    // above are AI fallback candidates, scheduled (batched) once the
+    // transaction below actually creates them.
+    const aiCandidates = resolutions
+      .map((resolution) => {
+        const item = itemsById.get(resolution.itemId);
+        if (resolution.kind !== "new" || !item || item.inventoryItemId !== null) return null;
+        return resolution.category.trim() || guessedCategories.has(item.id) ? null : item.name;
+      })
+      .filter((name): name is string => name !== null);
 
     // Per-row writes are parallelized with Promise.all rather than a
     // sequential for-await loop (SCALE-C) — the rows being written already
@@ -800,6 +823,7 @@ export async function resolveShoppingListMappingsAction(
         if (result.resolved) resolvedCount++;
       }
     });
+    if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -1069,6 +1093,10 @@ export async function registerReceiptAction(
   let totalAmount = 0;
   let unresolvedCount = 0;
   const resolveCategory = createCategoryResolver(household.id);
+  // AUTO-2b(a): every "add as new item" line whose guess misses is a
+  // candidate for the AI fallback, scheduled (batched) once every line has
+  // been processed below.
+  const aiCandidates: string[] = [];
 
   for (const line of parsed.data.items) {
     let inventoryItem: { id: string; quantity: number; unit: string } | null = null;
@@ -1078,11 +1106,13 @@ export async function registerReceiptAction(
         where: { id: line.inventoryItemId, householdId: household.id },
       });
     } else if (line.newItemCategory !== undefined) {
+      const guessed = line.newItemCategory || (await resolveCategory(line.name));
+      if (!guessed) aiCandidates.push(line.name);
       inventoryItem = await prisma.inventoryItem.create({
         data: {
           householdId: household.id,
           name: line.name,
-          category: line.newItemCategory || (await resolveCategory(line.name)) || "Uncategorized",
+          category: guessed || "Uncategorized",
           unit: line.unit || "pcs",
           quantity: 0,
           lowStockThreshold: 0,
@@ -1105,6 +1135,10 @@ export async function registerReceiptAction(
       inventoryItem,
     });
   }
+  // Every inventory item above is already committed independently of the
+  // transaction below, so scheduling the fallback here doesn't need to wait
+  // on (or be undone by) anything that happens afterward.
+  if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
 
   const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number }>();
   for (const item of preparedItems) {
