@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.4.2",
+    "date": "2026-09-24",
+    "pr": 14,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The budget page now loads faster, especially for households with a long transaction history.",
+      "sv": "Budgetsidan laddar nu snabbare, särskilt för hushåll med lång transaktionshistorik."
+    }
+  },
+  {
     "version": "0.4.1",
     "date": "2026-09-24",
     "pr": 13,
