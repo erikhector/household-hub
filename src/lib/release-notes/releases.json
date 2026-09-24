@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.3",
+    "date": "2026-09-24",
+    "pr": 10,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Applying a scanned receipt or resolving several shopping-list items at once is now faster.",
+      "sv": "Att tillämpa ett skannat kvitto eller lösa flera inköpslistobjekt samtidigt går nu snabbare."
+    }
+  },
+  {
     "version": "0.3.2",
     "date": "2026-09-24",
     "pr": 9,
