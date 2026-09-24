@@ -604,6 +604,24 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   status checks each read from their own wider trailing window instead
   (see those subsections) since they need to see further back than just
   the month on screen.
+- **Viewing another household (`?household=`)**: "View in {household}
+  Budget" links on shared rows in Personal Budget (F1) open
+  `/dashboard/budget?month=…&household=<id>`, so the page shows the bill's
+  actual household even when a different one is active.
+  `resolveBudgetHouseholdView` (`src/lib/budget-household-view.ts`) only
+  trusts the param when it names one of the signed-in user's own
+  households (anything else falls back to the active household, like
+  `?month=`), and keeps it on `MonthNavigator`'s links so paging months
+  stays on that household. Every budget Server Action writes to
+  `requireHousehold()`'s *active* household, so when the viewed household
+  isn't the active one the page is **read-only**: `BudgetTabs` wraps every
+  write control in a `<fieldset disabled>` (the tab bar and month
+  navigation stay usable), the CSV export is hidden since it always
+  exports the active household, and `ReadOnlyHouseholdBanner` explains why
+  and offers "Switch to {household}". That calls `switchHouseholdAction`
+  with a `returnTo` (only in-app `/dashboard` paths are honoured, never an
+  open redirect), which re-checks membership, makes that household active
+  and lands back on the same month, now writable.
 - **No currency symbol**: amounts are formatted with `Intl.NumberFormat`
   (locale-aware decimal separator, always 2 decimals) but no currency
   symbol or code, same as `InventoryItem.lastKnownPrice`/

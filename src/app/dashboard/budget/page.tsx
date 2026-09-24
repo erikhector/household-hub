@@ -30,6 +30,8 @@ import {
   updateTransactionAction,
 } from "@/app/dashboard/budget/actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
+import { resolveBudgetHouseholdView } from "@/lib/budget-household-view";
+import { ReadOnlyHouseholdBanner } from "@/components/budget/read-only-household-banner";
 import {
   computeBudgetBalanceStatus,
   computeFixedMonthlySummary,
@@ -85,21 +87,18 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthKey = toMonthKey(monthStart);
 
   // F1: "View in {household} Budget" links (from a shared row in Personal
-  // Budget) carry an explicit `?household=` so this page always shows the
-  // bill's *actual* household — never silently falls back to whichever one
-  // happens to be "active" in the session cookie (requireHousehold()'s
-  // `household` above), which can differ once a user belongs to more than
-  // one. Only trusted when it names a household the signed-in user actually
-  // belongs to (`households`, every membership requireHousehold() already
-  // resolved) — anything else is ignored rather than erroring, same
-  // graceful-fallback convention the month param already uses above.
-  const householdParam = searchParams.household;
-  const householdParamValue = Array.isArray(householdParam) ? householdParam[0] : householdParam;
-  const explicitHouseholdId =
-    householdParamValue && households.some((h) => h.id === householdParamValue)
-      ? householdParamValue
-      : undefined;
-  const householdId = explicitHouseholdId ?? household.id;
+  // Budget) carry an explicit `?household=` so this page shows the bill's
+  // *actual* household, which can differ from the "active" one in the
+  // session cookie once a user belongs to more than one. The param is only
+  // trusted when it names one of the user's own households, and a
+  // non-active household is shown read-only, since every budget action
+  // writes to the active household. See resolveBudgetHouseholdView.
+  const { householdId, householdParam, readOnly } = resolveBudgetHouseholdView({
+    param: searchParams.household,
+    activeHouseholdId: household.id,
+    memberHouseholdIds: households.map((h) => h.id),
+  });
+  const viewedHouseholdName = households.find((h) => h.id === householdId)?.name ?? household.name;
 
   // Bounds for the two queries below that need to see further than just the
   // viewed month — see RECURRING_LOOKBACK_MONTHS's and MAX_FIXED_TREND_MONTHS's
@@ -470,9 +469,14 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
 
   const transactionsTab = (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
-        <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
-      </div>
+      {/* The export route always exports the active household, so it's
+          hidden while another household is on screen rather than handing
+          back a different household's CSV. */}
+      {!readOnly && (
+        <div className="flex justify-end">
+          <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
+        </div>
+      )}
       <TransactionList
         transactions={transactionRows}
         categories={categoryRows}
@@ -541,10 +545,22 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
       </div>
 
+      {readOnly && (
+        <ReadOnlyHouseholdBanner
+          householdId={householdId}
+          householdName={viewedHouseholdName}
+          activeHouseholdName={household.name}
+          returnTo={`/dashboard/budget?month=${monthKey}`}
+          dict={dict.budget.readOnlyHousehold}
+        />
+      )}
+
       <BudgetTabs
         dict={dict.budget}
         locale={locale}
         monthKey={monthKey}
+        householdParam={householdParam}
+        readOnly={readOnly}
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
         safeToSpendStatus={safeToSpendStatus}

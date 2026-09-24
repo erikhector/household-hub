@@ -990,6 +990,11 @@ export const sv = {
   budget: {
     title: "Hushållsbudget",
     subtitle: "Håll koll på hushållets inkomster och utgifter, engångs eller återkommande.",
+    readOnlyHousehold: {
+      message:
+        "Du tittar på budgeten för {household}. Den går bara att läsa här eftersom {active} är ditt aktiva hushåll.",
+      switchButton: "Byt till {household}",
+    },
     previousMonth: "Föregående månad",
     nextMonth: "Nästa månad",
     thisMonth: "Denna månad",

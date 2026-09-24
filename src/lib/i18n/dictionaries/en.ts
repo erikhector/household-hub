@@ -1011,6 +1011,11 @@ export const en = {
   budget: {
     title: "Household budget",
     subtitle: "Track household income and expenses, one-time or recurring.",
+    readOnlyHousehold: {
+      message:
+        "You're viewing {household}'s budget. It's read-only here because {active} is your active household.",
+      switchButton: "Switch to {household}",
+    },
     previousMonth: "Previous month",
     nextMonth: "Next month",
     thisMonth: "This month",

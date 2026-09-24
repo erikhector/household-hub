@@ -31,6 +31,15 @@
 // "Passing Server Components to Client Components"). `hidden` (not
 // conditional rendering) keeps all mounted so switching tabs doesn't
 // re-fetch/re-render any of them.
+//
+// `readOnly` (the page is showing a household other than the active one via
+// `?household=`, see src/lib/budget-household-view.ts): every write control
+// sits inside a `<fieldset disabled>`, which natively disables each
+// descendant <button>/<input> (dialog triggers included, so no form can even
+// open), while the tab bar and MonthNavigator stay outside it and keep
+// working. The budget actions all write to the active household, so letting
+// them fire from here would put rows in a different household than the one
+// on screen.
 
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -58,6 +67,7 @@ export function BudgetTabs({
   locale,
   monthKey,
   householdParam,
+  readOnly = false,
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
@@ -82,6 +92,8 @@ export function BudgetTabs({
    * same explicit household instead of falling back to whichever one is
    * "active". Undefined for the normal (no deep link) case. */
   householdParam?: string;
+  /** Disable every write control, see this file's doc comment. */
+  readOnly?: boolean;
   categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
@@ -123,53 +135,57 @@ export function BudgetTabs({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs tabs={tabItems} value={tab} onChange={setTab} />
-        <TransactionDialog
-          dict={dict}
-          categories={categories}
-          members={members}
-          currentMemberId={currentMemberId}
-          monthKey={monthKey}
-          createAction={createTransactionAction}
-          updateAction={updateTransactionAction}
-          trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
-        />
+        <fieldset disabled={readOnly} className="contents">
+          <TransactionDialog
+            dict={dict}
+            categories={categories}
+            members={members}
+            currentMemberId={currentMemberId}
+            monthKey={monthKey}
+            createAction={createTransactionAction}
+            updateAction={updateTransactionAction}
+            trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
+          />
+        </fieldset>
       </div>
 
-      <div hidden={tab !== "overview"} className="flex flex-col gap-6">
-        {hasCategories ? (
-          <>
-            <DueRecurringWidget
-              templates={dueTemplates}
-              hasTemplates={hasRecurringTemplates}
-              categories={categories}
-              members={members}
-              currentMemberId={currentMemberId}
-              monthKey={monthKey}
-              dict={dict}
-              locale={locale}
-              onManageClick={() => setTab("manage")}
-              onAcknowledge={acknowledgeTemplatePeriodAction}
-              onLogAsIs={logRecurringTemplateAction}
-              createTransactionAction={createTransactionAction}
-              updateTransactionAction={updateTransactionAction}
-            />
-            <SafeToSpend
-              amount={safeToSpendAmount}
-              status={safeToSpendStatus}
-              expectedRecurring={safeToSpendExpectedRecurring}
-              dict={dict.safeToSpend}
-              locale={locale}
-            />
-            {periodSummary}
-          </>
-        ) : (
-          <BudgetOnboarding dict={dict} createCategoryAction={createCategoryAction} />
-        )}
-      </div>
+      <fieldset disabled={readOnly} className="contents">
+        <div hidden={tab !== "overview"} className="flex flex-col gap-6">
+          {hasCategories ? (
+            <>
+              <DueRecurringWidget
+                templates={dueTemplates}
+                hasTemplates={hasRecurringTemplates}
+                categories={categories}
+                members={members}
+                currentMemberId={currentMemberId}
+                monthKey={monthKey}
+                dict={dict}
+                locale={locale}
+                onManageClick={() => setTab("manage")}
+                onAcknowledge={acknowledgeTemplatePeriodAction}
+                onLogAsIs={logRecurringTemplateAction}
+                createTransactionAction={createTransactionAction}
+                updateTransactionAction={updateTransactionAction}
+              />
+              <SafeToSpend
+                amount={safeToSpendAmount}
+                status={safeToSpendStatus}
+                expectedRecurring={safeToSpendExpectedRecurring}
+                dict={dict.safeToSpend}
+                locale={locale}
+              />
+              {periodSummary}
+            </>
+          ) : (
+            <BudgetOnboarding dict={dict} createCategoryAction={createCategoryAction} />
+          )}
+        </div>
 
-      <div hidden={tab !== "manage"}>{manage}</div>
-      <div hidden={tab !== "transactions"}>{transactions}</div>
-      <div hidden={tab !== "insights"}>{insights}</div>
+        <div hidden={tab !== "manage"}>{manage}</div>
+        <div hidden={tab !== "transactions"}>{transactions}</div>
+        <div hidden={tab !== "insights"}>{insights}</div>
+      </fieldset>
     </div>
   );
 }
