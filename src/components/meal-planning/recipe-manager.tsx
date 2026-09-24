@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
+import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
 import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
 import { format, plural } from "@/lib/i18n/format";
-import type { RecipeData } from "@/components/meal-planning/types";
+import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -27,11 +28,13 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
 export function RecipeManager({
   dict,
   recipes,
+  useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
   recipes: RecipeData[];
+  useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
 }) {
@@ -62,6 +65,8 @@ export function RecipeManager({
           }
         />
       </div>
+
+      {useItUpSuggestions.length > 0 && <UseItUpSuggestions suggestions={useItUpSuggestions} dict={dict} />}
 
       {recipes.length === 0 ? (
         <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

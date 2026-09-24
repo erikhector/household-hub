@@ -921,6 +921,20 @@ export const sv = {
     addedToPlanToast: "{recipe} tillagd i planen",
     addedToPlanDifferentWeekToast: "{recipe} tillagd i planen — i en annan vecka än den du visar",
     viewThatWeek: "Visa den veckan",
+    useItUpLabel: "Använd innan det tar slut",
+    useItUpChipExpiring: {
+      one: "{recipe} använder {count} sak som snart går ut",
+      other: "{recipe} använder {count} saker som snart går ut",
+    },
+    useItUpChipLowStock: {
+      one: "{recipe} använder {count} sak som börjar ta slut",
+      other: "{recipe} använder {count} saker som börjar ta slut",
+    },
+    useItUpChipMixed: {
+      one: "{recipe} använder {count} sak som snart går ut eller börjar ta slut",
+      other: "{recipe} använder {count} saker som snart går ut eller börjar ta slut",
+    },
+    useItUpDismissAriaLabel: "Stäng",
   },
   tasks: {
     title: "Uppgifter",

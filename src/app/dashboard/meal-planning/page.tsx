@@ -5,6 +5,9 @@ import { MealPlanningView } from "@/components/meal-planning/meal-planning-view"
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
+import { getExpiryStatus } from "@/lib/inventory/expiry";
+import { getStockStatus } from "@/lib/stock-status";
+import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 
 export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
   const [{ household }, dict, searchParams] = await Promise.all([
@@ -45,13 +48,13 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       where: { mealPlan: { householdId: household.id }, date: { gte: varietyWindowStart, lte: now } },
       select: { date: true, recipeId: true },
     }),
-    // Feeds the ingredient-name autocomplete in RecipeFormDialog — surfacing
-    // the household's existing inventory item names steers users toward
-    // reusing "Tomato" instead of typing a near-duplicate like "tomatoes",
-    // which findOrCreateInventoryItem's case-insensitive match wouldn't catch.
+    // Feeds the ingredient-name autocomplete in RecipeFormDialog (name, unit)
+    // and the "use it up" suggestion chips below (id, quantity,
+    // lowStockThreshold, expiresAt) — one query covers both rather than
+    // fetching the household's inventory twice.
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { name: true, unit: true },
+      select: { id: true, name: true, unit: true, quantity: true, lowStockThreshold: true, expiresAt: true },
     }),
   ]);
 
@@ -72,6 +75,37 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   const cookableRecipes = await getCookableRecipes(
     household.id,
     recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
+  );
+
+  // "Use it up" suggestions (BACKLOG GAP-1) — a read-only nudge distinct from
+  // cookableRecipes above: this ranks by overlap with what's expiring/low
+  // rather than by "almost everything on hand," so a recipe can appear here
+  // while still missing plenty of other ingredients. Reuses the same
+  // `inventoryItems` fetch already loaded for the ingredient autocomplete
+  // instead of a separate query. `quantity` is passed through (not folded
+  // into the pre-filter below) so computeUseItUpSuggestions' reasonFor can
+  // gate out zero-quantity items — see its comment for why that gate matters
+  // (an ingredient auto-created at quantity 0 is always "out," which is
+  // backwards for a "use it up" suggestion).
+  const flaggedInventoryItems: FlaggedInventoryItem[] = inventoryItems
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      expiryStatus: getExpiryStatus(item.expiresAt, now.getTime()),
+      stockStatus: getStockStatus(item.quantity, item.lowStockThreshold),
+    }))
+    .filter((item) => item.expiryStatus !== null || item.stockStatus !== "in");
+  const useItUpSuggestions = computeUseItUpSuggestions(
+    recipes.map((recipe) => ({
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      ingredients: recipe.ingredients.map((ingredient) => ({
+        name: ingredient.name,
+        inventoryItemId: ingredient.inventoryItemId,
+      })),
+    })),
+    flaggedInventoryItems,
   );
 
   return (
@@ -113,6 +147,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       activeShoppingLists={activeShoppingLists}
       varietyCount={distinctRecipeCount}
       cookableRecipes={cookableRecipes}
+      useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
     />
