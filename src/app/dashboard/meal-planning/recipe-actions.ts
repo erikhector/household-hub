@@ -9,6 +9,7 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
+import { createCategoryResolver } from "@/lib/inventory/category-resolver";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -73,13 +74,27 @@ async function parseIngredientRows(
         .map((name) => [name.toLowerCase(), name]),
     ).values(),
   );
+  // Each brand-new ingredient gets a real guessed category (AUTO-2b) — the
+  // same household-memory-then-dictionary resolver the inventory and
+  // shopping-list create paths already use — instead of the "Uncategorized"
+  // placeholder. createCategoryResolver loads the household's inventory on
+  // its own first call below and memoizes it for the rest, so resolving
+  // every name in namesToCreate costs one extra query for the whole batch,
+  // not one per ingredient, and it's never invoked at all when nothing
+  // needs creating.
+  const resolveCategory = createCategoryResolver(householdId);
+  const categoryByName = new Map<string, string>();
+  for (const name of namesToCreate) {
+    categoryByName.set(name, (await resolveCategory(name)) || "Uncategorized");
+  }
+
   const createdItems =
     namesToCreate.length > 0
       ? await prisma.inventoryItem.createManyAndReturn({
           data: namesToCreate.map((name) => ({
             householdId,
             name,
-            category: "Uncategorized",
+            category: categoryByName.get(name)!,
             quantity: 0,
             lowStockThreshold: 0,
           })),

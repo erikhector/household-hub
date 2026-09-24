@@ -297,10 +297,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     sitting in a placeholder "Uncategorized" category, so a correction made
     in the meantime is never clobbered. Disclosed in the add-item dialog's
     existing category hint (`categoryHintAi`), shown only when a key is
-    actually configured. Covers every create path listed above except
-    recipe-ingredient find-or-create (`recipe-actions.ts`/
-    `cooking-actions.ts`), which still writes `"Uncategorized"` outright —
-    see BACKLOG.md AUTO-2b.
+    actually configured. Covers every create path listed above, including
+    recipe-ingredient find-or-create (below).
+    **Recipe-ingredient find-or-create** (`parseIngredientRows` in
+    `recipe-actions.ts`, and the missing-ingredients → shopping-list bridge
+    in `cooking-actions.ts`) also runs every newly-created ingredient
+    through `createCategoryResolver`, falling back to `"Uncategorized"`
+    only when neither step recognizes the name — the resolver's own lazy,
+    memoized load means this costs one extra query for the whole batch, not
+    one per ingredient, matching SCALE-B/SCALE-D's existing batching there.
+    The only piece still open is a tappable chip to correct a guess in
+    place on the shopping list (see BACKLOG.md AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
