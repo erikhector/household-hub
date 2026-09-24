@@ -59,9 +59,10 @@ export type ShareableHousehold = {
 };
 
 /** Seeds the dialog from a shared bill's due row ("Log payment" in
- * PersonalDueRecurringWidget): the household and category are fixed, the
- * amount/split come from the template, and the template id is sent along so
- * the new transaction marks the bill as logged for the period. */
+ * DueRecurringWidget, src/components/budget/due-recurring-widget.tsx): the
+ * household and category are fixed, the amount/split come from the
+ * template, and the template id is sent along so the new transaction marks
+ * the bill as logged for the period. */
 export type SharedExpensePrefill = {
   householdId: string;
   templateId: string;

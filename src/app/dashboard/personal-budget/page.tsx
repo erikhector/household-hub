@@ -6,17 +6,28 @@ import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { PersonalBudgetTabs } from "@/components/personal-budget/personal-budget-tabs";
 import { PersonalCategoryManager } from "@/components/personal-budget/personal-category-manager";
 import {
-  PersonalRecurringTemplatesPanel,
-  type PausedPersonalRecurringTemplateRow,
-  type PersonalRecurringTemplateListRow,
-} from "@/components/personal-budget/personal-recurring-templates-panel";
+  RecurringTemplatesPanel,
+  type PausedRecurringTemplateRow,
+  type RecurringTemplateListRow,
+} from "@/components/budget/recurring-templates-panel";
 import {
-  PersonalTransactionList,
+  TransactionList,
   type SharedPostedRow,
-} from "@/components/personal-budget/personal-transaction-list";
-import type { SharedDueRow } from "@/components/personal-budget/personal-due-recurring-widget";
+} from "@/components/budget/transaction-list";
+import type { SharedDueRow } from "@/components/budget/due-recurring-widget";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import {
+  acknowledgePersonalTemplatePeriodAction,
+  createPersonalRecurringTemplateAction,
+  createPersonalTransactionAction,
+  deletePersonalRecurringTemplateAction,
+  deletePersonalTransactionAction,
+  setPersonalRecurringTemplateActiveAction,
+  unacknowledgePersonalTemplatePeriodAction,
+  updatePersonalRecurringTemplateAction,
+  updatePersonalTransactionAction,
+} from "@/app/dashboard/personal-budget/actions";
 import {
   computeBudgetBalanceStatus,
   computeFixedMonthlySummary,
@@ -242,6 +253,12 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     date: t.date,
     isRecurring: t.isRecurring,
     recurrenceFrequency: t.recurrenceFrequency,
+    // TransactionList/TransactionDialog are now shared with the household
+    // budget (BUDGET-2) — a PersonalTransaction has no "paid by"/split
+    // concept, so these are always empty/null, the same "empty-array-safe"
+    // convention `members={[]}` already uses to suppress that UI.
+    paidByMemberId: null,
+    splits: [],
   }));
 
   // This month's posted shared shares (sharedPostedRows, the user's own
@@ -347,7 +364,11 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     referenceDate: monthStart,
     monthEnd,
   });
-  const recurringTemplateRows: PersonalRecurringTemplateListRow[] = templateStatusRows.map(
+  // splits: [] below — RecurringTemplateDialog's/RecurringTemplatesPanel's
+  // template-splitting feature is now shared with the household budget
+  // (BUDGET-2), and a PersonalRecurringTemplate has no split concept, same
+  // reasoning as transactionRows's paidByMemberId/splits above.
+  const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map(
     (row) => ({
       id: row.template.id,
       name: row.template.name,
@@ -357,9 +378,10 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
       frequency: row.template.frequency,
       dayOfMonth: row.template.dayOfMonth,
       status: row.status,
+      splits: [],
     }),
   );
-  const pausedRecurringTemplateRows: PausedPersonalRecurringTemplateRow[] = recurringTemplates
+  const pausedRecurringTemplateRows: PausedRecurringTemplateRow[] = recurringTemplates
     .filter((t) => !t.active)
     .map((t) => ({
       id: t.id,
@@ -369,6 +391,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
       amount: t.amount,
       frequency: t.frequency,
       dayOfMonth: t.dayOfMonth,
+      splits: [],
     }));
 
   // --- Fixed income & costs summary -----------------------------------------
@@ -401,13 +424,21 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // household budget's own Manage tab).
   const manage = (
     <div className="flex flex-col gap-6">
-      <PersonalRecurringTemplatesPanel
+      <RecurringTemplatesPanel
         templates={recurringTemplateRows}
         pausedTemplates={pausedRecurringTemplateRows}
         categories={categoryRows}
         monthKey={monthKey}
         dict={dict.personalBudget}
         locale={locale}
+        onTogglePause={setPersonalRecurringTemplateActiveAction}
+        onDelete={deletePersonalRecurringTemplateAction}
+        onAcknowledge={acknowledgePersonalTemplatePeriodAction}
+        onUnacknowledge={unacknowledgePersonalTemplatePeriodAction}
+        createTemplateAction={createPersonalRecurringTemplateAction}
+        updateTemplateAction={updatePersonalRecurringTemplateAction}
+        createTransactionAction={createPersonalTransactionAction}
+        updateTransactionAction={updatePersonalTransactionAction}
       />
       <PersonalCategoryManager categories={categoryRows} dict={dict.personalBudget} />
     </div>
@@ -416,7 +447,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   // Shared household costs (sharedPostedRows — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md)
   // are merged straight into the normal transaction list, badged as
   // "Shared" rather than shown in a separate section. Still read-only here:
-  // PersonalTransactionList renders a "View in {household} Budget" link for
+  // TransactionList renders a "View in {household} Budget" link for
   // these rows instead of edit/delete controls, since the household budget
   // stays the one place they get logged, edited, or acknowledged.
   const transactionsTab = (
@@ -424,14 +455,19 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
       <div className="flex justify-end">
         <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
       </div>
-      <PersonalTransactionList
+      <TransactionList
         transactions={transactionRows}
         sharedRows={sharedPostedRows}
         showHouseholdName={showHouseholdName}
         monthKey={monthKey}
         categories={categoryRows}
+        members={[]}
+        currentMemberId=""
         dict={dict.personalBudget}
         locale={locale}
+        onDelete={deletePersonalTransactionAction}
+        createAction={createPersonalTransactionAction}
+        updateAction={updatePersonalTransactionAction}
       />
     </div>
   );

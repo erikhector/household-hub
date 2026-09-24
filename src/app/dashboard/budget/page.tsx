@@ -18,6 +18,17 @@ import {
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
+import {
+  acknowledgeTemplatePeriodAction,
+  createRecurringTemplateAction,
+  createTransactionAction,
+  deleteRecurringTemplateAction,
+  deleteTransactionAction,
+  setRecurringTemplateActiveAction,
+  unacknowledgeTemplatePeriodAction,
+  updateRecurringTemplateAction,
+  updateTransactionAction,
+} from "@/app/dashboard/budget/actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import {
   computeBudgetBalanceStatus,
@@ -437,6 +448,14 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         monthKey={monthKey}
         dict={dict.budget}
         locale={locale}
+        onTogglePause={setRecurringTemplateActiveAction}
+        onDelete={deleteRecurringTemplateAction}
+        onAcknowledge={acknowledgeTemplatePeriodAction}
+        onUnacknowledge={unacknowledgeTemplatePeriodAction}
+        createTemplateAction={createRecurringTemplateAction}
+        updateTemplateAction={updateRecurringTemplateAction}
+        createTransactionAction={createTransactionAction}
+        updateTransactionAction={updateTransactionAction}
       />
       <CategoryManager categories={categoryRows} dict={dict.budget} />
     </div>
@@ -454,6 +473,9 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         currentMemberId={currentMemberId}
         dict={dict.budget}
         locale={locale}
+        onDelete={deleteTransactionAction}
+        createAction={createTransactionAction}
+        updateAction={updateTransactionAction}
       />
     </div>
   );
