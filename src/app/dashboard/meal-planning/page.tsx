@@ -86,7 +86,10 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   // into the pre-filter below) so computeUseItUpSuggestions' reasonFor can
   // gate out zero-quantity items — see its comment for why that gate matters
   // (an ingredient auto-created at quantity 0 is always "out," which is
-  // backwards for a "use it up" suggestion).
+  // backwards for a "use it up" suggestion). The pre-filter drops them too:
+  // item names aren't unique, so a zero-quantity "Milk" left in the list
+  // could win the by-name match for an unlinked ingredient and hide an
+  // on-hand, expiring "Milk" with the same name.
   const flaggedInventoryItems: FlaggedInventoryItem[] = inventoryItems
     .map((item) => ({
       id: item.id,
@@ -95,7 +98,11 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       expiryStatus: getExpiryStatus(item.expiresAt, now.getTime()),
       stockStatus: getStockStatus(item.quantity, item.lowStockThreshold),
     }))
-    .filter((item) => item.expiryStatus !== null || item.stockStatus !== "in");
+    .filter(
+      (item) =>
+        item.quantity > 0 &&
+        (item.expiryStatus !== null || item.stockStatus !== "in"),
+    );
   const useItUpSuggestions = computeUseItUpSuggestions(
     recipes.map((recipe) => ({
       recipeId: recipe.id,
