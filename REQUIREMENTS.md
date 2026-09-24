@@ -192,7 +192,11 @@ email is built server-side from request headers (`x-forwarded-host`/
 Action is a POST endpoint reachable by anyone, not just through the UI that
 renders it. `InviteButton` (`src/components/household/invite-button.tsx`)
 adds an email input + send button below the existing link/copy UI, reusing
-the same invitation token the link already points at.
+the same invitation token the link already points at. `sendInviteEmailAction`
+is rate-limited (`checkRateLimit`, 10/hour) keyed on the *sending* household
+member (`invite-email:<userId>`), returning `{ error }` past the limit —
+without it, any authenticated household member could trigger unlimited
+outbound email to arbitrary addresses via this app's sending domain.
 - **Switching households**: a user can belong to multiple households (e.g.
   their own home + a shared vacation home). The active one is tracked by the
   `active_household` cookie (`src/lib/session.ts`), read (never written) by
@@ -1042,9 +1046,15 @@ below.
   `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
   — bumping the linked inventory item's quantity and recording a
   `PriceHistory` row — just batched across every scanned line in one
-  transaction instead of one checkbox at a time. De-dupes by
-  `shoppingListItemId` server-side (in case two OCR'd lines were ever
-  matched to the same item) so nothing is double-counted.
+  transaction instead of one checkbox at a time, with the per-line writes
+  themselves run concurrently via `Promise.all` inside that transaction
+  rather than sequentially — the same change applied to
+  `resolveShoppingListMappingsAction`'s batch resolution
+  (`src/app/dashboard/shopping-list/actions.ts`, the `ResolveMappingsDialog`
+  commit path) — since each line/resolution only ever touches its own rows
+  (SCALE-C). De-dupes by `shoppingListItemId` server-side (in case two
+  OCR'd lines were ever matched to the same item) so nothing is
+  double-counted.
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
@@ -1194,15 +1204,20 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking**: mirrors the shopping list exactly —
-  every ingredient with a name gets find-or-create-matched (case-insensitive,
-  scoped to the household) to an `InventoryItem` via a local copy of the
-  `findOrCreateInventoryItem` pattern from
-  `src/app/dashboard/shopping-list/actions.ts` (duplicated rather than
-  imported, since the two features are owned by independent worktrees/tasks
-  and shouldn't be coupled through a shared internal helper). This happens
-  automatically on every save — there's no "link to inventory?" toggle in
-  the UI, same as shopping list items.
+- **Ingredient → inventory linking**: mirrors the shopping list's
+  find-or-create identity rule (case-insensitive name match, scoped to the
+  household) but batched across every ingredient row on the recipe in one
+  pass — `parseIngredientRows` (`src/app/dashboard/meal-planning/recipe-actions.ts`)
+  runs a single `findMany` for every distinct name, a single
+  `createManyAndReturn` for the ones that don't already exist, then maps
+  each row back to its `InventoryItem` id from the combined result (SCALE-B),
+  rather than a `findFirst`/`create` pair per ingredient. `parseComponentRows`
+  in the same file batches its sub-recipe existence check the same way — one
+  `recipe.findMany` across every candidate id instead of a `findFirst` per
+  row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is
+  (it's not a flat lookup). This happens automatically on every save —
+  there's no "link to inventory?" toggle in the UI, same as shopping list
+  items.
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
@@ -1357,8 +1372,8 @@ Paprika, Plan to Eat, Whisk) uses:
   always set (every ingredient is find-or-create-linked at recipe-save
   time — see "Ingredient → inventory linking" above), but the relation is
   `onDelete: SetNull`, so a since-deleted inventory item can leave one
-  unlinked; that case falls back to the same case-insensitive name match
-  `findOrCreateInventoryItem` uses everywhere else, against a fresh query of
+  unlinked; that case falls back to the same case-insensitive name match the
+  find-or-create paths elsewhere in this app use, against a fresh query of
   the household's current inventory.
 - **Aggregation/diff**: the pure "sum required quantity per resolved item
   across every recipe/day, subtract what's on hand once (not per
@@ -1396,14 +1411,17 @@ Paprika, Plan to Eat, Whisk) uses:
   written until the user confirms.
 - **Committing**: `addMissingIngredientsToShoppingListAction` (same file)
   creates the new list if requested (defaulting its name the same way
-  `createShoppingListAction` does), then find-or-create-links each checked
-  ingredient to an `InventoryItem` (`findOrCreateInventoryItem`, the
-  existing pattern already duplicated into this file — not invented here)
-  and adds it as a `ShoppingListItem` with `addedAutomatically: true`. Items
-  already pending (unpurchased) on the target list are skipped rather than
-  duplicated, mirroring `generateFromLowStockAction`'s existing dedupe in
-  `src/app/dashboard/shopping-list/actions.ts`. On success the dialog closes
-  and a `sonner` toast confirms which list the items were added to.
+  `createShoppingListAction` does), then find-or-create-links every checked
+  ingredient to an `InventoryItem` in one batched pass — a single
+  case-insensitive `findMany` across all the row names, a single
+  `createManyAndReturn` for whichever names don't already exist, then a
+  single `shoppingListItem.createMany` for every row not already pending —
+  rather than a `findFirst`/`create`/`create` round trip per ingredient
+  (SCALE-A). Items already pending (unpurchased) on the target list are
+  skipped rather than duplicated, mirroring `generateFromLowStockAction`'s
+  existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
+  success the dialog closes and a `sonner` toast confirms which list the
+  items were added to.
 
 ### Mark meal as cooked → inventory decrement
 
@@ -1746,8 +1764,8 @@ Exactly three triggers exist — nothing else creates a notification:
   zero, is a no-op — and it's deduped against any already-active
   (undismissed) alert for the same item.
   - **Deliberately never fires on item creation.** `createInventoryItemAction`,
-    `quickAddInventoryItemAction`, `addStarterKitItemsAction`,
-    `findOrCreateInventoryItem` (meal-planning ingredients and shopping-list
+    `quickAddInventoryItemAction`, `addStarterKitItemsAction`, every
+    find-or-create-linking path (meal-planning ingredients and shopping-list
     items), and `createInventoryItemFromShoppingListItemAction` all can
     create a brand-new `InventoryItem` at quantity 0 (e.g. an ingredient
     auto-linked the moment a recipe is saved, or a manually added item left

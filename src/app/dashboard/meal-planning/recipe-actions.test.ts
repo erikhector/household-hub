@@ -8,10 +8,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
-  inventoryItemFindFirstMock,
-  inventoryItemCreateMock,
+  inventoryItemFindManyMock,
+  inventoryItemCreateManyAndReturnMock,
   recipeCreateMock,
   recipeFindFirstMock,
+  recipeFindManyMock,
   recipeDeleteMock,
   recipeIngredientDeleteManyMock,
   recipeUpdateMock,
@@ -24,10 +25,11 @@ const {
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
-  inventoryItemFindFirstMock: vi.fn(),
-  inventoryItemCreateMock: vi.fn(),
+  inventoryItemFindManyMock: vi.fn(),
+  inventoryItemCreateManyAndReturnMock: vi.fn(),
   recipeCreateMock: vi.fn(),
   recipeFindFirstMock: vi.fn(),
+  recipeFindManyMock: vi.fn(),
   recipeDeleteMock: vi.fn(),
   recipeIngredientDeleteManyMock: vi.fn(),
   recipeUpdateMock: vi.fn(),
@@ -45,12 +47,13 @@ const {
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inventoryItem: {
-      findFirst: inventoryItemFindFirstMock,
-      create: inventoryItemCreateMock,
+      findMany: inventoryItemFindManyMock,
+      createManyAndReturn: inventoryItemCreateManyAndReturnMock,
     },
     recipe: {
       create: recipeCreateMock,
       findFirst: recipeFindFirstMock,
+      findMany: recipeFindManyMock,
       update: recipeUpdateMock,
       delete: recipeDeleteMock,
     },
@@ -140,7 +143,6 @@ describe("createRecipeAction", () => {
   });
 
   it("skips blank ingredient rows", async () => {
-    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1" });
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Soup" });
     fd.append("ingredientName", "");
@@ -156,8 +158,8 @@ describe("createRecipeAction", () => {
   });
 
   it("find-or-creates an inventory item per ingredient, scoped to the caller's household", async () => {
-    inventoryItemFindFirstMock.mockResolvedValue(null);
-    inventoryItemCreateMock.mockResolvedValue({ id: "new-inv-item" });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "new-inv-item", name: "Carrot" }]);
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Soup" });
     fd.append("ingredientName", "Carrot");
@@ -166,8 +168,10 @@ describe("createRecipeAction", () => {
 
     await createRecipeAction({}, fd);
 
-    expect(inventoryItemCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ householdId: "household-1", name: "Carrot" }) }),
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ householdId: "household-1", name: "Carrot" })],
+      }),
     );
     expect(recipeCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -179,8 +183,71 @@ describe("createRecipeAction", () => {
     });
   });
 
+  it("batches inventory find-or-create across ingredient rows into one lookup and one createMany (SCALE-B)", async () => {
+    // "Carrot" already exists (case-insensitive match); "Kale" doesn't.
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot" }]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-kale", name: "Kale" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Soup" });
+    fd.append("ingredientName", "Carrot");
+    fd.append("ingredientQuantity", "2");
+    fd.append("ingredientUnit", "pcs");
+    fd.append("ingredientName", "Kale");
+    fd.append("ingredientQuantity", "1");
+    fd.append("ingredientUnit", "pcs");
+
+    await createRecipeAction({}, fd);
+
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ name: "Kale" })] }),
+    );
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ingredients: {
+          create: [
+            { name: "Carrot", quantity: 2, unit: "pcs", inventoryItemId: "inv-carrot" },
+            { name: "Kale", quantity: 1, unit: "pcs", inventoryItemId: "inv-kale" },
+          ],
+        },
+      }),
+    });
+  });
+
+  it("batches sub-recipe existence checks across component rows into one findMany (SCALE-B)", async () => {
+    recipeFindManyMock.mockResolvedValue([{ id: "bolognese" }, { id: "garlic-bread" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Lasagna" });
+    fd.append("componentRecipeId", "bolognese");
+    fd.append("componentQuantity", "1");
+    fd.append("componentRecipeId", "garlic-bread");
+    fd.append("componentQuantity", "2");
+
+    await createRecipeAction({}, fd);
+
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+    expect(recipeFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ["bolognese", "garlic-bread"] }, householdId: "household-1" }),
+      }),
+    );
+    expect(recipeCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          components: {
+            create: [
+              { componentRecipeId: "bolognese", quantity: 1 },
+              { componentRecipeId: "garlic-bread", quantity: 2 },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
   it("rejects a sub-recipe id that isn't a household recipe (IDOR guard)", async () => {
-    recipeFindFirstMock.mockResolvedValue(null);
+    recipeFindManyMock.mockResolvedValue([]);
     const fd = formData({ name: "Lasagna" });
     fd.append("componentRecipeId", "someone-elses-recipe");
     fd.append("componentQuantity", "1");
@@ -202,7 +269,7 @@ describe("createRecipeAction", () => {
   });
 
   it("skips a duplicate sub-recipe row rather than erroring", async () => {
-    recipeFindFirstMock.mockResolvedValue({ id: "bolognese" });
+    recipeFindManyMock.mockResolvedValue([{ id: "bolognese" }]);
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Lasagna" });
     fd.append("componentRecipeId", "bolognese");
@@ -222,7 +289,7 @@ describe("createRecipeAction", () => {
   });
 
   it("nests valid sub-recipe rows into the create call (a brand-new recipe can never form a cycle)", async () => {
-    recipeFindFirstMock.mockResolvedValue({ id: "bolognese" });
+    recipeFindManyMock.mockResolvedValue([{ id: "bolognese" }]);
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Lasagna" });
     fd.append("componentRecipeId", "bolognese");
@@ -311,6 +378,7 @@ describe("updateRecipeAction", () => {
     recipeFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) => ({
       id: where.id,
     }));
+    recipeFindManyMock.mockResolvedValue([{ id: "bolognese" }]);
     // bolognese already (transitively) contains lasagna, so adding bolognese
     // as one of lasagna's own components would close the loop.
     recipeComponentFindManyMock.mockImplementation(
@@ -331,6 +399,7 @@ describe("updateRecipeAction", () => {
     recipeFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) => ({
       id: where.id,
     }));
+    recipeFindManyMock.mockResolvedValue([{ id: "bolognese" }]);
     recipeComponentFindManyMock.mockResolvedValue([]);
     recipeUpdateMock.mockResolvedValue({});
     const fd = formData({ recipeId: "lasagna", name: "Lasagna" });

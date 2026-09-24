@@ -14,23 +14,6 @@ const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
 type MealPlanningDict = Awaited<ReturnType<typeof getDictionary>>["mealPlanning"];
 
-// Exact copy of the pattern in src/app/dashboard/shopping-list/actions.ts —
-// every ingredient (like every shopping list item) maps 1:1 to an
-// InventoryItem, found-or-created by case-insensitive name match within the
-// household. Duplicated (rather than imported) here and in
-// cooking-actions.ts to keep each of this feature's action files
-// self-contained.
-async function findOrCreateInventoryItem(householdId: string, name: string) {
-  const existing = await prisma.inventoryItem.findFirst({
-    where: { householdId, name: { equals: name, mode: "insensitive" } },
-  });
-  if (existing) return existing;
-
-  return prisma.inventoryItem.create({
-    data: { householdId, name, category: "Uncategorized", quantity: 0, lowStockThreshold: 0 },
-  });
-}
-
 type IngredientRow = { name: string; quantity: number; unit: string };
 
 // Mirrors recipeSchema's own bounds (name: 120, kept modest since ingredient
@@ -70,12 +53,47 @@ async function parseIngredientRows(
     rows.push({ name, quantity, unit });
   }
 
-  const data = await Promise.all(
-    rows.map(async (row) => {
-      const inventoryItem = await findOrCreateInventoryItem(householdId, row.name);
-      return { ...row, inventoryItemId: inventoryItem.id };
-    }),
+  if (rows.length === 0) return { data: [] };
+
+  // Batched find-or-create (SCALE-B): one case-insensitive lookup across
+  // every distinct ingredient name, one createMany for the names that
+  // don't already exist, instead of N parallel findFirst/create pairs.
+  const uniqueNames = Array.from(new Set(rows.map((row) => row.name)));
+  const existingItems = await prisma.inventoryItem.findMany({
+    where: { householdId, name: { in: uniqueNames, mode: "insensitive" } },
+  });
+  const existingByLowerName = new Map(existingItems.map((item) => [item.name.toLowerCase(), item]));
+
+  // Dedupe by lowercase too, so two rows differing only in case ("Milk" /
+  // "milk") don't try to create the same item twice.
+  const namesToCreate = Array.from(
+    new Map(
+      uniqueNames
+        .filter((name) => !existingByLowerName.has(name.toLowerCase()))
+        .map((name) => [name.toLowerCase(), name]),
+    ).values(),
   );
+  const createdItems =
+    namesToCreate.length > 0
+      ? await prisma.inventoryItem.createManyAndReturn({
+          data: namesToCreate.map((name) => ({
+            householdId,
+            name,
+            category: "Uncategorized",
+            quantity: 0,
+            lowStockThreshold: 0,
+          })),
+        })
+      : [];
+  const itemByLowerName = new Map(
+    [...existingItems, ...createdItems].map((item) => [item.name.toLowerCase(), item]),
+  );
+
+  // Preserves the original row order in the returned array.
+  const data = rows.map((row) => ({
+    ...row,
+    inventoryItemId: itemByLowerName.get(row.name.toLowerCase())!.id,
+  }));
 
   return { data };
 }
@@ -128,7 +146,7 @@ async function parseComponentRows(
   const quantities = formData.getAll("componentQuantity").map((v) => String(v).trim());
 
   const seen = new Set<string>();
-  const rows: ComponentRow[] = [];
+  const candidates: ComponentRow[] = [];
   for (let i = 0; i < ids.length; i++) {
     const componentRecipeId = ids[i];
     if (!componentRecipeId || seen.has(componentRecipeId)) continue;
@@ -139,17 +157,29 @@ async function parseComponentRows(
       return { error: dict.componentQuantityError };
     }
 
-    const componentRecipe = await prisma.recipe.findFirst({
-      where: { id: componentRecipeId, householdId },
-      select: { id: true },
-    });
-    if (!componentRecipe) return { error: dict.componentNotFoundError };
+    candidates.push({ componentRecipeId, quantity });
+  }
 
-    if (parentRecipeId && (await wouldCreateCycle(parentRecipeId, componentRecipeId))) {
+  if (candidates.length === 0) return { data: [] };
+
+  // Batched existence check (SCALE-B): one findMany for every candidate id
+  // instead of a findFirst per row. wouldCreateCycle stays per-row — it's a
+  // graph check, not a flat lookup.
+  const foundRecipes = await prisma.recipe.findMany({
+    where: { id: { in: candidates.map((c) => c.componentRecipeId) }, householdId },
+    select: { id: true },
+  });
+  const foundIds = new Set(foundRecipes.map((r) => r.id));
+
+  const rows: ComponentRow[] = [];
+  for (const candidate of candidates) {
+    if (!foundIds.has(candidate.componentRecipeId)) return { error: dict.componentNotFoundError };
+
+    if (parentRecipeId && (await wouldCreateCycle(parentRecipeId, candidate.componentRecipeId))) {
       return { error: dict.componentCycleError };
     }
 
-    rows.push({ componentRecipeId, quantity });
+    rows.push(candidate);
   }
 
   return { data: rows };

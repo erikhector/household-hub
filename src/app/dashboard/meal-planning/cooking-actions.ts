@@ -17,26 +17,9 @@ import { recordOutOfStockTransition } from "@/lib/notifications";
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Exact copy of the pattern in src/app/dashboard/shopping-list/actions.ts —
-// every ingredient (like every shopping list item) maps 1:1 to an
-// InventoryItem, found-or-created by case-insensitive name match within the
-// household. Duplicated (rather than imported) here and in
-// recipe-actions.ts to keep each of this feature's action files
-// self-contained.
-async function findOrCreateInventoryItem(householdId: string, name: string) {
-  const existing = await prisma.inventoryItem.findFirst({
-    where: { householdId, name: { equals: name, mode: "insensitive" } },
-  });
-  if (existing) return existing;
-
-  return prisma.inventoryItem.create({
-    data: { householdId, name, category: "Uncategorized", quantity: 0, lowStockThreshold: 0 },
-  });
-}
-
 // Mirrors recipe-actions.ts's identical bound on ingredient rows — kept as
-// its own copy here (rather than imported) for the same self-containment
-// reason as findOrCreateInventoryItem above.
+// its own copy here (rather than imported) to keep this feature's action
+// files self-contained.
 const MAX_INGREDIENT_QUANTITY = 1_000_000;
 
 // Inventory quantities are stored to at most 2 decimal places (matches the
@@ -107,7 +90,7 @@ export async function previewMissingIngredientsAction(
   // relation is `onDelete: SetNull`, so a since-deleted inventory item can
   // leave an ingredient unlinked. Fall back to a case-insensitive name match
   // against the household's current inventory for those, same identity rule
-  // `findOrCreateInventoryItem` uses everywhere else.
+  // the find-or-create paths elsewhere in this app use.
   const looseNames = new Set<string>();
   for (const ingredient of expanded) {
     if (!ingredient.inventoryItemId) looseNames.add(ingredient.name.toLowerCase());
@@ -210,21 +193,64 @@ export async function addMissingIngredientsToShoppingListAction(
   });
   const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
 
-  for (const row of rows) {
-    const inventoryItem = await findOrCreateInventoryItem(household.id, row.name);
-    if (alreadyOnListIds.has(inventoryItem.id)) continue;
+  // Batched find-or-create: one lookup for every distinct ingredient name,
+  // one createMany for the ones that don't already exist, instead of a
+  // findFirst+create round trip per row (SCALE-A).
+  const uniqueNames = Array.from(new Set(rows.map((row) => row.name)));
+  const existingItems = await prisma.inventoryItem.findMany({
+    where: { householdId: household.id, name: { in: uniqueNames, mode: "insensitive" } },
+  });
+  const existingByLowerName = new Map(existingItems.map((item) => [item.name.toLowerCase(), item]));
 
-    await prisma.shoppingListItem.create({
-      data: {
-        shoppingListId: listId,
-        inventoryItemId: inventoryItem.id,
-        name: row.name,
-        quantity: row.quantity,
-        unit: row.unit,
-        addedAutomatically: true,
-      },
+  // Dedupe by lowercase too, so two rows differing only in case ("Milk" /
+  // "milk") don't try to create the same item twice.
+  const namesToCreate = Array.from(
+    new Map(
+      uniqueNames
+        .filter((name) => !existingByLowerName.has(name.toLowerCase()))
+        .map((name) => [name.toLowerCase(), name]),
+    ).values(),
+  );
+  const createdItems =
+    namesToCreate.length > 0
+      ? await prisma.inventoryItem.createManyAndReturn({
+          data: namesToCreate.map((name) => ({
+            householdId: household.id,
+            name,
+            category: "Uncategorized",
+            quantity: 0,
+            lowStockThreshold: 0,
+          })),
+        })
+      : [];
+  const itemByLowerName = new Map(
+    [...existingItems, ...createdItems].map((item) => [item.name.toLowerCase(), item]),
+  );
+
+  const itemsToCreate: {
+    shoppingListId: string;
+    inventoryItemId: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    addedAutomatically: true;
+  }[] = [];
+  for (const row of rows) {
+    const inventoryItem = itemByLowerName.get(row.name.toLowerCase());
+    if (!inventoryItem || alreadyOnListIds.has(inventoryItem.id)) continue;
+
+    itemsToCreate.push({
+      shoppingListId: listId,
+      inventoryItemId: inventoryItem.id,
+      name: row.name,
+      quantity: row.quantity,
+      unit: row.unit,
+      addedAutomatically: true,
     });
     alreadyOnListIds.add(inventoryItem.id);
+  }
+  if (itemsToCreate.length > 0) {
+    await prisma.shoppingListItem.createMany({ data: itemsToCreate });
   }
 
   revalidatePath(MEAL_PLANNING_PATH);

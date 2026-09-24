@@ -8,9 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
-  inventoryItemFindFirstMock,
-  inventoryItemCreateMock,
   inventoryItemFindManyMock,
+  inventoryItemCreateManyAndReturnMock,
   inventoryItemUpdateMock,
   recipeFindManyMock,
   mealPlanFindFirstMock,
@@ -19,14 +18,13 @@ const {
   shoppingListCreateMock,
   shoppingListFindFirstMock,
   shoppingListItemFindManyMock,
-  shoppingListItemCreateMock,
+  shoppingListItemCreateManyMock,
   transactionMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
-  inventoryItemFindFirstMock: vi.fn(),
-  inventoryItemCreateMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
+  inventoryItemCreateManyAndReturnMock: vi.fn(),
   inventoryItemUpdateMock: vi.fn(),
   recipeFindManyMock: vi.fn(),
   mealPlanFindFirstMock: vi.fn(),
@@ -35,7 +33,7 @@ const {
   shoppingListCreateMock: vi.fn(),
   shoppingListFindFirstMock: vi.fn(),
   shoppingListItemFindManyMock: vi.fn(),
-  shoppingListItemCreateMock: vi.fn(),
+  shoppingListItemCreateManyMock: vi.fn(),
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
@@ -49,15 +47,14 @@ transactionMock.mockImplementation(async (cb: (tx: typeof txClient) => unknown) 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     inventoryItem: {
-      findFirst: inventoryItemFindFirstMock,
-      create: inventoryItemCreateMock,
       findMany: inventoryItemFindManyMock,
+      createManyAndReturn: inventoryItemCreateManyAndReturnMock,
     },
     recipe: { findMany: recipeFindManyMock },
     mealPlan: { findFirst: mealPlanFindFirstMock },
     mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock },
     shoppingList: { create: shoppingListCreateMock, findFirst: shoppingListFindFirstMock },
-    shoppingListItem: { findMany: shoppingListItemFindManyMock, create: shoppingListItemCreateMock },
+    shoppingListItem: { findMany: shoppingListItemFindManyMock, createMany: shoppingListItemCreateManyMock },
     $transaction: transactionMock,
   },
 }));
@@ -198,9 +195,9 @@ describe("addMissingIngredientsToShoppingListAction", () => {
   it("creates a new list scoped to the caller's household when targetListId is the 'new list' sentinel", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "new-list" });
     shoppingListItemFindManyMock.mockResolvedValue([]);
-    inventoryItemFindFirstMock.mockResolvedValue(null);
-    inventoryItemCreateMock.mockResolvedValue({ id: "inv-1" });
-    shoppingListItemCreateMock.mockResolvedValue({});
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-1", name: "Carrot" }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
     const fd = formData({ targetListId: NEW_SHOPPING_LIST_SENTINEL });
     fd.append("itemName", "Carrot");
     fd.append("itemQuantity", "2");
@@ -212,6 +209,40 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     expect(shoppingListCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ householdId: "household-1" }) }),
     );
+  });
+
+  it("batches inventory find-or-create across rows into one lookup and one createMany (SCALE-A)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    // "Carrot" already exists (case-insensitive match); "Kale" doesn't.
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot" }]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-kale", name: "Kale" }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Carrot");
+    fd.append("itemQuantity", "2");
+    fd.append("itemUnit", "pcs");
+    fd.append("itemName", "Kale");
+    fd.append("itemQuantity", "1");
+    fd.append("itemUnit", "pcs");
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result).toEqual({});
+    // One lookup for every distinct name, one createMany for the missing
+    // one — not a findFirst/create pair per row.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: [expect.objectContaining({ name: "Kale" })] }),
+    );
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledTimes(1);
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot" }),
+        expect.objectContaining({ inventoryItemId: "inv-kale", name: "Kale" }),
+      ],
+    });
   });
 });
 

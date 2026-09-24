@@ -749,22 +749,33 @@ export async function resolveShoppingListMappingsAction(
       if (guess) guessedCategories.set(item.id, guess);
     }
 
+    // Per-row writes are parallelized with Promise.all rather than a
+    // sequential for-await loop (SCALE-C) — the rows being written already
+    // don't overlap (each resolution targets its own shoppingListItem/
+    // inventoryItem), so this only cuts wall-clock transaction hold time,
+    // it doesn't change which rows end up written. Results are collected
+    // and folded into shoppingListId/resolvedCount afterward, in the same
+    // input order the old loop used, so both end up identical to before —
+    // including shoppingListId being set for an attempted-but-not-found
+    // "existing" resolution even though it didn't increment resolvedCount.
     await prisma.$transaction(async (tx) => {
-      for (const resolution of resolutions) {
-        const item = itemsById.get(resolution.itemId);
-        if (!item || item.inventoryItemId !== null) continue;
-        shoppingListId = item.shoppingListId;
+      const results = await Promise.all(
+        resolutions.map(async (resolution) => {
+          const item = itemsById.get(resolution.itemId);
+          if (!item || item.inventoryItemId !== null) return null;
 
-        if (resolution.kind === "existing") {
-          const inventoryItem = await tx.inventoryItem.findFirst({
-            where: { id: resolution.inventoryItemId, householdId: household.id },
-          });
-          if (!inventoryItem) continue;
-          await tx.shoppingListItem.update({
-            where: { id: item.id },
-            data: { inventoryItemId: inventoryItem.id },
-          });
-        } else {
+          if (resolution.kind === "existing") {
+            const inventoryItem = await tx.inventoryItem.findFirst({
+              where: { id: resolution.inventoryItemId, householdId: household.id },
+            });
+            if (!inventoryItem) return { shoppingListId: item.shoppingListId, resolved: false };
+            await tx.shoppingListItem.update({
+              where: { id: item.id },
+              data: { inventoryItemId: inventoryItem.id },
+            });
+            return { shoppingListId: item.shoppingListId, resolved: true };
+          }
+
           const trimmedCategory = resolution.category.trim().slice(0, 60);
           const inventoryItem = await tx.inventoryItem.create({
             data: {
@@ -779,8 +790,14 @@ export async function resolveShoppingListMappingsAction(
             where: { id: item.id },
             data: { inventoryItemId: inventoryItem.id },
           });
-        }
-        resolvedCount++;
+          return { shoppingListId: item.shoppingListId, resolved: true };
+        }),
+      );
+
+      for (const result of results) {
+        if (!result) continue;
+        shoppingListId = result.shoppingListId;
+        if (result.resolved) resolvedCount++;
       }
     });
   } catch (error) {
@@ -909,27 +926,37 @@ export async function applyReceiptScanAction(
 
   let totalAmount = 0;
 
+  // Per-row writes are parallelized with Promise.all rather than a
+  // sequential for-await loop (SCALE-C) — each match targets its own
+  // shoppingListItem/inventoryItem, so this only cuts wall-clock
+  // transaction hold time. totalAmount's accumulation stays deterministic:
+  // every map callback runs its synchronous prefix (computing
+  // convertedPrice and adding it to totalAmount) before its first await,
+  // so the additions happen in validMatches order exactly as the old loop
+  // did, before any of the awaited writes resolve.
   await prisma.$transaction(async (tx) => {
-    for (const match of validMatches) {
-      const item = itemsById.get(match.shoppingListItemId)!;
-      const convertedPrice = Math.round(match.price * rate * 100) / 100;
-      totalAmount += convertedPrice;
+    await Promise.all(
+      validMatches.map(async (match) => {
+        const item = itemsById.get(match.shoppingListItemId)!;
+        const convertedPrice = Math.round(match.price * rate * 100) / 100;
+        totalAmount += convertedPrice;
 
-      await tx.shoppingListItem.update({
-        where: { id: item.id },
-        data: { estimatedPrice: convertedPrice, purchased: true },
-      });
+        await tx.shoppingListItem.update({
+          where: { id: item.id },
+          data: { estimatedPrice: convertedPrice, purchased: true },
+        });
 
-      if (item.inventoryItem) {
-        await tx.inventoryItem.update({
-          where: { id: item.inventoryItem.id },
-          data: { quantity: item.inventoryItem.quantity + item.quantity },
-        });
-        await tx.priceHistory.create({
-          data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
-        });
-      }
-    }
+        if (item.inventoryItem) {
+          await tx.inventoryItem.update({
+            where: { id: item.inventoryItem.id },
+            data: { quantity: item.inventoryItem.quantity + item.quantity },
+          });
+          await tx.priceHistory.create({
+            data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
+          });
+        }
+      }),
+    );
   });
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
