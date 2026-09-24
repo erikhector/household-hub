@@ -14,16 +14,22 @@ import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { MonthNavigator } from "@/components/budget/month-navigator";
 import {
-  PersonalDueRecurringWidget,
+  DueRecurringWidget,
   type SharedDueRow,
-} from "@/components/personal-budget/personal-due-recurring-widget";
+} from "@/components/budget/due-recurring-widget";
 import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
-import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
+import { TransactionDialog } from "@/components/budget/transaction-dialog";
+import {
+  acknowledgePersonalTemplatePeriodAction,
+  createPersonalTransactionAction,
+  logPersonalRecurringTemplateAction,
+  updatePersonalTransactionAction,
+} from "@/app/dashboard/personal-budget/actions";
 import {
   LogSharedExpenseDialog,
   type ShareableHousehold,
 } from "@/components/personal-budget/log-shared-expense-dialog";
-import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
+import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -56,12 +62,12 @@ export function PersonalBudgetTabs({
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
-  dueTemplates: PersonalRecurringTemplateListRow[];
+  dueTemplates: RecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
   /** The user's own share of due-but-not-yet-posted shared household
    * RecurringTemplates (see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) — merged
-   * straight into PersonalDueRecurringWidget's due list, badged "Shared",
-   * rather than shown in a separate section. */
+   * straight into DueRecurringWidget's due list, badged "Shared", rather
+   * than shown in a separate section. */
   sharedDueRows: SharedDueRow[];
   /** Only show which household a shared row belongs to once the user is in
    * more than one — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6. */
@@ -104,10 +110,14 @@ export function PersonalBudgetTabs({
               trigger={<Button variant="outline">{dict.logShared.button}</Button>}
             />
           )}
-          <PersonalTransactionDialog
+          <TransactionDialog
             dict={dict}
             categories={categories}
+            members={[]}
+            currentMemberId=""
             monthKey={monthKey}
+            createAction={createPersonalTransactionAction}
+            updateAction={updatePersonalTransactionAction}
             trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
           />
         </div>
@@ -116,7 +126,7 @@ export function PersonalBudgetTabs({
       <div hidden={tab !== "overview"} className="flex flex-col gap-6">
         {hasCategories ? (
           <>
-            <PersonalDueRecurringWidget
+            <DueRecurringWidget
               templates={dueTemplates}
               hasTemplates={hasRecurringTemplates}
               sharedDueRows={sharedDueRows}
@@ -125,8 +135,13 @@ export function PersonalBudgetTabs({
               monthKey={monthKey}
               categories={categories}
               dict={dict}
+              logSharedDialogDict={dict}
               locale={locale}
               onManageClick={() => setTab("manage")}
+              onAcknowledge={acknowledgePersonalTemplatePeriodAction}
+              onLogAsIs={logPersonalRecurringTemplateAction}
+              createTransactionAction={createPersonalTransactionAction}
+              updateTransactionAction={updatePersonalTransactionAction}
             />
             <SafeToSpend
               amount={safeToSpendAmount}

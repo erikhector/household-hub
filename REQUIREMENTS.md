@@ -854,6 +854,84 @@ unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
     re-authentication with the new password, since rotating a credential
     should invalidate the session that changed it.
 
+### Budget component unification
+
+`/dashboard/budget` (household) and `/dashboard/personal-budget` (personal)
+used to each render their own copy of the same ~10 presentational
+components (`TransactionDialog`/`PersonalTransactionDialog`,
+`TransactionList`/`PersonalTransactionList`, etc.) — file-for-file
+duplicates that had already started drifting (a Wave-1 UI fix landing on
+one side and not the other). `docs/archive/PERSONAL_BUDGET_UNIFICATION.md`
+is the design spike that scoped the fix into five sequential backlog items
+(BUDGET-2 → BUDGET-5); this section documents BUDGET-2, the first and
+largest of them.
+
+**What merged.** Five component pairs collapsed into one file each, now
+living only under `src/components/budget/`:
+`transaction-dialog.tsx` (`TransactionDialog`), `transaction-list.tsx`
+(`TransactionList`), `recurring-template-dialog.tsx`
+(`RecurringTemplateDialog`), `recurring-templates-panel.tsx`
+(`RecurringTemplatesPanel`), and `due-recurring-widget.tsx`
+(`DueRecurringWidget`). The five `personal-*` equivalents under
+`src/components/personal-budget/` are deleted; both pages now import the
+same component. `CategoryManager`/`AddCategoryDialog`, `BudgetTabs`/
+`PersonalBudgetTabs`, and `BudgetOnboarding`/`PersonalBudgetOnboarding`
+stay duplicated for now — they differ in more than "pass an empty array"
+ways and are BUDGET-3/4/5 in `BACKLOG.md`.
+
+**What stayed separate, on purpose.** The two Prisma model families
+(`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
+vs. their `Personal*` counterparts), both `actions.ts` files, and both
+`page.tsx` Server Components are untouched — the data layer is an
+intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
+`prisma/schema.prisma`) that this merge doesn't revisit.
+
+**How one component serves both scopes:**
+
+- **Household-only UI (expense splitting) suppresses itself on an empty
+  array.** `TransactionDialog`/`TransactionList`/`RecurringTemplateDialog`/
+  `RecurringTemplatesPanel` already gated every split-related section
+  behind `members.length > 1` before this merge — the personal budget page
+  simply passes `members={[]}` and `currentMemberId=""`, which reproduces
+  exactly what a genuinely single-member household already saw. No new
+  branching was needed for this part.
+- **Personal-only UI (the household link) is the mirror image: optional
+  props defaulting to empty.** `TransactionList`'s `sharedRows`/
+  `showHouseholdName` and `DueRecurringWidget`'s `sharedDueRows`/
+  `sharedExpenseHouseholds`/`showHouseholdName` (mirroring the user's own
+  share of a split household bill into their personal budget — see
+  `docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md`) default to `[]`/`false`
+  and are only ever populated by the personal budget page; the household
+  page never passes them, so that UI never renders there.
+- **Server Actions are injected as props, not imported by the shared
+  component.** Since the two `actions.ts` files stay separate, each
+  component that used to `import { createTransactionAction, ... } from
+  ".../budget/actions"` directly now takes `createAction`/`updateAction` (or
+  `onDelete`/`onAcknowledge`/`onTogglePause`/etc. for click actions) as
+  props of a plain function type (e.g. `TransactionFormAction = (prevState,
+  formData) => Promise<ActionState>`, exported from `transaction-dialog.tsx`).
+  `budget-tabs.tsx`/`personal-budget-tabs.tsx` and both `page.tsx` files each
+  pass their own scope's action module in.
+- **One `dict` type covers both dictionary namespaces.** `BudgetDict`
+  (`src/components/budget/budget-dict.ts`) lists exactly the fields these
+  five components read, with the household-only (`split`, `recurring.split`)
+  and personal-only (`shared`, `logShared`) groups marked optional. Both
+  `Dictionary["budget"]` and `Dictionary["personalBudget"]` satisfy it
+  structurally with no adapter object — a household caller's dict happens to
+  have `split` populated, a personal caller's doesn't, and every read of an
+  optional group is already behind a runtime condition (`canSplit`,
+  `sharedRows.length`, …) that's false on the side whose dict lacks it. The
+  one exception is `RecurringTemplatesPanel`'s "who acknowledged this" line
+  (F7), which has no members-count-driven condition to hang off of — it
+  checks `dict.recurring.acknowledgedByLabel`'s own presence instead (a
+  field `personalBudget`'s dict omits outright), which is `true` exactly on
+  the household side.
+- **Row types stay "empty-array-safe" too, not optional.** `TransactionRow`
+  keeps a required `paidByMemberId`/`splits`, and `RecurringTemplateRow`
+  keeps a required `splits` — the personal budget page's row-mapping code
+  supplies `null`/`[]` for these instead of the type making them optional,
+  so nothing downstream needs an extra `?? []`.
+
 ## Data export (CSV)
 
 Three "Export CSV" buttons — inventory, one shopping list, and budget

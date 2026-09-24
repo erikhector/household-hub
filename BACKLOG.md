@@ -409,18 +409,9 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Budget component unification
 
-Sequential: BUDGET-2 → BUDGET-3 → BUDGET-4. Together with BUDGET-5 (needs a
-decision, below) this is the whole "delete `src/components/personal-budget/`"
-job.
-
-- [ ] **BUDGET-2. Merge the four "empty-array-safe" pairs** — `TransactionDialog`+
-      `PersonalTransactionDialog`, `TransactionList`+`PersonalTransactionList`,
-      `RecurringTemplatesPanel`+`PersonalRecurringTemplatesPanel`,
-      `DueRecurringWidget`+`PersonalDueRecurringWidget`, plus `RecurringTemplateDialog`+
-      `PersonalRecurringTemplateDialog` (mechanical, no members prop involved). Delete the five
-      `personal-*` files; both pages import the shared component with `members={[]}`/
-      `currentMemberId=""` from the personal-budget page and real values from the household
-      page. This is 5 of the 7 pairs and the least risky half.
+Sequential: BUDGET-3 → BUDGET-4 (BUDGET-2 shipped — see REQUIREMENTS.md's
+"Budget component unification"). Together with BUDGET-5 (needs a decision,
+below) this is the whole "delete `src/components/personal-budget/`" job.
 
 - [ ] **BUDGET-3. Merge `CategoryManager`/`AddCategoryDialog`** — needs the two create/delete actions
       injected as props (or a small per-scope action-selector) rather than empty-array

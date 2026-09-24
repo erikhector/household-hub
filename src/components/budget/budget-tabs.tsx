@@ -40,6 +40,12 @@ import { DueRecurringWidget } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { TransactionDialog, type MemberOption } from "@/components/budget/transaction-dialog";
+import {
+  acknowledgeTemplatePeriodAction,
+  createTransactionAction,
+  logRecurringTemplateAction,
+  updateTransactionAction,
+} from "@/app/dashboard/budget/actions";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
@@ -119,6 +125,8 @@ export function BudgetTabs({
           members={members}
           currentMemberId={currentMemberId}
           monthKey={monthKey}
+          createAction={createTransactionAction}
+          updateAction={updateTransactionAction}
           trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
         />
       </div>
@@ -136,6 +144,10 @@ export function BudgetTabs({
               dict={dict}
               locale={locale}
               onManageClick={() => setTab("manage")}
+              onAcknowledge={acknowledgeTemplatePeriodAction}
+              onLogAsIs={logRecurringTemplateAction}
+              createTransactionAction={createTransactionAction}
+              updateTransactionAction={updateTransactionAction}
             />
             <SafeToSpend
               amount={safeToSpendAmount}
