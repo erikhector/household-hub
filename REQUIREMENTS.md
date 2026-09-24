@@ -924,10 +924,12 @@ living only under `src/components/budget/`:
 (`DueRecurringWidget`). The five `personal-*` equivalents under
 `src/components/personal-budget/` are deleted; both pages now import the
 same component. `CategoryManager`/`AddCategoryDialog` followed in BUDGET-3
-(see "CategoryManager (BUDGET-3)" below). `BudgetTabs`/`PersonalBudgetTabs`
-and `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for now —
-they differ in more than "pass an empty array" ways and are BUDGET-4/5 in
-`BACKLOG.md`.
+(see "CategoryManager (BUDGET-3)" below), and `BudgetTabs`/
+`PersonalBudgetTabs` followed in BUDGET-4 (see "BudgetTabs (BUDGET-4)"
+below). `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for
+now — they differ in more than a mechanical way (a missing starter-category
+picker on the personal side) and need a product decision first; that's
+BUDGET-5 in `BACKLOG.md`.
 
 **What stayed separate, on purpose.** The two Prisma model families
 (`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
@@ -1020,6 +1022,71 @@ through `BudgetTabs`/`PersonalBudgetTabs` and `BudgetOnboarding`/
 `PersonalBudgetOnboarding` — unchanged otherwise, since their own merge is
 BUDGET-4/5 — because their zero-categories empty state renders
 `AddCategoryDialog` too.
+
+#### BudgetTabs (BUDGET-4)
+
+**What merged.** `BudgetTabs` and `PersonalBudgetTabs` now live in one file,
+`src/components/budget/budget-tabs.tsx`; `personal-budget-tabs.tsx` is
+deleted. Both pages import the same `BudgetTabs` with their own scope's
+props. This completes the BUDGET-2 → BUDGET-3 → BUDGET-4 sequence
+`docs/archive/PERSONAL_BUDGET_UNIFICATION.md` scoped out — `BudgetOnboarding`/
+`PersonalBudgetOnboarding` (BUDGET-5) is the one pair left, gated on a
+product decision rather than a mechanical merge (see the previous section).
+
+**Why the original "make `costAnalyzer`/`balances` optional `ReactNode`
+props" framing no longer applies.** The design spike that scoped this item
+(written before a later, independent UX pass restructured both pages into
+the current four-tab Overview/Manage/Transactions/Insights layout) found
+`BudgetTabs` rendering a cost analyzer tab and a balances tab directly. By
+the time BUDGET-4 was actually implemented, that restructuring had already
+folded cost analyzer and household balances into the `insights` prop each
+page builds for itself (a Server Component `ReactNode`, same as `manage` and
+`transactions`) — so there's no `costAnalyzer`/`balances` slot left in
+`BudgetTabs` to make optional. The household-only content already lives
+entirely inside the `insights`/`manage` nodes the household page builds
+(`CostAnalyzer`, `HouseholdBalances`, gated on `memberOptions.length > 1`
+same as before), with no branching added to `budget-tabs.tsx` for it. What
+*did* still need an explicit prop, and got one, is the handful of fields
+`BudgetTabs` reads and branches on directly: `members`/`currentMemberId`
+(household — default `[]`/`""` on personal, same convention BUDGET-2's
+components already use) and `sharedDueRows`/`showHouseholdName`/
+`sharedExpenseHouseholds`/`logSharedDialogDict` (personal — default
+`[]`/`false`/`[]`/`undefined` on household), plus a `basePath` prop (each
+page's own route) replacing what was previously a hardcoded string per
+component.
+
+**Server Actions are injected as props here too.** `createTransactionAction`/
+`updateTransactionAction`/`onAcknowledgeTemplate`/`onLogTemplateAsIs` used to
+be imported directly inside `budget-tabs.tsx`/`personal-budget-tabs.tsx` from
+each scope's own `actions.ts`; now each page passes its own four in, the same
+`TransactionFormAction`/`(id: string) => Promise<ActionState>` shapes
+`TransactionDialog`/`DueRecurringWidget` already used for their own
+injected-action props.
+
+**Dict typing.** `BudgetTabsDict` (exported from `budget-tabs.tsx`) extends
+`BudgetDict` with the handful of top-level tab/nav labels (`tabOverview`,
+`tabManage`, `tabTransactions`, `tabInsights`, `addTransaction`,
+`previousMonth`, `nextMonth`, `thisMonth`) and `safeToSpend` that
+`BudgetDict` itself doesn't cover, since those live at the root of
+`Dictionary["budget"]`/`Dictionary["personalBudget"]` rather than under one
+of `BudgetDict`'s sub-sections. Both real dictionaries satisfy it as-is.
+
+**The "Manage categories" button decision (§4/§7 of the design spike): not
+needed, on both sides, and already resolved.** The spike (written when
+Categories only lived inline in the Activity tab) found household's
+`BudgetTabs` compensating with a persistent "Manage categories" button next
+to the tab bar, and personal missing the equivalent — a real gap at the
+time. The later four-tab restructuring made that gap moot on *both* sides at
+once: Categories now has its own section inside the Manage tab for both the
+household and personal budget (`CategoryManager` rendered inline in each
+page's `manage` node, right next to `RecurringTemplatesPanel`), which is
+already a "stable home regardless of onboarding state" — the exact property
+the old button existed to provide. Adding a second, redundant entry point
+next to the tab bar on either side would just be two ways to reach the same
+place. So BUDGET-4's call is "not needed" for both scopes, not just
+personal — this merge doesn't add any such button, and doesn't need to,
+because neither current page has the gap the button was originally meant to
+fix.
 
 ## Data export (CSV)
 

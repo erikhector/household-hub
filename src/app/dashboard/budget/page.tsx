@@ -3,6 +3,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
+import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { CategoryManager } from "@/components/budget/category-manager";
 import {
   CostAnalyzer,
@@ -24,6 +25,7 @@ import {
   createTransactionAction,
   deleteRecurringTemplateAction,
   deleteTransactionAction,
+  logRecurringTemplateAction,
   setRecurringTemplateActiveAction,
   unacknowledgeTemplatePeriodAction,
   updateRecurringTemplateAction,
@@ -545,6 +547,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         dict={dict.budget}
         locale={locale}
         monthKey={monthKey}
+        basePath="/dashboard/budget"
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
         safeToSpendStatus={safeToSpendStatus}
@@ -553,8 +556,12 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         hasRecurringTemplates={recurringTemplateRows.length > 0}
         members={memberOptions}
         currentMemberId={currentMemberId}
-        createCategoryAction={createCategoryAction}
+        createTransactionAction={createTransactionAction}
+        updateTransactionAction={updateTransactionAction}
+        onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
+        onLogTemplateAsIs={logRecurringTemplateAction}
         periodSummary={periodSummary}
+        onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
         manage={manage}
         transactions={transactionsTab}
         insights={insights}
