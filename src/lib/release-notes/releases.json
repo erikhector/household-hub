@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.4",
+    "date": "2026-09-24",
+    "pr": 12,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Added a limit on how many invite emails can be sent per hour, to prevent misuse.",
+      "sv": "Lade till en gräns för hur många inbjudningsmejl som kan skickas per timme, för att förhindra missbruk."
+    }
+  },
+  {
     "version": "0.3.3",
     "date": "2026-09-24",
     "pr": 10,
