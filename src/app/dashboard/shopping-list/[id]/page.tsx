@@ -24,7 +24,13 @@ export default async function ShoppingListDetailPage(
   const [list, inventoryItems] = await Promise.all([
     prisma.shoppingList.findFirst({
       where: { id, householdId: household.id },
-      include: { items: { orderBy: { createdAt: "asc" } } },
+      include: {
+        // The linked InventoryItem's category rides along for shopping mode
+        // (AUTO-3, groupPendingItemsByCategory): grouping pending rows by
+        // aisle needs it on every row, not just the picker's own item list
+        // below.
+        items: { orderBy: { createdAt: "asc" }, include: { inventoryItem: { select: { category: true } } } },
+      },
     }),
     // Stock level and last purchase ride along for the smart add line's
     // suggestion ranking (AUTO-1, rankSmartAddSuggestions) — one query for
@@ -67,7 +73,16 @@ export default async function ShoppingListDetailPage(
 
   return (
     <ShoppingListClient
-      list={list}
+      list={{
+        ...list,
+        // Flatten the linked item down to the one field shopping mode
+        // needs, rather than handing the client component Prisma's nested
+        // include shape.
+        items: list.items.map(({ inventoryItem, ...item }) => ({
+          ...item,
+          category: inventoryItem?.category ?? null,
+        })),
+      }}
       inventoryItems={inventoryItems.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
       smartAddCandidates={smartAddCandidates}
       categories={categories}

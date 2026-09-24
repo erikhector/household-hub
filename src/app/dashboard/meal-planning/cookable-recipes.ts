@@ -56,7 +56,7 @@ export async function getCookableRecipes(
   recipes: { id: string; name: string }[],
 ): Promise<CookableRecipeData[]> {
   const expandedByRecipe = await Promise.all(
-    recipes.map((recipe) => expandRecipeIngredients(recipe.id, 1, new Set())),
+    recipes.map((recipe) => expandRecipeIngredients(householdId, recipe.id, 1, new Set())),
   );
 
   // Same loose-match fallback as previewMissingIngredientsAction /

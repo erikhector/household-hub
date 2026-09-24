@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.4.2",
+    "date": "2026-09-24",
+    "pr": 14,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The budget page now loads faster, especially for households with a long transaction history.",
+      "sv": "Budgetsidan laddar nu snabbare, särskilt för hushåll med lång transaktionshistorik."
+    }
+  },
+  {
+    "version": "0.4.1",
+    "date": "2026-09-24",
+    "pr": 13,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Cooking a meal with recipes that include sub-recipes is now faster.",
+      "sv": "Det går nu snabbare att laga en måltid med recept som innehåller underrecept."
+    }
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-09-24",
+    "pr": 11,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Your shopping list now groups items by aisle — produce, dairy, meat, and so on — so you're not zig-zagging the store. Rows are easier to tap while you shop, and your phone's screen stays on while the list is open.",
+      "sv": "Din inköpslista grupperas nu efter avdelning — frukt & grönt, mejeri, kött och så vidare — så du slipper zick-zacka i butiken. Raderna är enklare att trycka på medan du handlar, och telefonens skärm hålls tänd medan listan är öppen."
+    }
+  },
+  {
     "version": "0.3.5",
     "date": "2026-09-24",
     "pr": 15,
