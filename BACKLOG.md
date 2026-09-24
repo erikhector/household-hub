@@ -91,8 +91,7 @@ enough to trust.
 Parallel-safe except where noted. **File conflicts to watch:**
 AUTO-2b (c), AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch. SCALE-F conflicts with SCALE-J (both touch
-`src/app/dashboard/budget/page.tsx`).
+in one branch.
 
 ### Shopping list & inventory automation
 
@@ -164,29 +163,6 @@ in one branch. SCALE-F conflicts with SCALE-J (both touch
       from `completeShoppingListAction` so undo targets exactly that row.
       Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
 
-### Performance & security
-
-- [ ] **SCALE-F. Bound the budget transactions query to a period instead of fetching all-time** —
-      `src/app/dashboard/budget/page.tsx` (~line 86). `prisma.transaction.findMany({ where: {
-      householdId: household.id }, ... })` fetches every transaction the household has ever
-      logged, unbounded — this grows every month a household keeps using the app,
-      independent of total user count, and will eventually slow down every load of this
-      page. Default the query to the current calendar month (mirror the precedent already
-      set by `src/app/dashboard/budget/export/route.ts`, which scopes its CSV export to the
-      current calendar month) and add a way to navigate to a different month (prev/next
-      month controls, or a month picker — check whether `budget/page.tsx` already has any
-      period-related UI state before designing new UI from scratch). Check whether any
-      other logic on this page (summary totals, safe-to-spend calc, recurring-template
-      status) depends on seeing *all* transactions rather than just the selected month's —
-      if so, either give that logic its own narrower query or flag it back rather than
-      silently changing its behavior. This one has a product-facing UI surface, not just a
-      backend change — if the exact navigation UX is ambiguous, make a reasonable call and
-      flag it rather than guessing indefinitely. Add English + Swedish copy for any new UI
-      text (`src/lib/i18n/dictionaries/en.ts` / `sv.ts` — `satisfies Dictionary` fails the
-      build if a key is missing in either). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, and a manual check in the browser that a household with transactions
-      across multiple months still shows the right ones per month.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -207,7 +183,7 @@ order below is a suggestion, not a dependency, unless noted.
 - [ ] **SCALE-G. Add composite indexes for date/expiry range queries** —
       `prisma/schema.prisma`. `Transaction` is indexed on `householdId` and `categoryId`
       separately, but budget queries filter by `householdId` *and* order/filter by `date`
-      (see SCALE-F); `InventoryItem` is indexed on `householdId` but the
+      (SCALE-F's period-bounded budget query); `InventoryItem` is indexed on `householdId` but the
       "expiring soon" query (`src/lib/notifications.ts`'s `syncExpiringSoonNotifications`)
       filters by `householdId` *and* `expiresAt`. Add `@@index([householdId, date])` to
       `Transaction` and `@@index([householdId, expiresAt])` to `InventoryItem`, generate the
@@ -424,9 +400,9 @@ order below is a suggestion, not a dependency, unless noted.
       analyzer, recurring-template status, cookable-recipes, variety recap, …), so the
       "shared cached fetch behind a couple of Suspense boundaries" trick doesn't map on as
       cleanly — expect to actually think about which pieces can render independently rather
-      than mechanically repeating the other four pages' diff. Coordinate with SCALE-F:
-      it also touches `budget/page.tsx`, so land whichever of the two goes first, then rebase
-      the other rather than resolving the conflict blind. Verify with `npm run lint`,
+      than mechanically repeating the other four pages' diff. SCALE-F already
+      bounded `budget/page.tsx`'s transaction query to a period, so build on that shape rather
+      than reverting it. Verify with `npm run lint`,
       `npx tsc --noEmit`, `npm run test`, `npm run build`, and a live check (the other four
       pages were verified by seeding a household through the UI and confirming no console
       errors and no layout regressions — do the same here).
