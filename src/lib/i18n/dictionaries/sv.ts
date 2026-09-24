@@ -922,7 +922,7 @@ export const sv = {
     addedToPlanToast: "{recipe} tillagd i planen",
     addedToPlanDifferentWeekToast: "{recipe} tillagd i planen — i en annan vecka än den du visar",
     viewThatWeek: "Visa den veckan",
-    useItUpLabel: "Använd innan det tar slut",
+    useItUpLabel: "Använd det du har",
     useItUpChipExpiring: {
       one: "{recipe} använder {count} sak som snart går ut",
       other: "{recipe} använder {count} saker som snart går ut",
