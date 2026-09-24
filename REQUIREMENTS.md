@@ -272,8 +272,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Only a *blank* category is ever filled in: a typed or shared category
     always wins, and clearing a category on the edit form is respected, not
     re-guessed. Recipe-ingredient find-or-create
-    (`recipe-actions.ts`/`cooking-actions.ts`) still uses
-    `"Uncategorized"`. See BACKLOG.md AUTO-2b.
+    (`parseIngredientRows` in `recipe-actions.ts`, and the missing-ingredients
+    → shopping-list bridge in `cooking-actions.ts`) also runs every
+    newly-created ingredient through `createCategoryResolver`, falling back
+    to `"Uncategorized"` only when neither step recognizes the name — the
+    resolver's own lazy, memoized load means this costs one extra query for
+    the whole batch, not one per ingredient, matching SCALE-B/SCALE-D's
+    existing batching there (AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
