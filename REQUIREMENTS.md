@@ -240,6 +240,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     the existing stock-status badge in the inventory table/cards, hidden
     entirely when no expiry is set or it's further out than the window. Also
     feeds a third notification trigger — see "Notification center" below.
+  - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
+    household, set by linking a scanned code to the item — see "Remembered
+    barcodes and Scan mode" under "Barcode scanning" below.
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already
@@ -1242,8 +1245,15 @@ never blocks or breaks manual entry, at any failure point.
 - **Privacy**: the camera stream and every captured frame stay entirely
   client-side — decoding happens locally via the WASM decoder, and no
   frame or image is ever sent anywhere. The only thing that reaches the
-  network is the decoded barcode's digits, sent straight to Open Food
-  Facts's product endpoint.
+  network is the decoded barcode's digits, sent from the server to Open
+  Food Facts's product endpoint — and, since AUTO-6, only for a code the
+  household hasn't linked to an item yet: a remembered code resolves from
+  the household's own inventory and nothing leaves the server. The code
+  itself is now stored with the household's inventory
+  (`InventoryItem.barcode`, below), visible only to that household, like
+  any other item field. No new cookie or browser storage is involved (the
+  scan mode's Put away/Used up choice is plain component state). The
+  privacy page's "What we collect" and "Third parties" sections say both.
 - **Fallback behavior — this is the important half of the feature**: the
   "Scan barcode" button is purely additive next to a form that already
   works without it.
@@ -1264,15 +1274,90 @@ never blocks or breaks manual entry, at any failure point.
     plain editable, controlled input — the user can freely change it
     before submitting) and shows the same reference line, without the "not
     found" note.
-  - Nothing about a scan is ever persisted — there's no barcode column on
-    `InventoryItem`/`ShoppingListItem` and no migration for this task; the
-    scanned number only exists in the form's local state to pre-fill the
-    name and show the reference line, exactly like the recipe-import
-    feature's "pre-fill, then let the user review/submit normally" shape.
+  - The scanned number pre-fills the name and shows the reference line
+    exactly like the recipe-import feature's "pre-fill, then let the user
+    review/submit normally" shape — and, since AUTO-6, it's also sent with
+    the add-item form (a hidden `barcode` field) and the scan queue's rows,
+    so the item that gets created remembers its code (see below). The
+    shopping list's advanced add form (`ShoppingItemFormDialog`) still only
+    pre-fills; nothing it scans is stored.
 - **i18n**: all new strings live in a new shared `barcodeScanner` dictionary
   namespace (`en.ts`/`sv.ts`) rather than being duplicated into `inventory`
   and `shoppingList`, since the component and its copy are identical in
   both places.
+
+### Remembered barcodes and Scan mode (AUTO-6)
+
+A barcode the household has linked to one of its items is remembered, so
+scanning it again is a one-step stock change instead of a name to type.
+
+- **Storage**: `InventoryItem.barcode String?` with
+  `@@unique([householdId, barcode])` — one product per code per household
+  (Postgres treats NULLs as distinct, so any number of items have none).
+  Codes are stored normalized (`normalizeBarcode`, `src/lib/barcode.ts`,
+  unit-tested): a 12-digit UPC-A is padded to its 13-digit GTIN form, since
+  the decoder can report the same package either way. **Linking a code
+  that's already on another item moves it** (`releaseBarcode`,
+  `src/lib/inventory/barcode-link.ts`, run in the same transaction as the
+  write that sets it): the latest explicit link is the correction that
+  sticks, and a wrong link is fixed by linking again. Every path that sets a
+  code uses it — the scan mode's "Add as new item"/"This is…", the add-item
+  form, and the scan queue's bulk add (which also keeps only the first row
+  per code, since `createMany` would otherwise fail on the index).
+- **Scan mode** (`StockScanDialog`, `src/components/inventory/
+  stock-scan-dialog.tsx`, the "Scan" button on the inventory page): the
+  camera stays open and each scan applies straight away, in one of two
+  modes toggled at the top — **Put away** (+1) or **Used up** (−1). A
+  remembered code goes through `scanStockChangeAction(barcode, delta)`
+  (`src/lib/actions/barcode.ts`), which resolves it household-scoped
+  (`requireHousehold()`; never a client-supplied household) and applies the
+  same floor-at-zero/2-decimal rule as `adjustQuantityAction`'s +/- taps
+  (`nextQuantityAfterDelta`, `src/lib/inventory/stock-change.ts`, shared by
+  both) plus the same `recordOutOfStockTransition` side effect — no
+  "restocked" notification, that kind stays retired. Per the Guardrails it
+  is an explicit action applied immediately with Undo, not confirmed first:
+  a short toast confirms it, and a log in the dialog lists this session's
+  scans with **Undo** per row, plus **…and add to list** on a "Used up"
+  row that reached 0 (that's `markItemEmptyAction`'s list half — same
+  list choice and dedupe as "Mark empty"). Undo lives in the dialog rather
+  than on the toast because tapping a toast counts as an outside press on a
+  modal Base UI dialog and would close the camera.
+  `undoScanStockChangeAction(itemId, appliedDelta)` reverses the change the
+  scan *actually* made (a "Used up" scan of an item already at 0 applied 0,
+  so has no Undo) as a relative change, so an Undo after someone else's
+  +/- doesn't wipe theirs out; it never undoes a link or a created item.
+- **Repeat guard**: a code held in front of the lens is decoded every
+  ~350ms, so the dialog ignores the same code until it has been out of
+  frame for `SAME_CODE_REPEAT_MS` (2s) — `acceptScan`, pure and
+  unit-tested; every sighting refreshes the window. Two identical cans are
+  counted by showing one, taking it away, then showing the other. (The
+  scan queue keeps its own cooldown instead, where holding a second can up
+  is how it counts ×2.)
+- **Unknown code**: `scanStockChangeAction` returns Open Food Facts' name
+  and AUTO-2 category instead of changing anything, and the dialog asks
+  once: **Add as new item** (`createItemFromBarcodeAction` — the editable
+  name, Open Food Facts' category or else the usual AUTO-2 guess, starting
+  stock 1 for Put away or 0 for Used up) or **This is…** an existing item
+  (`linkBarcodeAction`, an `ItemCombobox` over the household's items),
+  which links the code and applies the scan's change in one step, with the
+  same Undo. **Skip** drops it. New scans are ignored while the question is
+  open, and a product still in frame after answering isn't counted twice.
+- **Never blocks manual entry**: a "type the barcode number" field under the
+  camera runs the exact same flow, for a device with no camera, a denied
+  permission, or a code the decoder won't read. The camera loop itself is
+  `useBarcodeCamera` (`src/components/shared/use-barcode-camera.ts`),
+  shared with the scan queue; `BarcodeScannerButton` keeps its own
+  single-shot copy because it stops on the first hit.
+- **Shopping list**: the smart add line (`SmartAddBar`) has a scan button
+  (`BarcodeScannerButton` with an `onDetected` override).
+  `findItemByBarcodeAction` resolves a remembered code, household-scoped,
+  and its item is added through `smartAddShoppingListItemsAction` — the
+  same dedupe ("already on the list") and price default as a typed name —
+  in one scan. An unknown code puts Open Food Facts' name (if any) into the
+  input for the user to check and press Enter, or asks them to type it.
+- **Out of scope**: codes on `ShoppingListItem`, matching receipts by EAN
+  (BACKLOG.md AUTO-11), and a place to view or clear an item's code in the
+  edit form — re-linking it from the scan mode is the correction path.
 
 ## Receipt scanning
 

@@ -87,7 +87,7 @@ export default async function PrivacyPage() {
             </ul>
             <p>Beyond your account, Squirrel stores the content you and your household enter to use its features:</p>
             <ul className="list-disc pl-5">
-              <li>Household-shared data: inventory items, shopping lists, recipes, meal plans, and the household&apos;s shared budget categories and transactions — visible to every member of that household;</li>
+              <li>Household-shared data: inventory items (including any product barcodes you link to them, so scanning one again finds the item), shopping lists, recipes, meal plans, and the household&apos;s shared budget categories and transactions — visible to every member of that household;</li>
               <li>Your personal budget: categories and transactions you track for yourself, visible only to you.</li>
             </ul>
             <p>Cookies and local storage are covered separately in the next section.</p>
@@ -159,6 +159,14 @@ export default async function PrivacyPage() {
               or data — is sent anywhere.
             </p>
             <p>
+              <strong>Open Food Facts</strong>, a free, open product database, is asked for a
+              product&apos;s name and category when you scan a barcode Squirrel doesn&apos;t
+              recognize yet. Only the barcode&apos;s digits are sent, from our server — the
+              camera image is decoded on your device and never leaves it, and no account or
+              household data goes with the request. A barcode you&apos;ve already linked to one of
+              your items is looked up in your own inventory instead, and nothing is sent.
+            </p>
+            <p>
               <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by three
               optional AI features, and only when whoever operates your instance has configured
               an API key for one of them — with no key configured, none of this ever runs.
@@ -200,9 +208,9 @@ export default async function PrivacyPage() {
             </p>
             <p>
               We don&apos;t use any analytics or advertising service. There is no tracking pixel
-              and no ad network. Apart from the optional Gemini/Anthropic AI features described
-              above, no third party receives your inventory, shopping list, meal plan, or budget
-              data.
+              and no ad network. Apart from the barcode digits sent to Open Food Facts and the
+              optional Gemini/Anthropic AI features described above, no third party receives your
+              inventory, shopping list, meal plan, or budget data.
             </p>
           </Section>
 

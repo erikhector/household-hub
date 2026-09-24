@@ -208,6 +208,15 @@ model InventoryItem {
   // `updatedAt` in the inventory table/detail view so a household can spot
   // items that haven't been touched (and recounted) in a while.
   updatedByUserId   String?
+  // The retail barcode (EAN/UPC digits, normalized by normalizeBarcode in
+  // src/lib/barcode.ts) this household links to the item — set by a stock
+  // scan's "Add as new item"/"This is…" (AUTO-6), the add-item form's scan
+  // button or the scan-multiple queue, so the next scan of the same code
+  // resolves straight to this row. Unique per household (see @@unique
+  // below): one product per code, and linking a code to a second item
+  // moves it rather than sharing it. Never sent anywhere — only the scanned
+  // digits of an *unknown* code go to Open Food Facts.
+  barcode           String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]
@@ -220,6 +229,10 @@ model InventoryItem {
   // src/lib/notifications.ts) filters by householdId and expiresAt — this
   // composite index serves that access pattern directly.
   @@index([householdId, expiresAt])
+  // Also the lookup index for scanStockChangeAction's household-scoped
+  // barcode resolve. Postgres treats NULLs as distinct, so any number of
+  // items can have no barcode.
+  @@unique([householdId, barcode])
 }
 
 enum NotificationKind {

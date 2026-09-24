@@ -21,6 +21,8 @@ const {
   notificationFindFirstMock,
   notificationCreateMock,
   inventoryItemFindUniqueMock,
+  updateManyMock,
+  transactionMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
@@ -37,11 +39,16 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
+  updateManyMock: vi.fn(),
+  transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
+    // Interactive transactions run against the same mocked client, so
+    // assertions see every write regardless of which client made it.
+    $transaction: transactionMock,
     inventoryItem: {
       create: createMock,
       createMany: createManyMock,
@@ -50,12 +57,15 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: findFirstMock,
       findUnique: inventoryItemFindUniqueMock,
       deleteMany: deleteManyMock,
+      updateMany: updateManyMock,
     },
     shoppingList: { findFirst: shoppingListFindFirstMock, create: shoppingListCreateMock },
     shoppingListItem: { findFirst: shoppingListItemFindFirstMock, create: shoppingListItemCreateMock },
     notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
-  },
-}));
+  };
+  transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => {
   const { en } = await import("@/lib/i18n/dictionaries/en");
@@ -432,5 +442,49 @@ describe("auto-categorizing quick-add and bulk-add (AUTO-2)", () => {
 
     const rows = createManyMock.mock.calls[0][0].data;
     expect(rows.map((row: { category: string }) => row.category)).toEqual(["Skafferi", "Skafferi"]);
+  });
+});
+
+describe("remembering a scanned barcode on create (AUTO-6)", () => {
+  it("stores the form's scanned code on the new item, moving it off any other item first", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, barcode: "036000291452" }));
+
+    // 12-digit UPC-A is stored in its GTIN-13 form (normalizeBarcode).
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", barcode: "0036000291452" },
+      data: { barcode: null },
+    });
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ householdId: "household-1", name: "Flour", barcode: "0036000291452" }),
+    });
+  });
+
+  it("ignores a barcode field that isn't barcode-shaped", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, barcode: "not-a-code" }));
+
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(createMock.mock.calls[0][0].data).not.toHaveProperty("barcode");
+  });
+
+  it("bulk-add keeps each scanned row's code, once per code, and releases it from older items", async () => {
+    createManyMock.mockResolvedValue({ count: 3 });
+
+    await bulkCreateInventoryItemsAction([
+      { name: "Milk", barcode: "7310865004703" },
+      { name: "Oat milk", barcode: "7310865004703" },
+      { name: "Bread" },
+    ]);
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows.map((row: { barcode: string | null }) => row.barcode)).toEqual(["7310865004703", null, null]);
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", barcode: "7310865004703" },
+      data: { barcode: null },
+    });
   });
 });
