@@ -92,8 +92,7 @@ Parallel-safe except where noted. **File conflicts to watch:**
 AUTO-3, AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
 in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
-`src/app/dashboard/budget/page.tsx`). SCALE-C and AUTO-4 both touch the
-receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
+`src/app/dashboard/budget/page.tsx`).
 
 ### Shopping list & inventory automation
 
@@ -187,52 +186,6 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
 
 ### Performance & security
 
-- [ ] **SCALE-A. Batch the per-row inventory lookup in `addMissingIngredientsToShoppingListAction`**
-      — `src/app/dashboard/meal-planning/cooking-actions.ts` (the per-row loop, ~line 214). The `for (const row of
-      rows)` loop calls `findOrCreateInventoryItem(household.id, row.name)` (a query, and
-      sometimes a create) followed by a separate `shoppingListItem.create`, once per row —
-      2 round trips per ingredient instead of a single batched pass. Change it to: one
-      `findOrCreateInventoryItem`-equivalent batch lookup (`prisma.inventoryItem.findMany({
-      where: { householdId, name: { in: rows.map(r => r.name) } } })` to find existing
-      matches in one query, then a single `createMany` for the names that don't already
-      exist), followed by a single `shoppingListItem.createMany` for every row not already
-      on the list (the existing `alreadyOnListIds` dedupe logic must still apply). Preserve
-      current behavior exactly (same dedupe against `alreadyOnListIds`, same
-      `addedAutomatically: true` flag). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`.
-
-- [ ] **SCALE-B. Batch ingredient/component resolution in recipe save** —
-      `src/app/dashboard/meal-planning/recipe-actions.ts`. Two separate N+1 patterns in the
-      same file: `parseIngredientRows` (~line 75) runs `Promise.all(rows.map(...
-      findOrCreateInventoryItem...))` — N parallel query pairs for N ingredients — and
-      `parseComponentRows` (~line 140) runs a sequential `for` loop doing
-      `prisma.recipe.findFirst` + `wouldCreateCycle` per component row — N sequential round
-      trips for N components. Batch `parseIngredientRows` the same way as SCALE-A (one
-      `findMany` + one `createMany` instead of N lookup/create pairs, preserving
-      insertion order for the returned `data` array). For `parseComponentRows`, replace the
-      per-row `prisma.recipe.findFirst` with a single `prisma.recipe.findMany({ where: { id:
-      { in: ids }, householdId } })` up front, then look up each id from an in-memory Map
-      inside the loop — but leave `wouldCreateCycle`'s per-row call as-is (it's a graph
-      check, not a flat lookup; don't attempt to batch it in this task). Verify with
-      `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
-- [ ] **SCALE-C. Batch shopping-list mapping resolution and receipt-scan apply** —
-      `src/app/dashboard/shopping-list/actions.ts`. Two separate loops issue 2-3 DB writes
-      per item inside a `$transaction`: `resolveShoppingListMappingsAction`
-      loops over `resolutions` doing a conditional `inventoryItem.findFirst`/`create` plus a
-      `shoppingListItem.update` per item, and `applyReceiptScanAction` loops
-      over `validMatches` doing a `shoppingListItem.update` plus a conditional
-      `inventoryItem.update` and `priceHistory.create` per match. In both cases the target
-      rows already exist in the `items`/`itemsById` map fetched before the transaction — the
-      writes are what's per-row, not the reads, and each row's write data differs, so this
-      can't collapse into a single `updateMany`. Instead, parallelize the per-row writes
-      inside each transaction with `Promise.all` (Prisma's interactive `$transaction`
-      callback supports concurrent queries on the same `tx` client) instead of sequential
-      `await`s in a `for` loop, cutting wall-clock transaction hold time roughly in half to a
-      third depending on the row. Do not change the actual data written or the dedupe/
-      validation logic — this is purely reducing sequential round trips within the existing
-      transaction. Verify with `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
 - [ ] **SCALE-D. Batch the recipe-graph fetch in `expandRecipeIngredients`** —
       `src/app/dashboard/meal-planning/recipe-expansion.ts` (`expandRecipeIngredients`). This recursively calls
       `prisma.recipe.findUnique` once per recipe node (including once per sub-recipe
@@ -251,44 +204,12 @@ receipt-apply path in `src/app/dashboard/shopping-list/actions.ts`.
       where the data comes from, not the recursion/cycle logic. Verify with `npm run lint`,
       `npx tsc --noEmit`, `npm run test`.
 
-- [ ] **SCALE-E. Rate-limit `sendInviteEmailAction`** —
-      `src/lib/actions/household.ts` (`sendInviteEmailAction`). This lets any authenticated household member
-      trigger an outbound email to an arbitrary address with no throttle — a cost/abuse
-      vector (spamming arbitrary inboxes via this app's sending domain) once there are many
-      real accounts. Mirror the existing pattern in the same file
-      (`JOIN_SIGNUP_RATE_LIMIT`/`JOIN_SIGNUP_RATE_LIMIT_WINDOW_MS`, and the
-      `checkRateLimit` call in the join-signup action): add a rate limit keyed on the *sender*
-      (`invite-email:${household.userId}` — use whatever identifier `requireHousehold()`
-      returns for the acting user) of something like 10 invite emails per hour, returning
-      `{ error: "Too many invite emails sent. Please wait a while and try again." }` when
-      exceeded. Add a test in this file's existing test suite covering both the
-      under-limit and over-limit cases (see `src/lib/actions/household.test.ts`'s existing
-      style). Verify with `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
 Server Components) stays separate by design — only the Client/presentational
 components merge. See the archived spike for the full file-pair inventory and
 the recommended "shared base + thin wrapper" shape.
-
-- [ ] **BUDGET-1. Quick-win catch-up patches** — bring the personal-budget tree up to
-      the conventions the household tree already follows, without waiting on the
-      structural merge in Phase 3. Lowest risk, and not invalidated by whatever the
-      unification ends up looking like. Checked against the code on 2026-09-23 — the
-      shared `Tabs` catch-up has already landed in `personal-budget-tabs.tsx`; what's
-      left:
-      - `personal-transaction-dialog.tsx` still uses a native
-        `<input type="checkbox">` — switch to the shared `Checkbox`
-        (`src/components/ui/checkbox.tsx`).
-      - `personal-category-manager.tsx`'s empty state is a bare muted `<p>` — use the
-        shared dashed-box convention (`rounded-md border border-dashed p-8 text-center
-        text-sm text-muted-foreground`, as `category-manager.tsx` does).
-      - `deletePersonalCategoryAction` (`src/app/dashboard/personal-budget/actions.ts`)
-        calls `prisma.personalBudgetCategory.delete` with no `try/catch`, unlike the
-        household `deleteCategoryAction` — wrap it in `toFriendlyError` so a race (the
-        category gaining a transaction between check and delete) returns a friendly
-        `ActionState.error` instead of throwing.
 
 ---
 
