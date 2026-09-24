@@ -208,7 +208,11 @@ order below is a suggestion, not a dependency, unless noted.
       New `scanStockChangeAction(barcode, delta)` resolves the barcode
       household-scoped and reuses `adjustQuantityAction`'s clamping and
       `recordOutOfStockTransition` side effect (the `RESTOCKED` kind is
-      retired — see `src/lib/notifications.ts` — so don't revive it here).
+      retired — see `src/lib/notifications.ts` — so don't revive it here),
+      plus AUTO-8's `addToDefaultListOnLowStock` beside it (return its
+      `AutoAddedItem` so the scan toast can offer Undo via
+      `showAutoAddedToast`; "…and add to list" should target the default
+      list the way `markItemEmptyAction` does).
       REQUIREMENTS.md's barcode section currently says "nothing about a scan
       is ever persisted" — update it, and update the privacy note (still
       only digits leave the device; the barcode is now stored with the
@@ -238,38 +242,6 @@ order below is a suggestion, not a dependency, unless noted.
       (decide in design — recommended: include them, the notification copy
       says "probably"). This supersedes REQUIREMENTS.md's "never set by any
       bulk-add flow" rule for estimated dates only — update that text.
-
-- [ ] **AUTO-8. An always-on household list that fills itself**
-      — `prisma/schema.prisma` (`ShoppingList`),
-      `src/app/dashboard/inventory/actions.ts`,
-      `src/app/dashboard/shopping-list/actions.ts`, `src/lib/notifications.ts`
-      **Problem:** restocking depends on remembering to press "Add low-stock
-      items", and the app has no notion of *the* list — `markItemEmptyAction`
-      just guesses the most recently created `ACTIVE` one.
-      **Design brief:** one list per household is the default ("Next
-      shop"). When any item crosses into low/out of stock — by +/- tap,
-      mark-empty, "Used up" scan (AUTO-6), or mark-meal-cooked — it's added
-      to the default list automatically, with a small "added automatically"
-      marker (the existing `addedAutomatically` flag) and a toast with
-      Undo at the moment it happens. Completing the default list
-      immediately starts a fresh empty default list, so there's always one.
-      Other named lists (the big monthly trip) still work as today. A
-      household setting can turn auto-add off.
-      **Dev notes:** `isDefault Boolean @default(false)` on `ShoppingList`
-      with at most one active default per household (enforce in the
-      actions; a partial unique index via raw SQL in the migration is
-      optional hardening). Note `recordOutOfStockTransition` only fires on
-      the crossing to 0, not into "low" — add a sibling helper (e.g.
-      `addToDefaultListOnLowStock(db, householdId, itemId, prev, next)`)
-      that uses `getStockStatus` to detect the in → low/out crossing, and
-      call it from the same call sites `recordOutOfStockTransition` is
-      already called from (they all compute prev/next quantity), so every
-      path is covered once in the actions layer, not per-UI. Replace
-      `markItemEmptyAction`'s "latest ACTIVE list" guess with the default
-      list. Dedupe against pending items exactly as
-      `generateFromLowStockAction` does. Quantity to add: keep today's
-      `max(1, threshold − quantity)`, or AUTO-10's learned usual quantity
-      once it exists.
 
 - [ ] **AUTO-9. Learn the household's store order**
       — `prisma/schema.prisma`, `src/components/shopping/
@@ -631,7 +603,7 @@ out to be a product-scope question rather than a scoped task should move to
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's
       background location. This app has zero geolocation code today and the
-      always-on household list (AUTO-8, BACKLOG.md Phase 2) already covers
+      always-on household list (AUTO-8, shipped — see REQUIREMENTS.md) already covers
       most of the same need without asking for a location permission at
       all. Real background geofencing on iOS Safari PWAs is unreliable
       without a native wrapper (`INFRA-3`), and even a foreground-only
@@ -643,7 +615,7 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-20. A "we're away" pause on automation** `[!]` — needs a
       product decision. Several of this app's automations assume normal
       household rhythm — expiring-soon alerts, meal-not-logged nudges, and
-      (once shipped) AUTO-8's auto-add-to-list and AUTO-10's repurchase
+      AUTO-8's auto-add-to-list and (once shipped) AUTO-10's repurchase
       suggestions all fire on a schedule that doesn't know the household is
       on vacation. Cozi-style family organizers don't solve this either, so
       there's no single pattern to copy. Options range from a single

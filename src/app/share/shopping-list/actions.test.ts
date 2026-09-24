@@ -25,6 +25,7 @@ const {
   transactionMock,
   recordOutOfStockTransitionMock,
   recordListClearedTransitionMock,
+  addToDefaultListOnLowStockMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   shareLinkFindUniqueMock: vi.fn(),
@@ -39,6 +40,7 @@ const {
   notificationCreateMock: vi.fn(),
   recordOutOfStockTransitionMock: vi.fn(async () => {}),
   recordListClearedTransitionMock: vi.fn(async () => {}),
+  addToDefaultListOnLowStockMock: vi.fn(async () => null),
   revalidatePathMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
     const tx = {
@@ -63,6 +65,10 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: recordOutOfStockTransitionMock,
   recordListClearedTransition: recordListClearedTransitionMock,
+}));
+vi.mock("@/lib/shopping/default-list", () => ({
+  addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  revalidateAutoAdded: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
@@ -193,6 +199,9 @@ describe("toggleItemViaShareTokenAction", () => {
       where: { id: "item-1" },
       data: { purchased: true },
     });
+    // AUTO-8: same call site as the out-of-stock check, scoped to the
+    // list's own household (never anything from the visitor).
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 2, 5);
     // AUTO-4: this purchase's price also becomes the item's lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },

@@ -13,6 +13,7 @@ import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashb
 import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
@@ -376,7 +377,7 @@ export async function previewCookedIngredientsAction(
 export async function markMealEntryCookedAction(
   _prevState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const entryId = String(formData.get("entryId") ?? "");
@@ -400,6 +401,10 @@ export async function markMealEntryCookedAction(
         row.quantity <= MAX_INGREDIENT_QUANTITY,
     );
 
+  // Returned so MarkCookedDialog's existing Undo can take these rows back
+  // off "Next shop" along with crediting inventory — one Undo for the whole
+  // cook, rather than a second toast competing with it.
+  const autoAdded: AutoAddedItem[] = [];
   try {
     await prisma.$transaction(async (tx) => {
       if (rows.length > 0) {
@@ -417,6 +422,8 @@ export async function markMealEntryCookedAction(
             data: { quantity: nextQuantity, updatedByUserId: userId },
           });
           await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
+          const added = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
+          if (added) autoAdded.push(added);
         }
       }
 
@@ -432,7 +439,8 @@ export async function markMealEntryCookedAction(
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return {};
+  revalidateAutoAdded(autoAdded);
+  return autoAdded.length > 0 ? { autoAdded } : {};
 }
 
 // --- Undo mark-as-cooked (short-lived toast action) --------------------------

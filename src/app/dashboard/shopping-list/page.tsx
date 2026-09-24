@@ -30,7 +30,9 @@ async function ShoppingListsSection({
 }) {
   const lists = await prisma.shoppingList.findMany({
     where: { householdId },
-    orderBy: { createdAt: "desc" },
+    // The default "Next shop" list (AUTO-8) always leads the Active section
+    // — it's the one the household is actually filling — then newest first.
+    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     include: { _count: { select: { items: { where: { purchased: false } } } } },
   });
 
@@ -38,6 +40,7 @@ async function ShoppingListsSection({
     id: list.id,
     name: list.name,
     status: list.status,
+    isDefault: list.isDefault,
     pendingItemCount: list._count.items,
   });
 

@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   householdCreateMock,
   householdDeleteMock,
+  householdUpdateMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
   invitationFindFirstMock,
@@ -32,6 +33,7 @@ const {
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
   householdDeleteMock: vi.fn(),
+  householdUpdateMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
   invitationFindFirstMock: vi.fn(),
@@ -70,7 +72,7 @@ const {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    household: { create: householdCreateMock, delete: householdDeleteMock },
+    household: { create: householdCreateMock, delete: householdDeleteMock, update: householdUpdateMock },
     user: { findUnique: userFindUniqueMock },
     invitation: { findUnique: invitationFindUniqueMock, findFirst: invitationFindFirstMock },
     householdMember: {
@@ -112,6 +114,7 @@ const {
   leaveHouseholdAction,
   transferOwnershipAction,
   switchHouseholdAction,
+  setAutoAddLowStockToListAction,
 } = await import("@/lib/actions/household");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -781,5 +784,41 @@ describe("switchHouseholdAction", () => {
     expect(cookieSetMock).not.toHaveBeenCalled();
     expect(redirectMock).not.toHaveBeenCalled();
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setAutoAddLowStockToListAction (AUTO-8)", () => {
+  it("updates only the session's active household, for any member (not owner-gated)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setAutoAddLowStockToListAction(false);
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { autoAddLowStockToList: false },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("turns it back on", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    await setAutoAddLowStockToListAction(true);
+
+    expect(householdUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { autoAddLowStockToList: true } }),
+    );
+  });
+
+  it("rejects a non-boolean value from a hand-crafted request", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setAutoAddLowStockToListAction("false" as unknown as boolean);
+
+    expect(result.error).toBeDefined();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
   });
 });

@@ -129,6 +129,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     (a user must always have at least one household — see `requireHousehold`'s
     zero-membership redirect). On success it falls back the caller's
     `active_household` cookie to another of their households.
+  - Everything else on the Household page is open to both roles, including
+    the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
+    AUTO-8) — day-to-day shopping behaviour, not administration.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
     (`DeleteHouseholdDialog`, which requires typing the household's name to
@@ -318,7 +321,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     place on the shopping list (see BACKLOG.md AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
-  there's no longer a "one active list" constraint. Each list has a status:
+  there's no longer a "one active list" constraint. At most one `ACTIVE`
+  list per household is flagged `isDefault` — the always-on "Next shop"
+  list low-stock items fill themselves into (see "Always-on default list
+  (AUTO-8)" below). Each list has a status:
   `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`, one-way) or
   `ACTIVE`/`COMPLETED` → `ARCHIVED` (via `archiveShoppingListAction`,
   reversible with `unarchiveShoppingListAction`, which always returns to
@@ -368,6 +374,73 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+- **Always-on default list (AUTO-8)** — every household has one
+  `ACTIVE` list flagged `ShoppingList.isDefault`, named "Next shop" /
+  "Att handla" in the locale of whoever caused it to exist, and restocking
+  no longer depends on anyone remembering to press "Add low-stock items".
+  - **Lazy, always one.** `getOrCreateDefaultShoppingList`
+    (`src/lib/shopping/default-list.ts`) returns the active default or
+    creates it on first need (an auto-add, a mark-empty, or a completion) —
+    a household that never runs low never gets an empty list it didn't ask
+    for. "At most one active default" is enforced in the actions and backed
+    by a partial unique index written by hand in the migration
+    (`ShoppingList_one_active_default_per_household`, `WHERE "isDefault" AND
+    status = 'ACTIVE'`); the create is `INSERT … ON CONFLICT DO NOTHING`
+    (`createMany({ skipDuplicates })`) plus a re-read, so two members
+    triggering the first add at once converge on one list, and it works
+    inside an interactive transaction. `completeShoppingListAction` on the
+    default list clears its `isDefault` and immediately creates a fresh,
+    empty default in the same transaction, so there's always one to fill.
+    `archiveShoppingListAction` also clears `isDefault` (un-archive always
+    returns a list to `ACTIVE`, and an old default must never come back
+    beside the current one); deleting the default is allowed — the next
+    need recreates it. The overview lists the default first among Active
+    lists with a "Fills itself" badge. Other named lists (the big monthly
+    trip) behave exactly as before.
+  - **Auto-add on the crossing into low stock.**
+    `addToDefaultListOnLowStock(db, householdId, itemId, prev, next)`, the
+    sibling of `recordOutOfStockTransition`, is called from exactly the same
+    call sites (see "Notification center" → Out of stock:
+    `adjustQuantityAction`, `markItemEmptyAction`,
+    `updateInventoryItemAction`, `bulkUpdateFieldAction`,
+    `bulkSetInventoryQuantitiesAction` (AI shelf scan restock),
+    `markMealEntryCookedAction`, `togglePurchasedAction` and the share-link
+    `toggleItemViaShareTokenAction`) — once per path, in the actions layer,
+    never per UI; the in-transaction callers pass their `tx`. It fires only
+    when `getStockStatus` goes from `in` to `low`/`out` (judged against the
+    item's threshold after the write, so raising a threshold alone never
+    adds anything); an item that was already low dropping further is a
+    no-op, so the list isn't refilled over a row someone removed on
+    purpose. The row is deduped against a pending row for the same item
+    exactly like `generateFromLowStockAction`, sized
+    `max(1, threshold − quantity)`, carries the item's `lastKnownPrice`
+    (AUTO-4) and is flagged `addedAutomatically` (the existing "Low stock"
+    badge on the row).
+  - **Undo, not confirm.** Each of those actions returns
+    `autoAdded: AutoAddedItem[]` (the created row ids plus list/item
+    names), and `showAutoAddedToast`
+    (`src/components/shopping/auto-added-toast.ts`) shows "Added Oat milk
+    to "Next shop"" with Undo. Undo calls `undoAutoAddedItemsAction(ids)`,
+    which deletes only rows among those ids that are in one of this
+    household's lists, still `addedAutomatically` and still unpurchased
+    (`deleteMany`, so a double tap is a quiet no-op), and deliberately
+    doesn't fire a "list cleared" notification. Mark meal as cooked folds
+    its auto-adds into its own existing Undo toast instead of stacking a
+    second one (see "Mark meal as cooked" below). The share-link toggle
+    auto-adds too, but with no toast: an anonymous visitor has no session
+    to undo with.
+  - **Mark as empty targets the default list.** `markItemEmptyAction`'s old
+    "most recently created `ACTIVE` list" guess is gone. "Mark as empty &
+    add to shopping list" puts the item on the default list as an explicit,
+    person-added row (not flagged `addedAutomatically`, and regardless of
+    the setting below); plain "Mark as empty" behaves like any other
+    decrease and auto-adds (with Undo) when the item was in stock.
+  - **Household setting.** `Household.autoAddLowStockToList` (default on)
+    is a checkbox under "Shopping" on the Household page
+    (`AutoAddSetting`, `setAutoAddLowStockToListAction` in
+    `src/lib/actions/household.ts`). Not owner-gated — see "Roles". Off
+    means no crossing ever adds anything; "Add low-stock items" and "Mark
+    as empty & add" still work by hand.
 - **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
@@ -1812,6 +1885,10 @@ actually used, once they've cooked it.
   inventory back twice). Once that window closes there's no further undo — a
   wrong decrement discovered later is corrected the same way any inventory
   number is corrected: the existing +/- adjuster on the inventory page.
+  When the cook pushed ingredients into low stock (AUTO-8), the toast says
+  how many were added to "Next shop", and the same Undo also removes those
+  rows via `undoAutoAddedItemsAction` — undoing the cook undoes everything
+  it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
 
@@ -2144,7 +2221,10 @@ Exactly three triggers exist — nothing else creates a notification:
   puts its quantity back down). It only fires on the crossing itself — a
   further decrease while already at zero, or a decrease that doesn't reach
   zero, is a no-op — and it's deduped against any already-active
-  (undismissed) alert for the same item.
+  (undismissed) alert for the same item. Every one of these call sites
+  also runs AUTO-8's `addToDefaultListOnLowStock`, which fires one step
+  earlier (into *low*) and adds to the default list rather than alerting —
+  see "Always-on default list (AUTO-8)".
   - **Deliberately never fires on item creation.** `createInventoryItemAction`,
     `quickAddInventoryItemAction`, `addStarterKitItemsAction`, every
     find-or-create-linking path (meal-planning ingredients and shopping-list

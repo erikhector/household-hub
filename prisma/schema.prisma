@@ -80,6 +80,13 @@ model Household {
   id        String   @id @default(cuid())
   name      String
   createdAt DateTime @default(now())
+  // AUTO-8: when an item crosses from in-stock into low/out of stock, drop
+  // it onto the household's default shopping list automatically (see
+  // addToDefaultListOnLowStock in src/lib/shopping/default-list.ts). On by
+  // default — the whole point is that restocking stops depending on someone
+  // remembering to press "Add low-stock items" — but a household-wide switch
+  // on the Household page turns it off for anyone who'd rather curate by hand.
+  autoAddLowStockToList Boolean @default(true)
 
   members            HouseholdMember[]
   invitations        Invitation[]
@@ -312,6 +319,15 @@ model ShoppingList {
   createdAt   DateTime           @default(now())
   completedAt DateTime?
   archivedAt  DateTime?
+  // AUTO-8: the household's always-on "Next shop" list, the one low-stock
+  // items auto-add to and markItemEmptyAction targets. At most one ACTIVE
+  // default per household — enforced by getOrCreateDefaultShoppingList
+  // (src/lib/shopping/default-list.ts) and backed by a partial unique index
+  // written by hand in this field's migration (Prisma's schema language
+  // can't express a `WHERE` on an index). Cleared whenever the list leaves
+  // ACTIVE (complete/archive) so un-archiving an old default can never
+  // produce a second one.
+  isDefault   Boolean            @default(false)
 
   household     Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items         ShoppingListItem[]

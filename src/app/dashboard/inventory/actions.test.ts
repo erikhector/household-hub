@@ -22,6 +22,8 @@ const {
   notificationCreateMock,
   inventoryItemFindUniqueMock,
   revalidatePathMock,
+  addToDefaultListOnLowStockMock,
+  addItemToDefaultListMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
@@ -38,6 +40,8 @@ const {
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  addToDefaultListOnLowStockMock: vi.fn(),
+  addItemToDefaultListMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -67,6 +71,14 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
   };
 });
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// The default-list helpers have their own unit (src/lib/shopping/
+// default-list.test.ts) — here we only check which one each action calls,
+// with what, and that its result reaches the client.
+vi.mock("@/lib/shopping/default-list", () => ({
+  addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  addItemToDefaultList: addItemToDefaultListMock,
+  revalidateAutoAdded: vi.fn(),
+}));
 
 const {
   createInventoryItemAction,
@@ -318,54 +330,104 @@ describe("markItemEmptyAction", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("zeroes the quantity and does not touch the shopping list when addToShoppingList is false", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", lowStockThreshold: 2 });
+  it("plain mark-empty leaves the list to the low-stock auto-add and returns what it added", async () => {
+    const item = { id: "item-1", name: "Milk", quantity: 3, lowStockThreshold: 2 };
+    findFirstMock.mockResolvedValue(item);
     updateMock.mockResolvedValue({});
+    const autoAdded = { shoppingListItemId: "row-1", listId: "default-list", listName: "Next shop", itemName: "Milk" };
+    addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
 
     const result = await markItemEmptyAction("item-1", false);
 
-    expect(result).toEqual({});
     expect(updateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
       data: { quantity: 0, updatedByUserId: "user-1" },
     });
-    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 3, 0);
+    expect(addItemToDefaultListMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ autoAdded: [autoAdded] });
   });
 
-  it("does not add a duplicate shopping-list entry for an item already pending on the active list", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", lowStockThreshold: 2 });
+  it("plain mark-empty returns nothing to undo when the auto-add didn't add anything", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", quantity: 1, lowStockThreshold: 2 });
     updateMock.mockResolvedValue({});
-    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", name: "This week" });
-    shoppingListItemFindFirstMock.mockResolvedValue({ id: "existing-entry" });
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
 
-    const result = await markItemEmptyAction("item-1", true);
+    const result = await markItemEmptyAction("item-1", false);
 
-    expect(result).toEqual({ listName: "This week" });
-    expect(shoppingListItemCreateMock).not.toHaveBeenCalled();
+    expect(result).toEqual({});
   });
 
-  it("creates a new active shopping list when none exists, then adds the item", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", lowStockThreshold: 2 });
+  it("'& add to shopping list' targets the default list explicitly (AUTO-8), not the latest active list", async () => {
+    const item = { id: "item-1", name: "Milk", quantity: 1, lowStockThreshold: 2 };
+    findFirstMock.mockResolvedValue(item);
     updateMock.mockResolvedValue({});
-    shoppingListFindFirstMock.mockResolvedValue(null);
-    shoppingListCreateMock.mockResolvedValue({ id: "new-list", name: "Shopping list" });
-    shoppingListItemFindFirstMock.mockResolvedValue(null);
-    shoppingListItemCreateMock.mockResolvedValue({});
-
-    const result = await markItemEmptyAction("item-1", true);
-
-    expect(shoppingListCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ householdId: "household-1" }) }),
-    );
-    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
-      data: {
-        shoppingListId: "new-list",
-        inventoryItemId: "item-1",
-        name: "Milk",
-        quantity: 2,
-      },
+    addItemToDefaultListMock.mockResolvedValue({
+      list: { id: "default-list", name: "Next shop" },
+      created: { shoppingListItemId: "row-1" },
     });
-    expect(result).toEqual({ listName: "Shopping list" });
+
+    const result = await markItemEmptyAction("item-1", true);
+
+    // Explicit request: added as a person's own row (not flagged
+    // addedAutomatically), sized as if the item were at 0, and the
+    // auto-add path isn't consulted at all.
+    expect(addItemToDefaultListMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "household-1",
+      { ...item, quantity: 0 },
+      false,
+    );
+    expect(addToDefaultListOnLowStockMock).not.toHaveBeenCalled();
+    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ listName: "Next shop" });
+  });
+
+  it("still reports the default list when the item was already pending there (deduped)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", name: "Milk", quantity: 0, lowStockThreshold: 2 });
+    updateMock.mockResolvedValue({});
+    addItemToDefaultListMock.mockResolvedValue({ list: { id: "default-list", name: "Next shop" }, created: null });
+
+    const result = await markItemEmptyAction("item-1", true);
+
+    expect(result).toEqual({ listName: "Next shop" });
+  });
+});
+
+describe("low-stock auto-add from quantity changes (AUTO-8)", () => {
+  const autoAdded = { shoppingListItemId: "row-1", listId: "default-list", listName: "Next shop", itemName: "Milk" };
+
+  it("adjustQuantityAction passes the before/after quantity and returns the auto-added row", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 3, lowStockThreshold: 3 });
+    updateMock.mockResolvedValue({});
+    addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
+
+    const result = await adjustQuantityAction("item-1", -1);
+
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 3, 2);
+    expect(result).toEqual({ autoAdded: [autoAdded] });
+  });
+
+  it("adjustQuantityAction returns a plain {} when nothing was auto-added", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 3, lowStockThreshold: 1 });
+    updateMock.mockResolvedValue({});
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+    expect(await adjustQuantityAction("item-1", -1)).toEqual({});
+  });
+
+  it("updateInventoryItemAction checks the edit form's new quantity for a crossing", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 5, lowStockThreshold: 2 });
+    updateMock.mockResolvedValue({});
+    addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
+
+    const result = await updateInventoryItemAction(
+      {},
+      formData({ itemId: "item-1", name: "Milk", category: "Dairy", quantity: "1", unit: "l", lowStockThreshold: "2" }),
+    );
+
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 5, 1);
+    expect(result).toEqual({ autoAdded: [autoAdded] });
   });
 });
 

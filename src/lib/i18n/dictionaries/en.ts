@@ -115,6 +115,14 @@ export const en = {
       confirm: "Remove",
       confirming: "Removing…",
     },
+    shoppingSettings: {
+      title: "Shopping",
+      autoAddLabel: "Add low-stock items to the shopping list automatically",
+      autoAddDescription:
+        'When something drops to low or out of stock, it goes straight onto "Next shop". This applies to everyone in the household.',
+      enabledToast: "Low-stock items will be added automatically",
+      disabledToast: "Low-stock items won't be added automatically",
+    },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
       "Deleting this household removes it, and everything in it, for every member. There's no undo.",
@@ -224,6 +232,9 @@ export const en = {
     newList: "New list",
     newListDialogTitle: "New shopping list",
     defaultNamePrefix: "Shopping list",
+    defaultListName: "Next shop",
+    defaultListBadge: "Fills itself",
+    defaultListHint: "Low-stock items are added here automatically",
     nameLabel: "Name",
     creating: "Creating…",
     create: "Create list",
@@ -515,6 +526,18 @@ export const en = {
     },
   },
   inventory: {
+    // AUTO-8: the low-stock auto-add toast (showAutoAddedToast). Lives here
+    // because nearly every caller is an inventory component; the shopping
+    // list and meal planning pass `dict.inventory.autoAdd` along explicitly.
+    autoAdd: {
+      addedToast: 'Added {name} to "{list}"',
+      addedManyToast: {
+        one: 'Added {count} item to "{list}"',
+        other: 'Added {count} items to "{list}"',
+      },
+      undo: "Undo",
+      undoneToast: 'Removed from "{list}"',
+    },
     title: "Inventory",
     subtitle: "What's in the house right now.",
     addItem: "Add item",
@@ -931,6 +954,10 @@ export const en = {
     mealMarkedCookedToast: "Marked as cooked — inventory updated",
     undoMarkCooked: "Undo",
     mealCookedUndoneToast: "Undone — inventory restored",
+    mealMarkedCookedAutoAddedToast: {
+      one: 'Marked as cooked — {count} item added to "{list}"',
+      other: 'Marked as cooked — {count} items added to "{list}"',
+    },
     cookNowTitle: "Cook now",
     cookNowSubtitle: "Recipes you already have everything (or almost everything) for.",
     emptyCookNow: "No recipes are close to ready yet — restock a few ingredients or add more recipes.",

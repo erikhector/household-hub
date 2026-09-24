@@ -21,6 +21,7 @@ const {
   shoppingListItemCreateManyMock,
   transactionMock,
   revalidatePathMock,
+  addToDefaultListOnLowStockMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
@@ -36,6 +37,7 @@ const {
   shoppingListItemCreateManyMock: vi.fn(),
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  addToDefaultListOnLowStockMock: vi.fn(),
 }));
 
 const txClient = {
@@ -76,11 +78,16 @@ vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+vi.mock("@/lib/shopping/default-list", () => ({
+  addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  revalidateAutoAdded: vi.fn(),
+}));
 
 const {
   previewMissingIngredientsAction,
   addMissingIngredientsToShoppingListAction,
   undoMarkMealEntryCookedAction,
+  markMealEntryCookedAction,
 } = await import("@/app/dashboard/meal-planning/cooking-actions");
 const { NEW_SHOPPING_LIST_SENTINEL } = await import("@/app/dashboard/meal-planning/meal-types");
 
@@ -388,5 +395,29 @@ describe("undoMarkMealEntryCookedAction", () => {
     expect(result).toEqual({});
     expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
     expect(mealPlanEntryUpdateMock).toHaveBeenCalled();
+  });
+});
+
+describe("markMealEntryCookedAction → low-stock auto-add (AUTO-8)", () => {
+  it("runs the auto-add for each decremented item inside the transaction and returns what it added", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      recipeId: "recipe-1",
+      portions: 2,
+      consumedAt: null,
+      recipe: { servings: 2 },
+    });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", quantity: 5, lowStockThreshold: 3 }]);
+    const autoAdded = { shoppingListItemId: "row-1", listId: "default", listName: "Next shop", itemName: "Eggs" };
+    addToDefaultListOnLowStockMock.mockResolvedValueOnce(autoAdded);
+
+    const fd = new FormData();
+    fd.set("entryId", "entry-1");
+    fd.append("itemId", "inv-1");
+    fd.append("itemQuantity", "3");
+    const result = await markMealEntryCookedAction({}, fd);
+
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(txClient, "household-1", "inv-1", 5, 2);
+    expect(result).toEqual({ autoAdded: [autoAdded] });
   });
 });

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
+import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
 // src/app/share/shopping-list/[token]/page.tsx — there is no session on this
@@ -75,7 +76,8 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
  * Unauthenticated equivalent of togglePurchasedAction
  * (src/app/dashboard/shopping-list/actions.ts) — replicates its exact side
  * effects (flip `purchased`, adjust the linked InventoryItem's quantity,
- * recordOutOfStockTransition, log PriceHistory), just reached via a share
+ * recordOutOfStockTransition, the AUTO-8 low-stock auto-add, log
+ * PriceHistory), just reached via a share
  * token instead of requireHousehold(). See this file's top doc comment for
  * why the itemId/token pairing check below is the actual security boundary,
  * not optional defensive dressing.
@@ -101,6 +103,7 @@ export async function toggleItemViaShareTokenAction(
 
   const nextPurchased = !item.purchased;
 
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
@@ -135,6 +138,16 @@ export async function toggleItemViaShareTokenAction(
             item.inventoryItem.quantity,
             nextQuantity,
           );
+          // Same auto-add as the signed-in toggle, but with no toast/Undo:
+          // a share-link visitor has no session to undo with, and the row
+          // is still marked "added automatically" for the household to see.
+          autoAdded = await addToDefaultListOnLowStock(
+            tx,
+            list.householdId,
+            item.inventoryItem.id,
+            item.inventoryItem.quantity,
+            nextQuantity,
+          );
         }
 
         if (priceToRecord != null) {
@@ -160,6 +173,7 @@ export async function toggleItemViaShareTokenAction(
   revalidatePath("/dashboard/shopping-list");
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
+  revalidateAutoAdded([autoAdded]);
 
   return {};
 }

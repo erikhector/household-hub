@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dashboard/inventory/actions";
+import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
+import type { AutoAddedItem } from "@/lib/shopping/default-list";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 import type { ActionState } from "@/lib/actions/auth";
@@ -86,13 +88,20 @@ export function ItemFormDialog({
     if (scannedCategory) setCategory((current) => current || scannedCategory);
   };
 
-  const action = mode === "create" ? createInventoryItemAction : updateInventoryItemAction;
+  const action: (
+    prevState: ActionState,
+    formData: FormData,
+  ) => Promise<ActionState & { autoAdded?: AutoAddedItem[] }> =
+    mode === "create" ? createInventoryItemAction : updateInventoryItemAction;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
   ) => {
     const result = await action(prevState, formData);
     if (result.error) return result;
+    // Only the edit form can lower an existing item's quantity, so only it
+    // ever comes back with an AUTO-8 auto-add to offer Undo for.
+    showAutoAddedToast(result.autoAdded, dict.autoAdd);
 
     if (keepOpenRef.current) {
       // Category/location/unit/quantity/threshold stay exactly as they are —
