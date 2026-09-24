@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.1",
+    "date": "2026-09-24",
+    "pr": 8,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Adding missing ingredients from your meal plan to a shopping list is now faster for weeks with many ingredients.",
+      "sv": "Att lägga till saknade ingredienser från din matplan till en inköpslista går nu snabbare för veckor med många ingredienser."
+    }
+  },
+  {
     "version": "0.3.0",
     "date": "2026-09-23",
     "pr": 6,

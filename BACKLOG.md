@@ -186,35 +186,6 @@ in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (
 
 ### Performance & security
 
-- [ ] **SCALE-A. Batch the per-row inventory lookup in `addMissingIngredientsToShoppingListAction`**
-      — `src/app/dashboard/meal-planning/cooking-actions.ts` (the per-row loop, ~line 214). The `for (const row of
-      rows)` loop calls `findOrCreateInventoryItem(household.id, row.name)` (a query, and
-      sometimes a create) followed by a separate `shoppingListItem.create`, once per row —
-      2 round trips per ingredient instead of a single batched pass. Change it to: one
-      `findOrCreateInventoryItem`-equivalent batch lookup (`prisma.inventoryItem.findMany({
-      where: { householdId, name: { in: rows.map(r => r.name) } } })` to find existing
-      matches in one query, then a single `createMany` for the names that don't already
-      exist), followed by a single `shoppingListItem.createMany` for every row not already
-      on the list (the existing `alreadyOnListIds` dedupe logic must still apply). Preserve
-      current behavior exactly (same dedupe against `alreadyOnListIds`, same
-      `addedAutomatically: true` flag). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`.
-
-- [ ] **SCALE-B. Batch ingredient/component resolution in recipe save** —
-      `src/app/dashboard/meal-planning/recipe-actions.ts`. Two separate N+1 patterns in the
-      same file: `parseIngredientRows` (~line 75) runs `Promise.all(rows.map(...
-      findOrCreateInventoryItem...))` — N parallel query pairs for N ingredients — and
-      `parseComponentRows` (~line 140) runs a sequential `for` loop doing
-      `prisma.recipe.findFirst` + `wouldCreateCycle` per component row — N sequential round
-      trips for N components. Batch `parseIngredientRows` the same way as SCALE-A (one
-      `findMany` + one `createMany` instead of N lookup/create pairs, preserving
-      insertion order for the returned `data` array). For `parseComponentRows`, replace the
-      per-row `prisma.recipe.findFirst` with a single `prisma.recipe.findMany({ where: { id:
-      { in: ids }, householdId } })` up front, then look up each id from an in-memory Map
-      inside the loop — but leave `wouldCreateCycle`'s per-row call as-is (it's a graph
-      check, not a flat lookup; don't attempt to batch it in this task). Verify with
-      `npm run lint`, `npx tsc --noEmit`, `npm run test`.
-
 - [ ] **SCALE-D. Batch the recipe-graph fetch in `expandRecipeIngredients`** —
       `src/app/dashboard/meal-planning/recipe-expansion.ts` (`expandRecipeIngredients`). This recursively calls
       `prisma.recipe.findUnique` once per recipe node (including once per sub-recipe
