@@ -116,9 +116,16 @@ export async function toggleItemViaShareTokenAction(
       if (item.inventoryItem) {
         const delta = nextPurchased ? item.quantity : -item.quantity;
         const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
+        // AUTO-4: mirrors togglePurchasedAction's lastKnownPrice update —
+        // folded into the same quantity write, only set when this toggle
+        // actually recorded a price.
+        const priceToRecord = nextPurchased ? item.estimatedPrice : null;
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
-          data: { quantity: nextQuantity },
+          data:
+            priceToRecord != null
+              ? { quantity: nextQuantity, lastKnownPrice: priceToRecord }
+              : { quantity: nextQuantity },
         });
         if (list) {
           await recordOutOfStockTransition(
@@ -130,9 +137,9 @@ export async function toggleItemViaShareTokenAction(
           );
         }
 
-        if (nextPurchased && item.estimatedPrice != null) {
+        if (priceToRecord != null) {
           await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
+            data: { inventoryItemId: item.inventoryItem.id, price: priceToRecord },
           });
         }
       }

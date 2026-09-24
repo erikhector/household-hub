@@ -159,6 +159,7 @@ const {
   linkShoppingListItemAction,
   createInventoryItemFromShoppingListItemAction,
   updateShoppingListItemAction,
+  updateShoppingListItemPriceAction,
   unlinkShoppingListItemAction,
   resolveShoppingListMappingsAction,
   togglePurchasedAction,
@@ -278,6 +279,22 @@ describe("generateFromLowStockAction", () => {
     expect(result.error).toBeUndefined();
     expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
   });
+
+  it("defaults each added row's estimatedPrice from its lastKnownPrice (AUTO-4)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Milk", quantity: 1, lowStockThreshold: 3, unit: "l", lastKnownPrice: 22 },
+      { id: "inv-2", name: "Eggs", quantity: 0, lowStockThreshold: 2, unit: "pcs", lastKnownPrice: null },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 2 });
+
+    await generateFromLowStockAction("list-1");
+
+    const rows = shoppingListItemCreateManyMock.mock.calls[0][0].data;
+    expect(rows.find((r: { inventoryItemId: string }) => r.inventoryItemId === "inv-1").estimatedPrice).toBe(22);
+    expect(rows.find((r: { inventoryItemId: string }) => r.inventoryItemId === "inv-2").estimatedPrice).toBeUndefined();
+  });
 });
 
 describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHocShoppingListItem)", () => {
@@ -315,6 +332,29 @@ describe("addAdHocItemAction / quickAddShoppingListItemAction (shared createAdHo
     // An exact match already resolved it — no need to fetch every inventory
     // item just to try the fuzzy fallback too.
     expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("defaults estimatedPrice from the linked item's lastKnownPrice (AUTO-4)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "milk", lastKnownPrice: 18.5 });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
+
+    expect(shoppingListItemCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ estimatedPrice: 18.5 }),
+    });
+  });
+
+  it("leaves estimatedPrice unset when the linked item has no lastKnownPrice yet", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "milk", lastKnownPrice: null });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await addAdHocItemAction({}, formData({ listId: "list-1", name: "Milk", quantity: "1" }));
+
+    const data = shoppingListItemCreateMock.mock.calls[0][0].data;
+    expect(data.estimatedPrice).toBeUndefined();
   });
 
   it("falls back to a single confident fuzzy match when there's no exact match", async () => {
@@ -466,6 +506,18 @@ describe("importShoppingListItemsAction", () => {
       data: [{ shoppingListId: "list-1", inventoryItemId: null, name: "Tomatoe", quantity: 1, unit: "pcs" }],
     });
   });
+
+  it("defaults a linked row's estimatedPrice from the matched item's lastKnownPrice (AUTO-4)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", name: "Milk", unit: "l", lastKnownPrice: 19.9 }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 1 });
+
+    await importShoppingListItemsAction("list-1", [{ name: "Milk", quantity: 1 }]);
+
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ inventoryItemId: "inv-1", estimatedPrice: 19.9 })],
+    });
+  });
 });
 
 describe("smartAddShoppingListItemsAction", () => {
@@ -543,6 +595,23 @@ describe("smartAddShoppingListItemsAction", () => {
 
     expect(shoppingListItemCreateMock.mock.calls[0][0].data.unit).toBe("l");
     expect(revalidatePathMock).not.toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("defaults a linked row's estimatedPrice from the matched item's lastKnownPrice, but not a brand-new item's (AUTO-4)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-milk", name: "Milk", unit: "l", category: "Dairy", lastKnownPrice: 21 },
+    ]);
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    mockCreates();
+
+    await smartAddShoppingListItemsAction("list-1", [
+      { name: "milk", quantity: 1 },
+      { name: "Kiwi", quantity: 2 },
+    ]);
+
+    expect(shoppingListItemCreateMock.mock.calls[0][0].data.estimatedPrice).toBe(21);
+    expect(shoppingListItemCreateMock.mock.calls[1][0].data.estimatedPrice).toBeUndefined();
   });
 
   it("skips items already pending on the list (and repeats within the batch), reporting them instead", async () => {
@@ -740,6 +809,39 @@ describe("updateShoppingListItemAction", () => {
   });
 });
 
+describe("updateShoppingListItemPriceAction (AUTO-4 inline price correction)", () => {
+  it("returns 'Item not found' for an item outside the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await updateShoppingListItemPriceAction("someone-elses-item", 10);
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a negative price", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await updateShoppingListItemPriceAction("item-1", -5);
+
+    expect(result.error).toBe("Price can't be negative");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("saves the corrected price, which is the user's own and never overwritten by a create-path default again", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await updateShoppingListItemPriceAction("item-1", 27.5);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { estimatedPrice: 27.5 },
+    });
+  });
+});
+
 describe("unlinkShoppingListItemAction", () => {
   it("returns 'Item not found' for an item outside the caller's household", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue(null);
@@ -912,7 +1014,8 @@ describe("togglePurchasedAction", () => {
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 5 },
+      // AUTO-4: this purchase's price also becomes the item's lastKnownPrice.
+      data: { quantity: 5, lastKnownPrice: 25 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 25 },
@@ -1025,8 +1128,15 @@ describe("applyReceiptScanAction", () => {
 
     expect(result.itemsUpdated).toBe(3);
     expect(result.totalAmount).toBe(42.5);
-    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { quantity: 3 } });
-    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-2" }, data: { quantity: 6 } });
+    // AUTO-4: a scanned receipt price also becomes the item's lastKnownPrice.
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 3, lastKnownPrice: 10 },
+    });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-2" },
+      data: { quantity: 6, lastKnownPrice: 25 },
+    });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-1", price: 10 } });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-2", price: 25 } });
   });
@@ -1043,7 +1153,7 @@ describe("applyReceiptScanAction", () => {
     expect(result.totalAmount).toBe(10);
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 3 }, // 1 + quantity(2)
+      data: { quantity: 3, lastKnownPrice: 10 }, // 1 + quantity(2), converted price
     });
   });
 
@@ -1144,9 +1254,11 @@ describe("registerReceiptAction", () => {
         estimatedPrice: 15,
       },
     });
+    // AUTO-4: a registered receipt's price also becomes the item's
+    // lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 4 },
+      data: { quantity: 4, lastKnownPrice: 15 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 15 },
@@ -1203,7 +1315,8 @@ describe("registerReceiptAction", () => {
     expect(inventoryItemUpdateMock).toHaveBeenCalledTimes(1);
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 15 }, // 10 + 2 + 3
+      // AUTO-4: the later of the two lines' prices wins as lastKnownPrice.
+      data: { quantity: 15, lastKnownPrice: 6 }, // 10 + 2 + 3
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
   });

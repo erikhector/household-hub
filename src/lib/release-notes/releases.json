@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-09-24",
+    "pr": 18,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping list items now show an estimated price, and your list's total updates automatically as you shop.",
+      "sv": "Varor på inköpslistan visar nu ett uppskattat pris, och listans totalsumma uppdateras automatiskt medan du handlar."
+    }
+  },
+  {
+    "version": "0.4.4",
+    "date": "2026-09-24",
+    "pr": 19,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Ingredients added to your inventory from a recipe are now categorized automatically, just like items added any other way.",
+      "sv": "Ingredienser som läggs till i ditt skafferi från ett recept kategoriseras nu automatiskt, precis som varor du lägger till på andra sätt."
+    }
+  },
+  {
+    "version": "0.4.3",
+    "date": "2026-09-24",
+    "pr": 20,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Internal performance improvement (faster budget and \"expiring soon\" queries under the hood) — nothing changes in how the app looks or behaves.",
+      "sv": "Intern prestandaförbättring (snabbare frågor för budget och \"snart utgånget\" under huven) — inget ändras i hur appen ser ut eller fungerar."
+    }
+  },
+  {
     "version": "0.4.2",
     "date": "2026-09-24",
     "pr": 14,

@@ -67,20 +67,27 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
-vi.mock("@/lib/i18n/get-dictionary", () => ({
-  getDictionary: vi.fn(async () => ({
-    mealPlanning: {
-      importErrorInvalidUrl: "Enter a valid URL",
-      importErrorBlockedHost: "That host can't be fetched",
-      importErrorFetchFailed: "Couldn't fetch that page",
-      importErrorNoRecipeFound: "No recipe found on that page",
-      componentQuantityError: "Sub-recipe amounts must be greater than 0",
-      componentNotFoundError: "One of the selected sub-recipes could not be found.",
-      componentCycleError: "That would create a circular reference between recipes.",
-      deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
-    },
-  })),
-}));
+vi.mock("@/lib/i18n/get-dictionary", async () => {
+  const { en } = await import("@/lib/i18n/dictionaries/en");
+  return {
+    getDictionary: vi.fn(async () => ({
+      mealPlanning: {
+        importErrorInvalidUrl: "Enter a valid URL",
+        importErrorBlockedHost: "That host can't be fetched",
+        importErrorFetchFailed: "Couldn't fetch that page",
+        importErrorNoRecipeFound: "No recipe found on that page",
+        componentQuantityError: "Sub-recipe amounts must be greater than 0",
+        componentNotFoundError: "One of the selected sub-recipes could not be found.",
+        componentCycleError: "That would create a circular reference between recipes.",
+        deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
+      },
+      // Backs createCategoryResolver's dictionary tier (AUTO-2b) —
+      // parseIngredientRows resolves a real category for a brand-new
+      // ingredient the same way the inventory/shopping-list create paths do.
+      inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
+    })),
+  };
+});
 vi.mock("@/lib/recipe-import", () => ({
   fetchRecipeHtml: fetchRecipeHtmlMock,
   parseRecipeFromHtml: parseRecipeFromHtmlMock,
@@ -185,7 +192,7 @@ describe("createRecipeAction", () => {
 
   it("batches inventory find-or-create across ingredient rows into one lookup and one createMany (SCALE-B)", async () => {
     // "Carrot" already exists (case-insensitive match); "Kale" doesn't.
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot" }]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot", category: "Produce" }]);
     inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-kale", name: "Kale" }]);
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Soup" });
@@ -198,7 +205,11 @@ describe("createRecipeAction", () => {
 
     await createRecipeAction({}, fd);
 
-    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    // Two calls total, not three: SCALE-B's own batched existence lookup,
+    // plus createCategoryResolver's household-memory load (AUTO-2b) for the
+    // one new name ("Kale") — the resolver memoizes that load, so it never
+    // scales with the number of new ingredients (see the next test).
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
     expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledTimes(1);
     expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: [expect.objectContaining({ name: "Kale" })] }),
@@ -213,6 +224,74 @@ describe("createRecipeAction", () => {
         },
       }),
     });
+  });
+
+  it("guesses a category for a brand-new ingredient instead of writing 'Uncategorized' (AUTO-2b)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "new-inv-item", name: "Milk" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Cereal" });
+    fd.append("ingredientName", "Milk");
+    fd.append("ingredientQuantity", "1");
+    fd.append("ingredientUnit", "l");
+
+    await createRecipeAction({}, fd);
+
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ name: "Milk", category: "Dairy & eggs" })],
+      }),
+    );
+  });
+
+  it("still falls back to 'Uncategorized' for a name the resolver doesn't recognize", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "new-inv-item", name: "Xyzzyplorp" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Mystery dish" });
+    fd.append("ingredientName", "Xyzzyplorp");
+    fd.append("ingredientQuantity", "1");
+    fd.append("ingredientUnit", "pcs");
+
+    await createRecipeAction({}, fd);
+
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ name: "Xyzzyplorp", category: "Uncategorized" })],
+      }),
+    );
+  });
+
+  it("resolves categories for every new ingredient in a batch with one lookup, not one per ingredient", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([
+      { id: "inv-milk", name: "Milk" },
+      { id: "inv-bread", name: "Bread" },
+      { id: "inv-chicken", name: "Chicken" },
+    ]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Dinner" });
+    for (const name of ["Milk", "Bread", "Chicken"]) {
+      fd.append("ingredientName", name);
+      fd.append("ingredientQuantity", "1");
+      fd.append("ingredientUnit", "pcs");
+    }
+
+    await createRecipeAction({}, fd);
+
+    // One call for SCALE-B's own existence check, one for the category
+    // resolver's household-memory load — still 2 regardless of the 3 new
+    // ingredients resolved against it.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({ name: "Milk", category: "Dairy & eggs" }),
+          expect.objectContaining({ name: "Bread", category: "Bakery" }),
+          expect.objectContaining({ name: "Chicken", category: "Meat & fish" }),
+        ],
+      }),
+    );
   });
 
   it("batches sub-recipe existence checks across component rows into one findMany (SCALE-B)", async () => {

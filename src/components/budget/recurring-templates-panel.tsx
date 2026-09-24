@@ -7,22 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  acknowledgeTemplatePeriodAction,
-  deleteRecurringTemplateAction,
-  setRecurringTemplateActiveAction,
-  unacknowledgeTemplatePeriodAction,
-} from "@/app/dashboard/budget/actions";
-import {
   RecurringTemplateDialog,
+  type RecurringTemplateFormAction,
   type RecurringTemplateRow,
 } from "@/components/budget/recurring-template-dialog";
 import {
   TransactionDialog,
   type MemberOption,
+  type TransactionFormAction,
 } from "@/components/budget/transaction-dialog";
 import { format } from "@/lib/i18n/format";
+import type { ActionState } from "@/lib/actions/auth";
+import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
-import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/get-dictionary";
 
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
@@ -31,7 +29,10 @@ export type RecurringTemplateListRow = RecurringTemplateRow & {
    * period (F7 — attribution for a household-wide action), resolved from
    * RecurringTemplateAck.createdByUserId. Only meaningful when
    * `status === "acknowledged"`; null when the ack predates this field (no
-   * backfill) or its acknowledger has since left the household. */
+   * backfill) or its acknowledger has since left the household. Always
+   * omitted for the personal budget page (BUDGET-2) — there's no
+   * multi-user attribution to show for a single-user budget, which is what
+   * `dict.recurring.acknowledgedByLabel`'s own presence already gates below. */
   acknowledgedByName?: string | null;
 };
 
@@ -41,29 +42,56 @@ const frequencyLabelKey = {
   WEEKLY: "frequencyWeekly",
   MONTHLY: "frequencyMonthly",
   YEARLY: "frequencyYearly",
-} as const satisfies Record<RecurringTemplateRow["frequency"], keyof Dictionary["budget"]>;
+} as const satisfies Record<RecurringTemplateRow["frequency"], keyof BudgetDict>;
 
 export function RecurringTemplatesPanel({
   templates,
   pausedTemplates,
   categories,
-  members,
-  currentMemberId,
+  members = [],
+  currentMemberId = "",
   monthKey,
   dict,
   locale,
+  onTogglePause,
+  onDelete,
+  onAcknowledge,
+  onUnacknowledge,
+  createTemplateAction,
+  updateTemplateAction,
+  createTransactionAction,
+  updateTransactionAction,
 }: {
   templates: RecurringTemplateListRow[];
   pausedTemplates: PausedRecurringTemplateRow[];
   categories: CategoryRow[];
-  members: MemberOption[];
-  currentMemberId: string;
+  /** Every member of the active household — see TransactionDialog's
+   * identical prop (src/components/budget/transaction-dialog.tsx). The
+   * personal budget page (BUDGET-2) omits this entirely. */
+  members?: MemberOption[];
+  currentMemberId?: string;
   /** "YYYY-MM" of the month currently being browsed — threaded to the "Log
    * transaction" dialog below so a new transaction defaults to a date within
    * it (F11) instead of always today. */
   monthKey: string;
-  dict: Dictionary["budget"];
+  dict: BudgetDict;
   locale: Locale;
+  /** setRecurringTemplateActiveAction (household) or
+   * setPersonalRecurringTemplateActiveAction (personal). */
+  onTogglePause: (id: string, active: boolean) => Promise<ActionState>;
+  /** deleteRecurringTemplateAction (household) or
+   * deletePersonalRecurringTemplateAction (personal). */
+  onDelete: (id: string) => Promise<ActionState>;
+  /** acknowledgeTemplatePeriodAction (household) or
+   * acknowledgePersonalTemplatePeriodAction (personal). */
+  onAcknowledge: (id: string) => Promise<ActionState>;
+  /** unacknowledgeTemplatePeriodAction (household) or
+   * unacknowledgePersonalTemplatePeriodAction (personal). */
+  onUnacknowledge: (id: string) => Promise<ActionState>;
+  createTemplateAction: RecurringTemplateFormAction;
+  updateTemplateAction: RecurringTemplateFormAction;
+  createTransactionAction: TransactionFormAction;
+  updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
   const numberFormat = new Intl.NumberFormat(locale, {
@@ -77,14 +105,14 @@ export function RecurringTemplatesPanel({
 
   function handleTogglePause(id: string, active: boolean) {
     startTransition(async () => {
-      const result = await setRecurringTemplateActiveAction(id, active);
+      const result = await onTogglePause(id, active);
       if (result.error) toast.error(result.error);
     });
   }
 
   function handleDelete(id: string) {
     startTransition(async () => {
-      const result = await deleteRecurringTemplateAction(id);
+      const result = await onDelete(id);
       if (result.error) toast.error(result.error);
     });
   }
@@ -102,6 +130,8 @@ export function RecurringTemplatesPanel({
           dict={dict}
           categories={categories}
           members={members}
+          createAction={createTemplateAction}
+          updateAction={updateTemplateAction}
           trigger={
             <Button variant="outline" size="sm" disabled={categories.length === 0}>
               {dict.recurring.addTemplate}
@@ -127,6 +157,8 @@ export function RecurringTemplatesPanel({
                 onTogglePause={handleTogglePause}
                 categories={categories}
                 members={members}
+                createTemplateAction={createTemplateAction}
+                updateTemplateAction={updateTemplateAction}
                 actions={
                   <>
                     <TransactionDialog
@@ -143,6 +175,8 @@ export function RecurringTemplatesPanel({
                         frequency: template.frequency,
                         splits: template.splits,
                       }}
+                      createAction={createTransactionAction}
+                      updateAction={updateTransactionAction}
                       trigger={
                         <Button size="xs" variant="secondary">
                           {dict.recurring.logTransaction}
@@ -155,7 +189,7 @@ export function RecurringTemplatesPanel({
                       disabled={isPending}
                       onClick={() =>
                         startTransition(async () => {
-                          const result = await acknowledgeTemplatePeriodAction(template.id);
+                          const result = await onAcknowledge(template.id);
                           if (result.error) toast.error(result.error);
                           else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
                         })
@@ -182,6 +216,8 @@ export function RecurringTemplatesPanel({
                 onTogglePause={handleTogglePause}
                 categories={categories}
                 members={members}
+                createTemplateAction={createTemplateAction}
+                updateTemplateAction={updateTemplateAction}
                 actions={
                   <Button
                     size="xs"
@@ -189,7 +225,7 @@ export function RecurringTemplatesPanel({
                     disabled={isPending}
                     onClick={() =>
                       startTransition(async () => {
-                        const result = await unacknowledgeTemplatePeriodAction(template.id);
+                        const result = await onUnacknowledge(template.id);
                         if (result.error) toast.error(result.error);
                         else toast.success(format(dict.recurring.undoToast, { name: template.name }));
                       })
@@ -215,6 +251,8 @@ export function RecurringTemplatesPanel({
                 onTogglePause={handleTogglePause}
                 categories={categories}
                 members={members}
+                createTemplateAction={createTemplateAction}
+                updateTemplateAction={updateTemplateAction}
               />
             )}
           </TemplateGroup>
@@ -236,6 +274,8 @@ export function RecurringTemplatesPanel({
                     onTogglePause={handleTogglePause}
                     categories={categories}
                     members={members}
+                    createTemplateAction={createTemplateAction}
+                    updateTemplateAction={updateTemplateAction}
                     paused
                   />
                 ))}
@@ -275,17 +315,21 @@ function TemplateRow({
   onTogglePause,
   categories,
   members,
+  createTemplateAction,
+  updateTemplateAction,
   actions,
   paused = false,
 }: {
   template: RecurringTemplateListRow;
-  dict: Dictionary["budget"];
+  dict: BudgetDict;
   numberFormat: Intl.NumberFormat;
   isPending: boolean;
   onDelete: (id: string) => void;
   onTogglePause: (id: string, active: boolean) => void;
   categories: CategoryRow[];
   members: MemberOption[];
+  createTemplateAction: RecurringTemplateFormAction;
+  updateTemplateAction: RecurringTemplateFormAction;
   actions?: ReactNode;
   paused?: boolean;
 }) {
@@ -305,7 +349,7 @@ function TemplateRow({
           </Badge>
           {template.splits.length > 0 && (
             <Badge variant="secondary" className="gap-1">
-              {dict.recurring.split.splitBadge}
+              {dict.recurring.split?.splitBadge}
             </Badge>
           )}
           {paused && <Badge variant="outline">{dict.recurring.pausedBadge}</Badge>}
@@ -316,7 +360,12 @@ function TemplateRow({
             ? ` · ${format(dict.recurring.dueDayLabel, { day: template.dayOfMonth })}`
             : ""}
         </p>
-        {template.status === "acknowledged" && (
+        {/* Household-only: personalBudget's dict omits acknowledgedByLabel/
+            acknowledgedByUnknown entirely (no multi-user attribution concept
+            for a single-user budget) — its presence doubles as the
+            household/personal switch here, see RecurringTemplateListRow's
+            acknowledgedByName doc comment. */}
+        {template.status === "acknowledged" && dict.recurring.acknowledgedByLabel && (
           <p className="text-xs text-muted-foreground">
             {template.acknowledgedByName
               ? format(dict.recurring.acknowledgedByLabel, { name: template.acknowledgedByName })
@@ -331,6 +380,8 @@ function TemplateRow({
           categories={categories}
           members={members}
           template={template}
+          createAction={createTemplateAction}
+          updateAction={updateTemplateAction}
           trigger={
             <Button
               variant="ghost"
