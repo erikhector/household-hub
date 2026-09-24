@@ -1628,6 +1628,8 @@ export const en = {
       signUp: "Sign up",
       passwordResetSuccess: "Password updated. Please log in with your new password.",
       accountDeletedSuccess: "Your account has been deleted.",
+      sessionExpiredPasswordChanged:
+        "You were signed out because your password was changed. Please log in again.",
       resendVerification: "Resend verification email",
       resendingVerification: "Sending…",
     },

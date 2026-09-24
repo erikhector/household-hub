@@ -37,7 +37,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!user.emailVerifiedAt) throw new EmailNotVerifiedSignin();
 
-        return { id: user.id, email: user.email, name: user.displayName };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.displayName,
+          passwordChangedAt: user.passwordChangedAt,
+        };
       },
     }),
   ],

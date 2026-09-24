@@ -550,6 +550,41 @@ describe("resetPasswordAction behavior", () => {
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
   });
+
+  // SCALE-H: the reset must also bump passwordChangedAt in the same update,
+  // or sessions issued before it (possibly an attacker's) keep working.
+  it("stamps passwordChangedAt alongside the new hash, revoking older sessions", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+    const txUserUpdate = vi.fn(async () => ({}));
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: txUserUpdate },
+        passwordResetToken: {
+          update: vi.fn(async () => ({})),
+          deleteMany: vi.fn(async () => ({ count: 0 })),
+        },
+      }),
+    );
+    const before = Date.now();
+
+    await expect(resetPasswordAction({}, formData(validReset))).rejects.toThrow(
+      "REDIRECT:/login?reset=success",
+    );
+
+    expect(txUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { passwordHash: expect.any(String), passwordChangedAt: expect.any(Date) },
+    });
+    const [[{ data }]] = txUserUpdate.mock.calls as unknown as [
+      [{ data: { passwordChangedAt: Date } }],
+    ];
+    expect(data.passwordChangedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
 });
 
 describe("resetPasswordAction rate limiting", () => {

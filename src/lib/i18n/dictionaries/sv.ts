@@ -1604,6 +1604,8 @@ export const sv = {
       signUp: "Skapa konto",
       passwordResetSuccess: "Lösenordet har uppdaterats. Logga in med ditt nya lösenord.",
       accountDeletedSuccess: "Ditt konto har raderats.",
+      sessionExpiredPasswordChanged:
+        "Du har loggats ut eftersom ditt lösenord har ändrats. Logga in igen.",
       resendVerification: "Skicka verifieringslänk igen",
       resendingVerification: "Skickar…",
     },

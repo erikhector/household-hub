@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isSessionRevoked, SESSION_EXPIRED_PATH } from "@/lib/session-revocation";
 
 export const ACTIVE_HOUSEHOLD_COOKIE = "active_household";
 
@@ -13,11 +14,24 @@ export const ACTIVE_HOUSEHOLD_COOKIE = "active_household";
 // Wrapped in React's cache() so repeat calls within the same request (e.g.
 // dashboard/layout.tsx and its page.tsx both calling this) reuse one result
 // instead of re-querying the DB per call.
+//
+// Both guards also reject a session issued before the user's last password
+// change (SCALE-H, see src/lib/session-revocation.ts). That's the one DB
+// read this function does — a JWT alone can't know the password changed.
 export const requireUserId = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { passwordChangedAt: true },
+  });
+  if (isSessionRevoked(user, session.user.pwdChangedAt)) {
+    redirect(SESSION_EXPIRED_PATH);
+  }
+
   return session.user.id;
 });
 
@@ -27,12 +41,25 @@ export const requireHousehold = cache(async () => {
     redirect("/login");
   }
 
-  const memberships = await prisma.householdMember.findMany({
-    where: { userId: session.user.id },
-    include: { household: true },
-    orderBy: { createdAt: "asc" },
+  // One query for both the revocation check and the memberships, via the
+  // User row, so SCALE-H adds no extra round trip to every dashboard
+  // request.
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      passwordChangedAt: true,
+      memberships: {
+        include: { household: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
 
+  if (!user || isSessionRevoked(user, session.user.pwdChangedAt)) {
+    redirect(SESSION_EXPIRED_PATH);
+  }
+
+  const { memberships } = user;
   if (memberships.length === 0) {
     redirect("/login");
   }
