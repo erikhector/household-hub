@@ -936,6 +936,20 @@ export const en = {
     addedToPlanToast: "Added {recipe} to the plan",
     addedToPlanDifferentWeekToast: "Added {recipe} to the plan — in a different week than you're viewing",
     viewThatWeek: "View that week",
+    useItUpLabel: "Use it up",
+    useItUpChipExpiring: {
+      one: "{recipe} uses {count} thing expiring soon",
+      other: "{recipe} uses {count} things expiring soon",
+    },
+    useItUpChipLowStock: {
+      one: "{recipe} uses {count} thing running low",
+      other: "{recipe} uses {count} things running low",
+    },
+    useItUpChipMixed: {
+      one: "{recipe} uses {count} thing expiring soon or running low",
+      other: "{recipe} uses {count} things expiring soon or running low",
+    },
+    useItUpDismissAriaLabel: "Dismiss",
   },
   tasks: {
     title: "Tasks",

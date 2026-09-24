@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.6.0",
+    "date": "2026-09-24",
+    "pr": 24,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes tab now nudges you toward using ingredients before they expire or run low — a dismissible \"use it up\" suggestion shows which of your recipes would help.",
+      "sv": "Fliken Recept ger nu en påminnelse om att använda ingredienser innan de går ut eller börjar ta slut — ett avvisningsbart förslag visar vilka recept som hjälper till."
+    }
+  },
+  {
     "version": "0.5.0",
     "date": "2026-09-24",
     "pr": 18,

@@ -1721,6 +1721,70 @@ actually used, once they've cooked it.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
 
+### "Use it up" recipe suggestions
+
+BACKLOG GAP-1, from the 2026-09-23 competitive gap scan: Grocy's headline
+feature is surfacing recipes whose ingredients overlap with what's expiring
+soon or already running low, instead of only listing every recipe flat. The
+Recipes tab (`RecipeManager`) renders a dismissible chip row
+(`UseItUpSuggestions`, `src/components/meal-planning/use-it-up-suggestions.tsx`)
+above the recipe list — e.g. "Chicken stir-fry uses 2 things expiring soon" —
+computed by `computeUseItUpSuggestions`
+(`src/lib/inventory/use-it-up-calc.ts`, colocated `use-it-up-calc.test.ts`).
+
+- **Read-only, and deliberately a *partial*-overlap ranking**: unlike
+  `getCookableRecipes` ("Cook now," full-match — at most a couple of
+  ingredients missing, see cookable-recipes.ts), a recipe can rank here even
+  with plenty of *other* missing ingredients, as long as it uses at least one
+  item worth working into tonight's cooking. It never creates a `MealPlan`
+  entry or writes to `InventoryItem` — a suggestion only ever links out to
+  the recipe already sitting in the same tab (BACKLOG.md's Guardrails).
+- **What counts as "worth using up"**: an `InventoryItem` with `quantity > 0`
+  (see below) whose `getExpiryStatus` (`src/lib/inventory/expiry.ts`) is
+  `"expired"` or `"soon"`, or whose `getStockStatus`
+  (`src/lib/stock-status.ts`) is `"low"` — the same two predicates the
+  inventory table and notification center already use, computed once in
+  `page.tsx` from the same `inventoryItem.findMany` already fetched for the
+  ingredient-name autocomplete rather than a second query. An item that's
+  both expiring and low is reported as `"expiring"` — the more urgent
+  framing.
+- **Zero-quantity gate**: `reasonFor` (`use-it-up-calc.ts`) excludes any item
+  at `quantity <= 0` from *both* reasons — you can't "use up" something you
+  already have none of; that gap belongs to the shopping-list bridge, not
+  this feature. This matters in practice, not just in theory: every
+  ingredient auto-created via `parseIngredientRows`/
+  `addMissingIngredientsToShoppingListAction` starts at `quantity: 0,
+  lowStockThreshold: 0` (see "Ingredient → inventory linking" above), which
+  makes `getStockStatus` report it as `"out"` from the moment it's created.
+  Without this gate almost any recipe with a freshly-added ingredient would
+  misleadingly surface a suggestion (caught in PR #24 review before merge).
+- **Matching ingredients to inventory**: prefers each `RecipeIngredient`'s
+  linked `inventoryItemId`, falling back to a case-insensitive name match —
+  the same loose-match fallback `getCookableRecipes` uses for an ingredient
+  whose link was cleared by a since-deleted inventory item (`onDelete:
+  SetNull`). A recipe's match count is deduplicated by matched item id, so
+  the same ingredient listed twice doesn't inflate it.
+- **Ranking**: sorted by match count descending, then — on a tie — a
+  suggestion with an expiring-reason match ahead of one that's low-stock-only
+  (using up something already low makes it run out even sooner, so it's the
+  less urgent of the two on equal footing), then recipe name, capped at 5
+  suggestions — the same "keep it short and actionable" reasoning as
+  `MAX_MISSING_TO_SURFACE` in cookable-recipes.ts. **Product call (PR #24
+  review)**: low-stock stays as a first-class reason rather than being
+  dropped — a slowly-dwindling item is a legitimate signal, not just noise —
+  but this expiring-first tie-break keeps the more urgent framing on top
+  when both apply.
+- **Chip wording**: reason-specific ("uses N things expiring soon" / "…
+  running low") when every match in a suggestion agrees, a neutral "expiring
+  soon or running low" phrasing when a suggestion mixes both.
+- **Dismissal**: per-recipe, persisted in `localStorage`
+  (`mealPlanning.useItUpDismissed`, listed in `src/lib/cookie-inventory.ts`)
+  keyed by recipe id → a signature of the matched ingredient names, mirroring
+  `MealVarietyRecap`'s count-keyed dismissal: a dismissed "uses milk, eggs"
+  chip stays hidden, but a since-changed "uses flour, sugar" nudge for the
+  same recipe isn't suppressed by yesterday's dismissal. Dismissal is
+  per-device only, same as `MealVarietyRecap`.
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from
