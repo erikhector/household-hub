@@ -89,7 +89,7 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b (c), AUTO-4 and AUTO-5 all edit
+AUTO-2b (b), AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
 in one branch.
 
@@ -97,23 +97,20 @@ in one branch.
 
 - [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2**
       — `src/lib/inventory/category-resolver.ts`,
-      `src/app/dashboard/meal-planning/{recipe,cooking}-actions.ts`,
       `src/components/shopping/shopping-list-client.tsx`
       AUTO-2 shipped the deterministic part: household memory, the
       bilingual dictionary and Open Food Facts categories, wired into every
       inventory and shopping-list create path (see REQUIREMENTS.md, "Data
-      model" → Auto-categorization). Still open:
+      model" → Auto-categorization). Recipe-ingredient find-or-create
+      (`recipe-actions.ts`/`cooking-actions.ts`) now uses
+      `createCategoryResolver` too. Still open:
       (a) **AI fallback (optional)**. Only when memory and the dictionary
       both miss and a key is configured: batch the unknown *names only* into
       one small classification call through the existing provider chain,
       constrained to `AUTO_CATEGORY_KEYS`. Must not block the add: commit the
       item as "Uncategorized" immediately, then patch the category when the
       call returns (or leave it if the call fails). Rate-limited.
-      (b) **Recipe-ingredient find-or-create** still writes
-      `"Uncategorized"`. Use `createCategoryResolver` there, but only once
-      SCALE-B/SCALE-D batch those lookups, so it doesn't add a query per
-      ingredient.
-      (c) **Tappable category chip on shopping-list rows**, to correct a
+      (b) **Tappable category chip on shopping-list rows**, to correct a
       guess in place. The category is already on each row (AUTO-3's
       `ShoppingListItemRow.category`, sourced from the linked
       `InventoryItem`) — this just needs the chip UI to edit it there.

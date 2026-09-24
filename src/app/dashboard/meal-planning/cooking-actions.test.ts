@@ -59,11 +59,19 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
-vi.mock("@/lib/i18n/get-dictionary", () => ({
-  getDictionary: vi.fn(async () => ({
-    shoppingList: { defaultNamePrefix: "Shopping list" },
-  })),
-}));
+vi.mock("@/lib/i18n/get-dictionary", async () => {
+  const { en } = await import("@/lib/i18n/dictionaries/en");
+  return {
+    getDictionary: vi.fn(async () => ({
+      shoppingList: { defaultNamePrefix: "Shopping list" },
+      // Backs createCategoryResolver's dictionary tier (AUTO-2b) —
+      // addMissingIngredientsToShoppingListAction resolves a real category
+      // for a brand-new ingredient the same way the inventory/shopping-list
+      // create paths do.
+      inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
+    })),
+  };
+});
 vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: vi.fn(),
 }));
@@ -215,7 +223,7 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
     shoppingListItemFindManyMock.mockResolvedValue([]);
     // "Carrot" already exists (case-insensitive match); "Kale" doesn't.
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot" }]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot", category: "Produce" }]);
     inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-kale", name: "Kale" }]);
     shoppingListItemCreateManyMock.mockResolvedValue({});
     const fd = formData({ targetListId: "list-1" });
@@ -229,9 +237,12 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     const result = await addMissingIngredientsToShoppingListAction({}, fd);
 
     expect(result).toEqual({});
-    // One lookup for every distinct name, one createMany for the missing
-    // one — not a findFirst/create pair per row.
-    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    // Two calls total, not three: one lookup for every distinct name (the
+    // find-or-create itself), one for createCategoryResolver's
+    // household-memory load (AUTO-2b) — the resolver memoizes that load, so
+    // it never scales with the number of new ingredients (see the next
+    // test), and there's still exactly one createMany for the missing row.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
     expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledTimes(1);
     expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
       expect.objectContaining({ data: [expect.objectContaining({ name: "Kale" })] }),
@@ -243,6 +254,80 @@ describe("addMissingIngredientsToShoppingListAction", () => {
         expect.objectContaining({ inventoryItemId: "inv-kale", name: "Kale" }),
       ],
     });
+  });
+
+  it("guesses a category for a brand-new ingredient instead of writing 'Uncategorized' (AUTO-2b)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-milk", name: "Milk" }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Milk");
+    fd.append("itemQuantity", "1");
+    fd.append("itemUnit", "l");
+
+    await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ name: "Milk", category: "Dairy & eggs" })],
+      }),
+    );
+  });
+
+  it("still falls back to 'Uncategorized' for a name the resolver doesn't recognize", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-mystery", name: "Xyzzyplorp" }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Xyzzyplorp");
+    fd.append("itemQuantity", "1");
+    fd.append("itemUnit", "pcs");
+
+    await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({ name: "Xyzzyplorp", category: "Uncategorized" })],
+      }),
+    );
+  });
+
+  it("resolves categories for every new ingredient in a batch with one lookup, not one per ingredient", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([
+      { id: "inv-milk", name: "Milk" },
+      { id: "inv-bread", name: "Bread" },
+      { id: "inv-chicken", name: "Chicken" },
+    ]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    for (const name of ["Milk", "Bread", "Chicken"]) {
+      fd.append("itemName", name);
+      fd.append("itemQuantity", "1");
+      fd.append("itemUnit", "pcs");
+    }
+
+    await addMissingIngredientsToShoppingListAction({}, fd);
+
+    // One call for the find-or-create's own existence check, one for the
+    // category resolver's household-memory load — still 2 regardless of the
+    // 3 new ingredients resolved against it.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
+    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({ name: "Milk", category: "Dairy & eggs" }),
+          expect.objectContaining({ name: "Bread", category: "Bakery" }),
+          expect.objectContaining({ name: "Chicken", category: "Meat & fish" }),
+        ],
+      }),
+    );
   });
 });
 
