@@ -2098,24 +2098,55 @@ Exactly three triggers exist — nothing else creates a notification:
     item starting empty is not a depletion event, and flagging it would just
     be noise every time someone adds a recipe or a pantry item.
 - **Meal not logged**: a past `MealPlanEntry` whose `consumedAt` is still
-  null — a nudge that "mark as cooked" was probably forgotten. There's no
-  background job for this: `getActiveNotifications` (`src/lib/notifications.ts`)
-  lazily syncs it on every fetch, finding entries with `date` before today,
-  `consumedAt: null`, and no `Notification` row yet, and creating one for
-  each. The `Notification.mealPlanEntryId` unique constraint makes this
-  fire **at most once per entry, ever** — once created, dismissed or not,
-  it's never recreated, so ignoring it doesn't turn it into a repeating
-  nag.
+  null — a nudge that "mark as cooked" was probably forgotten. Synced by
+  `syncMealNotLoggedNotifications` (`src/lib/notifications.ts`), which finds
+  entries with `date` before today, `consumedAt: null`, and no `Notification`
+  row yet, and creates one for each. The `Notification.mealPlanEntryId`
+  unique constraint makes this fire **at most once per entry, ever** — once
+  created, dismissed or not, it's never recreated, so ignoring it doesn't
+  turn it into a repeating nag.
 - **Expiring soon**: an in-stock `InventoryItem` (`quantity > 0`) with
   `expiresAt` set, within `EXPIRY_WARNING_DAYS` (3) of that date or already
-  past it. Synced lazily the same way "meal not logged" is — every
-  `getActiveNotifications` call runs `syncExpiringSoonNotifications`, which
-  finds qualifying items and creates an `EXPIRING_SOON` `Notification` for
-  each. Deduped like out-of-stock (an application-level check for an
-  existing undismissed alert for the same item), not a DB unique constraint
-  like meal-not-logged — a unique constraint on `inventoryItemId` would
-  permanently block a future alert for an item that gets re-stocked with a
-  new expiry date after the old alert was dismissed.
+  past it. Synced by `syncExpiringSoonNotifications`, which finds qualifying
+  items and creates an `EXPIRING_SOON` `Notification` for each. Deduped like
+  out-of-stock (an application-level check for an existing undismissed alert
+  for the same item), not a DB unique constraint like meal-not-logged — a
+  unique constraint on `inventoryItemId` would permanently block a future
+  alert for an item that gets re-stocked with a new expiry date after the
+  old alert was dismissed.
+  - **Runs on a schedule, not on read**: both syncs above used to run
+    inline inside `getActiveNotifications` on every notification-bell fetch
+    — meaning opening the bell could trigger an unbounded number of
+    `Notification` writes and push sends on what should've been a pure
+    read. They now run only from `GET /api/cron/sync-notifications`
+    (`src/app/api/cron/sync-notifications/route.ts`), which iterates every
+    household (`prisma.household.findMany`) and calls both sync functions
+    for each; something external must hit this route on a schedule (see
+    DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
+    setup). It's protected by a `CRON_SECRET`-checked bearer token, since
+    unlike `/api/health` it both writes data and sends push notifications;
+    an unset `CRON_SECRET` fails closed (every run is a logged `401`), so it
+    must be configured in production before the route is deployed.
+    `getActiveNotifications` itself is now a pure read (`prisma.notification.findMany`
+    only) with no side effects. **User-facing effect:** a new
+    meal-not-logged or expiring-soon notification now appears with a delay
+    of up to the cron interval (up to 24 hours on Vercel Hobby's daily
+    schedule, 15 minutes on the suggested Railway/Render schedule), rather
+    than instantly the next time someone opens the bell. Out-of-stock and
+    list-cleared alerts are unaffected: they're still created synchronously
+    by the action that causes them.
+  - **Failure isolation and bounded concurrency**: households are synced
+    ten at a time (`BATCH_SIZE`), not all at once, so in-flight queries
+    don't grow with the household count and exhaust the Prisma pool. Each
+    household's two syncs, and the households within a batch, are settled
+    independently (`Promise.allSettled`), so one failing household (or one
+    failing sync within it) never stops the others, and the route never
+    responds while any sync is still in flight. Each failure is logged with
+    its household id. The response is always `200` once the household list
+    was read, with `{ status: "ok" | "partial_failure", householdsSynced,
+    householdsFailed, failedHouseholdIds }`; only a failure to list
+    households returns `500 { status: "error" }`. Error details never go in
+    the response body.
 - All three triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
@@ -2138,8 +2169,9 @@ dismissing a second out-of-stock alert while already on
 - **Where it's computed**: `src/app/dashboard/layout.tsx` — the one place
   that already calls `getDictionary()`/`getLocale()` for the whole dashboard
   shell — also calls `getActiveNotifications(household.id)` once per request
-  and passes the resulting list down into both `Sidebar` and `BottomNav` as a
-  `notifications` prop, the same pattern used for `dict`/`locale`.
+  (a pure read, no syncing — see above) and passes the resulting list down
+  into both `Sidebar` and `BottomNav` as a `notifications` prop, the same
+  pattern used for `dict`/`locale`.
 - **UI**: `src/components/notifications/notification-bell.tsx` exports two
   presentational shapes sharing one alert-list renderer: `NotificationBell`
   (a standalone `DropdownMenu` for the sidebar, styled like the theme/language
@@ -2168,12 +2200,9 @@ than deleting it), just never queried without that filter until now.
 `getNotificationHistory` (`src/lib/notifications.ts`) fetches up to 200 rows
 regardless of `dismissedAt` and maps them through the same row→item logic
 `getActiveNotifications` uses (extracted into `toNotificationItem`), plus
-each row's `createdAt`/`dismissedAt`. It deliberately doesn't re-run the
-lazy meal-not-logged/expiring-soon syncs itself — this page is still nested
-under `dashboard/layout.tsx`, whose own `getActiveNotifications` call
-already syncs them once per request; syncing a second time here could race
-it and (for `EXPIRING_SOON`, whose dedup is an application-level check, not
-a DB constraint) create duplicate rows for the same item.
+each row's `createdAt`/`dismissedAt`. It doesn't sync the meal-not-logged/
+expiring-soon triggers itself — neither does anything else on the read
+path anymore; that's `/api/cron/sync-notifications`' job (see above).
 `NotificationsHistory` (`src/components/notifications/notifications-history.tsx`,
 a Client Component) renders the list — an unread (undismissed) row gets a
 tinted background and a small dot, reusing the bell's own
@@ -2228,15 +2257,19 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   fails-gracefully pattern as `RESEND_API_KEY` in `src/lib/email.ts`.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
-    household. It's called from the **exact same two triggers** as the
-    in-app notification bell above — `recordOutOfStockTransition` and
-    `syncMealNotLoggedNotifications` in `src/lib/notifications.ts` — nothing
-    else sends a push. Both call sites fire it without awaiting (`void
-    sendPushToHousehold(...)`) since some of them run inside a Prisma
-    `$transaction`, and holding that open for a network call isn't worth
-    it — Push API delivery has no delivery guarantee either way, so losing
-    a send if the surrounding write later rolls back is an acceptable
-    trade. A 404/410 response (the browser revoked/expired that
+    household. It's called from the same triggers as the in-app
+    notification bell above (`recordOutOfStockTransition`,
+    `recordListClearedTransition`, `syncMealNotLoggedNotifications` and
+    `syncExpiringSoonNotifications` in `src/lib/notifications.ts`), and
+    nothing else sends a push. The two action-driven triggers fire it
+    without awaiting (`void sendPushToHousehold(...)`) since some of their
+    call sites run inside a Prisma `$transaction`, and holding that open for
+    a network call isn't worth it — Push API delivery has no delivery
+    guarantee either way, so losing a send if the surrounding write later
+    rolls back is an acceptable trade. The two cron-driven syncs **await**
+    it instead: they have no surrounding transaction, and the cron route
+    responds as soon as they resolve, at which point a serverless platform
+    may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
     retrying it; any other error is just logged.
   - **Showing it**: `src/lib/service-worker.js` only implements two

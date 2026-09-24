@@ -16,11 +16,19 @@
 //   findOrCreateInventoryItem, createInventoryItemFromShoppingListItemAction)
 //   — those items often start at quantity 0, which is not a depletion event.
 // - Meal not logged: a past MealPlanEntry whose `consumedAt` is still null —
-//   synced lazily in `syncMealNotLoggedNotifications` below (no background
-//   job) whenever the bell's contents are fetched.
+//   synced by `syncMealNotLoggedNotifications` below, run for every
+//   household by the `/api/cron/sync-notifications` route (see that route's
+//   file) on a schedule, not on the read path. It used to run inline inside
+//   `getActiveNotifications` on every bell fetch, which meant opening the
+//   bell could trigger an unbounded number of writes and push sends on what
+//   should've been a pure read. User-facing effect of the change: a new
+//   alert now appears with a delay of up to the cron interval (see
+//   DEPLOYMENT.md's "Scheduled jobs" section) instead of instantly on the
+//   next bell-open.
 // - Expiring soon: an in-stock InventoryItem with `expiresAt` set, within
-//   EXPIRY_WARNING_DAYS of that date or already past it — synced lazily in
-//   `syncExpiringSoonNotifications` below, the same way meal-not-logged is.
+//   EXPIRY_WARNING_DAYS of that date or already past it — synced by
+//   `syncExpiringSoonNotifications` below, on the same cron schedule as
+//   meal-not-logged.
 // - List cleared (good news): a ShoppingList's unpurchased item count
 //   crossing from >0 to 0 — see `recordListClearedTransition`, called from
 //   togglePurchasedAction and deleteShoppingListItemAction (and their
@@ -153,14 +161,11 @@ const notificationRowInclude = {
 
 // Every notification ever recorded for the household, dismissed or not — the
 // notification center page's data source (see
-// src/app/dashboard/notifications/page.tsx). Deliberately doesn't sync the
-// lazy background kinds itself (unlike getActiveNotifications): this page
-// lives under dashboard/layout.tsx same as everything else, so that layout's
-// own getActiveNotifications call already syncs them once per request — a
-// second, concurrent sync call here could race it and (for EXPIRING_SOON,
-// whose dedup is an application-level check rather than a DB constraint)
-// create duplicate rows for the same item. Capped at 200 rows — a household
-// generating more than that is not a case worth paginating for yet.
+// src/app/dashboard/notifications/page.tsx). Doesn't sync the background
+// kinds itself — that's the `/api/cron/sync-notifications` route's job now,
+// not any page's read path (see this file's top doc comment). Capped at 200
+// rows — a household generating more than that is not a case worth
+// paginating for yet.
 export async function getNotificationHistory(householdId: string): Promise<NotificationHistoryItem[]> {
   const rows = await prisma.notification.findMany({
     where: { householdId },
@@ -266,7 +271,11 @@ export async function recordListClearedTransition(
 // the create idempotent (a concurrent request racing this same sync is a
 // no-op via P2002), and guarantees each entry only ever gets one reminder,
 // dismissed or not.
-async function syncMealNotLoggedNotifications(householdId: string): Promise<void> {
+//
+// Exported for `/api/cron/sync-notifications` (the only caller — see this
+// file's top doc comment for why this isn't run from getActiveNotifications
+// on the read path anymore).
+export async function syncMealNotLoggedNotifications(householdId: string): Promise<void> {
   const today = new Date(toDateKey(new Date()));
 
   const candidates = await prisma.mealPlanEntry.findMany({
@@ -281,28 +290,34 @@ async function syncMealNotLoggedNotifications(householdId: string): Promise<void
   if (candidates.length === 0) return;
 
   await Promise.all(
-    candidates.map((entry) =>
-      prisma.notification
-        .create({
+    candidates.map(async (entry) => {
+      try {
+        await prisma.notification.create({
           data: { householdId, kind: "MEAL_NOT_LOGGED", mealPlanEntryId: entry.id },
-        })
-        .then(() => {
-          // Fire-and-forget — see recordOutOfStockTransition's matching
-          // comment above and sendPushToHousehold's doc comment in
-          // src/lib/push.ts.
-          const name = entry.recipe?.name ?? entry.freeformName ?? "";
-          void sendPushToHousehold(householdId, {
-            title: "Did you forget to log a meal?",
-            body: name || "A planned meal was never marked as cooked",
-            url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(entry.date))}`,
-          });
-        })
-        .catch((error) => {
-          // P2002: another concurrent sync already created it — fine, ignore.
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
-          throw error;
-        }),
-    ),
+        });
+      } catch (error) {
+        // P2002: another concurrent sync already created it — fine, ignore.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
+        throw error;
+      }
+
+      // Awaited — unlike recordOutOfStockTransition/recordListClearedTransition
+      // (which fire-and-forget because some of their callers run inside a
+      // Prisma $transaction; see sendPushToHousehold's doc comment in
+      // src/lib/push.ts), this function only ever runs from
+      // `/api/cron/sync-notifications`, outside any transaction. A Route
+      // Handler's response is sent as soon as its GET resolves, and the
+      // underlying serverless invocation can be frozen/killed right after —
+      // an un-awaited push here could simply never go out. Awaiting it
+      // costs nothing (there's no transaction to hold open) and guarantees
+      // the send is attempted before the cron run reports success.
+      const name = entry.recipe?.name ?? entry.freeformName ?? "";
+      await sendPushToHousehold(householdId, {
+        title: "Did you forget to log a meal?",
+        body: name || "A planned meal was never marked as cooked",
+        url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(entry.date))}`,
+      });
+    }),
   );
 }
 
@@ -313,7 +328,11 @@ async function syncMealNotLoggedNotifications(householdId: string): Promise<void
 // legitimately be re-stocked with a new expiry date after an old alert was
 // dismissed, and a unique constraint on `inventoryItemId` would then block
 // the new one from ever being created.
-async function syncExpiringSoonNotifications(householdId: string): Promise<void> {
+//
+// Exported for `/api/cron/sync-notifications` (the only caller — see this
+// file's top doc comment for why this isn't run from getActiveNotifications
+// on the read path anymore).
+export async function syncExpiringSoonNotifications(householdId: string): Promise<void> {
   const threshold = new Date(Date.now() + EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000);
 
   const candidates = await prisma.inventoryItem.findMany({
@@ -341,27 +360,30 @@ async function syncExpiringSoonNotifications(householdId: string): Promise<void>
   if (toAlert.length === 0) return;
 
   await Promise.all(
-    toAlert.map((item) =>
-      prisma.notification
-        .create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } })
-        .then(() => {
-          // Fire-and-forget — see recordOutOfStockTransition's matching
-          // comment above and sendPushToHousehold's doc comment in
-          // src/lib/push.ts.
-          void sendPushToHousehold(householdId, {
-            title: "Expiring soon",
-            body: `${item.name} is expiring soon`,
-            url: "/dashboard/inventory",
-          });
-        }),
-    ),
+    toAlert.map(async (item) => {
+      await prisma.notification.create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } });
+
+      // Awaited, not fire-and-forget — see syncMealNotLoggedNotifications's
+      // matching comment above: this function only ever runs from
+      // `/api/cron/sync-notifications`, outside any transaction, so there's
+      // no reason not to wait for the send before the cron run reports
+      // success (and every reason to, since a Route Handler's underlying
+      // invocation can be frozen/killed right after the response is sent).
+      await sendPushToHousehold(householdId, {
+        title: "Expiring soon",
+        body: `${item.name} is expiring soon`,
+        url: "/dashboard/inventory",
+      });
+    }),
   );
 }
 
+// The bell's data source (src/app/dashboard/layout.tsx) — a pure read, no
+// writes or push sends. The MEAL_NOT_LOGGED/EXPIRING_SOON background syncs
+// that used to run inline here on every call now run only from
+// `/api/cron/sync-notifications` on a schedule; see this file's top doc
+// comment for why, including the resulting user-facing delay.
 export async function getActiveNotifications(householdId: string): Promise<NotificationItem[]> {
-  await syncMealNotLoggedNotifications(householdId);
-  await syncExpiringSoonNotifications(householdId);
-
   const rows = await prisma.notification.findMany({
     where: { householdId, dismissedAt: null },
     orderBy: { createdAt: "desc" },

@@ -28,13 +28,22 @@ type PushPayload = {
 };
 
 // Best-effort fan-out to every push subscription belonging to the
-// household's members. Never throws: callers (recordOutOfStockTransition,
-// syncMealNotLoggedNotifications in src/lib/notifications.ts) fire this
-// without awaiting it, since some of their call sites run inside a Prisma
-// $transaction and awaiting a network call there would hold the transaction
-// open. Push delivery has no guarantee from the Push API itself either way,
-// so losing a send if the surrounding write later rolls back is an
-// acceptable trade for not blocking on network I/O mid-transaction.
+// household's members. Never throws.
+//
+// recordOutOfStockTransition/recordListClearedTransition (src/lib/notifications.ts)
+// fire this without awaiting it, since some of their call sites run inside a
+// Prisma $transaction and awaiting a network call there would hold the
+// transaction open. Push delivery has no guarantee from the Push API itself
+// either way, so losing a send if the surrounding write later rolls back is
+// an acceptable trade for not blocking on network I/O mid-transaction.
+//
+// syncMealNotLoggedNotifications/syncExpiringSoonNotifications (also in
+// notifications.ts), by contrast, DO await this — they only ever run from
+// `/api/cron/sync-notifications`, never inside a transaction, so there's no
+// transaction to hold open, and awaiting is what guarantees the send is
+// attempted before that Route Handler's response goes out (a serverless
+// invocation can be frozen/killed right after the response is sent, which
+// would otherwise silently drop an in-flight fire-and-forget send).
 //
 // `excludeUserId`, when given, drops that user's own subscriptions from the
 // fan-out — by product decision, the household member who just performed
