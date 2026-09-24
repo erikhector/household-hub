@@ -33,6 +33,7 @@ export function ItemFormDialog({
   dict,
   barcodeDict,
   trigger,
+  aiCategoryFallbackEnabled = false,
 }: {
   mode: "create" | "edit";
   item?: InventoryItemRow;
@@ -46,6 +47,11 @@ export function ItemFormDialog({
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
   trigger: ReactElement;
+  /** AUTO-2b(a): whether a Gemini/Anthropic key is configured, so the
+   * create-mode category hint can disclose the AI fallback — never shown
+   * on a deployment where it can't actually run (see AiShelfScanDialog's
+   * own "configured" prop for the same gating pattern). */
+  aiCategoryFallbackEnabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -170,7 +176,11 @@ export function ItemFormDialog({
                 maxLength={60}
                 dict={dict}
               />
-              {mode === "create" && <p className="text-xs text-muted-foreground">{dict.categoryHint}</p>}
+              {mode === "create" && (
+                <p className="text-xs text-muted-foreground">
+                  {dict.categoryHint} {aiCategoryFallbackEnabled && dict.categoryHintAi}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="location">{dict.locationLabel}</Label>

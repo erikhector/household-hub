@@ -103,4 +103,11 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     purpose: "Remembers your chosen colour theme (light, dark or system).",
     duration: "Until you clear site data",
   },
+  {
+    name: "mealPlanning.useItUpDismissed",
+    kind: "localStorage",
+    category: "preference",
+    purpose: 'Remembers which "use it up" recipe suggestions you\'ve dismissed on the Recipes tab.',
+    duration: "Until you clear site data",
+  },
 ];

@@ -11,6 +11,7 @@ import type {
   CookableRecipeData,
   MealPlanEntryData,
   RecipeData,
+  UseItUpSuggestionData,
 } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -24,6 +25,7 @@ export function MealPlanningView({
   activeShoppingLists,
   varietyCount,
   cookableRecipes,
+  useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
 }: {
@@ -34,6 +36,7 @@ export function MealPlanningView({
   activeShoppingLists: ActiveShoppingListOption[];
   varietyCount: number;
   cookableRecipes: CookableRecipeData[];
+  useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
 }) {
@@ -68,6 +71,7 @@ export function MealPlanningView({
         <RecipeManager
           dict={dict}
           recipes={recipes}
+          useItUpSuggestions={useItUpSuggestions}
           ingredientNames={ingredientNames}
           ingredientUnits={ingredientUnits}
         />

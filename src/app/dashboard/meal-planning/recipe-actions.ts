@@ -9,7 +9,7 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
-import { createCategoryResolver } from "@/lib/inventory/category-resolver";
+import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -84,8 +84,14 @@ async function parseIngredientRows(
   // needs creating.
   const resolveCategory = createCategoryResolver(householdId);
   const categoryByName = new Map<string, string>();
+  // AUTO-2b(a): names neither tier recognized go to the optional AI
+  // fallback once they've been created below, same as every other
+  // InventoryItem create path.
+  const aiCandidates: string[] = [];
   for (const name of namesToCreate) {
-    categoryByName.set(name, (await resolveCategory(name)) || "Uncategorized");
+    const guessed = await resolveCategory(name);
+    if (!guessed) aiCandidates.push(name);
+    categoryByName.set(name, guessed || "Uncategorized");
   }
 
   const createdItems =
@@ -100,6 +106,9 @@ async function parseIngredientRows(
           })),
         })
       : [];
+  // The rows are committed by now, so the background patch can't race their
+  // creation. A no-op when no AI provider key is configured.
+  if (aiCandidates.length > 0) scheduleAiCategoryFallback(householdId, aiCandidates);
   const itemByLowerName = new Map(
     [...existingItems, ...createdItems].map((item) => [item.name.toLowerCase(), item]),
   );

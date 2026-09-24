@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.7.2",
+    "date": "2026-09-24",
+    "pr": 21,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Reminders about food that's about to expire and meals you forgot to mark as cooked are now checked once a day in the background, instead of every time you open the notification bell. That means a new reminder can take up to 24 hours to show up. Out-of-stock and \"shopping list done\" notifications aren't affected and still appear right away.",
+      "sv": "Påminnelser om mat som snart går ut och måltider du glömt att markera som lagade kontrolleras nu en gång om dagen i bakgrunden, i stället för varje gång du öppnar aviseringsklockan. Det betyder att en ny påminnelse kan ta upp till 24 timmar att dyka upp. Aviseringar om att något är slut i lager eller att inköpslistan är klar påverkas inte och visas fortfarande direkt."
+    }
+  },
+  {
+    "version": "0.7.1",
+    "date": "2026-09-24",
+    "pr": 26,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "\"Use it up\" suggestions no longer miss an expiring item when an empty item with the same name exists.",
+      "sv": "Förslagen under \"Använd det du har\" missar inte längre en vara som snart går ut när det finns en tom vara med samma namn."
+    }
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-09-24",
+    "pr": 17,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New items you add can now be categorized automatically using AI, when configured, if nothing else recognizes them.",
+      "sv": "Nya varor du lägger till kan nu kategoriseras automatiskt med AI, när det är aktiverat, om inget annat känner igen dem."
+    }
+  },
+  {
+    "version": "0.6.0",
+    "date": "2026-09-24",
+    "pr": 24,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes tab now nudges you toward using ingredients before they expire or run low — a dismissible \"use it up\" suggestion shows which of your recipes would help.",
+      "sv": "Fliken Recept ger nu en påminnelse om att använda ingredienser innan de går ut eller börjar ta slut — ett avvisningsbart förslag visar vilka recept som hjälper till."
+    }
+  },
+  {
     "version": "0.5.0",
     "date": "2026-09-24",
     "pr": 18,

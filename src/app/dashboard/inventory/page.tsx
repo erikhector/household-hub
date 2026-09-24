@@ -14,6 +14,7 @@ import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-
 import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { getUserPreferences } from "@/lib/preferences";
+import { isAiCategoryFallbackConfigured } from "@/lib/inventory/ai-category-fallback";
 
 // Vercel caps a Server Action's own runtime well below a Route Handler's
 // (15s by default, regardless of function region/plan) — too tight for
@@ -143,6 +144,7 @@ async function InventoryActionButtons({
         units={units}
         dict={dict}
         barcodeDict={barcodeDict}
+        aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
         trigger={
           <Button className="gap-1.5">
             <Plus className="size-4" />
@@ -201,6 +203,7 @@ async function InventoryTable({
       barcodeDict={barcodeDict}
       initialStatus={initialStatus}
       initialViewPrefs={initialViewPrefs}
+      aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
     />
   );
 }
