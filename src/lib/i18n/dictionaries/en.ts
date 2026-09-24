@@ -305,6 +305,10 @@ export const en = {
     clearedDescription: "Everything on this list is checked off or gone.",
     clearedDismissAriaLabel: "Dismiss",
     purchased: "Purchased",
+    // Shopping mode (AUTO-3): the header for pending items whose linked
+    // inventory item has no category, or is still sitting in the
+    // "Uncategorized" placeholder — see groupPendingItemsByCategory.
+    otherCategory: "Other",
     lowStockBadge: "Low stock",
     expenseLogged: "Logged {amount} to your Groceries budget",
     expenseDescription: 'From "{name}"',

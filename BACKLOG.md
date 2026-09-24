@@ -89,9 +89,9 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-3, AUTO-4 and AUTO-5 all edit
+AUTO-2b (c), AUTO-4 and AUTO-5 all edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (both touch
+in one branch. SCALE-F conflicts with SCALE-J (both touch
 `src/app/dashboard/budget/page.tsx`).
 
 ### Shopping list & inventory automation
@@ -115,29 +115,9 @@ in one branch. AUTO-2b (c) belongs with AUTO-3. SCALE-F conflicts with SCALE-J (
       SCALE-B/SCALE-D batch those lookups, so it doesn't add a query per
       ingredient.
       (c) **Tappable category chip on shopping-list rows**, to correct a
-      guess in place. Build it with AUTO-3, which adds the category to each
-      row.
-
-- [ ] **AUTO-3. Shopping mode: group the list by category**
-      — `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** a flat list in insertion order means zig-zagging the
-      store. Every major competitor groups by aisle/section.
-      **Design brief:** pending items grouped under category headers (the
-      linked inventory item's category), purchased items still collapse
-      into the "Purchased" section below. Larger tap targets on rows while
-      the list is `ACTIVE`, and the whole row (not just the checkbox) toggles
-      purchased. Keep the screen awake while a list is open on a phone
-      (Screen Wake Lock API, feature-detected, silently skipped where
-      unsupported — no permission prompt involved). Group order in this
-      wave is a fixed sensible default (produce → bakery → dairy → meat →
-      dry goods → frozen → household → other; `AUTO_CATEGORY_KEYS` in
-      `src/lib/inventory/auto-category.ts` is already in that order);
-      AUTO-9 makes it learn.
-      **Dev notes:** needs the linked `InventoryItem.category` on each row
-      — extend the `[id]/page.tsx` query's `include`. Grouping/sort is a pure
-      helper with a unit test. Items without a category group under
-      "Other" at the end. Wake Lock stores nothing, so no cookie-inventory
-      entry needed.
+      guess in place. The category is already on each row (AUTO-3's
+      `ShoppingListItemRow.category`, sourced from the linked
+      `InventoryItem`) — this just needs the chip UI to edit it there.
 
 - [ ] **AUTO-4. Prices fill themselves in**
       — `src/app/dashboard/shopping-list/actions.ts`,

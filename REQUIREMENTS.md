@@ -301,6 +301,31 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   purchased amount (and records a `PriceHistory` row if an estimated price
   was given); un-marking it reverses the increment. The dashboard overview
   card sums pending items across every `ACTIVE` list, not just one.
+- **Shopping mode (AUTO-3)** — the detail page groups pending items by their
+  linked `InventoryItem`'s category instead of insertion order, so a shop
+  doesn't mean zig-zagging the store. `groupPendingItemsByCategory`
+  (`src/lib/shopping/shopping-mode-grouping.ts`, unit-tested) sorts groups
+  produce → bakery → dairy → meat → pantry → frozen → drinks → cleaning →
+  bathroom — `AUTO_CATEGORY_KEYS`' own order (auto-category.ts) — matching a
+  category stored in either locale to the same group (a household that
+  auto-filed some items in English and some in Swedish still gets one
+  "Dairy & eggs" group, not two). A household's own custom category text
+  sorts after the known ones, alphabetically; items with no linked item, a
+  blank category, or still sitting in the "Uncategorized" placeholder
+  collect under "Other" at the end. Only categories actually present get a
+  header. This wave's order is fixed; AUTO-9 will let it learn a
+  household's own store layout. Purchased items are unaffected — they still
+  collapse into the flat "Purchased" section below.
+  While the list is `ACTIVE`, rows get a larger touch target (more
+  vertical padding, a bigger checkbox) and the whole row — not just the
+  checkbox — toggles purchased, via the row's existing `<label>`/`<input>`
+  pairing rather than a new click handler, so keyboard and screen-reader
+  behavior is unchanged. `useScreenWakeLock`
+  (`src/lib/shopping/use-screen-wake-lock.ts`) also requests a Screen Wake
+  Lock while the list is `ACTIVE` and the tab is visible, so a phone's
+  screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
+  silently does nothing if it's unsupported or the request fails — no
+  permission prompt, and nothing stored in the browser.
 - **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
