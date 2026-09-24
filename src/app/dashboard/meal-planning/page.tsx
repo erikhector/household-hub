@@ -82,11 +82,16 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   // rather than by "almost everything on hand," so a recipe can appear here
   // while still missing plenty of other ingredients. Reuses the same
   // `inventoryItems` fetch already loaded for the ingredient autocomplete
-  // instead of a separate query.
+  // instead of a separate query. `quantity` is passed through (not folded
+  // into the pre-filter below) so computeUseItUpSuggestions' reasonFor can
+  // gate out zero-quantity items — see its comment for why that gate matters
+  // (an ingredient auto-created at quantity 0 is always "out," which is
+  // backwards for a "use it up" suggestion).
   const flaggedInventoryItems: FlaggedInventoryItem[] = inventoryItems
     .map((item) => ({
       id: item.id,
       name: item.name,
+      quantity: item.quantity,
       expiryStatus: getExpiryStatus(item.expiresAt, now.getTime()),
       stockStatus: getStockStatus(item.quantity, item.lowStockThreshold),
     }))

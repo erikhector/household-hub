@@ -1572,23 +1572,41 @@ computed by `computeUseItUpSuggestions`
   item worth working into tonight's cooking. It never creates a `MealPlan`
   entry or writes to `InventoryItem` — a suggestion only ever links out to
   the recipe already sitting in the same tab (BACKLOG.md's Guardrails).
-- **What counts as "worth using up"**: an `InventoryItem` whose
-  `getExpiryStatus` (`src/lib/inventory/expiry.ts`) is `"expired"` or
-  `"soon"`, or whose `getStockStatus` (`src/lib/stock-status.ts`) is `"low"`
-  or `"out"` — the same two predicates the inventory table and notification
-  center already use, computed once in `page.tsx` from the same
-  `inventoryItem.findMany` already fetched for the ingredient-name
-  autocomplete rather than a second query. An item that's both expiring and
-  low is reported as `"expiring"` — the more urgent framing.
+- **What counts as "worth using up"**: an `InventoryItem` with `quantity > 0`
+  (see below) whose `getExpiryStatus` (`src/lib/inventory/expiry.ts`) is
+  `"expired"` or `"soon"`, or whose `getStockStatus`
+  (`src/lib/stock-status.ts`) is `"low"` — the same two predicates the
+  inventory table and notification center already use, computed once in
+  `page.tsx` from the same `inventoryItem.findMany` already fetched for the
+  ingredient-name autocomplete rather than a second query. An item that's
+  both expiring and low is reported as `"expiring"` — the more urgent
+  framing.
+- **Zero-quantity gate**: `reasonFor` (`use-it-up-calc.ts`) excludes any item
+  at `quantity <= 0` from *both* reasons — you can't "use up" something you
+  already have none of; that gap belongs to the shopping-list bridge, not
+  this feature. This matters in practice, not just in theory: every
+  ingredient auto-created via `parseIngredientRows`/
+  `addMissingIngredientsToShoppingListAction` starts at `quantity: 0,
+  lowStockThreshold: 0` (see "Ingredient → inventory linking" above), which
+  makes `getStockStatus` report it as `"out"` from the moment it's created.
+  Without this gate almost any recipe with a freshly-added ingredient would
+  misleadingly surface a suggestion (caught in PR #24 review before merge).
 - **Matching ingredients to inventory**: prefers each `RecipeIngredient`'s
   linked `inventoryItemId`, falling back to a case-insensitive name match —
   the same loose-match fallback `getCookableRecipes` uses for an ingredient
   whose link was cleared by a since-deleted inventory item (`onDelete:
   SetNull`). A recipe's match count is deduplicated by matched item id, so
   the same ingredient listed twice doesn't inflate it.
-- **Ranking**: sorted by match count descending, then recipe name, capped at
-  5 suggestions — the same "keep it short and actionable" reasoning as
-  `MAX_MISSING_TO_SURFACE` in cookable-recipes.ts.
+- **Ranking**: sorted by match count descending, then — on a tie — a
+  suggestion with an expiring-reason match ahead of one that's low-stock-only
+  (using up something already low makes it run out even sooner, so it's the
+  less urgent of the two on equal footing), then recipe name, capped at 5
+  suggestions — the same "keep it short and actionable" reasoning as
+  `MAX_MISSING_TO_SURFACE` in cookable-recipes.ts. **Product call (PR #24
+  review)**: low-stock stays as a first-class reason rather than being
+  dropped — a slowly-dwindling item is a legitimate signal, not just noise —
+  but this expiring-first tie-break keeps the more urgent framing on top
+  when both apply.
 - **Chip wording**: reason-specific ("uses N things expiring soon" / "…
   running low") when every match in a suggestion agrees, a neutral "expiring
   soon or running low" phrasing when a suggestion mixes both.

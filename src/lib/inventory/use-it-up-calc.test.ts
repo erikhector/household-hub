@@ -9,11 +9,18 @@ function recipe(overrides: Partial<RecipeForUseItUp>): RecipeForUseItUp {
   return { recipeId: "r1", recipeName: "Recipe", ingredients: [], ...overrides };
 }
 
+// Defaults to quantity 1 (comfortably "on hand") so each test only has to
+// spell out the fields it's actually exercising — the quantity-gating tests
+// below override it explicitly.
+function item(
+  overrides: Partial<FlaggedInventoryItem> & Pick<FlaggedInventoryItem, "id" | "name">,
+): FlaggedInventoryItem {
+  return { quantity: 1, expiryStatus: null, stockStatus: "in", ...overrides };
+}
+
 describe("computeUseItUpSuggestions", () => {
   it("surfaces a recipe whose linked ingredient is expiring soon", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Chicken breast", expiryStatus: "soon", stockStatus: "in" },
-    ];
+    const flagged = [item({ id: "i1", name: "Chicken breast", expiryStatus: "soon" })];
     const recipes = [
       recipe({
         recipeId: "r1",
@@ -31,10 +38,10 @@ describe("computeUseItUpSuggestions", () => {
     ]);
   });
 
-  it("surfaces a recipe whose linked ingredient is low or out of stock", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Rice", expiryStatus: null, stockStatus: "low" },
-      { id: "i2", name: "Soy sauce", expiryStatus: null, stockStatus: "out" },
+  it("surfaces a recipe whose linked ingredient is low on stock", () => {
+    const flagged = [
+      item({ id: "i1", name: "Rice", stockStatus: "low" }),
+      item({ id: "i2", name: "Soy sauce", stockStatus: "low" }),
     ];
     const recipes = [
       recipe({
@@ -52,9 +59,7 @@ describe("computeUseItUpSuggestions", () => {
   });
 
   it("falls back to a case-insensitive name match when an ingredient has no linked item", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Milk", expiryStatus: "expired", stockStatus: "in" },
-    ];
+    const flagged = [item({ id: "i1", name: "Milk", expiryStatus: "expired" })];
     const recipes = [recipe({ ingredients: [{ name: "milk", inventoryItemId: null }] })];
 
     expect(computeUseItUpSuggestions(recipes, flagged)[0].matches).toEqual([
@@ -63,9 +68,7 @@ describe("computeUseItUpSuggestions", () => {
   });
 
   it("reports an item that is both expiring and low stock as expiring, the more urgent reason", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Eggs", expiryStatus: "soon", stockStatus: "low" },
-    ];
+    const flagged = [item({ id: "i1", name: "Eggs", expiryStatus: "soon", stockStatus: "low" })];
     const recipes = [recipe({ ingredients: [{ name: "Eggs", inventoryItemId: "i1" }] })];
 
     expect(computeUseItUpSuggestions(recipes, flagged)[0].matches).toEqual([
@@ -74,10 +77,38 @@ describe("computeUseItUpSuggestions", () => {
   });
 
   it("ignores an ingredient linked to an item that is neither expiring nor low", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Salt", expiryStatus: null, stockStatus: "in" },
-    ];
+    const flagged = [item({ id: "i1", name: "Salt" })];
     const recipes = [recipe({ ingredients: [{ name: "Salt", inventoryItemId: "i1" }] })];
+
+    expect(computeUseItUpSuggestions(recipes, flagged)).toEqual([]);
+  });
+
+  // Regression test for a review finding on PR #24: every ingredient
+  // auto-created via parseIngredientRows/addMissingIngredientsToShoppingListAction
+  // starts at quantity 0 (lowStockThreshold 0), which makes it "out" from the
+  // moment it's created — but you can't "use up" something you already have
+  // none of. Without this gate, almost any recipe with a freshly-added
+  // ingredient would misleadingly surface here.
+  it("excludes an expiring item that is at zero quantity", () => {
+    const flagged = [item({ id: "i1", name: "Cream", quantity: 0, expiryStatus: "expired" })];
+    const recipes = [recipe({ ingredients: [{ name: "Cream", inventoryItemId: "i1" }] })];
+
+    expect(computeUseItUpSuggestions(recipes, flagged)).toEqual([]);
+  });
+
+  it("excludes a low/out-of-stock item that is at zero quantity", () => {
+    const flagged = [
+      item({ id: "i1", name: "Flour", quantity: 0, stockStatus: "out" }),
+      item({ id: "i2", name: "Sugar", quantity: 0, stockStatus: "low" }),
+    ];
+    const recipes = [
+      recipe({
+        ingredients: [
+          { name: "Flour", inventoryItemId: "i1" },
+          { name: "Sugar", inventoryItemId: "i2" },
+        ],
+      }),
+    ];
 
     expect(computeUseItUpSuggestions(recipes, flagged)).toEqual([]);
   });
@@ -87,9 +118,7 @@ describe("computeUseItUpSuggestions", () => {
   });
 
   it("deduplicates a recipe that lists the same matched item across two ingredient rows", () => {
-    const flagged: FlaggedInventoryItem[] = [
-      { id: "i1", name: "Flour", expiryStatus: "soon", stockStatus: "in" },
-    ];
+    const flagged = [item({ id: "i1", name: "Flour", expiryStatus: "soon" })];
     const recipes = [
       recipe({
         ingredients: [
@@ -102,13 +131,28 @@ describe("computeUseItUpSuggestions", () => {
     expect(computeUseItUpSuggestions(recipes, flagged)[0].matches).toHaveLength(1);
   });
 
+  it("ranks an expiring-reason suggestion ahead of an equally-sized low-stock-only one", () => {
+    const flagged = [
+      item({ id: "i1", name: "Butter", stockStatus: "low" }),
+      item({ id: "i2", name: "Cream", expiryStatus: "soon" }),
+    ];
+    const recipes = [
+      recipe({ recipeId: "low-stock", recipeName: "Aaa low stock", ingredients: [{ name: "Butter", inventoryItemId: "i1" }] }),
+      recipe({ recipeId: "expiring", recipeName: "Zzz expiring", ingredients: [{ name: "Cream", inventoryItemId: "i2" }] }),
+    ];
+
+    // Both recipes have exactly one match, and "Aaa low stock" would sort
+    // first alphabetically — but the expiring reason takes priority on a
+    // tie (see computeUseItUpSuggestions' sort comment), so it comes first
+    // despite the name order.
+    const result = computeUseItUpSuggestions(recipes, flagged);
+    expect(result.map((r) => r.recipeId)).toEqual(["expiring", "low-stock"]);
+  });
+
   it("sorts by match count descending, then recipe name, and caps the list at 5", () => {
-    const flagged: FlaggedInventoryItem[] = Array.from({ length: 8 }, (_, i) => ({
-      id: `i${i}`,
-      name: `Item ${i}`,
-      expiryStatus: "soon" as const,
-      stockStatus: "in" as const,
-    }));
+    const flagged: FlaggedInventoryItem[] = Array.from({ length: 8 }, (_, i) =>
+      item({ id: `i${i}`, name: `Item ${i}`, expiryStatus: "soon" }),
+    );
 
     const recipes = [
       recipe({ recipeId: "one", recipeName: "One match", ingredients: [{ name: "Item 0", inventoryItemId: "i0" }] }),
