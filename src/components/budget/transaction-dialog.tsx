@@ -30,15 +30,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createTransactionAction, updateTransactionAction } from "@/app/dashboard/budget/actions";
 import { evenSplitAmounts } from "@/components/budget/split-amounts";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 
 export type RecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
+
+// Shared by both createTransactionAction/updateTransactionAction (household)
+// and createPersonalTransactionAction/updatePersonalTransactionAction
+// (personal) — injected as props (BUDGET-2) rather than imported directly,
+// since the two Prisma model families stay separate by design (see
+// docs/archive/PERSONAL_BUDGET_UNIFICATION.md §1).
+export type TransactionFormAction = (
+  prevState: ActionState,
+  formData: FormData,
+) => Promise<ActionState>;
 
 export type MemberOption = { id: string; displayName: string };
 
@@ -126,15 +135,20 @@ export function TransactionDialog({
   trigger,
   transaction,
   prefillFromTemplate,
+  createAction,
+  updateAction,
 }: {
-  dict: Dictionary["budget"];
+  dict: BudgetDict;
   categories: CategoryRow[];
   /** Every member of the active household — the split UI is only offered
    * (and rendered) when there's more than one, per the feature's scope
-   * ("for households with more than one member"). */
+   * ("for households with more than one member"). The personal budget page
+   * always passes `[]` (BUDGET-2), which suppresses the split section the
+   * same way a genuinely single-member household would. */
   members: MemberOption[];
   /** The signed-in user's own household member id, used to default "paid
-   * by" to themselves. */
+   * by" to themselves. The personal budget page passes `""` — never read,
+   * since `members` is always empty there too. */
   currentMemberId: string;
   /** "YYYY-MM" of the month currently being browsed (page.tsx's `?month=`) —
    * feeds a new transaction's default date (F11, see defaultDateForMonth).
@@ -144,6 +158,11 @@ export function TransactionDialog({
   trigger: ReactElement;
   transaction?: TransactionRow;
   prefillFromTemplate?: TransactionTemplatePrefill;
+  /** createTransactionAction/updateTransactionAction (household) or
+   * createPersonalTransactionAction/updatePersonalTransactionAction
+   * (personal) — see TransactionFormAction's doc comment. */
+  createAction: TransactionFormAction;
+  updateAction: TransactionFormAction;
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
@@ -176,7 +195,7 @@ export function TransactionDialog({
     prevState: ActionState,
     formData: FormData,
   ) => {
-    const action = isEdit ? updateTransactionAction : createTransactionAction;
+    const action = isEdit ? updateAction : createAction;
     const result = await action(prevState, formData);
     if (!result.error) {
       setOpen(false);
@@ -329,12 +348,12 @@ export function TransactionDialog({
                   checked={splitEnabled}
                   onChange={(e) => setSplitEnabled(e.target.checked)}
                 />
-                {dict.split.toggleLabel}
+                {dict.split?.toggleLabel}
               </label>
               {splitEnabled && (
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="tx-paid-by">{dict.split.paidByLabel}</Label>
+                    <Label htmlFor="tx-paid-by">{dict.split?.paidByLabel}</Label>
                     <Select
                       name="paidByMemberId"
                       value={paidByMemberId}
@@ -355,14 +374,14 @@ export function TransactionDialog({
                     </Select>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Label>{dict.split.sharesLabel}</Label>
+                    <Label>{dict.split?.sharesLabel}</Label>
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
                       onClick={() => resetToEvenSplit(amount)}
                     >
-                      {dict.split.splitEvenlyButton}
+                      {dict.split?.splitEvenlyButton}
                     </Button>
                   </div>
                   <div className="flex flex-col gap-2">
@@ -380,14 +399,14 @@ export function TransactionDialog({
                           onChange={(e) =>
                             setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
                           }
-                          aria-label={format(dict.split.amountAriaLabel, { name: m.displayName })}
+                          aria-label={format(dict.split?.amountAriaLabel ?? "", { name: m.displayName })}
                         />
                       </div>
                     ))}
                   </div>
                   {splitMismatch && (
                     <p className="text-xs text-destructive">
-                      {format(dict.split.mismatchWarning, {
+                      {format(dict.split?.mismatchWarning ?? "", {
                         total: splitTotal.toFixed(2),
                         amount: (Number(amount) || 0).toFixed(2),
                       })}

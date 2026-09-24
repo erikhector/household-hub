@@ -280,6 +280,16 @@ export const en = {
       confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
+    // AUTO-4: the header's running estimate and each row's tappable "≈
+    // price" / inline correction input.
+    estimatedTotal: "About {amount} left to spend",
+    addPriceLabel: "Add price",
+    editPriceAriaLabel: "Edit estimated price for {name}",
+    addPriceAriaLabel: "Add an estimated price for {name}",
+    priceInputAriaLabel: "Estimated price for {name}",
+    savePriceAriaLabel: "Save price",
+    cancelPriceAriaLabel: "Cancel editing price",
+    priceInvalid: "Enter a valid price",
     addItem: "Add item",
     addItemDialogTitle: "Add an item",
     smartAdd: {

@@ -193,9 +193,10 @@ describe("toggleItemViaShareTokenAction", () => {
       where: { id: "item-1" },
       data: { purchased: true },
     });
+    // AUTO-4: this purchase's price also becomes the item's lastKnownPrice.
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
-      data: { quantity: 5 },
+      data: { quantity: 5, lastKnownPrice: 25 },
     });
     expect(recordOutOfStockTransitionMock).toHaveBeenCalledWith(
       expect.anything(),

@@ -272,6 +272,16 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editItemAriaLabel: "Redigera {name}",
+    // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
+    // pris" / inline-korrigeringsfält.
+    estimatedTotal: "Cirka {amount} kvar att spendera",
+    addPriceLabel: "Lägg till pris",
+    editPriceAriaLabel: "Redigera uppskattat pris för {name}",
+    addPriceAriaLabel: "Lägg till ett uppskattat pris för {name}",
+    priceInputAriaLabel: "Uppskattat pris för {name}",
+    savePriceAriaLabel: "Spara pris",
+    cancelPriceAriaLabel: "Avbryt prisredigering",
+    priceInvalid: "Ange ett giltigt pris",
     addItem: "Lägg till vara",
     addItemDialogTitle: "Lägg till en vara",
     smartAdd: {

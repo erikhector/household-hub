@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
+import { ArrowLeft, Archive, ArchiveRestore, Check, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExportButton } from "@/components/export/export-button";
@@ -23,13 +24,15 @@ import {
   generateFromLowStockAction,
   togglePurchasedAction,
   unarchiveShoppingListAction,
+  updateShoppingListItemPriceAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory } from "@/lib/shopping/shopping-mode-grouping";
+import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -52,6 +55,12 @@ type ShoppingListItemRow = {
   // null when there's no link yet. Drives shopping mode's grouping below;
   // otherwise unused.
   category: string | null;
+  // AUTO-4: defaulted from the linked InventoryItem's lastKnownPrice at
+  // creation (per-unit, unmultiplied by quantity — see the create paths in
+  // actions.ts), then only ever changed by an explicit correction via
+  // PriceTag below or an actual receipt price. null means no price is known
+  // yet — the row shows nothing rather than "≈ 0".
+  estimatedPrice: number | null;
 };
 
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
@@ -74,6 +83,7 @@ export function ShoppingListClient({
   dict,
   barcodeDict,
   exportLabel,
+  locale,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -83,8 +93,16 @@ export function ShoppingListClient({
   dict: ShoppingListDict;
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
+  locale: Locale;
 }) {
   const [isPending, startTransition] = useTransition();
+  // Same convention as the budget page's amounts (SafeToSpend,
+  // TransactionList, …): locale-aware decimals, no currency symbol — there's
+  // no household-level currency setting, so a symbol would be a guess.
+  const numberFormat = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   const pendingItems = list.items.filter((item) => !item.purchased);
   const purchasedItems = list.items.filter((item) => item.purchased);
@@ -92,6 +110,10 @@ export function ShoppingListClient({
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory);
+  // AUTO-4: "what's left to buy is roughly going to cost" — see
+  // sumEstimatedPendingTotal's own doc comment for why this is pending-only
+  // and per-unit/unmultiplied.
+  const estimatedTotal = sumEstimatedPendingTotal(pendingItems);
 
   // AUTO-3: keep the screen on while there's an ACTIVE list open on a phone.
   useScreenWakeLock(isActive);
@@ -143,6 +165,13 @@ export function ShoppingListClient({
             <h1 className="font-heading text-2xl font-semibold tracking-tight">{list.name}</h1>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
+          {/* AUTO-4: hidden until at least one pending item has a price —
+              nothing to estimate yet otherwise. */}
+          {estimatedTotal > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {format(dict.estimatedTotal, { amount: numberFormat.format(estimatedTotal) })}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {isActive && (
@@ -320,6 +349,7 @@ export function ShoppingListClient({
                     categories={categories}
                     units={units}
                     dict={dict}
+                    numberFormat={numberFormat}
                   />
                 ))}
               </Fragment>
@@ -340,6 +370,7 @@ export function ShoppingListClient({
                 categories={categories}
                 units={units}
                 dict={dict}
+                numberFormat={numberFormat}
               />
             ))}
           </>
@@ -378,6 +409,7 @@ function ShoppingRow({
   categories,
   units,
   dict,
+  numberFormat,
 }: {
   item: ShoppingListItemRow;
   highlighted?: boolean;
@@ -388,6 +420,7 @@ function ShoppingRow({
   categories: string[];
   units: string[];
   dict: ShoppingListDict;
+  numberFormat: Intl.NumberFormat;
 }) {
   const needsMapping = item.inventoryItemId === null;
 
@@ -453,44 +486,52 @@ function ShoppingRow({
             </Badge>
           )}
         </label>
-        {editable && (
-          <div className="flex shrink-0 items-center gap-1">
-            <ShoppingItemFormDialog
-              mode="edit"
-              item={item}
-              inventoryItems={inventoryItems}
-              categories={categories}
-              units={units}
-              dict={dict}
-              editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
-              matchItemLabel={dict.matchItemButton}
-            />
-            <ConfirmDialog
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  disabled={isPending}
-                  aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              }
-              title={format(dict.confirmDeleteItem.title, { name: item.name })}
-              description={dict.confirmDeleteItem.description}
-              cancelLabel={dict.confirmDeleteItem.cancel}
-              confirmLabel={dict.confirmDeleteItem.confirm}
-              pendingLabel={dict.confirmDeleteItem.confirming}
-              onConfirm={() =>
-                startTransition(async () => {
-                  const result = await deleteShoppingListItemAction(item.id);
-                  if (result.error) toast.error(result.error);
-                })
-              }
-            />
-          </div>
-        )}
+        {/* Outside the label on purpose (AUTO-4) — anything inside it would
+            also toggle the checkbox on tap, since Checkbox is a native
+            <input> the label is already wired to. Rendered even on a
+            non-editable (view-only) row, just without the tap-to-correct
+            affordance, since the estimate itself is still worth showing. */}
+        <div className="flex shrink-0 items-center gap-1">
+          <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} />
+          {editable && (
+            <>
+              <ShoppingItemFormDialog
+                mode="edit"
+                item={item}
+                inventoryItems={inventoryItems}
+                categories={categories}
+                units={units}
+                dict={dict}
+                editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
+                matchItemLabel={dict.matchItemButton}
+              />
+              <ConfirmDialog
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    disabled={isPending}
+                    aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                }
+                title={format(dict.confirmDeleteItem.title, { name: item.name })}
+                description={dict.confirmDeleteItem.description}
+                cancelLabel={dict.confirmDeleteItem.cancel}
+                confirmLabel={dict.confirmDeleteItem.confirm}
+                pendingLabel={dict.confirmDeleteItem.confirming}
+                onConfirm={() =>
+                  startTransition(async () => {
+                    const result = await deleteShoppingListItemAction(item.id);
+                    if (result.error) toast.error(result.error);
+                  })
+                }
+              />
+            </>
+          )}
+        </div>
       </div>
       {/* Persistent, always-visible explanation for as long as the item
           stays unlinked — the "Match item" badge above (in
@@ -502,5 +543,131 @@ function ShoppingRow({
         <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
       )}
     </div>
+  );
+}
+
+/**
+ * The row's "≈ 24 kr" (AUTO-4) — muted, tappable text that swaps for a
+ * small inline input on tap, following the same "tap a value to correct it
+ * in place" idea as, say, an inventory quantity stepper, just with no prior
+ * example of an inline-edited text field in this codebase to match exactly.
+ * A save round-trips through updateShoppingListItemPriceAction; until it
+ * resolves the input just sits there disabled rather than optimistically
+ * updating, since a bad round trip here would otherwise show a corrected
+ * price that didn't actually save.
+ *
+ * Read-only (not editable) rows still render the plain "≈ price" text when
+ * one is set — the estimate is informational even once a list is completed
+ * or archived — just without the tap affordance, matching every other
+ * per-row edit control's editable-only gating.
+ */
+function PriceTag({
+  item,
+  editable,
+  isPending,
+  startTransition,
+  numberFormat,
+  dict,
+}: {
+  item: ShoppingListItemRow;
+  editable: boolean;
+  isPending: boolean;
+  startTransition: (fn: () => void) => void;
+  numberFormat: Intl.NumberFormat;
+  dict: ShoppingListDict;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => (item.estimatedPrice != null ? String(item.estimatedPrice) : ""));
+
+  if (!editable) {
+    return item.estimatedPrice != null ? (
+      <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+        ≈ {numberFormat.format(item.estimatedPrice)}
+      </span>
+    ) : null;
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="shrink-0 rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums"
+        disabled={isPending}
+        onClick={() => {
+          setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");
+          setEditing(true);
+        }}
+        aria-label={
+          item.estimatedPrice != null
+            ? format(dict.editPriceAriaLabel, { name: item.name })
+            : format(dict.addPriceAriaLabel, { name: item.name })
+        }
+      >
+        {item.estimatedPrice != null ? `≈ ${numberFormat.format(item.estimatedPrice)}` : dict.addPriceLabel}
+      </button>
+    );
+  }
+
+  function save() {
+    const price = Number(draft.replace(",", "."));
+    if (draft.trim() === "" || !Number.isFinite(price) || price < 0) {
+      toast.error(dict.priceInvalid);
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateShoppingListItemPriceAction(item.id, price);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setEditing(false);
+    });
+  }
+
+  return (
+    <form
+      className="flex shrink-0 items-center gap-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <Input
+        type="number"
+        min={0}
+        step="any"
+        inputMode="decimal"
+        autoFocus
+        value={draft}
+        disabled={isPending}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="h-7 w-20 px-2 text-sm"
+        aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
+      />
+      <Button
+        type="submit"
+        size="icon"
+        variant="ghost"
+        className="size-7"
+        disabled={isPending}
+        aria-label={dict.savePriceAriaLabel}
+      >
+        <Check className="size-3.5" />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-7 text-muted-foreground"
+        disabled={isPending}
+        onClick={() => setEditing(false)}
+        aria-label={dict.cancelPriceAriaLabel}
+      >
+        <X className="size-3.5" />
+      </Button>
+    </form>
   );
 }
