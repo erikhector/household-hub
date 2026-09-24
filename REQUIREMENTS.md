@@ -272,8 +272,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Only a *blank* category is ever filled in: a typed or shared category
     always wins, and clearing a category on the edit form is respected, not
     re-guessed. Recipe-ingredient find-or-create
-    (`recipe-actions.ts`/`cooking-actions.ts`) still uses
-    `"Uncategorized"`. See BACKLOG.md AUTO-2b.
+    (`parseIngredientRows` in `recipe-actions.ts`, and the missing-ingredients
+    → shopping-list bridge in `cooking-actions.ts`) also runs every
+    newly-created ingredient through `createCategoryResolver`, falling back
+    to `"Uncategorized"` only when neither step recognizes the name — the
+    resolver's own lazy, memoized load means this costs one extra query for
+    the whole batch, not one per ingredient, matching SCALE-B/SCALE-D's
+    existing batching there (AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
@@ -854,15 +859,86 @@ unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
     re-authentication with the new password, since rotating a credential
     should invalidate the session that changed it.
 
-### Budget component unification (BUDGET-3)
+### Budget component unification
 
 `/dashboard/budget` (household) and `/dashboard/personal-budget` (personal)
-each render their own copy of several presentational components —
-`docs/archive/PERSONAL_BUDGET_UNIFICATION.md` is the design spike that
-scoped collapsing them into `BACKLOG.md`'s BUDGET-2 through BUDGET-5. This
-section documents BUDGET-3, which merges the `CategoryManager`/
-`AddCategoryDialog` pair (the other pairs are tracked separately and may
-land before or after this one).
+used to each render their own copy of the same ~10 presentational
+components (`TransactionDialog`/`PersonalTransactionDialog`,
+`TransactionList`/`PersonalTransactionList`, etc.) — file-for-file
+duplicates that had already started drifting (a Wave-1 UI fix landing on
+one side and not the other). `docs/archive/PERSONAL_BUDGET_UNIFICATION.md`
+is the design spike that scoped the fix into five sequential backlog items
+(BUDGET-2 → BUDGET-5); this section documents BUDGET-2, the first and
+largest of them.
+
+**What merged.** Five component pairs collapsed into one file each, now
+living only under `src/components/budget/`:
+`transaction-dialog.tsx` (`TransactionDialog`), `transaction-list.tsx`
+(`TransactionList`), `recurring-template-dialog.tsx`
+(`RecurringTemplateDialog`), `recurring-templates-panel.tsx`
+(`RecurringTemplatesPanel`), and `due-recurring-widget.tsx`
+(`DueRecurringWidget`). The five `personal-*` equivalents under
+`src/components/personal-budget/` are deleted; both pages now import the
+same component. `CategoryManager`/`AddCategoryDialog` followed in BUDGET-3
+(see "CategoryManager (BUDGET-3)" below). `BudgetTabs`/`PersonalBudgetTabs`
+and `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for now —
+they differ in more than "pass an empty array" ways and are BUDGET-4/5 in
+`BACKLOG.md`.
+
+**What stayed separate, on purpose.** The two Prisma model families
+(`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
+vs. their `Personal*` counterparts), both `actions.ts` files, and both
+`page.tsx` Server Components are untouched — the data layer is an
+intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
+`prisma/schema.prisma`) that this merge doesn't revisit.
+
+**How one component serves both scopes:**
+
+- **Household-only UI (expense splitting) suppresses itself on an empty
+  array.** `TransactionDialog`/`TransactionList`/`RecurringTemplateDialog`/
+  `RecurringTemplatesPanel` already gated every split-related section
+  behind `members.length > 1` before this merge — the personal budget page
+  simply passes `members={[]}` and `currentMemberId=""`, which reproduces
+  exactly what a genuinely single-member household already saw. No new
+  branching was needed for this part.
+- **Personal-only UI (the household link) is the mirror image: optional
+  props defaulting to empty.** `TransactionList`'s `sharedRows`/
+  `showHouseholdName` and `DueRecurringWidget`'s `sharedDueRows`/
+  `sharedExpenseHouseholds`/`showHouseholdName` (mirroring the user's own
+  share of a split household bill into their personal budget — see
+  `docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md`) default to `[]`/`false`
+  and are only ever populated by the personal budget page; the household
+  page never passes them, so that UI never renders there.
+- **Server Actions are injected as props, not imported by the shared
+  component.** Since the two `actions.ts` files stay separate, each
+  component that used to `import { createTransactionAction, ... } from
+  ".../budget/actions"` directly now takes `createAction`/`updateAction` (or
+  `onDelete`/`onAcknowledge`/`onTogglePause`/etc. for click actions) as
+  props of a plain function type (e.g. `TransactionFormAction = (prevState,
+  formData) => Promise<ActionState>`, exported from `transaction-dialog.tsx`).
+  `budget-tabs.tsx`/`personal-budget-tabs.tsx` and both `page.tsx` files each
+  pass their own scope's action module in.
+- **One `dict` type covers both dictionary namespaces.** `BudgetDict`
+  (`src/components/budget/budget-dict.ts`) lists exactly the fields these
+  five components read, with the household-only (`split`, `recurring.split`)
+  and personal-only (`shared`, `logShared`) groups marked optional. Both
+  `Dictionary["budget"]` and `Dictionary["personalBudget"]` satisfy it
+  structurally with no adapter object — a household caller's dict happens to
+  have `split` populated, a personal caller's doesn't, and every read of an
+  optional group is already behind a runtime condition (`canSplit`,
+  `sharedRows.length`, …) that's false on the side whose dict lacks it. The
+  one exception is `RecurringTemplatesPanel`'s "who acknowledged this" line
+  (F7), which has no members-count-driven condition to hang off of — it
+  checks `dict.recurring.acknowledgedByLabel`'s own presence instead (a
+  field `personalBudget`'s dict omits outright), which is `true` exactly on
+  the household side.
+- **Row types stay "empty-array-safe" too, not optional.** `TransactionRow`
+  keeps a required `paidByMemberId`/`splits`, and `RecurringTemplateRow`
+  keeps a required `splits` — the personal budget page's row-mapping code
+  supplies `null`/`[]` for these instead of the type making them optional,
+  so nothing downstream needs an extra `?? []`.
+
+#### CategoryManager (BUDGET-3)
 
 **What merged.** `CategoryManager` and `AddCategoryDialog` now live only in
 `src/components/budget/category-manager.tsx`;
@@ -870,20 +946,14 @@ land before or after this one).
 Both pages import the same component with their own categories, dict, and
 actions.
 
-**What stayed separate, on purpose.** Same as the rest of this effort: the
-two Prisma model families (`BudgetCategory`/`PersonalBudgetCategory`), both
-`actions.ts` files, and both `page.tsx` Server Components — see
-`PersonalRecurringTemplate`'s doc comment in `prisma/schema.prisma` for why
-that duplication is intentional.
-
 **Why this pair needed injected actions, not an empty array.** Unlike the
-split-UI suppression trick available to the other pairs in this effort
-(gate a section behind `members.length > 1`, pass `members={[]}` from the
-personal side), `CategoryManager`'s only scope-specific behavior is *which*
-Server Actions it calls — there's no UI section to hide. So
+split-UI suppression trick the BUDGET-2 components use (gate a section
+behind `members.length > 1`, pass `members={[]}` from the personal side),
+`CategoryManager`'s only scope-specific behavior is *which* Server Actions it
+calls — there's no UI section to hide. So
 `createCategoryAction`/`updateCategoryAction`/`deleteCategoryAction`
 (household) and their `Personal*` counterparts (personal) are passed in as
-props, typed by two new types exported from `category-manager.tsx`:
+props, typed by two types exported from `category-manager.tsx`:
 `CategoryFormAction` (create/update, the `(prevState, formData) =>
 Promise<ActionState>` shape `useActionState` expects) and
 `DeleteCategoryAction` (delete, a plain click action called from
@@ -898,17 +968,14 @@ from either `actions.ts` file.
 with no adapter object, since those two sections are already identical
 field-for-field between the namespaces.
 
-**Collateral wiring.** Deleting `personal-category-manager.tsx` required
-updating every file that imported its `PersonalCategoryRow` type — a
-mechanical rename to the merged `CategoryRow`, no logic changes —
-in `personal-budget-tabs.tsx`, `personal-recurring-template-dialog.tsx`,
-`personal-transaction-dialog.tsx`, `personal-due-recurring-widget.tsx`,
-`personal-transaction-list.tsx`, and `personal-recurring-templates-panel.tsx`.
-It also required threading a new `createCategoryAction` prop through
-`BudgetTabs`/`PersonalBudgetTabs` and `BudgetOnboarding`/
-`PersonalBudgetOnboarding` — unchanged otherwise, since their own merge is a
-later item in this backlog — because their zero-categories empty state
-renders `AddCategoryDialog` too.
+**Collateral wiring.** Deleting `personal-category-manager.tsx` meant
+switching `personal-budget-tabs.tsx` from its `PersonalCategoryRow` type to
+the merged `CategoryRow` (the shared BUDGET-2 components already used
+`CategoryRow`). It also required threading a new `createCategoryAction` prop
+through `BudgetTabs`/`PersonalBudgetTabs` and `BudgetOnboarding`/
+`PersonalBudgetOnboarding` — unchanged otherwise, since their own merge is
+BUDGET-4/5 — because their zero-categories empty state renders
+`AddCategoryDialog` too.
 
 ## Data export (CSV)
 
