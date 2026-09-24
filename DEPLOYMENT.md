@@ -314,7 +314,74 @@ limiter fails over to the in-memory bucket for that single attempt rather
 than throwing — a transient Redis error should never turn into a 500 on
 login/signup — and logs the failure via `console.error`.
 
-## 7. Pull requests and releases (one-time GitHub setup)
+## 7. Scheduled jobs (notification background sync)
+
+`src/lib/notifications.ts`'s two lazy triggers — meal-not-logged and
+expiring-soon — used to run inline inside `getActiveNotifications` on every
+notification-bell fetch, which meant opening the bell could trigger an
+unbounded number of `Notification` writes and push sends on what should've
+been a pure read. They now run only from `GET /api/cron/sync-notifications`,
+which iterates every household and syncs both. **This route does nothing on
+its own — something external has to call it on a schedule**, and it must
+never be called without the `CRON_SECRET` bearer token (see `.env.example`),
+since unlike `/api/health` it both writes data and sends push notifications.
+
+**User-facing effect:** a new out-of-stock/expiring/meal-not-logged
+notification now appears with a delay of up to the cron interval below,
+rather than instantly the next time someone opens the bell. Fine for these
+particular triggers (none of them are time-critical to the minute), but
+worth knowing if you tighten or loosen the interval.
+
+### Vercel (this app's likely target)
+
+A `vercel.json` at the repo root already configures this:
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-notifications",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
+```
+
+Every 15 minutes is a starting point, not a fixed requirement — tune the
+cron expression to taste (Vercel's cron UI under the project's **Cron Jobs**
+tab shows the resolved schedule and lets you trigger a run manually to
+verify it). Two things to set up alongside it:
+
+1. Set `CRON_SECRET` in **Settings → Environment Variables** for the
+   environment(s) this should run in. Vercel's own Cron Jobs feature reads
+   this same variable and automatically sends it as the
+   `Authorization: Bearer <CRON_SECRET>` header on every invocation — no
+   extra configuration beyond setting the variable.
+2. Vercel Cron Jobs run on the Production environment only, so `vercel.json`
+   takes effect once this deploys there — a Preview deployment won't trigger
+   it.
+
+### Platforms with their own scheduler (Railway, Render)
+
+`vercel.json`'s `crons` block is Vercel-specific and does nothing on other
+platforms — configure the equivalent scheduled job there instead, pointed at
+the same route with the same header:
+
+- **Railway**: add a second service in the project from the same repo, set
+  its **Settings → Cron Schedule** to `*/15 * * * *`, and its start command
+  to a one-shot HTTP call, e.g.
+  `curl -f -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/cron/sync-notifications`
+  (set `CRON_SECRET` on that service too, matching the main app's value).
+- **Render**: create a **Cron Job** resource (not a Web Service) pointed at
+  this repo, schedule `*/15 * * * *`, and the same `curl` command as above
+  as its command, with `CRON_SECRET` set in that job's environment.
+
+Either way, `-f` (`--fail`) makes `curl` exit non-zero on a non-2xx response
+(including the 401 you'd get from a missing/wrong secret), so the
+platform's own job-failure alerting catches a misconfigured secret instead
+of silently no-op'ing every run.
+
+## 8. Pull requests and releases (one-time GitHub setup)
 
 The release workflows (see REQUIREMENTS.md, "Releases & What's new") work
 without any of this, but nothing stops a direct push to `master` until you

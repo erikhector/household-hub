@@ -1,9 +1,17 @@
-// Tests recordOutOfStockTransition(), recordListClearedTransition() and
+// Tests recordOutOfStockTransition(), recordListClearedTransition(),
+// syncMealNotLoggedNotifications(), syncExpiringSoonNotifications() and
 // getActiveNotifications()
 // (src/lib/notifications.ts) — the persisted notification model (see the
 // Notification model's doc comment in prisma/schema.prisma). Prisma is
 // mocked so this never touches a real database — see REQUIREMENTS.md's
 // "Testing" section.
+//
+// syncMealNotLoggedNotifications/syncExpiringSoonNotifications are tested
+// directly here (they're exported for `/api/cron/sync-notifications` — see
+// that route's own test) rather than only through getActiveNotifications,
+// which no longer calls either: see this file's SCALE-I doc comment at the
+// top of notifications.ts for why the background sync moved off the read
+// path.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -45,8 +53,13 @@ vi.mock("@/lib/push", () => ({
   sendPushToHousehold: sendPushToHouseholdMock,
 }));
 
-const { recordOutOfStockTransition, recordListClearedTransition, getActiveNotifications } =
-  await import("@/lib/notifications");
+const {
+  recordOutOfStockTransition,
+  recordListClearedTransition,
+  syncMealNotLoggedNotifications,
+  syncExpiringSoonNotifications,
+  getActiveNotifications,
+} = await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
 const { Prisma } = await import("@/generated/prisma/client");
 
@@ -190,13 +203,13 @@ describe("recordListClearedTransition", () => {
   });
 });
 
-describe("getActiveNotifications", () => {
-  it("syncs a one-time reminder for past unconsumed meal-plan entries", async () => {
+describe("syncMealNotLoggedNotifications", () => {
+  it("creates a one-time reminder for past unconsumed meal-plan entries", async () => {
     mealPlanEntryFindManyMock.mockResolvedValue([
       { id: "entry-1", date: new Date("2026-09-03T00:00:00.000Z"), freeformName: "Leftovers", recipe: null },
     ]);
 
-    await getActiveNotifications("household-1");
+    await syncMealNotLoggedNotifications("household-1");
 
     expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith({
       where: {
@@ -226,7 +239,50 @@ describe("getActiveNotifications", () => {
       }),
     );
 
-    await expect(getActiveNotifications("household-1")).resolves.toEqual([]);
+    await expect(syncMealNotLoggedNotifications("household-1")).resolves.toBeUndefined();
+  });
+});
+
+describe("syncExpiringSoonNotifications", () => {
+  it("creates an EXPIRING_SOON alert for an in-stock item nearing its expiry date", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    notificationFindManyMock.mockResolvedValueOnce([]); // no existing undismissed alert
+
+    await syncExpiringSoonNotifications("household-1");
+
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", quantity: { gt: 0 }, expiresAt: { lte: expect.any(Date) } },
+      select: { id: true, name: true },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "EXPIRING_SOON", inventoryItemId: "item-1" },
+    });
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
+      title: "Expiring soon",
+      body: "Yogurt is expiring soon",
+      url: "/dashboard/inventory",
+    });
+  });
+
+  it("does not duplicate an already-active EXPIRING_SOON alert for the same item", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    notificationFindManyMock.mockResolvedValueOnce([{ inventoryItemId: "item-1" }]);
+
+    await syncExpiringSoonNotifications("household-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getActiveNotifications", () => {
+  it("is a pure read — no meal-reminder/expiring-soon sync, no writes, no push sends", async () => {
+    await getActiveNotifications("household-1");
+
+    expect(mealPlanEntryFindManyMock).not.toHaveBeenCalled();
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("maps an OUT_OF_STOCK row using the linked item's current name", async () => {
@@ -288,36 +344,6 @@ describe("getActiveNotifications", () => {
     expect(notificationFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { householdId: "household-42", dismissedAt: null } }),
     );
-  });
-
-  it("syncs an EXPIRING_SOON alert for an in-stock item nearing its expiry date", async () => {
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
-    notificationFindManyMock.mockResolvedValueOnce([]); // no existing undismissed alert
-
-    await getActiveNotifications("household-1");
-
-    expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
-      where: { householdId: "household-1", quantity: { gt: 0 }, expiresAt: { lte: expect.any(Date) } },
-      select: { id: true, name: true },
-    });
-    expect(notificationCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", kind: "EXPIRING_SOON", inventoryItemId: "item-1" },
-    });
-    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
-      title: "Expiring soon",
-      body: "Yogurt is expiring soon",
-      url: "/dashboard/inventory",
-    });
-  });
-
-  it("does not duplicate an already-active EXPIRING_SOON alert for the same item", async () => {
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
-    notificationFindManyMock.mockResolvedValueOnce([{ inventoryItemId: "item-1" }]);
-
-    await getActiveNotifications("household-1");
-
-    expect(notificationCreateMock).not.toHaveBeenCalled();
-    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("maps an EXPIRING_SOON row using the linked item's current name", async () => {

@@ -348,44 +348,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Performance & security
 
-- [ ] **SCALE-I. Move notification background-sync off the read path** —
-      `src/lib/notifications.ts`. `getActiveNotifications(householdId)` currently
-      calls `syncMealNotLoggedNotifications` and `syncExpiringSoonNotifications`
-      synchronously on *every* call — i.e. every time a household's notification bell is
-      fetched. Both scan for overdue meal-plan entries / expiring inventory items and,
-      for each new one found, create a `Notification` row and fire a push notification
-      (`sendPushToHousehold`) — so viewing the bell can trigger an unbounded number of
-      writes and push sends on what should be a read. Change this to a scheduled job
-      instead of a request-time side effect:
-      1. Add a new route `src/app/api/cron/sync-notifications/route.ts` (`GET` handler)
-         that iterates every household (`prisma.household.findMany({ select: { id: true }
-         } })`) and runs `syncMealNotLoggedNotifications`/`syncExpiringSoonNotifications`
-         for each. Protect it with a shared secret: require a `CRON_SECRET` env var and
-         reject (401) any request whose `Authorization: Bearer <token>` header doesn't
-         match it — unlike `/api/health`, this route both writes data and sends push
-         notifications, so it must not be publicly callable. Add `CRON_SECRET` to
-         `.env.example` with a short comment (mirror the existing `UPSTASH_REDIS_REST_*`/
-         `VAPID_*` comment style there).
-      2. Remove the two sync calls from `getActiveNotifications` — it should become a pure
-         read (`prisma.notification.findMany(...)` only, no writes, no push sends), so
-         opening the bell never has side effects.
-      3. Document the scheduler setup in `DEPLOYMENT.md` (a new section, following its
-         existing style): for Vercel, a `vercel.json` `crons` entry hitting this route
-         (suggest every 15 minutes as a starting interval, note it's tunable); for
-         platforms with their own scheduler (Railway, Render), the equivalent cron/
-         scheduled-job config pointed at the same route with the `CRON_SECRET` header set.
-      4. Add tests for the new route: rejects a missing/wrong `CRON_SECRET`, and — with a
-         valid one — calls both sync functions (mock them, don't require a real DB) for
-         every household returned by the household query. Match this repo's existing
-         mocked-Prisma vitest style.
-      Note: this changes real user-facing behavior (a new out-of-stock/expiring/
-      meal-not-logged notification will now appear on a delay of up to the cron interval,
-      not instantly on next bell-open) — call this out explicitly when done rather than
-      treating it as a pure refactor. Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, `npm run build`, and a manual check: temporarily hit the new route
-      with `curl` locally (correct and incorrect `CRON_SECRET`) and confirm the bell still
-      shows existing notifications correctly with the sync calls removed from its path.
-
 - [ ] **SCALE-J. Extend Suspense-isolated loading to `budget`/`personal-budget`/`meal-planning`** —
       `src/app/dashboard/inventory/page.tsx`, `tasks/page.tsx`, `shopping-list/page.tsx`, and
       `household/page.tsx` were refactored (2026-09-16) so the static header (title/subtitle,
