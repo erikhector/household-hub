@@ -90,6 +90,9 @@ export function scheduleAiCategoryFallback(householdId: string, names: readonly 
         });
         patchedAny ||= count > 0;
       }
+      // Runs after the response has already been sent, so this revalidation
+      // is for whoever loads/reloads the page next — the user who triggered
+      // the add won't see the patched category until their next navigation.
       if (patchedAny) revalidatePath("/dashboard/inventory");
     } catch (error) {
       // Fire-and-forget: a failure here must never surface to the user —

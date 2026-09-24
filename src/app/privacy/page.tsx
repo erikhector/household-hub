@@ -159,6 +159,21 @@ export default async function PrivacyPage() {
               or data — is sent anywhere.
             </p>
             <p>
+              <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by three
+              optional AI features, and only when whoever operates your instance has configured
+              an API key for one of them — with no key configured, none of this ever runs. AI
+              shelf scan and AI receipt scan each upload a photo you choose to take (of a
+              shelf/fridge/cupboard, or a paper receipt) so a vision model can read it; the photo
+              is sent for that one request and isn&apos;t otherwise stored. Auto-categorization&apos;s
+              AI fallback is different: it runs automatically, in the background, whenever a new
+              item&apos;s name isn&apos;t recognized by the built-in dictionary, sending only that
+              bare item name — never quantities, prices, or any other household data — to guess a
+              category; the item is saved right away either way, and the guess is applied
+              afterward if the call succeeds. In every case Gemini/Anthropic process what&apos;s
+              sent only to answer that one request, not to store or train on it beyond whatever
+              their own provider terms specify.
+            </p>
+            <p>
               <strong>Sentry</strong> (error reporting) is optional and only active if whoever
               operates your instance has switched it on. When active, if the app crashes or hits
               an unexpected error, technical details about that error (the error message and
@@ -170,9 +185,10 @@ export default async function PrivacyPage() {
               sent.
             </p>
             <p>
-              We don&apos;t use any analytics or advertising service. There is no tracking pixel,
-              no ad network, and no third party that receives your inventory, shopping list, meal
-              plan, or budget data.
+              We don&apos;t use any analytics or advertising service. There is no tracking pixel
+              and no ad network. Beyond Resend, Sentry, and the optional Gemini/Anthropic AI
+              features described above, no third party receives your inventory, shopping list,
+              meal plan, or budget data.
             </p>
           </Section>
 

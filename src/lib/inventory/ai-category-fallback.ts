@@ -141,8 +141,10 @@ const ANTHROPIC_VERSION = "2023-06-01";
 // A plain text classification task needs none of the vision capability
 // INVENTORY_SCAN_MODEL exists to override, so this isn't made configurable
 // separately — one fewer env var to document for a background feature this
-// small.
-const ANTHROPIC_MODEL = "claude-sonnet-5";
+// small. Haiku is deliberately cheaper/faster than the vision-scan models:
+// classifying a batch of item names into one of a fixed set of categories
+// doesn't need a bigger model.
+const ANTHROPIC_MODEL = "claude-haiku-4-5";
 
 const CLASSIFY_TOOL = {
   name: "report_categories",
