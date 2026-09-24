@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, Archive, ArchiveRestore, CheckCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
+import { groupPendingItemsByCategory } from "@/lib/shopping/shopping-mode-grouping";
+import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 // Below this many unlinked items, resolving them one at a time via each
@@ -46,6 +48,10 @@ type ShoppingListItemRow = {
   purchased: boolean;
   addedAutomatically: boolean;
   inventoryItemId: string | null;
+  // The linked InventoryItem's category (AUTO-3, [id]/page.tsx's query),
+  // null when there's no link yet. Drives shopping mode's grouping below;
+  // otherwise unused.
+  category: string | null;
 };
 
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
@@ -85,6 +91,10 @@ export function ShoppingListClient({
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
+  const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory);
+
+  // AUTO-3: keep the screen on while there's an ACTIVE list open on a phone.
+  useScreenWakeLock(isActive);
 
   // "Cleared" covers two cases: every item got checked off (purchasedItems
   // non-empty), or the list was emptied out entirely after having had items
@@ -291,19 +301,28 @@ export function ShoppingListClient({
           </p>
         ) : (
           <>
-            {pendingItems.map((item) => (
-              <ShoppingRow
-                key={item.id}
-                item={item}
-                highlighted={highlightedIds.has(item.id)}
-                editable={isActive}
-                isPending={isPending}
-                startTransition={startTransition}
-                inventoryItems={inventoryItems}
-                categories={categories}
-                units={units}
-                dict={dict}
-              />
+            {/* Shopping mode (AUTO-3): pending items grouped by the linked
+                inventory item's category, in a fixed store-walk order —
+                see groupPendingItemsByCategory. Purchased items below stay
+                a single flat "Purchased" section, unchanged. */}
+            {pendingGroups.map((group) => (
+              <Fragment key={group.label}>
+                <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                {group.items.map((item) => (
+                  <ShoppingRow
+                    key={item.id}
+                    item={item}
+                    highlighted={highlightedIds.has(item.id)}
+                    editable={isActive}
+                    isPending={isPending}
+                    startTransition={startTransition}
+                    inventoryItems={inventoryItems}
+                    categories={categories}
+                    units={units}
+                    dict={dict}
+                  />
+                ))}
+              </Fragment>
             ))}
             {purchasedItems.length > 0 && (
               <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
@@ -386,15 +405,30 @@ function ShoppingRow({
     <div
       ref={rowRef}
       className={cn(
-        "flex flex-col gap-1 rounded-md border px-3 py-2 transition-colors duration-700",
+        "flex flex-col gap-1 rounded-md border transition-colors duration-700",
+        // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
+        // mode) — rows are tapped one-handed, phone in the other hand, so
+        // this is when it matters most; a read-only list stays compact.
+        editable ? "px-3 py-3" : "px-3 py-2",
         highlighted && "border-primary/50 bg-primary/10",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <label className="flex min-w-0 flex-1 items-center gap-3">
+        <label
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-3",
+            // Stretches the label to the row's full height so tapping
+            // anywhere on the row (not just the checkbox glyph) toggles
+            // purchased — the label/input pairing (Checkbox is a native
+            // <input type="checkbox">) already gives this keyboard and
+            // screen-reader semantics for free, no extra handler needed.
+            editable && "cursor-pointer self-stretch",
+          )}
+        >
           <Checkbox
             checked={item.purchased}
             disabled={isPending || !editable}
+            className={editable ? "size-5" : undefined}
             onChange={() =>
               startTransition(async () => {
                 const result = await togglePurchasedAction(item.id);
