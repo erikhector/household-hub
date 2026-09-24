@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.7.0",
+    "date": "2026-09-24",
+    "pr": 17,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "New items you add can now be categorized automatically using AI, when configured, if nothing else recognizes them.",
+      "sv": "Nya varor du lägger till kan nu kategoriseras automatiskt med AI, när det är aktiverat, om inget annat känner igen dem."
+    }
+  },
+  {
     "version": "0.6.0",
     "date": "2026-09-24",
     "pr": 24,
