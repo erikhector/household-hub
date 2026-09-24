@@ -3,7 +3,7 @@
 // plain `<Link>`s that change the `?month=` search param, so navigating is a
 // full server-rendered page load driven by the URL alone — no client state.
 // Shared between the household budget and personal budget, which pass their
-// own `basePath` (see budget-tabs.tsx / personal-budget-tabs.tsx).
+// own `basePath` through BudgetTabs (see budget-tabs.tsx).
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";

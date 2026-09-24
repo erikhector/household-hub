@@ -319,22 +319,6 @@ order below is a suggestion, not a dependency, unless noted.
       pages were verified by seeding a household through the UI and confirming no console
       errors and no layout regressions — do the same here).
 
-### Budget component unification
-
-Sequential: BUDGET-4 next (BUDGET-2 and BUDGET-3 shipped — see REQUIREMENTS.md's
-"Budget component unification"). Together with BUDGET-5 (needs a decision,
-below) this is the whole "delete `src/components/personal-budget/`" job.
-
-- [ ] **BUDGET-4. Merge `BudgetTabs`/`PersonalBudgetTabs`** — needs an explicit prop for which
-      optional tabs exist (`costAnalyzer`/`balances` become optional `ReactNode`s the way
-      `balances` already is). Also decide, before or as part of the merge, whether
-      personal budget gets household's persistent "Manage categories" button next to the
-      tab bar — today `CategoryManager` is only reachable from the Activity tab's
-      overview panel. It may be unnecessary at personal budget's smaller scale (one
-      category-bearing tab), so "not needed" is a valid answer. Both `BudgetTabs` and
-      `PersonalBudgetTabs` already take a `createCategoryAction` prop (BUDGET-3, for
-      `BudgetOnboarding`/`PersonalBudgetOnboarding`'s `AddCategoryDialog`) to fold in.
-
 ### Shopping list & inventory automation
 
 AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.

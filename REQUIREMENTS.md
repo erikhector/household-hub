@@ -961,10 +961,12 @@ living only under `src/components/budget/`:
 (`DueRecurringWidget`). The five `personal-*` equivalents under
 `src/components/personal-budget/` are deleted; both pages now import the
 same component. `CategoryManager`/`AddCategoryDialog` followed in BUDGET-3
-(see "CategoryManager (BUDGET-3)" below). `BudgetTabs`/`PersonalBudgetTabs`
-and `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for now —
-they differ in more than "pass an empty array" ways and are BUDGET-4/5 in
-`BACKLOG.md`.
+(see "CategoryManager (BUDGET-3)" below), and `BudgetTabs`/
+`PersonalBudgetTabs` followed in BUDGET-4 (see "BudgetTabs (BUDGET-4)"
+below). `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for
+now — they differ in more than a mechanical way (a missing starter-category
+picker on the personal side) and need a product decision first; that's
+BUDGET-5 in `BACKLOG.md`.
 
 **What stayed separate, on purpose.** The two Prisma model families
 (`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
@@ -997,8 +999,8 @@ intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
   `onDelete`/`onAcknowledge`/`onTogglePause`/etc. for click actions) as
   props of a plain function type (e.g. `TransactionFormAction = (prevState,
   formData) => Promise<ActionState>`, exported from `transaction-dialog.tsx`).
-  `budget-tabs.tsx`/`personal-budget-tabs.tsx` and both `page.tsx` files each
-  pass their own scope's action module in.
+  Each `page.tsx` passes its own scope's actions in (since BUDGET-4, via the
+  shared `BudgetTabs` for the ones it forwards).
 - **One `dict` type covers both dictionary namespaces.** `BudgetDict`
   (`src/components/budget/budget-dict.ts`) lists exactly the fields these
   five components read, with the household-only (`split`, `recurring.split`)
@@ -1057,6 +1059,43 @@ through `BudgetTabs`/`PersonalBudgetTabs` and `BudgetOnboarding`/
 `PersonalBudgetOnboarding` — unchanged otherwise, since their own merge is
 BUDGET-4/5 — because their zero-categories empty state renders
 `AddCategoryDialog` too.
+
+#### BudgetTabs (BUDGET-4)
+
+**What merged.** `BudgetTabs` and `PersonalBudgetTabs` now live in one file,
+`src/components/budget/budget-tabs.tsx`; `personal-budget-tabs.tsx` is
+deleted and both pages import the same `BudgetTabs`. This completes the
+BUDGET-2 → BUDGET-3 → BUDGET-4 sequence from
+`docs/archive/PERSONAL_BUDGET_UNIFICATION.md`. `BudgetOnboarding`/
+`PersonalBudgetOnboarding` (BUDGET-5) is the one pair left, gated on a
+product decision; each page builds its own onboarding element and passes it
+in as the `onboarding` `ReactNode`, so `BudgetTabs` doesn't care which one
+it gets.
+
+**Scope-specific props.** The spike's "make `costAnalyzer`/`balances`
+optional `ReactNode`s" framing no longer applied: the later four-tab UX pass
+had already moved cost analyzer and balances into the `insights` node the
+household page builds, so no slot for them is left in `BudgetTabs`. What
+`BudgetTabs` does read directly got explicit optional props, following the
+BUDGET-2 empty-array-safe convention: `members`/`currentMemberId`
+(household; default `[]`/`""`) and `sharedDueRows`/`showHouseholdName`/
+`sharedExpenseHouseholds`/`logSharedDialogDict` (personal; default
+`[]`/`false`/`[]`/`undefined`). `basePath` replaces the route each old
+component hardcoded. The four Server Actions it forwards
+(`createTransactionAction`, `updateTransactionAction`,
+`onAcknowledgeTemplate`, `onLogTemplateAsIs`) are injected by each page, as
+for the BUDGET-2 components.
+
+**Dict typing.** `BudgetTabsDict` (exported from `budget-tabs.tsx`) is
+`BudgetDict` plus the root-level fields this file reads (tab labels,
+`addTransaction`, the month-navigation labels and `safeToSpend`). Both
+`Dictionary["budget"]` and `Dictionary["personalBudget"]` satisfy it as-is.
+
+**No "Manage categories" button on either side.** The spike flagged
+personal budget as missing household's persistent "Manage categories" button
+next to the tab bar. That gap is gone: the four-tab pass gave Categories its
+own section in the Manage tab on both pages, which is the stable home the
+button existed to provide, so neither page gets the button.
 
 ## Data export (CSV)
 

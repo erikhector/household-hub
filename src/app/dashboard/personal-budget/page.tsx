@@ -3,7 +3,8 @@ import { requireUserId } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
-import { PersonalBudgetTabs } from "@/components/personal-budget/personal-budget-tabs";
+import { BudgetTabs } from "@/components/budget/budget-tabs";
+import { PersonalBudgetOnboarding } from "@/components/personal-budget/personal-budget-onboarding";
 import { CategoryManager } from "@/components/budget/category-manager";
 import {
   RecurringTemplatesPanel,
@@ -23,6 +24,7 @@ import {
   createPersonalTransactionAction,
   deletePersonalRecurringTemplateAction,
   deletePersonalTransactionAction,
+  logPersonalRecurringTemplateAction,
   setPersonalRecurringTemplateActiveAction,
   unacknowledgePersonalTemplatePeriodAction,
   updatePersonalRecurringTemplateAction,
@@ -523,10 +525,11 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
       </div>
 
-      <PersonalBudgetTabs
+      <BudgetTabs
         dict={dict.personalBudget}
         locale={locale}
         monthKey={monthKey}
+        basePath="/dashboard/personal-budget"
         categories={categoryRows}
         safeToSpendAmount={safeToSpend}
         safeToSpendStatus={safeToSpendStatus}
@@ -536,8 +539,18 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         sharedDueRows={sharedDueRows}
         showHouseholdName={showHouseholdName}
         sharedExpenseHouseholds={sharedExpenseHouseholds}
-        createCategoryAction={createPersonalCategoryAction}
+        logSharedDialogDict={dict.personalBudget}
+        createTransactionAction={createPersonalTransactionAction}
+        updateTransactionAction={updatePersonalTransactionAction}
+        onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
+        onLogTemplateAsIs={logPersonalRecurringTemplateAction}
         periodSummary={periodSummary}
+        onboarding={
+          <PersonalBudgetOnboarding
+            dict={dict.personalBudget}
+            createCategoryAction={createPersonalCategoryAction}
+          />
+        }
         manage={manage}
         transactions={transactionsTab}
         insights={insights}
