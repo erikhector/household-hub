@@ -316,21 +316,48 @@ login/signup — and logs the failure via `console.error`.
 
 ## 7. Scheduled jobs (notification background sync)
 
-`src/lib/notifications.ts`'s two lazy triggers — meal-not-logged and
-expiring-soon — used to run inline inside `getActiveNotifications` on every
-notification-bell fetch, which meant opening the bell could trigger an
-unbounded number of `Notification` writes and push sends on what should've
-been a pure read. They now run only from `GET /api/cron/sync-notifications`,
-which iterates every household and syncs both. **This route does nothing on
-its own — something external has to call it on a schedule**, and it must
-never be called without the `CRON_SECRET` bearer token (see `.env.example`),
-since unlike `/api/health` it both writes data and sends push notifications.
+`src/lib/notifications.ts`'s two lazy triggers — **meal-not-logged and
+expiring-soon only** (out-of-stock and list-cleared are unaffected: those
+still fire synchronously from the Server Action that causes them, e.g.
+`recordOutOfStockTransition` called from `adjustQuantityAction` and friends
+— see REQUIREMENTS.md's "Notification center" section) — used to run inline
+inside `getActiveNotifications` on every notification-bell fetch, which
+meant opening the bell could trigger an unbounded number of `Notification`
+writes and push sends on what should've been a pure read. Those two now run
+only from `GET /api/cron/sync-notifications`, which iterates every household
+and syncs both. **This route does nothing on its own — something external
+has to call it on a schedule**, and it must never be called without the
+`CRON_SECRET` bearer token (see `.env.example`), since unlike `/api/health`
+it both writes data and sends push notifications.
 
-**User-facing effect:** a new out-of-stock/expiring/meal-not-logged
-notification now appears with a delay of up to the cron interval below,
-rather than instantly the next time someone opens the bell. Fine for these
-particular triggers (none of them are time-critical to the minute), but
-worth knowing if you tighten or loosen the interval.
+**User-facing effect:** a new expiring-soon or meal-not-logged notification
+now appears with a delay of up to the cron interval, rather than instantly
+the next time someone opens the bell. **How long that delay actually is
+depends entirely on which platform/plan runs the schedule below** — it is
+not one fixed number:
+
+- **Vercel Hobby** (this app's likely default target): up to **24 hours**,
+  since Hobby caps Cron Jobs at once a day (see below).
+- **Vercel Pro**: as tight as you configure it, down to once a minute.
+- **Railway/Render**: as tight as you configure it — the suggested starting
+  point below is every 15 minutes.
+
+None of these two triggers are time-critical to the minute, so a daily delay
+on Hobby is an acceptable default, not a bug — but it is a real, user-visible
+change from the old "instant on next bell-open" behavior, worth knowing
+about before you pick a schedule.
+
+**Deploy prerequisite, not a "do it eventually":** `CRON_SECRET` must be set
+in the deploy environment (Vercel: Production **Environment Variables**)
+**before, or immediately after, this merges** — not at some later
+convenience. Without it, every invocation of this route 401s (see the
+route's own `console.error` on a rejected invocation) and the
+meal-not-logged/expiring-soon triggers silently stop firing entirely, with
+nothing surfacing that to a user — only the platform's cron invocation logs
+would show the repeated 401s, and nobody watches those by default. Confirm
+the first scheduled run after deploy actually returns `200` (e.g. Vercel's
+**Cron Jobs** tab, or the platform's job-run history) rather than assuming
+it's working.
 
 ### Vercel (this app's likely target)
 

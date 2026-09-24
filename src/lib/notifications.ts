@@ -290,28 +290,34 @@ export async function syncMealNotLoggedNotifications(householdId: string): Promi
   if (candidates.length === 0) return;
 
   await Promise.all(
-    candidates.map((entry) =>
-      prisma.notification
-        .create({
+    candidates.map(async (entry) => {
+      try {
+        await prisma.notification.create({
           data: { householdId, kind: "MEAL_NOT_LOGGED", mealPlanEntryId: entry.id },
-        })
-        .then(() => {
-          // Fire-and-forget — see recordOutOfStockTransition's matching
-          // comment above and sendPushToHousehold's doc comment in
-          // src/lib/push.ts.
-          const name = entry.recipe?.name ?? entry.freeformName ?? "";
-          void sendPushToHousehold(householdId, {
-            title: "Did you forget to log a meal?",
-            body: name || "A planned meal was never marked as cooked",
-            url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(entry.date))}`,
-          });
-        })
-        .catch((error) => {
-          // P2002: another concurrent sync already created it — fine, ignore.
-          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
-          throw error;
-        }),
-    ),
+        });
+      } catch (error) {
+        // P2002: another concurrent sync already created it — fine, ignore.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
+        throw error;
+      }
+
+      // Awaited — unlike recordOutOfStockTransition/recordListClearedTransition
+      // (which fire-and-forget because some of their callers run inside a
+      // Prisma $transaction; see sendPushToHousehold's doc comment in
+      // src/lib/push.ts), this function only ever runs from
+      // `/api/cron/sync-notifications`, outside any transaction. A Route
+      // Handler's response is sent as soon as its GET resolves, and the
+      // underlying serverless invocation can be frozen/killed right after —
+      // an un-awaited push here could simply never go out. Awaiting it
+      // costs nothing (there's no transaction to hold open) and guarantees
+      // the send is attempted before the cron run reports success.
+      const name = entry.recipe?.name ?? entry.freeformName ?? "";
+      await sendPushToHousehold(householdId, {
+        title: "Did you forget to log a meal?",
+        body: name || "A planned meal was never marked as cooked",
+        url: `/dashboard/meal-planning?week=${toDateKey(getWeekStart(entry.date))}`,
+      });
+    }),
   );
 }
 
@@ -354,20 +360,21 @@ export async function syncExpiringSoonNotifications(householdId: string): Promis
   if (toAlert.length === 0) return;
 
   await Promise.all(
-    toAlert.map((item) =>
-      prisma.notification
-        .create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } })
-        .then(() => {
-          // Fire-and-forget — see recordOutOfStockTransition's matching
-          // comment above and sendPushToHousehold's doc comment in
-          // src/lib/push.ts.
-          void sendPushToHousehold(householdId, {
-            title: "Expiring soon",
-            body: `${item.name} is expiring soon`,
-            url: "/dashboard/inventory",
-          });
-        }),
-    ),
+    toAlert.map(async (item) => {
+      await prisma.notification.create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } });
+
+      // Awaited, not fire-and-forget — see syncMealNotLoggedNotifications's
+      // matching comment above: this function only ever runs from
+      // `/api/cron/sync-notifications`, outside any transaction, so there's
+      // no reason not to wait for the send before the cron run reports
+      // success (and every reason to, since a Route Handler's underlying
+      // invocation can be frozen/killed right after the response is sent).
+      await sendPushToHousehold(householdId, {
+        title: "Expiring soon",
+        body: `${item.name} is expiring soon`,
+        url: "/dashboard/inventory",
+      });
+    }),
   );
 }
 

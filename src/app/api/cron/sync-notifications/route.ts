@@ -25,35 +25,85 @@ import { syncExpiringSoonNotifications, syncMealNotLoggedNotifications } from "@
 // a masked outage.
 export const dynamic = "force-dynamic";
 
+// Caps how many households sync concurrently. Every household's sync
+// (syncMealNotLoggedNotifications + syncExpiringSoonNotifications) makes its
+// own Prisma queries, so processing every household in one all-at-once
+// Promise.all would make concurrency scale directly with household count —
+// that exhausts the Prisma connection pool (and this route's own execution
+// time budget on a serverless platform) long before household count is
+// actually a scale problem worth worrying about. Batching bounds concurrent
+// in-flight households to this number regardless of how many the household
+// table holds.
+const BATCH_SIZE = 10;
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
 
   // Reject unless CRON_SECRET is actually configured AND the header matches
   // it exactly — an unset secret must never be treated as "no auth required".
+  //
+  // Operational note: if CRON_SECRET is missing or wrong in the deploy
+  // environment, EVERY invocation of this route 401s and the
+  // meal-not-logged/expiring-soon notification triggers silently stop
+  // firing entirely — nothing else surfaces that failure to a user. See
+  // DEPLOYMENT.md's "Scheduled jobs" section, which calls out setting this
+  // variable before/immediately after merge as a hard deploy prerequisite,
+  // not an optional follow-up.
   if (!secret || authHeader !== `Bearer ${secret}`) {
+    console.error("Notification sync cron rejected: missing or incorrect CRON_SECRET bearer token");
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const households = await prisma.household.findMany({ select: { id: true } });
 
-    // Independent per household — one household's sync failing (e.g. a bad
-    // push subscription) shouldn't block the rest from running. Both sync
-    // functions already swallow their own expected races (see their doc
-    // comments in src/lib/notifications.ts); Promise.all here is about
-    // running households concurrently, not suppressing errors.
-    await Promise.all(
-      households.map((household) =>
-        Promise.all([syncMealNotLoggedNotifications(household.id), syncExpiringSoonNotifications(household.id)]),
-      ),
-    );
+    // Promise.allSettled, not Promise.all: one household's sync throwing
+    // (e.g. a transient DB error, a push provider error) must not abort
+    // every other household still in flight in the same batch, and must not
+    // turn an otherwise-successful run into a 500 for everyone. Each
+    // household's own outcome is inspected below — a per-household failure
+    // is logged and counted, never rethrown — and batches run one after
+    // another (not all at once) to bound concurrency; see BATCH_SIZE above.
+    let succeeded = 0;
+    const failedHouseholdIds: string[] = [];
 
-    return Response.json({ status: "ok", householdsSynced: households.length }, { status: 200 });
+    for (let i = 0; i < households.length; i += BATCH_SIZE) {
+      const batch = households.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((household) =>
+          Promise.all([syncMealNotLoggedNotifications(household.id), syncExpiringSoonNotifications(household.id)]),
+        ),
+      );
+
+      results.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          succeeded += 1;
+          return;
+        }
+        const householdId = batch[index].id;
+        // Logged with the household id for diagnosis, but that id (not the
+        // raw error, which could carry connection-string-shaped internals —
+        // see /api/health's matching principle) is all that goes back in
+        // the response body below.
+        console.error(`Notification sync failed for household ${householdId}:`, result.reason);
+        failedHouseholdIds.push(householdId);
+      });
+    }
+
+    return Response.json(
+      {
+        status: failedHouseholdIds.length > 0 ? "partial_failure" : "ok",
+        householdsSynced: succeeded,
+        householdsFailed: failedHouseholdIds.length,
+        failedHouseholdIds,
+      },
+      { status: 200 },
+    );
   } catch (error) {
-    // Same principle as /api/health: log the real error server-side, don't
-    // leak internals in the response body of what is, from the outside,
-    // still an unauthenticated-looking endpoint (bearer token aside).
+    // Reached only for a failure outside any single household's sync (e.g.
+    // the household lookup itself failing) — same principle as /api/health:
+    // log the real error server-side, don't leak internals in the response.
     console.error("Notification sync cron failed:", error);
 
     return Response.json({ status: "error" }, { status: 500 });
