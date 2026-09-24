@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
 import { getStockStatus } from "@/lib/stock-status";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
@@ -15,9 +15,10 @@ export const maxDuration = 60;
 export default async function ShoppingListDetailPage(
   props: PageProps<"/dashboard/shopping-list/[id]">,
 ) {
-  const [{ household }, dict, { id }] = await Promise.all([
+  const [{ household }, dict, locale, { id }] = await Promise.all([
     requireHousehold(),
     getDictionary(),
+    getLocale(),
     props.params,
   ]);
 
@@ -90,6 +91,7 @@ export default async function ShoppingListDetailPage(
       dict={dict.shoppingList}
       barcodeDict={dict.barcodeScanner}
       exportLabel={dict.export.button}
+      locale={locale}
     />
   );
 }

@@ -40,7 +40,13 @@ import { DueRecurringWidget } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
 import { TransactionDialog, type MemberOption } from "@/components/budget/transaction-dialog";
-import type { CategoryRow } from "@/components/budget/category-manager";
+import {
+  acknowledgeTemplatePeriodAction,
+  createTransactionAction,
+  logRecurringTemplateAction,
+  updateTransactionAction,
+} from "@/app/dashboard/budget/actions";
+import type { CategoryFormAction, CategoryRow } from "@/components/budget/category-manager";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -60,6 +66,7 @@ export function BudgetTabs({
   hasRecurringTemplates,
   members,
   currentMemberId,
+  createCategoryAction,
   periodSummary,
   manage,
   transactions,
@@ -84,6 +91,9 @@ export function BudgetTabs({
   hasRecurringTemplates: boolean;
   members: MemberOption[];
   currentMemberId: string;
+  // BUDGET-3: BudgetOnboarding's AddCategoryDialog takes its create action
+  // as a prop instead of importing it directly, threaded through from here.
+  createCategoryAction: CategoryFormAction;
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see page.tsx's doc comment. */
   periodSummary: ReactNode;
@@ -119,6 +129,8 @@ export function BudgetTabs({
           members={members}
           currentMemberId={currentMemberId}
           monthKey={monthKey}
+          createAction={createTransactionAction}
+          updateAction={updateTransactionAction}
           trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
         />
       </div>
@@ -136,6 +148,10 @@ export function BudgetTabs({
               dict={dict}
               locale={locale}
               onManageClick={() => setTab("manage")}
+              onAcknowledge={acknowledgeTemplatePeriodAction}
+              onLogAsIs={logRecurringTemplateAction}
+              createTransactionAction={createTransactionAction}
+              updateTransactionAction={updateTransactionAction}
             />
             <SafeToSpend
               amount={safeToSpendAmount}
@@ -147,7 +163,7 @@ export function BudgetTabs({
             {periodSummary}
           </>
         ) : (
-          <BudgetOnboarding dict={dict} />
+          <BudgetOnboarding dict={dict} createCategoryAction={createCategoryAction} />
         )}
       </div>
 

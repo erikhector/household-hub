@@ -89,7 +89,7 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b, AUTO-4 and AUTO-5 all edit
+AUTO-2b and AUTO-5 both edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
 in one branch.
 
@@ -104,31 +104,6 @@ in one branch.
       Still open: a way to correct a guess in place. The category is already
       on each row (AUTO-3's `ShoppingListItemRow.category`, sourced from the
       linked `InventoryItem`) — this just needs the chip UI to edit it there.
-
-- [ ] **AUTO-4. Prices fill themselves in**
-      — `src/app/dashboard/shopping-list/actions.ts`,
-      `src/app/share/shopping-list/actions.ts`,
-      `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** `lastKnownPrice` is never written, `estimatedPrice` has
-      no UI, so the automatic Groceries expense on list completion is 0 in
-      practice unless a receipt was scanned.
-      **Design brief:** each row shows a muted "≈ 24 kr" when a price is
-      known, and the list header shows a running estimated total (Listonic
-      does this). Tapping a price lets you correct it inline. Receipt scan
-      stays the way to record *actual* prices; this just means the estimate
-      is never empty.
-      **Dev notes:** (1) start maintaining `InventoryItem.lastKnownPrice`
-      wherever a `PriceHistory` row is written (the four
-      `tx.priceHistory.create` call sites in the two actions files above —
-      set it in the same transaction). (2) When a shopping-list item is
-      created with a linked inventory item that has a `lastKnownPrice`,
-      default `estimatedPrice` to it (per-unit semantics: keep matching how
-      `completeShoppingListAction` already sums `estimatedPrice`
-      unmultiplied — document the choice either way). A one-off backfill of
-      `lastKnownPrice` from the latest `PriceHistory` row per item can ship
-      as a data migration or be skipped (the value fills in naturally on
-      the next purchase). Money formatting via the existing budget
-      `Intl.NumberFormat` convention.
 
 - [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
       — `src/components/shopping/shopping-list-client.tsx`
@@ -384,31 +359,19 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Budget component unification
 
-Sequential: BUDGET-2 → BUDGET-3 → BUDGET-4. Together with BUDGET-5 (needs a
-decision, below) this is the whole "delete `src/components/personal-budget/`"
-job.
-
-- [ ] **BUDGET-2. Merge the four "empty-array-safe" pairs** — `TransactionDialog`+
-      `PersonalTransactionDialog`, `TransactionList`+`PersonalTransactionList`,
-      `RecurringTemplatesPanel`+`PersonalRecurringTemplatesPanel`,
-      `DueRecurringWidget`+`PersonalDueRecurringWidget`, plus `RecurringTemplateDialog`+
-      `PersonalRecurringTemplateDialog` (mechanical, no members prop involved). Delete the five
-      `personal-*` files; both pages import the shared component with `members={[]}`/
-      `currentMemberId=""` from the personal-budget page and real values from the household
-      page. This is 5 of the 7 pairs and the least risky half.
-
-- [ ] **BUDGET-3. Merge `CategoryManager`/`AddCategoryDialog`** — needs the two create/delete actions
-      injected as props (or a small per-scope action-selector) rather than empty-array
-      suppression. Doesn't depend on BUDGET-2, but touches a component BUDGET-2 doesn't.
+Sequential: BUDGET-4 next (BUDGET-2 and BUDGET-3 shipped — see REQUIREMENTS.md's
+"Budget component unification"). Together with BUDGET-5 (needs a decision,
+below) this is the whole "delete `src/components/personal-budget/`" job.
 
 - [ ] **BUDGET-4. Merge `BudgetTabs`/`PersonalBudgetTabs`** — needs an explicit prop for which
       optional tabs exist (`costAnalyzer`/`balances` become optional `ReactNode`s the way
       `balances` already is). Also decide, before or as part of the merge, whether
       personal budget gets household's persistent "Manage categories" button next to the
-      tab bar — today `PersonalCategoryManager` is only reachable from the Activity tab's
+      tab bar — today `CategoryManager` is only reachable from the Activity tab's
       overview panel. It may be unnecessary at personal budget's smaller scale (one
-      category-bearing tab), so "not needed" is a valid answer. Land after BUDGET-3,
-      since this renders `CategoryManager` inline.
+      category-bearing tab), so "not needed" is a valid answer. Both `BudgetTabs` and
+      `PersonalBudgetTabs` already take a `createCategoryAction` prop (BUDGET-3, for
+      `BudgetOnboarding`/`PersonalBudgetOnboarding`'s `AddCategoryDialog`) to fold in.
 
 ### Shopping list & inventory automation
 

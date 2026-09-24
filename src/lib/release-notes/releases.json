@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.5.0",
+    "date": "2026-09-24",
+    "pr": 18,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping list items now show an estimated price, and your list's total updates automatically as you shop.",
+      "sv": "Varor på inköpslistan visar nu ett uppskattat pris, och listans totalsumma uppdateras automatiskt medan du handlar."
+    }
+  },
+  {
     "version": "0.4.4",
     "date": "2026-09-24",
     "pr": 19,

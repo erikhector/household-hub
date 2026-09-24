@@ -29,16 +29,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  createRecurringTemplateAction,
-  updateRecurringTemplateAction,
-} from "@/app/dashboard/budget/actions";
 import { evenSplitAmounts } from "@/components/budget/split-amounts";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
+
+// Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
+// (household) and createPersonalRecurringTemplateAction/
+// updatePersonalRecurringTemplateAction (personal) — see
+// TransactionFormAction's identical doc comment
+// (src/components/budget/transaction-dialog.tsx).
+export type RecurringTemplateFormAction = (
+  prevState: ActionState,
+  formData: FormData,
+) => Promise<ActionState>;
 
 export type RecurringTemplateSplitRow = { householdMemberId: string; amountOwed: number };
 
@@ -75,18 +81,24 @@ export function RecurringTemplateDialog({
   members,
   trigger,
   template,
+  createAction,
+  updateAction,
 }: {
-  dict: Dictionary["budget"];
+  dict: BudgetDict;
   categories: CategoryRow[];
   /** Every member of the active household — the split UI is only offered
    * (and rendered) when there's more than one, mirroring TransactionDialog's
-   * split section. Optional/defaulted to empty so callers that don't have a
-   * household's member list handy (there are none left in this codebase,
-   * but keeps the type from being a breaking change if that ever changes)
-   * simply never see the split section. */
+   * split section. Optional/defaulted to empty so the personal budget page
+   * (which has no members at all, BUDGET-2) simply never sees the split
+   * section, the same way a genuinely single-member household wouldn't. */
   members?: MemberOption[];
   trigger: ReactElement;
   template?: RecurringTemplateRow;
+  /** createRecurringTemplateAction/updateRecurringTemplateAction (household)
+   * or createPersonalRecurringTemplateAction/updatePersonalRecurringTemplateAction
+   * (personal) — see RecurringTemplateFormAction's doc comment. */
+  createAction: RecurringTemplateFormAction;
+  updateAction: RecurringTemplateFormAction;
 }) {
   const isEdit = !!template;
   const memberOptions = members ?? [];
@@ -111,7 +123,7 @@ export function RecurringTemplateDialog({
     prevState: ActionState,
     formData: FormData,
   ) => {
-    const action = isEdit ? updateRecurringTemplateAction : createRecurringTemplateAction;
+    const action = isEdit ? updateAction : createAction;
     const result = await action(prevState, formData);
     if (!result.error) setOpen(false);
     return result;
@@ -237,19 +249,19 @@ export function RecurringTemplateDialog({
                   checked={splitEnabled}
                   onChange={(e) => setSplitEnabled(e.target.checked)}
                 />
-                {dict.recurring.split.toggleLabel}
+                {dict.recurring.split?.toggleLabel}
               </label>
               {splitEnabled && (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <Label>{dict.recurring.split.sharesLabel}</Label>
+                    <Label>{dict.recurring.split?.sharesLabel}</Label>
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
                       onClick={() => resetToEvenSplit(amount)}
                     >
-                      {dict.recurring.split.splitEvenlyButton}
+                      {dict.recurring.split?.splitEvenlyButton}
                     </Button>
                   </div>
                   <div className="flex flex-col gap-2">
@@ -267,14 +279,14 @@ export function RecurringTemplateDialog({
                           onChange={(e) =>
                             setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
                           }
-                          aria-label={format(dict.recurring.split.amountAriaLabel, { name: m.displayName })}
+                          aria-label={format(dict.recurring.split?.amountAriaLabel ?? "", { name: m.displayName })}
                         />
                       </div>
                     ))}
                   </div>
                   {splitMismatch && (
                     <p className="text-xs text-destructive">
-                      {format(dict.recurring.split.mismatchWarning, {
+                      {format(dict.recurring.split?.mismatchWarning ?? "", {
                         total: splitTotal.toFixed(2),
                         amount: (Number(amount) || 0).toFixed(2),
                       })}
