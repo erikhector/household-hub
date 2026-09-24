@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.7.3",
+    "date": "2026-09-24",
+    "pr": 27,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Opening another household's budget from your personal budget now keeps you on that household when you change months. It's shown read-only, with a button to switch to it, so new entries can't end up in the wrong household.",
+      "sv": "När du öppnar ett annat hushålls budget från din personliga budget stannar du nu kvar på det hushållet när du byter månad. Budgeten visas skrivskyddad med en knapp för att byta till hushållet, så att nya poster inte hamnar i fel hushåll."
+    }
+  },
+  {
     "version": "0.7.2",
     "date": "2026-09-24",
     "pr": 21,
