@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy — Squirrel",
 };
 
-const LAST_UPDATED = "September 21, 2026";
+const LAST_UPDATED = "September 24, 2026";
 
 function Section({
   title,
@@ -161,17 +161,31 @@ export default async function PrivacyPage() {
             <p>
               <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by three
               optional AI features, and only when whoever operates your instance has configured
-              an API key for one of them — with no key configured, none of this ever runs. AI
-              shelf scan and AI receipt scan each upload a photo you choose to take (of a
-              shelf/fridge/cupboard, or a paper receipt) so a vision model can read it; the photo
-              is sent for that one request and isn&apos;t otherwise stored. Auto-categorization&apos;s
-              AI fallback is different: it runs automatically, in the background, whenever a new
-              item&apos;s name isn&apos;t recognized by the built-in dictionary, sending only that
-              bare item name — never quantities, prices, or any other household data — to guess a
-              category; the item is saved right away either way, and the guess is applied
-              afterward if the call succeeds. In every case Gemini/Anthropic process what&apos;s
-              sent only to answer that one request, not to store or train on it beyond whatever
-              their own provider terms specify.
+              an API key for one of them — with no key configured, none of this ever runs.
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>
+                <strong>AI shelf scan</strong> and <strong>AI receipt scan</strong> only run when
+                you start them. Each uploads the photo you take (of a shelf, fridge or cupboard,
+                or of a paper receipt) so a vision model can read it. In shelf scan&apos;s
+                &quot;Take stock&quot; mode, the names of your household&apos;s current inventory
+                items (up to 300) are sent along with the photo so the model can match what it
+                sees to them. The photo itself is never saved in our database — only the rows you
+                review and confirm afterwards are.
+              </li>
+              <li>
+                <strong>AI auto-categorization</strong> runs automatically, in the background,
+                when you add a new item whose name neither the built-in dictionary nor your
+                household&apos;s earlier items recognize. Only those item names are sent — never
+                quantities, prices, or any other household or account data — and the answer is
+                used solely to fill in the item&apos;s category. The item is saved right away as
+                &quot;Uncategorized&quot; either way, and a category you&apos;ve already set
+                yourself is never overwritten.
+              </li>
+            </ul>
+            <p>
+              What Google and Anthropic do with data sent to their APIs is governed by their own
+              API terms and privacy policies.
             </p>
             <p>
               <strong>Sentry</strong> (error reporting) is optional and only active if whoever
@@ -186,9 +200,9 @@ export default async function PrivacyPage() {
             </p>
             <p>
               We don&apos;t use any analytics or advertising service. There is no tracking pixel
-              and no ad network. Beyond Resend, Sentry, and the optional Gemini/Anthropic AI
-              features described above, no third party receives your inventory, shopping list,
-              meal plan, or budget data.
+              and no ad network. Apart from the optional Gemini/Anthropic AI features described
+              above, no third party receives your inventory, shopping list, meal plan, or budget
+              data.
             </p>
           </Section>
 
