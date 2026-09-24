@@ -9,7 +9,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
-import { createCategoryResolver } from "@/lib/inventory/category-resolver";
+import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -63,13 +63,15 @@ export async function createInventoryItemAction(
   }
 
   try {
-    const category =
-      parsed.data.category ||
-      (await createCategoryResolver(household.id)(parsed.data.name)) ||
-      (await getDictionary()).inventory.uncategorized;
+    // Blank on both sides of `||` means household memory and the
+    // dictionary both missed — AUTO-2b(a)'s AI fallback only ever gets a
+    // chance at names that reach this point.
+    const guessed = parsed.data.category || (await createCategoryResolver(household.id)(parsed.data.name));
+    const category = guessed || (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
       data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
+    if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -151,13 +153,12 @@ export async function quickAddInventoryItemAction(input: {
   }
 
   try {
-    const category =
-      parsed.data.category ||
-      (await createCategoryResolver(household.id)(parsed.data.name)) ||
-      (await getDictionary()).inventory.uncategorized;
+    const guessed = parsed.data.category || (await createCategoryResolver(household.id)(parsed.data.name));
+    const category = guessed || (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
       data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
     });
+    if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -237,9 +238,11 @@ export async function bulkCreateInventoryItemsAction(
     }
 
     const toAdd = [];
+    const aiCandidates: string[] = [];
     for (const item of merged.values()) {
-      const category =
-        parsed.data.category || item.category || (await resolveCategory(item.name)) || dict.inventory.uncategorized;
+      const guessed = parsed.data.category || item.category || (await resolveCategory(item.name));
+      const category = guessed || dict.inventory.uncategorized;
+      if (!guessed) aiCandidates.push(item.name);
       toAdd.push({ ...item, category });
     }
     if (toAdd.length > 0) {
@@ -255,6 +258,7 @@ export async function bulkCreateInventoryItemsAction(
           updatedByUserId: userId,
         })),
       });
+      if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
     }
     added = toAdd.length;
   } catch (error) {

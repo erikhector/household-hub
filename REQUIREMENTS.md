@@ -265,20 +265,57 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Keys are labelled in the user's locale via `inventory.autoCategories`.
     The pantry/cleaning/bathroom labels deliberately equal the starter
     kits' names (test-enforced), so kit items and auto-filed ones share
-    groups. If neither step knows the name, the old "Uncategorized" fallback
-    applies. The server half (`createCategoryResolver`,
+    groups. The server half (`createCategoryResolver`,
     `src/lib/inventory/category-resolver.ts`) loads the household's items
     lazily, once per request, and bulk add reuses its own dedupe query.
     Only a *blank* category is ever filled in: a typed or shared category
     always wins, and clearing a category on the edit form is respected, not
-    re-guessed. Recipe-ingredient find-or-create
-    (`parseIngredientRows` in `recipe-actions.ts`, and the missing-ingredients
-    → shopping-list bridge in `cooking-actions.ts`) also runs every
-    newly-created ingredient through `createCategoryResolver`, falling back
-    to `"Uncategorized"` only when neither step recognizes the name — the
-    resolver's own lazy, memoized load means this costs one extra query for
-    the whole batch, not one per ingredient, matching SCALE-B/SCALE-D's
-    existing batching there (AUTO-2b).
+    re-guessed. Separately, a barcode lookup (`lookupBarcodeAction`,
+    `src/lib/barcode.ts`) maps Open Food Facts' own `categories_tags`
+    through the same dictionary (`categoryKeyFromOpenFoodFactsTags`) before
+    the resolver is ever consulted — that per-item suggestion, when present,
+    wins over a guess the same way a typed category does.
+    **(3) AI fallback (AUTO-2b(a), optional)**: only reached once *both*
+    of the above miss, and only when a Gemini/Anthropic key is configured
+    (`src/lib/inventory/ai-category-fallback.ts`, same env vars and
+    provider order as AI shelf scan's `resolveAttempts` — see "AI shelf
+    scan" below). The item is committed as `"Uncategorized"` immediately,
+    exactly as it would be with no key configured, so this never blocks or
+    slows down the add; `scheduleAiCategoryFallback`
+    (`src/lib/inventory/category-resolver.ts`) then schedules, via Next's
+    `after()`, one small classification call batching every item in the
+    request that missed (never one call per item) — only the bare item
+    *names*, never quantities, prices or any other household data — and
+    patches each resolved name's category afterward. The model is
+    constrained to `AUTO_CATEGORY_KEYS`; anything else it answers (a
+    hallucinated category, or its own "unknown" when it doesn't know
+    either) is clamped away and the item simply stays `"Uncategorized"`,
+    same as any other failure (no key, rate-limited, provider error,
+    timeout) — none of which ever surfaces to the user. The Anthropic call
+    uses `claude-haiku-4-5` (hardcoded, not the scans' vision model — a
+    fixed-choice text classification doesn't need a bigger one); Gemini
+    uses `GEMINI_MODEL` like the scans. Rate-limited per
+    household (`ai-category-fallback:{householdId}`, same 20/hour budget as
+    AI shelf scan/AI receipt scan). The patch only touches a row still
+    sitting in a placeholder "Uncategorized" category, so a correction made
+    in the meantime is never clobbered. Disclosed in the add-item dialog's
+    existing category hint (`categoryHintAi`), shown only when a key is
+    actually configured, and on the privacy page's "Third parties" section
+    (alongside AI shelf/receipt scan). Covers every InventoryItem create
+    path: inventory, shopping list, and recipe-ingredient find-or-create
+    (below). The `revalidatePath` inside `after()` runs after the response
+    is sent, so the adding user sees the patched category on their next
+    navigation or refresh, not instantly.
+    **Recipe-ingredient find-or-create** (`parseIngredientRows` in
+    `recipe-actions.ts`, and the missing-ingredients → shopping-list bridge
+    in `cooking-actions.ts`) also runs every newly-created ingredient
+    through `createCategoryResolver`, falling back to `"Uncategorized"`
+    (plus the AI fallback above, when configured) only when neither step
+    recognizes the name — the resolver's own lazy,
+    memoized load means this costs one extra query for the whole batch, not
+    one per ingredient, matching SCALE-B/SCALE-D's existing batching there.
+    The only piece still open is a tappable chip to correct a guess in
+    place on the shopping list (see BACKLOG.md AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
