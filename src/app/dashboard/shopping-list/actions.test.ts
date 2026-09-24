@@ -814,6 +814,46 @@ describe("resolveShoppingListMappingsAction", () => {
     expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
   });
 
+  it("resolves a batch of rows in parallel, still reporting the right resolvedCount and revalidating the list (SCALE-C)", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-1", shoppingListId: "list-1", name: "Milk", inventoryItemId: null },
+      { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: null },
+      { id: "item-3", shoppingListId: "list-1", name: "Bread", inventoryItemId: null },
+    ]);
+    // item-1 resolves against a real inventory item; item-2's named
+    // inventory item doesn't exist (attempted but not resolved); item-3 is
+    // a "new" resolution.
+    inventoryItemFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) =>
+      where.id === "inv-1" ? { id: "inv-1" } : null,
+    );
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await resolveShoppingListMappingsAction([
+      { itemId: "item-1", kind: "existing", inventoryItemId: "inv-1" },
+      { itemId: "item-2", kind: "existing", inventoryItemId: "missing-inv" },
+      { itemId: "item-3", kind: "new", category: "Bakery" },
+    ]);
+
+    // Only item-1 and item-3 actually resolved; item-2's target didn't
+    // exist, so it's skipped — same as the sequential loop this replaced.
+    expect(result).toEqual({ resolvedCount: 2 });
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { inventoryItemId: "inv-1" },
+    });
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-3" },
+      data: { inventoryItemId: "inv-new" },
+    });
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item-2" } }),
+    );
+    // Revalidation still fires for the list even though one resolution in
+    // the batch failed, mirroring the old loop's shoppingListId side effect.
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
+  });
+
   it("skips a resolution for an item outside the caller's household or already linked", async () => {
     shoppingListItemFindManyMock.mockResolvedValue([
       { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: "inv-already" },
@@ -965,6 +1005,30 @@ describe("applyReceiptScanAction", () => {
 
     expect(result.itemsUpdated).toBe(1);
     expect(result.totalAmount).toBe(10);
+  });
+
+  it("sums totalAmount correctly across several matches applied in parallel (SCALE-C)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [
+        { id: "sli-1", purchased: false, quantity: 2, inventoryItem: { id: "inv-1", quantity: 1 } },
+        { id: "sli-2", purchased: false, quantity: 1, inventoryItem: { id: "inv-2", quantity: 5 } },
+        { id: "sli-3", purchased: false, quantity: 3, inventoryItem: null },
+      ],
+    });
+
+    const result = await applyReceiptScanAction("list-1", "SEK", [
+      { shoppingListItemId: "sli-1", price: 10 },
+      { shoppingListItemId: "sli-2", price: 25 },
+      { shoppingListItemId: "sli-3", price: 7.5 },
+    ]);
+
+    expect(result.itemsUpdated).toBe(3);
+    expect(result.totalAmount).toBe(42.5);
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { quantity: 3 } });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-2" }, data: { quantity: 6 } });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-1", price: 10 } });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-2", price: 25 } });
   });
 
   it("converts a foreign-currency price using the fetched exchange rate", async () => {

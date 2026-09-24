@@ -71,12 +71,30 @@ const sendInviteEmailSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address").max(254, "Email is too long"),
 });
 
+// Unlike JOIN_SIGNUP_RATE_LIMIT (keyed on the invitee's email, to slow down
+// account-creation/enumeration abuse), this is keyed on the *sender*
+// (requireHousehold()'s userId) — any authenticated household member can
+// otherwise trigger an outbound email to an arbitrary address with no
+// throttle at all, which is a cost/abuse vector (spamming arbitrary inboxes
+// via this app's sending domain) once there are many real accounts. 10/hour
+// is well above what a household ever legitimately needs (inviting a
+// handful of people), while still bounding the damage a compromised or
+// malicious account can do.
+const INVITE_EMAIL_RATE_LIMIT = 10;
+const INVITE_EMAIL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+
 // Sends the same link the on-screen "copy link" UI already shows for this
 // invite (see InviteButton) — email delivery is additive, not a
 // replacement, so the invite still works via manual copy/paste if this
 // fails or if RESEND_API_KEY isn't configured (see src/lib/email.ts).
 export async function sendInviteEmailAction(token: string, email: string): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
+
+  if (
+    !(await checkRateLimit(`invite-email:${userId}`, INVITE_EMAIL_RATE_LIMIT, INVITE_EMAIL_RATE_LIMIT_WINDOW_MS))
+  ) {
+    return { error: "Too many invite emails sent. Please wait a while and try again." };
+  }
 
   const parsed = sendInviteEmailSchema.safeParse({ token, email });
   if (!parsed.success) {
