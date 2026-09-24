@@ -923,10 +923,11 @@ living only under `src/components/budget/`:
 (`RecurringTemplatesPanel`), and `due-recurring-widget.tsx`
 (`DueRecurringWidget`). The five `personal-*` equivalents under
 `src/components/personal-budget/` are deleted; both pages now import the
-same component. `CategoryManager`/`AddCategoryDialog`, `BudgetTabs`/
-`PersonalBudgetTabs`, and `BudgetOnboarding`/`PersonalBudgetOnboarding`
-stay duplicated for now — they differ in more than "pass an empty array"
-ways and are BUDGET-3/4/5 in `BACKLOG.md`.
+same component. `CategoryManager`/`AddCategoryDialog` followed in BUDGET-3
+(see "CategoryManager (BUDGET-3)" below). `BudgetTabs`/`PersonalBudgetTabs`
+and `BudgetOnboarding`/`PersonalBudgetOnboarding` stay duplicated for now —
+they differ in more than "pass an empty array" ways and are BUDGET-4/5 in
+`BACKLOG.md`.
 
 **What stayed separate, on purpose.** The two Prisma model families
 (`BudgetCategory`/`Transaction`/`RecurringTemplate`/`RecurringTemplateAck`
@@ -980,6 +981,45 @@ intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
   keeps a required `splits` — the personal budget page's row-mapping code
   supplies `null`/`[]` for these instead of the type making them optional,
   so nothing downstream needs an extra `?? []`.
+
+#### CategoryManager (BUDGET-3)
+
+**What merged.** `CategoryManager` and `AddCategoryDialog` now live only in
+`src/components/budget/category-manager.tsx`;
+`src/components/personal-budget/personal-category-manager.tsx` is deleted.
+Both pages import the same component with their own categories, dict, and
+actions.
+
+**Why this pair needed injected actions, not an empty array.** Unlike the
+split-UI suppression trick the BUDGET-2 components use (gate a section
+behind `members.length > 1`, pass `members={[]}` from the personal side),
+`CategoryManager`'s only scope-specific behavior is *which* Server Actions it
+calls — there's no UI section to hide. So
+`createCategoryAction`/`updateCategoryAction`/`deleteCategoryAction`
+(household) and their `Personal*` counterparts (personal) are passed in as
+props, typed by two types exported from `category-manager.tsx`:
+`CategoryFormAction` (create/update, the `(prevState, formData) =>
+Promise<ActionState>` shape `useActionState` expects) and
+`DeleteCategoryAction` (delete, a plain click action called from
+`useTransition`). Each page imports its own `actions.ts` and passes its
+three actions straight through; `category-manager.tsx` itself never imports
+from either `actions.ts` file.
+
+**Dict typing.** `CategoryManagerDict` (also exported from
+`category-manager.tsx`) is a narrow structural type covering only the
+`categories`/`type` dictionary fields this component reads. Both
+`Dictionary["budget"]` and `Dictionary["personalBudget"]` satisfy it as-is
+with no adapter object, since those two sections are already identical
+field-for-field between the namespaces.
+
+**Collateral wiring.** Deleting `personal-category-manager.tsx` meant
+switching `personal-budget-tabs.tsx` from its `PersonalCategoryRow` type to
+the merged `CategoryRow` (the shared BUDGET-2 components already used
+`CategoryRow`). It also required threading a new `createCategoryAction` prop
+through `BudgetTabs`/`PersonalBudgetTabs` and `BudgetOnboarding`/
+`PersonalBudgetOnboarding` — unchanged otherwise, since their own merge is
+BUDGET-4/5 — because their zero-categories empty state renders
+`AddCategoryDialog` too.
 
 ## Data export (CSV)
 

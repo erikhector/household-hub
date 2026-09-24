@@ -46,6 +46,7 @@ import {
   toMonthKey,
 } from "@/lib/budget-date-utils";
 import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
+import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 
 // An item needs at least this many recorded prices before its trend is
 // considered meaningful enough to show — see REQUIREMENTS.md's "Cost
@@ -457,7 +458,13 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         createTransactionAction={createTransactionAction}
         updateTransactionAction={updateTransactionAction}
       />
-      <CategoryManager categories={categoryRows} dict={dict.budget} />
+      <CategoryManager
+        categories={categoryRows}
+        dict={dict.budget}
+        createAction={createCategoryAction}
+        updateAction={updateCategoryAction}
+        deleteAction={deleteCategoryAction}
+      />
     </div>
   );
 
@@ -546,6 +553,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         hasRecurringTemplates={recurringTemplateRows.length > 0}
         members={memberOptions}
         currentMemberId={currentMemberId}
+        createCategoryAction={createCategoryAction}
         periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}

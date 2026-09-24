@@ -46,7 +46,7 @@ import {
   logRecurringTemplateAction,
   updateTransactionAction,
 } from "@/app/dashboard/budget/actions";
-import type { CategoryRow } from "@/components/budget/category-manager";
+import type { CategoryFormAction, CategoryRow } from "@/components/budget/category-manager";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -66,6 +66,7 @@ export function BudgetTabs({
   hasRecurringTemplates,
   members,
   currentMemberId,
+  createCategoryAction,
   periodSummary,
   manage,
   transactions,
@@ -90,6 +91,9 @@ export function BudgetTabs({
   hasRecurringTemplates: boolean;
   members: MemberOption[];
   currentMemberId: string;
+  // BUDGET-3: BudgetOnboarding's AddCategoryDialog takes its create action
+  // as a prop instead of importing it directly, threaded through from here.
+  createCategoryAction: CategoryFormAction;
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see page.tsx's doc comment. */
   periodSummary: ReactNode;
@@ -159,7 +163,7 @@ export function BudgetTabs({
             {periodSummary}
           </>
         ) : (
-          <BudgetOnboarding dict={dict} />
+          <BudgetOnboarding dict={dict} createCategoryAction={createCategoryAction} />
         )}
       </div>
 
