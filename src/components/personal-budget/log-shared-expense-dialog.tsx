@@ -6,8 +6,9 @@
 // real household Transaction (with a mandatory split) rather than a
 // PersonalTransaction: the household budget stays the one ledger of record,
 // this is just an alternate place to write to it. Only rendered (see
-// PersonalBudgetTabs) when the user belongs to at least one household with
-// more than one member — nothing to split otherwise.
+// BudgetTabs's `sharedExpenseHouseholds` prop, personal budget page only)
+// when the user belongs to at least one household with more than one
+// member — nothing to split otherwise.
 
 import { useActionState, useMemo, useState, type ReactElement } from "react";
 import { toast } from "sonner";

@@ -1,8 +1,8 @@
 "use client";
 
-// Always-visible "what needs my attention right now" strip, rendered by
-// BudgetTabs/PersonalBudgetTabs above the tab bar so it's reachable without
-// switching tabs or scrolling — unlike the full Recurring items panel
+// "What needs my attention right now" strip, rendered by BudgetTabs (both
+// budget pages) at the top of the Overview landing tab so it's reachable
+// without switching tabs or scrolling — unlike the full Recurring items panel
 // (recurring-templates-panel.tsx), which lives inside the Manage tab and
 // also handles add/edit/pause/delete. This widget only lists templates with
 // status "due" and offers the same two quick actions the panel's "Due this
