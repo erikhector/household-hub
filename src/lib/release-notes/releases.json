@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.7.1",
+    "date": "2026-09-24",
+    "pr": 26,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "\"Use it up\" suggestions no longer miss an expiring item when an empty item with the same name exists.",
+      "sv": "Förslagen under \"Använd det du har\" missar inte längre en vara som snart går ut när det finns en tom vara med samma namn."
+    }
+  },
+  {
     "version": "0.7.0",
     "date": "2026-09-24",
     "pr": 17,
