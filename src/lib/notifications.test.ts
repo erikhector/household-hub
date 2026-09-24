@@ -48,10 +48,28 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 // Push delivery is covered by its own unit (src/lib/push.ts) — here we only
-// assert notifications.ts calls it with the right payload, fire-and-forget.
+// assert notifications.ts calls it with the right payload — fire-and-forget
+// from the action-driven triggers, awaited from the cron-driven syncs (see
+// the "waits for" tests below).
 vi.mock("@/lib/push", () => ({
   sendPushToHousehold: sendPushToHouseholdMock,
 }));
+
+// Lets pending promise callbacks run without advancing (fake) timers — used
+// to check a sync hasn't resolved while its push send is still pending.
+async function flushMicrotasks() {
+  for (let i = 0; i < 20; i++) await Promise.resolve();
+}
+
+// A push send that stays pending until the test releases it.
+function pendingPush() {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  sendPushToHouseholdMock.mockReturnValue(promise);
+  return release;
+}
 
 const {
   recordOutOfStockTransition,
@@ -241,6 +259,26 @@ describe("syncMealNotLoggedNotifications", () => {
 
     await expect(syncMealNotLoggedNotifications("household-1")).resolves.toBeUndefined();
   });
+
+  it("waits for the push send before resolving (so the cron invocation isn't frozen mid-send)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { id: "entry-1", date: new Date("2026-09-03T00:00:00.000Z"), freeformName: "Leftovers", recipe: null },
+    ]);
+    const releasePush = pendingPush();
+
+    let settled = false;
+    const sync = syncMealNotLoggedNotifications("household-1").then(() => {
+      settled = true;
+    });
+    await flushMicrotasks();
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+
+    releasePush();
+    await sync;
+    expect(settled).toBe(true);
+  });
 });
 
 describe("syncExpiringSoonNotifications", () => {
@@ -272,6 +310,25 @@ describe("syncExpiringSoonNotifications", () => {
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("waits for the push send before resolving (so the cron invocation isn't frozen mid-send)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    notificationFindManyMock.mockResolvedValueOnce([]);
+    const releasePush = pendingPush();
+
+    let settled = false;
+    const sync = syncExpiringSoonNotifications("household-1").then(() => {
+      settled = true;
+    });
+    await flushMicrotasks();
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+
+    releasePush();
+    await sync;
+    expect(settled).toBe(true);
   });
 });
 

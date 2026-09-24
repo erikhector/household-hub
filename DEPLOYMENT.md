@@ -349,8 +349,9 @@ about before you pick a schedule.
 
 **Deploy prerequisite, not a "do it eventually":** `CRON_SECRET` must be set
 in the deploy environment (Vercel: Production **Environment Variables**)
-**before, or immediately after, this merges** — not at some later
-convenience. Without it, every invocation of this route 401s (see the
+**before this merges**. The first production deploy that contains the route
+also contains `vercel.json`'s cron, so there is no safe "set it right after"
+window. Without it, every invocation of this route 401s (see the
 route's own `console.error` on a rejected invocation) and the
 meal-not-logged/expiring-soon triggers silently stop firing entirely, with
 nothing surfacing that to a user — only the platform's cron invocation logs

@@ -2023,12 +2023,29 @@ Exactly three triggers exist — nothing else creates a notification:
     for each; something external must hit this route on a schedule (see
     DEPLOYMENT.md's "Scheduled jobs" section for the Vercel/Railway/Render
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
-    unlike `/api/health` it both writes data and sends push notifications.
+    unlike `/api/health` it both writes data and sends push notifications;
+    an unset `CRON_SECRET` fails closed (every run is a logged `401`), so it
+    must be configured in production before the route is deployed.
     `getActiveNotifications` itself is now a pure read (`prisma.notification.findMany`
     only) with no side effects. **User-facing effect:** a new
     meal-not-logged or expiring-soon notification now appears with a delay
-    of up to the cron interval, rather than instantly the next time someone
-    opens the bell.
+    of up to the cron interval (up to 24 hours on Vercel Hobby's daily
+    schedule, 15 minutes on the suggested Railway/Render schedule), rather
+    than instantly the next time someone opens the bell. Out-of-stock and
+    list-cleared alerts are unaffected: they're still created synchronously
+    by the action that causes them.
+  - **Failure isolation and bounded concurrency**: households are synced
+    ten at a time (`BATCH_SIZE`), not all at once, so in-flight queries
+    don't grow with the household count and exhaust the Prisma pool. Each
+    household's two syncs, and the households within a batch, are settled
+    independently (`Promise.allSettled`), so one failing household (or one
+    failing sync within it) never stops the others, and the route never
+    responds while any sync is still in flight. Each failure is logged with
+    its household id. The response is always `200` once the household list
+    was read, with `{ status: "ok" | "partial_failure", householdsSynced,
+    householdsFailed, failedHouseholdIds }`; only a failure to list
+    households returns `500 { status: "error" }`. Error details never go in
+    the response body.
 - All three triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
@@ -2139,15 +2156,19 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   fails-gracefully pattern as `RESEND_API_KEY` in `src/lib/email.ts`.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
-    household. It's called from the **exact same two triggers** as the
-    in-app notification bell above — `recordOutOfStockTransition` and
-    `syncMealNotLoggedNotifications` in `src/lib/notifications.ts` — nothing
-    else sends a push. Both call sites fire it without awaiting (`void
-    sendPushToHousehold(...)`) since some of them run inside a Prisma
-    `$transaction`, and holding that open for a network call isn't worth
-    it — Push API delivery has no delivery guarantee either way, so losing
-    a send if the surrounding write later rolls back is an acceptable
-    trade. A 404/410 response (the browser revoked/expired that
+    household. It's called from the same triggers as the in-app
+    notification bell above (`recordOutOfStockTransition`,
+    `recordListClearedTransition`, `syncMealNotLoggedNotifications` and
+    `syncExpiringSoonNotifications` in `src/lib/notifications.ts`), and
+    nothing else sends a push. The two action-driven triggers fire it
+    without awaiting (`void sendPushToHousehold(...)`) since some of their
+    call sites run inside a Prisma `$transaction`, and holding that open for
+    a network call isn't worth it — Push API delivery has no delivery
+    guarantee either way, so losing a send if the surrounding write later
+    rolls back is an acceptable trade. The two cron-driven syncs **await**
+    it instead: they have no surrounding transaction, and the cron route
+    responds as soon as they resolve, at which point a serverless platform
+    may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
     retrying it; any other error is just logged.
   - **Showing it**: `src/lib/service-worker.js` only implements two

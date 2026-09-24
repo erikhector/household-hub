@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   // meal-not-logged/expiring-soon notification triggers silently stop
   // firing entirely — nothing else surfaces that failure to a user. See
   // DEPLOYMENT.md's "Scheduled jobs" section, which calls out setting this
-  // variable before/immediately after merge as a hard deploy prerequisite,
+  // variable before merge as a hard deploy prerequisite,
   // not an optional follow-up.
   if (!secret || authHeader !== `Bearer ${secret}`) {
     console.error("Notification sync cron rejected: missing or incorrect CRON_SECRET bearer token");
@@ -70,14 +70,25 @@ export async function GET(request: Request) {
 
     for (let i = 0; i < households.length; i += BATCH_SIZE) {
       const batch = households.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
+      // allSettled *within* each household too, not Promise.all: with
+      // Promise.all, a rejected meal sync would settle the household as
+      // failed while its expiring-soon sync (and the push sends it awaits)
+      // was still running — the batch loop would move on, and the last
+      // batch's leftovers could still be in flight when the route responds
+      // and the invocation gets frozen. Waiting for both also means a
+      // failing meal sync never costs that household its expiry alerts.
+      const results = await Promise.all(
         batch.map((household) =>
-          Promise.all([syncMealNotLoggedNotifications(household.id), syncExpiringSoonNotifications(household.id)]),
+          Promise.allSettled([
+            syncMealNotLoggedNotifications(household.id),
+            syncExpiringSoonNotifications(household.id),
+          ]),
         ),
       );
 
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") {
+      results.forEach((householdResults, index) => {
+        const errors = householdResults.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
+        if (errors.length === 0) {
           succeeded += 1;
           return;
         }
@@ -86,7 +97,9 @@ export async function GET(request: Request) {
         // raw error, which could carry connection-string-shaped internals —
         // see /api/health's matching principle) is all that goes back in
         // the response body below.
-        console.error(`Notification sync failed for household ${householdId}:`, result.reason);
+        for (const error of errors) {
+          console.error(`Notification sync failed for household ${householdId}:`, error);
+        }
         failedHouseholdIds.push(householdId);
       });
     }

@@ -156,4 +156,61 @@ describe("GET /api/cron/sync-notifications", () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  it("waits for a failing household's other sync to finish before responding", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    householdFindManyMock.mockResolvedValue(households(1));
+    syncMealNotLoggedNotificationsMock.mockRejectedValue(new Error("boom"));
+    let expiringSyncFinished = false;
+    syncExpiringSoonNotificationsMock.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expiringSyncFinished = true;
+    });
+
+    const response = await GET(request("Bearer test-secret"));
+    const body = await response.json();
+
+    // The meal sync rejected immediately, but the route must not respond
+    // (and let the invocation be frozen) while the same household's
+    // expiring-soon sync — and the push sends it awaits — is still running.
+    expect(expiringSyncFinished).toBe(true);
+    expect(body).toEqual({
+      status: "partial_failure",
+      householdsSynced: 0,
+      householdsFailed: 1,
+      failedHouseholdIds: ["household-1"],
+    });
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("counts a household once, and logs each error, when both of its syncs fail", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    syncMealNotLoggedNotificationsMock.mockImplementation(async (householdId: string) => {
+      if (householdId === "household-1") throw new Error("meal sync failed");
+    });
+    syncExpiringSoonNotificationsMock.mockImplementation(async (householdId: string) => {
+      if (householdId === "household-1") throw new Error("expiry sync failed");
+    });
+
+    const response = await GET(request("Bearer test-secret"));
+    const body = await response.json();
+
+    expect(body).toEqual({
+      status: "partial_failure",
+      householdsSynced: 1,
+      householdsFailed: 1,
+      failedHouseholdIds: ["household-1"],
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("household-1"),
+      expect.objectContaining({ message: "meal sync failed" }),
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("household-1"),
+      expect.objectContaining({ message: "expiry sync failed" }),
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
 });
