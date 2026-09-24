@@ -16,6 +16,10 @@ export type InventoryItemRow = {
   lowStockThreshold: number;
   location: string | null;
   expiresAt: Date | null;
+  // AUTO-7: whether `expiresAt` is a shelf-life estimate rather than a
+  // typed-in date — see ExpiryBadge's own doc comment.
+  expiresAtEstimated: boolean;
+  shelfLifeDays: number | null;
   updatedAt: Date;
   updatedByUserId: string | null;
 };

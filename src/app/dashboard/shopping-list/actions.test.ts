@@ -1064,6 +1064,102 @@ describe("togglePurchasedAction", () => {
     });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
   });
+
+  // AUTO-7
+  it("marking purchased crosses 0→>0 and estimates an expiry for a category with a known shelf life", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 0,
+        category: "Dairy & eggs",
+        expiresAt: null,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAtEstimated).toBe(true);
+    expect(data.expiresAt).toBeInstanceOf(Date);
+  });
+
+  it("never overwrites a real (user-entered) expiry when marking purchased", async () => {
+    const realDate = new Date("2026-06-01");
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 0,
+        category: "Dairy & eggs",
+        expiresAt: realDate,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAt).toBeUndefined();
+    expect(data.expiresAtEstimated).toBeUndefined();
+  });
+
+  it("does not estimate an expiry for a category with no default shelf life", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 0,
+        category: "Pantry basics",
+        expiresAt: null,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAt).toBeUndefined();
+  });
+
+  it("un-marking purchased never estimates an expiry (it's not a stock arrival)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      quantity: 3,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 3,
+        category: "Dairy & eggs",
+        expiresAt: null,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAt).toBeUndefined();
+  });
 });
 
 describe("applyReceiptScanAction", () => {
@@ -1167,6 +1263,34 @@ describe("applyReceiptScanAction", () => {
 
     expect(result.error).toContain("exchange rate");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  // AUTO-7
+  it("estimates an expiry for a matched line that crosses 0→>0 in a category with a known shelf life", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [
+        {
+          id: "sli-1",
+          purchased: false,
+          quantity: 1,
+          inventoryItem: {
+            id: "inv-1",
+            quantity: 0,
+            category: "Meat & fish",
+            expiresAt: null,
+            expiresAtEstimated: false,
+            shelfLifeDays: null,
+          },
+        },
+      ],
+    });
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }]);
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAtEstimated).toBe(true);
+    expect(data.expiresAt).toBeInstanceOf(Date);
   });
 });
 
@@ -1272,6 +1396,27 @@ describe("registerReceiptAction", () => {
     expect(result).toEqual(
       expect.objectContaining({ listId: "list-1", itemsAdded: 1, totalAmount: 15 }),
     );
+  });
+
+  // AUTO-7
+  it("estimates an expiry for a matched line that crosses 0→>0 in a category with a known shelf life", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({
+      id: "inv-1",
+      quantity: 0,
+      unit: "l",
+      category: "Dairy & eggs",
+      expiresAt: null,
+      expiresAtEstimated: false,
+      shelfLifeDays: null,
+    });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction("My receipt", "SEK", [{ name: "Milk", quantity: 2, unit: "l", price: 15 }]);
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.expiresAtEstimated).toBe(true);
+    expect(data.expiresAt).toBeInstanceOf(Date);
   });
 
   it("falls back to a default list name and leaves an unmatched item unlinked, reporting it via unresolvedNotice", async () => {

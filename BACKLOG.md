@@ -215,30 +215,6 @@ order below is a suggestion, not a dependency, unless noted.
       household's own inventory). Keep the existing "never blocks manual
       entry" fallback behavior.
 
-- [ ] **AUTO-7. Estimated expiry from default shelf life**
-      — `prisma/schema.prisma` (`InventoryItem`), `src/lib/inventory/
-      expiry.ts`, bulk-create / receipt / shopping-list purchase paths
-      **Problem:** only the single-item form sets `expiresAt`, so almost no
-      items have one. Grocy solves this with per-product "default best
-      before days".
-      **Design brief:** when stock arrives (checked off a list, receipt
-      registered, put-away scan) an item with a known shelf life gets an
-      *estimated* expiry, shown in `ExpiryBadge` with a "≈" prefix and a
-      softer style than a real date. Editing the date in the item form
-      turns it into a real date. Items the user never wants tracked (salt,
-      rice) can be set to "doesn't expire".
-      **Dev notes:** `shelfLifeDays Int?` on `InventoryItem` (null = use
-      the category default, -1 = never expires — Grocy's convention) and
-      `expiresAtEstimated Boolean @default(false)`. Category defaults live
-      in the item-2 category table (e.g. dairy 7, bakery 4, fresh meat 3,
-      produce 5, frozen/dry/household = none). Only set an estimate when
-      stock goes from 0 → >0 or the item has no expiry yet — never push a
-      real (user-entered) date later. `getExpiryStatus` unchanged; the
-      `EXPIRING_SOON` notification should skip or soften estimated dates
-      (decide in design — recommended: include them, the notification copy
-      says "probably"). This supersedes REQUIREMENTS.md's "never set by any
-      bulk-add flow" rule for estimated dates only — update that text.
-
 - [ ] **AUTO-8. An always-on household list that fills itself**
       — `prisma/schema.prisma` (`ShoppingList`),
       `src/app/dashboard/inventory/actions.ts`,

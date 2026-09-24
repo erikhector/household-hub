@@ -43,6 +43,10 @@ export const en = {
     empty: "You're all caught up!",
     outOfStock: "{name} is out of stock",
     expiringSoon: "{name} is expiring soon",
+    // AUTO-7: softer wording for an item whose expiry is a shelf-life
+    // estimate rather than a date the household actually entered — see
+    // ExpiringSoonNotification.estimated in src/lib/notifications.ts.
+    expiringSoonEstimated: "{name} is probably expiring soon",
     listCleared: "{name} is all checked off",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
@@ -563,6 +567,7 @@ export const en = {
     unitPlaceholder: "e.g. pcs",
     lowStockAtLabel: "Low stock at",
     expiresAtLabel: "Expires on",
+    neverExpiresLabel: "This item doesn't expire",
     comboboxNoMatches: "No matches yet — keep typing to add a new one.",
     comboboxAddNew: 'Use "{value}"',
     adding: "Adding…",

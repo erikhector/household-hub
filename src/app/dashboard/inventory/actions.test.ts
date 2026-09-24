@@ -204,11 +204,27 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         category: "Baking",
         quantity: 2,
         unit: "kg",
+        location: undefined,
         lowStockThreshold: 1,
         expiresAt: null,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
         updatedByUserId: "user-1",
       },
     });
+  });
+
+  // AUTO-7
+  it("sets shelfLifeDays to -1 and clears expiresAt when 'doesn't expire' is checked", async () => {
+    createMock.mockResolvedValue({});
+    const fd = formData({ ...validItem, expiresAt: "2026-12-25" });
+    fd.set("neverExpires", "on");
+
+    await createInventoryItemAction({}, fd);
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expiresAt: null, shelfLifeDays: -1 }) }),
+    );
   });
 });
 
@@ -432,5 +448,24 @@ describe("auto-categorizing quick-add and bulk-add (AUTO-2)", () => {
 
     const rows = createManyMock.mock.calls[0][0].data;
     expect(rows.map((row: { category: string }) => row.category)).toEqual(["Skafferi", "Skafferi"]);
+  });
+
+  // AUTO-7: a brand-new bulk-created row has no prior expiresAt to protect,
+  // so it gets an estimate whenever its (guessed or shared) category has a
+  // default shelf life — never for one that doesn't.
+  it("bulk-add estimates an expiry for items whose category has a default shelf life", async () => {
+    createManyMock.mockResolvedValue({ count: 3 });
+
+    await bulkCreateInventoryItemsAction([
+      { name: "Bananer" }, // guesses "Produce" (5 days)
+      { name: "Zoégas Skånerost", category: "Pantry basics" }, // no default
+      { name: "AA batteries" }, // falls back to "Uncategorized", no default
+    ]);
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows[0].expiresAtEstimated).toBe(true);
+    expect(rows[0].expiresAt).toBeInstanceOf(Date);
+    expect(rows[1].expiresAtEstimated).toBeUndefined();
+    expect(rows[2].expiresAtEstimated).toBeUndefined();
   });
 });
