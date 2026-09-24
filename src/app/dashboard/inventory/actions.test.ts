@@ -286,6 +286,67 @@ describe("updateInventoryItemAction", () => {
     });
   });
 
+  // AUTO-7: "editing the date makes it real" means the date, not the form —
+  // saving the form for an unrelated reason must not silently turn an
+  // existing estimate into a "real" one.
+  describe("expiresAtEstimated (AUTO-7)", () => {
+    const estimatedDate = new Date("2026-10-01T20:49:39.440Z");
+
+    it("keeps an existing estimate when the submitted date is the same calendar day (an untouched, re-submitted date input)", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      // The date input round-trips only the YYYY-MM-DD portion of the
+      // estimate — same calendar day, different time of day.
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-10-01" });
+
+      await updateInventoryItemAction({}, fd);
+
+      const data = updateMock.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty("expiresAtEstimated");
+      expect(data.expiresAt).toEqual(new Date("2026-10-01"));
+    });
+
+    it("makes the date real when the submitted date is a different day", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-11-15" });
+
+      await updateInventoryItemAction({}, fd);
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ expiresAt: new Date("2026-11-15"), expiresAtEstimated: false }),
+        }),
+      );
+    });
+
+    it("clears the estimate flag when the date is cleared", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-10-01" });
+      fd.delete("expiresAt");
+
+      await updateInventoryItemAction({}, fd);
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ expiresAt: null, expiresAtEstimated: false }),
+        }),
+      );
+    });
+  });
 });
 
 describe("adjustQuantityAction", () => {

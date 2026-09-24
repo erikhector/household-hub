@@ -4,6 +4,7 @@ import {
   estimateExpiryDate,
   estimatedExpiryUpdate,
   resolveShelfLifeDays,
+  sameCalendarDay,
   shouldEstimateExpiry,
 } from "@/lib/inventory/shelf-life";
 
@@ -95,6 +96,25 @@ describe("shouldEstimateExpiry", () => {
   it("leaves an already-estimated date alone outside a 0→>0 crossing", () => {
     const existingEstimate = new Date("2026-01-05");
     expect(shouldEstimateExpiry({ expiresAt: existingEstimate, expiresAtEstimated: true }, 2, 5)).toBe(false);
+  });
+});
+
+describe("sameCalendarDay", () => {
+  it("is true for two timestamps on the same UTC day, even with different times", () => {
+    expect(sameCalendarDay(new Date("2026-01-08T00:00:00.000Z"), new Date("2026-01-08T20:49:39.440Z"))).toBe(true);
+  });
+
+  it("is false for different days", () => {
+    expect(sameCalendarDay(new Date("2026-01-08"), new Date("2026-01-09"))).toBe(false);
+  });
+
+  it("is true when both are null", () => {
+    expect(sameCalendarDay(null, null)).toBe(true);
+  });
+
+  it("is false when only one side is null", () => {
+    expect(sameCalendarDay(new Date("2026-01-08"), null)).toBe(false);
+    expect(sameCalendarDay(null, new Date("2026-01-08"))).toBe(false);
   });
 });
 

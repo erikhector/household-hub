@@ -264,9 +264,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       estimate when stock crosses from 0 into positive, or the item has no
       `expiresAt` at all yet, and — Guardrails' "corrections stick" —
       **never overwrites a real, user-entered date** (`expiresAtEstimated:
-      false`). Saving the item form always makes whatever date is on it
-      real again, per "editing the date in the item form makes it real."
-      `ExpiryBadge` shows an estimate with a "≈" prefix and a softer
+      false`). Per "editing the date in the item form makes it real,"
+      `updateInventoryItemAction` only flips `expiresAtEstimated` back to
+      `false` when the submitted date actually differs from what's stored
+      — compared at day granularity (`sameCalendarDay`), since the date
+      input always round-trips a `YYYY-MM-DD` value even when the estimate
+      it's showing carries a different time of day. Saving an unrelated
+      field (renaming the item, a quantity edit) leaves an existing
+      estimate exactly as it was; clearing the date also clears the
+      estimate flag. `ExpiryBadge` shows an estimate with a "≈" prefix and a softer
       (`outline`) style than a real date's `destructive`/`attention`
       badge. The `EXPIRING_SOON` notification includes estimated dates too
       (a guess is still worth a heads-up) with softened "probably" wording

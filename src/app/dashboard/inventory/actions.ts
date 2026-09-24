@@ -10,7 +10,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
-import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
+import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -140,6 +140,16 @@ export async function updateInventoryItemAction(
 
   const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
 
+  // AUTO-7: "editing the date in the item form makes it real" means the
+  // *date*, not the form — saving an unrelated field (name, quantity, a
+  // category typo fix) must not silently discard an existing estimate.
+  // Compared at day granularity (see sameCalendarDay's doc comment): only a
+  // date that actually changed — including being cleared — flips
+  // expiresAtEstimated back to false. Left untouched, it stays whatever it
+  // already was.
+  const nextExpiresAt = neverExpires ? null : expiresAt;
+  const dateChanged = !sameCalendarDay(nextExpiresAt, item.expiresAt ?? null);
+
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
@@ -152,14 +162,11 @@ export async function updateInventoryItemAction(
         category,
         location: parsed.data.location ?? null,
         updatedByUserId: userId,
-        // AUTO-7: saving this form always makes the date real (never an
-        // estimate) — per the design brief, "editing the date in the item
-        // form makes it real." "Doesn't expire" clears any date and
-        // permanently opts the item out (shelfLifeDays -1); unchecking it
-        // resets shelfLifeDays back to null (the category default) rather
-        // than leaving -1 in place.
-        expiresAt: neverExpires ? null : expiresAt,
-        expiresAtEstimated: false,
+        // "Doesn't expire" clears any date and permanently opts the item
+        // out (shelfLifeDays -1); unchecking it resets shelfLifeDays back
+        // to null (the category default) rather than leaving -1 in place.
+        expiresAt: nextExpiresAt,
+        ...(dateChanged ? { expiresAtEstimated: false } : {}),
         shelfLifeDays: neverExpires ? -1 : null,
       },
     });

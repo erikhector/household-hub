@@ -126,3 +126,17 @@ export function estimatedExpiryUpdate(
   if (!expiresAt) return null;
   return { expiresAt, expiresAtEstimated: true };
 }
+
+/**
+ * Same calendar day (UTC), not the same instant — the item form's native
+ * date input only ever round-trips a `YYYY-MM-DD` value, always parsed back
+ * to midnight UTC (see itemSchema's `expiresAt` transform), while an
+ * estimate's `expiresAt` carries whatever time of day it was computed at.
+ * Comparing raw timestamps would treat every untouched estimate as
+ * "changed" the moment the form re-submits it. Both null is "unchanged"
+ * (nothing to compare); one null and one set is always a change.
+ */
+export function sameCalendarDay(a: Date | null, b: Date | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+}
