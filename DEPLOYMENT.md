@@ -341,16 +341,21 @@ A `vercel.json` at the repo root already configures this:
   "crons": [
     {
       "path": "/api/cron/sync-notifications",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
 ```
 
-Every 15 minutes is a starting point, not a fixed requirement — tune the
-cron expression to taste (Vercel's cron UI under the project's **Cron Jobs**
-tab shows the resolved schedule and lets you trigger a run manually to
-verify it). Two things to set up alongside it:
+**Once daily by default because of a real platform limit, not a design
+choice:** Vercel's Hobby plan only runs Cron Jobs once per day — a
+`vercel.json` with a more frequent schedule (e.g. `*/15 * * * *`) fails
+*deployment itself*, not just the cron. `0 6 * * *` (06:00 UTC) is a
+Hobby-safe default; tune the hour to taste. If this project is on a Pro
+plan, tighten the interval as much as you like (down to once a minute) —
+Vercel's cron UI under the project's **Cron Jobs** tab shows the resolved
+schedule and lets you trigger a run manually to verify it either way. Two
+things to set up alongside it:
 
 1. Set `CRON_SECRET` in **Settings → Environment Variables** for the
    environment(s) this should run in. Vercel's own Cron Jobs feature reads
