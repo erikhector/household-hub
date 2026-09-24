@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.4.4",
+    "date": "2026-09-24",
+    "pr": 19,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Ingredients added to your inventory from a recipe are now categorized automatically, just like items added any other way.",
+      "sv": "Ingredienser som läggs till i ditt skafferi från ett recept kategoriseras nu automatiskt, precis som varor du lägger till på andra sätt."
+    }
+  },
+  {
+    "version": "0.4.3",
+    "date": "2026-09-24",
+    "pr": 20,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Internal performance improvement (faster budget and \"expiring soon\" queries under the hood) — nothing changes in how the app looks or behaves.",
+      "sv": "Intern prestandaförbättring (snabbare frågor för budget och \"snart utgånget\" under huven) — inget ändras i hur appen ser ut eller fungerar."
+    }
+  },
+  {
+    "version": "0.4.2",
+    "date": "2026-09-24",
+    "pr": 14,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The budget page now loads faster, especially for households with a long transaction history.",
+      "sv": "Budgetsidan laddar nu snabbare, särskilt för hushåll med lång transaktionshistorik."
+    }
+  },
+  {
     "version": "0.4.1",
     "date": "2026-09-24",
     "pr": 13,

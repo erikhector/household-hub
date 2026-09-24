@@ -89,32 +89,28 @@ enough to trust.
 ## Phase 1 — independent, no schema changes
 
 Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b (c) and AUTO-5 both edit
+AUTO-2b (b) and AUTO-5 both edit
 `src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch. SCALE-F conflicts with SCALE-J (both touch
-`src/app/dashboard/budget/page.tsx`).
+in one branch.
 
 ### Shopping list & inventory automation
 
 - [ ] **AUTO-2b. Auto-categorize: what's left after AUTO-2**
       — `src/lib/inventory/category-resolver.ts`,
-      `src/app/dashboard/meal-planning/{recipe,cooking}-actions.ts`,
       `src/components/shopping/shopping-list-client.tsx`
       AUTO-2 shipped the deterministic part: household memory, the
       bilingual dictionary and Open Food Facts categories, wired into every
       inventory and shopping-list create path (see REQUIREMENTS.md, "Data
-      model" → Auto-categorization). Still open:
+      model" → Auto-categorization). Recipe-ingredient find-or-create
+      (`recipe-actions.ts`/`cooking-actions.ts`) now uses
+      `createCategoryResolver` too. Still open:
       (a) **AI fallback (optional)**. Only when memory and the dictionary
       both miss and a key is configured: batch the unknown *names only* into
       one small classification call through the existing provider chain,
       constrained to `AUTO_CATEGORY_KEYS`. Must not block the add: commit the
       item as "Uncategorized" immediately, then patch the category when the
       call returns (or leave it if the call fails). Rate-limited.
-      (b) **Recipe-ingredient find-or-create** still writes
-      `"Uncategorized"`. Use `createCategoryResolver` there, but only once
-      SCALE-B/SCALE-D batch those lookups, so it doesn't add a query per
-      ingredient.
-      (c) **Tappable category chip on shopping-list rows**, to correct a
+      (b) **Tappable category chip on shopping-list rows**, to correct a
       guess in place. The category is already on each row (AUTO-3's
       `ShoppingListItemRow.category`, sourced from the linked
       `InventoryItem`) — this just needs the chip UI to edit it there.
@@ -139,29 +135,6 @@ in one branch. SCALE-F conflicts with SCALE-J (both touch
       from `completeShoppingListAction` so undo targets exactly that row.
       Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
 
-### Performance & security
-
-- [ ] **SCALE-F. Bound the budget transactions query to a period instead of fetching all-time** —
-      `src/app/dashboard/budget/page.tsx` (~line 86). `prisma.transaction.findMany({ where: {
-      householdId: household.id }, ... })` fetches every transaction the household has ever
-      logged, unbounded — this grows every month a household keeps using the app,
-      independent of total user count, and will eventually slow down every load of this
-      page. Default the query to the current calendar month (mirror the precedent already
-      set by `src/app/dashboard/budget/export/route.ts`, which scopes its CSV export to the
-      current calendar month) and add a way to navigate to a different month (prev/next
-      month controls, or a month picker — check whether `budget/page.tsx` already has any
-      period-related UI state before designing new UI from scratch). Check whether any
-      other logic on this page (summary totals, safe-to-spend calc, recurring-template
-      status) depends on seeing *all* transactions rather than just the selected month's —
-      if so, either give that logic its own narrower query or flag it back rather than
-      silently changing its behavior. This one has a product-facing UI surface, not just a
-      backend change — if the exact navigation UX is ambiguous, make a reasonable call and
-      flag it rather than guessing indefinitely. Add English + Swedish copy for any new UI
-      text (`src/lib/i18n/dictionaries/en.ts` / `sv.ts` — `satisfies Dictionary` fails the
-      build if a key is missing in either). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, and a manual check in the browser that a household with transactions
-      across multiple months still shows the right ones per month.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -178,18 +151,6 @@ only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
 ### Performance & security
-
-- [ ] **SCALE-G. Add composite indexes for date/expiry range queries** —
-      `prisma/schema.prisma`. `Transaction` is indexed on `householdId` and `categoryId`
-      separately, but budget queries filter by `householdId` *and* order/filter by `date`
-      (see SCALE-F); `InventoryItem` is indexed on `householdId` but the
-      "expiring soon" query (`src/lib/notifications.ts`'s `syncExpiringSoonNotifications`)
-      filters by `householdId` *and* `expiresAt`. Add `@@index([householdId, date])` to
-      `Transaction` and `@@index([householdId, expiresAt])` to `InventoryItem`, generate the
-      migration (`npx prisma migrate dev` locally, name it descriptively), and confirm
-      `npx prisma migrate deploy` would apply cleanly. No application code changes needed —
-      this is a schema/migration-only task. Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, `npm run build`.
 
 - [ ] **SCALE-H. Invalidate JWT sessions on password change** — currently, `resetPasswordAction`
       (`src/lib/actions/auth.ts:318`) and `updatePasswordAction`
@@ -399,9 +360,9 @@ order below is a suggestion, not a dependency, unless noted.
       analyzer, recurring-template status, cookable-recipes, variety recap, …), so the
       "shared cached fetch behind a couple of Suspense boundaries" trick doesn't map on as
       cleanly — expect to actually think about which pieces can render independently rather
-      than mechanically repeating the other four pages' diff. Coordinate with SCALE-F:
-      it also touches `budget/page.tsx`, so land whichever of the two goes first, then rebase
-      the other rather than resolving the conflict blind. Verify with `npm run lint`,
+      than mechanically repeating the other four pages' diff. SCALE-F already
+      bounded `budget/page.tsx`'s transaction query to a period, so build on that shape rather
+      than reverting it. Verify with `npm run lint`,
       `npx tsc --noEmit`, `npm run test`, `npm run build`, and a live check (the other four
       pages were verified by seeding a household through the UI and confirming no console
       errors and no layout regressions — do the same here).
@@ -615,6 +576,169 @@ out to be a product-scope question rather than a scoped task should move to
       `INFRA-` items as something clearly valuable but gated on
       infrastructure/credentials only the product owner can provision, not
       on engineering effort alone.
+
+### 2026-09-24 scan
+
+- [ ] **GAP-11. Scale a recipe's ingredients to how many it's actually
+      feeding** — `prisma/schema.prisma` (`MealPlanEntry`),
+      `src/app/dashboard/meal-planning/missing-ingredients.ts`,
+      `src/components/meal-planning/meal-entry-dialog.tsx`. Plan to Eat and
+      Mealime both scale a recipe's ingredient list to a chosen headcount
+      before it hits the shopping list; today `Recipe.servings` is captured
+      but never used as a multiplier — a recipe written for 4 always
+      contributes its as-written quantities to `computeMissingIngredients`
+      regardless of how many the household is actually cooking for that day.
+      Add an optional `servingsOverride Int?` to `MealPlanEntry` (Phase 2
+      migration), default to the recipe's own `servings` when unset, and
+      multiply each `RecipeIngredient` quantity by
+      `servingsOverride / recipe.servings` in `expandRecipeIngredients`
+      before it reaches `computeMissingIngredients`/`getCookableRecipes` —
+      both already consume that shared expansion step, so this is one change
+      that fixes the shopping-list bridge and the "what can I cook" tab
+      together.
+
+- [ ] **GAP-12. Per-category monthly spending caps** —
+      `prisma/schema.prisma` (`BudgetCategory`),
+      `src/components/budget/category-manager.tsx`,
+      `src/components/budget/period-summary.tsx`. Goodbudget/YNAB-style
+      envelope caps are the one budgeting pattern this app doesn't have yet
+      — `PeriodSummary`'s per-category bars are proportional to each other,
+      not to a limit, and `SafeToSpend` only ever projects *recurring*
+      bills, not discretionary categories like "Dining out". Add an optional
+      `monthlyLimit Float?` to `BudgetCategory` (Phase 2 migration), settable
+      from `CategoryManager`; `PeriodSummary`'s existing per-category bar
+      renders against the limit when set (fill percentage, `text-destructive`
+      past 100%) instead of against the category total, purely visual —
+      no blocking, no notification, matching this app's "suggest, don't gate"
+      stance on money (see the `AUTO-` Guardrails' "suggest, don't silently
+      mutate" reasoning, same spirit applied to budget UI).
+
+- [ ] **GAP-13. A household currency setting** —
+      `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
+      page.tsx`, every `Intl.NumberFormat` call site in
+      `src/components/budget/`, `src/components/shopping/`, and
+      `src/lib/csv.ts`'s money columns. REQUIREMENTS.md's Budgeting section
+      already notes "no household-level currency setting, so a symbol would
+      be a guess" — Splitwise and YNAB both show a real currency symbol.
+      Add an optional `currencyCode String?` (ISO 4217, e.g. `"SEK"`,
+      `"USD"`) to `Household` (Phase 2 migration), a select on the Household
+      page defaulting to unset (today's symbol-free behavior, so existing
+      households see no change until they opt in), and a small shared
+      formatter (`src/lib/currency.ts`) that passes
+      `{ style: "currency", currency }` to `Intl.NumberFormat` when set,
+      falling back to the current plain-decimal formatting otherwise. CSV
+      exports keep the existing plain-`.`-decimal numbers regardless (per
+      "Data export (CSV)"'s locale-collision reasoning) — this only touches
+      on-screen formatting.
+
+- [ ] **GAP-14. Quiet hours for push notifications** —
+      `prisma/schema.prisma` (`PushSubscription`),
+      `src/lib/push.ts` (`sendPushToHousehold`),
+      `src/components/profile/push-notifications-card.tsx`. Bring! and
+      AnyList both let a user silence phone push overnight without touching
+      the in-app bell. Add `quietHoursStart Int?`/`quietHoursEnd Int?`
+      (0-23, local hour) and `timeZone String?` (captured from
+      `Intl.DateTimeFormat().resolvedOptions().timeZone` at subscribe time)
+      to `PushSubscription` (Phase 2 migration — it's already the
+      per-browser, per-user scoped row, so quiet hours naturally live here
+      rather than on `User`). `sendPushToHousehold` skips a subscription
+      whose owner's current local hour (via the stored `timeZone`) falls in
+      its quiet window; the `Notification` row and in-app bell badge are
+      unaffected — only the OS push is suppressed, same as the card's
+      existing "on top of the bell, not a replacement for it" framing.
+
+- [ ] **GAP-15. Show what a recipe actually costs to make** —
+      new `src/app/dashboard/meal-planning/recipe-cost.ts` (+ test),
+      `src/components/meal-planning/recipe-manager.tsx`. Grocy surfaces a
+      recipe's cost from the same price data it already tracks; this app
+      already has `InventoryItem.lastKnownPrice`/`PriceHistory` and a
+      unit-conversion table (`src/lib/units.ts`, used by
+      `missing-ingredients.ts`) with nothing joining them to `Recipe`. A pure
+      `computeRecipeCost(ingredients, servings)` helper sums each
+      `RecipeIngredient`'s quantity (unit-converted the same way
+      `computeMissingIngredients` already does) times its linked
+      `InventoryItem.lastKnownPrice`, skipping any ingredient with no known
+      price and noting how many were skipped so the total reads as a partial
+      estimate, not a hard number. `RecipeManager` shows it next to the
+      nutrition summary line ("~45.00 total · ~11.00/serving", same
+      no-currency-symbol convention) only when at least one ingredient has a
+      price — otherwise hidden, same as the nutrition line today. No schema
+      change; ships once AUTO-4 (BACKLOG.md, Phase 1) is populating
+      `lastKnownPrice` in practice, since right now it's rarely set.
+
+- [ ] **GAP-16. A shared household notes board** —
+      `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
+      actions.ts`, `src/components/household/household-notes.tsx`. Cozi's
+      family journal/notes is its most-cited differentiator from a pure
+      list/calendar app — a place for "the plumber's coming Thursday" or
+      "we're out of the good coffee, don't buy the other one" that doesn't
+      fit a shopping-list item or a task. A small `HouseholdNote` model
+      (`householdId`, `authorMemberId` `onDelete: SetNull` — same tradeoff
+      `HouseholdTask.completedByMemberId` makes, `body`, `createdAt`) (Phase
+      2 migration), a flat reverse-chronological list on the Household page
+      (mirroring `HouseholdTask`'s open/completed split's simplicity — add
+      + delete only, no edit, no pinning/rich text in v1), member-scoped
+      delete like `deleteShoppingListAction` (any member, not owner-gated).
+      Deliberately not a notification trigger (Guardrails: a bell badge must
+      mean something's wrong) — just a page you check.
+
+- [ ] **GAP-17. Surface the cost of food that expired unused** —
+      `src/app/dashboard/inventory/`, `src/lib/inventory/expiry.ts`. Grocy's
+      stats screen tracks consumed-vs-wasted value; this app tracks expiry
+      (`ExpiryBadge`) and price (`lastKnownPrice`) but never connects "this
+      expired" to "this cost money." When an expired item's quantity is
+      zeroed out (mark-empty, edited to 0, or a low-stock crossing while
+      still past its `expiresAt`), record it as waste rather than silently
+      losing the signal: either a lightweight `wastedAt`/`wastedValue` pair
+      on `InventoryItem` set the moment quantity hits 0 while expired (Phase
+      2 migration), or — cheaper, no migration — a derived monthly figure
+      computed from existing `PriceHistory`/expiry data if a precise
+      per-write hook turns out not to be needed. Either way, surface it as a
+      quiet monthly figure (Cost analyzer or the inventory page), not a
+      notification — this is a "here's what happened" recap, the same
+      register as `MealVarietyRecap`, not an alert.
+
+- [ ] **GAP-18. Recipe favorites, so the good ones resurface** —
+      `prisma/schema.prisma` (`Recipe`), `src/components/meal-planning/
+      recipe-manager.tsx`, `src/app/dashboard/meal-planning/cookable-
+      recipes.ts`. AnyList and Paprika both let a household mark a recipe
+      as a favorite and use that to bias suggestions. Add
+      `isFavorite Boolean @default(false)` to `Recipe` (Phase 2 migration),
+      a toggle (star icon) on each `RecipeManager` card next to its existing
+      actions, and use it as a tiebreaker — not a filter — in
+      `computeCookableRecipes`'s sort (favorites first among recipes with
+      the same missing-ingredient count) and GAP-1's "use it up" ranking
+      once that ships. No new page, no rating scale (a plain boolean is
+      enough to answer "which recipes does this household actually like",
+      the same minimal-first instinct `HouseholdTask` v1 used for
+      assignment).
+
+- [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
+      a product decision before scoping. Bring! prompts a push notification
+      when it detects you're near a saved store, using the phone's
+      background location. This app has zero geolocation code today and the
+      always-on household list (AUTO-8, BACKLOG.md Phase 2) already covers
+      most of the same need without asking for a location permission at
+      all. Real background geofencing on iOS Safari PWAs is unreliable
+      without a native wrapper (`INFRA-3`), and even a foreground-only
+      version (checking location when the app is opened, prompting "add
+      items to this trip?") is a privacy-sensitive feature this app hasn't
+      needed to reason about before — worth deciding whether it's in scope
+      at all before estimating it.
+
+- [ ] **GAP-20. A "we're away" pause on automation** `[!]` — needs a
+      product decision. Several of this app's automations assume normal
+      household rhythm — expiring-soon alerts, meal-not-logged nudges, and
+      (once shipped) AUTO-8's auto-add-to-list and AUTO-10's repurchase
+      suggestions all fire on a schedule that doesn't know the household is
+      on vacation. Cozi-style family organizers don't solve this either, so
+      there's no single pattern to copy. Options range from a single
+      `Household.pausedUntil` date that every sync function
+      (`getActiveNotifications`, the low-stock crossing helpers) checks and
+      no-ops against, to doing nothing until AUTO-8/AUTO-10 actually ship
+      and it's clear which automations are annoying enough while away to be
+      worth the added state. Recommend deferring the decision until at
+      least one of those Phase 2 items has real usage.
 
 ---
 

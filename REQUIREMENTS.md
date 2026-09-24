@@ -272,8 +272,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Only a *blank* category is ever filled in: a typed or shared category
     always wins, and clearing a category on the edit form is respected, not
     re-guessed. Recipe-ingredient find-or-create
-    (`recipe-actions.ts`/`cooking-actions.ts`) still uses
-    `"Uncategorized"`. See BACKLOG.md AUTO-2b.
+    (`parseIngredientRows` in `recipe-actions.ts`, and the missing-ingredients
+    → shopping-list bridge in `cooking-actions.ts`) also runs every
+    newly-created ingredient through `createCategoryResolver`, falling back
+    to `"Uncategorized"` only when neither step recognizes the name — the
+    resolver's own lazy, memoized load means this costs one extra query for
+    the whole batch, not one per ingredient, matching SCALE-B/SCALE-D's
+    existing batching there (AUTO-2b).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
@@ -513,7 +518,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   accounted-for with no transaction — e.g. a bill on autopay this app
   doesn't otherwise track — via a `RecurringTemplateAck` row keyed by
   template + a stable per-frequency period string, which makes
-  acknowledging idempotent), or `"due"` (neither yet). `DueRecurringWidget`
+  acknowledging idempotent), or `"due"` (neither yet) — "current period"
+  meaning whichever month is selected via the Budget page's month
+  navigation (see "Month navigation" below), not necessarily today's.
+  `computeTemplateStatuses` needs to see transactions outside that month
+  too (a YEARLY template's whole calendar year, to tell whether it's
+  already been paid), so `src/app/dashboard/budget/page.tsx` feeds it a
+  trailing 12-month lookback window rather than just the selected month —
+  see "Safe to spend" below, which shares the same window for the same
+  reason. `DueRecurringWidget`
   surfaces everything `"due"` in an always-visible strip above the Budget
   page's tabs; the full `RecurringTemplatesPanel` groups templates by all
   three statuses and also handles add/edit/pause (`active: false`, which
@@ -526,8 +539,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `PersonalTransaction`) as `PersonalRecurringTemplate`/
   `PersonalRecurringTemplateAck` — not documented further here, as it isn't
   part of this file's original household-budgeting scope.
-- **Period summary**: `PeriodSummary` shows the current calendar month
-  (`[monthStart, monthEnd)` computed from `new Date()` server-side) —
+- **Period summary**: `PeriodSummary` shows the selected calendar month —
   income/expense/net totals, plus a per-category breakdown for each with a
   proportional bar cycling through the existing `--chart-1..5` tokens (the
   "small rainbow ... for future charts" REQUIREMENTS already called out).
@@ -535,6 +547,26 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   month's transactions by `categoryId`); the summary components themselves
   are plain presentational functions, not Client Components, since nothing
   on them is interactive.
+- **Month navigation**: the Budget page defaults to the current calendar
+  month (`[monthStart, monthEnd)`, computed server-side from `new Date()`)
+  but isn't stuck there — a `?month=YYYY-MM` search param (validated by
+  `isMonthKey`/`parseMonthKey` in `src/lib/budget-date-utils.ts`, silently
+  falling back to the current month for anything invalid or absent, the
+  same graceful-fallback convention the page's `?household=` override
+  uses) picks any other month. `MonthNavigator`
+  (`src/components/budget/month-navigator.tsx`, shared with the personal
+  budget) renders prev/next/"this month" as plain `<Link>`s that change
+  the param — a full server-rendered navigation with no client state, so
+  the selected month survives a refresh and is shareable as a URL, the
+  same pattern meal-planning's week navigation uses. `src/app/dashboard/
+  budget/page.tsx` fetches `Transaction` rows bounded to the selected
+  month's `[monthStart, monthEnd)` window (rather than the household's
+  entire history — see SCALE-F, BACKLOG.md, for why an unbounded query
+  here doesn't scale) for the transaction list, this section's totals and
+  the settle-up balances below; Safe to spend and the recurring-template
+  status checks each read from their own wider trailing window instead
+  (see those subsections) since they need to see further back than just
+  the month on screen.
 - **No currency symbol**: amounts are formatted with `Intl.NumberFormat`
   (locale-aware decimal separator, always 2 decimals) but no currency
   symbol or code, same as `InventoryItem.lastKnownPrice`/
@@ -688,37 +720,42 @@ above `PeriodSummary` (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
 analysis. Like `PeriodSummary`/`CostAnalyzer`, it's a plain presentational
 component; all aggregation happens in `src/app/dashboard/budget/page.tsx`,
 which delegates the actual math to a pure, dependency-free
-`computeSafeToSpend` function in the colocated
-`src/app/dashboard/budget/safe-to-spend-calc.ts` (unit-tested in
-`safe-to-spend-calc.test.ts` — no Prisma import, so no mocking needed) rather
-than inlining it, since a Server Component page function can't itself be
-unit-tested.
+`computeSafeToSpend` function in `src/lib/safe-to-spend-calc.ts`
+(unit-tested in the colocated `safe-to-spend-calc.test.ts` — no Prisma
+import, so no mocking needed) rather than inlining it, since a Server
+Component page function can't itself be unit-tested.
 
-- **The headline number**: this month's income so far minus this month's
-  expenses so far minus this month's savings so far (the same
-  `[monthStart, monthEnd)` totals `PeriodSummary` already computes from the
-  page's one `transaction.findMany` query) minus an estimate of recurring
-  expense categories that haven't posted a transaction yet this month
-  (below). Savings is subtracted too — money moved into a `SAVINGS`
-  category is money that's no longer safe to spend, same as an expense
-  already paid, even though it isn't a cost.
+- **The headline number**: the selected month's income so far minus that
+  month's expenses so far minus that month's savings so far (the same
+  totals `PeriodSummary` computes from the page's month-scoped
+  `transaction.findMany` query, see "Month navigation" above) minus an
+  estimate of recurring expense categories that haven't posted a
+  transaction yet this month (below). Savings is subtracted too — money
+  moved into a `SAVINGS` category is money that's no longer safe to spend,
+  same as an expense already paid, even though it isn't a cost.
 - **The recurring-expense estimate**: for every `EXPENSE`-type
   `BudgetCategory` with at least one `isRecurring` transaction dated before
-  the current month, check whether that category already has *any*
-  transaction dated in the current month. If it does, it's assumed
+  the selected month, check whether that category already has *any*
+  transaction dated in that month. If it does, it's assumed
   posted/accounted for and contributes nothing to the estimate. If it
   doesn't, the amount of that category's most recent recurring transaction
   (by `date`) is treated as "expected but not yet logged" and subtracted
   from the headline number. This is a best-effort heuristic, not a
-  scheduler: `computeSafeToSpend` (`src/app/dashboard/budget/
-  safe-to-spend-calc.ts`) only ever looks at `Transaction.isRecurring`, so
-  it can't know a bill isn't due yet vs. simply not entered; a one-line
-  caveat under the headline number says so explicitly. It deliberately
-  doesn't use the separate `RecurringTemplate` due/posted/acknowledged
-  system (see "Recurring budget templates" above) — that system already
-  distinguishes "due" from "acknowledged"/"posted" per period, which would
-  make a better signal than this heuristic, but wiring the headline number
-  to it wasn't part of this feature's own pass.
+  scheduler: `computeSafeToSpend` only ever looks at
+  `Transaction.isRecurring`, so it can't know a bill isn't due yet vs.
+  simply not entered; a one-line caveat under the headline number says so
+  explicitly. It deliberately doesn't use the separate `RecurringTemplate`
+  due/posted/acknowledged system (see "Recurring budget templates" above)
+  — that system already distinguishes "due" from "acknowledged"/"posted"
+  per period, which would make a better signal than this heuristic, but
+  wiring the headline number to it wasn't part of this feature's own pass.
+  Fed from a trailing 12-month window ending at the selected month (rather
+  than the household's entire history — see SCALE-F, BACKLOG.md) so
+  "most recent recurring transaction" has enough history to find a
+  WEEKLY/MONTHLY/YEARLY bill's last occurrence without re-fetching every
+  transaction the household has ever logged; `computeTemplateStatuses`
+  (see "Recurring budget templates" above) shares the same window for the
+  same reason.
 - **The breakdown**: beneath the headline number, a small list of every
   category counted into the estimate (name + its expected amount, tinted
   `text-destructive` like every other expense amount on the page) so the
