@@ -37,9 +37,9 @@
 // conditional rendering) keeps all mounted so switching tabs doesn't
 // re-fetch/re-render any of them. `manage`/`transactions`/`insights` already
 // being opaque ReactNodes built per-page is also what makes this merge easy:
-// the household-only cost analyzer/balances and the personal-only "shared
-// with your household" summary each just live inside whichever page built
-// `insights`, with no branch needed in this file for them (unlike the
+// the household-only cost analyzer/balances just live inside the `insights`
+// node the household page builds, with no branch needed in this file for
+// them (unlike the
 // props below, which this component *does* read and branch on).
 //
 // BudgetOnboarding/PersonalBudgetOnboarding (the empty-categories state)
