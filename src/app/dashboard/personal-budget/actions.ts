@@ -115,7 +115,11 @@ export async function deletePersonalCategoryAction(categoryId: string): Promise<
     };
   }
 
-  await prisma.personalBudgetCategory.delete({ where: { id: category.id } });
+  try {
+    await prisma.personalBudgetCategory.delete({ where: { id: category.id } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath("/dashboard/personal-budget");
   return {};

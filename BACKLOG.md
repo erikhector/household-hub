@@ -293,24 +293,6 @@ Server Components) stays separate by design — only the Client/presentational
 components merge. See the archived spike for the full file-pair inventory and
 the recommended "shared base + thin wrapper" shape.
 
-- [ ] **BUDGET-1. Quick-win catch-up patches** — bring the personal-budget tree up to
-      the conventions the household tree already follows, without waiting on the
-      structural merge in Phase 3. Lowest risk, and not invalidated by whatever the
-      unification ends up looking like. Checked against the code on 2026-09-23 — the
-      shared `Tabs` catch-up has already landed in `personal-budget-tabs.tsx`; what's
-      left:
-      - `personal-transaction-dialog.tsx` still uses a native
-        `<input type="checkbox">` — switch to the shared `Checkbox`
-        (`src/components/ui/checkbox.tsx`).
-      - `personal-category-manager.tsx`'s empty state is a bare muted `<p>` — use the
-        shared dashed-box convention (`rounded-md border border-dashed p-8 text-center
-        text-sm text-muted-foreground`, as `category-manager.tsx` does).
-      - `deletePersonalCategoryAction` (`src/app/dashboard/personal-budget/actions.ts`)
-        calls `prisma.personalBudgetCategory.delete` with no `try/catch`, unlike the
-        household `deleteCategoryAction` — wrap it in `toFriendlyError` so a race (the
-        category gaining a transaction between check and delete) returns a friendly
-        `ActionState.error` instead of throwing.
-
 ---
 
 ## Phase 2 — schema changes, one at a time
