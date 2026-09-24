@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.4.1",
+    "date": "2026-09-24",
+    "pr": 13,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Cooking a meal with recipes that include sub-recipes is now faster.",
+      "sv": "Det går nu snabbare att laga en måltid med recept som innehåller underrecept."
+    }
+  },
+  {
     "version": "0.4.0",
     "date": "2026-09-24",
     "pr": 11,
