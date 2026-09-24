@@ -547,6 +547,58 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+const setItemCategorySchema = z
+  .string()
+  .trim()
+  .max(60, "Category must be 60 characters or fewer");
+
+/**
+ * Re-files a shopping-list row's linked InventoryItem under a different
+ * category — the tappable category chip on each row (AUTO-2b), so a wrong
+ * auto-category guess (AUTO-2's createCategoryResolver) can be fixed right
+ * where it's noticed instead of a trip to the inventory page. It writes the
+ * InventoryItem, not the list row (the row has no category of its own), and
+ * that's also what makes the correction stick: the resolver's first tier is
+ * household memory, so the next add of the same name follows this choice
+ * rather than being re-guessed. An unlinked row has no category to change
+ * yet — it goes through the mapping dialog first. Blank clears back to the
+ * locale's "Uncategorized" bucket, same as bulkUpdateFieldAction.
+ */
+export async function setShoppingListItemCategoryAction(
+  itemId: string,
+  category: string,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { shoppingListId: true, inventoryItemId: true },
+  });
+  if (!item) return { error: "Item not found" };
+  if (!item.inventoryItemId) return { error: "Link this item to your pantry first" };
+
+  const parsed = setItemCategorySchema.safeParse(category);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
+  }
+
+  try {
+    await prisma.inventoryItem.updateMany({
+      where: { id: item.inventoryItemId, householdId: household.id },
+      data: {
+        category: parsed.data || (await getDictionary()).inventory.uncategorized,
+        updatedByUserId: userId,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/inventory");
+  return {};
+}
+
 const importItemsSchema = z.object({
   listId: z.string().min(1),
   items: z

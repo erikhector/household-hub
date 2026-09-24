@@ -88,22 +88,9 @@ enough to trust.
 
 ## Phase 1 — independent, no schema changes
 
-Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b and AUTO-5 both edit
-`src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch.
+Parallel-safe except where noted.
 
 ### Shopping list & inventory automation
-
-- [ ] **AUTO-2b. Tappable category chip on shopping-list rows**
-      — `src/components/shopping/shopping-list-client.tsx`
-      AUTO-2 shipped the deterministic categorizer (household memory, the
-      bilingual dictionary, Open Food Facts categories); this item's own
-      optional AI fallback tier and the recipe-ingredient find-or-create fix
-      are also done (see REQUIREMENTS.md, "Data model" → Auto-categorization).
-      Still open: a way to correct a guess in place. The category is already
-      on each row (AUTO-3's `ShoppingListItemRow.category`, sourced from the
-      linked `InventoryItem`) — this just needs the chip UI to edit it there.
 
 - [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
       — `src/components/shopping/shopping-list-client.tsx`

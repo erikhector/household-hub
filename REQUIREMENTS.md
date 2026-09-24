@@ -314,8 +314,23 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     recognizes the name — the resolver's own lazy,
     memoized load means this costs one extra query for the whole batch, not
     one per ingredient, matching SCALE-B/SCALE-D's existing batching there.
-    The only piece still open is a tappable chip to correct a guess in
-    place on the shopping list (see BACKLOG.md AUTO-2b).
+    **Correcting a guess in place (AUTO-2b)**: every editable, linked
+    shopping-list row shows its `InventoryItem`'s category as a small chip
+    (`CategoryChip`, `src/components/shopping/category-chip.tsx`, outside
+    the row's `<label>` so tapping it doesn't toggle purchased). Tapping it
+    opens a menu of the household's existing categories plus "New
+    category…" — a one-field dialog rather than an input inside the menu,
+    whose typeahead would swallow keystrokes. The change applies at once
+    with an "Undo" on the toast, no confirm step, and the row moves to its
+    new shopping-mode group. It goes through
+    `setShoppingListItemCategoryAction`, which writes the linked
+    `InventoryItem` (a list row has no category of its own),
+    household-scoped; blank clears to the locale's "Uncategorized". Because
+    the resolver's household-memory tier reads that same item, the
+    correction sticks for every later add of the name — it's never
+    re-guessed. Unlinked rows show no chip (the mapping flow picks a
+    category), and read-only lists don't need one (the group header already
+    shows it).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
