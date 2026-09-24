@@ -27,26 +27,57 @@ export type ExpandedIngredientNeed = {
   quantity: number;
 };
 
-// Recursively resolves `recipeId`'s own ingredients (scaled by `multiplier`)
-// plus, for each sub-recipe it uses, that sub-recipe's own expansion scaled
-// by `multiplier * component.quantity`. `ancestry` is the set of recipe ids
-// already on the current path from the root — if `recipeId` is already in
-// it, that branch is cut short rather than recursing forever.
-export async function expandRecipeIngredients(
-  recipeId: string,
-  multiplier: number,
-  ancestry: ReadonlySet<string>,
-  depth = 0,
-): Promise<ExpandedIngredientNeed[]> {
-  if (ancestry.has(recipeId) || depth > MAX_COMPONENT_DEPTH) return [];
+// One node of the in-memory recipe graph fetched by loadRecipeGraph below —
+// same shape prisma.recipe.findUnique used to return per node, now held for
+// every recipe in the household at once.
+type RecipeGraphNode = {
+  ingredients: {
+    inventoryItemId: string | null;
+    inventoryItem: { name: string; quantity: number; unit: string } | null;
+    name: string;
+    unit: string;
+    quantity: number;
+  }[];
+  components: { componentRecipeId: string; quantity: number }[];
+};
 
-  const recipe = await prisma.recipe.findUnique({
-    where: { id: recipeId },
+// A household's recipes (and their sub-recipe components) rarely number
+// more than a few dozen, so the whole graph is cheap to hold in memory —
+// unlike a per-node `findUnique`, which used to run once per recipe *and*
+// once per sub-recipe component, so a meal plan with several entries each
+// pulling in sub-recipes could issue dozens of round trips for one preview.
+// Fetching it all up front turns that into exactly one query per call into
+// this module, however deep or wide the component tree turns out to be.
+async function loadRecipeGraph(householdId: string): Promise<Map<string, RecipeGraphNode>> {
+  const recipes = await prisma.recipe.findMany({
+    where: { householdId },
     include: {
       ingredients: { include: { inventoryItem: true } },
       components: { select: { componentRecipeId: true, quantity: true } },
     },
   });
+  return new Map(recipes.map((recipe) => [recipe.id, recipe]));
+}
+
+// Recursively resolves `recipeId`'s own ingredients (scaled by `multiplier`)
+// plus, for each sub-recipe it uses, that sub-recipe's own expansion scaled
+// by `multiplier * component.quantity`. `ancestry` is the set of recipe ids
+// already on the current path from the root — if `recipeId` is already in
+// it, that branch is cut short rather than recursing forever. Walks the
+// prefetched `recipesById` map instead of touching Prisma — a component
+// id that isn't in the map (a stale id, or one from another household)
+// resolves the same way a `findUnique` miss used to: nothing is added for
+// that branch.
+function expandFromGraph(
+  recipesById: ReadonlyMap<string, RecipeGraphNode>,
+  recipeId: string,
+  multiplier: number,
+  ancestry: ReadonlySet<string>,
+  depth: number,
+): ExpandedIngredientNeed[] {
+  if (ancestry.has(recipeId) || depth > MAX_COMPONENT_DEPTH) return [];
+
+  const recipe = recipesById.get(recipeId);
   if (!recipe) return [];
 
   const own: ExpandedIngredientNeed[] = recipe.ingredients.map((ingredient) => ({
@@ -60,16 +91,34 @@ export async function expandRecipeIngredients(
   }));
 
   const nextAncestry = new Set(ancestry).add(recipeId);
-  const nested = await Promise.all(
-    recipe.components.map((component) =>
-      expandRecipeIngredients(
-        component.componentRecipeId,
-        multiplier * component.quantity,
-        nextAncestry,
-        depth + 1,
-      ),
+  const nested = recipe.components.map((component) =>
+    expandFromGraph(
+      recipesById,
+      component.componentRecipeId,
+      multiplier * component.quantity,
+      nextAncestry,
+      depth + 1,
     ),
   );
 
   return [...own, ...nested.flat()];
+}
+
+// Fetches the household's whole recipe graph once, then walks it from
+// `recipeId`. `householdId` scopes that fetch — it isn't (and shouldn't be)
+// derivable from `recipeId` alone, so every call site must pass the
+// household already in scope from its own `requireHousehold()` call. A
+// caller that needs to expand several recipes from the same household in
+// one go (e.g. cookable-recipes.ts, checking every recipe against current
+// inventory) calls this once per recipe, same as before — each call is now
+// a single batched query rather than one-per-node, so that's still a large
+// reduction in round trips without needing to restructure those call sites.
+export async function expandRecipeIngredients(
+  householdId: string,
+  recipeId: string,
+  multiplier: number,
+  ancestry: ReadonlySet<string>,
+): Promise<ExpandedIngredientNeed[]> {
+  const recipesById = await loadRecipeGraph(householdId);
+  return expandFromGraph(recipesById, recipeId, multiplier, ancestry, 0);
 }

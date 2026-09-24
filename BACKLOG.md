@@ -166,24 +166,6 @@ in one branch. SCALE-F conflicts with SCALE-J (both touch
 
 ### Performance & security
 
-- [ ] **SCALE-D. Batch the recipe-graph fetch in `expandRecipeIngredients`** —
-      `src/app/dashboard/meal-planning/recipe-expansion.ts` (`expandRecipeIngredients`). This recursively calls
-      `prisma.recipe.findUnique` once per recipe node (including once per sub-recipe
-      component), so a meal plan with N entries each pulling in sub-recipes issues roughly
-      N×(1+number of components) queries. Since a household's total recipe count is small
-      and bounded, change this to fetch the household's entire recipe graph once per call
-      into this module (all recipes + their `ingredients`/`components` for the household,
-      via `prisma.recipe.findMany({ where: { householdId }, include: { ingredients: {
-      include: { inventoryItem: true } }, components: { select: { componentRecipeId: true,
-      quantity: true } } } })`) into an in-memory `Map<recipeId, Recipe>`, then have the
-      existing recursive expansion walk that in-memory map instead of hitting Prisma per
-      node. This needs `householdId` threaded into `expandRecipeIngredients` (it isn't a
-      parameter today — check every call site, both in `cooking-actions.ts`'s preview
-      actions) since the map must be scoped per-household. Keep the existing
-      `MAX_COMPONENT_DEPTH`/`ancestry` cycle-guard logic unchanged — this is purely about
-      where the data comes from, not the recursion/cycle logic. Verify with `npm run lint`,
-      `npx tsc --noEmit`, `npm run test`.
-
 - [ ] **SCALE-F. Bound the budget transactions query to a period instead of fetching all-time** —
       `src/app/dashboard/budget/page.tsx` (~line 86). `prisma.transaction.findMany({ where: {
       householdId: household.id }, ... })` fetches every transaction the household has ever

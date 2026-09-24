@@ -11,7 +11,7 @@ const {
   inventoryItemFindManyMock,
   inventoryItemCreateManyAndReturnMock,
   inventoryItemUpdateMock,
-  recipeFindUniqueMock,
+  recipeFindManyMock,
   mealPlanFindFirstMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryUpdateMock,
@@ -26,7 +26,7 @@ const {
   inventoryItemFindManyMock: vi.fn(),
   inventoryItemCreateManyAndReturnMock: vi.fn(),
   inventoryItemUpdateMock: vi.fn(),
-  recipeFindUniqueMock: vi.fn(),
+  recipeFindManyMock: vi.fn(),
   mealPlanFindFirstMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryUpdateMock: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: inventoryItemFindManyMock,
       createManyAndReturn: inventoryItemCreateManyAndReturnMock,
     },
-    recipe: { findUnique: recipeFindUniqueMock },
+    recipe: { findMany: recipeFindManyMock },
     mealPlan: { findFirst: mealPlanFindFirstMock },
     mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock },
     shoppingList: { create: shoppingListCreateMock, findFirst: shoppingListFindFirstMock },
@@ -111,13 +111,13 @@ describe("previewMissingIngredientsAction", () => {
     mealPlanFindFirstMock.mockResolvedValue({
       entries: [{ recipeId: "lasagna", portions: 4, recipe: { servings: 4 } }],
     });
-    const recipesById: Record<string, unknown> = {
-      lasagna: {
+    recipeFindManyMock.mockResolvedValue([
+      {
         id: "lasagna",
         ingredients: [],
         components: [{ componentRecipeId: "bolognese", quantity: 1 }],
       },
-      bolognese: {
+      {
         id: "bolognese",
         ingredients: [
           {
@@ -130,10 +130,7 @@ describe("previewMissingIngredientsAction", () => {
         ],
         components: [],
       },
-    };
-    recipeFindUniqueMock.mockImplementation(async ({ where }: { where: { id: string } }) =>
-      recipesById[where.id] ?? null,
-    );
+    ]);
     inventoryItemFindManyMock.mockResolvedValue([]);
 
     const result = await previewMissingIngredientsAction("2026-01-05");
@@ -155,13 +152,15 @@ describe("previewMissingIngredientsAction", () => {
         { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
       ],
     });
-    recipeFindUniqueMock.mockResolvedValue({
-      id: "soup",
-      ingredients: [
-        { inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 2 },
-      ],
-      components: [],
-    });
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "soup",
+        ingredients: [
+          { inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 2 },
+        ],
+        components: [],
+      },
+    ]);
     inventoryItemFindManyMock.mockResolvedValue([]);
 
     const result = await previewMissingIngredientsAction("2026-01-05");

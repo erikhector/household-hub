@@ -2,15 +2,17 @@
 // convention this mirrors: prisma is mocked, no database is touched.
 import { describe, expect, it, vi } from "vitest";
 
-const { recipeFindUniqueMock } = vi.hoisted(() => ({
-  recipeFindUniqueMock: vi.fn(),
+const { recipeFindManyMock } = vi.hoisted(() => ({
+  recipeFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { recipe: { findUnique: recipeFindUniqueMock } },
+  prisma: { recipe: { findMany: recipeFindManyMock } },
 }));
 
 const { expandRecipeIngredients } = await import("@/app/dashboard/meal-planning/recipe-expansion");
+
+const HOUSEHOLD_ID = "house-1";
 
 type FakeRecipe = {
   id: string;
@@ -18,11 +20,16 @@ type FakeRecipe = {
   components: { componentRecipeId: string; quantity: number }[];
 };
 
+// Fetches the whole household's recipe graph in one call now, rather than
+// per-node — assert every call is scoped to the given household, and hand
+// back the fake graph regardless of how many times a test's expansion
+// recurses (loadRecipeGraph runs once per expandRecipeIngredients call, not
+// once per recursive step — see recipe-expansion.ts).
 function mockRecipes(recipes: FakeRecipe[]) {
-  const byId = new Map(recipes.map((r) => [r.id, r]));
-  recipeFindUniqueMock.mockImplementation(async ({ where }: { where: { id: string } }) =>
-    byId.get(where.id) ?? null,
-  );
+  recipeFindManyMock.mockImplementation(async ({ where }: { where: { householdId: string } }) => {
+    expect(where.householdId).toBe(HOUSEHOLD_ID);
+    return recipes;
+  });
 }
 
 describe("expandRecipeIngredients", () => {
@@ -37,7 +44,7 @@ describe("expandRecipeIngredients", () => {
       },
     ]);
 
-    const result = await expandRecipeIngredients("bolognese", 1, new Set());
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "bolognese", 1, new Set());
 
     expect(result).toEqual([
       {
@@ -50,6 +57,7 @@ describe("expandRecipeIngredients", () => {
         quantity: 0.5,
       },
     ]);
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
   });
 
   it("includes a sub-recipe's ingredients scaled by the component's quantity", async () => {
@@ -70,7 +78,7 @@ describe("expandRecipeIngredients", () => {
       },
     ]);
 
-    const result = await expandRecipeIngredients("lasagna", 1, new Set());
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "lasagna", 1, new Set());
 
     expect(result).toEqual(
       expect.arrayContaining([
@@ -79,6 +87,9 @@ describe("expandRecipeIngredients", () => {
         expect.objectContaining({ name: "Ground beef", quantity: 1 }),
       ]),
     );
+    // One findMany fetches the whole graph — the sub-recipe lookup is an
+    // in-memory Map read, not a second query.
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
   });
 
   it("multiplies through nested sub-recipes (a component of a component)", async () => {
@@ -102,7 +113,7 @@ describe("expandRecipeIngredients", () => {
       },
     ]);
 
-    const result = await expandRecipeIngredients("lasagna", 1, new Set());
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "lasagna", 1, new Set());
 
     // 1L per batch of tomato-sauce, 3 batches per bolognese, 2 batches of
     // bolognese -> 1 * 3 * 2 = 6L.
@@ -133,7 +144,7 @@ describe("expandRecipeIngredients", () => {
       },
     ]);
 
-    const result = await expandRecipeIngredients("a", 1, new Set());
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "a", 1, new Set());
 
     // "a"'s own ingredient, then "b"'s own ingredient, then the cycle back
     // to "a" is cut short instead of recursing forever.
@@ -142,6 +153,24 @@ describe("expandRecipeIngredients", () => {
 
   it("returns an empty list for a recipe that no longer exists", async () => {
     mockRecipes([]);
-    expect(await expandRecipeIngredients("gone", 1, new Set())).toEqual([]);
+    expect(await expandRecipeIngredients(HOUSEHOLD_ID, "gone", 1, new Set())).toEqual([]);
+  });
+
+  it("returns an empty list for a component id missing from the household's graph (stale or cross-household id)", async () => {
+    // Same not-found behavior a `findUnique` miss used to produce — a
+    // dangling componentRecipeId (e.g. left behind by a since-deleted
+    // recipe, or belonging to a different household) simply contributes
+    // nothing rather than throwing.
+    mockRecipes([
+      {
+        id: "lasagna",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Pasta sheets", unit: "pcs", quantity: 12 }],
+        components: [{ componentRecipeId: "missing-recipe", quantity: 1 }],
+      },
+    ]);
+
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "lasagna", 1, new Set());
+
+    expect(result.map((r) => r.name)).toEqual(["Pasta sheets"]);
   });
 });
