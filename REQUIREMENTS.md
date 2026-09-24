@@ -634,12 +634,56 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   `togglePurchasedAction` already treats it when writing a `PriceHistory`
   row. Items without an estimated price are silently skipped rather than
   having a price invented for them; if nothing on the list has a price set,
-  no `Transaction` is created at all (there's currently no UI anywhere in
-  the app to set `ShoppingListItem.estimatedPrice` on an item — it's only
-  ever written by this feature's own reads and by `togglePurchasedAction`'s
-  `PriceHistory` write — so in practice this total is 0 unless something
-  sets it directly, e.g. a future "estimated price" field on the add-item
-  form).
+  no `Transaction` is created at all. As of AUTO-4 (below), a new item
+  usually arrives with `estimatedPrice` already filled in, so in practice
+  this total is rarely 0 once a household has bought something at least
+  once.
+
+#### Prices fill themselves in (AUTO-4)
+
+`InventoryItem.lastKnownPrice` is kept current everywhere a `PriceHistory`
+row is written — the same price, in the same `$transaction`: a shopping-list
+item checked off with an estimate (`togglePurchasedAction`,
+`toggleItemViaShareTokenAction`), an applied receipt scan
+(`applyReceiptScanAction`), and a registered receipt
+(`registerReceiptAction`, using the *last* line's price when a receipt
+lists the same item twice). It was previously written nowhere, which is why
+`estimatedPrice` used to have no way to fill itself in past a scanned
+receipt.
+
+Every shopping-list item create path that links an `InventoryItem` with a
+non-null `lastKnownPrice` now defaults the new row's `estimatedPrice` to it
+— the ad-hoc add/quick-add path (`createAdHocShoppingListItem`), "Add
+low-stock items" (`generateFromLowStockAction`), pasted/CSV import
+(`importShoppingListItemsAction`), and the smart add line
+(`smartAddShoppingListItemsAction`, for a row that resolves to an *existing*
+inventory item — a brand-new one has no price yet). The default is
+per-unit, unmultiplied by `quantity` — matching how `completeShoppingListAction`
+sums `estimatedPrice` above, so a 2-pack priced at "24" books as 24, not 48.
+This only ever runs once, at creation: a receipt-driven create
+(`registerReceiptAction`) keeps setting `estimatedPrice` from the receipt's
+own (real) price instead, and once a user corrects a row's price nothing
+here re-guesses over it (Guardrails: corrections stick). No backfill was run
+for pre-existing inventory items — `lastKnownPrice` simply fills in the
+next time each one is priced again.
+
+On `/dashboard/shopping-list/[id]` (`ShoppingListClient`), each row shows a
+muted "≈ {amount}" next to its edit/delete controls whenever `estimatedPrice`
+is set (or, on an `ACTIVE` list, a smaller "Add price" affordance when it
+isn't) — placed outside the row's own `<label>` so tapping it doesn't also
+toggle the checkbox the label is wired to. Tapping it swaps in a small inline
+number input (save/cancel icon buttons, `Escape` to cancel) that calls the
+new `updateShoppingListItemPriceAction`; this is the only path a user ever
+corrects an estimate through, and the correction sticks — no create path
+touches a saved row's price again. The list header shows a running "About
+{amount} left to spend", summing `estimatedPrice` the same per-unit way but
+only over *pending* (not yet purchased) items — a purchased item's price is
+already folded into `lastKnownPrice` and the eventual Groceries expense, so
+counting it again here would double it into "what's left". Both the row
+amount and the header total use the same `Intl.NumberFormat` convention as
+the budget page (locale-aware decimals, no currency symbol). The summation
+itself is a pure, unit-tested helper
+(`sumEstimatedPendingTotal`, `src/lib/shopping/estimated-total.ts`).
 - **Category lookup**: reuses `findOrCreateGroceriesCategory` (see
   "Groceries category hook for Task 8" above) rather than duplicating that
   find-or-create logic — the two features share one household-scoped

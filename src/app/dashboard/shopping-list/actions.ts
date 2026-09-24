@@ -170,6 +170,8 @@ export async function generateFromLowStockAction(
           quantity: Math.max(1, item.lowStockThreshold - item.quantity),
           unit: item.unit,
           addedAutomatically: true,
+          // AUTO-4: same last-known-price default as the ad-hoc add path.
+          estimatedPrice: item.lastKnownPrice ?? undefined,
         })),
       });
       added = toAdd.length;
@@ -242,6 +244,15 @@ async function createAdHocShoppingListItem(
       name,
       quantity,
       unit: unit || inventoryItem?.unit || "pcs",
+      // AUTO-4: default the estimate from the linked item's last recorded
+      // price, so the running total (and the eventual Groceries expense)
+      // isn't 0 just because nothing's been priced yet this trip.
+      // Per-unit, unmultiplied by quantity — matches how
+      // completeShoppingListAction sums estimatedPrice below, so a 2-pack
+      // priced at "24" books as 24, not 48. This only ever runs at creation;
+      // once the user corrects a row's price, nothing here touches it again
+      // (Guardrails: corrections stick).
+      estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
     },
   });
   // Only surfaced to the caller when the link just happened automatically
@@ -378,6 +389,49 @@ export async function updateShoppingListItemAction(
         quantity: parsed.data.quantity,
         unit: parsed.data.unit || "pcs",
       },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  return {};
+}
+
+const updateItemPriceSchema = z.object({
+  price: z.coerce.number().min(0, "Price can't be negative").max(1_000_000, "Price is too large"),
+});
+
+/**
+ * Corrects a shopping-list item's estimatedPrice (AUTO-4) — what the row's
+ * tap-to-edit "≈ price" saves. A plain field update, same shape as
+ * updateShoppingListItemAction just for one field, so the two other places
+ * that ever set estimatedPrice (the create-path defaults above, and a
+ * receipt scan/registration's actual price) never need to touch this. Once
+ * the user corrects a row here, nothing else in this file overwrites it
+ * again — the create-path defaults only ever run once, at creation.
+ */
+export async function updateShoppingListItemPriceAction(
+  itemId: string,
+  price: number,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { id: true, shoppingListId: true },
+  });
+  if (!item) return { error: "Item not found" };
+
+  const parsed = updateItemPriceSchema.safeParse({ price });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  try {
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: { estimatedPrice: parsed.data.price },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -550,6 +604,8 @@ export async function importShoppingListItemsAction(
         name: item.name,
         quantity: item.quantity,
         unit: item.unit || inventoryItem?.unit || "pcs",
+        // AUTO-4: same last-known-price default as the ad-hoc add path.
+        estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
       };
     });
 
@@ -637,7 +693,14 @@ export async function smartAddShoppingListItemsAction(
     // lowercased name until the transaction gives it an id.
     const resolveCategory = createCategoryResolver(household.id, inventoryItems);
     const newItems = new Map<string, { name: string; unit: string; category: string }>();
-    const rows: { name: string; quantity: number; unit: string; inventoryItemId?: string; newKey?: string }[] = [];
+    const rows: {
+      name: string;
+      quantity: number;
+      unit: string;
+      inventoryItemId?: string;
+      newKey?: string;
+      estimatedPrice?: number;
+    }[] = [];
 
     for (const row of parsed.data.items) {
       let existing = row.inventoryItemId ? inventoryById.get(row.inventoryItemId) : undefined;
@@ -654,6 +717,10 @@ export async function smartAddShoppingListItemsAction(
           quantity: row.quantity,
           unit: row.unit || existing.unit || "pcs",
           inventoryItemId: existing.id,
+          // AUTO-4: same last-known-price default as the other create
+          // paths — a brand-new item created just below has no price yet,
+          // so this only ever fires for the "existing" branch.
+          estimatedPrice: existing.lastKnownPrice ?? undefined,
         });
         continue;
       }
@@ -692,6 +759,7 @@ export async function smartAddShoppingListItemsAction(
               name: row.name,
               quantity: row.quantity,
               unit: row.unit,
+              estimatedPrice: row.estimatedPrice,
             },
           });
           addedIds.push(created.id);
@@ -832,9 +900,18 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
       if (item.inventoryItem) {
         const delta = nextPurchased ? item.quantity : -item.quantity;
         const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
+        // AUTO-4: this purchase's price becomes the item's new
+        // lastKnownPrice — folded into the same quantity update rather than
+        // a second write, and only set when a price was actually recorded
+        // (marking something purchased with no price, or un-marking it,
+        // leaves the last known price untouched).
+        const priceToRecord = nextPurchased ? item.estimatedPrice : null;
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
-          data: { quantity: nextQuantity },
+          data:
+            priceToRecord != null
+              ? { quantity: nextQuantity, lastKnownPrice: priceToRecord }
+              : { quantity: nextQuantity },
         });
         await recordOutOfStockTransition(
           tx,
@@ -845,9 +922,9 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
           userId,
         );
 
-        if (nextPurchased && item.estimatedPrice != null) {
+        if (priceToRecord != null) {
           await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: item.estimatedPrice },
+            data: { inventoryItemId: item.inventoryItem.id, price: priceToRecord },
           });
         }
       }
@@ -947,9 +1024,12 @@ export async function applyReceiptScanAction(
         });
 
         if (item.inventoryItem) {
+          // AUTO-4: a scanned receipt price is as real as it gets, so it
+          // becomes the item's new lastKnownPrice — folded into the same
+          // quantity update rather than a second write.
           await tx.inventoryItem.update({
             where: { id: item.inventoryItem.id },
-            data: { quantity: item.inventoryItem.quantity + item.quantity },
+            data: { quantity: item.inventoryItem.quantity + item.quantity, lastKnownPrice: convertedPrice },
           });
           await tx.priceHistory.create({
             data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
@@ -1106,14 +1186,22 @@ export async function registerReceiptAction(
     });
   }
 
-  const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number }>();
+  // AUTO-4: also tracks each inventory item's most recently seen receipt
+  // price so it can become lastKnownPrice below — a receipt line's price is
+  // as real as it gets. When two lines on the same receipt name the same
+  // item at different prices (a discount line, a typo'd re-entry), the last
+  // one in the list wins, same as it would if they'd been two separate
+  // purchases.
+  const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number; lastKnownPrice: number }>();
   for (const item of preparedItems) {
     if (!item.inventoryItem) continue;
     const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
       currentQuantity: item.inventoryItem.quantity,
       delta: 0,
+      lastKnownPrice: item.convertedPrice,
     };
     existing.delta += item.quantity;
+    existing.lastKnownPrice = item.convertedPrice;
     inventoryDeltas.set(item.inventoryItem.id, existing);
   }
 
@@ -1149,10 +1237,10 @@ export async function registerReceiptAction(
         }
       }
 
-      for (const [inventoryItemId, { currentQuantity, delta }] of inventoryDeltas) {
+      for (const [inventoryItemId, { currentQuantity, delta, lastKnownPrice }] of inventoryDeltas) {
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: currentQuantity + delta },
+          data: { quantity: currentQuantity + delta, lastKnownPrice },
         });
       }
 
