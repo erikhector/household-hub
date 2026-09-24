@@ -180,18 +180,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Performance & security
 
-- [ ] **SCALE-G. Add composite indexes for date/expiry range queries** —
-      `prisma/schema.prisma`. `Transaction` is indexed on `householdId` and `categoryId`
-      separately, but budget queries filter by `householdId` *and* order/filter by `date`
-      (SCALE-F's period-bounded budget query); `InventoryItem` is indexed on `householdId` but the
-      "expiring soon" query (`src/lib/notifications.ts`'s `syncExpiringSoonNotifications`)
-      filters by `householdId` *and* `expiresAt`. Add `@@index([householdId, date])` to
-      `Transaction` and `@@index([householdId, expiresAt])` to `InventoryItem`, generate the
-      migration (`npx prisma migrate dev` locally, name it descriptively), and confirm
-      `npx prisma migrate deploy` would apply cleanly. No application code changes needed —
-      this is a schema/migration-only task. Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, `npm run build`.
-
 - [ ] **SCALE-H. Invalidate JWT sessions on password change** — currently, `resetPasswordAction`
       (`src/lib/actions/auth.ts:318`) and `updatePasswordAction`
       (`src/app/dashboard/profile/actions.ts:124`) both update `passwordHash` but do nothing
