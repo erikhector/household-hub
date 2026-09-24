@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.3.5",
+    "date": "2026-09-24",
+    "pr": 15,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Small visual and reliability improvements to the personal budget page.",
+      "sv": "Mindre visuella förbättringar och ökad tillförlitlighet på sidan för personlig budget."
+    }
+  },
+  {
     "version": "0.3.4",
     "date": "2026-09-24",
     "pr": 12,
