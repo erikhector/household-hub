@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { createShareLinkAction, revokeShareLinkAction } from "@/app/dashboard/shopping-list/share-actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -27,9 +28,13 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 export function ShareListButton({
   shoppingListId,
   dict,
+  handle,
 }: {
   shoppingListId: string;
   dict: Dictionary["shoppingList"]["shareLink"];
+  /** When set, the dialog opens through the handle (e.g. from a menu item)
+   * and renders no button of its own. */
+  handle?: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -69,8 +74,10 @@ export function ShareListButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline"><Share2 className="size-4" />{dict.button}</Button>} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
+      {!handle && (
+        <DialogTrigger render={<Button variant="outline"><Share2 className="size-4" />{dict.button}</Button>} />
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.dialogTitle}</DialogTitle>

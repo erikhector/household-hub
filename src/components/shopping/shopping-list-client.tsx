@@ -3,13 +3,35 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, ArchiveRestore, Check, CheckCheck, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Archive,
+  ArchiveRestore,
+  Check,
+  CheckCheck,
+  ClipboardPaste,
+  Download,
+  Ellipsis,
+  Link2,
+  PackagePlus,
+  Plus,
+  Share2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ExportButton } from "@/components/export/export-button";
+import { createDialogHandle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ShoppingItemFormDialog } from "@/components/shopping/shopping-item-form-dialog";
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
@@ -24,6 +46,7 @@ import {
   generateFromLowStockAction,
   togglePurchasedAction,
   unarchiveShoppingListAction,
+  uncompleteShoppingListAction,
   updateShoppingListItemPriceAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
@@ -115,6 +138,65 @@ export function ShoppingListClient({
   // and per-unit/unmultiplied.
   const estimatedTotal = sumEstimatedPendingTotal(pendingItems);
 
+  const showResolveMappings = isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD;
+  const resolveMappingsLabel = format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
+    count: unresolvedItems.length,
+  });
+
+  // One handle per dialog the ⋯ menu opens (AUTO-5) — created once per
+  // mount, see createDialogHandle for why the dialogs can't sit inside the
+  // menu itself.
+  const [dialogs] = useState(() => ({
+    addItem: createDialogHandle(),
+    importList: createDialogHandle(),
+    share: createDialogHandle(),
+    resolveMappings: createDialogHandle(),
+    completeList: createDialogHandle(),
+    deleteList: createDialogHandle(),
+  }));
+
+  const addLowStock = () =>
+    startTransition(async () => {
+      const result = await generateFromLowStockAction(list.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const added = result.added ?? 0;
+      if (added > 0) {
+        toast.success(format(plural(added, dict.addLowStockAddedToast), { count: added }));
+      } else {
+        toast.info(dict.addLowStockNoneToast);
+      }
+    });
+
+  // Shared by "Done shopping" (no confirm — every item is already checked
+  // off, so there's nothing to lose) and the menu's confirm-gated "Complete
+  // list" (items still pending). Either way the toast carries an "Undo"
+  // (BACKLOG.md's "undo over confirm") that reopens the list and removes
+  // exactly the Groceries expense this completion logged, if any.
+  const completeList = () =>
+    startTransition(async () => {
+      const result = await completeShoppingListAction(list.id);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const transactionId = result.transactionId;
+      toast.success(dict.completedToast, {
+        description: result.expenseLoggedMessage,
+        action: {
+          label: dict.undo,
+          onClick: () =>
+            startTransition(async () => {
+              const undo = await uncompleteShoppingListAction(list.id, transactionId);
+              if (undo.error) toast.error(undo.error);
+            }),
+        },
+      });
+      if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
+    });
+
   // AUTO-3: keep the screen on while there's an ACTIVE list open on a phone.
   useScreenWakeLock(isActive);
 
@@ -173,49 +255,12 @@ export function ShoppingListClient({
             </p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {isActive && (
-            <ShoppingItemFormDialog
-              mode="create"
-              listId={list.id}
-              inventoryItems={inventoryItems}
-              units={units}
-              dict={dict}
-              barcodeDict={barcodeDict}
-            />
-          )}
-          {isActive && (
-            <ImportListDialog
-              listId={list.id}
-              dict={dict.importList}
-              trigger={<Button variant="outline">{dict.importList.triggerLabel}</Button>}
-            />
-          )}
-          <ExportButton href={`/dashboard/shopping-list/${list.id}/export`} label={exportLabel} />
-          {isActive && <ShareListButton shoppingListId={list.id} dict={dict.shareLink} />}
-          {isActive && (
-            <Button
-              variant="outline"
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await generateFromLowStockAction(list.id);
-                  if (result.error) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  const added = result.added ?? 0;
-                  if (added > 0) {
-                    toast.success(format(plural(added, dict.addLowStockAddedToast), { count: added }));
-                  } else {
-                    toast.info(dict.addLowStockNoneToast);
-                  }
-                })
-              }
-            >
-              {dict.addLowStock}
-            </Button>
-          )}
+        {/* AUTO-5: only what's used on every trip stays visible — "Scan
+            receipt" here and the smart add line below. Everything else
+            lives in the ⋯ menu; the dialogs those items open are rendered
+            outside it (see the handles above) because the menu's popup
+            unmounts as it closes. */}
+        <div className="flex flex-wrap items-center gap-2">
           {isActive && (
             <ReceiptScanDialog
               listId={list.id}
@@ -226,90 +271,135 @@ export function ShoppingListClient({
               dict={dict.receiptScan}
             />
           )}
-          {isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="icon" disabled={isPending} aria-label={dict.moreActions}>
+                  <Ellipsis className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-auto min-w-52">
+              {isActive && (
+                <>
+                  <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
+                    <Plus />
+                    {dict.addItem}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
+                    <ClipboardPaste />
+                    {dict.importList.triggerLabel}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={addLowStock}>
+                    <PackagePlus />
+                    {dict.addLowStock}
+                  </DropdownMenuItem>
+                  {showResolveMappings && (
+                    <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
+                      <Link2 />
+                      {resolveMappingsLabel}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
+                    <Share2 />
+                    {dict.shareLink.button}
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
+                <Download />
+                {exportLabel}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {isActive && list.items.length > 0 && (
+                <DropdownMenuItem onClick={() => dialogs.completeList.open(null)}>
+                  <CheckCheck />
+                  {dict.completeList}
+                </DropdownMenuItem>
+              )}
+              {list.status === "ARCHIVED" ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await unarchiveShoppingListAction(list.id);
+                      if (result.error) toast.error(result.error);
+                    })
+                  }
+                >
+                  <ArchiveRestore />
+                  {dict.unarchive}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await archiveShoppingListAction(list.id);
+                      if (result.error) toast.error(result.error);
+                    })
+                  }
+                >
+                  <Archive />
+                  {dict.archive}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
+                <Trash2 />
+                {dict.delete}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {isActive && (
+        <>
+          <ShoppingItemFormDialog
+            mode="create"
+            listId={list.id}
+            inventoryItems={inventoryItems}
+            units={units}
+            dict={dict}
+            barcodeDict={barcodeDict}
+            handle={dialogs.addItem}
+          />
+          <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} />
+          <ShareListButton shoppingListId={list.id} dict={dict.shareLink} handle={dialogs.share} />
+          {showResolveMappings && (
             <ResolveMappingsDialog
               items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
               inventoryItems={inventoryItems}
               categories={categories}
               dict={dict.resolveMappings}
-              triggerLabel={format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
-                count: unresolvedItems.length,
-              })}
+              triggerLabel={resolveMappingsLabel}
+              handle={dialogs.resolveMappings}
             />
-          )}
-          {isActive && list.items.length > 0 && (
-            <ConfirmDialog
-              trigger={
-                <Button variant="secondary" disabled={isPending}>
-                  {dict.completeList}
-                </Button>
-              }
-              title={dict.confirmCompleteList.title}
-              description={dict.confirmCompleteList.description}
-              cancelLabel={dict.confirmCompleteList.cancel}
-              confirmLabel={dict.confirmCompleteList.confirm}
-              pendingLabel={dict.confirmCompleteList.confirming}
-              variant="default"
-              onConfirm={() =>
-                startTransition(async () => {
-                  const result = await completeShoppingListAction(list.id);
-                  if (result.error) toast.error(result.error);
-                  if (result.expenseLoggedMessage) toast.success(result.expenseLoggedMessage);
-                  if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
-                })
-              }
-            />
-          )}
-          {list.status === "ARCHIVED" ? (
-            <Button
-              variant="outline"
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await unarchiveShoppingListAction(list.id);
-                  if (result.error) toast.error(result.error);
-                })
-              }
-            >
-              <ArchiveRestore className="size-4" />
-              {dict.unarchive}
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              disabled={isPending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await archiveShoppingListAction(list.id);
-                  if (result.error) toast.error(result.error);
-                })
-              }
-            >
-              <Archive className="size-4" />
-              {dict.archive}
-            </Button>
           )}
           <ConfirmDialog
-            trigger={
-              <Button variant="destructive" disabled={isPending}>
-                <Trash2 className="size-4" />
-                {dict.delete}
-              </Button>
-            }
-            title={format(dict.confirmDeleteList.title, { name: list.name })}
-            description={dict.confirmDeleteList.description}
-            cancelLabel={dict.confirmDeleteList.cancel}
-            confirmLabel={dict.confirmDeleteList.confirm}
-            pendingLabel={dict.confirmDeleteList.confirming}
-            onConfirm={() =>
-              startTransition(async () => {
-                const result = await deleteShoppingListAction(list.id);
-                if (result.error) toast.error(result.error);
-              })
-            }
+            handle={dialogs.completeList}
+            title={dict.confirmCompleteList.title}
+            description={dict.confirmCompleteList.description}
+            cancelLabel={dict.confirmCompleteList.cancel}
+            confirmLabel={dict.confirmCompleteList.confirm}
+            pendingLabel={dict.confirmCompleteList.confirming}
+            variant="default"
+            onConfirm={completeList}
           />
-        </div>
-      </div>
+        </>
+      )}
+      <ConfirmDialog
+        handle={dialogs.deleteList}
+        title={format(dict.confirmDeleteList.title, { name: list.name })}
+        description={dict.confirmDeleteList.description}
+        cancelLabel={dict.confirmDeleteList.cancel}
+        confirmLabel={dict.confirmDeleteList.confirm}
+        pendingLabel={dict.confirmDeleteList.confirming}
+        onConfirm={() =>
+          startTransition(async () => {
+            const result = await deleteShoppingListAction(list.id);
+            if (result.error) toast.error(result.error);
+          })
+        }
+      />
 
       {isActive && (
         <SmartAddBar
@@ -323,7 +413,14 @@ export function ShoppingListClient({
 
       <div className="flex flex-col gap-2">
         {showCleared ? (
-          <ClearedState dict={dict} onDismiss={() => setClearedDismissed(true)} />
+          <ClearedState
+            dict={dict}
+            onDismiss={() => setClearedDismissed(true)}
+            // Only once something was actually bought — a list that was
+            // simply emptied out has no trip to finish.
+            onDone={isActive && purchasedItems.length > 0 ? completeList : undefined}
+            isPending={isPending}
+          />
         ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
           <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
             {isActive ? dict.emptyListActive : dict.emptyListOther}
@@ -380,12 +477,28 @@ export function ShoppingListClient({
   );
 }
 
-function ClearedState({ dict, onDismiss }: { dict: ShoppingListDict; onDismiss: () => void }) {
+function ClearedState({
+  dict,
+  onDismiss,
+  onDone,
+  isPending,
+}: {
+  dict: ShoppingListDict;
+  onDismiss: () => void;
+  /** AUTO-5: completes the list in one tap, with Undo on the toast. */
+  onDone?: () => void;
+  isPending: boolean;
+}) {
   return (
     <div className="relative flex flex-col items-center gap-1.5 rounded-md border border-dashed p-8 text-center">
       <CheckCheck className="size-5 text-muted-foreground" />
       <p className="text-sm font-medium">{dict.clearedTitle}</p>
       <p className="text-sm text-muted-foreground">{dict.clearedDescription}</p>
+      {onDone && (
+        <Button className="mt-3" disabled={isPending} onClick={onDone}>
+          {dict.doneShopping}
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"

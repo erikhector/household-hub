@@ -88,10 +88,7 @@ enough to trust.
 
 ## Phase 1 — independent, no schema changes
 
-Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b and AUTO-5 both edit
-`src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch.
+Parallel-safe except where noted.
 
 ### Shopping list & inventory automation
 
@@ -104,26 +101,6 @@ in one branch.
       Still open: a way to correct a guess in place. The category is already
       on each row (AUTO-3's `ShoppingListItemRow.category`, sourced from the
       linked `InventoryItem`) — this just needs the chip UI to edit it there.
-
-- [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
-      — `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** ~10 header buttons; completing a list is a separate,
-      confirm-gated step after you've already checked everything off.
-      **Design brief:** visible: the smart add line (`SmartAddBar`), "Scan
-      receipt", and the overflow `⋯` menu. Everything else — import,
-      export, share, add low-stock, resolve mappings, archive, delete —
-      moves into the menu (delete stays visually destructive there). When
-      the last pending item is checked, the existing "cleared" state
-      (the "cleared" state from the archived Joy Gap backlog, item 1) gains a primary "Done shopping" button that completes
-      the list without a second confirm dialog, with an "Undo" on the toast
-      instead (see Guardrails). The existing "Complete list" path stays in
-      the menu for completing with items still pending.
-      **Dev notes:** undo needs an `uncompleteShoppingListAction` that
-      restores `ACTIVE` and deletes the Groceries `Transaction` created by
-      that completion — idempotent, household-scoped, same shape as
-      `undoMarkMealEntryCookedAction`. Return the created `Transaction` id
-      from `completeShoppingListAction` so undo targets exactly that row.
-      Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
 
 ### Budget component unification
 

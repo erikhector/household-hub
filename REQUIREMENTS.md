@@ -319,7 +319,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
-  `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`, one-way) or
+  `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`; one-way apart
+  from the short-lived toast "Undo" below) or
   `ACTIVE`/`COMPLETED` → `ARCHIVED` (via `archiveShoppingListAction`,
   reversible with `unarchiveShoppingListAction`, which always returns to
   `ACTIVE`). Any list can be permanently removed with
@@ -765,7 +766,39 @@ itself is a pure, unit-tested helper
   inside its existing `useTransition` click handler and shows a `sonner`
   toast when a message comes back; nothing is shown when the total was 0.
   No new settings/toggle to disable this — it's the intended default
-  behavior, not optional.
+  behavior, not optional. It also returns `transactionId`, the id of the
+  expense it logged (if any), for the Undo below.
+
+#### Finishing the trip in one gesture (AUTO-5)
+
+The detail page's header keeps only what's used on every trip visible:
+"Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
+smart add line below. The menu holds add item, import, add low-stock
+items, resolve mappings (when there are enough unlinked items), share,
+export, then — after a separator — "Complete list", archive/unarchive, and
+a destructive-styled delete. The dialogs those items open are rendered
+outside the menu, since its popup unmounts as it closes, and are opened
+through Base UI dialog handles (`createDialogHandle` in
+`src/components/ui/dialog.tsx`; `ConfirmDialog`, `ImportListDialog`,
+`ShareListButton`, `ResolveMappingsDialog` and `ShoppingItemFormDialog`'s
+create mode take an optional `handle` in place of their own trigger). Opening
+through a handle still runs each dialog's `onOpenChange`, so their
+reset-on-open logic is unchanged.
+
+When the last pending item is checked off, the "All done" cleared state
+gains a primary **"Done shopping"** button that completes the list right
+away — no confirm dialog, since everything is already checked off. The
+toast ("List completed", with the expense message as its description)
+carries an **Undo** that calls `uncompleteShoppingListAction(listId,
+transactionId)`: it puts the list back to `ACTIVE` and deletes exactly the
+Groceries expense that completion logged, in one `$transaction`. It's
+household-scoped (the expense delete is a `deleteMany` on id +
+`householdId`, so a stale or foreign id removes nothing) and idempotent (a
+list that's no longer `COMPLETED` is left alone). Inventory needs no
+reversal, because completing never touches it. The menu's "Complete list" is
+still confirm-gated, since it can complete a list with items still pending.
+Its toast carries the same Undo. Like "Undo mark cooked", this is a
+fat-finger undo on the toast, not a permanent "reopen list" control.
 
 ### Safe to spend
 

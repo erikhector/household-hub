@@ -28,6 +28,7 @@ const {
   shoppingListFindUniqueMock,
   priceHistoryCreateMock,
   transactionCreateMock,
+  transactionDeleteManyMock,
   transactionMock,
   notificationFindFirstMock,
   notificationCreateMock,
@@ -57,6 +58,7 @@ const {
   shoppingListFindUniqueMock: vi.fn(),
   priceHistoryCreateMock: vi.fn(),
   transactionCreateMock: vi.fn(),
+  transactionDeleteManyMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
@@ -68,7 +70,12 @@ const {
         delete: shoppingListItemDeleteMock,
         count: shoppingListItemCountMock,
       },
-      shoppingList: { create: shoppingListCreateMock, findUnique: shoppingListFindUniqueMock },
+      shoppingList: {
+        create: shoppingListCreateMock,
+        findUnique: shoppingListFindUniqueMock,
+        update: shoppingListUpdateMock,
+      },
+      transaction: { deleteMany: transactionDeleteManyMock },
       inventoryItem: {
         update: inventoryItemUpdateMock,
         findUnique: inventoryItemFindUniqueMock,
@@ -166,6 +173,7 @@ const {
   applyReceiptScanAction,
   deleteShoppingListItemAction,
   completeShoppingListAction,
+  uncompleteShoppingListAction,
   registerReceiptAction,
 } = await import("@/app/dashboard/shopping-list/actions");
 
@@ -1484,5 +1492,84 @@ describe("completeShoppingListAction", () => {
 
     expect(transactionCreateMock).not.toHaveBeenCalled();
     expect(result.expenseLoggedMessage).toBeUndefined();
+  });
+});
+
+describe("completeShoppingListAction → transactionId", () => {
+  it("returns the id of the Groceries expense it logged, so Undo can target exactly that row", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [{ inventoryItemId: "inv-1", purchased: true, estimatedPrice: 20 }],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+    findOrCreateGroceriesCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    transactionCreateMock.mockResolvedValue({ id: "txn-1" });
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.transactionId).toBe("txn-1");
+  });
+
+  it("returns no transactionId when nothing had a price (no expense logged)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [{ inventoryItemId: "inv-1", purchased: true, estimatedPrice: null }],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.transactionId).toBeUndefined();
+    expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("uncompleteShoppingListAction", () => {
+  it("returns 'List not found' for a list outside the caller's household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+
+    const result = await uncompleteShoppingListAction("someone-elses-list", "txn-1");
+
+    expect(result.error).toBe("List not found");
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "someone-elses-list", householdId: "household-1" } }),
+    );
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("restores ACTIVE and deletes exactly the completion's expense, household-scoped", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", status: "COMPLETED" });
+
+    const result = await uncompleteShoppingListAction("list-1", "txn-1");
+
+    expect(result).toEqual({});
+    expect(shoppingListUpdateMock).toHaveBeenCalledWith({
+      where: { id: "list-1" },
+      data: { status: "ACTIVE", completedAt: null },
+    });
+    expect(transactionDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "txn-1", householdId: "household-1" },
+    });
+  });
+
+  it("skips the expense delete when the completion logged none", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", status: "COMPLETED" });
+
+    await uncompleteShoppingListAction("list-1");
+
+    expect(shoppingListUpdateMock).toHaveBeenCalled();
+    expect(transactionDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("is an idempotent no-op on a list that's no longer COMPLETED (double-tapped Undo)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", status: "ACTIVE" });
+
+    const result = await uncompleteShoppingListAction("list-1", "txn-1");
+
+    expect(result).toEqual({});
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(transactionDeleteManyMock).not.toHaveBeenCalled();
   });
 });

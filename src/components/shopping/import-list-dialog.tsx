@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { importShoppingListItemsAction } from "@/app/dashboard/shopping-list/actions";
 import { parsePastedList } from "@/lib/inventory/parse-pasted-list";
@@ -39,10 +40,13 @@ export function ImportListDialog({
   listId,
   dict,
   trigger,
+  handle,
 }: {
   listId: string;
   dict: Dictionary["shoppingList"]["importList"];
-  trigger: ReactElement;
+  /** Omit when opening through `handle` (e.g. from a menu item). */
+  trigger?: ReactElement;
+  handle?: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("paste");
@@ -143,8 +147,8 @@ export function ImportListDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{step === "paste" ? dict.dialogTitle : dict.reviewTitle}</DialogTitle>

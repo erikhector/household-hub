@@ -3,7 +3,15 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  type DialogHandle,
+} from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { findInventoryMatches } from "@/lib/item-matching";
@@ -50,12 +58,16 @@ export function ResolveMappingsDialog({
   categories,
   dict,
   triggerLabel,
+  handle,
 }: {
   items: UnresolvedItem[];
   inventoryItems: InventoryItemOption[];
   categories: string[];
   dict: Dictionary["shoppingList"]["resolveMappings"];
   triggerLabel: string;
+  /** When set, the dialog opens through the handle (e.g. from a menu item,
+   * which shows `triggerLabel` itself) and renders no button of its own. */
+  handle?: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -120,8 +132,8 @@ export function ResolveMappingsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" variant="outline">{triggerLabel}</Button>} />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
+      {!handle && <DialogTrigger render={<Button type="button" variant="outline">{triggerLabel}</Button>} />}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{dict.dialogTitle}</DialogTitle>

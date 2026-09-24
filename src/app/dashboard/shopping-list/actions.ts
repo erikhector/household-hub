@@ -1360,7 +1360,15 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
 
 export async function completeShoppingListAction(
   listId: string,
-): Promise<{ expenseLoggedMessage?: string; unresolvedNotice?: string; error?: string }> {
+): Promise<{
+  expenseLoggedMessage?: string;
+  unresolvedNotice?: string;
+  /** The Groceries expense this completion logged, if any — handed back to
+   * uncompleteShoppingListAction by the toast's "Undo" (AUTO-5) so it
+   * removes exactly that row and nothing else. */
+  transactionId?: string;
+  error?: string;
+}> {
   const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -1401,10 +1409,11 @@ export async function completeShoppingListAction(
   }
 
   let expenseLoggedMessage: string | undefined;
+  let transactionId: string | undefined;
 
   if (groceriesTotal > 0) {
     const category = await findOrCreateGroceriesCategory(household.id);
-    await prisma.transaction.create({
+    const transaction = await prisma.transaction.create({
       data: {
         householdId: household.id,
         categoryId: category.id,
@@ -1414,7 +1423,9 @@ export async function completeShoppingListAction(
         date: new Date(),
         createdByUserId: userId,
       },
+      select: { id: true },
     });
+    transactionId = transaction.id;
 
     const locale = await getLocale();
     const amountLabel = new Intl.NumberFormat(locale, {
@@ -1434,5 +1445,53 @@ export async function completeShoppingListAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/budget");
 
-  return { expenseLoggedMessage, unresolvedNotice };
+  return { expenseLoggedMessage, unresolvedNotice, transactionId };
+}
+
+/**
+ * The "Undo" on the "Done shopping" toast (AUTO-5): puts a just-completed
+ * list back to ACTIVE and removes the Groceries expense that completion
+ * logged, identified by the id completeShoppingListAction returned — never
+ * "the latest Groceries expense", which could be someone else's. Same
+ * short-lived, fat-finger-only shape as undoMarkMealEntryCookedAction, not
+ * a permanent "reopen list" control. Idempotent: a list that's no longer
+ * COMPLETED (a double-tapped Undo, or it was archived meanwhile) is left
+ * alone, and the expense delete is a household-scoped deleteMany, so a
+ * stale or foreign id removes nothing. Inventory needs no reversal —
+ * completing never touched it (purchases already moved stock as each item
+ * was checked off, and they stay checked off).
+ */
+export async function uncompleteShoppingListAction(
+  listId: string,
+  transactionId?: string,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId: household.id },
+    select: { id: true, status: true },
+  });
+  if (!list) return { error: "List not found" };
+  if (list.status !== "COMPLETED") return {};
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingList.update({
+        where: { id: list.id },
+        data: { status: "ACTIVE", completedAt: null },
+      });
+      if (transactionId) {
+        await tx.transaction.deleteMany({
+          where: { id: transactionId, householdId: household.id },
+        });
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath("/dashboard/budget");
+  return {};
 }
