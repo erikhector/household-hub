@@ -23,7 +23,7 @@ import {
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 // A household RecurringTemplate the user has opted into a split for (see
@@ -70,7 +70,7 @@ export function PersonalDueRecurringWidget({
   /** "YYYY-MM" — reused for the "View in {household} Budget" link's own
    * `?month=` param, since a due row is already scoped to this period. */
   monthKey: string;
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   dict: Dictionary["personalBudget"];
   locale: Locale;
   onManageClick: () => void;

@@ -24,7 +24,7 @@ import {
   type ShareableHousehold,
 } from "@/components/personal-budget/log-shared-expense-dialog";
 import type { PersonalRecurringTemplateListRow } from "@/components/personal-budget/personal-recurring-templates-panel";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import type { CategoryFormAction, CategoryRow } from "@/components/budget/category-manager";
 import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
@@ -43,6 +43,7 @@ export function PersonalBudgetTabs({
   sharedDueRows,
   showHouseholdName,
   sharedExpenseHouseholds,
+  createCategoryAction,
   periodSummary,
   manage,
   transactions,
@@ -52,7 +53,7 @@ export function PersonalBudgetTabs({
   locale: Locale;
   /** "YYYY-MM" — see BudgetTabs's doc comment. */
   monthKey: string;
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
@@ -71,6 +72,11 @@ export function PersonalBudgetTabs({
    * which case the "Log a shared expense" trigger is omitted entirely. See
    * LogSharedExpenseDialog. */
   sharedExpenseHouseholds: ShareableHousehold[];
+  // BUDGET-3: PersonalBudgetOnboarding's AddCategoryDialog (now the shared
+  // one from src/components/budget/category-manager.tsx) takes its create
+  // action as a prop instead of importing one directly, threaded through
+  // from here.
+  createCategoryAction: CategoryFormAction;
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see BudgetTabs's doc comment. */
   periodSummary: ReactNode;
@@ -138,7 +144,7 @@ export function PersonalBudgetTabs({
             {periodSummary}
           </>
         ) : (
-          <PersonalBudgetOnboarding dict={dict} />
+          <PersonalBudgetOnboarding dict={dict} createCategoryAction={createCategoryAction} />
         )}
       </div>
 

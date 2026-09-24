@@ -38,7 +38,7 @@ import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import type { CategoryRow } from "@/components/budget/category-manager";
 
 export type PersonalRecurrenceFrequency = "WEEKLY" | "MONTHLY" | "YEARLY";
 
@@ -89,7 +89,7 @@ export function PersonalTransactionDialog({
   prefillFromTemplate,
 }: {
   dict: Dictionary["personalBudget"];
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   /** "YYYY-MM" of the month currently being browsed — feeds a new
    * transaction's default date (F11). See TransactionDialog's identical
    * prop (src/components/budget/transaction-dialog.tsx). */
@@ -109,8 +109,8 @@ export function PersonalTransactionDialog({
   const categoryItems = useMemo(
     () =>
       createComboboxItems(categories, {
-        getValue: (c: PersonalCategoryRow) => c.id,
-        getLabel: (c: PersonalCategoryRow) => c.name,
+        getValue: (c: CategoryRow) => c.id,
+        getLabel: (c: CategoryRow) => c.name,
       }),
     [categories],
   );
@@ -164,7 +164,7 @@ export function PersonalTransactionDialog({
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
               </ComboboxInputGroup>
               <ComboboxContent emptyMessage={dict.categoryNoResults}>
-                {(c: PersonalCategoryRow) => (
+                {(c: CategoryRow) => (
                   <ComboboxItem key={c.id} value={c.id}>
                     {c.name}
                   </ComboboxItem>

@@ -20,7 +20,7 @@ import {
   PersonalTransactionDialog,
   type PersonalTransactionRow,
 } from "@/components/personal-budget/personal-transaction-dialog";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import type { CategoryRow } from "@/components/budget/category-manager";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
@@ -103,7 +103,7 @@ export function PersonalTransactionList({
   /** "YYYY-MM" — reused for a shared row's "View in {household} Budget"
    * link, required whenever sharedRows is non-empty. */
   monthKey?: string;
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   dict: Dictionary["personalBudget"];
   locale: Locale;
 }) {

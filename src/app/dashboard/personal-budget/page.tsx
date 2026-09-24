@@ -4,7 +4,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { PersonalBudgetTabs } from "@/components/personal-budget/personal-budget-tabs";
-import { PersonalCategoryManager } from "@/components/personal-budget/personal-category-manager";
+import { CategoryManager } from "@/components/budget/category-manager";
 import {
   PersonalRecurringTemplatesPanel,
   type PausedPersonalRecurringTemplateRow,
@@ -36,6 +36,11 @@ import {
   parseMonthKey,
   toMonthKey,
 } from "@/lib/budget-date-utils";
+import {
+  createPersonalCategoryAction,
+  deletePersonalCategoryAction,
+  updatePersonalCategoryAction,
+} from "./actions";
 
 // Same cap as the household budget's cost analyzer / fixed trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
@@ -409,7 +414,13 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         dict={dict.personalBudget}
         locale={locale}
       />
-      <PersonalCategoryManager categories={categoryRows} dict={dict.personalBudget} />
+      <CategoryManager
+        categories={categoryRows}
+        dict={dict.personalBudget}
+        createAction={createPersonalCategoryAction}
+        updateAction={updatePersonalCategoryAction}
+        deleteAction={deletePersonalCategoryAction}
+      />
     </div>
   );
 
@@ -489,6 +500,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         sharedDueRows={sharedDueRows}
         showHouseholdName={showHouseholdName}
         sharedExpenseHouseholds={sharedExpenseHouseholds}
+        createCategoryAction={createPersonalCategoryAction}
         periodSummary={periodSummary}
         manage={manage}
         transactions={transactionsTab}

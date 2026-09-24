@@ -18,7 +18,7 @@ import {
 } from "@/components/personal-budget/personal-recurring-template-dialog";
 import { PersonalTransactionDialog } from "@/components/personal-budget/personal-transaction-dialog";
 import { format } from "@/lib/i18n/format";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type PersonalRecurringTemplateListRow = PersonalRecurringTemplateRow & {
@@ -49,7 +49,7 @@ export function PersonalRecurringTemplatesPanel({
 }: {
   templates: PersonalRecurringTemplateListRow[];
   pausedTemplates: PausedPersonalRecurringTemplateRow[];
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   /** "YYYY-MM" of the month currently being browsed — threaded to the "Log
    * transaction" dialog below so a new transaction defaults to a date within
    * it (F11) instead of always today. */
@@ -271,7 +271,7 @@ function TemplateRow({
   isPending: boolean;
   onDelete: (id: string) => void;
   onTogglePause: (id: string, active: boolean) => void;
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   actions?: ReactNode;
   paused?: boolean;
 }) {

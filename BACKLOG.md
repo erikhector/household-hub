@@ -409,7 +409,8 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Budget component unification
 
-Sequential: BUDGET-2 → BUDGET-3 → BUDGET-4. Together with BUDGET-5 (needs a
+Sequential: BUDGET-2 → BUDGET-4 (BUDGET-3 shipped — see REQUIREMENTS.md's
+"Budget component unification (BUDGET-3)"). Together with BUDGET-5 (needs a
 decision, below) this is the whole "delete `src/components/personal-budget/`"
 job.
 
@@ -422,18 +423,15 @@ job.
       `currentMemberId=""` from the personal-budget page and real values from the household
       page. This is 5 of the 7 pairs and the least risky half.
 
-- [ ] **BUDGET-3. Merge `CategoryManager`/`AddCategoryDialog`** — needs the two create/delete actions
-      injected as props (or a small per-scope action-selector) rather than empty-array
-      suppression. Doesn't depend on BUDGET-2, but touches a component BUDGET-2 doesn't.
-
 - [ ] **BUDGET-4. Merge `BudgetTabs`/`PersonalBudgetTabs`** — needs an explicit prop for which
       optional tabs exist (`costAnalyzer`/`balances` become optional `ReactNode`s the way
       `balances` already is). Also decide, before or as part of the merge, whether
       personal budget gets household's persistent "Manage categories" button next to the
-      tab bar — today `PersonalCategoryManager` is only reachable from the Activity tab's
+      tab bar — today `CategoryManager` is only reachable from the Activity tab's
       overview panel. It may be unnecessary at personal budget's smaller scale (one
-      category-bearing tab), so "not needed" is a valid answer. Land after BUDGET-3,
-      since this renders `CategoryManager` inline.
+      category-bearing tab), so "not needed" is a valid answer. Both `BudgetTabs` and
+      `PersonalBudgetTabs` already take a `createCategoryAction` prop (BUDGET-3, for
+      `BudgetOnboarding`/`PersonalBudgetOnboarding`'s `AddCategoryDialog`) to fold in.
 
 ### Shopping list & inventory automation
 

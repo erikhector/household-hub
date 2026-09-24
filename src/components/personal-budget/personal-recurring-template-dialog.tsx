@@ -34,7 +34,9 @@ import {
 } from "@/app/dashboard/personal-budget/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import type { PersonalCategoryRow } from "@/components/personal-budget/personal-category-manager";
+// The old PersonalCategoryRow was folded into CategoryRow when BUDGET-3
+// merged CategoryManager/AddCategoryDialog into a single shared component.
+import type { CategoryRow } from "@/components/budget/category-manager";
 
 export type PersonalRecurringTemplateRow = {
   id: string;
@@ -54,7 +56,7 @@ export function PersonalRecurringTemplateDialog({
   template,
 }: {
   dict: Dictionary["personalBudget"];
-  categories: PersonalCategoryRow[];
+  categories: CategoryRow[];
   trigger: ReactElement;
   template?: PersonalRecurringTemplateRow;
 }) {
@@ -63,8 +65,8 @@ export function PersonalRecurringTemplateDialog({
   const categoryItems = useMemo(
     () =>
       createComboboxItems(categories, {
-        getValue: (c: PersonalCategoryRow) => c.id,
-        getLabel: (c: PersonalCategoryRow) => c.name,
+        getValue: (c: CategoryRow) => c.id,
+        getLabel: (c: CategoryRow) => c.name,
       }),
     [categories],
   );
@@ -110,7 +112,7 @@ export function PersonalRecurringTemplateDialog({
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />
               </ComboboxInputGroup>
               <ComboboxContent emptyMessage={dict.categoryNoResults}>
-                {(c: PersonalCategoryRow) => (
+                {(c: CategoryRow) => (
                   <ComboboxItem key={c.id} value={c.id}>
                     {c.name}
                   </ComboboxItem>
