@@ -696,6 +696,14 @@ describe("auto-categorizing quick-add and bulk-add (AUTO-2)", () => {
     );
   });
 
+  it("quick-add never passes the form-only neverExpires flag to Prisma", async () => {
+    createMock.mockResolvedValue({});
+
+    await quickAddInventoryItemAction({ name: "Mjölk" });
+
+    expect(createMock.mock.calls[0][0].data).not.toHaveProperty("neverExpires");
+  });
+
   it("quick-add keeps a category the user typed", async () => {
     createMock.mockResolvedValue({});
 

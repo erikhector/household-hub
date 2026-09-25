@@ -251,11 +251,18 @@ export async function quickAddInventoryItemAction(input: {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
+  // `neverExpires` is a form-only flag (itemSchema's transform always sets
+  // it, false when absent), not an InventoryItem column — spreading it into
+  // create() makes Prisma reject the whole insert with "Unknown argument".
+  // Quick-add never offers it, so it's simply dropped here.
+  const { neverExpires, ...itemData } = parsed.data;
+  void neverExpires;
+
   try {
-    const guessed = parsed.data.category || (await createCategoryResolver(household.id)(parsed.data.name));
+    const guessed = itemData.category || (await createCategoryResolver(household.id)(itemData.name));
     const category = guessed || (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
+      data: { householdId: household.id, ...itemData, category, updatedByUserId: userId },
     });
     if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
