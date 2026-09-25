@@ -179,17 +179,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-3. Read-only calendar feed for the meal plan + recurring bills** —
-      new `src/app/api/calendar/[token]/route.ts`. Cozi's core
-      differentiator is that a household's plan shows up in the calendar app
-      everyone already has open. A per-household, token-scoped (not
-      session-scoped, since calendar apps can't send cookies) `.ics` feed
-      URL, regenerable from the Household page, listing `MealPlanEntry`
-      dates/names and `RecurringTemplate` due dates. Read-only, no write-back
-      from the calendar app. Needs a new random `Household.calendarFeedToken`
-      column (Phase 2 migration) and a decision on whether it's on by default
-      or opt-in (default off is safer — it's a shareable link with no login).
-
 - [ ] **GAP-4. Reusable named shopping list templates** —
       `src/components/shopping/shopping-list-client.tsx`,
       `src/app/dashboard/shopping-list/actions.ts`. AnyList/Out of Milk let

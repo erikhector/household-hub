@@ -108,7 +108,7 @@ export const en = {
       other: "Shared with {count} other people",
     },
     roleExplanation:
-      "Owners can remove members, transfer ownership, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
+      "Owners can remove members, transfer ownership, manage the calendar feed, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
     removeAriaLabel: "Remove {name}",
@@ -126,6 +126,50 @@ export const en = {
         'When something drops to low or out of stock, it goes straight onto "Next shop". This applies to everyone in the household.',
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
+    },
+    // GAP-3: the read-only calendar feed (CalendarFeedSetting). `feed` holds
+    // the strings written into the .ics itself; the route picks the locale
+    // from the URL's ?lang=, since calendar apps send no cookie.
+    calendarFeed: {
+      title: "Calendar feed",
+      description:
+        "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals and the due dates of monthly bills. It updates on its own and is read-only.",
+      publicWarning:
+        "Anyone who has the link can see your planned meals and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
+      offDescription: "The calendar feed is off.",
+      contributorOffDescription: "The calendar feed is off. The household owner can turn it on.",
+      enable: "Turn on calendar feed",
+      enabling: "Turning on…",
+      linkAriaLabel: "Calendar feed link",
+      copy: "Copy",
+      copiedToast: "Calendar link copied",
+      openInCalendar: "Open in calendar app",
+      regenerate: "Get a new link",
+      disable: "Turn off",
+      enabledToast: "Calendar feed turned on",
+      regeneratedToast: "New calendar link created. The old one no longer works.",
+      disabledToast: "Calendar feed turned off",
+      regenerateConfirm: {
+        title: "Get a new calendar link?",
+        description:
+          "The current link stops working right away. Anyone subscribed to it, including you, will need to subscribe again with the new link.",
+        cancel: "Cancel",
+        confirm: "Get new link",
+        confirming: "Creating…",
+      },
+      disableConfirm: {
+        title: "Turn off the calendar feed?",
+        description:
+          "The link stops working right away and subscribed calendars stop updating. Turning it on again gives you a new link.",
+        cancel: "Cancel",
+        confirm: "Turn off",
+        confirming: "Turning off…",
+      },
+      feed: {
+        calendarName: "{household} (Squirrel)",
+        mealSummary: "{meal}: {name}",
+        billSummary: "Due: {name}",
+      },
     },
     notes: {
       title: "Notes",

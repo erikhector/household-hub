@@ -14,6 +14,7 @@ const {
   householdCreateMock,
   householdDeleteMock,
   householdUpdateMock,
+  householdUpdateManyMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
   invitationFindFirstMock,
@@ -38,6 +39,7 @@ const {
   householdCreateMock: vi.fn(),
   householdDeleteMock: vi.fn(),
   householdUpdateMock: vi.fn(),
+  householdUpdateManyMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
   invitationFindFirstMock: vi.fn(),
@@ -88,7 +90,12 @@ const {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    household: { create: householdCreateMock, delete: householdDeleteMock, update: householdUpdateMock },
+    household: {
+      create: householdCreateMock,
+      delete: householdDeleteMock,
+      update: householdUpdateMock,
+      updateMany: householdUpdateManyMock,
+    },
     user: { findUnique: userFindUniqueMock },
     invitation: {
       findUnique: invitationFindUniqueMock,
@@ -138,6 +145,9 @@ const {
   transferOwnershipAction,
   switchHouseholdAction,
   setAutoAddLowStockToListAction,
+  enableCalendarFeedAction,
+  regenerateCalendarFeedAction,
+  disableCalendarFeedAction,
 } = await import("@/lib/actions/household");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -923,5 +933,76 @@ describe("setAutoAddLowStockToListAction (AUTO-8)", () => {
 
     expect(result.error).toBeDefined();
     expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("calendar feed actions (GAP-3)", () => {
+  const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+  it.each([
+    ["enable", () => enableCalendarFeedAction()],
+    ["regenerate", () => regenerateCalendarFeedAction()],
+    ["disable", () => disableCalendarFeedAction()],
+  ])("%s is owner-only", async (_name, run) => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await run();
+
+    expect(result.error).toBe("Only the household owner can manage the calendar feed");
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+    expect(householdUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("enable sets a fresh 32-byte token only while the feed is off", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await enableCalendarFeedAction();
+
+    expect(result).toEqual({});
+    const call = householdUpdateManyMock.mock.calls[0][0];
+    // The null filter is what makes a repeat click a no-op instead of a
+    // silent regenerate.
+    expect(call.where).toEqual({ id: "household-1", calendarFeedToken: null });
+    expect(call.data.calendarFeedToken).toMatch(TOKEN_PATTERN);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("regenerate replaces the token with a different one each time", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    await regenerateCalendarFeedAction();
+    await regenerateCalendarFeedAction();
+
+    const [first, second] = householdUpdateMock.mock.calls.map((c) => c[0]);
+    expect(first.where).toEqual({ id: "household-1" });
+    expect(first.data.calendarFeedToken).toMatch(TOKEN_PATTERN);
+    expect(second.data.calendarFeedToken).toMatch(TOKEN_PATTERN);
+    expect(first.data.calendarFeedToken).not.toBe(second.data.calendarFeedToken);
+  });
+
+  it("disable clears the token for the session's household only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await disableCalendarFeedAction();
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { calendarFeedToken: null },
+    });
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await disableCalendarFeedAction();
+
+    expect(result.error).toBeTruthy();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

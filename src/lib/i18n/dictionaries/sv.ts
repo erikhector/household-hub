@@ -97,7 +97,7 @@ export const sv = {
       other: "Delas med {count} andra personer",
     },
     roleExplanation:
-      "Ägare kan ta bort medlemmar, överföra ägarskap och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
+      "Ägare kan ta bort medlemmar, överföra ägarskap, hantera kalenderflödet och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
     owner: "Ägare",
     contributor: "Medlem",
     removeAriaLabel: "Ta bort {name}",
@@ -115,6 +115,47 @@ export const sv = {
         'När något börjar ta slut eller är slut hamnar det direkt på "Att handla". Inställningen gäller alla i hushållet.',
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
+    },
+    calendarFeed: {
+      title: "Kalenderflöde",
+      description:
+        "Prenumerera från Google Kalender, Apple Kalender eller Outlook för att se planerade måltider och förfallodagar för månadsräkningar. Det uppdateras av sig självt och är skrivskyddat.",
+      publicWarning:
+        "Alla som har länken kan se era planerade måltider och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
+      offDescription: "Kalenderflödet är avstängt.",
+      contributorOffDescription: "Kalenderflödet är avstängt. Hushållets ägare kan slå på det.",
+      enable: "Slå på kalenderflöde",
+      enabling: "Slår på…",
+      linkAriaLabel: "Länk till kalenderflöde",
+      copy: "Kopiera",
+      copiedToast: "Kalenderlänken kopierad",
+      openInCalendar: "Öppna i kalenderappen",
+      regenerate: "Skapa ny länk",
+      disable: "Stäng av",
+      enabledToast: "Kalenderflödet är påslaget",
+      regeneratedToast: "Ny kalenderlänk skapad. Den gamla fungerar inte längre.",
+      disabledToast: "Kalenderflödet är avstängt",
+      regenerateConfirm: {
+        title: "Skapa en ny kalenderlänk?",
+        description:
+          "Den nuvarande länken slutar fungera direkt. Alla som prenumererar på den, även du, behöver prenumerera igen med den nya länken.",
+        cancel: "Avbryt",
+        confirm: "Skapa ny länk",
+        confirming: "Skapar…",
+      },
+      disableConfirm: {
+        title: "Stänga av kalenderflödet?",
+        description:
+          "Länken slutar fungera direkt och prenumererade kalendrar slutar uppdateras. Slår du på det igen får du en ny länk.",
+        cancel: "Avbryt",
+        confirm: "Stäng av",
+        confirming: "Stänger av…",
+      },
+      feed: {
+        calendarName: "{household} (Squirrel)",
+        mealSummary: "{meal}: {name}",
+        billSummary: "Förfaller: {name}",
+      },
     },
     notes: {
       title: "Anteckningar",

@@ -109,6 +109,16 @@ model Household {
   // remembering to press "Add low-stock items" — but a household-wide switch
   // on the Household page turns it off for anyone who'd rather curate by hand.
   autoAddLowStockToList Boolean @default(true)
+  // GAP-3: secret for the read-only iCalendar feed at
+  // /api/calendar/[token] (meal plan + recurring bill due dates). Null means
+  // the feed is off, which is the default: calendar apps can't send cookies,
+  // so this token is the only credential and anyone holding the URL can read
+  // the feed. Opt-in by the owner from the Household page
+  // (enableCalendarFeedAction in src/lib/actions/household.ts); regenerating
+  // replaces it, which is what makes an old leaked URL stop working. @unique
+  // gives the route an indexed lookup, and Postgres allows many NULLs under a
+  // unique index, so every household with the feed off can share the null.
+  calendarFeedToken     String? @unique
 
   members            HouseholdMember[]
   invitations        Invitation[]

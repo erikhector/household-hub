@@ -1,5 +1,6 @@
 import { Suspense, cache } from "react";
 import { Users } from "lucide-react";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
@@ -9,6 +10,23 @@ import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
+import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
+import { calendarFeedPath } from "@/lib/calendar-feed";
+
+// GAP-3. APP_URL first, request headers only as the local-dev fallback: the
+// same order as absoluteAppUrl in src/lib/actions/household.ts (see its doc
+// comment). A spoofed Host header can only mislead the person sending it
+// here, but the link gets pasted into calendar apps and passed around, so
+// it should carry the deployment's real origin whenever one is configured.
+async function calendarFeedUrl(path: string): Promise<string> {
+  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
+  if (configured) return `${configured}${path}`;
+
+  const headerList = await headers();
+  const host = headerList.get("host") ?? "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  return `${proto}://${host}${path}`;
+}
 
 // Wrapped in `cache()` so the "shared with" note and the member list below
 // (both Suspense-isolated, see HouseholdPage) share one query instead of one
@@ -118,6 +136,9 @@ export default async function HouseholdPage() {
     getLocale(),
   ]);
   const isOwner = role === "OWNER";
+  const feedUrl = household.calendarFeedToken
+    ? await calendarFeedUrl(calendarFeedPath(household.calendarFeedToken, locale))
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -146,6 +167,11 @@ export default async function HouseholdPage() {
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
           shopping behaviour every member already fully operates. */}
       <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
+      <CalendarFeedSetting
+        feedUrl={feedUrl}
+        isOwner={isOwner}
+        dict={dict.household.calendarFeed}
+      />
       {isOwner && (
         <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
           <div>
