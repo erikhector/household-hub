@@ -3,7 +3,7 @@
 // suggest as the user types, in what order, and how the typed text becomes
 // the rows smartAddShoppingListItemsAction commits. Dependency-free apart
 // from the shared parser/normalizer, so it runs in the client bar and is
-// unit-tested without a DOM — and so a future voice input (AUTO-12) can feed
+// unit-tested without a DOM — and so voice input (AUTO-12) feeds
 // its transcript through exactly the same parse → rows path.
 
 import { parsePastedList, type ParsedItem } from "@/lib/inventory/parse-pasted-list";

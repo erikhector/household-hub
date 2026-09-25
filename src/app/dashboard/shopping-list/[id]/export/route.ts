@@ -25,14 +25,19 @@ export async function GET(
   if (!list) notFound();
 
   const t = dict.export.shoppingList;
+  // GAP-5's note goes last rather than next to the name, so a spreadsheet
+  // or script built against the older five-column export keeps reading the
+  // same columns — and parseImportCsv matches columns by header, so an
+  // exported file still re-imports cleanly (the note is simply ignored).
   const csv = buildCsv(
-    [t.headerName, t.headerQuantity, t.headerUnit, t.headerEstimatedPrice, t.headerPurchased],
+    [t.headerName, t.headerQuantity, t.headerUnit, t.headerEstimatedPrice, t.headerPurchased, t.headerNote],
     list.items.map((item) => [
       item.name,
       item.quantity,
       item.unit,
       item.estimatedPrice ?? "",
       item.purchased ? dict.export.yes : dict.export.no,
+      item.note ?? "",
     ]),
   );
 

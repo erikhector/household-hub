@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition, type KeyboardEvent } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Mic, Plus, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,9 @@ import {
   type SmartAddCandidate,
   type SmartAddRow,
 } from "@/lib/shopping/smart-add-suggestions";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { normalizeVoiceTranscript, speechRecognitionLang } from "@/lib/shopping/voice-transcript";
+import { useSpeechRecognition } from "@/components/shopping/use-speech-recognition";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 /**
  * The shopping list's primary add path (AUTO-1): one always-visible line
@@ -34,6 +36,13 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  * one scan, through the same action and dedupe as a typed name. An unknown
  * code never blocks: its Open Food Facts name (if any) is dropped into the
  * input for the user to check and press Enter, same as typing it.
+ *
+ * The mic button (AUTO-12) is typing by voice: the transcript shows in the
+ * input as it's heard, and when the speaker pauses it's normalized
+ * ("two liters of milk and eggs" → "2 l milk, eggs",
+ * normalizeVoiceTranscript) and committed exactly as if typed and Enter
+ * pressed — same parser, same action, same dedupe. It isn't rendered at all
+ * where the browser has no speech recognizer.
  */
 export function SmartAddBar({
   listId,
@@ -41,6 +50,7 @@ export function SmartAddBar({
   pendingInventoryItemIds,
   dict,
   barcodeDict,
+  locale,
   onAdded,
 }: {
   listId: string;
@@ -49,6 +59,8 @@ export function SmartAddBar({
   pendingInventoryItemIds: string[];
   dict: Dictionary["shoppingList"]["smartAdd"];
   barcodeDict: Dictionary["barcodeScanner"];
+  /** The server-resolved UI locale — the one `dict` was picked by. */
+  locale: Locale;
   onAdded: (shoppingListItemIds: string[]) => void;
 }) {
   const [value, setValue] = useState("");
@@ -67,12 +79,13 @@ export function SmartAddBar({
   const open = focused && !dismissed && suggestions.length > 0;
   const activeSuggestion = open ? suggestions[activeIndex] : undefined;
 
-  const commit = (rows: SmartAddRow[]) => {
+  // `submitted` is what to put back on failure — the input's text, except
+  // for voice, which commits before the final transcript is rendered.
+  const commit = (rows: SmartAddRow[], submitted: string = value) => {
     if (rows.length === 0) return;
     // Cleared up front rather than after the round trip, so the next item
     // can be typed straight away; only put back if the add fails and the
     // user hasn't started on something else meanwhile.
-    const submitted = value;
     setValue("");
     setActiveIndex(-1);
     inputRef.current?.focus();
@@ -123,6 +136,36 @@ export function SmartAddBar({
     if ((result.addedIds ?? []).length > 0) toast.success(format(dict.scanAddedToast, { name: item.name }));
     reportAdded(result);
   };
+
+  // The locale is passed down from the server rather than read from the
+  // cookie here: getLocale() prefers the signed-in user's saved preference
+  // and only falls back to the cookie, which is set just by the locale
+  // switcher. On a new device (or after clearing cookies) a user who saved
+  // Swedish has no cookie yet, so reading it would run an en-US recognizer
+  // and English number words under a Swedish UI.
+  const speech = useSpeechRecognition({
+    lang: speechRecognitionLang(locale),
+    onInterim: (transcript) => {
+      setValue(transcript);
+      // No autocomplete dropdown flickering under a half-heard word.
+      setDismissed(true);
+    },
+    onFinal: (transcript) => {
+      const text = normalizeVoiceTranscript(transcript, locale);
+      setDismissed(false);
+      if (!text) {
+        setValue("");
+        return;
+      }
+      commit(parseSmartAddInput(text), text);
+    },
+    onError: (failure) => {
+      setValue("");
+      toast.error(
+        failure === "denied" ? dict.voiceDenied : failure === "no-speech" ? dict.voiceNoSpeech : dict.voiceFailed,
+      );
+    },
+  });
 
   const pick = (suggestion: SmartAddCandidate) => commit(rowsForSuggestion(value, suggestion));
 
@@ -184,7 +227,7 @@ export function SmartAddBar({
             onKeyDown={handleKeyDown}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            placeholder={dict.placeholder}
+            placeholder={speech.listening ? dict.voiceListening : dict.placeholder}
             maxLength={1000}
           />
           {open && (
@@ -224,6 +267,17 @@ export function SmartAddBar({
             </ul>
           )}
         </div>
+        {speech.supported && (
+          <Button
+            type="button"
+            size="icon"
+            variant={speech.listening ? "destructive" : "outline"}
+            aria-label={speech.listening ? dict.voiceStop : dict.voiceLabel}
+            onClick={() => (speech.listening ? speech.stop() : speech.start())}
+          >
+            {speech.listening ? <Square className="size-4" /> : <Mic className="size-4" />}
+          </Button>
+        )}
         <BarcodeScannerButton
           dict={barcodeDict}
           size="icon"

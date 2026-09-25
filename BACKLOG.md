@@ -161,19 +161,6 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       `lowStockThreshold` and usual purchase quantity (AUTO-8) — as a
       suggestion on the item, not a silent change.
 
-- [ ] **AUTO-12. Voice add**
-      — `src/components/shopping/smart-add-bar.tsx`
-      **Design brief:** a mic button in the smart add line; speech goes
-      into the input as text and commits through the same path typed text
-      does (`parseSmartAddInput` → `smartAddShoppingListItemsAction`) ("two
-      liters of milk and eggs" → 2 l milk, eggs). Hidden entirely where the
-      browser doesn't support speech recognition — coverage in installed
-      iOS PWAs is inconsistent, so this is a bonus, never a required path.
-      **Dev notes:** Web Speech API, feature-detected, locale from the
-      household's language cookie. Needs a small word-to-number step
-      ("två", "two") before `parsePastedList`. Disclose in the privacy page
-      that some browsers process speech on the vendor's servers.
-
 ---
 
 ## Competitive gap scan
@@ -214,15 +201,6 @@ out to be a product-scope question rather than a scoped task should move to
       through `findOrCreateInventoryItem` the same way import/paste already
       does, so it doesn't need its own linking logic.
 
-- [ ] **GAP-5. Per-item notes on shopping list rows** —
-      `prisma/schema.prisma` (`ShoppingListItem`),
-      `src/components/shopping/shopping-list-client.tsx`. AnyList lets you
-      attach a note to a line ("get the ripe ones", "any brand is fine").
-      Add `note String?` to `ShoppingListItem` (Phase 2 migration), an
-      optional field in the smart-add/edit flow, and a muted second line
-      under the item name when set. Small, low-risk, no automation/AI
-      involved — a good first pick if someone wants a quick Phase 2 win.
-
 - [ ] **GAP-7. Settle up: a Swish payment link** —
       `src/components/budget/household-balances.tsx`. Recording a repayment
       ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's
@@ -258,7 +236,7 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
       both support hands-free "add milk to my shopping list" via Alexa/Google
-      Assistant skills — materially different from AUTO-12's in-app Web
+      Assistant skills — materially different from the in-app Web
       Speech API mic button, since it requires building and maintaining a
       third-party voice-platform skill/action, account-linking OAuth, and
       ongoing certification with Amazon/Google. Belongs alongside the

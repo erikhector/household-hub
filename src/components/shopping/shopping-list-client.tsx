@@ -87,6 +87,9 @@ type ShoppingListItemRow = {
   // PriceTag below or an actual receipt price. null means no price is known
   // yet — the row shows nothing rather than "≈ 0".
   estimatedPrice: number | null;
+  // GAP-5: optional free-text hint, set from ShoppingItemFormDialog's edit
+  // mode. null when there isn't one (never "").
+  note: string | null;
   // The linked InventoryItem's barcode (AUTO-6), null without a link or a
   // stored code. Only ReceiptScanDialog reads it, to match a receipt line
   // that prints an EAN exactly (AUTO-11).
@@ -433,6 +436,7 @@ export function ShoppingListClient({
           pendingInventoryItemIds={pendingItems.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : []))}
           dict={dict.smartAdd}
           barcodeDict={barcodeDict}
+          locale={locale}
           onAdded={highlightAdded}
         />
       )}
@@ -738,6 +742,21 @@ function ShoppingRow({
           )}
         </div>
       </div>
+      {/* GAP-5: the note as a muted second line, indented past the checkbox
+          (size-5 + gap-3 on an editable row, size-4 + gap-3 otherwise) so it
+          lines up under the item name. Outside the label so tapping it
+          doesn't toggle the row, and wrapped rather than truncated — unlike
+          the name, the note is the part someone needs to read in the aisle. */}
+      {item.note && (
+        <p
+          className={cn(
+            "text-xs break-words whitespace-pre-line text-muted-foreground",
+            editable ? "pl-8" : "pl-7",
+          )}
+        >
+          {item.note}
+        </p>
+      )}
       {/* Persistent, always-visible explanation for as long as the item
           stays unlinked — the "Match item" badge above (in
           ShoppingItemFormDialog) is easy to miss on its own, so this spells

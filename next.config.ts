@@ -36,9 +36,15 @@ const securityHeaders = [
   // This app's own pages (never a cross-origin embed) use the camera for
   // barcode scanning (src/components/shared/barcode-scanner.tsx's
   // getUserMedia() call) — `camera=(self)` allows that while still blocking
-  // any framed/embedded third-party origin from requesting it. No use of
-  // the mic or geolocation anywhere, so those stay fully denied.
-  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+  // any framed/embedded third-party origin from requesting it. The same
+  // goes for the microphone: the shopping list's voice add (AUTO-12,
+  // src/components/shopping/use-speech-recognition.ts) runs the Web Speech
+  // API, which needs mic permission — with `microphone=()` the recognizer
+  // would fail every time with "not-allowed" and the user would be told to
+  // unblock a permission they never blocked. `microphone=(self)` lets our
+  // own pages ask while still denying embedded origins. Nothing uses
+  // geolocation, so that stays fully denied.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
   // HSTS: once a browser has loaded this over HTTPS, never let it silently
   // downgrade to plain HTTP (protects against SSL-stripping). Harmless in
   // local dev over http:// — browsers only honor this header on HTTPS
