@@ -20,6 +20,12 @@ export type InventoryItemRow = {
   // typed-in date — see ExpiryBadge's own doc comment.
   expiresAtEstimated: boolean;
   shelfLifeDays: number | null;
+  // GAP-28: when the pack was marked opened (shows ExpiryBadge's "Opened"
+  // tag), and the per-item "use within N days once opened" window that
+  // gates the row's "Mark opened" button — see InventoryItem in
+  // schema.prisma.
+  openedAt: Date | null;
+  useWithinDaysOpened: number | null;
   updatedAt: Date;
   updatedByUserId: string | null;
 };

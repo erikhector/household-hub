@@ -275,6 +275,23 @@ export function ItemFormDialog({
               {dict.neverExpiresLabel}
             </label>
           </div>
+          {/* GAP-28: optional, blank = not tracked. Disabled alongside the
+              date for a "doesn't expire" item, which the action also saves
+              as null — an opened clock makes no sense on salt. */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="useWithinDaysOpened">{dict.useWithinDaysOpenedLabel}</Label>
+            <Input
+              id="useWithinDaysOpened"
+              name="useWithinDaysOpened"
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              disabled={neverExpires}
+              defaultValue={item?.useWithinDaysOpened ?? ""}
+            />
+            <p className="text-xs text-muted-foreground">{dict.useWithinDaysOpenedHint}</p>
+          </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           {sessionAddedCount > 0 && (
             <p className="text-xs text-muted-foreground">

@@ -26,6 +26,8 @@ import {
   bulkUpdateFieldAction,
   deleteInventoryItemAction,
   markItemEmptyAction,
+  markItemOpenedAction,
+  undoMarkItemOpenedAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
@@ -171,6 +173,34 @@ export function InventoryTable({
       } else {
         showAutoAddedToast(result.autoAdded, dict.autoAdd);
       }
+    });
+  }
+
+  // GAP-28: applied straight away with an Undo on the toast (Guardrails'
+  // "undo over confirm", same shape as MarkCookedDialog) — the server hands
+  // back the fields it overwrote so Undo restores them exactly, plus the
+  // openedAt it wrote so a stale Undo can recognise it's no longer current.
+  function handleMarkOpened(item: InventoryItemRow) {
+    startTransition(async () => {
+      const result = await markItemOpenedAction(item.id);
+      if (result.error || !result.openedAt || !result.expiresAt || !result.previous) {
+        if (result.error) toast.error(result.error);
+        return;
+      }
+      const { openedAt, previous } = result;
+      const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" }).format(result.expiresAt);
+      toast.success(format(dict.markedOpenedToast, { name: item.name, date }), {
+        duration: 8000,
+        action: {
+          label: dict.undoMarkOpened,
+          onClick: () => {
+            void undoMarkItemOpenedAction(item.id, openedAt, previous).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(format(dict.markOpenedUndoneToast, { name: item.name }));
+            });
+          },
+        },
+      });
     });
   }
 
@@ -412,7 +442,12 @@ export function InventoryTable({
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <ExpiryBadge expiresAt={item.expiresAt} expiresAtEstimated={item.expiresAtEstimated} dict={dict} />
+                    <ExpiryBadge
+                      expiresAt={item.expiresAt}
+                      expiresAtEstimated={item.expiresAtEstimated}
+                      openedAt={item.openedAt}
+                      dict={dict}
+                    />
                   </div>
                 </TableCell>
                 <TableCell>
@@ -430,6 +465,7 @@ export function InventoryTable({
                     barcodeDict={barcodeDict}
                     isPending={isPending}
                     onMarkEmpty={handleMarkEmpty}
+                    onMarkOpened={handleMarkOpened}
                     onDelete={handleDelete}
                   />
                 </TableCell>
@@ -478,7 +514,12 @@ export function InventoryTable({
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <ExpiryBadge expiresAt={item.expiresAt} expiresAtEstimated={item.expiresAtEstimated} dict={dict} />
+                    <ExpiryBadge
+                      expiresAt={item.expiresAt}
+                      expiresAtEstimated={item.expiresAtEstimated}
+                      openedAt={item.openedAt}
+                      dict={dict}
+                    />
                   </div>
                 </div>
                 <div className="flex min-w-0 items-center justify-between gap-2">
@@ -525,6 +566,7 @@ export function InventoryTable({
                       barcodeDict={barcodeDict}
                       isPending={isPending}
                       onMarkEmpty={handleMarkEmpty}
+                      onMarkOpened={handleMarkOpened}
                       onDelete={handleDelete}
                       size="size-9"
                     />

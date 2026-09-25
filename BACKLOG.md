@@ -353,24 +353,6 @@ out to be a product-scope question rather than a scoped task should move to
       the `INFRA-` items' "needs a service" flag even though this one needs
       no new paid provider, just a trigger.
 
-- [ ] **GAP-28. "Mark as opened" shelf-life reset** —
-      `prisma/schema.prisma` (`InventoryItem`), `src/lib/inventory/expiry.ts`.
-      Distinct from AUTO-7 (Phase 2, estimated expiry from default shelf
-      life on *arrival*): Grocy also tracks a shorter "use within N days once
-      opened" clock separately from the unopened best-before date (milk
-      might keep 14 days sealed but only 3 once opened) — today this app has
-      exactly one `expiresAt` per item and no concept of "opened" at all. Add
-      `openedAt DateTime?` and `useWithinDaysOpened Int?` to `InventoryItem`
-      (Phase 2 migration, layers naturally on top of AUTO-7's
-      `shelfLifeDays`/`expiresAtEstimated` fields once those land — build
-      this after AUTO-7, not instead of it). A "Mark opened" action on the
-      inventory row sets `openedAt` and recomputes `expiresAt` to
-      `min(existing expiresAt, openedAt + useWithinDaysOpened)` when the
-      latter is set; `ExpiryBadge` shows an "opened" tag alongside the
-      existing "≈" estimate styling. Only meaningful for items with
-      `useWithinDaysOpened` set, so the action is hidden otherwise rather
-      than always showing a no-op button.
-
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —

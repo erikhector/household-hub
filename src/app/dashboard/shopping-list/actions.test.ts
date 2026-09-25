@@ -1258,6 +1258,84 @@ describe("togglePurchasedAction", () => {
     expect(data.expiresAt).toBeInstanceOf(Date);
   });
 
+  // GAP-28
+  it("restocking an opened item from zero clears openedAt and re-estimates the old pack's opened date", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 0,
+        category: "Dairy & eggs",
+        expiresAt: new Date("2026-06-01"),
+        expiresAtEstimated: true,
+        shelfLifeDays: null,
+        openedAt: new Date("2026-05-29"),
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data.openedAt).toBeNull();
+    // The estimator's fresh date wins over the cleared one.
+    expect(data.expiresAtEstimated).toBe(true);
+    expect(data.expiresAt).toBeInstanceOf(Date);
+    expect(data.expiresAt).not.toEqual(new Date("2026-06-01"));
+  });
+
+  it("restocking an opened item from zero clears its estimated date when there's nothing to re-estimate from", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 0,
+        category: "Pantry basics",
+        expiresAt: new Date("2026-06-01"),
+        expiresAtEstimated: true,
+        shelfLifeDays: null,
+        openedAt: new Date("2026-05-29"),
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data).toEqual(expect.objectContaining({ openedAt: null, expiresAt: null, expiresAtEstimated: false }));
+  });
+
+  it("topping up an opened item that hasn't run out keeps it opened", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      quantity: 1,
+      estimatedPrice: null,
+      inventoryItem: {
+        id: "inv-1",
+        quantity: 1,
+        category: "Dairy & eggs",
+        expiresAt: new Date("2026-06-01"),
+        expiresAtEstimated: true,
+        shelfLifeDays: null,
+        openedAt: new Date("2026-05-29"),
+      },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data).not.toHaveProperty("openedAt");
+    expect(data).not.toHaveProperty("expiresAt");
+  });
+
   it("never overwrites a real (user-entered) expiry when marking purchased", async () => {
     const realDate = new Date("2026-06-01");
     shoppingListItemFindFirstMock.mockResolvedValue({
