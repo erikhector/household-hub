@@ -16,6 +16,7 @@ import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-di
 import { ImportListDialog } from "@/components/shopping/import-list-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
+import { CategoryChip } from "@/components/shopping/category-chip";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
@@ -52,8 +53,8 @@ type ShoppingListItemRow = {
   addedAutomatically: boolean;
   inventoryItemId: string | null;
   // The linked InventoryItem's category (AUTO-3, [id]/page.tsx's query),
-  // null when there's no link yet. Drives shopping mode's grouping below;
-  // otherwise unused.
+  // null when there's no link yet. Drives shopping mode's grouping below,
+  // and each editable row's CategoryChip (AUTO-2b) for correcting it.
   category: string | null;
   // AUTO-4: defaulted from the linked InventoryItem's lastKnownPrice at
   // creation (per-unit, unmultiplied by quantity — see the create paths in
@@ -492,6 +493,20 @@ function ShoppingRow({
             non-editable (view-only) row, just without the tap-to-correct
             affordance, since the estimate itself is still worth showing. */}
         <div className="flex shrink-0 items-center gap-1">
+          {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
+              Only on an editable, linked row — an unlinked one has no
+              category yet (the mapping flow picks one), and a read-only
+              list already shows each row's category as its group header. */}
+          {editable && item.category !== null && (
+            <CategoryChip
+              itemId={item.id}
+              itemName={item.name}
+              category={item.category}
+              categories={categories}
+              disabled={isPending}
+              dict={dict.categoryChip}
+            />
+          )}
           <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} />
           {editable && (
             <>
