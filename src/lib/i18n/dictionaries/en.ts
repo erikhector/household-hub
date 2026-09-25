@@ -331,6 +331,10 @@ export const en = {
     emptyListActive: "Nothing on this list yet — type what you need in the box above, or pull in what's low on stock.",
     emptyListOther: "Nothing on this list.",
     moreActions: "More list actions",
+    // GAP-24: the ⋯ menu's "Print" item, and the paper copy's stand-in line
+    // when there's nothing pending left to print.
+    print: "Print",
+    printEmpty: "Nothing left to buy.",
     doneShopping: "Done shopping",
     completedToast: "List completed",
     undo: "Undo",

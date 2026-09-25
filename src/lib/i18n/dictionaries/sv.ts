@@ -320,6 +320,8 @@ export const sv = {
     emptyListActive: "Inget på listan än — skriv vad du behöver i rutan ovan, eller hämta det som har lågt lager.",
     emptyListOther: "Inget på listan.",
     moreActions: "Fler liståtgärder",
+    print: "Skriv ut",
+    printEmpty: "Inget kvar att köpa.",
     doneShopping: "Klar med handlingen",
     completedToast: "Listan är klarmarkerad",
     undo: "Ångra",

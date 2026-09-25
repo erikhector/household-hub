@@ -992,7 +992,7 @@ The detail page's header keeps only what's used on every trip visible:
 "Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
 smart add line below. The menu holds add item, import, add low-stock
 items, resolve mappings (when there are enough unlinked items), share,
-export, then — after a separator — "Complete list", archive/unarchive, and
+export, print (below), then — after a separator — "Complete list", archive/unarchive, and
 a destructive-styled delete. The dialogs those items open are rendered
 outside the menu, since its popup unmounts as it closes, and are opened
 through Base UI dialog handles (`createDialogHandle` in
@@ -1016,6 +1016,38 @@ reversal, because completing never touches it. The menu's "Complete list" is
 still confirm-gated, since it can complete a list with items still pending.
 Its toast carries the same Undo. Like "Undo mark cooked", this is a
 fat-finger undo on the toast, not a permanent "reopen list" control.
+
+#### Printing a list (GAP-24)
+
+For households that still shop from paper, or want a big-text copy on the
+fridge. The `⋯` menu's **"Print"** item (on any list, whatever its status)
+just calls `window.print()`. There's no print route, no PDF and no new
+dependency, only CSS. `ShoppingListClient` renders a `PrintableList` that is
+`hidden print:block`. It's the list name as a heading, then the **pending**
+items grouped under the same category headers and store-walk order as
+shopping mode (`groupPendingItemsByCategory`), one per line in large
+(`text-2xl`) black-on-white type, each with an empty box to tick with a pen.
+Groups use `break-inside-avoid` so a header isn't stranded at the bottom of a
+page. A list with nothing pending prints "Nothing left to buy." Purchased
+items, prices, badges and the estimated total are left out on purpose.
+
+Everything else is hidden on paper:
+
+- The page's own column hides every child except the `[data-print-list]`
+  section with one arbitrary-variant selector, so the interactive tree is
+  untouched. The `⋯` menu popup (portalled, and possibly still fading out
+  when the print snapshot is taken) is `print:hidden`.
+- The dashboard chrome hides itself: `Sidebar`, the mobile header,
+  `BottomNav`, the email-verification banner and the cookie notice are all
+  `print:hidden`. The dashboard layout's viewport-height, internally
+  scrolling column and `main` are reset to plain document flow in print,
+  because otherwise a long list would be clipped to one screenful.
+- `globals.css` has an `@media print` block that forces a white page with
+  black text, even from the dark theme and with "background graphics" on,
+  and hides Sonner's toaster.
+
+The export route (Data export) is still the spreadsheet-oriented option.
+Print is the reading-oriented one.
 
 ### Safe to spend
 

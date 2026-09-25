@@ -505,20 +505,6 @@ out to be a product-scope question rather than a scoped task should move to
       last week" button on an empty week's planner view — the lowest-friction
       entry point, since that's exactly when a household would reach for it.
 
-- [ ] **GAP-24. Print-friendly shopping list view** —
-      `src/app/dashboard/shopping-list/[id]/page.tsx`,
-      `src/components/shopping/shopping-list-client.tsx`. AnyList and
-      Listonic both offer a plain printable list for households that still
-      shop with paper or want a large-text version taped to the fridge; this
-      app's CSV export (Data export section) is spreadsheet-oriented, not
-      reading-oriented, and there's no print stylesheet today. A `@media
-      print` rule (Tailwind's `print:` variant) on the shopping list detail
-      page hiding buttons/nav/chrome and rendering pending items grouped by
-      category in a large, single-column, high-contrast layout — no new
-      route, no new dependency, just CSS plus the browser's native print
-      dialog (`window.print()` behind a small "Print" affordance in the
-      `⋯` menu, same menu AUTO-5 is consolidating actions into).
-
 - [ ] **GAP-25. Substitution hints for missing ingredients** —
       `src/app/dashboard/meal-planning/missing-ingredients.ts`,
       `src/components/meal-planning/missing-ingredients-dialog.tsx`.
