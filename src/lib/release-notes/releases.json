@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.17.0",
+    "date": "2026-09-25",
+    "pr": 46,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes now show a rough cost to make them, in total and per serving, based on what you last paid for each ingredient. If some ingredients don't have a price yet, the recipe says how many were left out.",
+      "sv": "Recept visar nu ungefär vad de kostar att laga, totalt och per portion, utifrån vad ni senast betalade för varje ingrediens. Om några ingredienser saknar pris står det hur många som inte räknats med."
+    }
+  },
+  {
     "version": "0.16.0",
     "date": "2026-09-25",
     "pr": 43,
