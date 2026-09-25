@@ -1048,6 +1048,38 @@ export const en = {
     },
     missingIngredientUnitMismatchNote:
       "You may already have some — its unit can't be compared, so it's counted as fully needed",
+    missingIngredientSubstitutionHint: "Try instead: {substitute}",
+    // Swap hints for a missing ingredient, one per key in
+    // src/lib/inventory/substitutions.ts (GAP-25) — the table there only
+    // decides *which* ingredient has a hint; the wording lives here so each
+    // locale can use its own units and products. Written to follow "Try
+    // instead:" above.
+    substitutions: {
+      buttermilk: "milk with 1 tbsp lemon juice or vinegar per cup, left to stand for 5 minutes",
+      sourCream: "plain Greek yogurt",
+      cremeFraiche: "sour cream, or Greek yogurt (it may split if boiled)",
+      heavyCream: "¾ cup milk plus ¼ cup melted butter per cup, for cooking (it won't whip)",
+      greekYogurt: "plain yogurt strained for an hour, or quark",
+      milk: "an unsweetened plant milk such as oat or soy",
+      butter: "margarine, or ¾ the amount of a neutral oil",
+      egg: "1 tbsp ground flaxseed mixed with 3 tbsp water per egg, for baking",
+      mascarpone: "full-fat cream cheese beaten with a little heavy cream",
+      ricotta: "cottage cheese, blended smooth",
+      parmesan: "pecorino or grana padano",
+      bakingPowder: "¼ tsp baking soda plus ½ tsp cream of tartar per tsp",
+      selfRaisingFlour: "plain flour with 1½ tsp baking powder per cup",
+      cornstarch: "potato starch in the same amount, or twice as much plain flour",
+      potatoStarch: "cornstarch in the same amount",
+      brownSugar: "white sugar with 1 tbsp molasses per cup",
+      honey: "maple syrup or golden syrup",
+      breadcrumbs: "crushed crackers or rolled oats",
+      lemonJuice: "lime juice, or half as much white wine vinegar",
+      whiteWineVinegar: "apple cider vinegar or lemon juice",
+      whiteWine: "stock with a splash of white wine vinegar",
+      redWine: "stock with a splash of red wine vinegar or balsamic",
+      shallot: "a little yellow onion with a pinch of garlic",
+      garlic: "⅛ tsp garlic powder per clove",
+    },
     targetListLabel: "Add to",
     newShoppingListOption: "New shopping list…",
     newListNameLabel: "List name",
