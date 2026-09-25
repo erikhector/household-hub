@@ -235,6 +235,18 @@ model InventoryItem {
   // sets this. A positive value is a per-item override the estimator uses
   // instead of the category default.
   shelfLifeDays      Int?
+  // GAP-28 — Grocy's separate "use within N days once opened" clock (milk
+  // keeps ~14 days sealed but only ~3 once opened). `useWithinDaysOpened` is
+  // an optional positive per-item setting from the item form; the inventory
+  // row only offers "Mark opened" when it's set, since without it there's
+  // nothing to recompute. `openedAt` is when that click happened — it pulls
+  // `expiresAt` in to min(expiresAt, openedAt + useWithinDaysOpened) (see
+  // openedExpiryUpdate in src/lib/inventory/expiry.ts for the rule and why
+  // a winning opened date is flagged `expiresAtEstimated`), and is cleared
+  // again when the item is restocked from zero, since a fresh pack is sealed
+  // (see openedResetOnArrival, same file).
+  openedAt           DateTime?
+  useWithinDaysOpened Int?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity

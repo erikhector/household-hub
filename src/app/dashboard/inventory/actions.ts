@@ -20,6 +20,7 @@ import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { normalizeBarcode } from "@/lib/barcode";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
+import { openedExpiryUpdate } from "@/lib/inventory/expiry";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -57,6 +58,18 @@ const itemSchema = z.object({
     .string()
     .optional()
     .transform((value) => value === "on"),
+  // GAP-28: "use within N days once opened" — blank means "not tracked"
+  // (null), which also hides the row's "Mark opened" button. Capped at ten
+  // years only to keep a typo from overflowing the date maths; anything
+  // real is days or weeks.
+  useWithinDaysOpened: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim() !== "" ? Number(value) : null))
+    .refine(
+      (days) => days === null || (Number.isInteger(days) && days > 0 && days <= 3650),
+      "Use-within days must be a whole number above 0",
+    ),
 });
 
 const starterKitSchema = z.object({
@@ -79,13 +92,14 @@ export async function createInventoryItemAction(
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
     neverExpires: formData.get("neverExpires") || undefined,
+    useWithinDaysOpened: formData.get("useWithinDaysOpened") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   // Split out of the spread below — neither is an InventoryItem column by
   // that name (see AUTO-7's expiresAt/shelfLifeDays handling just after).
-  const { neverExpires, expiresAt, ...rest } = parsed.data;
+  const { neverExpires, expiresAt, useWithinDaysOpened, ...rest } = parsed.data;
 
   try {
     // Blank on both sides of `||` means household memory and the
@@ -105,6 +119,9 @@ export async function createInventoryItemAction(
       expiresAt: neverExpires ? null : expiresAt,
       expiresAtEstimated: false,
       shelfLifeDays: neverExpires ? -1 : null,
+      // GAP-28: an item that never expires has no opened clock either —
+      // "Mark opened" would otherwise hand it a date it opted out of.
+      useWithinDaysOpened: neverExpires ? null : useWithinDaysOpened,
     };
     // A code scanned with the form's "Scan barcode" button is remembered on
     // the new item (AUTO-6), so the next scan of it resolves straight here.
@@ -145,13 +162,14 @@ export async function updateInventoryItemAction(
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
     neverExpires: formData.get("neverExpires") || undefined,
+    useWithinDaysOpened: formData.get("useWithinDaysOpened") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
   // Split out of the spread below — see createInventoryItemAction's matching
   // comment.
-  const { neverExpires, expiresAt, ...rest } = parsed.data;
+  const { neverExpires, expiresAt, useWithinDaysOpened, ...rest } = parsed.data;
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
@@ -190,6 +208,10 @@ export async function updateInventoryItemAction(
         expiresAt: nextExpiresAt,
         ...(dateChanged ? { expiresAtEstimated: false } : {}),
         shelfLifeDays: neverExpires ? -1 : null,
+        // GAP-28: see createInventoryItemAction. Clearing the setting leaves
+        // an existing `openedAt` in place — the pack *was* opened, and the
+        // "Opened" tag stays true until the next restock from zero resets it.
+        useWithinDaysOpened: neverExpires ? null : useWithinDaysOpened,
       },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
@@ -579,6 +601,102 @@ export async function markItemEmptyAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+}
+
+// GAP-28: the expiry fields "Mark opened" overwrites, captured before the
+// write so the toast's Undo can put them back exactly — Guardrails' "undo
+// over confirm", same shape as MarkCookedDialog's Undo.
+export type OpenedUndoSnapshot = {
+  openedAt: Date | null;
+  expiresAt: Date | null;
+  expiresAtEstimated: boolean;
+};
+
+// One click on the row's "Mark opened" button: starts the item's shorter
+// "use within N days once opened" clock and pulls `expiresAt` in to match
+// (see openedExpiryUpdate for the min() rule and the estimate flag). Applied
+// immediately with an Undo toast rather than a confirm step. Only offered
+// when `useWithinDaysOpened` is set and the item isn't already opened, and
+// re-checked here since the row can be stale — a second click (another
+// device, a double tap) must not restart the clock and push the deadline
+// back out.
+export async function markItemOpenedAction(itemId: string): Promise<{
+  error?: string;
+  openedAt?: Date;
+  expiresAt?: Date;
+  previous?: OpenedUndoSnapshot;
+}> {
+  const { household, userId } = await requireHousehold();
+
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId: household.id },
+  });
+  if (!item) return { error: "Item not found" };
+  if (item.openedAt) return { error: "Item is already opened" };
+
+  const patch = openedExpiryUpdate(item, item.useWithinDaysOpened);
+  if (!patch) return { error: "Item has no use-within days set" };
+
+  try {
+    await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: { ...patch, updatedByUserId: userId },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {
+    openedAt: patch.openedAt,
+    expiresAt: patch.expiresAt,
+    previous: { openedAt: item.openedAt, expiresAt: item.expiresAt, expiresAtEstimated: item.expiresAtEstimated },
+  };
+}
+
+const openedUndoSchema = z.object({
+  openedAt: z.date().nullable(),
+  expiresAt: z.date().nullable(),
+  expiresAtEstimated: z.boolean(),
+});
+
+// The Undo on "Mark opened"'s toast. `markedOpenedAt` is the timestamp that
+// click wrote — only restored while the item still carries exactly that
+// value, so a stale Undo (the toast lingered while the item was restocked
+// from zero, or someone else re-marked it) is a quiet no-op instead of
+// rolling back changes it didn't make. The snapshot only ever touches the
+// three expiry fields of an item in the caller's own household, all of
+// which the item form can already set directly, so taking it from the
+// client grants nothing new.
+export async function undoMarkItemOpenedAction(
+  itemId: string,
+  markedOpenedAt: Date,
+  previous: OpenedUndoSnapshot,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = openedUndoSchema.safeParse(previous);
+  if (!parsed.success || !(markedOpenedAt instanceof Date)) return { error: "Invalid input" };
+
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId: household.id },
+  });
+  if (!item) return { error: "Item not found" };
+  if (!item.openedAt || item.openedAt.getTime() !== markedOpenedAt.getTime()) return {};
+
+  try {
+    await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: { ...parsed.data, updatedByUserId: userId },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {};
 }
 
 const bulkFieldSchemas = {

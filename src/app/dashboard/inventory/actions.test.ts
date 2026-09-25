@@ -97,6 +97,8 @@ const {
   bulkCreateInventoryItemsAction,
   adjustQuantityAction,
   markItemEmptyAction,
+  markItemOpenedAction,
+  undoMarkItemOpenedAction,
   deleteInventoryItemAction,
 } = await import("@/app/dashboard/inventory/actions");
 
@@ -231,6 +233,7 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         expiresAt: null,
         expiresAtEstimated: false,
         shelfLifeDays: null,
+        useWithinDaysOpened: null,
         updatedByUserId: "user-1",
       },
     });
@@ -368,6 +371,157 @@ describe("updateInventoryItemAction", () => {
         }),
       );
     });
+  });
+});
+
+describe("useWithinDaysOpened on the item form (GAP-28)", () => {
+  it("saves a positive whole number of days", async () => {
+    createMock.mockResolvedValue({});
+
+    const result = await createInventoryItemAction({}, formData({ ...validItem, useWithinDaysOpened: "3" }));
+
+    expect(result).toEqual({});
+    expect(createMock.mock.calls[0][0].data.useWithinDaysOpened).toBe(3);
+  });
+
+  it("saves null when left blank", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, useWithinDaysOpened: "" }));
+
+    expect(createMock.mock.calls[0][0].data.useWithinDaysOpened).toBeNull();
+  });
+
+  it.each(["0", "-2", "1.5", "abc"])("rejects %s", async (value) => {
+    const result = await createInventoryItemAction({}, formData({ ...validItem, useWithinDaysOpened: value }));
+
+    expect(result.error).toBe("Use-within days must be a whole number above 0");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("drops the window for an item that doesn't expire", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 2, expiresAt: null, expiresAtEstimated: false });
+    updateMock.mockResolvedValue({});
+
+    await updateInventoryItemAction(
+      {},
+      formData({ ...validItem, itemId: "item-1", useWithinDaysOpened: "3", neverExpires: "on" }),
+    );
+
+    expect(updateMock.mock.calls[0][0].data).toEqual(
+      expect.objectContaining({ shelfLifeDays: -1, useWithinDaysOpened: null }),
+    );
+  });
+});
+
+describe("markItemOpenedAction (GAP-28)", () => {
+  const unopened = {
+    id: "item-1",
+    householdId: "household-1",
+    openedAt: null,
+    useWithinDaysOpened: 3,
+    expiresAt: new Date("2030-01-01T00:00:00Z"),
+    expiresAtEstimated: false,
+  };
+
+  it("scopes the lookup to the caller's household and refuses another household's item", async () => {
+    findFirstMock.mockResolvedValue(null);
+
+    const result = await markItemOpenedAction("other-household-item");
+
+    expect(findFirstMock).toHaveBeenCalledWith({ where: { id: "other-household-item", householdId: "household-1" } });
+    expect(result).toEqual({ error: "Item not found" });
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("sets openedAt, pulls expiresAt in and returns the previous values for Undo", async () => {
+    findFirstMock.mockResolvedValue(unopened);
+    updateMock.mockResolvedValue({});
+
+    const before = Date.now();
+    const result = await markItemOpenedAction("item-1");
+
+    expect(result.error).toBeUndefined();
+    const data = updateMock.mock.calls[0][0].data;
+    expect(updateMock.mock.calls[0][0].where).toEqual({ id: "item-1" });
+    expect(data.openedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(data.expiresAt.getTime()).toBe(data.openedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+    expect(data.expiresAtEstimated).toBe(true);
+    expect(data.updatedByUserId).toBe("user-1");
+    expect(result.openedAt).toEqual(data.openedAt);
+    expect(result.expiresAt).toEqual(data.expiresAt);
+    expect(result.previous).toEqual({
+      openedAt: null,
+      expiresAt: unopened.expiresAt,
+      expiresAtEstimated: false,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("refuses an item that's already opened, so a double click can't restart the clock", async () => {
+    findFirstMock.mockResolvedValue({ ...unopened, openedAt: new Date("2026-09-20T00:00:00Z") });
+
+    const result = await markItemOpenedAction("item-1");
+
+    expect(result.error).toBe("Item is already opened");
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an item with no use-within window", async () => {
+    findFirstMock.mockResolvedValue({ ...unopened, useWithinDaysOpened: null });
+
+    const result = await markItemOpenedAction("item-1");
+
+    expect(result.error).toBe("Item has no use-within days set");
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("undoMarkItemOpenedAction (GAP-28)", () => {
+  const markedOpenedAt = new Date("2026-09-25T10:00:00Z");
+  const previous = { openedAt: null, expiresAt: new Date("2030-01-01T00:00:00Z"), expiresAtEstimated: false };
+
+  it("restores the previous expiry fields while the item still carries this click's openedAt", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", openedAt: new Date(markedOpenedAt) });
+    updateMock.mockResolvedValue({});
+
+    const result = await undoMarkItemOpenedAction("item-1", markedOpenedAt, previous);
+
+    expect(result).toEqual({});
+    expect(findFirstMock).toHaveBeenCalledWith({ where: { id: "item-1", householdId: "household-1" } });
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { ...previous, updatedByUserId: "user-1" },
+    });
+  });
+
+  it("is a no-op when the item has moved on since (restocked, or re-marked)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", openedAt: null });
+
+    const result = await undoMarkItemOpenedAction("item-1", markedOpenedAt, previous);
+
+    expect(result).toEqual({});
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses another household's item", async () => {
+    findFirstMock.mockResolvedValue(null);
+
+    const result = await undoMarkItemOpenedAction("other-household-item", markedOpenedAt, previous);
+
+    expect(result).toEqual({ error: "Item not found" });
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed snapshot", async () => {
+    const result = await undoMarkItemOpenedAction("item-1", markedOpenedAt, {
+      openedAt: null,
+      expiresAt: "2030-01-01" as unknown as Date,
+      expiresAtEstimated: false,
+    });
+
+    expect(result).toEqual({ error: "Invalid input" });
+    expect(findFirstMock).not.toHaveBeenCalled();
   });
 });
 

@@ -312,6 +312,49 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       rather than excluding them. This supersedes the paragraph above's
       "never... by any bulk-add flow" rule for *estimated* dates only — a
       bulk-add flow still never lets a user type one in directly.
+    - **"Mark opened" shelf-life reset (GAP-28)**: Grocy-style separate
+      "use within N days once opened" clock (milk keeps ~14 days sealed but
+      ~3 once opened). `InventoryItem.useWithinDaysOpened` (`Int?`, an
+      optional positive whole number on the item form, saved as null for a
+      "doesn't expire" item) and `openedAt` (`DateTime?`). The inventory row
+      shows a "Mark opened" button only when `useWithinDaysOpened` is set and
+      the item isn't already opened — hidden, not disabled, since it would
+      otherwise be a no-op on almost every row. `markItemOpenedAction`
+      (household-scoped like every inventory action, and refusing an
+      already-opened item so a double tap can't restart the clock) sets
+      `openedAt = now` and `expiresAt = min(existing expiresAt, now +
+      useWithinDaysOpened days)` via the pure `openedExpiryUpdate`
+      (`src/lib/inventory/expiry.ts`, unit-tested) — opening can only pull a
+      deadline closer, never push a printed date out; no existing date means
+      the opened date is used. **`expiresAtEstimated`**: an earlier existing
+      date wins untouched, flag included; when the opened date wins it's
+      flagged as an estimate, since "use within N days" is a rule of thumb
+      about the product rather than a date printed on this pack (so it gets
+      the softer "≈"/"probably" treatment in ExpiryBadge, `EXPIRING_SOON` and
+      the expired-waste recap) and so AUTO-7's arrival gate can replace it
+      with a fresh estimate when the next, sealed pack arrives, instead of
+      it being pinned as a "real" date the estimator must never touch.
+      Guardrails' "undo over confirm": applied immediately with a toast
+      whose Undo calls `undoMarkItemOpenedAction(itemId, markedOpenedAt,
+      previous)`, restoring the previous `openedAt`/`expiresAt`/
+      `expiresAtEstimated` — and only while the item still carries the
+      `openedAt` that click wrote, so a stale Undo after a restock is a
+      no-op. `ExpiryBadge` shows an outline "Opened" tag next to the
+      expiry badge whenever `openedAt` is set, even outside the warning
+      window. **Restock**: the same three AUTO-7 arrival paths
+      (`togglePurchasedAction`, `applyReceiptScanAction`,
+      `registerReceiptAction`) merge in `openedResetOnArrival` before the
+      estimator's patch — a 0 → positive crossing is a fresh, sealed pack,
+      so `openedAt` clears, and an estimated `expiresAt` (which includes
+      every winning opened date) clears with it unless the estimator
+      writes a new one; a real typed-in date is left alone. Topping up
+      while stock remains keeps the item opened (the open pack is still the
+      one to use first). The +/- buttons and the form's quantity field
+      don't reset it, matching AUTO-7's choice of which events count as
+      "stock arrived". Clearing `useWithinDaysOpened` in the form leaves an
+      existing `openedAt` alone. One `openedAt` per row: with several packs
+      counted on one item, opening one moves the whole row's date — the
+      same one-`expiresAt`-per-item simplification as everywhere else.
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.

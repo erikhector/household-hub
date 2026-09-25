@@ -24,6 +24,7 @@ import {
   type AutoAddedItem,
 } from "@/lib/shopping/default-list";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
+import { openedResetOnArrival } from "@/lib/inventory/expiry";
 import type { InventoryItem } from "@/generated/prisma/client";
 
 /**
@@ -1023,11 +1024,18 @@ export async function togglePurchasedAction(
         const expiryUpdate = nextPurchased
           ? estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
           : null;
+        // GAP-28: a restock from zero is a fresh, sealed pack — spread
+        // before expiryUpdate so a new estimate wins over the cleared date
+        // (see openedResetOnArrival's doc comment).
+        const openedReset = nextPurchased
+          ? openedResetOnArrival(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
+          : null;
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
           data: {
             quantity: nextQuantity,
             ...(priceToRecord != null ? { lastKnownPrice: priceToRecord } : {}),
+            ...openedReset,
             ...expiryUpdate,
           },
         });
@@ -1166,12 +1174,14 @@ export async function applyReceiptScanAction(
           // AUTO-7: a matched receipt line is stock arriving, same as
           // togglePurchasedAction — see estimatedExpiryUpdate's doc comment.
           const expiryUpdate = estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
+          // GAP-28: same fresh-pack reset as togglePurchasedAction.
+          const openedReset = openedResetOnArrival(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
           // AUTO-4: a scanned receipt price is as real as it gets, so it
           // becomes the item's new lastKnownPrice — folded into the same
           // quantity update rather than a second write.
           await tx.inventoryItem.update({
             where: { id: item.inventoryItem.id },
-            data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...expiryUpdate },
+            data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...openedReset, ...expiryUpdate },
           });
           await tx.priceHistory.create({
             data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice, store: trimmedStore },
@@ -1406,9 +1416,11 @@ export async function registerReceiptAction(
         // AUTO-7: registering a receipt is a stock-arrival event too — same
         // rule as applyReceiptScanAction/togglePurchasedAction above.
         const expiryUpdate = estimatedExpiryUpdate(item, currentQuantity, nextQuantity);
+        // GAP-28: same fresh-pack reset as togglePurchasedAction.
+        const openedReset = openedResetOnArrival(item, currentQuantity, nextQuantity);
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: nextQuantity, lastKnownPrice, ...expiryUpdate },
+          data: { quantity: nextQuantity, lastKnownPrice, ...openedReset, ...expiryUpdate },
         });
       }
 
