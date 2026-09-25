@@ -83,6 +83,7 @@ export default async function PrivacyPage() {
               <li>Your email address (used to log in, to send invite emails if you&apos;re invited to or invite others to a household, and to send the weekly digest if you turn it on);</li>
               <li>Your password — never in plain text. It&apos;s hashed with bcrypt before storage, so we can verify it at login but can&apos;t see or recover the original password;</li>
               <li>Your display name;</li>
+              <li>Your Swish number, only if you add one in your Profile — it&apos;s shown to the members of your households so they can pay you back with Swish, and you can remove it there at any time;</li>
               <li>Which households you belong to and your role in each (owner or contributor).</li>
             </ul>
             <p>Beyond your account, Squirrel stores the content you and your household enter to use its features:</p>

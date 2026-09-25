@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.28.0",
+    "date": "2026-09-25",
+    "pr": 54,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now see your meal plan and monthly bill due dates in Google Calendar, Apple Calendar or Outlook. The household owner can turn on a private calendar link on the Household page and replace it at any time.",
+      "sv": "Nu kan ni se matplanen och förfallodagar för månadsräkningar i Google Kalender, Apple Kalender eller Outlook. Hushållets ägare kan slå på en privat kalenderlänk på sidan Hushåll och byta ut den när som helst."
+    }
+  },
+  {
     "version": "0.27.0",
     "date": "2026-09-25",
     "pr": 53,

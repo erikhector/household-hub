@@ -117,7 +117,7 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
 - **Roles**: `OWNER` is whoever created the household (`signupAction` /
   `createHouseholdAction`); everyone who joins later is a `CONTRIBUTOR`. Both
   roles can fully operate within the household — inventory, shopping lists,
-  inviting new contributors, etc. Two actions are owner-only, enforced
+  inviting new contributors, etc. These actions are owner-only, enforced
   server-side in `src/lib/actions/household.ts` (checked against the
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
@@ -130,6 +130,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     owner removing them can still leave them with none; see "Users with no
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
+  - Managing the calendar feed (`enableCalendarFeedAction`,
+    `regenerateCalendarFeedAction`, `disableCalendarFeedAction`, GAP-3):
+    it publishes the household's meal plan and bill names at a link that
+    needs no login. Contributors can still see and copy the link once it's
+    on. See "Calendar feed" below.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
     AUTO-8) — day-to-day shopping behaviour, not administration — and the
@@ -1460,8 +1465,51 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
   the excess just shows as a balance the other way). Below the transfers
   the card lists split bills with money still due, and the 10 most recent
   repayments, each removable (`deleteSettlementAction`) in case one was
-  entered by mistake. There's no payment integration; a Swish link is
-  GAP-7 in BACKLOG.md.
+  entered by mistake.
+- **Pay with Swish** (GAP-7): when the signed-in member owes someone who
+  has saved a Swish number on their Profile, that transfer also gets a
+  "Pay with Swish" link next to "Clear debt". It's Swish's app-switch deep
+  link, `swish://payment?data=<url-encoded JSON>` — no merchant agreement
+  or API key — with `version: 1` (a number; the string `"1.0"` breaks it),
+  `payee` as the Swish alias (`46` + the mobile number without its leading
+  0), `amount` rounded to two decimals, and a translated message
+  (`balances.swishMessage`) sanitized to the characters Swish accepts and
+  capped at 50. Every field is sent with `editable: false`: leaving any
+  field open also unlocks the payee, and the link is meant to pay exactly
+  this debt to exactly this person. The format isn't in Swish's public
+  developer docs (those only cover the merchant `paymentrequest` flow), so
+  it follows the documented-in-the-wild shape — see `src/lib/swish.ts`'s
+  header comment. All of it is pure and unit-tested in
+  `src/lib/swish.test.ts` (`normalizeSwishNumber`, `formatSwishNumber`,
+  `sanitizeSwishMessage`, `buildSwishPaymentUrl`, `swishNumbersForPayer`).
+  - Only the payer sees it: the page passes the component just the numbers
+    of members the signed-in member owes a positive amount
+    (`swishNumbersForPayer`), and `HouseholdBalances` re-checks
+    `fromMemberId === currentMemberId` before rendering a link, so nobody
+    else's number reaches the browser for no reason.
+  - Swish only moves SEK. There's no per-household currency yet (GAP-13);
+    every amount is assumed to be in `HOUSEHOLD_BASE_CURRENCY`
+    (`src/lib/currency.ts`, `"SEK"`), and the link is only offered while
+    `swishSupportsCurrency` accepts that — so it disappears by itself if
+    that constant, or a future household setting, says otherwise.
+  - Tapping it records nothing. The app can't see whether a Swish payment
+    went through, and money changes are always an explicit action
+    (BACKLOG.md's Guardrails), so a hint under the list tells the payer to
+    use "Clear debt" once the money has gone.
+  - **The number** is `User.swishNumber` (nullable, migration
+    `20260925205015_add_user_swish_number`), stored in alias form. It's on
+    `User`, not `HouseholdMember`: it's personal data the user sets once,
+    and the same person in two households gets paid on the same phone.
+    Only the user can set it, from the "Swish number" card on their Profile
+    (`SwishNumberForm`, `updateSwishNumberAction` — user id from the
+    session, blank clears it). The card says outright that the number is
+    shown to household members. `normalizeSwishNumber` accepts
+    `07XXXXXXXX`, `+467XXXXXXXX`, `00467XXXXXXXX` and `467XXXXXXXX` with
+    any spaces, hyphens, dots or parentheses (and `+46 (0)7…`), and rejects
+    landlines and foreign numbers; the form shows it back as
+    `070-123 45 67`. It's part of the Profile's "Export my data" JSON
+    (`profile.swishNumber`), goes with the `User` row when the account is
+    deleted, and is listed on the privacy page.
 - Every action that writes split transactions or repayments revalidates
   the household budget, Personal Budget and the dashboard
   (`revalidateBudgetPages`), since all three show numbers derived from
@@ -2908,6 +2956,92 @@ from a pure list/calendar app; this is the minimal version of it.
   notification or push. A bell badge must mean something's wrong (see
   "Notification center"); the notes board is just a page you check.
 
+## Calendar feed
+
+GAP-3. A read-only iCalendar (`.ics`) feed of the household's meal plan and
+monthly bill due dates, so the plan shows up in the calendar app people
+already have open (Cozi's core differentiator). Calendar apps subscribe by
+URL and re-fetch on their own; nothing is ever written back.
+
+- **Opt-in, off by default.** `Household.calendarFeedToken String? @unique`
+  (migration `20260925203000_household_calendar_feed_token`); null means the
+  feed is off. Calendar apps can't send cookies, so the token in the URL is
+  the only credential and anyone holding the link can read the feed. That's
+  why it isn't on until someone chooses it.
+- **Token**: 32 bytes from `crypto.randomBytes`, base64url (43 characters),
+  generated by `generateCalendarFeedToken` (`src/lib/calendar-feed.ts`).
+  Bigger than the `randomUUID()` other links use because this one never
+  expires on its own and lives in calendar apps' settings indefinitely.
+- **Management is owner-only** (`enableCalendarFeedAction`,
+  `regenerateCalendarFeedAction`, `disableCalendarFeedAction` in
+  `src/lib/actions/household.ts`, checked against the session's `role`).
+  Unlike the per-list shopping share link, which any member manages, this
+  publishes the whole household's meal plan and bill names, so turning it on
+  is treated as administration. Enable only sets a token while the column is
+  still null (`updateMany` with `calendarFeedToken: null` in the filter), so
+  a double click can't silently rotate a link someone just subscribed to.
+  Regenerate replaces the token, which is how a leaked link is revoked: the
+  old URL 404s on its next fetch. Disable sets it back to null; turning the
+  feed on again gives a new link.
+- **UI** (`CalendarFeedSetting`, `src/components/household/calendar-feed-setting.tsx`):
+  a card on the Household page that always states, before and after turning
+  it on, that anyone with the link can see planned meals and bill names
+  without logging in and that amounts are never included. Once on, every
+  member sees the URL with a copy button and an "Open in calendar app" link
+  (the same URL with the `webcal://` scheme, which opens the subscribe
+  prompt on phones). The owner also gets "Get a new link" and "Turn off",
+  both behind a `ConfirmDialog` since both break existing subscriptions. A
+  contributor with the feed off sees that the owner can turn it on. The URL
+  is built server-side from `APP_URL` (request headers only as the local-dev
+  fallback), the same order as `absoluteAppUrl`.
+- **Route**: `src/app/api/calendar/[token]/route.ts`. Under `/api`, which
+  `src/proxy.ts`'s matcher excludes, so it never gets the login redirect.
+  A malformed token 404s before any database or rate-limit work. The rest go
+  through `checkRateLimit` (120 requests an hour per token: keyed on the
+  token, not the IP, because Google Calendar fetches every feed from a
+  shared pool of addresses) and then a `findUnique` on the unique index.
+  Unknown, malformed and turned-off tokens all get the same plain 404.
+  Responses are `Cache-Control: private, no-store` so turning the feed off
+  or regenerating takes effect on the next fetch, plus
+  `X-Robots-Tag: noindex`.
+- **Language**: the feed has no session, so the viewer's locale is put in
+  the URL (`?lang=en|sv`, `calendarFeedPath`) when the link is shown. Each
+  member's copy of the link gets event titles in their own language; an
+  unknown value falls back to English.
+- **What's in it** (`buildCalendarFeedEvents`, `src/lib/calendar-feed.ts`):
+  a window from 30 days back to 183 days ahead (`calendarFeedWindow`), as
+  all-day events.
+  - Meal-plan entries, titled "Dinner: Lasagna" (slot label from
+    `mealPlanning.mealType*`, then the recipe name, else the freeform name;
+    just the slot when a deleted recipe left neither). Ordered breakfast →
+    snack within a day. Capped at 2000 entries per response.
+  - Active `EXPENSE` recurring templates, titled "Due: Rent", one event per
+    due day. Only MONTHLY templates with a `dayOfMonth` have a real due day;
+    WEEKLY/YEARLY templates don't (the schema ignores `dayOfMonth` for them),
+    and making one up from `createdAt` would put the bill on a day nobody
+    chose, so they're left out. Due days are expanded by
+    `expandMonthlyDueDates` (`src/lib/recurring-template-calc.ts`), which
+    clamps a day past a short month's end to its last day (the 31st becomes
+    30 April, 28/29 February). Income and savings templates, and the
+    personal budget, aren't included.
+  - **No amounts**, recipes, notes or member names. The link works without
+    a login and gets pasted into third-party calendar services, so the feed
+    carries only what a calendar entry needs.
+- **UIDs** are stable across fetches so clients update events in place:
+  `meal-<entryId>@squirrel-calendar-feed` and
+  `bill-<templateId>-<YYYYMMDD>@squirrel-calendar-feed` (changing a bill's
+  due day reads as old events removed and new ones added).
+- **iCalendar writer** (`src/lib/ical.ts`, pure, no library): RFC 5545 CRLF
+  line endings (including after the last line), lines folded at 75 octets
+  (counted in UTF-8 bytes and never splitting a multi-byte character), TEXT
+  values escaped (`\`, `;`, `,`, line breaks as `\n`, other control
+  characters dropped), `DTSTAMP` in UTC, `DTSTART;VALUE=DATE` plus an
+  exclusive next-day `DTEND`, and `TRANSP:TRANSPARENT` so a planned dinner
+  doesn't mark anyone busy. Dates are read in UTC because meal dates are
+  UTC-midnight days and a DATE value has no time zone. The calendar is
+  named "<household> (Squirrel)" and hints a 6-hour refresh
+  (`REFRESH-INTERVAL` and `X-PUBLISHED-TTL`).
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -3008,6 +3142,9 @@ stay that way rather than re-adding per-page redirect checks:
   the account) — see "Sharing" above. It's intentionally excluded from the
   logged-in redirect rule because it's a distinct action (accept/join a
   specific household), not the generic landing/auth flow.
+- `/api/*` isn't matched at all, which is what lets the token-only calendar
+  feed (`/api/calendar/[token]`, see "Calendar feed") answer calendar apps
+  that have no session. Anything added under `/api` must do its own auth.
 - Because middleware already redirects logged-in visitors away from `/`,
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup

@@ -40,6 +40,9 @@ export async function GET() {
       displayName: user.displayName,
       createdAt: user.createdAt,
       emailVerifiedAt: user.emailVerifiedAt,
+      // GAP-7: shown to household members for Swish payments, so it's
+      // personal data this export must include. Null when not set.
+      swishNumber: user.swishNumber,
     },
     // Just the membership record — household name, role, joined date. Not
     // the household's inventory/shopping/budget contents (see doc comment

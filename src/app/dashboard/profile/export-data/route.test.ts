@@ -54,6 +54,7 @@ describe("GET /dashboard/profile/export-data", () => {
       passwordHash: "super-secret-hash",
       createdAt: fixedNow,
       emailVerifiedAt: verifiedAt,
+      swishNumber: "46701234567",
     });
     householdMemberFindManyMock.mockResolvedValue([
       {
@@ -112,6 +113,8 @@ describe("GET /dashboard/profile/export-data", () => {
       displayName: "Erik",
       createdAt: fixedNow.toISOString(),
       emailVerifiedAt: verifiedAt.toISOString(),
+      // GAP-7: personal data shown to household members, so it's exported.
+      swishNumber: "46701234567",
     });
     expect(body.householdMemberships).toEqual([
       { householdName: "The Hectors", role: "OWNER", joinedAt: fixedNow.toISOString() },

@@ -179,17 +179,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-3. Read-only calendar feed for the meal plan + recurring bills** —
-      new `src/app/api/calendar/[token]/route.ts`. Cozi's core
-      differentiator is that a household's plan shows up in the calendar app
-      everyone already has open. A per-household, token-scoped (not
-      session-scoped, since calendar apps can't send cookies) `.ics` feed
-      URL, regenerable from the Household page, listing `MealPlanEntry`
-      dates/names and `RecurringTemplate` due dates. Read-only, no write-back
-      from the calendar app. Needs a new random `Household.calendarFeedToken`
-      column (Phase 2 migration) and a decision on whether it's on by default
-      or opt-in (default off is safer — it's a shareable link with no login).
-
 - [ ] **GAP-4. Reusable named shopping list templates** —
       `src/components/shopping/shopping-list-client.tsx`,
       `src/app/dashboard/shopping-list/actions.ts`. AnyList/Out of Milk let
@@ -200,16 +189,6 @@ out to be a product-scope question rather than a scoped task should move to
       migration) — copying item names onto a new `ACTIVE` list, re-resolved
       through `findOrCreateInventoryItem` the same way import/paste already
       does, so it doesn't need its own linking logic.
-
-- [ ] **GAP-7. Settle up: a Swish payment link** —
-      `src/components/budget/household-balances.tsx`. Recording a repayment
-      ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's
-      "Household expense splitting". What's left is the payment half: a
-      Swish deep link (`swish://payment?data=...`, no API key needed, Sweden
-      being this app's primary locale alongside `sv.ts`) next to each
-      suggested transfer, pre-filled with the amount, covering something
-      Splitwise itself doesn't for Swedish households. Needs a phone number
-      per member, which the app doesn't store yet.
 
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!

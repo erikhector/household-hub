@@ -5,6 +5,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { UserAvatar } from "@/components/profile/avatar";
 import { DisplayNameForm } from "@/components/profile/display-name-form";
 import { EmailForm } from "@/components/profile/email-form";
+import { SwishNumberForm } from "@/components/profile/swish-number-form";
 import { PasswordForm } from "@/components/profile/password-form";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { InstallAppCard } from "@/components/profile/install-app-card";
@@ -42,6 +43,9 @@ export default async function ProfilePage() {
             {dict.profile.displayNameForm.title}
           </h2>
           <DisplayNameForm displayName={user.displayName} dict={dict.profile.displayNameForm} />
+        </div>
+        <div className="rounded-md border p-4">
+          <SwishNumberForm swishNumber={user.swishNumber} dict={dict.profile.swishForm} />
         </div>
         <div className="rounded-md border p-4">
           <EmailForm email={user.email} verified={Boolean(user.emailVerifiedAt)} dict={dict.profile.emailForm} />

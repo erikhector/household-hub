@@ -14,11 +14,18 @@
 // over until a repayment (MemberSettlement) clears it. Money still owed *to a
 // bill* (nobody has paid that part yet) isn't anyone's debt to another
 // member, so it's listed separately under "Still due on bills".
+//
+// GAP-7: when the signed-in member owes someone who has saved a Swish number
+// on their Profile, that transfer also gets a "Pay with Swish" link that
+// opens the Swish app pre-filled (src/lib/swish.ts). It's only a link: the
+// app can't see whether the payment went through, and money changes are
+// always an explicit action here (BACKLOG.md's Guardrails), so "Clear debt"
+// is still how the repayment gets recorded — the hint under the list says so.
 
 import { useActionState, useState } from "react";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -33,6 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Settlement } from "@/lib/settle-up-calc";
+import { buildSwishPaymentUrl, formatSwishNumber } from "@/lib/swish";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -144,6 +152,8 @@ export function HouseholdBalances({
   unpaidBills,
   repayments,
   members,
+  currentMemberId,
+  swishNumbers,
   dict,
   locale,
   onRecordRepayment,
@@ -155,6 +165,11 @@ export function HouseholdBalances({
   /** The most recent recorded repayments, newest first. */
   repayments: RepaymentRow[];
   members: MemberLabel[];
+  /** The signed-in member — only their own debts get a Swish link. */
+  currentMemberId: string;
+  /** Swish aliases by member id, already narrowed to the members
+   * `currentMemberId` owes (swishNumbersForPayer, src/lib/swish.ts). */
+  swishNumbers: Record<string, string>;
   dict: BalancesDict;
   locale: Locale;
   /** recordSettlementAction — injected like the other budget components'
@@ -168,6 +183,15 @@ export function HouseholdBalances({
   });
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? "?";
+  // Re-checks the payer here too rather than trusting swishNumbers alone,
+  // so a link can never appear on somebody else's debt.
+  const swishUrlFor = (s: Settlement) => {
+    if (!currentMemberId || s.fromMemberId !== currentMemberId) return null;
+    const payee = swishNumbers[s.toMemberId];
+    if (!payee) return null;
+    return buildSwishPaymentUrl({ payee, amount: s.amount, message: dict.swishMessage });
+  };
+  const hasSwishLink = settlements.some((s) => swishUrlFor(s) !== null);
 
   return (
     <Card>
@@ -182,31 +206,50 @@ export function HouseholdBalances({
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {settlements.map((s, i) => (
-              <li
-                key={`${s.fromMemberId}-${s.toMemberId}-${i}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 text-sm"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium">{memberName(s.fromMemberId)}</span>
-                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate font-medium">{memberName(s.toMemberId)}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <span className="font-medium tabular-nums text-foreground">
-                    {numberFormat.format(s.amount)}
+            {settlements.map((s, i) => {
+              const swishUrl = swishUrlFor(s);
+              return (
+                <li
+                  key={`${s.fromMemberId}-${s.toMemberId}-${i}`}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 text-sm"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">{memberName(s.fromMemberId)}</span>
+                    <ArrowRight className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">{memberName(s.toMemberId)}</span>
                   </span>
-                  <ClearDebtDialog
-                    settlement={s}
-                    memberName={memberName}
-                    dict={dict}
-                    onRecord={onRecordRepayment}
-                  />
-                </span>
-              </li>
-            ))}
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="font-medium tabular-nums text-foreground">
+                      {numberFormat.format(s.amount)}
+                    </span>
+                    {swishUrl && (
+                      // A plain <a>, not router navigation: the swish:// scheme
+                      // hands off to the Swish app on the phone.
+                      <a
+                        href={swishUrl}
+                        className={buttonVariants({ size: "xs" })}
+                        aria-label={format(dict.swishAriaLabel, {
+                          amount: numberFormat.format(s.amount),
+                          name: memberName(s.toMemberId),
+                          number: formatSwishNumber(swishNumbers[s.toMemberId]),
+                        })}
+                      >
+                        {dict.swishButton}
+                      </a>
+                    )}
+                    <ClearDebtDialog
+                      settlement={s}
+                      memberName={memberName}
+                      dict={dict}
+                      onRecord={onRecordRepayment}
+                    />
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
+        {hasSwishLink && <p className="text-xs text-muted-foreground">{dict.swishHint}</p>}
 
         {unpaidBills.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
