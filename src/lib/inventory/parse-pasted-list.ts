@@ -68,6 +68,13 @@ const UNIT_WORDS = new Set([
   "buntar",
 ]);
 
+/** Whether `word` is one of the unit words the parser strips into `unit` —
+ * voice add (normalizeVoiceTranscript) uses it to know a spoken number
+ * belongs to a unit even when the number isn't first in the item. */
+export function isUnitWord(word: string): boolean {
+  return UNIT_WORDS.has(word.toLowerCase());
+}
+
 // Strips a leading bullet/checkbox marker some apps' share text uses
 // ("- Mjölk", "• Ägg", "[ ] Bröd", "☐ Smör", "✓ Ost") before the count/unit
 // patterns below ever see the line.

@@ -432,6 +432,7 @@ export function ShoppingListClient({
           pendingInventoryItemIds={pendingItems.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : []))}
           dict={dict.smartAdd}
           barcodeDict={barcodeDict}
+          locale={locale}
           onAdded={highlightAdded}
         />
       )}

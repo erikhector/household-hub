@@ -600,8 +600,49 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     not added again or merged into the existing row's quantity, and named
     in an "already on the list" toast (`shoppingList.smartAdd` in both
     dictionaries).
-  - **Voice (AUTO-12, not built)** should put its transcript through the
-    same `parseSmartAddInput` → `smartAddShoppingListItemsAction` path.
+  - **Voice add (AUTO-12)** — a mic button beside the scan button, using
+    the browser's Web Speech API (`useSpeechRecognition`,
+    `src/components/shopping/use-speech-recognition.ts`). No schema
+    change and nothing new stored in the browser.
+    - **Feature-detected**: `SpeechRecognition` / `webkitSpeechRecognition`
+      checked through `useSyncExternalStore` (false on the server, so no
+      hydration mismatch). Where there's no recognizer (Firefox, many
+      installed iOS PWAs) the button isn't rendered at all — voice is a
+      bonus, never the only way to add something.
+    - **Language** is the server-resolved UI locale (`getLocale()`: saved
+      account preference first, then the cookie), passed down as a prop
+      rather than read from the cookie on the client — the cookie is only
+      set by the locale switcher, so it can be missing on a new device:
+      `sv` → `sv-SE`, `en` → `en-US` (`speechRecognitionLang`). The same
+      locale picks the normalization rules below.
+    - **One phrase per tap** (`continuous = false`, interim results on):
+      the running transcript shows in the input as it's heard (autocomplete
+      dropdown suppressed meanwhile), the mic turns into a stop button, and
+      when the speaker pauses the final transcript is normalized and
+      committed exactly as if typed and Enter pressed —
+      `parseSmartAddInput` → `smartAddShoppingListItemsAction`, same
+      dedupe, same highlight/announcement, text put back in the input if
+      the add fails. Tapping stop commits whatever was already heard. A
+      denied mic, no speech, or any other recognizer error clears the input
+      and shows a toast (`shoppingList.smartAdd.voice*`).
+    - **`normalizeVoiceTranscript`** (`src/lib/shopping/voice-transcript.ts`,
+      unit-tested) turns speech into what the typed-text parser expects,
+      per locale: items split on commas and on "and"/"och" (so "salt och
+      peppar" becomes two rows — rarer than "milk and eggs", and easy to
+      fix); number words to digits (1–99 incl. "twenty four",
+      "twenty-four", "tjugofyra"; "a"/"an" and "en"/"ett" as 1; "a dozen"/
+      "ett dussin" as 12) — but only at the start of an item or right
+      before a unit, so a number inside a name is left alone; spoken units
+      to the parser's abbreviations ("liters"/"liter" → l, "kilo" → kg,
+      "hekto" → hg, "gram" → g, "stycken" → st, …) with a following
+      "of"/"av" dropped. So "two liters of milk and eggs" → `2 l milk,
+      eggs`, "två liter mjölk och sex ägg" → `2 l mjölk, 6 ägg`. English
+      number words aren't read in Swedish, or vice versa.
+    - **Privacy**: Squirrel never receives audio, only the text. The
+      privacy page's "Third parties" section says that some browsers
+      (Chrome, Edge, Safari) send the recording to their vendor's servers
+      for recognition, and that nothing is recorded until the button is
+      tapped.
 - `PriceHistory` — feeds the (not-yet-built) cost analyzer.
 - **Share link** (`ShoppingListShareLink`) — lets a household member hand a
   single `ShoppingList` to someone outside the household (a roommate not on
