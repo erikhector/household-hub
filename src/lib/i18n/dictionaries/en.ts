@@ -1201,6 +1201,9 @@ export const en = {
       incomeSection: "Income",
       expenseSection: "Expense",
       savingsSection: "Savings",
+      limitLabel: "Monthly limit (optional)",
+      limitPlaceholder: "No limit",
+      limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
     },
     summary: {
       title: "This month",
@@ -1215,6 +1218,8 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} over",
     },
     safeToSpend: {
       title: "Safe to spend",
@@ -1490,6 +1495,9 @@ export const en = {
       incomeSection: "Income",
       expenseSection: "Expense",
       savingsSection: "Savings",
+      limitLabel: "Monthly limit (optional)",
+      limitPlaceholder: "No limit",
+      limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
     },
     summary: {
       title: "This month",
@@ -1504,6 +1512,8 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} over",
     },
     safeToSpend: {
       title: "Safe to spend",

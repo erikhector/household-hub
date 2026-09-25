@@ -7,12 +7,15 @@ import { requireUserId } from "@/lib/session";
 import { getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { limitForType, monthlyLimitField } from "@/lib/budget-category-limit";
 
 // --- Categories --------------------------------------------------------
 
 const categorySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
   type: z.enum(["INCOME", "EXPENSE", "SAVINGS"]),
+  // GAP-12 — see src/lib/budget-category-limit.ts. Empty = no limit.
+  monthlyLimit: monthlyLimitField,
 });
 
 export async function createPersonalCategoryAction(
@@ -24,6 +27,7 @@ export async function createPersonalCategoryAction(
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
+    monthlyLimit: formData.get("monthlyLimit"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -36,7 +40,12 @@ export async function createPersonalCategoryAction(
 
   try {
     await prisma.personalBudgetCategory.create({
-      data: { userId, name: parsed.data.name, type: parsed.data.type },
+      data: {
+        userId,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        monthlyLimit: limitForType(parsed.data.type, parsed.data.monthlyLimit),
+      },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -49,6 +58,9 @@ export async function createPersonalCategoryAction(
 const updateCategorySchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
+  // A category's type can't be edited, so whether this is kept is decided
+  // by the stored type below, not by anything the form sends.
+  monthlyLimit: monthlyLimitField,
 });
 
 export async function updatePersonalCategoryAction(
@@ -60,6 +72,7 @@ export async function updatePersonalCategoryAction(
   const parsed = updateCategorySchema.safeParse({
     id: formData.get("id"),
     name: formData.get("name"),
+    monthlyLimit: formData.get("monthlyLimit"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -82,7 +95,10 @@ export async function updatePersonalCategoryAction(
   try {
     await prisma.personalBudgetCategory.update({
       where: { id: category.id },
-      data: { name: parsed.data.name },
+      data: {
+        name: parsed.data.name,
+        monthlyLimit: limitForType(category.type, parsed.data.monthlyLimit),
+      },
     });
   } catch (error) {
     return toFriendlyError(error);

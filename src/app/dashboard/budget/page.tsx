@@ -19,6 +19,7 @@ import {
   type UnpaidBillRow,
 } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import { withCategoryLimits } from "@/lib/budget-category-limit";
 import {
   RecurringTemplatesPanel,
   type PausedRecurringTemplateRow,
@@ -341,7 +342,12 @@ async function BudgetTabsSection({
       }),
     ]);
 
-  const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
+  const categoryRows = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    monthlyLimit: c.monthlyLimit,
+  }));
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
   const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
@@ -634,7 +640,11 @@ async function BudgetTabsSection({
       savings={savings}
       remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
-      expenseByCategory={expenseByCategory}
+      // GAP-12: attach each category's monthly limit (and add capped
+      // categories with nothing spent yet) for the capped-bar rendering.
+      // Kept out of expenseByCategory itself, which also feeds the
+      // expense total above.
+      expenseByCategory={withCategoryLimits(expenseByCategory, categories)}
       savingsByCategory={savingsByCategory}
       dict={dict.budget.summary}
       locale={locale}

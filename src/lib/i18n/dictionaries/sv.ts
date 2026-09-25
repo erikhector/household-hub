@@ -1163,6 +1163,9 @@ export const sv = {
       incomeSection: "Inkomst",
       expenseSection: "Utgift",
       savingsSection: "Sparande",
+      limitLabel: "Månadsgräns (valfri)",
+      limitPlaceholder: "Ingen gräns",
+      limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
     },
     summary: {
       title: "Den här månaden",
@@ -1177,6 +1180,8 @@ export const sv = {
       savings: "Sparande",
       savingsByCategory: "Sparande per kategori",
       noSavings: "Inget sparande registrerat denna månad.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} över",
     },
     safeToSpend: {
       title: "Säkert att spendera",
@@ -1451,6 +1456,9 @@ export const sv = {
       incomeSection: "Inkomst",
       expenseSection: "Utgift",
       savingsSection: "Sparande",
+      limitLabel: "Månadsgräns (valfri)",
+      limitPlaceholder: "Ingen gräns",
+      limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
     },
     summary: {
       title: "Denna månad",
@@ -1465,6 +1473,8 @@ export const sv = {
       savings: "Sparande",
       savingsByCategory: "Sparande per kategori",
       noSavings: "Inget sparande registrerat denna månad.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} över",
     },
     safeToSpend: {
       title: "Säkert att spendera",
