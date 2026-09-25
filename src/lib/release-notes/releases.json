@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.18.0",
+    "date": "2026-09-25",
+    "pr": 45,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now star your favorite recipes. When several recipes are just as easy to cook right now, or use up the same things, your favorites are listed first.",
+      "sv": "Nu kan du stjärnmärka dina favoritrecept. När flera recept är lika enkla att laga just nu, eller tar till vara samma saker, visas dina favoriter först."
+    }
+  },
+  {
     "version": "0.17.0",
     "date": "2026-09-25",
     "pr": 46,
