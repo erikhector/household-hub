@@ -113,7 +113,10 @@ export async function toggleItemViaShareTokenAction(
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
         where: { id: item.id },
-        data: { purchased: nextPurchased },
+        // AUTO-9: whoever holds the share link is often the one walking
+        // the store, so their ticks teach the store order too — same
+        // set/clear as togglePurchasedAction.
+        data: { purchased: nextPurchased, checkedOffAt: nextPurchased ? new Date() : null },
       });
 
       const list = await tx.shoppingList.findUnique({
