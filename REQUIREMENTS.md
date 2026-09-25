@@ -2921,7 +2921,7 @@ already have open (Cozi's core differentiator). Calendar apps subscribe by
 URL and re-fetch on their own; nothing is ever written back.
 
 - **Opt-in, off by default.** `Household.calendarFeedToken String? @unique`
-  (migration `20260925150000_household_calendar_feed_token`); null means the
+  (migration `20260925203000_household_calendar_feed_token`); null means the
   feed is off. Calendar apps can't send cookies, so the token in the URL is
   the only credential and anyone holding the link can read the feed. That's
   why it isn't on until someone chooses it.
