@@ -177,19 +177,6 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       but some chains print them) can also match by barcode exactly, now
       that AUTO-6 stores `InventoryItem.barcode`.
 
-- [ ] **AUTO-12. Voice add**
-      — `src/components/shopping/smart-add-bar.tsx`
-      **Design brief:** a mic button in the smart add line; speech goes
-      into the input as text and commits through the same path typed text
-      does (`parseSmartAddInput` → `smartAddShoppingListItemsAction`) ("two
-      liters of milk and eggs" → 2 l milk, eggs). Hidden entirely where the
-      browser doesn't support speech recognition — coverage in installed
-      iOS PWAs is inconsistent, so this is a bonus, never a required path.
-      **Dev notes:** Web Speech API, feature-detected, locale from the
-      household's language cookie. Needs a small word-to-number step
-      ("två", "two") before `parsePastedList`. Disclose in the privacy page
-      that some browsers process speech on the vendor's servers.
-
 ---
 
 ## Competitive gap scan
@@ -274,7 +261,7 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
       both support hands-free "add milk to my shopping list" via Alexa/Google
-      Assistant skills — materially different from AUTO-12's in-app Web
+      Assistant skills — materially different from the in-app Web
       Speech API mic button, since it requires building and maintaining a
       third-party voice-platform skill/action, account-linking OAuth, and
       ongoing certification with Amazon/Google. Belongs alongside the
