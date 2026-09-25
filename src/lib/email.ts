@@ -267,6 +267,67 @@ export async function sendVerificationEmail({
   }
 }
 
+// Lets a batch sender (the weekly digest cron, src/lib/weekly-digest.ts)
+// skip all of its database work up front when nothing could be sent anyway,
+// instead of loading every household's data only to have each send no-op.
+export function isEmailConfigured(): boolean {
+  return resend !== null;
+}
+
+// Logo URL for callers that render their own email body (the weekly digest's
+// multi-section layout doesn't fit renderEmailHtml's one-paragraph shape).
+export function emailLogoUrl(): string | undefined {
+  return LOGO_URL;
+}
+
+// GAP-27's weekly digest. The subject/HTML/text are rendered by the pure
+// renderWeeklyDigest (src/lib/weekly-digest-content.ts); this only adds the
+// transport concerns. `List-Unsubscribe` + `List-Unsubscribe-Post` are the
+// RFC 8058 one-click unsubscribe headers — Gmail and Yahoo require them for
+// bulk-style mail and show a native "Unsubscribe" button next to the sender
+// when they're present. The URL they point at is POST-able
+// (src/app/api/digest/unsubscribe/[token]/route.ts) and signed, so it works
+// without a login.
+export async function sendWeeklyDigestEmail({
+  to,
+  subject,
+  html,
+  text,
+  unsubscribeUrl,
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  unsubscribeUrl: string;
+}): Promise<{ error?: string }> {
+  if (!resend) {
+    return { error: "Email delivery isn't configured" };
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || DEFAULT_FROM,
+      to,
+      subject,
+      html,
+      text,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
+
+    if (error) {
+      return { error: error.message || "Failed to send email" };
+    }
+    return {};
+  } catch (err) {
+    logger.error("Failed to send weekly digest email", { error: err });
+    return { error: "Failed to send email" };
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

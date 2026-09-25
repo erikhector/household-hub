@@ -5,10 +5,12 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { UserAvatar } from "@/components/profile/avatar";
 import { DisplayNameForm } from "@/components/profile/display-name-form";
 import { EmailForm } from "@/components/profile/email-form";
+import { SwishNumberForm } from "@/components/profile/swish-number-form";
 import { PasswordForm } from "@/components/profile/password-form";
 import { DeleteAccountDialog } from "@/components/profile/delete-account-dialog";
 import { InstallAppCard } from "@/components/profile/install-app-card";
 import { PushNotificationsCard } from "@/components/profile/push-notifications-card";
+import { WeeklyDigestSetting } from "@/components/profile/weekly-digest-setting";
 import { ExportButton } from "@/components/export/export-button";
 import { format } from "@/lib/i18n/format";
 import { CURRENT_VERSION } from "@/lib/release-notes";
@@ -43,6 +45,9 @@ export default async function ProfilePage() {
           <DisplayNameForm displayName={user.displayName} dict={dict.profile.displayNameForm} />
         </div>
         <div className="rounded-md border p-4">
+          <SwishNumberForm swishNumber={user.swishNumber} dict={dict.profile.swishForm} />
+        </div>
+        <div className="rounded-md border p-4">
           <EmailForm email={user.email} verified={Boolean(user.emailVerifiedAt)} dict={dict.profile.emailForm} />
         </div>
         <div className="rounded-md border p-4">
@@ -50,6 +55,11 @@ export default async function ProfilePage() {
         </div>
         <InstallAppCard dict={dict.profile.installApp} />
         <PushNotificationsCard subscriptions={pushSubscriptions} dict={dict.profile.pushNotifications} />
+        <WeeklyDigestSetting
+          enabled={user.weeklyDigestEnabled}
+          emailVerified={Boolean(user.emailVerifiedAt)}
+          dict={dict.profile.weeklyDigest}
+        />
         <div className="flex flex-col gap-2 rounded-md border p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.profile.dataExport.title}</h2>

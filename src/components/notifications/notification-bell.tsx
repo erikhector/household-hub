@@ -18,7 +18,7 @@
 
 import { createElement, useTransition } from "react";
 import Link from "next/link";
-import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, X } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,9 @@ export function notificationHref(item: NotificationItem): string {
   if (item.kind === "outOfStock") return `/dashboard/inventory?status=out`;
   if (item.kind === "expiringSoon") return `/dashboard/inventory`;
   if (item.kind === "listCleared") return `/dashboard/shopping-list/${item.shoppingListId}`;
+  // GAP-9: the cost analyzer (Budget → Insights) is where the item's price
+  // trend and per-store comparison live — the context to judge the jump in.
+  if (item.kind === "priceSpike") return `/dashboard/budget?tab=insights`;
   return `/dashboard/meal-planning?week=${item.weekStartKey}`;
 }
 
@@ -54,6 +57,11 @@ export function notificationLabel(item: NotificationItem, dict: Dictionary["noti
     return format(item.estimated ? dict.expiringSoonEstimated : dict.expiringSoon, { name: item.name });
   }
   if (item.kind === "listCleared") return format(dict.listCleared, { name: item.name });
+  if (item.kind === "priceSpike") {
+    return item.increasePercent != null
+      ? format(dict.priceSpike, { name: item.name, percent: item.increasePercent })
+      : format(dict.priceSpikePlain, { name: item.name });
+  }
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }
 
@@ -61,6 +69,7 @@ export function notificationIcon(kind: NotificationItem["kind"]) {
   if (kind === "outOfStock") return Package;
   if (kind === "expiringSoon") return CalendarClock;
   if (kind === "listCleared") return CheckCircle2;
+  if (kind === "priceSpike") return TrendingUp;
   return CalendarDays;
 }
 

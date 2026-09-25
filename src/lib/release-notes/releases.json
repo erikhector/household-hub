@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.30.0",
+    "date": "2026-09-25",
+    "pr": 56,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now get a weekly email summary of your household: meals on the menu, tasks done, food about to expire and how the budget is doing. Turn it on under Profile. It's off by default, and every email has a one-click unsubscribe link.",
+      "sv": "Nu kan du få en veckosammanfattning av hushållet via e-post: måltider på menyn, sysslor som blivit gjorda, mat som snart går ut och hur budgeten ser ut. Slå på den under Profil. Den är avstängd från början, och varje mejl har en länk för att avsluta med ett klick."
+    }
+  },
+  {
+    "version": "0.29.0",
+    "date": "2026-09-25",
+    "pr": 55,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If you're settling up with your household, you can now pay with Swish straight from \"Who owes whom\". The amount is filled in for you. To get paid this way, add your Swish number on your Profile.",
+      "sv": "När ni gör upp i hushållet kan du nu betala med Swish direkt från \"Vem är skyldig vem\", med beloppet redan ifyllt. Vill du få betalt så, lägg till ditt Swishnummer på din profil."
+    }
+  },
+  {
+    "version": "0.28.0",
+    "date": "2026-09-25",
+    "pr": 54,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now see your meal plan and monthly bill due dates in Google Calendar, Apple Calendar or Outlook. The household owner can turn on a private calendar link on the Household page and replace it at any time.",
+      "sv": "Nu kan ni se matplanen och förfallodagar för månadsräkningar i Google Kalender, Apple Kalender eller Outlook. Hushållets ägare kan slå på en privat kalenderlänk på sidan Hushåll och byta ut den när som helst."
+    }
+  },
+  {
+    "version": "0.27.0",
+    "date": "2026-09-25",
+    "pr": 53,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now tells you when you've paid noticeably more than usual for something. If a receipt or a checked-off price is well above what that item normally costs, you'll get a notification that links to your price trends.",
+      "sv": "Squirrel säger nu till när du har betalat märkbart mer än vanligt för något. Om ett kvitto eller ett avbockat pris ligger klart över vad varan brukar kosta får du en notis som leder till dina pristrender."
+    }
+  },
+  {
     "version": "0.26.0",
     "date": "2026-09-25",
     "pr": 51,

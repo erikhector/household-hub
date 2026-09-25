@@ -14,6 +14,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
+import { generateCalendarFeedToken } from "@/lib/calendar-feed";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -567,4 +568,57 @@ export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<
 
   revalidatePath("/dashboard/household");
   return {};
+}
+
+// --- Calendar feed (GAP-3) ----------------------------------------------
+
+// Owner-only, unlike the auto-add switch above and the per-list shopping
+// share links (which any member manages). A shopping share link exposes one
+// list; this publishes the whole household's meal plan and bill names to
+// anyone holding a URL, one that ends up stored by third-party calendar
+// services. Deciding to publish that for everyone is administration, the
+// same bucket as removing members. Contributors still see and copy the link
+// once it's on: they can already read everything in it.
+const CALENDAR_FEED_OWNER_ONLY_MESSAGE = "Only the household owner can manage the calendar feed";
+
+async function setCalendarFeedToken(mode: "enable" | "regenerate" | "disable"): Promise<ActionState> {
+  const { household, role } = await requireHousehold();
+  if (role !== "OWNER") return { error: CALENDAR_FEED_OWNER_ONLY_MESSAGE };
+
+  try {
+    if (mode === "enable") {
+      // updateMany with `calendarFeedToken: null` in the filter makes a
+      // double click (or a second tab) a no-op instead of silently
+      // regenerating, which would break a link someone subscribed to a
+      // moment ago. Regenerating is its own, confirmed action.
+      await prisma.household.updateMany({
+        where: { id: household.id, calendarFeedToken: null },
+        data: { calendarFeedToken: generateCalendarFeedToken() },
+      });
+    } else {
+      await prisma.household.update({
+        where: { id: household.id },
+        data: { calendarFeedToken: mode === "regenerate" ? generateCalendarFeedToken() : null },
+      });
+    }
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
+
+export async function enableCalendarFeedAction(): Promise<ActionState> {
+  return setCalendarFeedToken("enable");
+}
+
+// Replacing the token is the only way to revoke a link that leaked: the old
+// URL starts returning 404 on its next fetch.
+export async function regenerateCalendarFeedAction(): Promise<ActionState> {
+  return setCalendarFeedToken("regenerate");
+}
+
+export async function disableCalendarFeedAction(): Promise<ActionState> {
+  return setCalendarFeedToken("disable");
 }

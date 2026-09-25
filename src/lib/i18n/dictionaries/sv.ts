@@ -42,6 +42,8 @@ export const sv = {
     expiringSoon: "{name} går snart ut",
     expiringSoonEstimated: "{name} går troligen snart ut",
     listCleared: "{name} är helt avbockad",
+    priceSpike: "{name} kostade {percent} % mer än vanligt",
+    priceSpikePlain: "{name} kostade mer än vanligt",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
@@ -97,7 +99,7 @@ export const sv = {
       other: "Delas med {count} andra personer",
     },
     roleExplanation:
-      "Ägare kan ta bort medlemmar, överföra ägarskap och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
+      "Ägare kan ta bort medlemmar, överföra ägarskap, hantera kalenderflödet och radera hushållet. Medlemmar har samma åtkomst till vardagsdata — lager, inköpslistor, matplaner och budget.",
     owner: "Ägare",
     contributor: "Medlem",
     removeAriaLabel: "Ta bort {name}",
@@ -115,6 +117,47 @@ export const sv = {
         'När något börjar ta slut eller är slut hamnar det direkt på "Att handla". Inställningen gäller alla i hushållet.',
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
+    },
+    calendarFeed: {
+      title: "Kalenderflöde",
+      description:
+        "Prenumerera från Google Kalender, Apple Kalender eller Outlook för att se planerade måltider och förfallodagar för månadsräkningar. Det uppdateras av sig självt och är skrivskyddat.",
+      publicWarning:
+        "Alla som har länken kan se era planerade måltider och namnen på räkningarna, utan att logga in. Belopp visas aldrig. Dela den bara med personer du litar på.",
+      offDescription: "Kalenderflödet är avstängt.",
+      contributorOffDescription: "Kalenderflödet är avstängt. Hushållets ägare kan slå på det.",
+      enable: "Slå på kalenderflöde",
+      enabling: "Slår på…",
+      linkAriaLabel: "Länk till kalenderflöde",
+      copy: "Kopiera",
+      copiedToast: "Kalenderlänken kopierad",
+      openInCalendar: "Öppna i kalenderappen",
+      regenerate: "Skapa ny länk",
+      disable: "Stäng av",
+      enabledToast: "Kalenderflödet är påslaget",
+      regeneratedToast: "Ny kalenderlänk skapad. Den gamla fungerar inte längre.",
+      disabledToast: "Kalenderflödet är avstängt",
+      regenerateConfirm: {
+        title: "Skapa en ny kalenderlänk?",
+        description:
+          "Den nuvarande länken slutar fungera direkt. Alla som prenumererar på den, även du, behöver prenumerera igen med den nya länken.",
+        cancel: "Avbryt",
+        confirm: "Skapa ny länk",
+        confirming: "Skapar…",
+      },
+      disableConfirm: {
+        title: "Stänga av kalenderflödet?",
+        description:
+          "Länken slutar fungera direkt och prenumererade kalendrar slutar uppdateras. Slår du på det igen får du en ny länk.",
+        cancel: "Avbryt",
+        confirm: "Stäng av",
+        confirming: "Stänger av…",
+      },
+      feed: {
+        calendarName: "{household} (Squirrel)",
+        mealSummary: "{meal}: {name}",
+        billSummary: "Förfaller: {name}",
+      },
     },
     notes: {
       title: "Anteckningar",
@@ -1405,6 +1448,11 @@ export const sv = {
       unpaidBillsTitle: "Kvar att betala på räkningar",
       leftDue: "{amount} kvar att betala",
       repaymentsTitle: "Senaste återbetalningar",
+      swishButton: "Betala med Swish",
+      swishAriaLabel: "Betala {amount} kr till {name} med Swish ({number})",
+      swishMessage: "Återbetalning (Squirrel)",
+      swishHint:
+        "Swish öppnas i telefonen med beloppet ifyllt. Betalningen där uppdaterar inte listan — tryck på \"Reglera skuld\" när pengarna har gått iväg.",
       deleteRepaymentAriaLabel: "Ta bort återbetalning",
       confirmDeleteRepayment: {
         title: "Ta bort återbetalningen?",
@@ -1815,6 +1863,17 @@ export const sv = {
       saving: "Sparar…",
       save: "Spara ändringar",
     },
+    swishForm: {
+      title: "Swishnummer",
+      description:
+        "Lägg till ditt Swishnummer så får hushållsmedlemmar som är skyldiga dig pengar en \"Betala med Swish\"-knapp med beloppet ifyllt. Numret visas för medlemmarna i dina hushåll. Lämna fältet tomt för att ta bort det.",
+      label: "Mobilnummer",
+      placeholder: "070-123 45 67",
+      invalid: "Ange ett svenskt mobilnummer, till exempel 070-123 45 67.",
+      saved: "Sparat",
+      saving: "Sparar…",
+      save: "Spara",
+    },
     emailForm: {
       title: "E-postadress",
       description:
@@ -1881,6 +1940,15 @@ export const sv = {
         cleared: "Tysta timmar avstängda",
         error: "Det gick inte att spara tysta timmar. Försök igen.",
       },
+    },
+    weeklyDigest: {
+      title: "Veckosammanfattning via e-post",
+      label: "Mejla mig en veckosammanfattning av hushållet",
+      description:
+        "Varje söndag: vad som stod på menyn, vilka sysslor som blev gjorda, mat som snart går ut och hur hushållsbudgeten ser ut. Inget skickas en lugn vecka.",
+      unverified: "Verifiera din e-postadress för att börja få den.",
+      enabledToast: "Du får veckosammanfattningen",
+      disabledToast: "Veckosammanfattningen är avstängd",
     },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
@@ -2095,6 +2163,15 @@ export const sv = {
     privacyLink: "integritetspolicy",
     consentSuffix: ".",
   },
+  digestUnsubscribe: {
+    pageTitle: "Veckosammanfattning",
+    working: "Avslutar din prenumeration på veckosammanfattningen…",
+    submit: "Avsluta prenumeration",
+    done: "Du får inte veckosammanfattningen längre. Du kan slå på den igen från din profil när du vill.",
+    invalid: "Den här avprenumerationslänken är inte giltig. Du kan stänga av sammanfattningen från din profil i stället.",
+    error: "Något gick fel. Försök igen.",
+    profileLink: "Gå till din profil",
+  },
   email: {
     copyLinkPrefix: "Om knappen inte fungerar, använd den här länken:",
     invite: {
@@ -2119,6 +2196,29 @@ export const sv = {
       cta: "Verifiera din e-post",
       expiry:
         "Den här länken slutar gälla om 36 timmar. Om du inte har skapat det här kontot kan du bortse från det här mejlet.",
+    },
+    weeklyDigest: {
+      subject: "Din vecka i {householdName}",
+      heading: "Din vecka i {householdName}",
+      intro: "Här är en snabb överblick över veckan som gått i ditt hushåll.",
+      mealsTitle: "Måltider",
+      mealsBody: {
+        one: "{count} olika recept stod på menyn de senaste 7 dagarna.",
+        other: "{count} olika recept stod på menyn de senaste 7 dagarna.",
+      },
+      tasksTitle: "Klart den här veckan",
+      tasksSomeone: "Någon",
+      expiringTitle: "Använd snart",
+      expiredLabel: "Datumet har passerat",
+      soonLabel: "Går ut de närmaste dagarna",
+      estimatedSuffix: "(uppskattat)",
+      moreItems: { one: "…och {count} till", other: "…och {count} till" },
+      budgetTitle: "Hushållsbudget",
+      budgetBody: "Kvar efter utgifter och sparande den här månaden: {amount}",
+      cta: "Öppna Squirrel",
+      footer: "Du får det här mejlet eftersom du har slagit på veckosammanfattningen i Squirrel.",
+      unsubscribe: "Avsluta prenumeration",
+      manage: "E-postinställningar",
     },
   },
 } satisfies Dictionary;

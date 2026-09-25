@@ -13,6 +13,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { sendVerificationEmail } from "@/lib/email";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
+import { INVALID_SWISH_NUMBER_ERROR, normalizeSwishNumber } from "@/lib/swish";
 
 // Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
 // 72, so anything longer is rejected rather than accepted-but-misleading.
@@ -44,6 +45,40 @@ export async function updateProfileAction(
 
   revalidatePath("/dashboard/profile");
   revalidatePath("/dashboard");
+  return {};
+}
+
+// GAP-7: the caller's own Swish number, shown as a "Pay with Swish" link to
+// household members who owe them money. Only ever the signed-in user's own
+// row (userId from the session, never the form), so nobody can set another
+// member's number. A blank field clears it. No password gate, unlike the
+// email change below: this isn't a login identifier, and the worst a
+// hijacked session could do is point Swish at a wrong number — which the
+// payer still sees in the Swish app before confirming, since the link
+// pre-fills a payment rather than sending one.
+export async function updateSwishNumberAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { userId } = await requireHousehold();
+
+  const raw = formData.get("swishNumber");
+  const input = typeof raw === "string" ? raw.trim() : "";
+  let swishNumber: string | null = null;
+  if (input !== "") {
+    swishNumber = normalizeSwishNumber(input);
+    if (!swishNumber) return { error: INVALID_SWISH_NUMBER_ERROR };
+  }
+
+  try {
+    await prisma.user.update({ where: { id: userId }, data: { swishNumber } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/profile");
+  // The balances card on the Budget page is the one place others see it.
+  revalidatePath("/dashboard/budget");
   return {};
 }
 

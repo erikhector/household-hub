@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { recipe: { findMany: recipeFindManyMock } },
 }));
 
-const { expandRecipeIngredients } = await import("@/app/dashboard/meal-planning/recipe-expansion");
+const { expandRecipeIngredients, portionsMultiplier } = await import("@/app/dashboard/meal-planning/recipe-expansion");
 
 const HOUSEHOLD_ID = "house-1";
 
@@ -172,5 +172,70 @@ describe("expandRecipeIngredients", () => {
     const result = await expandRecipeIngredients(HOUSEHOLD_ID, "lasagna", 1, new Set());
 
     expect(result.map((r) => r.name)).toEqual(["Pasta sheets"]);
+  });
+});
+
+describe("portionsMultiplier", () => {
+  it("is 1 when the entry feeds exactly as many as the recipe makes", () => {
+    expect(portionsMultiplier(4, 4)).toBe(1);
+    expect(portionsMultiplier(1, 1)).toBe(1);
+  });
+
+  it("scales down when cooking for fewer than the recipe is written for", () => {
+    expect(portionsMultiplier(2, 4)).toBe(0.5);
+    expect(portionsMultiplier(1, 4)).toBe(0.25);
+  });
+
+  it("scales up when cooking for more than the recipe is written for", () => {
+    expect(portionsMultiplier(6, 4)).toBe(1.5);
+    expect(portionsMultiplier(8, 2)).toBe(4);
+  });
+
+  it("passes the raw ratio on unrounded — rounding happens downstream", () => {
+    // computeMissingIngredients / computeCookedIngredients round to 2
+    // decimals on the *summed* total. Rounding the ratio here first would
+    // compound (1/3 → 0.33 → 300 g becomes 99 g instead of 100 g).
+    expect(portionsMultiplier(1, 3)).toBeCloseTo(1 / 3, 12);
+    expect(portionsMultiplier(1, 3) * 300).toBeCloseTo(100, 9);
+  });
+
+  it("falls back to no scaling when the recipe has no usable servings count", () => {
+    expect(portionsMultiplier(2, 0)).toBe(1);
+    expect(portionsMultiplier(2, -4)).toBe(1);
+    expect(portionsMultiplier(2, null)).toBe(1);
+    expect(portionsMultiplier(2, undefined)).toBe(1);
+    expect(portionsMultiplier(2, Number.NaN)).toBe(1);
+    expect(portionsMultiplier(2, Number.POSITIVE_INFINITY)).toBe(1);
+  });
+
+  it("falls back to no scaling for a non-positive or non-finite portions count, never 0 or Infinity", () => {
+    expect(portionsMultiplier(0, 4)).toBe(1);
+    expect(portionsMultiplier(-2, 4)).toBe(1);
+    expect(portionsMultiplier(Number.NaN, 4)).toBe(1);
+    expect(portionsMultiplier(Number.POSITIVE_INFINITY, 4)).toBe(1);
+  });
+
+  it("scales a recipe and its sub-recipes together when fed into expandRecipeIngredients", async () => {
+    // Lasagna written for 4, cooked for 2: its own pasta and the bolognese
+    // it pulls in (1 batch per lasagna) both halve.
+    mockRecipes([
+      {
+        id: "lasagna",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Pasta sheets", unit: "pcs", quantity: 12 }],
+        components: [{ componentRecipeId: "bolognese", quantity: 1 }],
+      },
+      {
+        id: "bolognese",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Ground beef", unit: "g", quantity: 500 }],
+        components: [],
+      },
+    ]);
+
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "lasagna", portionsMultiplier(2, 4), new Set());
+
+    expect(result.map((r) => [r.name, r.quantity])).toEqual([
+      ["Pasta sheets", 6],
+      ["Ground beef", 250],
+    ]);
   });
 });

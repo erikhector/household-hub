@@ -102,8 +102,13 @@ vi.mock("@/lib/actions/errors", () => ({ toFriendlyError: toFriendlyErrorMock })
 vi.mock("@/lib/email", () => ({ sendVerificationEmail: sendVerificationEmailMock }));
 vi.mock("next/headers", () => ({ headers: headersMock }));
 
-const { updateProfileAction, updateEmailAction, updatePasswordAction, deleteAccountAction } =
-  await import("@/app/dashboard/profile/actions");
+const {
+  updateProfileAction,
+  updateSwishNumberAction,
+  updateEmailAction,
+  updatePasswordAction,
+  deleteAccountAction,
+} = await import("@/app/dashboard/profile/actions");
 const { Prisma } = await import("@/generated/prisma/client");
 
 function formData(fields: Record<string, string>) {
@@ -137,6 +142,48 @@ describe("updateProfileAction", () => {
       where: { id: "user-1" },
       data: { displayName: "Erik" },
     });
+  });
+});
+
+describe("updateSwishNumberAction (GAP-7)", () => {
+  it("stores a locally written number in Swish's alias format, on the caller's own row", async () => {
+    userUpdateMock.mockResolvedValue({});
+
+    const result = await updateSwishNumberAction({}, formData({ swishNumber: "070-123 45 67" }));
+
+    expect(result).toEqual({});
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { swishNumber: "46701234567" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/budget");
+  });
+
+  it("clears the number when the field is left blank", async () => {
+    userUpdateMock.mockResolvedValue({});
+
+    const result = await updateSwishNumberAction({}, formData({ swishNumber: "  " }));
+
+    expect(result).toEqual({});
+    expect(userUpdateMock).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { swishNumber: null },
+    });
+  });
+
+  it("rejects a number that isn't a Swedish mobile number", async () => {
+    const result = await updateSwishNumberAction({}, formData({ swishNumber: "08-123 456 78" }));
+
+    expect(result.error).toBe("Enter a Swedish mobile number, like 070-123 45 67");
+    expect(userUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores any user id the client tries to send", async () => {
+    userUpdateMock.mockResolvedValue({});
+
+    await updateSwishNumberAction({}, formData({ swishNumber: "0701234567", userId: "someone-else" }));
+
+    expect(userUpdateMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "user-1" } }));
   });
 });
 

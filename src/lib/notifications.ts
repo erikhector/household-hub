@@ -5,7 +5,7 @@
 // condition happens, and stick around until a user dismisses them (see
 // dismissNotificationAction in src/lib/actions/notifications.ts).
 //
-// Four triggers exist:
+// Five triggers exist:
 // - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0 — see `recordOutOfStockTransition`, called from every action
 //   that can *decrease* an existing item's quantity (adjustQuantityAction,
@@ -37,8 +37,15 @@
 //   crossing from >0 to 0 — see `recordListClearedTransition`, called from
 //   togglePurchasedAction and deleteShoppingListItemAction (and their
 //   share-link equivalents).
+// - Price spike (GAP-9): a price just written to PriceHistory that's
+//   materially above that item's trailing median per unit — see
+//   `recordPriceSpikes` below, called after the transaction commits from
+//   every action that writes PriceHistory (togglePurchasedAction,
+//   toggleItemViaShareTokenAction, applyReceiptScanAction,
+//   registerReceiptAction). The decision itself is the pure
+//   `detectPriceSpike` (src/lib/price-spike.ts).
 //
-// There used to be a fifth, good-news "restocked" trigger (the inverse of
+// There used to be another, good-news "restocked" trigger (the inverse of
 // out-of-stock, firing when an item crossed back above its low-stock
 // threshold) — removed by product decision; nobody wanted a notification for
 // that. `RESTOCKED` still exists as a `NotificationKind` enum value (see
@@ -62,6 +69,13 @@ import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { sendPushToHousehold } from "@/lib/push";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
+import { logger } from "@/lib/logger";
+import {
+  PRICE_SPIKE_COOLDOWN_DAYS,
+  PRICE_SPIKE_MAX_AGE_DAYS,
+  detectPriceSpike,
+  type PricePoint,
+} from "@/lib/price-spike";
 
 export type OutOfStockNotification = {
   id: string;
@@ -98,11 +112,22 @@ export type ListClearedNotification = {
   name: string;
 };
 
+export type PriceSpikeNotification = {
+  id: string;
+  kind: "priceSpike";
+  itemId: string;
+  name: string;
+  // Null only if a row somehow lacks it; the bell then drops the number
+  // rather than the alert.
+  increasePercent: number | null;
+};
+
 export type NotificationItem =
   | OutOfStockNotification
   | MealNotLoggedNotification
   | ExpiringSoonNotification
-  | ListClearedNotification;
+  | ListClearedNotification
+  | PriceSpikeNotification;
 
 // A history-list entry: the same shape as the bell's NotificationItem, plus
 // the timestamps the notification center page needs to show "when" and
@@ -148,6 +173,19 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
   }
 
   if (row.kind === "RESTOCKED") return [];
+
+  if (row.kind === "PRICE_SPIKE") {
+    if (!row.inventoryItem) return [];
+    return [
+      {
+        id: row.id,
+        kind: "priceSpike",
+        itemId: row.inventoryItemId!,
+        name: row.inventoryItem.name,
+        increasePercent: row.priceIncreasePercent,
+      },
+    ];
+  }
 
   if (row.kind === "LIST_CLEARED") {
     if (!row.shoppingList) return [];
@@ -279,6 +317,140 @@ export async function recordListClearedTransition(
       },
       actingUserId,
     );
+  }
+}
+
+// One PriceHistory row an action just wrote — its id so the row itself is
+// left out of the history it's compared against, plus the line's
+// quantity/unit for the per-unit comparison (see detectPriceSpike).
+export type RecordedPrice = {
+  priceHistoryId: string;
+  inventoryItemId: string;
+  price: number;
+  quantity: number;
+  unit: string;
+};
+
+/**
+ * GAP-9: files a PRICE_SPIKE alert for every item in `recorded` whose new
+ * price is materially above its usual one (the rules are detectPriceSpike's,
+ * src/lib/price-spike.ts). Called by every action that writes PriceHistory,
+ * with everything it wrote in one go, *after* its transaction has committed
+ * rather than inside it:
+ * - the comparison needs to see the item's committed history, and a failed
+ *   write must never leave an alert behind for a price that was rolled back;
+ * - receipt scans write their rows in parallel inside one transaction, where
+ *   a per-row findFirst-then-create dedupe could interleave and let two
+ *   lines for the same item both pass the check. Taking the whole batch at
+ *   once and grouping by item means one receipt yields at most one decision
+ *   (and one alert) per item, however many lines name it.
+ *
+ * Deduped per item two ways: an undismissed PRICE_SPIKE for it (same as
+ * recordOutOfStockTransition), or *any* PRICE_SPIKE for it created within
+ * PRICE_SPIKE_COOLDOWN_DAYS, dismissed or not — un-checking and re-checking
+ * the same purchase writes a second PriceHistory row at the same price, and
+ * without the cooldown dismissing the first alert would just invite an
+ * identical second one. Quiet hours need nothing here: sendPushToHousehold
+ * applies them to every push.
+ *
+ * Never throws — the prices are already saved, so a failure here is logged
+ * and swallowed rather than turned into an error for a purchase that
+ * actually succeeded. The push is awaited, like the cron syncs' (there's no
+ * transaction left to hold open, and awaiting means a serverless platform
+ * can't freeze the invocation before the send goes out).
+ *
+ * Callers must resolve `householdId` from their own requireHousehold() (or,
+ * for the share link, from the list the token resolved) — the item lookup
+ * below is scoped to it, so a foreign item id is silently skipped.
+ */
+export async function recordPriceSpikes(
+  householdId: string,
+  recorded: RecordedPrice[],
+  actingUserId?: string,
+): Promise<void> {
+  if (recorded.length === 0) return;
+
+  try {
+    const now = new Date();
+    const itemIds = [...new Set(recorded.map((row) => row.inventoryItemId))];
+
+    const [items, priorRows, recentAlerts] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { id: { in: itemIds }, householdId },
+        select: { id: true, name: true },
+      }),
+      // Only rows detectPriceSpike can actually use: within its age cap and
+      // carrying quantity/unit (pre-GAP-9 rows don't). Household-scoped
+      // through the item, like the cost analyzer's read (PriceHistory has no
+      // householdId of its own).
+      prisma.priceHistory.findMany({
+        where: {
+          inventoryItemId: { in: itemIds },
+          inventoryItem: { householdId },
+          id: { notIn: recorded.map((row) => row.priceHistoryId) },
+          date: { gte: new Date(now.getTime() - PRICE_SPIKE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000) },
+          quantity: { not: null },
+          unit: { not: null },
+        },
+        select: { inventoryItemId: true, price: true, quantity: true, unit: true, date: true },
+      }),
+      prisma.notification.findMany({
+        where: {
+          householdId,
+          kind: "PRICE_SPIKE",
+          inventoryItemId: { in: itemIds },
+          OR: [
+            { dismissedAt: null },
+            { createdAt: { gte: new Date(now.getTime() - PRICE_SPIKE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000) } },
+          ],
+        },
+        select: { inventoryItemId: true },
+      }),
+    ]);
+
+    const suppressed = new Set(recentAlerts.map((row) => row.inventoryItemId));
+    const priorByItem = new Map<string, PricePoint[]>();
+    for (const row of priorRows) {
+      const list = priorByItem.get(row.inventoryItemId) ?? [];
+      list.push(row);
+      priorByItem.set(row.inventoryItemId, list);
+    }
+
+    await Promise.all(
+      items
+        .filter((item) => !suppressed.has(item.id))
+        .map(async (item) => {
+          const spike = detectPriceSpike(
+            priorByItem.get(item.id) ?? [],
+            recorded
+              .filter((row) => row.inventoryItemId === item.id)
+              .map((row) => ({ price: row.price, quantity: row.quantity, unit: row.unit, date: now })),
+            now,
+          );
+          if (!spike) return;
+
+          await prisma.notification.create({
+            data: {
+              householdId,
+              kind: "PRICE_SPIKE",
+              inventoryItemId: item.id,
+              priceIncreasePercent: spike.increasePercent,
+            },
+          });
+
+          await sendPushToHousehold(
+            householdId,
+            {
+              title: "Price jump",
+              body: `${item.name} cost ${spike.increasePercent}% more than usual`,
+              url: "/dashboard/budget?tab=insights",
+            },
+            actingUserId,
+          );
+        }),
+    );
+  } catch (error) {
+    logger.error("Failed to record price-spike notifications", { householdId, error });
   }
 }
 
