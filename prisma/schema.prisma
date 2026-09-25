@@ -90,6 +90,7 @@ model Household {
   budgetCategories   BudgetCategory[]
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
 }
@@ -103,13 +104,14 @@ model HouseholdMember {
 
   household               Household                @relation(fields: [householdId], references: [id], onDelete: Cascade)
   user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paidTransactions        Transaction[]            @relation("TransactionPaidBy")
   transactionSplits       TransactionSplit[]
   // Recurring-bill splitting (see RecurringTemplateSplit's doc comment
   // below) — mirrors transactionSplits above.
   recurringTemplateSplits RecurringTemplateSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
+  settlementsPaid         MemberSettlement[]       @relation("SettlementFrom")
+  settlementsReceived     MemberSettlement[]       @relation("SettlementTo")
 
   @@unique([householdId, userId])
 }
@@ -561,10 +563,6 @@ model Transaction {
   recurrenceFrequency RecurrenceFrequency?
   createdByUserId     String?
   createdAt           DateTime             @default(now())
-  // Expense splitting (opt-in — see REQUIREMENTS.md's "Household expense
-  // splitting" subsection). Null on every transaction that isn't split,
-  // which behaves exactly as it did before this feature.
-  paidByMemberId      String?
   // Recurring-bill tracking (see "Recurring budget templates" section
   // below). Set when this transaction was logged from a RecurringTemplate,
   // so the template's checklist can tell that period is fulfilled. Null on
@@ -573,13 +571,14 @@ model Transaction {
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category          BudgetCategory     @relation(fields: [categoryId], references: [id])
-  // SetNull (not Cascade): if the paying member later leaves the household,
-  // the transaction itself must survive — it just loses the "paid by" note,
-  // the same tradeoff RecipeIngredient.inventoryItemId makes.
-  paidByMember      HouseholdMember?   @relation("TransactionPaidBy", fields: [paidByMemberId], references: [id], onDelete: SetNull)
+  // Expense splitting (opt-in — see REQUIREMENTS.md's "Household expense
+  // splitting" subsection). Empty on every transaction that isn't split,
+  // which behaves exactly as it did before this feature. Who paid lives on
+  // the split rows (TransactionSplit.amountPaid), not here, so a bill can be
+  // paid partly by several members.
   splits            TransactionSplit[]
   // SetNull: deleting a template must never delete the transactions it
-  // already produced, same tradeoff as paidByMember above.
+  // already produced — the transaction itself must survive.
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
@@ -597,11 +596,23 @@ model Transaction {
 // duplicating the tenant id. `amountOwed` is an absolute currency amount
 // (not a percentage), and the sum of a transaction's splits is validated
 // server-side to equal that transaction's `amount`.
+//
+// `amountPaid` is how much of the bill this member has actually paid
+// (towards the bill itself, not to another member — that's
+// MemberSettlement). It's independent of `amountOwed`: a member can pay more
+// than their share (the others then owe them), less, or nothing. The sum of
+// a transaction's `amountPaid` is validated to be at most its `amount`;
+// whatever is left is "still due" on the bill (see settle-up-calc.ts).
+// A member who paid but owes nothing still gets a row, with `amountOwed: 0`.
+// Replaced the old single `Transaction.paidByMemberId`; migration
+// 20260925050231_partial_payments_and_settlements backfilled it as "the
+// payer paid the whole amount".
 model TransactionSplit {
   id                String   @id @default(cuid())
   transactionId     String
   householdMemberId String
   amountOwed        Float
+  amountPaid        Float    @default(0)
   createdAt         DateTime @default(now())
 
   transaction     Transaction     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -612,6 +623,36 @@ model TransactionSplit {
   @@unique([transactionId, householdMemberId])
   @@index([transactionId])
   @@index([householdMemberId])
+}
+
+// A repayment between two household members that clears (some of) the debt
+// the split transactions above built up — "Clear debt" in HouseholdBalances.
+// `fromMember` handed `amount` to `toMember`. Balances carry over between
+// months until one of these clears them (see settle-up-calc.ts); nothing
+// else ever zeroes a debt. Money only moves between members here, so it's
+// never income or an expense for the household's own budget. For the
+// payer's personal budget it counts as spending in the month it was made
+// (see src/lib/personal-budget-position.ts).
+model MemberSettlement {
+  id              String   @id @default(cuid())
+  householdId     String
+  fromMemberId    String
+  toMemberId      String
+  amount          Float
+  date            DateTime @default(now())
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  household  Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  // Cascade, same tradeoff TransactionSplit.householdMember makes: an
+  // ex-member's repayments go with their split rows, so their balance
+  // disappears as a whole instead of leaving half of it behind.
+  fromMember HouseholdMember @relation("SettlementFrom", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   HouseholdMember @relation("SettlementTo", fields: [toMemberId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, date])
+  @@index([fromMemberId])
+  @@index([toMemberId])
 }
 
 // A recurring bill the household expects every period (week/month/year) —
@@ -658,7 +699,7 @@ model RecurringTemplate {
 // a "due" period (no Transaction logged yet) still carry a per-member share,
 // which is what makes it possible to surface e.g. "Rent" as due in a
 // member's Personal Budget before anyone has logged it there (see
-// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md). No `paidByMemberId` counterpart here —
+// docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md). No `amountPaid` counterpart here —
 // unlike a Transaction, a template is never itself "paid", so only the
 // split shares matter. `amountOwed` is an absolute currency amount, and the
 // sum of a template's splits is validated server-side to equal the
@@ -800,7 +841,7 @@ model PersonalRecurringTemplateAck {
 // `completedByMemberId` are two distinct, independently nullable fields — a
 // task can be completed by someone other than whoever it was assigned to,
 // and an unassigned task can still be completed. Both use onDelete: SetNull
-// (never Cascade), the same tradeoff Transaction.paidByMemberId makes:
+// (never Cascade), the same tradeoff Transaction.recurringTemplateId makes:
 // removing a household member unassigns/un-attributes their tasks rather
 // than deleting task history.
 // `recurrenceIntervalDays` (nullable) is the whole recurrence model: no

@@ -1,14 +1,25 @@
 // Pure presentational hero stat — same pattern as PeriodSummary/CostAnalyzer:
-// all aggregation happens in src/app/dashboard/budget/page.tsx (via
-// computeSafeToSpend in src/lib/safe-to-spend-calc.ts), this component just renders
-// the result. See REQUIREMENTS.md's "Safe to spend" subsection.
+// all aggregation happens in the page (via computeSafeToSpend in
+// src/lib/safe-to-spend-calc.ts, or src/lib/personal-budget-position.ts for
+// Personal Budget and the dashboard), this component just renders the
+// result. See REQUIREMENTS.md's "Safe to spend" subsection.
+//
+// The number is broken down line by line underneath — income, what's been
+// spent and saved, what's still owed from earlier months, what's still due
+// — so it's never a black box: every term that went into it is on screen.
 
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { PiggyBank, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
-import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
+import type {
+  ExpectedRecurringExpense,
+  HouseholdDebt,
+  SafeToSpendBreakdown,
+  SafeToSpendStatus,
+} from "@/lib/safe-to-spend-calc";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
 // tight-but-not-empty balance gets its own amber tone instead of being
@@ -24,13 +35,23 @@ const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
 export function SafeToSpend({
   amount,
   status,
+  breakdown,
   expectedRecurring,
+  householdDebts = [],
+  showHouseholdName = false,
   dict,
   locale,
 }: {
   amount: number;
   status: SafeToSpendStatus;
+  breakdown: SafeToSpendBreakdown;
   expectedRecurring: ExpectedRecurringExpense[];
+  /** Personal budget only: where the user stands with each household's
+   * other members. Omitted on the household budget page. */
+  householdDebts?: HouseholdDebt[];
+  /** Name the household on each debt line — only once the user is in more
+   * than one (docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6). */
+  showHouseholdName?: boolean;
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
 }) {
@@ -43,6 +64,18 @@ export function SafeToSpend({
     tight: dict.summaryTight,
     over: dict.summaryOver,
   }[status];
+
+  // Zero lines that are always zero for most people (nothing owed from
+  // earlier, nothing due) are hidden rather than shown as "–0.00"; income,
+  // expenses and savings always show so the arithmetic stays readable.
+  const lines: { label: string; value: number; sign: "+" | "–"; alwaysShow?: boolean }[] = [
+    { label: dict.lineIncome, value: breakdown.income, sign: "+", alwaysShow: true },
+    { label: dict.lineExpenses, value: breakdown.expense, sign: "–", alwaysShow: true },
+    { label: dict.lineSavings, value: breakdown.savings, sign: "–", alwaysShow: true },
+    { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
+    { label: dict.lineDuePayments, value: breakdown.duePayments, sign: "–" },
+    { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "–" },
+  ];
 
   return (
     <Card className="border-2 border-primary/40 bg-primary/5">
@@ -57,6 +90,23 @@ export function SafeToSpend({
           {amount >= 0 ? "+" : ""}
           {numberFormat.format(amount)}
         </p>
+        <dl className="flex flex-col gap-1 text-sm">
+          {lines
+            .filter((line) => line.alwaysShow || line.value > 0.005)
+            .map((line) => (
+              <div key={line.label} className="flex items-center justify-between gap-2">
+                <dt className="min-w-0 truncate text-muted-foreground">{line.label}</dt>
+                <dd className="shrink-0 tabular-nums">
+                  {line.sign}
+                  {numberFormat.format(line.value)}
+                </dd>
+              </div>
+            ))}
+          <div className="flex items-center justify-between gap-2 border-t border-border pt-1 font-medium">
+            <dt className="min-w-0 truncate">{dict.lineRemaining}</dt>
+            <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
+          </div>
+        </dl>
         <p className="text-xs text-muted-foreground">{dict.caveat}</p>
         {expectedRecurring.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
@@ -66,6 +116,12 @@ export function SafeToSpend({
                 <li key={item.categoryId} className="flex items-center justify-between gap-2 text-sm">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="min-w-0 truncate">{item.categoryName}</span>
+                    {item.type === "SAVINGS" && (
+                      <Badge variant="outline" className="shrink-0 gap-1 border-chart-2/30 text-chart-2">
+                        <PiggyBank className="size-3" />
+                        {dict.savingBadge}
+                      </Badge>
+                    )}
                     {item.source === "shared" && (
                       <Badge
                         variant="secondary"
@@ -77,11 +133,65 @@ export function SafeToSpend({
                       </Badge>
                     )}
                   </span>
-                  <span className="shrink-0 tabular-nums text-destructive">
+                  <span
+                    className={
+                      "shrink-0 tabular-nums " + (item.type === "SAVINGS" ? "text-chart-2" : "text-destructive")
+                    }
+                  >
                     –{numberFormat.format(item.amount)}
                   </span>
                 </li>
               ))}
+            </ul>
+          </div>
+        )}
+        {householdDebts.length > 0 && (
+          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+            <p className="text-xs font-medium text-muted-foreground">{dict.debtsTitle}</p>
+            <ul className="flex flex-col gap-1.5">
+              {householdDebts.map((debt) => {
+                const household = showHouseholdName ? debt.householdName : "";
+                return (
+                  <li key={debt.householdId} className="flex flex-col gap-0.5 text-sm">
+                    {debt.owedToMembers > 0.005 && (
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">
+                          {household ? format(dict.youOweIn, { household }) : dict.youOwe}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-destructive">
+                          {numberFormat.format(debt.owedToMembers)}
+                        </span>
+                      </span>
+                    )}
+                    {debt.owedToMembers < -0.005 && (
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">
+                          {household ? format(dict.owedToYouIn, { household }) : dict.owedToYou}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-chart-5">
+                          {numberFormat.format(-debt.owedToMembers)}
+                        </span>
+                      </span>
+                    )}
+                    {debt.owedToBills > 0.005 && (
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">
+                          {household ? format(dict.unpaidBillsIn, { household }) : dict.unpaidBills}
+                        </span>
+                        <span className="shrink-0 tabular-nums text-warning">
+                          {numberFormat.format(debt.owedToBills)}
+                        </span>
+                      </span>
+                    )}
+                    <Link
+                      href={`/dashboard/budget?household=${debt.householdId}&tab=insights`}
+                      className="self-start text-xs font-medium text-primary hover:underline"
+                    >
+                      {dict.settleUpLink}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

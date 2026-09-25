@@ -312,45 +312,52 @@ async function assertNoDuplicateTemplatePeriod(
 // real mismatch.
 const SPLIT_SUM_TOLERANCE = 0.01;
 
+type ParsedSplit = { householdMemberId: string; amountOwed: number; amountPaid: number };
+
 /**
  * Parses the optional "split this expense" section of the transaction form
  * — same repeated-input convention as the meal-planning ingredient rows
- * (`formData.getAll`, aligned by index). Returns `null` when splitting
- * wasn't requested (the "splitEnabled" checkbox was off), so a plain
- * transaction is completely unaffected.
+ * (`formData.getAll`, aligned by index): `splitMemberId`, `splitAmount` (the
+ * member's share) and `splitPaid` (what they've paid towards the bill so far
+ * — see TransactionSplit.amountPaid). Returns `null` when splitting wasn't
+ * requested (the "splitEnabled" checkbox was off), so a plain transaction is
+ * completely unaffected.
  *
  * Validates every referenced member actually belongs to the caller's
- * household (never trusts a client-supplied id beyond that check) and that
- * the split amounts sum to the transaction's total amount.
+ * household (never trusts a client-supplied id beyond that check), that the
+ * shares sum to the transaction's total amount, and that the payments don't
+ * add up to more than it. Payments may add up to *less*: the rest is still
+ * due on the bill (see src/lib/settle-up-calc.ts).
  */
 async function parseSplitFormData(
   formData: FormData,
   householdId: string,
   amount: number,
-): Promise<
-  | { error: string }
-  | { paidByMemberId: string; splits: { householdMemberId: string; amountOwed: number }[] } | null
-> {
+): Promise<{ error: string } | { splits: ParsedSplit[] } | null> {
   if (formData.get("splitEnabled") !== "on") return null;
-
-  const paidByMemberId = String(formData.get("paidByMemberId") || "");
-  if (!paidByMemberId) return { error: "Choose who paid" };
 
   const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
   const amounts = formData.getAll("splitAmount").map((v) => Number(v));
-  if (memberIds.length === 0 || memberIds.length !== amounts.length) {
+  // An empty "paid" input means nothing paid yet, not an invalid number.
+  const paid = formData.getAll("splitPaid").map((v) => (String(v).trim() === "" ? 0 : Number(v)));
+  if (memberIds.length === 0 || memberIds.length !== amounts.length || memberIds.length !== paid.length) {
+    return { error: "Invalid split" };
+  }
+  if (new Set(memberIds).size !== memberIds.length) {
     return { error: "Invalid split" };
   }
   if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
     return { error: "Each split amount must be zero or more" };
   }
+  if (paid.some((a) => Number.isNaN(a) || a < 0)) {
+    return { error: "Each paid amount must be zero or more" };
+  }
 
-  const allMemberIds = [...new Set([paidByMemberId, ...memberIds])];
   const validMembers = await prisma.householdMember.findMany({
-    where: { id: { in: allMemberIds }, householdId },
+    where: { id: { in: memberIds }, householdId },
     select: { id: true },
   });
-  if (validMembers.length !== allMemberIds.length) {
+  if (validMembers.length !== memberIds.length) {
     return { error: "One of the selected members no longer belongs to this household" };
   }
 
@@ -358,11 +365,27 @@ async function parseSplitFormData(
   if (Math.abs(splitTotal - amount) > SPLIT_SUM_TOLERANCE) {
     return { error: "The split amounts must add up to the transaction total" };
   }
+  const paidTotal = paid.reduce((sum, a) => sum + a, 0);
+  if (paidTotal - amount > SPLIT_SUM_TOLERANCE) {
+    return { error: "The paid amounts can't add up to more than the transaction total" };
+  }
 
   return {
-    paidByMemberId,
-    splits: memberIds.map((householdMemberId, i) => ({ householdMemberId, amountOwed: amounts[i] })),
+    splits: memberIds
+      .map((householdMemberId, i) => ({ householdMemberId, amountOwed: amounts[i], amountPaid: paid[i] }))
+      // A member with no share who paid nothing isn't part of this bill at
+      // all — dropping the row keeps "who's in this split" meaningful.
+      .filter((s) => s.amountOwed > 0 || s.amountPaid > 0),
   };
+}
+
+/** Every page that reads split transactions or repayments: the household
+ * budget, Personal Budget (your share, "owed from earlier months") and the
+ * dashboard's "Your budget" card (the same number). */
+function revalidateBudgetPages() {
+  revalidatePath("/dashboard/budget");
+  revalidatePath("/dashboard/personal-budget");
+  revalidatePath("/dashboard");
 }
 
 export async function createTransactionAction(
@@ -415,23 +438,15 @@ export async function createTransactionAction(
         isRecurring: parsed.data.isRecurring,
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         createdByUserId: userId,
-        paidByMemberId: split?.paidByMemberId ?? null,
         recurringTemplateId: recurringTemplate.id ?? null,
-        splits: split
-          ? {
-              create: split.splits.map((s) => ({
-                householdMemberId: s.householdMemberId,
-                amountOwed: s.amountOwed,
-              })),
-            }
-          : undefined,
+        splits: split ? { create: split.splits } : undefined,
       },
     });
   } catch (error) {
     return toFriendlyError(error);
   }
 
-  revalidatePath("/dashboard/budget");
+  revalidateBudgetPages();
   return {};
 }
 
@@ -511,22 +526,15 @@ export async function createSharedExpenseFromPersonalBudgetAction(
         isRecurring: parsed.data.isRecurring,
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         createdByUserId: userId,
-        paidByMemberId: split.paidByMemberId,
         recurringTemplateId: recurringTemplate.id ?? null,
-        splits: {
-          create: split.splits.map((s) => ({
-            householdMemberId: s.householdMemberId,
-            amountOwed: s.amountOwed,
-          })),
-        },
+        splits: { create: split.splits },
       },
     });
   } catch (error) {
     return toFriendlyError(error);
   }
 
-  revalidatePath("/dashboard/budget");
-  revalidatePath("/dashboard/personal-budget");
+  revalidateBudgetPages();
   return {};
 }
 
@@ -586,15 +594,7 @@ export async function updateTransactionAction(
           date: new Date(parsed.data.date),
           isRecurring: parsed.data.isRecurring,
           recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
-          paidByMemberId: split?.paidByMemberId ?? null,
-          splits: split
-            ? {
-                create: split.splits.map((s) => ({
-                  householdMemberId: s.householdMemberId,
-                  amountOwed: s.amountOwed,
-                })),
-              }
-            : undefined,
+          splits: split ? { create: split.splits } : undefined,
         },
       }),
     ]);
@@ -602,7 +602,7 @@ export async function updateTransactionAction(
     return toFriendlyError(error);
   }
 
-  revalidatePath("/dashboard/budget");
+  revalidateBudgetPages();
   return {};
 }
 
@@ -617,7 +617,7 @@ export async function deleteTransactionAction(transactionId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
-  revalidatePath("/dashboard/budget");
+  revalidateBudgetPages();
   return {};
 }
 
@@ -864,6 +864,25 @@ export async function acknowledgeTemplatePeriodAction(templateId: string): Promi
   return {};
 }
 
+/** A template's shares, with `payerId` having paid the whole `amount` — a
+ * payer outside the split gets a 0-share row to carry the payment (see
+ * TransactionSplit's doc comment). With no payer, nothing is marked paid. */
+function splitsPaidBy(
+  shares: { householdMemberId: string; amountOwed: number }[],
+  payerId: string | undefined,
+  amount: number,
+): ParsedSplit[] {
+  const splits = shares.map((s) => ({
+    householdMemberId: s.householdMemberId,
+    amountOwed: s.amountOwed,
+    amountPaid: s.householdMemberId === payerId ? amount : 0,
+  }));
+  if (payerId && !splits.some((s) => s.householdMemberId === payerId)) {
+    splits.push({ householdMemberId: payerId, amountOwed: 0, amountPaid: amount });
+  }
+  return splits;
+}
+
 /**
  * One-click "log it as-is" — creates a Transaction straight from the
  * template's own amount/category/frequency (today's date, no dialog, no
@@ -892,12 +911,11 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
   const dup = await assertNoDuplicateTemplatePeriod(template.id, template.frequency, new Date());
   if (dup) return dup;
 
-  // A template has no "paid by" concept of its own (see
-  // RecurringTemplateSplit's doc comment) — default the new transaction's
-  // payer to whoever is clicking "Log as-is", same default TransactionDialog
-  // uses for a manually-logged split. Only looked up when the template
-  // actually has a split to carry forward; an unsplit template's payer stays
-  // null, unaffected, same as before this change.
+  // A template has no "paid" concept of its own (see
+  // RecurringTemplateSplit's doc comment) — record the whole bill as paid by
+  // whoever is clicking "Log as-is", same default TransactionDialog uses for
+  // a manually-logged split. Only looked up when the template actually has a
+  // split to carry forward; an unsplit template stays unsplit, unaffected.
   const currentMember =
     template.splits.length > 0
       ? await prisma.householdMember.findFirst({
@@ -919,15 +937,9 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
         recurrenceFrequency: template.frequency,
         createdByUserId: userId,
         recurringTemplateId: template.id,
-        paidByMemberId: currentMember?.id ?? null,
         splits:
           template.splits.length > 0
-            ? {
-                create: template.splits.map((s) => ({
-                  householdMemberId: s.householdMemberId,
-                  amountOwed: s.amountOwed,
-                })),
-              }
+            ? { create: splitsPaidBy(template.splits, currentMember?.id, template.amount) }
             : undefined,
       },
     });
@@ -935,7 +947,7 @@ export async function logRecurringTemplateAction(templateId: string): Promise<Ac
     return toFriendlyError(error);
   }
 
-  revalidatePath("/dashboard/budget");
+  revalidateBudgetPages();
   return {};
 }
 
@@ -958,5 +970,91 @@ export async function unacknowledgeTemplatePeriodAction(templateId: string): Pro
   }
 
   revalidatePath("/dashboard/budget");
+  return {};
+}
+
+// --- Settling up between members ---------------------------------------------
+// See MemberSettlement's doc comment in schema.prisma and HouseholdBalances
+// ("Clear debt"). Balances carry over between months until one of these
+// clears them.
+
+const settlementSchema = z.object({
+  fromMemberId: z.string().min(1, "Choose who paid"),
+  toMemberId: z.string().min(1, "Choose who was paid"),
+  amount: z.coerce.number().positive("Amount must be greater than 0"),
+  date: z.string().min(1, "Date is required"),
+});
+
+/**
+ * Records that one member paid another back ("Clear debt"). A form action:
+ * the dialog pre-fills the suggested transfer from simplifyDebts, and the
+ * amount can be lowered for a partial repayment. Both members are
+ * re-checked against the caller's own household — never trusted from the
+ * client — and the amount isn't capped at the current debt, since a
+ * rounded-up repayment is a real thing that happens; any excess simply
+ * shows up as a balance in the other direction.
+ */
+export async function recordSettlementAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = settlementSchema.safeParse({
+    fromMemberId: formData.get("fromMemberId"),
+    toMemberId: formData.get("toMemberId"),
+    amount: formData.get("amount"),
+    date: formData.get("date"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  if (parsed.data.fromMemberId === parsed.data.toMemberId) {
+    return { error: "Choose two different members" };
+  }
+
+  const members = await prisma.householdMember.findMany({
+    where: {
+      id: { in: [parsed.data.fromMemberId, parsed.data.toMemberId] },
+      householdId: household.id,
+    },
+    select: { id: true },
+  });
+  if (members.length !== 2) {
+    return { error: "One of the selected members no longer belongs to this household" };
+  }
+
+  try {
+    await prisma.memberSettlement.create({
+      data: {
+        householdId: household.id,
+        fromMemberId: parsed.data.fromMemberId,
+        toMemberId: parsed.data.toMemberId,
+        amount: parsed.data.amount,
+        date: new Date(parsed.data.date),
+        createdByUserId: userId,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidateBudgetPages();
+  return {};
+}
+
+/** Undoes a recorded repayment (e.g. entered by mistake). */
+export async function deleteSettlementAction(settlementId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  try {
+    await prisma.memberSettlement.deleteMany({
+      where: { id: settlementId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidateBudgetPages();
   return {};
 }

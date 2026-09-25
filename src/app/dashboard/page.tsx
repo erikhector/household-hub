@@ -9,7 +9,7 @@ import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/actions/household";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
-import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
+import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
 
@@ -39,8 +39,8 @@ export default async function DashboardOverviewPage() {
     memberCount,
     shoppingListCount,
     budgetCategoryCount,
-    personalCategories,
-    personalTransactions,
+    personalBudgetCategoryCount,
+    personalPosition,
     householdStepSkipped,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
@@ -55,8 +55,17 @@ export default async function DashboardOverviewPage() {
     }),
     prisma.shoppingList.count({ where: { householdId: household.id } }),
     prisma.budgetCategory.count({ where: { householdId: household.id } }),
-    prisma.personalBudgetCategory.findMany({ where: { userId } }),
-    prisma.personalTransaction.findMany({ where: { userId }, include: { category: true } }),
+    prisma.personalBudgetCategory.count({ where: { userId } }),
+    // The exact same number Personal Budget shows for this month — shared
+    // bills, what's owed to household members, due payments and savings
+    // included. See src/lib/personal-budget-position.ts; this card used to
+    // run its own simplified copy of the math that left all of that out.
+    loadPersonalBudgetPosition({
+      userId,
+      monthStart,
+      monthEnd,
+      sharedLabel: dict.personalBudget.shared.sharedBadge,
+    }),
     isHouseholdStepSkipped(household.id),
   ]);
 
@@ -67,35 +76,6 @@ export default async function DashboardOverviewPage() {
       })
     : [];
   const myOpenTasks = myTasks.filter((t) => isTaskOpen(t, now));
-
-  const personalBudgetCategoryCount = personalCategories.length;
-  const personalMonthTransactions = personalTransactions.filter(
-    (t) => t.date >= monthStart && t.date < monthEnd,
-  );
-  const personalIncome = personalMonthTransactions
-    .filter((t) => t.type === "INCOME")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const personalExpense = personalMonthTransactions
-    .filter((t) => t.type === "EXPENSE")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const personalSavings = personalMonthTransactions
-    .filter((t) => t.type === "SAVINGS")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
-    transactions: personalTransactions.map((t) => ({
-      categoryId: t.categoryId,
-      categoryName: t.category.name,
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      isRecurring: t.isRecurring,
-    })),
-    monthStart,
-    monthEnd,
-    incomeSoFar: personalIncome,
-    expenseSoFar: personalExpense,
-    savingsSoFar: personalSavings,
-  });
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);
 
@@ -177,9 +157,12 @@ export default async function DashboardOverviewPage() {
 
         {personalBudgetCategoryCount > 0 ? (
           <SafeToSpend
-            amount={safeToSpend}
-            status={safeToSpendStatus}
-            expectedRecurring={expectedRecurring}
+            amount={personalPosition.safeToSpend}
+            status={personalPosition.safeToSpendStatus}
+            breakdown={personalPosition.safeToSpendBreakdown}
+            expectedRecurring={personalPosition.expectedRecurring}
+            householdDebts={personalPosition.householdDebts}
+            showHouseholdName={personalPosition.showHouseholdName}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,

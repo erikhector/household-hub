@@ -225,10 +225,11 @@ const deleteAccountSchema = z.object({
 //    to leaveHouseholdAction (src/lib/actions/household.ts), since the
 //    household and its shared data (Transaction, InventoryItem, ...) must
 //    survive for the remaining members. Every FK from shared data back to
-//    HouseholdMember is `onDelete: SetNull` (e.g. Transaction.paidByMemberId)
-//    except TransactionSplit.householdMemberId, which cascades — but that
-//    only removes *this member's own* cost-share row from a split, never the
-//    Transaction itself or another member's split row, so no other member's
+//    HouseholdMember is `onDelete: SetNull` (e.g. HouseholdTask.assignedToMemberId)
+//    except TransactionSplit.householdMemberId and MemberSettlement's two
+//    member relations, which cascade — but that only removes *this member's
+//    own* cost-share/payment rows and repayments, never the Transaction
+//    itself or another member's split row, so no other member's
 //    data is lost. Confirmed by reading every `onDelete:` in
 //    prisma/schema.prisma touching HouseholdMember/User.
 //  - OWNER of a household where they're the only member: delete the whole

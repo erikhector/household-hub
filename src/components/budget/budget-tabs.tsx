@@ -72,11 +72,17 @@ import {
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import type { CategoryRow } from "@/components/budget/category-manager";
-import type { ExpectedRecurringExpense, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
+import type {
+  ExpectedRecurringExpense,
+  HouseholdDebt,
+  SafeToSpendBreakdown,
+  SafeToSpendStatus,
+} from "@/lib/safe-to-spend-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
-type Tab = "overview" | "manage" | "transactions" | "insights";
+export type BudgetTab = "overview" | "manage" | "transactions" | "insights";
+type Tab = BudgetTab;
 
 // BudgetDict plus the handful of top-level tab/action labels this file reads
 // directly (not nested under any of BudgetDict's sub-sections) — both
@@ -109,7 +115,10 @@ export function BudgetTabs({
   categories,
   safeToSpendAmount,
   safeToSpendStatus,
+  safeToSpendBreakdown,
   safeToSpendExpectedRecurring,
+  householdDebts = [],
+  initialTab = "overview",
   dueTemplates,
   hasRecurringTemplates,
   members = [],
@@ -148,7 +157,14 @@ export function BudgetTabs({
   categories: CategoryRow[];
   safeToSpendAmount: number;
   safeToSpendStatus: SafeToSpendStatus;
+  safeToSpendBreakdown: SafeToSpendBreakdown;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
+  /** Personal budget only — see SafeToSpend's identical prop. */
+  householdDebts?: HouseholdDebt[];
+  /** Which tab to open on — from the page's `?tab=` param, so a link (e.g.
+   * Personal Budget's "Settle up") can land straight on Insights, where
+   * the household Balances card lives. */
+  initialTab?: Tab;
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
@@ -194,7 +210,7 @@ export function BudgetTabs({
   transactions: ReactNode;
   insights: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const hasCategories = categories.length > 0;
 
   const tabItems: TabItem<Tab>[] = [
@@ -263,7 +279,10 @@ export function BudgetTabs({
               <SafeToSpend
                 amount={safeToSpendAmount}
                 status={safeToSpendStatus}
+                breakdown={safeToSpendBreakdown}
                 expectedRecurring={safeToSpendExpectedRecurring}
+                householdDebts={householdDebts}
+                showHouseholdName={showHouseholdName}
                 dict={dict.safeToSpend}
                 locale={locale}
               />
