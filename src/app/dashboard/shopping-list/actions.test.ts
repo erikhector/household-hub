@@ -846,6 +846,73 @@ describe("updateShoppingListItemAction", () => {
       data: { name: "Oat milk", quantity: 2, unit: "pcs" },
     });
   });
+
+  it("scopes the item lookup to the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    await updateShoppingListItemAction("item-1", { name: "Milk", quantity: 1, unit: "l", note: "Ripe ones" });
+
+    expect(shoppingListItemFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "item-1", shoppingList: { householdId: "household-1" } },
+      }),
+    );
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("saves a trimmed note (GAP-5)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    const result = await updateShoppingListItemAction("item-1", {
+      name: "Avocado",
+      quantity: 3,
+      unit: "pcs",
+      note: "  get the ripe ones  ",
+    });
+
+    expect(result).toEqual({});
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { name: "Avocado", quantity: 3, unit: "pcs", note: "get the ripe ones" },
+    });
+  });
+
+  it("clears a blank or whitespace-only note to null rather than storing ''", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    await updateShoppingListItemAction("item-1", { name: "Avocado", quantity: 3, unit: "pcs", note: "   " });
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { name: "Avocado", quantity: 3, unit: "pcs", note: null },
+    });
+  });
+
+  it("leaves an existing note untouched when the caller doesn't send one", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+    shoppingListItemUpdateMock.mockResolvedValue({});
+
+    await updateShoppingListItemAction("item-1", { name: "Avocado", quantity: 3, unit: "pcs" });
+
+    const { data } = shoppingListItemUpdateMock.mock.calls[0][0];
+    expect(data).not.toHaveProperty("note");
+  });
+
+  it("rejects a note over 200 characters", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
+
+    const result = await updateShoppingListItemAction("item-1", {
+      name: "Avocado",
+      quantity: 3,
+      unit: "pcs",
+      note: "x".repeat(201),
+    });
+
+    expect(result.error).toBe("Note must be 200 characters or fewer");
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateShoppingListItemPriceAction (AUTO-4 inline price correction)", () => {
