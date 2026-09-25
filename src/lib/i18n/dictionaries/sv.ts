@@ -1685,6 +1685,20 @@ export const sv = {
       resend: "Skicka verifieringslänk igen",
       resending: "Skickar…",
     },
+    noHousehold: {
+      pageTitle: "Du är inte med i något hushåll",
+      description:
+        "Ditt konto är inte längre medlem i något hushåll, till exempel för att du togs bort från det. Ditt konto och din privata budget finns kvar.",
+      createHeading: "Skapa ett nytt hushåll",
+      householdName: "Hushållets namn",
+      householdNamePlaceholder: "t.ex. Familjen Andersson",
+      creating: "Skapar…",
+      create: "Skapa hushåll",
+      joinHeading: "Gå med i ett befintligt hushåll",
+      joinDescription:
+        "Be någon i hushållet skicka en inbjudningslänk till dig och öppna den medan du är inloggad.",
+      logOut: "Logga ut",
+    },
   },
   landing: {
     logIn: "Logga in",

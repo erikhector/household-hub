@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold } from "@/lib/session";
+import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold, requireUserId } from "@/lib/session";
 import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
 import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
@@ -148,7 +148,10 @@ export async function acceptInviteAction(
   const invitation = await getValidInvitation(token);
   if (!invitation) return { error: "This invite link is invalid or has expired" };
 
-  const { userId } = await requireHousehold();
+  // requireUserId, not requireHousehold: accepting an invite is one of the
+  // two ways out of the no-household page (see NO_HOUSEHOLD_PATH), so it
+  // must work for a signed-in user who currently has zero memberships.
+  const userId = await requireUserId();
 
   const alreadyMember = await prisma.householdMember.findUnique({
     where: { householdId_userId: { householdId: invitation.householdId, userId } },
@@ -344,7 +347,9 @@ export async function createHouseholdAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { userId } = await requireHousehold();
+  // requireUserId for the same reason as acceptInviteAction: the
+  // no-household page uses this to create the user's first household again.
+  const userId = await requireUserId();
 
   const parsed = createHouseholdSchema.safeParse({ name: formData.get("name") });
   if (!parsed.success) {
