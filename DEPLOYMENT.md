@@ -32,19 +32,24 @@ Migrations must run **before** the new app code starts serving traffic, and
 ideally before the build step that could otherwise fail against a
 newer schema. Two concrete mechanisms:
 
-- **Vercel** (this app's likely target): there is no separate release
-  phase, so run the migration as part of the build. In the project's
-  **Settings → Build & Development Settings → Build Command**, override it to:
+- **Vercel** (this app's target): there is no separate release phase, so
+  the migration runs as part of the build. `vercel.json` sets the build
+  command to `node scripts/vercel-build.mjs`, which overrides whatever is in
+  the dashboard's **Build Command** field. It runs
+  `npx prisma migrate deploy` and then `next build`, **but only migrates
+  when `VERCEL_ENV=production`**. Preview builds skip the migration step.
+  Note `postinstall` already runs `prisma generate`, so that part is
+  unchanged.
 
-  ```
-  npx prisma migrate deploy && next build
-  ```
-
-  This runs once per deployment, using the `DATABASE_URL` configured in
-  **Settings → Environment Variables** for that environment (Production /
-  Preview). Note `postinstall` already runs `prisma generate` — that stays
-  as-is; you're adding the migration step in front of `next build`, not
-  replacing anything.
+  Previews must never migrate a database they share with production. A PR's
+  migrations are for code that isn't live yet. When the preview for PR #36
+  ran `migrate deploy` against the production database, it dropped
+  `Transaction.paidByMemberId` while production was still running master's
+  code, which queries that column, and every budget page broke. If Preview
+  gets its **own** database later, set `MIGRATE_ON_PREVIEW=1` in Preview's
+  environment variables so previews keep that database migrated. Until
+  then, a preview whose PR adds a migration will fail on the new columns.
+  That's expected, and it's much better than breaking production.
 
 - **Platforms with a release phase / pre-deploy hook** (Railway, Render,
   Heroku-style platforms): use that hook instead of the build command, since
