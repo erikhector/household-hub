@@ -593,8 +593,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       hydration mismatch). Where there's no recognizer (Firefox, many
       installed iOS PWAs) the button isn't rendered at all — voice is a
       bonus, never the only way to add something.
-    - **Language** comes from the locale cookie (`getClientLocale`):
-      `sv` → `sv-SE`, `en` → `en-US` (`speechRecognitionLang`).
+    - **Language** is the server-resolved UI locale (`getLocale()`: saved
+      account preference first, then the cookie), passed down as a prop
+      rather than read from the cookie on the client — the cookie is only
+      set by the locale switcher, so it can be missing on a new device:
+      `sv` → `sv-SE`, `en` → `en-US` (`speechRecognitionLang`). The same
+      locale picks the normalization rules below.
     - **One phrase per tap** (`continuous = false`, interim results on):
       the running transcript shows in the input as it's heard (autocomplete
       dropdown suppressed meanwhile), the mic turns into a stop button, and

@@ -10,7 +10,6 @@ import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/a
 import { findItemByBarcodeAction } from "@/lib/actions/barcode";
 import { BarcodeScannerButton } from "@/components/shared/barcode-scanner";
 import { format, plural } from "@/lib/i18n/format";
-import { getClientLocale } from "@/lib/i18n/client-locale";
 import { cn } from "@/lib/utils";
 import {
   parseSmartAddInput,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/shopping/smart-add-suggestions";
 import { normalizeVoiceTranscript, speechRecognitionLang } from "@/lib/shopping/voice-transcript";
 import { useSpeechRecognition } from "@/components/shopping/use-speech-recognition";
-import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 /**
  * The shopping list's primary add path (AUTO-1): one always-visible line
@@ -51,6 +50,7 @@ export function SmartAddBar({
   pendingInventoryItemIds,
   dict,
   barcodeDict,
+  locale,
   onAdded,
 }: {
   listId: string;
@@ -59,6 +59,8 @@ export function SmartAddBar({
   pendingInventoryItemIds: string[];
   dict: Dictionary["shoppingList"]["smartAdd"];
   barcodeDict: Dictionary["barcodeScanner"];
+  /** The server-resolved UI locale — the one `dict` was picked by. */
+  locale: Locale;
   onAdded: (shoppingListItemIds: string[]) => void;
 }) {
   const [value, setValue] = useState("");
@@ -135,18 +137,21 @@ export function SmartAddBar({
     reportAdded(result);
   };
 
-  // The locale is read from the cookie on the client rather than passed
-  // down: the recognizer only ever exists client-side, and this is the
-  // same cookie the server picked `dict` by.
+  // The locale is passed down from the server rather than read from the
+  // cookie here: getLocale() prefers the signed-in user's saved preference
+  // and only falls back to the cookie, which is set just by the locale
+  // switcher. On a new device (or after clearing cookies) a user who saved
+  // Swedish has no cookie yet, so reading it would run an en-US recognizer
+  // and English number words under a Swedish UI.
   const speech = useSpeechRecognition({
-    lang: speechRecognitionLang(getClientLocale()),
+    lang: speechRecognitionLang(locale),
     onInterim: (transcript) => {
       setValue(transcript);
       // No autocomplete dropdown flickering under a half-heard word.
       setDismissed(true);
     },
     onFinal: (transcript) => {
-      const text = normalizeVoiceTranscript(transcript, getClientLocale());
+      const text = normalizeVoiceTranscript(transcript, locale);
       setDismissed(false);
       if (!text) {
         setValue("");
