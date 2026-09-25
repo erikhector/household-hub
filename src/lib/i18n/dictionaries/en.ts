@@ -949,6 +949,12 @@ export const en = {
     nutritionProteinValue: "{value}g protein",
     nutritionCarbsValue: "{value}g carbs",
     nutritionFatValue: "{value}g fat",
+    recipeCostValue: "~{total} total · ~{perServing}/serving",
+    recipeCostSkipped: {
+      one: "{count} ingredient not priced",
+      other: "{count} ingredients not priced",
+    },
+    recipeCostHint: "Estimated from what you last paid for each ingredient",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
     comboboxNoMatches: "No matches yet — keep typing to add a new one.",

@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
+import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -28,18 +30,32 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
 
 export function RecipeManager({
   dict,
+  locale,
   recipes,
+  recipeCosts,
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   recipes: RecipeData[];
+  // GAP-15: keyed by recipe id. A recipe with no entry had no ingredient
+  // that could be priced and shows no cost line — see page.tsx.
+  recipeCosts: Record<string, RecipeCost>;
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
+  // Same convention as the shopping list's and budget page's amounts:
+  // locale-aware decimals, no currency symbol — there's no household-level
+  // currency setting, so a symbol would be a guess. Built once here rather
+  // than per row.
+  const numberFormat = useMemo(
+    () => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    [locale],
+  );
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesQuery(recipe, query)),
     [recipes, query],
@@ -94,6 +110,8 @@ export function RecipeManager({
                   key={recipe.id}
                   dict={dict}
                   recipe={recipe}
+                  cost={recipeCosts[recipe.id] ?? null}
+                  numberFormat={numberFormat}
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
                   ingredientUnits={ingredientUnits}
@@ -110,12 +128,16 @@ export function RecipeManager({
 function RecipeRow({
   dict,
   recipe,
+  cost,
+  numberFormat,
   allRecipes,
   ingredientNames,
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
   recipe: RecipeData;
+  cost: RecipeCost | null;
+  numberFormat: Intl.NumberFormat;
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
@@ -141,6 +163,23 @@ function RecipeRow({
       : null,
   ].filter((part): part is string => part !== null);
   const nutritionSummary = nutritionParts.join(" · ");
+  // GAP-15: hidden (null cost) when no ingredient could be priced, same as
+  // the nutrition line above. When some ingredients were skipped the line
+  // says how many, so the "~" total reads as the partial estimate it is
+  // rather than what the whole recipe costs.
+  const costSummary = cost
+    ? [
+        format(dict.recipeCostValue, {
+          total: numberFormat.format(cost.total),
+          perServing: numberFormat.format(cost.perServing),
+        }),
+        cost.skippedCount > 0
+          ? format(plural(cost.skippedCount, dict.recipeCostSkipped), { count: cost.skippedCount })
+          : null,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(" · ")
+    : "";
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -191,6 +230,11 @@ function RecipeRow({
         {nutritionSummary && (
           <p className="truncate text-sm text-muted-foreground" title={nutritionSummary}>
             {nutritionSummary}
+          </p>
+        )}
+        {costSummary && (
+          <p className="truncate text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
+            {costSummary}
           </p>
         )}
       </div>

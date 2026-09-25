@@ -352,25 +352,6 @@ out to be a product-scope question rather than a scoped task should move to
       unaffected — only the OS push is suppressed, same as the card's
       existing "on top of the bell, not a replacement for it" framing.
 
-- [ ] **GAP-15. Show what a recipe actually costs to make** —
-      new `src/app/dashboard/meal-planning/recipe-cost.ts` (+ test),
-      `src/components/meal-planning/recipe-manager.tsx`. Grocy surfaces a
-      recipe's cost from the same price data it already tracks; this app
-      already has `InventoryItem.lastKnownPrice`/`PriceHistory` and a
-      unit-conversion table (`src/lib/units.ts`, used by
-      `missing-ingredients.ts`) with nothing joining them to `Recipe`. A pure
-      `computeRecipeCost(ingredients, servings)` helper sums each
-      `RecipeIngredient`'s quantity (unit-converted the same way
-      `computeMissingIngredients` already does) times its linked
-      `InventoryItem.lastKnownPrice`, skipping any ingredient with no known
-      price and noting how many were skipped so the total reads as a partial
-      estimate, not a hard number. `RecipeManager` shows it next to the
-      nutrition summary line ("~45.00 total · ~11.00/serving", same
-      no-currency-symbol convention) only when at least one ingredient has a
-      price — otherwise hidden, same as the nutrition line today. No schema
-      change; ships once AUTO-4 (BACKLOG.md, Phase 1) is populating
-      `lastKnownPrice` in practice, since right now it's rarely set.
-
 - [ ] **GAP-16. A shared household notes board** —
       `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
       actions.ts`, `src/components/household/household-notes.tsx`. Cozi's
