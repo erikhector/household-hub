@@ -126,8 +126,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
-    (a user must always have at least one household — see `requireHousehold`'s
-    zero-membership redirect). On success it falls back the caller's
+    (a user can't give up their last household on their own — though an
+    owner removing them can still leave them with none; see "Users with no
+    household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
@@ -169,6 +170,34 @@ ownership hand-off are two separate actions in
   `DeleteHouseholdDialog`'s confirm-before-destructive-action pattern
   without requiring the household name to be typed (lower stakes than
   deleting the household outright, but still not a bare click).
+
+### Users with no household
+
+`leaveHouseholdAction` and `deleteHouseholdAction` both refuse to take away
+a user's last household, but `removeMemberAction` doesn't check whether the
+removed contributor has any other household (the owner can't see that, and
+it shouldn't stop them removing someone). So a signed-in user with zero
+`HouseholdMember` rows is a normal state, not a corrupt one.
+
+- `requireHousehold()` redirects such a user to `/no-household`
+  (`NO_HOUSEHOLD_PATH` in `src/lib/session.ts`). It used to redirect to
+  `/login`, but `src/proxy.ts` sends any request that has a session away from
+  `/login` to `/dashboard`, so that looped forever. Signing the user out
+  instead was rejected: their account (and user-scoped data like the personal
+  budget) is still valid, and they would just log back in to the same dead
+  end.
+- `src/app/no-household/page.tsx` sits outside `/dashboard` so the dashboard
+  layout's `requireHousehold()` never runs for it. Its guard,
+  `requireUserWithoutHousehold()`, sends signed-out visitors to `/login` and
+  anyone who does have a household to `/dashboard`. The page offers the same
+  two ways into a household as everyone else has: create one (the user
+  becomes its `OWNER`), or open an invite link from a member while signed in
+  (`/join/[token]`). It also has a log-out button in case this is the wrong
+  account.
+- `createHouseholdAction` and `acceptInviteAction` only need the caller's
+  user id, so they use `requireUserId()` rather than `requireHousehold()`.
+  With `requireHousehold()` they would redirect a zero-household user away
+  before doing anything, leaving no way out of the page.
 
 ### Invite email delivery
 
@@ -2392,7 +2421,8 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
     (resolve the active household from the `active_household` cookie,
     falling back to the caller's first membership when the cookie is
-    missing or stale, plus the zero-session/zero-membership redirects).
+    missing or stale, plus the zero-session/zero-membership redirects),
+    and `requireUserWithoutHousehold()`, the `/no-household` page's guard.
   - `src/lib/actions/auth.ts` and `src/lib/actions/household.ts` — the Zod
     schemas in these files (`signupSchema`, `joinSignupSchema`,
     `createHouseholdSchema`) are module-private, so they're exercised
