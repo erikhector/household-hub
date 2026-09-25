@@ -1,37 +1,72 @@
 // GAP-15: a rough "what does this recipe cost to make" estimate, joining
 // each RecipeIngredient to the price data AUTO-4 already keeps on its
 // linked InventoryItem (`lastKnownPrice`). Pure and Prisma-free, same split
-// as missing-ingredients.ts — page.tsx does the (already cached) inventory
-// fetch and hands this module plain rows, so it's unit-testable without
-// mocking anything; see recipe-cost.test.ts.
+// as missing-ingredients.ts — page.tsx does the queries and hands this
+// module plain rows, so it's unit-testable without mocking anything; see
+// recipe-cost.test.ts.
 //
-// `lastKnownPrice` is read as the price of ONE of the inventory item's own
-// unit (one "pcs", one "kg", …) — the same per-unit reading the shopping
-// list already gives it when it defaults a new row's `estimatedPrice` to it
-// (REQUIREMENTS.md, "Prices fill themselves in (AUTO-4)"). That's only ever
-// approximately true (a receipt line for a 6-pack still records one price),
-// which is exactly why the UI prints the result with a "~" and never as a
-// hard number.
+// `lastKnownPrice` is NOT the price of one of the item's own unit. It's the
+// price of one purchased shopping-list *line*, whatever quantity that line
+// was for: togglePurchasedAction records the line's `estimatedPrice`, and
+// both receipt paths record the line's converted price (shopping-list
+// actions.ts; estimated-total.ts calls it "per-unit, unmultiplied by
+// quantity" in the same sense — per line). So for flour kept in "g" whose
+// last 500 g pack cost 24, `lastKnownPrice` is 24, and multiplying it by a
+// recipe's 200 g would claim the recipe costs 4800.
+//
+// There's no quantity on PriceHistory or InventoryItem to divide by, but
+// every writer of `lastKnownPrice` leaves behind the purchased,
+// inventory-linked ShoppingListItem the price came from, with its
+// `quantity`/`unit` and an `estimatedPrice` equal to the price it recorded.
+// So the per-unit price is recovered as `lastKnownPrice ÷ (that line's
+// quantity in the item's unit)` — 24 ÷ 500 g = 0.048/g, and 200 g costs
+// 9.60. That's preferred over a capped "fraction of one purchase" because
+// it's the same number when the fraction is computable and there's no
+// schema change either way.
+//
+// When that line can't be found (its list was deleted, or its price was
+// corrected afterwards so it no longer matches) or its unit can't be
+// converted into the item's — the typical "1 pcs" receipt line for an item
+// kept in grams, where we have no idea how many grams that piece was — the
+// ingredient is skipped and counted rather than priced from a guess. A
+// multi-pack entered as "1 pcs" of an item counted in pcs still reads as
+// one piece; stock was incremented by 1 for that same line, so the
+// estimate is at least consistent with what inventory believes was bought.
+// That residual fuzziness is why the UI prints the result with a "~".
 
 import { convertQuantity } from "@/lib/units";
+
+// A purchased shopping-list line linked to the inventory item: what was
+// paid for it (`price`, its `estimatedPrice`) and how much it was for.
+export type RecipeCostPurchase = {
+  quantity: number;
+  unit: string;
+  price: number;
+};
 
 export type RecipeCostIngredient = {
   quantity: number;
   // The RecipeIngredient's own unit — independent free text from the
   // linked item's unit below, see schema.prisma.
   unit: string;
-  // The linked InventoryItem's unit and price, or null when the ingredient
-  // isn't linked to one (a free-typed name that never resolved).
-  inventoryItem: { unit: string; lastKnownPrice: number | null } | null;
+  // The linked InventoryItem's unit and price, plus its purchased lines
+  // newest-first (by createdAt), or null when the ingredient isn't linked
+  // to one (a free-typed name that never resolved).
+  inventoryItem: {
+    unit: string;
+    lastKnownPrice: number | null;
+    purchases: RecipeCostPurchase[];
+  } | null;
 };
 
 export type RecipeCost = {
   total: number;
   perServing: number;
   // How many ingredients actually contributed to `total` vs. how many were
-  // left out (unlinked, never priced, or in a unit that can't be converted
-  // into the linked item's) — a non-zero `skippedCount` is what makes the
-  // UI label the number as a partial estimate.
+  // left out (unlinked, never priced, no recoverable purchase quantity, or
+  // in a unit that can't be converted into the linked item's) — a non-zero
+  // `skippedCount` is what makes the UI label the number as a partial
+  // estimate.
   pricedCount: number;
   skippedCount: number;
 };
@@ -39,14 +74,42 @@ export type RecipeCost = {
 const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-// Converts each ingredient's quantity into its linked item's unit the same
-// way computeMissingIngredients reconciles recipe vs. on-hand units — an
-// exact (case/whitespace-insensitive) string match first, then
-// src/lib/units.ts's fixed table — and multiplies by that item's
-// `lastKnownPrice`. Anything that can't be priced is skipped and counted
-// rather than guessed at: a volume-vs-weight pair (cups of flour against a
-// flour item kept in kg) needs a density we don't have, and inventing a
-// price for it would make the total look more precise than it is.
+// The same reconciliation computeMissingIngredients uses for recipe vs.
+// on-hand units: an exact (case/whitespace-insensitive) string match first,
+// then src/lib/units.ts's fixed table. null when there's no conversion.
+function toItemUnit(quantity: number, unit: string, itemUnit: string): number | null {
+  return normalizeUnit(unit) === normalizeUnit(itemUnit) ? quantity : convertQuantity(quantity, unit, itemUnit);
+}
+
+// The price of one of the item's own unit, recovered from the purchased
+// line that set `lastKnownPrice`: the newest one whose price equals it
+// (exact equality is safe — every writer copies the same number into both
+// columns). Matching on the price rather than just taking the newest line
+// matters because ShoppingListItem only has `createdAt`, not a purchase
+// time: a line added last week but checked off today set the price, while
+// a line added yesterday and checked off yesterday didn't, and the newest
+// row would pick the wrong one of those two.
+export function unitPriceFromLastPurchase(item: NonNullable<RecipeCostIngredient["inventoryItem"]>): number | null {
+  const price = item.lastKnownPrice;
+  if (price == null) return null;
+
+  const purchase = item.purchases.find((p) => p.price === price);
+  if (!purchase) return null;
+
+  const purchasedInItemUnit = toItemUnit(purchase.quantity, purchase.unit, item.unit);
+  // A zero/negative quantity would divide into Infinity or a negative
+  // price; treat it as unrecoverable like any other bad row.
+  if (purchasedInItemUnit === null || !(purchasedInItemUnit > 0)) return null;
+
+  return price / purchasedInItemUnit;
+}
+
+// Converts each ingredient's quantity into its linked item's unit and
+// multiplies by that item's per-unit price from unitPriceFromLastPurchase.
+// Anything that can't be priced is skipped and counted rather than guessed
+// at: a volume-vs-weight pair (cups of flour against a flour item kept in
+// kg) needs a density we don't have, and inventing a price for it would
+// make the total look more precise than it is.
 //
 // Returns null when nothing at all could be priced, so the caller can hide
 // the line entirely — the common case until AUTO-4 has seen a household's
@@ -58,23 +121,15 @@ export function computeRecipeCost(ingredients: RecipeCostIngredient[], servings:
   let skippedCount = 0;
 
   for (const ingredient of ingredients) {
-    const price = ingredient.inventoryItem?.lastKnownPrice;
-    if (ingredient.inventoryItem === null || price == null) {
+    const item = ingredient.inventoryItem;
+    const unitPrice = item ? unitPriceFromLastPurchase(item) : null;
+    const quantityInItemUnit = item ? toItemUnit(ingredient.quantity, ingredient.unit, item.unit) : null;
+    if (unitPrice === null || quantityInItemUnit === null) {
       skippedCount++;
       continue;
     }
 
-    const itemUnit = ingredient.inventoryItem.unit;
-    const quantityInItemUnit =
-      normalizeUnit(ingredient.unit) === normalizeUnit(itemUnit)
-        ? ingredient.quantity
-        : convertQuantity(ingredient.quantity, ingredient.unit, itemUnit);
-    if (quantityInItemUnit === null) {
-      skippedCount++;
-      continue;
-    }
-
-    total += quantityInItemUnit * price;
+    total += quantityInItemUnit * unitPrice;
     pricedCount++;
   }
 

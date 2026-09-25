@@ -2010,31 +2010,48 @@ Each recipe on the Recipes tab shows a rough cost to make it, e.g.
 `"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
 summary. No schema change: it joins data that already exists —
 `RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
-by AUTO-4, above) — through the same unit table (`src/lib/units.ts`) the
+by AUTO-4, above) and the purchased shopping-list line that set it — through
+the same unit table (`src/lib/units.ts`) the
 meal-plan → shopping-list bridge uses.
 
+- **Per-unit price**: `lastKnownPrice` is the price of one purchased
+  shopping-list *line*, whatever quantity that line was for (a 500 g pack
+  of flour for 24 records 24), not the price of one of the item's unit. So
+  `unitPriceFromLastPurchase` recovers the line that set it — the newest
+  purchased `ShoppingListItem` linked to the item whose `estimatedPrice`
+  equals `lastKnownPrice` (every writer of `lastKnownPrice` leaves one) —
+  converts that line's `quantity`/`unit` into the item's unit, and divides:
+  24 ÷ 500 g = 0.048 per g. Matching on the price, not just taking the
+  newest row, matters because `ShoppingListItem` only has `createdAt`, not a
+  purchase time.
 - **Calculation**: `computeRecipeCost(ingredients, servings)`
   (`src/app/dashboard/meal-planning/recipe-cost.ts`, pure, unit-tested in
   `recipe-cost.test.ts`) converts each ingredient's quantity into its linked
   item's own unit — exact case/whitespace-insensitive match first, then
-  `convertQuantity` — and multiplies by `lastKnownPrice`, read as the price
-  of one of that unit (the same per-unit reading the shopping list gives it
-  when defaulting `estimatedPrice`). `total` and `perServing`
-  (`total / servings`) are rounded to 2 decimals.
+  `convertQuantity` — and multiplies by that per-unit price (200 g of the
+  flour above is 9.60). `total` and `perServing` (`total / servings`) are
+  rounded to 2 decimals.
 - **Skipped, not guessed**: an ingredient with no linked inventory item, a
-  linked item that has never been priced, or a unit that can't be converted
-  into the item's (volume vs. weight, or an unrecognized unit like "clove"
-  against "pcs") is left out and counted in `skippedCount`. The card then
-  appends "N ingredients not priced" so the total reads as a partial
-  estimate. A price of 0 counts as priced.
+  linked item that has never been priced, a price whose purchase line can't
+  be found (its list was deleted, or the price was corrected afterwards), a
+  purchase line in a unit that can't be converted into the item's (the
+  typical "1 pcs" receipt line for an item kept in grams), or a recipe unit
+  that can't be converted into the item's (volume vs. weight, or an
+  unrecognized unit like "clove" against "pcs") is left out and counted in
+  `skippedCount`. The card then appends "N ingredients not priced" so the
+  total reads as a partial estimate. A price of 0 counts as priced. A
+  multi-pack entered as "1 pcs" of an item counted in pcs still reads as one
+  piece — the same way inventory stock counted it.
 - **Hidden when unknown**: if no ingredient at all could be priced the
   function returns `null` and no line is shown, same as the nutrition line.
 - **Own ingredients only**: a sub-recipe's (`RecipeComponent`) ingredients
   aren't added in, matching how the nutrition line is per recipe.
 - **Data flow**: `RecipesTabSection` (`meal-planning/page.tsx`) computes a
   `recipeCosts` map keyed by recipe id from the already-cached core fetch
-  (`lastKnownPrice` was added to its inventory `select`; no extra query) and
-  passes it with the `locale` to `RecipeManager`. Amounts use the app's
+  (`lastKnownPrice` was added to its inventory `select`) plus one extra
+  query on this tab only: the household's purchased, priced shopping-list
+  lines for the inventory items some recipe links to, newest first. It
+  passes the map with the `locale` to `RecipeManager`. Amounts use the app's
   `Intl.NumberFormat` convention (locale-aware, 2 decimals, no currency
   symbol), prefixed with "~" to mark them as estimates; the line's tooltip
   explains they come from what was last paid.

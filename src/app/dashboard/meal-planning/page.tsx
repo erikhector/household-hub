@@ -12,7 +12,7 @@ import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboar
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
-import { computeRecipeCost, type RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
+import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
@@ -267,12 +267,49 @@ async function RecipesTabSection({
   // GAP-15: an estimated cost per recipe from each linked ingredient's
   // lastKnownPrice, joined in memory against the same cached inventory fetch
   // rather than a nested include on the recipe query (which the Planner and
-  // Cook tabs would pay for too). Keyed by recipe id and only holding
-  // recipes where at least one ingredient could be priced — see
-  // computeRecipeCost's doc comment — so RecipeManager simply shows nothing
-  // for the rest. Only a recipe's own ingredients count, not its
-  // sub-recipes', same as the nutrition line it sits under.
+  // Cook tabs would pay for too). lastKnownPrice is the price of one
+  // purchased shopping-list line, not of one unit, so computeRecipeCost
+  // also needs the purchased lines themselves to divide it by the quantity
+  // it bought — see its doc comment. That's the one extra query here, only
+  // run on this tab, and narrowed to the inventory items some recipe
+  // actually links to (and that have a price at all) so it doesn't pull
+  // the household's whole purchase history. Newest-first so
+  // unitPriceFromLastPurchase picks the most recent matching line.
+  // Keyed by recipe id and only holding recipes where at least one
+  // ingredient could be priced, so RecipeManager simply shows nothing for
+  // the rest. Only a recipe's own ingredients count, not its sub-recipes',
+  // same as the nutrition line it sits under.
   const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+  const pricedLinkedItemIds = [
+    ...new Set(
+      recipes.flatMap((recipe) =>
+        recipe.ingredients
+          .map((ingredient) => ingredient.inventoryItemId)
+          .filter((id): id is string => id !== null && inventoryById.get(id)?.lastKnownPrice != null),
+      ),
+    ),
+  ];
+  const purchasedLines =
+    pricedLinkedItemIds.length > 0
+      ? await prisma.shoppingListItem.findMany({
+          where: {
+            shoppingList: { householdId },
+            inventoryItemId: { in: pricedLinkedItemIds },
+            purchased: true,
+            estimatedPrice: { not: null },
+          },
+          select: { inventoryItemId: true, quantity: true, unit: true, estimatedPrice: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+  const purchasesByItemId = new Map<string, RecipeCostPurchase[]>();
+  for (const line of purchasedLines) {
+    if (line.inventoryItemId === null || line.estimatedPrice === null) continue;
+    const list = purchasesByItemId.get(line.inventoryItemId) ?? [];
+    list.push({ quantity: line.quantity, unit: line.unit, price: line.estimatedPrice });
+    purchasesByItemId.set(line.inventoryItemId, list);
+  }
+
   const recipeCosts: Record<string, RecipeCost> = {};
   for (const recipe of recipes) {
     const cost = computeRecipeCost(
@@ -281,7 +318,13 @@ async function RecipesTabSection({
         return {
           quantity: ingredient.quantity,
           unit: ingredient.unit,
-          inventoryItem: item ? { unit: item.unit, lastKnownPrice: item.lastKnownPrice } : null,
+          inventoryItem: item
+            ? {
+                unit: item.unit,
+                lastKnownPrice: item.lastKnownPrice,
+                purchases: purchasesByItemId.get(item.id) ?? [],
+              }
+            : null,
         };
       }),
       recipe.servings,
