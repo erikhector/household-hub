@@ -42,10 +42,11 @@ newer schema. Two concrete mechanisms:
   unchanged.
 
   Previews must never migrate a database they share with production. A PR's
-  migrations are for code that isn't live yet. When the preview for PR #36
-  ran `migrate deploy` against the production database, it dropped
+  migrations are for code that isn't live yet. The most likely cause of the
+  2026-09-25 budget outage: the preview for PR #36
+  ran `migrate deploy` against the production database and dropped
   `Transaction.paidByMemberId` while production was still running master's
-  code, which queries that column, and every budget page broke. If Preview
+  code, which queries that column, so every budget page broke. If Preview
   gets its **own** database later, set `MIGRATE_ON_PREVIEW=1` in Preview's
   environment variables so previews keep that database migrated. Until
   then, a preview whose PR adds a migration will fail on the new columns.

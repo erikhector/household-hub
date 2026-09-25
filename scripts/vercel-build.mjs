@@ -25,7 +25,7 @@ import { pathToFileURL } from "node:url";
 // - Anything else (Preview, Development) skips unless MIGRATE_ON_PREVIEW=1 is
 //   set for that environment in Vercel — which is only safe once Preview has
 //   its own database, never while it shares production's.
-// - Outside Vercel (VERCEL_ENV unset, e.g. a local `npm run vercel-build`)
+// - Outside Vercel (VERCEL_ENV unset, e.g. a local `node scripts/vercel-build.mjs`)
 //   skips too; locally you run `prisma migrate dev` yourself.
 export function shouldRunMigrations(env) {
   if (env.VERCEL_ENV === "production") return true;
