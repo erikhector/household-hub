@@ -12,7 +12,11 @@ import {
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
-import { HouseholdBalances } from "@/components/budget/household-balances";
+import {
+  HouseholdBalances,
+  type RepaymentRow,
+  type UnpaidBillRow,
+} from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import {
   RecurringTemplatesPanel,
@@ -25,8 +29,10 @@ import {
   createRecurringTemplateAction,
   createTransactionAction,
   deleteRecurringTemplateAction,
+  deleteSettlementAction,
   deleteTransactionAction,
   logRecurringTemplateAction,
+  recordSettlementAction,
   setRecurringTemplateActiveAction,
   unacknowledgeTemplatePeriodAction,
   updateRecurringTemplateAction,
@@ -50,7 +56,8 @@ import {
   parseMonthKey,
   toMonthKey,
 } from "@/lib/budget-date-utils";
-import { computeNetBalances, simplifyDebts } from "./settle-up-calc";
+import { computeNetBalances, remainingDue, simplifyDebts } from "@/lib/settle-up-calc";
+import type { BudgetTab } from "@/components/budget/budget-tabs";
 import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 
 // An item needs at least this many recorded prices before its trend is
@@ -62,6 +69,10 @@ const MIN_PRICE_POINTS_FOR_TREND = 3;
 const MAX_SPENDING_MONTHS = 12;
 // Same cap, for the "Fixed income & costs" trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
+// How many recorded repayments the Balances card lists (newest first) — enough
+// to spot and undo a recent mistake without the card growing forever.
+const MAX_REPAYMENTS_SHOWN = 10;
+const TABS: BudgetTab[] = ["overview", "manage", "transactions", "insights"];
 // How far back (in months) computeSafeToSpend and computeTemplateStatuses
 // need to see past the month currently being viewed: the former looks for a
 // category's most recent `isRecurring` transaction dated *before* that
@@ -180,6 +191,7 @@ async function BudgetTabsSection({
   now,
   readOnly,
   householdParam,
+  initialTab,
 }: {
   householdId: string;
   userId: string;
@@ -194,6 +206,7 @@ async function BudgetTabsSection({
   now: Date;
   readOnly: boolean;
   householdParam: string | undefined;
+  initialTab: BudgetTab;
 }) {
   const [
     categories,
@@ -203,14 +216,17 @@ async function BudgetTabsSection({
     householdMembers,
     recurringTemplates,
     recurringTemplateAcks,
+    splitTransactions,
+    memberSettlements,
   ] = await Promise.all([
       prisma.budgetCategory.findMany({
         where: { householdId },
         orderBy: [{ type: "asc" }, { name: "asc" }],
       }),
       // SCALE-F: the transactions for the month currently being viewed —
-      // feeds the transaction list, the period summary's per-category
-      // totals and the settle-up balances below. Previously this query had
+      // feeds the transaction list and the period summary's per-category
+      // totals (the settle-up balances read splitTransactions instead, since
+      // debts carry over between months). Previously this query had
       // no date filter at all (fetched the household's *entire* transaction
       // history) and the month was filtered down in JS afterward; that grew
       // every month a household kept using the app, independent of how many
@@ -274,6 +290,27 @@ async function BudgetTabsSection({
       prisma.recurringTemplateAck.findMany({
         where: { recurringTemplate: { householdId } },
       }),
+      // Every split transaction the household has ever logged, for the
+      // Balances card: debts carry over between months until a repayment
+      // clears them, so this can't be limited to the viewed month the way
+      // monthTransactions is. Only split rows and the fields the settle-up
+      // calc needs, which keeps it small next to a full transaction fetch.
+      prisma.transaction.findMany({
+        where: { householdId, splits: { some: {} } },
+        select: {
+          id: true,
+          amount: true,
+          date: true,
+          description: true,
+          category: { select: { name: true } },
+          splits: { select: { householdMemberId: true, amountOwed: true, amountPaid: true } },
+        },
+        orderBy: { date: "desc" },
+      }),
+      prisma.memberSettlement.findMany({
+        where: { householdId },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      }),
     ]);
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
@@ -282,11 +319,11 @@ async function BudgetTabsSection({
   const currentMemberId = householdMembers.find((m) => m.userId === userId)?.id ?? "";
 
   // monthTransactions is already scoped to [monthStart, monthEnd) by the
-  // query above — fed to TransactionList, the settlements calc below and
-  // totalsByCategory. The fixed-trend/template-status calcs further down
-  // each need their own broader window, so they read from
-  // recurringLookbackTransactions/fixedTrendTransactions instead (see their
-  // query comments above).
+  // query above — fed to TransactionList and totalsByCategory. The
+  // fixed-trend/template-status calcs and the settle-up balances further
+  // down each need their own broader window, so they read from
+  // recurringLookbackTransactions/fixedTrendTransactions/splitTransactions
+  // instead (see their query comments above).
   const transactionRows = monthTransactions.map((t) => ({
     id: t.id,
     categoryId: t.categoryId,
@@ -297,35 +334,49 @@ async function BudgetTabsSection({
     date: t.date,
     isRecurring: t.isRecurring,
     recurrenceFrequency: t.recurrenceFrequency,
-    paidByMemberId: t.paidByMemberId,
-    splits: t.splits.map((s) => ({ householdMemberId: s.householdMemberId, amountOwed: s.amountOwed })),
+    splits: t.splits.map((s) => ({
+      householdMemberId: s.householdMemberId,
+      amountOwed: s.amountOwed,
+      amountPaid: s.amountPaid,
+    })),
   }));
 
   // --- Household expense splitting: "who owes whom" -----------------------
   // See REQUIREMENTS.md's "Household expense splitting" subsection. Only
   // meaningful once a household has more than one member; all netting/
-  // debt-simplification logic lives in settle-up-calc.ts so it's
+  // debt-simplification logic lives in src/lib/settle-up-calc.ts so it's
   // unit-testable without Prisma, same convention as src/lib/safe-to-spend-calc.ts.
-  // Scoped to the selected budget month (monthTransactions, same window as
-  // PeriodSummary/SafeToSpend) rather than the household's whole history, so
-  // balances reset each month instead of accumulating forever.
-  const settlements =
-    memberOptions.length > 1
-      ? simplifyDebts(
-          computeNetBalances(
-            monthTransactions
-              .filter((t) => t.paidByMemberId && t.splits.length > 0)
-              .map((t) => ({
-                amount: t.amount,
-                paidByMemberId: t.paidByMemberId as string,
-                splits: t.splits.map((s) => ({
-                  householdMemberId: s.householdMemberId,
-                  amountOwed: s.amountOwed,
-                })),
-              })),
-          ),
-        )
-      : [];
+  // Covers every split bill and repayment the household has (see
+  // splitTransactions's query comment), not just the viewed month: a debt
+  // carries over until it's cleared instead of silently resetting each month.
+  const hasSplitting = memberOptions.length > 1;
+  const settlements = hasSplitting
+    ? simplifyDebts(
+        computeNetBalances(
+          splitTransactions.map((t) => ({ amount: t.amount, splits: t.splits })),
+          memberSettlements.map((m) => ({
+            fromMemberId: m.fromMemberId,
+            toMemberId: m.toMemberId,
+            amount: m.amount,
+          })),
+        ),
+      )
+    : [];
+  const unpaidBills: UnpaidBillRow[] = splitTransactions
+    .map((t) => ({
+      id: t.id,
+      name: t.description || t.category.name,
+      date: t.date,
+      leftDue: remainingDue({ amount: t.amount, splits: t.splits }),
+    }))
+    .filter((t) => t.leftDue > 0);
+  const repayments: RepaymentRow[] = memberSettlements.slice(0, MAX_REPAYMENTS_SHOWN).map((m) => ({
+    id: m.id,
+    fromMemberId: m.fromMemberId,
+    toMemberId: m.toMemberId,
+    amount: m.amount,
+    date: m.date,
+  }));
 
   const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
     const totals = new Map<string, CategoryTotal>();
@@ -351,32 +402,6 @@ async function BudgetTabsSection({
   const expense = expenseByCategory.reduce((sum, c) => sum + c.total, 0);
   const savings = savingsByCategory.reduce((sum, c) => sum + c.total, 0);
 
-  // --- Safe to spend --------------------------------------------------------
-  // See REQUIREMENTS.md's "Safe to spend" subsection: this month's income so
-  // far minus expenses so far minus savings so far, minus an estimate of
-  // recurring expense categories that haven't posted a transaction yet this
-  // month. All pure logic lives in computeSafeToSpend
-  // (@/lib/safe-to-spend-calc.ts) so it's unit-testable without Prisma; fed
-  // recurringLookbackTransactions (not monthTransactions) since it needs to
-  // look further back than the viewed month to find a category's most
-  // recent recurring transaction — see RECURRING_LOOKBACK_MONTHS's doc
-  // comment above.
-  const { safeToSpend, expectedRecurring, status: safeToSpendStatus } = computeSafeToSpend({
-    transactions: recurringLookbackTransactions.map((t) => ({
-      categoryId: t.categoryId,
-      categoryName: t.category.name,
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      isRecurring: t.isRecurring,
-    })),
-    monthStart,
-    monthEnd,
-    incomeSoFar: income,
-    expenseSoFar: expense,
-    savingsSoFar: savings,
-  });
-
   // --- Recurring templates --------------------------------------------------
   // See src/lib/recurring-template-calc.ts's doc comments for the "accounted for"
   // model. Paused (inactive) templates get their own section in the panel
@@ -395,6 +420,46 @@ async function BudgetTabsSection({
     acks: recurringTemplateAcks,
     referenceDate: monthStart,
     monthEnd,
+  });
+
+  // --- Safe to spend --------------------------------------------------------
+  // "Remaining after expenses and savings" — see REQUIREMENTS.md's "Safe to
+  // spend" subsection: this month's income so far minus expenses and
+  // savings so far, minus every recurring item (bill or saving) still due
+  // this month, plus the older transaction-based estimate for categories
+  // without a recurring item. All pure logic lives in computeSafeToSpend
+  // (@/lib/safe-to-spend-calc.ts) so it's unit-testable without Prisma; fed
+  // recurringLookbackTransactions (not monthTransactions) since that estimate
+  // needs to look further back than the viewed month to find a category's
+  // most recent recurring transaction — see RECURRING_LOOKBACK_MONTHS's doc
+  // comment above.
+  const {
+    safeToSpend,
+    breakdown: safeToSpendBreakdown,
+    expectedRecurring,
+    status: safeToSpendStatus,
+  } = computeSafeToSpend({
+    transactions: recurringLookbackTransactions.map((t) => ({
+      categoryId: t.categoryId,
+      categoryName: t.category.name,
+      type: t.type,
+      amount: t.amount,
+      date: t.date,
+      isRecurring: t.isRecurring,
+    })),
+    monthStart,
+    monthEnd,
+    incomeSoFar: income,
+    expenseSoFar: expense,
+    savingsSoFar: savings,
+    templates: templateStatusRows.map((row) => ({
+      id: row.template.id,
+      name: row.template.name,
+      categoryId: row.template.categoryId,
+      type: row.template.type,
+      amount: row.template.amount,
+      status: row.status,
+    })),
   });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {
     // F7: who ran "Mark accounted for" for this period, if it was
@@ -539,6 +604,7 @@ async function BudgetTabsSection({
       income={income}
       expense={expense}
       savings={savings}
+      remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
       expenseByCategory={expenseByCategory}
       savingsByCategory={savingsByCategory}
@@ -566,12 +632,16 @@ async function BudgetTabsSection({
       <Suspense fallback={<CostAnalyzerSkeleton />}>
         <CostAnalyzerSection householdId={householdId} dict={dict.budget.costAnalyzer} locale={locale} />
       </Suspense>
-      {memberOptions.length > 1 && (
+      {hasSplitting && (
         <HouseholdBalances
           settlements={settlements}
+          unpaidBills={unpaidBills}
+          repayments={repayments}
           members={memberOptions}
           dict={dict.budget.balances}
           locale={locale}
+          onRecordRepayment={recordSettlementAction}
+          onDeleteRepayment={deleteSettlementAction}
         />
       )}
     </div>
@@ -588,7 +658,9 @@ async function BudgetTabsSection({
       categories={categoryRows}
       safeToSpendAmount={safeToSpend}
       safeToSpendStatus={safeToSpendStatus}
+      safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
+      initialTab={initialTab}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
       members={memberOptions}
@@ -644,6 +716,8 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
   const monthEnd = getMonthEnd(monthStart);
   const monthKey = toMonthKey(monthStart);
+  const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
+  const initialTab = TABS.find((t) => t === tabParam) ?? "overview";
 
   // F1: "View in {household} Budget" links (from a shared row in Personal
   // Budget) carry an explicit `?household=` so this page shows the bill's
@@ -703,6 +777,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           now={now}
           readOnly={readOnly}
           householdParam={householdParam}
+          initialTab={initialTab}
         />
       </Suspense>
     </div>

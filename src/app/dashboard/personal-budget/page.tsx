@@ -12,13 +12,9 @@ import {
   type PausedRecurringTemplateRow,
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
-import {
-  TransactionList,
-  type SharedPostedRow,
-} from "@/components/budget/transaction-list";
-import type { SharedDueRow } from "@/components/budget/due-recurring-widget";
+import { TransactionList } from "@/components/budget/transaction-list";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
-import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import { PeriodSummary } from "@/components/budget/period-summary";
 import {
   acknowledgePersonalTemplatePeriodAction,
   createPersonalRecurringTemplateAction,
@@ -36,13 +32,8 @@ import {
   computeFixedMonthlySummary,
   computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
-  computeTemplateStatuses,
 } from "@/lib/recurring-template-calc";
-import {
-  computeSafeToSpend,
-  deriveSafeToSpend,
-  type ExpectedRecurringExpense,
-} from "@/lib/safe-to-spend-calc";
+import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import {
   getMonthEnd,
   getMonthStart,
@@ -61,19 +52,14 @@ const MAX_FIXED_TREND_MONTHS = 12;
 
 // SCALE-J: unlike the household budget page, nothing here is independent
 // enough of everything else to earn its own Suspense boundary — the
-// "shared with your household" mirror below (sharedDueRows/
-// sharedExpenseHouseholds) feeds straight into the same safe-to-spend number
-// and BudgetTabs props as the user's own PersonalTransaction/
-// PersonalRecurringTemplate data, so splitting it out would just mean
-// BudgetTabs itself waiting on two Suspense children instead of one. Kept as
-// a single section behind one boundary — the real win is still there: the
-// static header below (and, unlike the household page, there's no read-only
-// banner here to render alongside it) no longer waits on any of this, and
-// the personal-scoped queries and the shared-household chain below now run
-// concurrently with each other instead of the sequential
-// `await`-then-`await` the page previously had (memberships was fetched
-// only after the categories/transactions/templates Promise.all had already
-// resolved, despite neither depending on the other).
+// "shared with your household" mirror (sharedDueRows/sharedExpenseHouseholds)
+// feeds straight into the same safe-to-spend number and BudgetTabs props as
+// the user's own PersonalTransaction/PersonalRecurringTemplate data, so
+// splitting it out would just mean BudgetTabs itself waiting on two Suspense
+// children instead of one. Kept as a single section behind one boundary —
+// the real win is still there: the static header below (and, unlike the
+// household page, there's no read-only banner here to render alongside it)
+// no longer waits on any of this.
 async function PersonalBudgetTabsSection({
   userId,
   dict,
@@ -91,55 +77,51 @@ async function PersonalBudgetTabsSection({
   monthKey: string;
   now: Date;
 }) {
-  const [categories, transactions, recurringTemplates, recurringTemplateAcks, memberships] =
-    await Promise.all([
-      prisma.personalBudgetCategory.findMany({
-        where: { userId },
-        orderBy: [{ type: "asc" }, { name: "asc" }],
-      }),
-      prisma.personalTransaction.findMany({
-        where: { userId },
-        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-        include: { category: true },
-      }),
-      // Recurring bill templates — mirrors the household budget's, see
-      // src/lib/recurring-template-calc.ts.
-      prisma.personalRecurringTemplate.findMany({
-        where: { userId },
-        include: { category: true },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.personalRecurringTemplateAck.findMany({
-        where: { personalRecurringTemplate: { userId } },
-      }),
-      // --- Shared with your household ----------------------------------
-      // See docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only
-      // mirror of the user's own share of split household costs, aggregated
-      // across every household they belong to (not just the "active" one —
-      // a user's rent share shouldn't disappear from their personal budget
-      // just because a different household is selected elsewhere in the
-      // app). Never depends on the four queries above, so it's fetched in
-      // the same Promise.all instead of after them.
-      prisma.householdMember.findMany({
-        where: { userId },
-        select: { id: true, household: { select: { id: true, name: true } } },
-      }),
-    ]);
+  // Transactions, the shared-with-your-household mirror, totals and the
+  // headline number all come from one loader shared with the dashboard's
+  // "Your budget" card, so the two can't drift apart — see
+  // src/lib/personal-budget-position.ts.
+  const [categories, position] = await Promise.all([
+    prisma.personalBudgetCategory.findMany({
+      where: { userId },
+      orderBy: [{ type: "asc" }, { name: "asc" }],
+    }),
+    loadPersonalBudgetPosition({
+      userId,
+      monthStart,
+      monthEnd,
+      sharedLabel: dict.personalBudget.shared.sharedBadge,
+    }),
+  ]);
+  const {
+    transactions,
+    monthTransactions,
+    recurringTemplates,
+    templateStatusRows,
+    memberships,
+    showHouseholdName,
+    sharedPostedRows,
+    sharedDueRows,
+    householdDebts,
+    incomeByCategory,
+    expenseByCategory,
+    savingsByCategory,
+    income,
+    expense,
+    savings,
+    safeToSpend,
+    safeToSpendStatus,
+    safeToSpendBreakdown,
+    expectedRecurring,
+  } = position;
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
 
-  const householdMemberIds = memberships.map((m) => m.id);
-  const householdNameByMemberId = new Map(memberships.map((m) => [m.id, m.household]));
-  // Only shown on each row once the user is in more than one household —
-  // see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6 ("don't clutter the common
-  // case").
-  const showHouseholdName = memberships.length > 1;
-
   // Households the user can log a shared expense into directly from this
   // page (LogSharedExpenseDialog) — the entry-point half of the personal
-  // ↔ household link, complementing the read-only mirror above. Only
-  // households with more than one member qualify (nothing to split
-  // otherwise), same gating TransactionDialog uses for its own split UI.
+  // ↔ household link, complementing the read-only mirror in the loader
+  // above. Only households with more than one member qualify (nothing to
+  // split otherwise), same gating TransactionDialog uses for its own split UI.
   const sharedExpenseHouseholds: ShareableHousehold[] = (
     await Promise.all(
       memberships.map(async (m) => {
@@ -164,112 +146,6 @@ async function PersonalBudgetTabsSection({
     )
   ).filter((h) => h.members.length > 1);
 
-  // 3a: already-posted split transactions this month (no schema change
-  // needed — a pure join over TransactionSplit/Transaction).
-  const sharedSplits =
-    householdMemberIds.length > 0
-      ? await prisma.transactionSplit.findMany({
-          where: {
-            householdMemberId: { in: householdMemberIds },
-            transaction: { date: { gte: monthStart, lt: monthEnd } },
-          },
-          include: {
-            transaction: {
-              include: {
-                category: { select: { name: true } },
-                paidByMember: { include: { user: { select: { displayName: true } } } },
-              },
-            },
-          },
-          orderBy: { transaction: { date: "desc" } },
-        })
-      : [];
-  const sharedPostedRows: SharedPostedRow[] = sharedSplits.map((split) => ({
-    id: split.id,
-    categoryName: split.transaction.category.name,
-    amount: split.amountOwed,
-    type: split.transaction.type,
-    date: split.transaction.date,
-    householdId: householdNameByMemberId.get(split.householdMemberId)?.id ?? "",
-    householdName: householdNameByMemberId.get(split.householdMemberId)?.name ?? "",
-    paidByName: split.transaction.paidByMember?.user.displayName ?? null,
-  }));
-
-  // 3b: due-but-not-yet-posted shared RecurringTemplates — the literal "Rent
-  // pops up" case. Only templates a household member has explicitly opted
-  // into a split show up here; every other template stays completely
-  // invisible (no retroactive backfill).
-  const sharedTemplateSplits =
-    householdMemberIds.length > 0
-      ? await prisma.recurringTemplateSplit.findMany({
-          where: { householdMemberId: { in: householdMemberIds } },
-          include: {
-            recurringTemplate: {
-              include: {
-                category: { select: { name: true } },
-                // Every member's share, not just this user's — "Log payment"
-                // pre-fills the whole bill's split from these.
-                splits: true,
-              },
-            },
-          },
-        })
-      : [];
-  const sharedTemplateIds = [...new Set(sharedTemplateSplits.map((s) => s.recurringTemplateId))];
-  const [sharedTemplateTransactions, sharedTemplateAcks] = await Promise.all([
-    sharedTemplateIds.length > 0
-      ? prisma.transaction.findMany({
-          where: { recurringTemplateId: { in: sharedTemplateIds } },
-          select: { recurringTemplateId: true, date: true },
-        })
-      : Promise.resolve([]),
-    sharedTemplateIds.length > 0
-      ? prisma.recurringTemplateAck.findMany({
-          where: { recurringTemplateId: { in: sharedTemplateIds } },
-        })
-      : Promise.resolve([]),
-  ]);
-  // computeTemplateStatuses (src/lib/recurring-template-calc.ts) is generic
-  // and already used identically for both budgets — reused again here, run
-  // from the personal side over the subset of RecurringTemplates the user
-  // has a split in. A user has at most one split row per template (a
-  // membership is unique per household+user, and a template belongs to one
-  // household), so there's exactly one row per template here.
-  const sharedTemplateStatusRows = computeTemplateStatuses({
-    templates: sharedTemplateSplits.map((s) => s.recurringTemplate),
-    transactions: sharedTemplateTransactions,
-    acks: sharedTemplateAcks,
-    referenceDate: monthStart,
-    monthEnd,
-  });
-  const sharedDueRows: SharedDueRow[] = sharedTemplateStatusRows
-    .filter((row) => row.status === "due")
-    .map((row) => {
-      const split = sharedTemplateSplits.find((s) => s.recurringTemplateId === row.template.id)!;
-      return {
-        id: row.template.id,
-        name: row.template.name,
-        categoryName: row.template.category.name,
-        amount: split.amountOwed,
-        householdName: householdNameByMemberId.get(split.householdMemberId)?.name ?? "",
-        logPrefill: {
-          householdId: row.template.householdId,
-          templateId: row.template.id,
-          categoryId: row.template.categoryId,
-          amount: row.template.amount,
-          description: row.template.name,
-          frequency: row.template.frequency,
-          splits: Object.fromEntries(
-            row.template.splits.map((s) => [s.householdMemberId, s.amountOwed]),
-          ),
-        },
-      };
-    });
-
-  // Scoped to the selected month — see the household budget's identical
-  // monthTransactions comment (src/app/dashboard/budget/page.tsx).
-  const monthTransactions = transactions.filter((t) => t.date >= monthStart && t.date < monthEnd);
-
   const transactionRows = monthTransactions.map((t) => ({
     id: t.id,
     categoryId: t.categoryId,
@@ -281,120 +157,19 @@ async function PersonalBudgetTabsSection({
     isRecurring: t.isRecurring,
     recurrenceFrequency: t.recurrenceFrequency,
     // TransactionList/TransactionDialog are now shared with the household
-    // budget (BUDGET-2) — a PersonalTransaction has no "paid by"/split
-    // concept, so these are always empty/null, the same "empty-array-safe"
-    // convention `members={[]}` already uses to suppress that UI.
-    paidByMemberId: null,
+    // budget (BUDGET-2) — a PersonalTransaction has no split concept, so
+    // this is always empty, the same "empty-array-safe" convention
+    // `members={[]}` already uses to suppress that UI.
     splits: [],
   }));
 
-  // This month's posted shared shares (sharedPostedRows, the user's own
-  // amountOwed) count toward the totals below alongside their own
-  // transactions — otherwise a bill's share would leave "expected" the moment
-  // it's logged (see sharedDueRows) without ever showing up as spent. Still a
-  // read-only reference, not a copy: nothing is written to PersonalTransaction.
-  // Keyed/labelled apart from personal categories so a personal "Rent" and a
-  // shared "Rent" don't merge into one row.
-  const sharedTotalEntries = sharedPostedRows.map((r) => ({
-    categoryId: `shared:${r.categoryName}`,
-    categoryName: `${r.categoryName} (${dict.personalBudget.shared.sharedBadge})`,
-    type: r.type,
-    amount: r.amount,
-  }));
-
-  const totalsByCategory = (type: "INCOME" | "EXPENSE" | "SAVINGS"): CategoryTotal[] => {
-    const totals = new Map<string, CategoryTotal>();
-    const entries = [
-      ...monthTransactions.map((t) => ({
-        categoryId: t.categoryId,
-        categoryName: t.category.name,
-        type: t.type,
-        amount: t.amount,
-      })),
-      ...sharedTotalEntries,
-    ];
-    for (const t of entries) {
-      if (t.type !== type) continue;
-      const existing = totals.get(t.categoryId);
-      if (existing) {
-        existing.total += t.amount;
-      } else {
-        totals.set(t.categoryId, { id: t.categoryId, name: t.categoryName, total: t.amount });
-      }
-    }
-    return [...totals.values()].sort((a, b) => b.total - a.total);
-  };
-
-  const incomeByCategory = totalsByCategory("INCOME");
-  const expenseByCategory = totalsByCategory("EXPENSE");
-  const savingsByCategory = totalsByCategory("SAVINGS");
-  const income = incomeByCategory.reduce((sum, c) => sum + c.total, 0);
-  const expense = expenseByCategory.reduce((sum, c) => sum + c.total, 0);
-  const savings = savingsByCategory.reduce((sum, c) => sum + c.total, 0);
-
-  // Same pure calc as the household budget's Safe to spend — see
-  // src/lib/safe-to-spend-calc.ts — fed this user's own transactions instead.
-  const { expectedRecurring: personalExpectedRecurring } = computeSafeToSpend({
-    transactions: transactions.map((t) => ({
-      categoryId: t.categoryId,
-      categoryName: t.category.name,
-      type: t.type,
-      amount: t.amount,
-      date: t.date,
-      isRecurring: t.isRecurring,
-    })),
-    monthStart,
-    monthEnd,
-    incomeSoFar: income,
-    expenseSoFar: expense,
-    savingsSoFar: savings,
-  });
-
-  // Fold the user's due share of any *shared* household RecurringTemplate
-  // (sharedDueRows, computed above) into the same "not yet logged" reduction
-  // — this is what makes the headline safe-to-spend number actually account
-  // for an unpaid share of Rent, not just list it separately. Tagged with a
-  // `source` so SafeToSpend's breakdown can badge shared rows distinctly
-  // from the user's own personal estimate — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
-  const expectedRecurring: ExpectedRecurringExpense[] = [
-    ...personalExpectedRecurring.map((e) => ({ ...e, source: "personal" as const })),
-    ...sharedDueRows.map((row) => ({
-      categoryId: row.id,
-      categoryName: row.name,
-      amount: row.amount,
-      source: "shared" as const,
-      householdName: showHouseholdName ? row.householdName : undefined,
-    })),
-  ].sort((a, b) => b.amount - a.amount);
-
-  const { safeToSpend, status: safeToSpendStatus } = deriveSafeToSpend({
-    incomeSoFar: income,
-    expenseSoFar: expense,
-    savingsSoFar: savings,
-    expectedRecurring,
-  });
-
   // --- Recurring templates --------------------------------------------------
-  // Mirrors the household budget's (src/app/dashboard/budget/page.tsx) —
-  // see src/lib/recurring-template-calc.ts's doc comments.
-  const activeRecurringTemplates = recurringTemplates.filter((t) => t.active);
-  const templateStatusRows = computeTemplateStatuses({
-    templates: activeRecurringTemplates,
-    transactions: transactions.map((t) => ({
-      recurringTemplateId: t.recurringTemplateId,
-      date: t.date,
-    })),
-    acks: recurringTemplateAcks.map((a) => ({
-      recurringTemplateId: a.personalRecurringTemplateId,
-      periodKey: a.periodKey,
-    })),
-    referenceDate: monthStart,
-    monthEnd,
-  });
+  // Statuses come from the loader (templateStatusRows) — mirrors the
+  // household budget's, see src/lib/recurring-template-calc.ts.
   // splits: [] below — RecurringTemplateDialog's/RecurringTemplatesPanel's
   // template-splitting feature is now shared with the household budget
   // (BUDGET-2), and a PersonalRecurringTemplate has no split concept, same
-  // reasoning as transactionRows's paidByMemberId/splits above.
+  // reasoning as transactionRows's splits above.
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map(
     (row) => ({
       id: row.template.id,
@@ -513,6 +288,7 @@ async function PersonalBudgetTabsSection({
       income={income}
       expense={expense}
       savings={savings}
+      remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
       expenseByCategory={expenseByCategory}
       savingsByCategory={savingsByCategory}
@@ -547,7 +323,9 @@ async function PersonalBudgetTabsSection({
       categories={categoryRows}
       safeToSpendAmount={safeToSpend}
       safeToSpendStatus={safeToSpendStatus}
+      safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
+      householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
       sharedDueRows={sharedDueRows}

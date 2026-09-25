@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.13.0",
+    "date": "2026-09-25",
+    "pr": 36,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shared bills can now be paid partly by several people, and you can clear what you owe each other. Your budget's \"remaining after expenses and savings\" now counts shared bills, debts and upcoming payments and savings, and matches between the dashboard and your budget.",
+      "sv": "Delade räkningar kan nu betalas delvis av flera personer, och ni kan reglera det ni är skyldiga varandra. \"Kvar efter utgifter och sparande\" räknar nu med delade räkningar, skulder och kommande betalningar och sparande, och visar samma belopp på översikten och i din budget."
+    }
+  },
+  {
+    "version": "0.12.1",
+    "date": "2026-09-25",
+    "pr": 38,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes fix: test versions of Squirrel can no longer change the live database.",
+      "sv": "Fix bakom kulisserna: testversioner av Squirrel kan inte längre ändra den riktiga databasen."
+    }
+  },
+  {
     "version": "0.12.0",
     "date": "2026-09-25",
     "pr": 33,
