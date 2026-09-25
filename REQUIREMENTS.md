@@ -1827,9 +1827,10 @@ scanning it again is a one-step stock change instead of a name to type.
   same dedupe ("already on the list") and price default as a typed name —
   in one scan. An unknown code puts Open Food Facts' name (if any) into the
   input for the user to check and press Enter, or asks them to type it.
-- **Out of scope**: codes on `ShoppingListItem`, matching receipts by EAN
-  (BACKLOG.md AUTO-11), and a place to view or clear an item's code in the
-  edit form — re-linking it from the scan mode is the correction path.
+- **Out of scope**: codes on `ShoppingListItem` and a place to view or
+  clear an item's code in the edit form — re-linking it from the scan mode
+  is the correction path. Receipt lines that print an EAN match against the
+  stored code (AUTO-11, see "Receipt scanning" below).
 
 ## Receipt scanning
 
@@ -1916,6 +1917,41 @@ below.
   not just inventory items) when its similarity score clears a threshold,
   else defaulting to "— Skip —" rather than guessing wrong. The user can
   fix any price, change any match, or skip any line before confirming.
+- **Confident matches start accepted (AUTO-11)**: reviewing every line of
+  a long receipt when most matches are obvious was the slow part, so both
+  dialogs sort lines by confidence with `matchReceiptLines`
+  (`src/lib/shopping/receipt-match.ts`, pure and unit-tested). There are
+  two thresholds: `RECEIPT_PRESELECT_MIN_SCORE` (0.35, the old single
+  threshold) pre-selects a best guess on a line that stays open for
+  review, and the much stricter `RECEIPT_AUTO_ACCEPT_MIN_SCORE` (0.9, in
+  practice "the same name after normalization") *plus* a
+  `RECEIPT_AUTO_ACCEPT_MIN_MARGIN` (0.15) lead over the runner-up
+  pre-accepts it. Pre-accepted lines are collapsed into an expandable
+  "N items matched" summary (`AutoMatchedSection`) above the lines that
+  still need a look; expanding shows the same editable rows, so any
+  auto-accepted match or price can still be corrected. There's still one
+  Apply button and nothing is written before it — review is shorter, not
+  gone, which is what keeps this inside the Guardrails' "suggest, don't
+  silently mutate". A row never moves between the two sections while it's
+  being edited. Two more rules keep auto-accept conservative:
+  - **Barcode**: when a receipt line prints an EAN/UPC that equals exactly
+    one candidate's `InventoryItem.barcode` (AUTO-6), that's an exact match
+    whatever the receipt's abbreviated name says. The vision model reports
+    a per-line `barcode` when one is printed, and the OCR parser keeps a
+    leading/trailing digit run as `barcode` instead of only stripping it.
+    Both go through `receiptLineBarcode` (`src/lib/barcode.ts`), which
+    only accepts GTIN-8/12/13/14 with a valid GS1 check digit — receipt
+    lines are full of article/PLU numbers, and an auto-accept can't afford
+    to trust one. Codes are normalized the same way as stored ones (12-digit
+    UPC-A → GTIN-13). For `ReceiptScanDialog`, a list row's code is its
+    linked inventory item's. Two candidates sharing a code (the same item on
+    a list twice) leaves the line open.
+  - **Exclusive on a list**: in `ReceiptScanDialog` each pending row is
+    bought once per receipt, so if two lines would both auto-accept the
+    same row, both stay open instead. `RegisterReceiptDialog` doesn't apply
+    this, since the same product twice on one receipt is normal there.
+  The thresholds were set conservatively without a corpus of real
+  receipts; loosen them only after checking against some.
 - **Applying a scan** (`applyReceiptScanAction`): for every confirmed line,
   sets the shopping-list item's `estimatedPrice` (converted) and marks it
   `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
@@ -1933,8 +1969,8 @@ below.
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
-  same `findInventoryMatches` call, same fuzzy-match-or-not default as
-  `ReceiptScanDialog` above, but a two-mode "Use existing"/"Create new"
+  same `matchReceiptLines` call (non-exclusive), same pre-select and
+  auto-accept thresholds as `ReceiptScanDialog` above, but a two-mode "Use existing"/"Create new"
   toggle (mirroring `ResolveMappingsDialog`'s row UI) instead of a
   skippable dropdown, since every line here always becomes a shopping-list
   item regardless of whether its inventory link resolves. A confident

@@ -26,6 +26,35 @@ export function normalizeBarcode(barcode: string): string | null {
   return trimmed.length === 12 ? `0${trimmed}` : trimmed;
 }
 
+// A barcode printed on a receipt line (AUTO-11), as either the vision model
+// or the OCR fallback (receipt-parsing.ts) read it. Stricter than
+// normalizeBarcode on purpose: a receipt line is full of other digit runs
+// (store article numbers, PLU codes, weights, a misread price), and a
+// receipt barcode is only ever used to *auto-accept* a match without the
+// user looking at it — so anything that isn't a real GTIN-8/12/13/14 with a
+// valid check digit is dropped rather than risk linking the wrong item.
+// UPC-E (6 digits) is left out too: it's rarely printed on receipts and has
+// no check digit of its own to validate. Returns the same normalized form
+// normalizeBarcode stores, so it compares directly to InventoryItem.barcode.
+export function receiptLineBarcode(raw: string | null | undefined): string | null {
+  const digits = raw?.trim() ?? "";
+  if (!/^(\d{8}|\d{12,14})$/.test(digits)) return null;
+  if (!hasValidGtinCheckDigit(digits)) return null;
+  return normalizeBarcode(digits);
+}
+
+// Standard GS1 mod-10 check: weights alternate 3,1,3,… from the digit just
+// left of the check digit, for every GTIN length.
+function hasValidGtinCheckDigit(digits: string): boolean {
+  const body = digits.slice(0, -1);
+  let sum = 0;
+  for (let i = 0; i < body.length; i++) {
+    const digit = Number(body[body.length - 1 - i]);
+    sum += i % 2 === 0 ? digit * 3 : digit;
+  }
+  return (10 - (sum % 10)) % 10 === Number(digits[digits.length - 1]);
+}
+
 // How long the same code has to be out of frame before a continuous scan
 // session (the inventory "Scan" dialog) counts it again. A can sitting in
 // front of the lens is decoded on every ~350ms tick; without this, holding

@@ -161,22 +161,6 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       `lowStockThreshold` and usual purchase quantity (AUTO-8) — as a
       suggestion on the item, not a silent change.
 
-- [ ] **AUTO-11. Receipt scan: auto-accept confident matches**
-      — `src/components/shopping/receipt-scan-dialog.tsx`,
-      `src/components/shopping/register-receipt-dialog.tsx`
-      **Problem:** every scanned line is shown for review even when the
-      match is obvious.
-      **Design brief:** lines above a high confidence threshold are
-      pre-accepted and collapsed into a "12 items matched" summary
-      (expandable); only uncertain lines are shown open for review. One
-      "Apply" button. Nothing is written before Apply — review still
-      exists, it's just shorter.
-      **Dev notes:** a second, stricter threshold alongside the current
-      pre-select threshold for `findInventoryMatches`; tune against real
-      receipts before shipping. Receipts with EANs (rare in Swedish receipts,
-      but some chains print them) can also match by barcode exactly, now
-      that AUTO-6 stores `InventoryItem.barcode`.
-
 ---
 
 ## Competitive gap scan
@@ -492,7 +476,7 @@ out to be a product-scope question rather than a scoped task should move to
         researched; no known public API. Investigate before promising
         anything.
       Either way, the output lands in the same review → apply flow
-      (AUTO-11), never applied unseen.
+      (with AUTO-11's auto-accepted matches), never applied unseen.
 
 - [ ] **PRICE-1. Should manual purchase-checking ever collect a price?** `[!]`
       The cheap version has shipped (an honest empty-state hint in Cost

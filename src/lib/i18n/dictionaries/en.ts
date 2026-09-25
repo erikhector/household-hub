@@ -474,6 +474,12 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       rateError: "Couldn't convert {currency} right now — try again in a moment.",
       noMatchesError: "Match at least one line to a list item before applying.",
+      // AUTO-11: the collapsed block of lines matched with enough
+      // confidence (exact name or barcode) that they don't need a look.
+      autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
+      showMatched: "Show",
+      hideMatched: "Hide",
+      matchedByBarcode: "Matched by barcode",
       addItemError: "Couldn't add that item — try again.",
     },
     registerReceipt: {
@@ -518,6 +524,12 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
       existingSelectionRequired: 'Choose an item, or switch to "Create new".',
+      // AUTO-11: the collapsed block of lines matched with enough
+      // confidence (exact name or barcode) that they don't need a look.
+      autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
+      showMatched: "Show",
+      hideMatched: "Hide",
+      matchedByBarcode: "Matched by barcode",
     },
     shareLink: {
       button: "Share",
