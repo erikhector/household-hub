@@ -425,7 +425,13 @@ export async function resetPasswordAction(
   const passwordHash = await bcrypt.hash(newPassword, 12);
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: resetToken.userId }, data: { passwordHash } });
+      // passwordChangedAt revokes every session issued before now — the
+      // point of a reset is often that someone else has the account (SCALE-H;
+      // see src/lib/session.ts).
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash, passwordChangedAt: new Date() },
+      });
       await tx.passwordResetToken.update({
         where: { id: resetToken.id },
         data: { usedAt: new Date() },

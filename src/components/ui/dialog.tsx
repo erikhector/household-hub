@@ -158,7 +158,18 @@ function DialogDescription({
   )
 }
 
+// Opens a Dialog from somewhere other than its own Trigger — e.g. a menu
+// item, whose popup (and anything rendered inside it) unmounts as the menu
+// closes, so the Dialog has to live outside the menu. Pass the handle to the
+// Dialog's `handle` prop and call `handle.open(null)` from the menu item.
+// Opening this way still goes through the Dialog's onOpenChange, so a
+// component's open-time reset logic runs the same as for a Trigger press.
+const createDialogHandle = DialogPrimitive.createHandle
+type DialogHandle = DialogPrimitive.Handle<unknown>
+
 export {
+  createDialogHandle,
+  type DialogHandle,
   Dialog,
   DialogClose,
   DialogContent,

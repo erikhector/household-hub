@@ -29,6 +29,14 @@ model User {
   // soft nudge for any account that reached a session before this gate
   // existed — see EmailVerificationToken's doc comment below.
   emailVerifiedAt DateTime?
+  // Set whenever the password changes (resetPasswordAction,
+  // updatePasswordAction) and copied into the JWT at sign-in as
+  // `pwdChangedAt` (src/lib/auth.config.ts). requireHousehold/requireUserId
+  // (src/lib/session.ts) reject a session whose copy is older than this, so
+  // a stolen session cookie stops working once the password is changed
+  // (SCALE-H). Null = never changed since this column existed, and any
+  // token is accepted — no forced logout for existing users on deploy.
+  passwordChangedAt DateTime?
 
   // Account-level UI preferences, synced across every device the user signs
   // into (src/lib/preferences.ts). "dark"/"en" mirror the app's pre-existing

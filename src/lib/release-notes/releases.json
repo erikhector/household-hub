@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.8.1",
+    "date": "2026-09-25",
+    "pr": 30,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Changing or resetting your password now signs you out on all your other devices, so anyone who had access to your account loses it.",
+      "sv": "När du byter eller återställer ditt lösenord loggas du nu ut på alla dina andra enheter, så att ingen annan som haft tillgång till ditt konto kan fortsätta använda det."
+    }
+  },
+  {
+    "version": "0.8.0",
+    "date": "2026-09-25",
+    "pr": 28,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now fix an item's category right from the shopping list: tap the small category label on a row and pick another one, or create a new one. Squirrel remembers the choice the next time you add that item.",
+      "sv": "Nu kan du rätta en varas kategori direkt i inköpslistan: tryck på den lilla kategorietiketten på raden och välj en annan eller skapa en ny. Squirrel kommer ihåg valet nästa gång du lägger till varan."
+    }
+  },
+  {
+    "version": "0.7.4",
+    "date": "2026-09-25",
+    "pr": 35,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you're removed from your only household, Squirrel no longer gets stuck reloading. You'll now see a page where you can create a new household or join one with an invite link.",
+      "sv": "Om du tas bort från ditt enda hushåll fastnar Squirrel inte längre i en omladdningsloop. Du kommer i stället till en sida där du kan skapa ett nytt hushåll eller gå med i ett via en inbjudningslänk."
+    }
+  },
+  {
     "version": "0.7.3",
     "date": "2026-09-24",
     "pr": 27,

@@ -549,6 +549,58 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+const setItemCategorySchema = z
+  .string()
+  .trim()
+  .max(60, "Category must be 60 characters or fewer");
+
+/**
+ * Re-files a shopping-list row's linked InventoryItem under a different
+ * category — the tappable category chip on each row (AUTO-2b), so a wrong
+ * auto-category guess (AUTO-2's createCategoryResolver) can be fixed right
+ * where it's noticed instead of a trip to the inventory page. It writes the
+ * InventoryItem, not the list row (the row has no category of its own), and
+ * that's also what makes the correction stick: the resolver's first tier is
+ * household memory, so the next add of the same name follows this choice
+ * rather than being re-guessed. An unlinked row has no category to change
+ * yet — it goes through the mapping dialog first. Blank clears back to the
+ * locale's "Uncategorized" bucket, same as bulkUpdateFieldAction.
+ */
+export async function setShoppingListItemCategoryAction(
+  itemId: string,
+  category: string,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { shoppingListId: true, inventoryItemId: true },
+  });
+  if (!item) return { error: "Item not found" };
+  if (!item.inventoryItemId) return { error: "Link this item to your pantry first" };
+
+  const parsed = setItemCategorySchema.safeParse(category);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
+  }
+
+  try {
+    await prisma.inventoryItem.updateMany({
+      where: { id: item.inventoryItemId, householdId: household.id },
+      data: {
+        category: parsed.data || (await getDictionary()).inventory.uncategorized,
+        updatedByUserId: userId,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/inventory");
+  return {};
+}
+
 const importItemsSchema = z.object({
   listId: z.string().min(1),
   items: z
@@ -1386,7 +1438,15 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
 
 export async function completeShoppingListAction(
   listId: string,
-): Promise<{ expenseLoggedMessage?: string; unresolvedNotice?: string; error?: string }> {
+): Promise<{
+  expenseLoggedMessage?: string;
+  unresolvedNotice?: string;
+  /** The Groceries expense this completion logged, if any — handed back to
+   * uncompleteShoppingListAction by the toast's "Undo" (AUTO-5) so it
+   * removes exactly that row and nothing else. */
+  transactionId?: string;
+  error?: string;
+}> {
   const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -1427,10 +1487,11 @@ export async function completeShoppingListAction(
   }
 
   let expenseLoggedMessage: string | undefined;
+  let transactionId: string | undefined;
 
   if (groceriesTotal > 0) {
     const category = await findOrCreateGroceriesCategory(household.id);
-    await prisma.transaction.create({
+    const transaction = await prisma.transaction.create({
       data: {
         householdId: household.id,
         categoryId: category.id,
@@ -1440,7 +1501,9 @@ export async function completeShoppingListAction(
         date: new Date(),
         createdByUserId: userId,
       },
+      select: { id: true },
     });
+    transactionId = transaction.id;
 
     const locale = await getLocale();
     const amountLabel = new Intl.NumberFormat(locale, {
@@ -1460,5 +1523,53 @@ export async function completeShoppingListAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/budget");
 
-  return { expenseLoggedMessage, unresolvedNotice };
+  return { expenseLoggedMessage, unresolvedNotice, transactionId };
+}
+
+/**
+ * The "Undo" on the "Done shopping" toast (AUTO-5): puts a just-completed
+ * list back to ACTIVE and removes the Groceries expense that completion
+ * logged, identified by the id completeShoppingListAction returned — never
+ * "the latest Groceries expense", which could be someone else's. Same
+ * short-lived, fat-finger-only shape as undoMarkMealEntryCookedAction, not
+ * a permanent "reopen list" control. Idempotent: a list that's no longer
+ * COMPLETED (a double-tapped Undo, or it was archived meanwhile) is left
+ * alone, and the expense delete is a household-scoped deleteMany, so a
+ * stale or foreign id removes nothing. Inventory needs no reversal —
+ * completing never touched it (purchases already moved stock as each item
+ * was checked off, and they stay checked off).
+ */
+export async function uncompleteShoppingListAction(
+  listId: string,
+  transactionId?: string,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId: household.id },
+    select: { id: true, status: true },
+  });
+  if (!list) return { error: "List not found" };
+  if (list.status !== "COMPLETED") return {};
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingList.update({
+        where: { id: list.id },
+        data: { status: "ACTIVE", completedAt: null },
+      });
+      if (transactionId) {
+        await tx.transaction.deleteMany({
+          where: { id: transactionId, householdId: household.id },
+        });
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath("/dashboard/budget");
+  return {};
 }
