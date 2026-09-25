@@ -10,7 +10,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/meal-planning/missing-ingredients";
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
-import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
+import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
@@ -85,13 +85,19 @@ export async function previewMissingIngredientsAction(
   // (or up) to how many portions this specific entry is cooking — see
   // MealPlanEntry.portions' doc comment in schema.prisma. Two entries of the
   // same 4-portion recipe each cooking 2 portions (e.g. lasagna for Thursday
-  // dinner and Friday lunch) therefore total 1 full batch, not 2.
+  // dinner and Friday lunch) therefore total 1 full batch, not 2. The ratio
+  // itself (and its no-scaling fallback) is portionsMultiplier in
+  // recipe-expansion.ts.
   const expanded = (
     await Promise.all(
-      plan.entries.map((entry) => {
-        const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
-        return expandRecipeIngredients(household.id, entry.recipeId!, multiplier, new Set());
-      }),
+      plan.entries.map((entry) =>
+        expandRecipeIngredients(
+          household.id,
+          entry.recipeId!,
+          portionsMultiplier(entry.portions, entry.recipe?.servings),
+          new Set(),
+        ),
+      ),
     )
   ).flat();
 
@@ -330,8 +336,12 @@ export async function previewCookedIngredientsAction(
   if (!entry) return { error: "Meal not found" };
   if (!entry.recipeId) return { error: "No recipe linked to this meal" };
 
-  const multiplier = entry.portions / (entry.recipe?.servings || entry.portions || 1);
-  const expanded = await expandRecipeIngredients(household.id, entry.recipeId, multiplier, new Set());
+  const expanded = await expandRecipeIngredients(
+    household.id,
+    entry.recipeId,
+    portionsMultiplier(entry.portions, entry.recipe?.servings),
+    new Set(),
+  );
 
   // Same fallback as previewMissingIngredientsAction: an ingredient's
   // inventoryItemId is normally always set (find-or-create-linked at

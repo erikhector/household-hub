@@ -2248,10 +2248,38 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
-- **No in-place edit for meal entries** — only add (`addMealEntryAction`)
-  and delete (`deleteMealEntryAction`), consistent with the app's existing
-  simplicity elsewhere (shopping list items are add/toggle/delete too, no
-  edit). Fixing a wrong entry means deleting it and adding the right one.
+- **Editing a meal entry**: an entry that hasn't been cooked yet has a
+  pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
+  backed by `updateMealEntryAction`, which changes the entry's recipe or
+  freeform name and its portions. Date and meal type aren't editable, so
+  moving a meal still means deleting it and adding it again. Each recipe
+  entry in the planner shows its portion count next to the name
+  ("Lasagna · 2 portions").
+- **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
+  entry carries `MealPlanEntry.portions`, the number of people that slot
+  is cooking for. The meal entry dialog's "Portions" field sets it. Picking
+  a recipe pre-fills it with that recipe's own `Recipe.servings` ("one
+  full recipe"), and the user can change it to any whole number from 1 to
+  1,000. The add and update actions validate it with Zod
+  (`z.coerce.number().int().min(1).max(1_000)`), and when it's left out
+  they fall back to the recipe's `servings`. A freeform entry has no
+  recipe, so its portions are never used. Ingredient quantities are scaled
+  by `portionsMultiplier(portions, servings)` =
+  `portions / servings` (`src/app/dashboard/meal-planning/recipe-expansion.ts`,
+  tested in `recipe-expansion.test.ts`). That value is the `multiplier`
+  passed to `expandRecipeIngredients`, which carries it down through
+  every sub-recipe. A recipe for 4 planned for 2 therefore puts half of
+  every ingredient (sub-recipes included) on the shopping list. The same
+  helper feeds both the shopping-list bridge and "Mark as cooked" below,
+  so what a meal is predicted to need and what cooking it takes out of
+  inventory always agree. When the ratio can't be computed (`servings` or
+  `portions` missing, 0 or less, or not finite), the multiplier is 1 and
+  the recipe counts as written. A 0 would drop every ingredient, and an
+  Infinity would propose buying an impossible amount. "What can I cook
+  right now?" (`getCookableRecipes`) isn't tied to a plan entry, so it
+  always checks one full batch (multiplier 1). There's no separate
+  "servings override" column. An earlier proposal for one would have
+  duplicated `portions`, which already has this job.
 - Weekday header labels (Mon–Sun) come from the `mealPlanning` dictionary
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
@@ -2584,7 +2612,7 @@ actually used, once they've cooked it.
   button — a freeform entry has no ingredients to decrement.
 - **Preview**: opening the dialog calls `previewCookedIngredientsAction`
   (`src/app/dashboard/meal-planning/actions.ts`), which reuses the exact
-  same `expandRecipeIngredients` call and `portions / servings` multiplier
+  same `expandRecipeIngredients` call and `portionsMultiplier` scaling
   as the shopping-list bridge above, plus its same loose name-match
   fallback for an ingredient whose linked `InventoryItem` was since
   deleted. Unlike that bridge, an ingredient that still doesn't resolve to
