@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { ChefHat, Layers, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { ChefHat, Layers, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
-import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
+import { deleteRecipeAction, toggleRecipeFavoriteAction } from "@/app/dashboard/meal-planning/recipe-actions";
+import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -148,6 +149,22 @@ function RecipeRow({
     });
   };
 
+  // Star toggle (GAP-18). Its own transition, separate from delete's, so a
+  // pending star doesn't grey out the delete button and vice versa. The
+  // star flips immediately via useOptimistic and snaps back on its own if
+  // the save fails — same pattern as AutoAddSetting — since the optimistic
+  // value only lives for the length of the transition and the
+  // server-rendered `recipe.isFavorite` is the truth afterwards.
+  const [isFavoritePending, startFavoriteTransition] = useTransition();
+  const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(recipe.isFavorite);
+  const handleToggleFavorite = () => {
+    startFavoriteTransition(async () => {
+      setOptimisticFavorite(!optimisticFavorite);
+      const result = await toggleRecipeFavoriteAction(recipe.id);
+      if (result.error) toast.error(result.error);
+    });
+  };
+
   return (
     <div className="flex items-center gap-3 px-3 py-2.5">
       <ChefHat className="size-4 shrink-0 text-primary" />
@@ -185,6 +202,21 @@ function RecipeRow({
         })}
       </span>
       <span className="flex shrink-0 items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={cn(
+            optimisticFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground",
+          )}
+          disabled={isFavoritePending}
+          aria-pressed={optimisticFavorite}
+          aria-label={dict.favoriteAriaLabel}
+          title={dict.favoriteAriaLabel}
+          onClick={handleToggleFavorite}
+        >
+          <Star className={cn("size-3.5", optimisticFavorite && "fill-current")} />
+        </Button>
         <RecipeFormDialog
           dict={dict}
           mode="edit"

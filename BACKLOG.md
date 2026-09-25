@@ -403,21 +403,6 @@ out to be a product-scope question rather than a scoped task should move to
       notification — this is a "here's what happened" recap, the same
       register as `MealVarietyRecap`, not an alert.
 
-- [ ] **GAP-18. Recipe favorites, so the good ones resurface** —
-      `prisma/schema.prisma` (`Recipe`), `src/components/meal-planning/
-      recipe-manager.tsx`, `src/app/dashboard/meal-planning/cookable-
-      recipes.ts`. AnyList and Paprika both let a household mark a recipe
-      as a favorite and use that to bias suggestions. Add
-      `isFavorite Boolean @default(false)` to `Recipe` (Phase 2 migration),
-      a toggle (star icon) on each `RecipeManager` card next to its existing
-      actions, and use it as a tiebreaker — not a filter — in
-      `computeCookableRecipes`'s sort (favorites first among recipes with
-      the same missing-ingredient count) and GAP-1's "use it up" ranking
-      once that ships. No new page, no rating scale (a plain boolean is
-      enough to answer "which recipes does this household actually like",
-      the same minimal-first instinct `HouseholdTask` v1 used for
-      assignment).
-
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's

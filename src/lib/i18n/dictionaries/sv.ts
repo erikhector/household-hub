@@ -935,6 +935,7 @@ export const sv = {
     deleteRecipeInUseError: 'Kan inte tas bort — används som delrecept i "{recipeName}".',
     editAriaLabel: "Redigera recept",
     deleteAriaLabel: "Ta bort recept",
+    favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",

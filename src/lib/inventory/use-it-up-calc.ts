@@ -61,6 +61,9 @@ export type RecipeIngredientRef = {
 export type RecipeForUseItUp = {
   recipeId: string;
   recipeName: string;
+  // Recipe.isFavorite (GAP-18) — only ever a late tiebreaker in the sort
+  // below, never a reason on its own to suggest a recipe.
+  isFavorite: boolean;
   ingredients: RecipeIngredientRef[];
 };
 
@@ -136,11 +139,20 @@ export function computeUseItUpSuggestions(
   // even sooner, so on a tie that's the less urgent of the two reasons.
   const hasExpiringMatch = (matches: UseItUpMatch[]) => matches.some((match) => match.reason === "expiring");
 
+  // Favorites (GAP-18) break whatever tie is left after the two "how much
+  // waste does this prevent" keys above — never ahead of them, so a starred
+  // recipe using one thing that's running low can't outrank an un-starred
+  // one using two things that are about to go off. Kept out of the
+  // suggestion's own shape (the chip doesn't render it), hence the lookup.
+  const favoriteIds = new Set(recipes.filter((recipe) => recipe.isFavorite).map((recipe) => recipe.recipeId));
+  const isFavorite = (suggestion: UseItUpSuggestion) => favoriteIds.has(suggestion.recipeId);
+
   return suggestions
     .sort(
       (a, b) =>
         b.matches.length - a.matches.length ||
         Number(hasExpiringMatch(b.matches)) - Number(hasExpiringMatch(a.matches)) ||
+        Number(isFavorite(b)) - Number(isFavorite(a)) ||
         a.recipeName.localeCompare(b.recipeName),
     )
     .slice(0, MAX_SUGGESTIONS);

@@ -462,6 +462,13 @@ model Recipe {
   proteinGramsPerServing Float?
   carbsGramsPerServing   Float?
   fatGramsPerServing     Float?
+  // Household-wide "we actually like this one" flag (BACKLOG GAP-18) — a
+  // plain boolean rather than a per-member rating, the same minimal-first
+  // call HouseholdTask v1 made for assignment. Only ever a *tiebreaker* in
+  // the Cook tab's and "use it up" suggestion ranking (see
+  // computeCookableRecipes / computeUseItUpSuggestions), never a filter, so
+  // starring a recipe can't hide an un-starred one that's a better match.
+  isFavorite             Boolean  @default(false)
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
