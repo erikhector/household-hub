@@ -42,6 +42,8 @@ export const sv = {
     expiringSoon: "{name} går snart ut",
     expiringSoonEstimated: "{name} går troligen snart ut",
     listCleared: "{name} är helt avbockad",
+    priceSpike: "{name} kostade {percent} % mer än vanligt",
+    priceSpikePlain: "{name} kostade mer än vanligt",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
