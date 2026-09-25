@@ -40,6 +40,11 @@ export type CategoryRow = {
   monthlyLimit?: number | null;
   // GAP-21's envelope carryover toggle, optional for the same reason.
   rolloverEnabled?: boolean;
+  // GAP-22's savings goal (SAVINGS categories only), optional for the same
+  // reason. goalDate is UTC midnight of the picked day — see goalDateField
+  // in src/lib/savings-goal-calc.ts.
+  goalAmount?: number | null;
+  goalDate?: Date | null;
 };
 
 // Shared by both createCategoryAction/updateCategoryAction/deleteCategoryAction
@@ -97,6 +102,11 @@ export type CategoryManagerDict = {
     rolloverLabel: string;
     rolloverHint: string;
     rolloverNeedsLimit: string;
+    goalLabel: string;
+    goalPlaceholder: string;
+    goalHint: string;
+    goalDateLabel: string;
+    goalDateHint: string;
   };
   type: {
     income: string;
@@ -300,6 +310,15 @@ function EditCategoryDialog({
               dict={dict}
             />
           )}
+          {/* GAP-22: likewise, only savings categories have a goal. */}
+          {category.type === "SAVINGS" && (
+            <SavingsGoalField
+              id={`category-goal-${category.id}`}
+              defaultAmount={category.goalAmount}
+              defaultDate={category.goalDate}
+              dict={dict}
+            />
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
@@ -326,7 +345,8 @@ export function AddCategoryDialog({
 }) {
   const [open, setOpen] = useState(false);
   // Controlled (rather than the Select's own defaultValue) only so the
-  // monthly limit field below can appear for expense categories alone.
+  // monthly limit field below can appear for expense categories alone (and
+  // GAP-22's savings goal for savings categories alone).
   const [type, setType] = useState<CategoryType>("EXPENSE");
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -387,6 +407,7 @@ export function AddCategoryDialog({
             </Select>
           </div>
           {type === "EXPENSE" && <MonthlyLimitField id="category-limit" dict={dict} />}
+          {type === "SAVINGS" && <SavingsGoalField id="category-goal" dict={dict} />}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
@@ -461,6 +482,66 @@ function MonthlyLimitField({
         </label>
         <p id={`${rolloverId}-hint`} className="text-xs text-muted-foreground">
           {hasLimit ? dict.categories.rolloverHint : dict.categories.rolloverNeedsLimit}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * GAP-22's optional savings goal, shared by the add and edit dialogs and
+ * shown only for SAVINGS categories: a target amount and, optionally, a
+ * date to reach it by. An empty amount means "no goal" (and clears one on
+ * edit, date included) — see goalAmountField/goalDateField/goalForType in
+ * src/lib/savings-goal-calc.ts for the server-side parsing. Unlike the
+ * rollover checkbox above, the date stays enabled while the amount is
+ * empty: filling the two in either order shouldn't fight the user, and a
+ * date sent alone is simply dropped by the action.
+ */
+function SavingsGoalField({
+  id,
+  defaultAmount,
+  defaultDate,
+  dict,
+}: {
+  id: string;
+  defaultAmount?: number | null;
+  defaultDate?: Date | null;
+  dict: CategoryManagerDict;
+}) {
+  const dateId = `${id}-date`;
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={id}>{dict.categories.goalLabel}</Label>
+        <Input
+          id={id}
+          name="goalAmount"
+          type="number"
+          min={0.01}
+          step="any"
+          inputMode="decimal"
+          defaultValue={defaultAmount ?? undefined}
+          placeholder={dict.categories.goalPlaceholder}
+          aria-describedby={`${id}-hint`}
+        />
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {dict.categories.goalHint}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={dateId}>{dict.categories.goalDateLabel}</Label>
+        <Input
+          id={dateId}
+          name="goalDate"
+          type="date"
+          // Stored as UTC midnight of the picked day, so its UTC ISO date is
+          // that same day whatever the viewer's time zone.
+          defaultValue={defaultDate ? defaultDate.toISOString().slice(0, 10) : undefined}
+          aria-describedby={`${dateId}-hint`}
+        />
+        <p id={`${dateId}-hint`} className="text-xs text-muted-foreground">
+          {dict.categories.goalDateHint}
         </p>
       </div>
     </div>

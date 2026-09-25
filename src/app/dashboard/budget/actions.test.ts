@@ -183,7 +183,7 @@ describe("createCategoryAction", () => {
 
     expect(result).toEqual({});
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false },
+      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -198,7 +198,7 @@ describe("createCategoryAction", () => {
     );
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Dining out", type: "EXPENSE", monthlyLimit: 1500, rolloverEnabled: false },
+      data: { householdId: "household-1", name: "Dining out", type: "EXPENSE", monthlyLimit: 1500, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -209,7 +209,7 @@ describe("createCategoryAction", () => {
     await createCategoryAction({}, formData({ name: "Salary", type: "INCOME", monthlyLimit: "1500" }));
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Salary", type: "INCOME", monthlyLimit: null, rolloverEnabled: false },
+      data: { householdId: "household-1", name: "Salary", type: "INCOME", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -230,6 +230,8 @@ describe("createCategoryAction", () => {
         type: "EXPENSE",
         monthlyLimit: 1500,
         rolloverEnabled: true,
+        goalAmount: null,
+        goalDate: null,
       },
     });
   });
@@ -249,6 +251,8 @@ describe("createCategoryAction", () => {
         type: "EXPENSE",
         monthlyLimit: null,
         rolloverEnabled: false,
+        goalAmount: null,
+        goalDate: null,
       },
     });
 
@@ -263,6 +267,8 @@ describe("createCategoryAction", () => {
         type: "SAVINGS",
         monthlyLimit: null,
         rolloverEnabled: false,
+        goalAmount: null,
+        goalDate: null,
       },
     });
   });
@@ -274,6 +280,59 @@ describe("createCategoryAction", () => {
     );
 
     expect(result.error).toBe("Monthly limit must be greater than 0");
+    expect(categoryCreateMock).not.toHaveBeenCalled();
+  });
+
+  // GAP-22: an optional savings goal, kept only on SAVINGS categories.
+  it("stores a savings goal and date on a savings category", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Holiday", type: "SAVINGS", goalAmount: "20000", goalDate: "2027-06-01" }),
+    );
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Holiday",
+        type: "SAVINGS",
+        monthlyLimit: null,
+        rolloverEnabled: false,
+        goalAmount: 20000,
+        goalDate: new Date(Date.UTC(2027, 5, 1)),
+      },
+    });
+  });
+
+  it("drops a goal sent for a non-savings category, and a date sent without an amount", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Food", type: "EXPENSE", goalAmount: "20000", goalDate: "2027-06-01" }),
+    );
+    expect(categoryCreateMock).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ type: "EXPENSE", goalAmount: null, goalDate: null }),
+    });
+
+    await createCategoryAction({}, formData({ name: "Buffer", type: "SAVINGS", goalDate: "2027-06-01" }));
+    expect(categoryCreateMock).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ type: "SAVINGS", goalAmount: null, goalDate: null }),
+    });
+  });
+
+  it("rejects an invalid goal amount or date", async () => {
+    const zero = await createCategoryAction({}, formData({ name: "Holiday", type: "SAVINGS", goalAmount: "0" }));
+    expect(zero.error).toBe("Savings goal must be greater than 0");
+
+    const badDate = await createCategoryAction(
+      {},
+      formData({ name: "Holiday", type: "SAVINGS", goalAmount: "100", goalDate: "2027-02-30" }),
+    );
+    expect(badDate.error).toBe("Goal date must be a valid date");
     expect(categoryCreateMock).not.toHaveBeenCalled();
   });
 });
@@ -390,7 +449,7 @@ describe("updateCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false },
+      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -404,7 +463,7 @@ describe("updateCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
 
     categoryFindFirstMock
@@ -415,7 +474,7 @@ describe("updateCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-2" },
-      data: { name: "Buffer", monthlyLimit: null, rolloverEnabled: false },
+      data: { name: "Buffer", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -431,7 +490,7 @@ describe("updateCategoryAction", () => {
     );
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: true },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: true, goalAmount: null, goalDate: null },
     });
 
     // An unticked checkbox isn't posted at all — that's "off".
@@ -441,7 +500,7 @@ describe("updateCategoryAction", () => {
     await updateCategoryAction({}, formData({ id: "cat-1", name: "Food", monthlyLimit: "3000" }));
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
 
     // Clearing the limit clears rollover even if the flag is still sent.
@@ -454,7 +513,56 @@ describe("updateCategoryAction", () => {
     );
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Food", monthlyLimit: null, rolloverEnabled: false },
+      data: { name: "Food", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
+    });
+  });
+
+  // GAP-22: the goal is kept or cleared by the *stored* type, so an expense
+  // category can't gain one by posting the fields.
+  it("sets, changes or clears a savings goal based on the stored category's type", async () => {
+    categoryUpdateMock.mockResolvedValue({});
+
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-2", type: "SAVINGS" })
+      .mockResolvedValueOnce(null);
+    await updateCategoryAction(
+      {},
+      formData({ id: "cat-2", name: "Holiday", goalAmount: "15000", goalDate: "2026-12-31" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-2" },
+      data: {
+        name: "Holiday",
+        monthlyLimit: null,
+        rolloverEnabled: false,
+        goalAmount: 15000,
+        goalDate: new Date(Date.UTC(2026, 11, 31)),
+      },
+    });
+
+    // Emptying the amount clears the goal, date included.
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-2", type: "SAVINGS" })
+      .mockResolvedValueOnce(null);
+    await updateCategoryAction(
+      {},
+      formData({ id: "cat-2", name: "Holiday", goalAmount: "", goalDate: "2026-12-31" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-2" },
+      data: expect.objectContaining({ goalAmount: null, goalDate: null }),
+    });
+
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    await updateCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Food", goalAmount: "15000", goalDate: "2026-12-31" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: expect.objectContaining({ goalAmount: null, goalDate: null }),
     });
   });
 });

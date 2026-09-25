@@ -706,6 +706,16 @@ model BudgetCategory {
   // category actions store false whenever there's no limit, so a stale flag
   // can't linger on an uncapped category.
   rolloverEnabled Boolean         @default(false)
+  // Optional savings goal (GAP-22): a target amount, optionally by a date.
+  // Float like monthlyLimit and every other money column.
+  // Only meaningful on SAVINGS categories (the category actions clear both
+  // for INCOME/EXPENSE) and purely informational: the Overview tab draws a
+  // progress bar and a "save ~X/month" line (src/lib/savings-goal-calc.ts),
+  // but nothing notifies or blocks a transaction. goalDate is stored as UTC
+  // midnight of the picked day, like Transaction.date. goalDate without
+  // goalAmount is never stored — a date alone has nothing to aim at.
+  goalAmount      Float?
+  goalDate        DateTime?
   createdAt       DateTime        @default(now())
 
   household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -934,6 +944,9 @@ model PersonalBudgetCategory {
   monthlyLimit    Float?
   // Mirrors BudgetCategory.rolloverEnabled (GAP-21), for the same reason.
   rolloverEnabled Boolean         @default(false)
+  // Mirrors BudgetCategory.goalAmount/goalDate (GAP-22), for the same reason.
+  goalAmount      Float?
+  goalDate        DateTime?
   createdAt       DateTime        @default(now())
 
   user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
