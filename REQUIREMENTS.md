@@ -889,6 +889,41 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   the "X over" note against limit + carried and adds an "incl. X carried over"
   line under the bar when anything was carried. Like the limit itself it's
   purely visual: safe to spend and every total ignore it.
+- **Savings goals (GAP-22)**: a savings category can carry an optional
+  target amount and date, the way YNAB's and Qapital's goals do.
+  `goalAmount Float?` and `goalDate DateTime?` sit on both `BudgetCategory`
+  and `PersonalBudgetCategory` (migration `20260925220624_savings_goals`).
+  The personal budget got it too because `CategoryManager`, `BudgetTabs` and
+  the category actions are already shared, so it cost nothing extra. They're
+  set from "Savings goal (optional)" and "Reach it by (optional)" fields in
+  `CategoryManager`'s add and edit dialogs, shown only for savings
+  categories. The fields are parsed by `goalAmountField` (empty means no goal
+  and clears one on edit; otherwise it must be a positive number) and
+  `goalDateField` (a `YYYY-MM-DD` date input value stored as UTC midnight of
+  that day, like a transaction's date; impossible dates such as 2026-02-31
+  are rejected, past dates are accepted so an unrelated rename still saves)
+  in `src/lib/savings-goal-calc.ts`. `goalForType` enforces the rule
+  server-side: anything but a `SAVINGS` category stores null for both, and
+  on edit that's decided from the stored type rather than the form. A
+  category's type can't be changed after creation, so a goal can't outlive
+  a type change. A date sent without an amount is dropped too.
+  `computeSavingsGoalProgress` turns (saved so far, goal amount, goal date,
+  today) into a status (`reached`, `noDate`, `inProgress` or `datePassed`),
+  a progress percentage (clamped to 100 for the bar) and, while in progress,
+  the monthly pace: what's left divided by the calendar months from this one
+  through the goal's month, inclusive. A goal dated later this month
+  therefore asks for the whole remainder, never a division by zero. "Saved
+  so far" is the category's **all-time** `SAVINGS` total, floored at 0. The
+  household page sums it with one `transaction.groupBy`, and the personal
+  page sums the loader's full transaction list, so it adds no query there. A
+  `SavingsGoals` card on the Overview tab (under Safe to spend, and only when
+  some savings category has a goal) shows each goal as "saved / goal", a bar
+  in the calm savings colour and a line such as "Save ~X/month to reach this
+  by {date}". It doesn't follow the month navigator, since a goal is a
+  running total measured as of today. It's informational only, in keeping
+  with the Guardrails on money: there's no notification, no red or warning
+  state (a passed date is simply stated), no streaks, and it never blocks
+  or affects a transaction, safe to spend or any total.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
