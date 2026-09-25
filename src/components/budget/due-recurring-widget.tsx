@@ -47,6 +47,9 @@ export type SharedDueRow = {
   id: string;
   name: string;
   categoryName: string;
+  /** The template's own type — a shared *saving* counts towards "due
+   * savings" in the personal budget's headline, not "due payments". */
+  type: "INCOME" | "EXPENSE" | "SAVINGS";
   /** This user's own share (RecurringTemplateSplit.amountOwed) — never the
    * template's full expected amount. */
   amount: number;

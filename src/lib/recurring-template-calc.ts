@@ -3,7 +3,7 @@
 // for the "accounted for" model. Kept dependency-free (no Prisma import) so
 // it's unit-testable with plain fixtures, same convention as
 // safe-to-spend-calc.ts (also in src/lib/) and
-// src/app/dashboard/budget/settle-up-calc.ts. Used identically for both the
+// settle-up-calc.ts (also in src/lib/). Used identically for both the
 // household budget (RecurringTemplate) and the personal budget
 // (PersonalRecurringTemplate) — callers just map their Prisma rows into the
 // shapes below first.

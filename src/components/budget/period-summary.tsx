@@ -12,6 +12,7 @@ export function PeriodSummary({
   income,
   expense,
   savings,
+  remaining,
   incomeByCategory,
   expenseByCategory,
   savingsByCategory,
@@ -21,9 +22,14 @@ export function PeriodSummary({
   income: number;
   expense: number;
   // Neither income nor a cost — money set aside, so it's broken out on its
-  // own rather than folded into `net` below. See TransactionType's doc
-  // comment in schema.prisma.
+  // own. See TransactionType's doc comment in schema.prisma.
   savings: number;
+  /** "Remaining after expenses and savings" — the same number as the Safe to
+   * spend card (src/lib/safe-to-spend-calc.ts), so this card and that one
+   * never disagree. It replaced a plain income − expenses "Net" that
+   * ignored savings and anything still due, which made the two cards show
+   * different "what's left" numbers side by side. */
+  remaining: number;
   incomeByCategory: CategoryTotal[];
   expenseByCategory: CategoryTotal[];
   savingsByCategory: CategoryTotal[];
@@ -37,7 +43,6 @@ export function PeriodSummary({
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const net = income - expense;
 
   return (
     <div className="flex flex-col gap-4">
@@ -71,13 +76,13 @@ export function PeriodSummary({
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              {dict.net}
+              {dict.remaining}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={"text-3xl font-semibold " + (net >= 0 ? "text-chart-5" : "text-destructive")}>
-              {net >= 0 ? "+" : ""}
-              {numberFormat.format(net)}
+            <p className={"text-3xl font-semibold " + (remaining >= 0 ? "text-chart-5" : "text-destructive")}>
+              {remaining >= 0 ? "+" : ""}
+              {numberFormat.format(remaining)}
             </p>
           </CardContent>
         </Card>

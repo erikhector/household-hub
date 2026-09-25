@@ -40,7 +40,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createSharedExpenseFromPersonalBudgetAction } from "@/app/dashboard/budget/actions";
-import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
+import { SplitEditor } from "@/components/budget/split-editor";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -53,7 +54,7 @@ export type ShareableHousehold = {
   id: string;
   name: string;
   /** The signed-in user's own HouseholdMember id in this household — used
-   * to default "paid by" to themselves. */
+   * to default the payment to themselves. */
   currentMemberId: string;
   members: ShareableHouseholdMember[];
   categories: ShareableHouseholdCategory[];
@@ -90,6 +91,14 @@ function defaultDateForMonth(monthKey: string | undefined): Date {
   const now = new Date();
   if (!monthKey || monthKey === toMonthKey(now)) return now;
   return parseMonthKey(monthKey);
+}
+
+/** The signed-in member paid the whole amount, until told otherwise — same
+ * default as TransactionDialog's buildInitialPaidAmounts. */
+function defaultPaidAmounts(household: ShareableHousehold | undefined, amount: string) {
+  return Object.fromEntries(
+    (household?.members ?? []).map((m) => [m.id, m.id === household?.currentMemberId ? amount || "0" : "0"]),
+  );
 }
 
 function prefillSplitAmounts(prefill: SharedExpensePrefill, household: ShareableHousehold | undefined) {
@@ -132,7 +141,11 @@ export function LogSharedExpenseDialog({
 
   const [amount, setAmount] = useState(prefill ? String(prefill.amount) : "");
   const [date, setDate] = useState(() => toDateInputValue(defaultDateForMonth(monthKey)));
-  const [paidByMemberId, setPaidByMemberId] = useState(household?.currentMemberId ?? "");
+  const [paidAmounts, setPaidAmounts] = useState<Record<string, string>>(() =>
+    defaultPaidAmounts(household, prefill ? String(prefill.amount) : ""),
+  );
+  // See TransactionDialog's identical paidTouched.
+  const [paidTouched, setPaidTouched] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     prefill ? prefillSplitAmounts(prefill, household) : {},
   );
@@ -158,7 +171,8 @@ export function LogSharedExpenseDialog({
   function resetForHousehold(next: ShareableHousehold | undefined) {
     setAmount(prefill ? String(prefill.amount) : "");
     setDate(toDateInputValue(defaultDateForMonth(monthKey)));
-    setPaidByMemberId(next?.currentMemberId ?? "");
+    setPaidAmounts(defaultPaidAmounts(next, prefill ? String(prefill.amount) : ""));
+    setPaidTouched(false);
     setSplitAmounts(
       prefill
         ? prefillSplitAmounts(prefill, next)
@@ -179,8 +193,13 @@ export function LogSharedExpenseDialog({
     );
   }
 
-  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const splitMismatch = Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+  const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
+  const splitInvalid = splitCheck.shareMismatch || splitCheck.overpaid;
+
+  function handleAmountChange(next: string) {
+    setAmount(next);
+    if (!paidTouched) setPaidAmounts(defaultPaidAmounts(household, next));
+  }
 
   if (!household) return null;
 
@@ -278,7 +297,7 @@ export function LogSharedExpenseDialog({
                 min={0.01}
                 step="any"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 required
               />
               {myShare !== undefined && (
@@ -312,66 +331,24 @@ export function LogSharedExpenseDialog({
           </div>
 
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="shared-expense-paid-by">{dict.logShared.paidByLabel}</Label>
-              <Select
-                name="paidByMemberId"
-                value={paidByMemberId}
-                onValueChange={(v) => setPaidByMemberId(String(v))}
-              >
-                <SelectTrigger id="shared-expense-paid-by" className="w-full">
-                  <SelectValue>
-                    {(v: string) => household.members.find((m) => m.id === v)?.displayName ?? v}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {household.members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between">
-              <Label>{dict.logShared.sharesLabel}</Label>
-              <Button type="button" variant="outline" size="xs" onClick={() => resetToEvenSplit(amount)}>
-                {dict.logShared.splitEvenlyButton}
-              </Button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {household.members.map((m) => (
-                <div key={m.id} className="flex items-center gap-2">
-                  <input type="hidden" name="splitMemberId" value={m.id} />
-                  <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
-                  <Input
-                    name="splitAmount"
-                    type="number"
-                    min={0}
-                    step="any"
-                    className="w-24 shrink-0"
-                    value={splitAmounts[m.id] ?? "0"}
-                    onChange={(e) =>
-                      setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
-                    }
-                    aria-label={format(dict.logShared.amountAriaLabel, { name: m.displayName })}
-                  />
-                </div>
-              ))}
-            </div>
-            {splitMismatch && (
-              <p className="text-xs text-destructive">
-                {format(dict.logShared.mismatchWarning, {
-                  total: splitTotal.toFixed(2),
-                  amount: (Number(amount) || 0).toFixed(2),
-                })}
-              </p>
-            )}
+            <SplitEditor
+              members={household.members}
+              amount={amount}
+              shares={splitAmounts}
+              paid={paidAmounts}
+              onSharesChange={setSplitAmounts}
+              onPaidChange={(next) => {
+                setPaidAmounts(next);
+                setPaidTouched(true);
+              }}
+              onSplitEvenly={() => resetToEvenSplit(amount)}
+              dict={dict.logShared}
+            />
           </div>
 
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
-            <Button type="submit" disabled={pending || splitMismatch}>
+            <Button type="submit" disabled={pending || splitInvalid}>
               {pending ? dict.logShared.saving : dict.logShared.add}
             </Button>
           </DialogFooter>

@@ -22,6 +22,7 @@ import {
   type TransactionRow,
 } from "@/components/budget/transaction-dialog";
 import { format } from "@/lib/i18n/format";
+import { remainingDue } from "@/lib/settle-up-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
@@ -54,7 +55,14 @@ export type SharedPostedRow = {
    * can silently differ when the user belongs to more than one. */
   householdId: string;
   householdName: string;
-  paidByName: string | null;
+  /** Every member who has paid anything towards the bill — a bill can be
+   * paid partly by several members (TransactionSplit.amountPaid). */
+  paidByNames: string[];
+  /** What this user has paid towards the bill themselves. */
+  yourPaid: number;
+  /** What nobody has paid on the whole bill yet (settle-up-calc.ts's
+   * remainingDue) — 0 once it's fully paid. */
+  leftDue: number;
 };
 
 type Row = { kind: "own"; row: TransactionListRow } | { kind: "shared"; row: SharedPostedRow };
@@ -134,6 +142,38 @@ export function TransactionList({
   });
   const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? "?";
 
+  // Who paid a split bill, for the "Split" badge's tooltip — several members
+  // can each have paid part of it (TransactionSplit.amountPaid).
+  function splitBadgeTitle(row: TransactionListRow) {
+    const payers = row.splits.filter((s) => (s.amountPaid ?? 0) > 0);
+    if (payers.length === 0) return undefined;
+    return format(dict.split?.paidByBadge ?? "", {
+      name: payers
+        .map((s) => `${memberName(s.householdMemberId)} (${numberFormat.format(s.amountPaid ?? 0)})`)
+        .join(", "),
+    });
+  }
+
+  function splitLeftDue(row: TransactionListRow) {
+    if (row.splits.length === 0) return 0;
+    return remainingDue({
+      amount: row.amount,
+      splits: row.splits.map((s) => ({ ...s, amountPaid: s.amountPaid ?? 0 })),
+    });
+  }
+
+  function sharedRowDetail(row: SharedPostedRow) {
+    const parts = [
+      row.paidByNames.length > 0
+        ? format(dict.shared?.paidBy ?? "", { name: row.paidByNames.join(", ") })
+        : "—",
+    ];
+    if (row.leftDue > 0) {
+      parts.push(format(dict.shared?.leftDue ?? "", { amount: numberFormat.format(row.leftDue) }));
+    }
+    return parts.join(" · ");
+  }
+
   function handleDelete(id: string) {
     startTransition(async () => {
       const result = await onDelete(id);
@@ -195,7 +235,7 @@ export function TransactionList({
                 </div>
               </TableCell>
               <TableCell className="max-w-64 truncate text-muted-foreground">
-                {item.row.paidByName ? format(dict.shared?.paidBy ?? "", { name: item.row.paidByName }) : "—"}
+                {sharedRowDetail(item.row)}
                 {showHouseholdName ? ` · ${item.row.householdName}` : ""}
               </TableCell>
               <TableCell className={"text-right " + amountColor(item.row.type)}>
@@ -245,16 +285,17 @@ export function TransactionList({
                     {dict[frequencyLabelKey[item.row.recurrenceFrequency]]}
                   </Badge>
                 )}
-                {item.row.splits.length > 0 && item.row.paidByMemberId && (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1"
-                    title={format(dict.split?.paidByBadge ?? "", {
-                      name: memberName(item.row.paidByMemberId),
-                    })}
-                  >
+                {item.row.splits.length > 0 && (
+                  <Badge variant="secondary" className="gap-1" title={splitBadgeTitle(item.row)}>
                     <Users className="size-3" />
                     {dict.split?.splitBadge}
+                  </Badge>
+                )}
+                {splitLeftDue(item.row) > 0 && (
+                  <Badge variant="outline" className="border-warning/40 text-warning tabular-nums">
+                    {format(dict.split?.leftDue ?? "", {
+                      amount: numberFormat.format(splitLeftDue(item.row)),
+                    })}
                   </Badge>
                 )}
               </div>
@@ -349,7 +390,7 @@ export function TransactionList({
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-muted-foreground">
-                    {item.row.paidByName ? format(dict.shared?.paidBy ?? "", { name: item.row.paidByName }) : "—"}
+                    {sharedRowDetail(item.row)}
                     {showHouseholdName ? ` · ${item.row.householdName}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground">{dateFormat.format(item.row.date)}</p>
@@ -384,16 +425,17 @@ export function TransactionList({
                     {dict[frequencyLabelKey[item.row.recurrenceFrequency]]}
                   </Badge>
                 )}
-                {item.row.splits.length > 0 && item.row.paidByMemberId && (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1"
-                    title={format(dict.split?.paidByBadge ?? "", {
-                      name: memberName(item.row.paidByMemberId),
-                    })}
-                  >
+                {item.row.splits.length > 0 && (
+                  <Badge variant="secondary" className="gap-1" title={splitBadgeTitle(item.row)}>
                     <Users className="size-3" />
                     {dict.split?.splitBadge}
+                  </Badge>
+                )}
+                {splitLeftDue(item.row) > 0 && (
+                  <Badge variant="outline" className="border-warning/40 text-warning tabular-nums">
+                    {format(dict.split?.leftDue ?? "", {
+                      amount: numberFormat.format(splitLeftDue(item.row)),
+                    })}
                   </Badge>
                 )}
               </div>
