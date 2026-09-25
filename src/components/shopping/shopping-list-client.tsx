@@ -699,13 +699,6 @@ function ShoppingRow({
  * one is set — the estimate is informational even once a list is completed
  * or archived — just without the tap affordance, matching every other
  * per-row edit control's editable-only gating.
- *
- * GAP-6: a second, smaller "Store (optional)" input sits below the price
- * row while editing — always blank on open rather than remembering the
- * last store typed in, since updateShoppingListItemPriceAction only ever
- * writes a PriceHistory row (what feeds Cost analyzer's cheapest-store
- * comparison) when a store is actually entered, and re-recording the same
- * store on every unrelated price tweak would be noise, not signal.
  */
 function PriceTag({
   item,
@@ -724,7 +717,6 @@ function PriceTag({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => (item.estimatedPrice != null ? String(item.estimatedPrice) : ""));
-  const [storeDraft, setStoreDraft] = useState("");
 
   if (!editable) {
     return item.estimatedPrice != null ? (
@@ -742,7 +734,6 @@ function PriceTag({
         disabled={isPending}
         onClick={() => {
           setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");
-          setStoreDraft("");
           setEditing(true);
         }}
         aria-label={
@@ -763,7 +754,7 @@ function PriceTag({
       return;
     }
     startTransition(async () => {
-      const result = await updateShoppingListItemPriceAction(item.id, price, storeDraft);
+      const result = await updateShoppingListItemPriceAction(item.id, price);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -774,63 +765,48 @@ function PriceTag({
 
   return (
     <form
-      className="flex shrink-0 flex-col items-end gap-1"
+      className="flex shrink-0 items-center gap-1"
       onSubmit={(e) => {
         e.preventDefault();
         save();
       }}
     >
-      <div className="flex items-center gap-1">
-        <Input
-          type="number"
-          min={0}
-          step="any"
-          inputMode="decimal"
-          autoFocus
-          value={draft}
-          disabled={isPending}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setEditing(false);
-          }}
-          className="h-7 w-20 px-2 text-sm"
-          aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
-        />
-        <Button
-          type="submit"
-          size="icon"
-          variant="ghost"
-          className="size-7"
-          disabled={isPending}
-          aria-label={dict.savePriceAriaLabel}
-        >
-          <Check className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="size-7 text-muted-foreground"
-          disabled={isPending}
-          onClick={() => setEditing(false)}
-          aria-label={dict.cancelPriceAriaLabel}
-        >
-          <X className="size-3.5" />
-        </Button>
-      </div>
       <Input
-        type="text"
-        value={storeDraft}
+        type="number"
+        min={0}
+        step="any"
+        inputMode="decimal"
+        autoFocus
+        value={draft}
         disabled={isPending}
-        onChange={(e) => setStoreDraft(e.target.value)}
+        onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);
         }}
-        placeholder={dict.storePlaceholder}
-        maxLength={120}
-        className="h-6 w-32 px-2 text-xs"
-        aria-label={format(dict.storeInputAriaLabel, { name: item.name })}
+        className="h-7 w-20 px-2 text-sm"
+        aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
       />
+      <Button
+        type="submit"
+        size="icon"
+        variant="ghost"
+        className="size-7"
+        disabled={isPending}
+        aria-label={dict.savePriceAriaLabel}
+      >
+        <Check className="size-3.5" />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-7 text-muted-foreground"
+        disabled={isPending}
+        onClick={() => setEditing(false)}
+        aria-label={dict.cancelPriceAriaLabel}
+      >
+        <X className="size-3.5" />
+      </Button>
     </form>
   );
 }

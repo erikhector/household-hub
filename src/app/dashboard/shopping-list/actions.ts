@@ -416,9 +416,6 @@ export async function updateShoppingListItemAction(
 
 const updateItemPriceSchema = z.object({
   price: z.coerce.number().min(0, "Price can't be negative").max(1_000_000, "Price is too large"),
-  // GAP-6: optional store name alongside the correction — see below for why
-  // it's the one case this action writes a PriceHistory row at all.
-  store: z.string().trim().max(120).optional(),
 });
 
 /**
@@ -429,64 +426,34 @@ const updateItemPriceSchema = z.object({
  * receipt scan/registration's actual price) never need to touch this. Once
  * the user corrects a row here, nothing else in this file overwrites it
  * again — the create-path defaults only ever run once, at creation.
- *
- * GAP-6: when the user also names a store, that's the household actively
- * telling us "this item costs X at store Y right now" — real enough price
- * information to be worth a PriceHistory row (and a lastKnownPrice update)
- * of its own, same as togglePurchasedAction/applyReceiptScanAction/
- * registerReceiptAction above, and it's what feeds Cost analyzer's
- * cheapest-store comparison. Leaving the store blank keeps this action's
- * original behavior exactly as documented above — plain field update, no
- * PriceHistory write — so a bare price correction on an item with no store
- * info still doesn't create noise in the price-history/lastKnownPrice data
- * the purchase-driven flows own.
  */
 export async function updateShoppingListItemPriceAction(
   itemId: string,
   price: number,
-  store?: string,
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
-    select: { id: true, shoppingListId: true, inventoryItemId: true },
+    select: { id: true, shoppingListId: true },
   });
   if (!item) return { error: "Item not found" };
 
-  const parsed = updateItemPriceSchema.safeParse({ price, store });
+  const parsed = updateItemPriceSchema.safeParse({ price });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const trimmedStore = parsed.data.store || null;
 
   try {
-    if (trimmedStore && item.inventoryItemId) {
-      await prisma.$transaction([
-        prisma.shoppingListItem.update({
-          where: { id: item.id },
-          data: { estimatedPrice: parsed.data.price },
-        }),
-        prisma.inventoryItem.update({
-          where: { id: item.inventoryItemId },
-          data: { lastKnownPrice: parsed.data.price },
-        }),
-        prisma.priceHistory.create({
-          data: { inventoryItemId: item.inventoryItemId, price: parsed.data.price, store: trimmedStore },
-        }),
-      ]);
-    } else {
-      await prisma.shoppingListItem.update({
-        where: { id: item.id },
-        data: { estimatedPrice: parsed.data.price },
-      });
-    }
+    await prisma.shoppingListItem.update({
+      where: { id: item.id },
+      data: { estimatedPrice: parsed.data.price },
+    });
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
-  revalidatePath("/dashboard/budget");
   return {};
 }
 

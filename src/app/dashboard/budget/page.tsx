@@ -107,8 +107,8 @@ async function CostAnalyzerSection({
   locale: Locale;
 }) {
   // `store` (GAP-6) is optional and mostly null on older rows — it's only
-  // ever set when the household typed one in on a receipt scan/register or
-  // a manual price correction (see updateShoppingListItemPriceAction).
+  // ever set when the household typed one in on a receipt scan/register
+  // (see applyReceiptScanAction/registerReceiptAction).
   const priceHistoryRows = await prisma.priceHistory.findMany({
     where: { inventoryItem: { householdId } },
     include: { inventoryItem: { select: { id: true, name: true } } },

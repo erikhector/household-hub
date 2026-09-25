@@ -294,8 +294,6 @@ export const sv = {
     savePriceAriaLabel: "Spara pris",
     cancelPriceAriaLabel: "Avbryt prisredigering",
     priceInvalid: "Ange ett giltigt pris",
-    storePlaceholder: "Butik (valfritt)",
-    storeInputAriaLabel: "Butik för {name}s pris",
     addItem: "Lägg till vara",
     addItemDialogTitle: "Lägg till en vara",
     smartAdd: {
@@ -1239,12 +1237,12 @@ export const sv = {
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
       noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — priser registreras när du skannar ett kvitto eller en streckkod vid köp, eller rättar en varas pris med ett butiksnamn.",
+        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
       latestPrice: "Senaste",
       cheapestStoreTitle: "Billigast butik",
       cheapestStoreSubtitle: "Varor du köpt i mer än en butik, och vilken som var billigast senast.",
       noCheapestStoreData:
-        "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto, eller när du rättar en varas pris — när en vara har priser från 2+ butiker visas den här.",
+        "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
     },
     split: {

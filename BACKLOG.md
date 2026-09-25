@@ -126,7 +126,7 @@ order below is a suggestion, not a dependency, unless noted.
       position toward its observed average rank (exponential moving
       average, pure helper with tests). Per-store orders are a non-goal for
       v1 — `PriceHistory.store` is populated when a household names one on
-      a receipt scan/register or a manual price correction (GAP-6), but it's
+      a receipt scan/register (GAP-6), but it's
       optional and still null on most rows, nowhere near reliable enough
       yet to key a learned order off of.
 

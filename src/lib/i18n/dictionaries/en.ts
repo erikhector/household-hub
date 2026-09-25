@@ -305,11 +305,6 @@ export const en = {
     savePriceAriaLabel: "Save price",
     cancelPriceAriaLabel: "Cancel editing price",
     priceInvalid: "Enter a valid price",
-    // GAP-6: the optional store name next to the price-correction input —
-    // feeds PriceHistory.store, so Cost analyzer can show which store was
-    // cheapest last time. Left blank, nothing about this changes.
-    storePlaceholder: "Store (optional)",
-    storeInputAriaLabel: "Store for {name}'s price",
     addItem: "Add item",
     addItemDialogTitle: "Add an item",
     smartAdd: {
@@ -1272,13 +1267,13 @@ export const en = {
       trendsTitle: "Price trends",
       trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
       noTrendData:
-        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — prices are recorded when you scan a receipt or barcode as you buy it, or correct an item's price with a store name.",
+        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
       latestPrice: "Latest",
       cheapestStoreTitle: "Cheapest store",
       cheapestStoreSubtitle:
         "Items you've bought at more than one store, and which was cheapest last time.",
       noCheapestStoreData:
-        "No comparisons yet. Add a store name when scanning or registering a receipt, or when correcting an item's price, and once an item has prices from 2+ stores it'll show up here.",
+        "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
     },
     split: {

@@ -847,7 +847,7 @@ item is marked purchased with an estimated price
   which store had the cheapest last recorded price for any item bought at
   ≥2 distinct stores — see "Store name and cheapest-store comparison
   (GAP-6)" below for the full write-up (it's grouped there with the receipt
-  scan/register/price-correction changes that feed it `PriceHistory.store`
+  scan/register changes that feed it `PriceHistory.store`
   in the first place).
 
 ### Shopping-list → budget expense link
@@ -948,8 +948,7 @@ itself is a pure, unit-tested helper
 groundwork (it needed *some* notion of "which store" to eventually learn
 a shopping order from), but nothing ever wrote it — every row was created
 with `store` left at its default `null`. GAP-6 is purely wiring: an
-optional store name, threaded through to every place a `PriceHistory` row
-gets created from user input, plus a small Cost analyzer insight built on
+optional store name on the receipt flows, plus a small Cost analyzer insight built on
 top of it. No migration was needed.
 
 - **Receipt scan / register**: `ReceiptScanDialog` and
@@ -961,21 +960,12 @@ top of it. No migration was needed.
   optional `store` parameter, trim it (empty/whitespace-only collapses to
   `null`, same as leaving it blank), and stamp every `PriceHistory` row the
   call writes with it.
-- **Manual price correction (AUTO-4)**: `PriceTag`
-  (`src/components/shopping/shopping-list-client.tsx`) gained a second,
-  smaller "Store (optional)" input below the price field while editing,
-  always starting blank (it doesn't remember the last store typed, so an
-  unrelated later price tweak doesn't silently re-tag a stale store).
-  `updateShoppingListItemPriceAction` takes the matching optional `store`
-  parameter — but only writes a `PriceHistory` row (and updates
-  `lastKnownPrice`, in the same `$transaction`) when a store is actually
-  given *and* the item is linked to an `InventoryItem`. A bare price
-  correction with no store keeps this action's original behavior exactly
-  (a plain `estimatedPrice` field update, nothing else touched) — the point
-  being that naming a store turns a routine estimate tweak into the
-  household actively reporting "this costs X at Y right now", which is
-  worth a real price-history data point, while a plain correction still
-  isn't.
+- **Not on manual price correction (AUTO-4)**: the inline price edit on a
+  list row deliberately has no store field. A correction isn't a purchase
+  — checking the item off afterwards writes its own `PriceHistory` row —
+  so recording one there too would count the same purchase twice in
+  "Grocery spending over time" and add a phantom point to its price
+  trend. Receipts are the purchase event, so that's where the store goes.
 - **Cost analyzer's "Cheapest store" section**
   (`src/components/budget/cost-analyzer.tsx`): a third card below "Grocery
   spending over time" and "Price trends" — a plain one-line-per-item list,
