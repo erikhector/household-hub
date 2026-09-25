@@ -61,6 +61,24 @@ describe("parseReceiptText", () => {
     ]);
   });
 
+  it("keeps a trailing barcode with a valid check digit for matching (AUTO-11)", () => {
+    const lines = parseReceiptText("Bröd Pågen 4006381333931       32,50");
+    expect(lines).toEqual([
+      {
+        rawLine: "Bröd Pågen 4006381333931       32,50",
+        name: "Bröd Pågen",
+        quantity: 1,
+        price: 32.5,
+        barcode: "4006381333931",
+      },
+    ]);
+  });
+
+  it("keeps a leading barcode with a valid check digit, but not a plain article number", () => {
+    expect(parseReceiptText("96385074 Mjölk 3%   15,90")[0].barcode).toBe("96385074");
+    expect(parseReceiptText("123456 Mjölk 3%   15,90")[0]).not.toHaveProperty("barcode");
+  });
+
   it("strips a trailing barcode from the item name", () => {
     const lines = parseReceiptText("Bröd Pågen 7311041052452       32,50");
     expect(lines).toEqual([

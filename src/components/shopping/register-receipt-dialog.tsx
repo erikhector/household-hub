@@ -21,6 +21,13 @@
 // when not — either can be overridden before applying. registerReceiptAction
 // then links to exactly the item the user confirmed (or creates a new one in
 // the chosen category) instead of silently re-guessing server-side.
+//
+// AUTO-11: rows whose match is beyond doubt (an exact name, or a printed
+// barcode equal to an inventory item's) start pre-accepted inside a
+// collapsed "N items matched" summary — same matchReceiptLines
+// (src/lib/shopping/receipt-match.ts) as ReceiptScanDialog, just not
+// exclusive, since two lines for the same product on one receipt are
+// normal here. Nothing is written until Apply.
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -40,15 +47,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { registerReceiptAction } from "@/app/dashboard/shopping-list/actions";
+import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { findInventoryMatches } from "@/lib/item-matching";
+import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
 import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
+type InventoryItemOption = {
+  id: string;
+  name: string;
+  category: string;
+  unit?: string;
+  /** AUTO-6's stored code, for exact receipt-line matching (AUTO-11). */
+  barcode?: string | null;
+};
 
 type ReviewRow = {
   key: string;
@@ -65,14 +81,13 @@ type ReviewRow = {
   mode: "existing" | "new";
   matchId: string;
   category: string;
+  /** AUTO-11: shown inside the collapsed "N items matched" block. Fixed when
+   * the rows are built, so editing a row never makes it jump sections. */
+  autoAccepted: boolean;
+  byBarcode: boolean;
 };
 
 type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
-
-// A parsed/scanned line only auto-suggests a match above this similarity —
-// below it, defaulting to "create new" is safer than confidently linking the
-// wrong inventory item (the user can still pick one manually).
-const AUTO_MATCH_MIN_SCORE = 0.35;
 
 export function RegisterReceiptDialog({
   inventoryItems,
@@ -96,6 +111,7 @@ export function RegisterReceiptDialog({
   const [store, setStore] = useState("");
   const [listName, setListName] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const [showAccepted, setShowAccepted] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,26 +123,27 @@ export function RegisterReceiptDialog({
     setErrorMessage(null);
     setAttemptedApply(false);
     setRows([]);
+    setShowAccepted(false);
     setListName("");
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
     setStore("");
   }
 
-  function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
+  function buildRows(lines: { name: string; quantity: number; price: number; barcode?: string }[]): ReviewRow[] {
+    const matches = matchReceiptLines(lines, inventoryItems);
     return lines.map((line, index) => {
-      const [suggestion] = findInventoryMatches(line.name, inventoryItems, {
-        limit: 1,
-        minScore: AUTO_MATCH_MIN_SCORE,
-      });
+      const match = matches[index];
       return {
         key: `${index}-${line.name}`,
         name: line.name,
         quantity: String(line.quantity),
         unit: "pcs",
         price: line.price.toFixed(2),
-        mode: suggestion ? "existing" : "new",
-        matchId: suggestion?.id ?? "",
+        mode: match.matchId ? "existing" : "new",
+        matchId: match.matchId ?? "",
         category: "",
+        autoAccepted: isAutoAccepted(match),
+        byBarcode: match.confidence === "barcode",
       };
     });
   }
@@ -224,9 +241,12 @@ export function RegisterReceiptDialog({
     // row instead), but just as invisible to the user. Both dialogs now
     // require an explicit choice: block Apply and point at the offending
     // row rather than guessing either way.
-    const hasUnresolvedExisting = rows.some((row) => row.mode === "existing" && !row.matchId);
-    if (hasUnresolvedExisting) {
+    const unresolvedExisting = rows.filter((row) => row.mode === "existing" && !row.matchId);
+    if (unresolvedExisting.length > 0) {
       setAttemptedApply(true);
+      // Never point at a row the user can't see: if the offending row sits
+      // in the collapsed "matched" block, open it.
+      if (unresolvedExisting.some((row) => row.autoAccepted)) setShowAccepted(true);
       setErrorMessage(dict.existingSelectionRequired);
       return;
     }
@@ -278,6 +298,152 @@ export function RegisterReceiptDialog({
       setOpen(false);
       if (result.listId) router.push(`/dashboard/shopping-list/${result.listId}`);
     })();
+  }
+
+  const acceptedRows = rows.filter((row) => row.autoAccepted);
+  const reviewRows = rows.filter((row) => !row.autoAccepted);
+
+  function renderRow(row: ReviewRow) {
+    const suggestions = findInventoryMatches(row.name, inventoryItems);
+    const suggestedIds = new Set(suggestions.map((s) => s.id));
+    const otherItems = [...inventoryItems]
+      .filter((i) => !suggestedIds.has(i.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const orderedItems = [...suggestions, ...otherItems];
+    return (
+      <div key={row.key} className="flex flex-col gap-2 rounded-md border bg-background p-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${row.key}-name`} className="text-xs">
+            {dict.nameLabel}
+          </Label>
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <ComboField
+                id={`${row.key}-name`}
+                name="name"
+                items={itemNames}
+                value={row.name}
+                onValueChange={(v) => updateRow(row.key, { name: v })}
+                maxLength={120}
+                dict={dict}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+              aria-label={format(dict.removeAriaLabel, { name: row.name })}
+              onClick={() => removeRow(row.key)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${row.key}-quantity`} className="text-xs">
+              {dict.quantityLabel}
+            </Label>
+            <Input
+              id={`${row.key}-quantity`}
+              type="number"
+              min={0.01}
+              step="any"
+              value={row.quantity}
+              onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${row.key}-unit`} className="text-xs">
+              {dict.unitLabel}
+            </Label>
+            <ComboField
+              id={`${row.key}-unit`}
+              name="unit"
+              items={units}
+              value={row.unit}
+              onValueChange={(v) => updateRow(row.key, { unit: v })}
+              maxLength={20}
+              dict={dict}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${row.key}-price`} className="text-xs">
+              {dict.priceLabel}
+            </Label>
+            <Input
+              id={`${row.key}-price`}
+              type="number"
+              min={0}
+              step="any"
+              value={row.price}
+              onChange={(e) => updateRow(row.key, { price: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">{dict.existingItemLabel}</Label>
+            <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1">
+              {inventoryItems.length > 0 && (
+                <Button
+                  type="button"
+                  variant={row.mode === "existing" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => updateRow(row.key, { mode: "existing" })}
+                >
+                  {dict.useExisting}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant={row.mode === "new" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => updateRow(row.key, { mode: "new" })}
+              >
+                {dict.createNew}
+              </Button>
+            </div>
+          </div>
+
+          {row.mode === "existing" && inventoryItems.length > 0 && (
+            <>
+              <ItemCombobox
+                items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
+                value={row.matchId}
+                onValueChange={(v) => updateRow(row.key, { matchId: v })}
+                ariaLabel={dict.existingItemLabel}
+                emptyMessage={dict.existingItemNoResults}
+              />
+              {row.byBarcode && <p className="text-xs text-muted-foreground">{dict.matchedByBarcode}</p>}
+              {attemptedApply && !row.matchId && (
+                <p className="text-xs text-destructive">{dict.existingSelectionRequired}</p>
+              )}
+            </>
+          )}
+
+          {row.mode === "new" && (
+            <>
+              {inventoryItems.length === 0 && (
+                <p className="text-xs text-muted-foreground">{dict.noInventoryItems}</p>
+              )}
+              <ComboField
+                id={`${row.key}-new-category`}
+                name="newCategory"
+                items={categories}
+                value={row.category}
+                onValueChange={(v) => updateRow(row.key, { category: v })}
+                placeholder={dict.newItemCategoryPlaceholder}
+                maxLength={60}
+                dict={dict}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    );
   }
 
   function onFileSelected(e: ChangeEvent<HTMLInputElement>) {
@@ -416,149 +582,21 @@ export function RegisterReceiptDialog({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {rows.map((row) => {
-                  const suggestions = findInventoryMatches(row.name, inventoryItems);
-                  const suggestedIds = new Set(suggestions.map((s) => s.id));
-                  const otherItems = [...inventoryItems]
-                    .filter((i) => !suggestedIds.has(i.id))
-                    .sort((a, b) => a.name.localeCompare(b.name));
-                  const orderedItems = [...suggestions, ...otherItems];
-                  return (
-                  <div key={row.key} className="flex flex-col gap-2 rounded-md border p-2">
-                    <div className="flex flex-col gap-1">
-                      <Label htmlFor={`${row.key}-name`} className="text-xs">
-                        {dict.nameLabel}
-                      </Label>
-                      <div className="flex items-center gap-1">
-                        <div className="min-w-0 flex-1">
-                          <ComboField
-                            id={`${row.key}-name`}
-                            name="name"
-                            items={itemNames}
-                            value={row.name}
-                            onValueChange={(v) => updateRow(row.key, { name: v })}
-                            maxLength={120}
-                            dict={dict}
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                          aria-label={format(dict.removeAriaLabel, { name: row.name })}
-                          onClick={() => removeRow(row.key)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor={`${row.key}-quantity`} className="text-xs">
-                          {dict.quantityLabel}
-                        </Label>
-                        <Input
-                          id={`${row.key}-quantity`}
-                          type="number"
-                          min={0.01}
-                          step="any"
-                          value={row.quantity}
-                          onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor={`${row.key}-unit`} className="text-xs">
-                          {dict.unitLabel}
-                        </Label>
-                        <ComboField
-                          id={`${row.key}-unit`}
-                          name="unit"
-                          items={units}
-                          value={row.unit}
-                          onValueChange={(v) => updateRow(row.key, { unit: v })}
-                          maxLength={20}
-                          dict={dict}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor={`${row.key}-price`} className="text-xs">
-                          {dict.priceLabel}
-                        </Label>
-                        <Input
-                          id={`${row.key}-price`}
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={row.price}
-                          onChange={(e) => updateRow(row.key, { price: e.target.value })}
-                        />
-                      </div>
-                    </div>
+              {acceptedRows.length > 0 && (
+                <AutoMatchedSection
+                  summary={format(plural(acceptedRows.length, dict.autoMatchedSummary), {
+                    count: acceptedRows.length,
+                  })}
+                  expanded={showAccepted}
+                  onExpandedChange={setShowAccepted}
+                  showLabel={dict.showMatched}
+                  hideLabel={dict.hideMatched}
+                >
+                  {acceptedRows.map(renderRow)}
+                </AutoMatchedSection>
+              )}
 
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <Label className="text-xs">{dict.existingItemLabel}</Label>
-                        <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1">
-                          {inventoryItems.length > 0 && (
-                            <Button
-                              type="button"
-                              variant={row.mode === "existing" ? "secondary" : "ghost"}
-                              size="sm"
-                              onClick={() => updateRow(row.key, { mode: "existing" })}
-                            >
-                              {dict.useExisting}
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            variant={row.mode === "new" ? "secondary" : "ghost"}
-                            size="sm"
-                            onClick={() => updateRow(row.key, { mode: "new" })}
-                          >
-                            {dict.createNew}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {row.mode === "existing" && inventoryItems.length > 0 && (
-                        <>
-                          <ItemCombobox
-                            items={orderedItems.map((i) => ({ id: i.id, label: `${i.name} · ${i.category}` }))}
-                            value={row.matchId}
-                            onValueChange={(v) => updateRow(row.key, { matchId: v })}
-                            ariaLabel={dict.existingItemLabel}
-                            emptyMessage={dict.existingItemNoResults}
-                          />
-                          {attemptedApply && !row.matchId && (
-                            <p className="text-xs text-destructive">{dict.existingSelectionRequired}</p>
-                          )}
-                        </>
-                      )}
-
-                      {row.mode === "new" && (
-                        <>
-                          {inventoryItems.length === 0 && (
-                            <p className="text-xs text-muted-foreground">{dict.noInventoryItems}</p>
-                          )}
-                          <ComboField
-                            id={`${row.key}-new-category`}
-                            name="newCategory"
-                            items={categories}
-                            value={row.category}
-                            onValueChange={(v) => updateRow(row.key, { category: v })}
-                            placeholder={dict.newItemCategoryPlaceholder}
-                            maxLength={60}
-                            dict={dict}
-                          />
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
+              {reviewRows.length > 0 && <div className="flex flex-col gap-2">{reviewRows.map(renderRow)}</div>}
 
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
             </div>

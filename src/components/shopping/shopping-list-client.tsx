@@ -86,6 +86,10 @@ type ShoppingListItemRow = {
   // PriceTag below or an actual receipt price. null means no price is known
   // yet — the row shows nothing rather than "≈ 0".
   estimatedPrice: number | null;
+  // The linked InventoryItem's barcode (AUTO-6), null without a link or a
+  // stored code. Only ReceiptScanDialog reads it, to match a receipt line
+  // that prints an EAN exactly (AUTO-11).
+  barcode: string | null;
 };
 
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
@@ -270,7 +274,7 @@ export function ShoppingListClient({
           {isActive && (
             <ReceiptScanDialog
               listId={list.id}
-              pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name }))}
+              pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode }))}
               inventoryItems={inventoryItems}
               categories={categories}
               units={units}

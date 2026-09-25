@@ -19,6 +19,13 @@
 // without any AI setup, just less reliably. Either path ends at the same
 // review rows; only the extracted name/quantity/price ever reach the server
 // (applyReceiptScanAction), never the photo itself in the OCR fallback.
+//
+// AUTO-11: lines whose match is beyond doubt (an exact name, or a printed
+// barcode equal to the list row's inventory item's) are pre-accepted and
+// collapsed into an "N items matched" summary, so review starts with only
+// the lines that actually need a look. See matchReceiptLines
+// (src/lib/shopping/receipt-match.ts) for the thresholds. Nothing is
+// written until Apply either way.
 
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
@@ -37,15 +44,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
-import { findInventoryMatches } from "@/lib/item-matching";
+import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
+import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
 import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
-import { format } from "@/lib/i18n/format";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type PendingItem = { id: string; name: string };
+/** `barcode` is the linked inventory item's (AUTO-6), for exact matching. */
+type PendingItem = { id: string; name: string; barcode?: string | null };
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
 type ReviewRow = {
@@ -57,6 +66,12 @@ type ReviewRow = {
   price: string;
   /** A pendingItems id, or SKIP_VALUE to leave this line out entirely. */
   matchId: string;
+  /** AUTO-11: shown inside the collapsed "N items matched" block instead of
+   * open for review. Fixed when the rows are built — editing a row never
+   * moves it between sections, which would make it jump under the user's
+   * finger. */
+  autoAccepted: boolean;
+  byBarcode: boolean;
 };
 
 /** Draft fields for the inline "add as new item" form — OCR'd name/quantity
@@ -67,10 +82,6 @@ type NewItemDraft = { name: string; quantity: string; unit: string; category: st
 type Phase = "idle" | "analyzing" | "reading" | "review" | "applying" | "error";
 
 const SKIP_VALUE = "__skip__";
-// A parsed line only auto-suggests a match above this similarity — below
-// it, defaulting to "skip" is safer than confidently linking the wrong
-// item (the user can still pick one manually).
-const AUTO_MATCH_MIN_SCORE = 0.35;
 
 export function ReceiptScanDialog({
   listId,
@@ -95,6 +106,7 @@ export function ReceiptScanDialog({
   // applyReceiptScanAction's doc comment for why this isn't per-line.
   const [store, setStore] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
+  const [showAccepted, setShowAccepted] = useState(false);
   // Items created mid-scan via the "add as new item" shortcut below, kept
   // separate from the `pendingItems` prop (which only updates once the
   // parent server component revalidates) so a newly created item shows up
@@ -121,6 +133,7 @@ export function ReceiptScanDialog({
     setPhase("idle");
     setErrorMessage(null);
     setRows([]);
+    setShowAccepted(false);
     setExtraItems([]);
     setAddingKey(null);
     setNewItemDraftKey(null);
@@ -128,18 +141,21 @@ export function ReceiptScanDialog({
     setStore("");
   }
 
-  function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
+  function buildRows(lines: { name: string; quantity: number; price: number; barcode?: string }[]): ReviewRow[] {
+    // Exclusive: each pending row is bought once per receipt, so two lines
+    // confidently claiming the same row means one of them is wrong — both
+    // stay open for review instead (see matchReceiptLines).
+    const matches = matchReceiptLines(lines, pendingItems, { exclusive: true });
     return lines.map((line, index) => {
-      const [suggestion] = findInventoryMatches(line.name, pendingItems, {
-        limit: 1,
-        minScore: AUTO_MATCH_MIN_SCORE,
-      });
+      const match = matches[index];
       return {
         key: `${index}-${line.name}`,
         name: line.name,
         quantity: line.quantity,
         price: line.price.toFixed(2),
-        matchId: suggestion?.id ?? SKIP_VALUE,
+        matchId: match.matchId ?? SKIP_VALUE,
+        autoAccepted: isAutoAccepted(match),
+        byBarcode: match.confidence === "barcode",
       };
     });
   }
@@ -293,6 +309,149 @@ export function ReceiptScanDialog({
   }
 
   const matchedCount = rows.filter((row) => row.matchId !== SKIP_VALUE).length;
+  const acceptedRows = rows.filter((row) => row.autoAccepted);
+  const reviewRows = rows.filter((row) => !row.autoAccepted);
+
+  function renderRow(row: ReviewRow) {
+    const isUnmatched = row.matchId === SKIP_VALUE;
+    const isAdding = addingKey === row.key;
+    const isDraftOpen = newItemDraftKey === row.key;
+    return (
+      <div key={row.key} className="flex flex-col gap-2 rounded-md border bg-background p-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium" title={row.name}>
+              {row.name}
+            </p>
+            {row.quantity !== 1 && (
+              <p className="text-xs text-muted-foreground">{format(dict.qtyLabel, { qty: row.quantity })}</p>
+            )}
+            {row.byBarcode && <p className="text-xs text-muted-foreground">{dict.matchedByBarcode}</p>}
+            {isUnmatched && !isDraftOpen && <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>}
+          </div>
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            value={row.price}
+            onChange={(e) => updateRow(row.key, { price: e.target.value })}
+            className="w-24 shrink-0"
+            aria-label={dict.priceLabel}
+          />
+          <div className="w-full sm:w-48">
+            <ItemCombobox
+              items={[
+                { id: SKIP_VALUE, label: dict.skipOption },
+                ...matchOptions.map((item) => ({ id: item.id, label: item.name })),
+              ]}
+              value={row.matchId}
+              onValueChange={(v) => updateRow(row.key, { matchId: v })}
+              ariaLabel={dict.matchLabel}
+              emptyMessage={dict.matchNoResults}
+            />
+          </div>
+          {isUnmatched && !isDraftOpen && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => openNewItemDraft(row)}
+              title={format(dict.addAsNewItem, { name: row.name })}
+            >
+              <Plus className="size-4" />
+              {dict.addButton}
+            </Button>
+          )}
+        </div>
+
+        {isDraftOpen && (
+          <div className="flex flex-col gap-2 rounded-md border border-dashed p-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${row.key}-new-name`} className="text-xs">
+                  {dict.newItemNameLabel}
+                </Label>
+                <ComboField
+                  id={`${row.key}-new-name`}
+                  name="name"
+                  items={itemNames}
+                  value={newItemDraft.name}
+                  onValueChange={(v) => updateNewItemDraft({ name: v })}
+                  maxLength={120}
+                  dict={dict}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${row.key}-new-quantity`} className="text-xs">
+                  {dict.newItemQuantityLabel}
+                </Label>
+                <Input
+                  id={`${row.key}-new-quantity`}
+                  type="number"
+                  min={0.01}
+                  step="any"
+                  value={newItemDraft.quantity}
+                  onChange={(e) => updateNewItemDraft({ quantity: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${row.key}-new-unit`} className="text-xs">
+                  {dict.newItemUnitLabel}
+                </Label>
+                <ComboField
+                  id={`${row.key}-new-unit`}
+                  name="unit"
+                  items={units}
+                  value={newItemDraft.unit}
+                  onValueChange={(v) => updateNewItemDraft({ unit: v })}
+                  maxLength={20}
+                  dict={dict}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${row.key}-new-category`} className="text-xs">
+                  {dict.newItemCategoryLabel}
+                </Label>
+                <ComboField
+                  id={`${row.key}-new-category`}
+                  name="category"
+                  items={categories}
+                  value={newItemDraft.category}
+                  onValueChange={(v) => updateNewItemDraft({ category: v })}
+                  placeholder={dict.newItemCategoryPlaceholder}
+                  maxLength={60}
+                  dict={dict}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isAdding}
+                onClick={() => setNewItemDraftKey(null)}
+              >
+                {dict.cancel}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isAdding || !newItemDraft.name.trim()}
+                onClick={() => void handleConfirmNewItem(row)}
+              >
+                {isAdding && <Loader2 className="size-4 animate-spin" />}
+                {isAdding ? dict.addingItem : dict.confirmAddItem}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   function onFileSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -428,151 +587,21 @@ export function ReceiptScanDialog({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {rows.map((row) => {
-                  const isUnmatched = row.matchId === SKIP_VALUE;
-                  const isAdding = addingKey === row.key;
-                  const isDraftOpen = newItemDraftKey === row.key;
-                  return (
-                    <div key={row.key} className="flex flex-col gap-2 rounded-md border p-2">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium" title={row.name}>
-                            {row.name}
-                          </p>
-                          {row.quantity !== 1 && (
-                            <p className="text-xs text-muted-foreground">
-                              {format(dict.qtyLabel, { qty: row.quantity })}
-                            </p>
-                          )}
-                          {isUnmatched && !isDraftOpen && (
-                            <p className="text-xs text-muted-foreground">{dict.noMatchHint}</p>
-                          )}
-                        </div>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="any"
-                          value={row.price}
-                          onChange={(e) => updateRow(row.key, { price: e.target.value })}
-                          className="w-24 shrink-0"
-                          aria-label={dict.priceLabel}
-                        />
-                        <div className="w-full sm:w-48">
-                          <ItemCombobox
-                            items={[
-                              { id: SKIP_VALUE, label: dict.skipOption },
-                              ...matchOptions.map((item) => ({ id: item.id, label: item.name })),
-                            ]}
-                            value={row.matchId}
-                            onValueChange={(v) => updateRow(row.key, { matchId: v })}
-                            ariaLabel={dict.matchLabel}
-                            emptyMessage={dict.matchNoResults}
-                          />
-                        </div>
-                        {isUnmatched && !isDraftOpen && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="shrink-0"
-                            onClick={() => openNewItemDraft(row)}
-                            title={format(dict.addAsNewItem, { name: row.name })}
-                          >
-                            <Plus className="size-4" />
-                            {dict.addButton}
-                          </Button>
-                        )}
-                      </div>
+              {acceptedRows.length > 0 && (
+                <AutoMatchedSection
+                  summary={format(plural(acceptedRows.length, dict.autoMatchedSummary), {
+                    count: acceptedRows.length,
+                  })}
+                  expanded={showAccepted}
+                  onExpandedChange={setShowAccepted}
+                  showLabel={dict.showMatched}
+                  hideLabel={dict.hideMatched}
+                >
+                  {acceptedRows.map(renderRow)}
+                </AutoMatchedSection>
+              )}
 
-                      {isDraftOpen && (
-                        <div className="flex flex-col gap-2 rounded-md border border-dashed p-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`${row.key}-new-name`} className="text-xs">
-                                {dict.newItemNameLabel}
-                              </Label>
-                              <ComboField
-                                id={`${row.key}-new-name`}
-                                name="name"
-                                items={itemNames}
-                                value={newItemDraft.name}
-                                onValueChange={(v) => updateNewItemDraft({ name: v })}
-                                maxLength={120}
-                                dict={dict}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`${row.key}-new-quantity`} className="text-xs">
-                                {dict.newItemQuantityLabel}
-                              </Label>
-                              <Input
-                                id={`${row.key}-new-quantity`}
-                                type="number"
-                                min={0.01}
-                                step="any"
-                                value={newItemDraft.quantity}
-                                onChange={(e) => updateNewItemDraft({ quantity: e.target.value })}
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`${row.key}-new-unit`} className="text-xs">
-                                {dict.newItemUnitLabel}
-                              </Label>
-                              <ComboField
-                                id={`${row.key}-new-unit`}
-                                name="unit"
-                                items={units}
-                                value={newItemDraft.unit}
-                                onValueChange={(v) => updateNewItemDraft({ unit: v })}
-                                maxLength={20}
-                                dict={dict}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label htmlFor={`${row.key}-new-category`} className="text-xs">
-                                {dict.newItemCategoryLabel}
-                              </Label>
-                              <ComboField
-                                id={`${row.key}-new-category`}
-                                name="category"
-                                items={categories}
-                                value={newItemDraft.category}
-                                onValueChange={(v) => updateNewItemDraft({ category: v })}
-                                placeholder={dict.newItemCategoryPlaceholder}
-                                maxLength={60}
-                                dict={dict}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={isAdding}
-                              onClick={() => setNewItemDraftKey(null)}
-                            >
-                              {dict.cancel}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={isAdding || !newItemDraft.name.trim()}
-                              onClick={() => void handleConfirmNewItem(row)}
-                            >
-                              {isAdding && <Loader2 className="size-4 animate-spin" />}
-                              {isAdding ? dict.addingItem : dict.confirmAddItem}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              {reviewRows.length > 0 && <div className="flex flex-col gap-2">{reviewRows.map(renderRow)}</div>}
 
               {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
             </div>

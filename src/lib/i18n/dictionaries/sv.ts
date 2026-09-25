@@ -445,6 +445,10 @@ export const sv = {
       ocrError: "Kunde inte läsa bilden. Prova ett tydligare foto av kvittot.",
       rateError: "Kunde inte omvandla {currency} just nu — försök igen om en stund.",
       noMatchesError: "Matcha minst en rad mot en vara på listan innan du lägger till.",
+      autoMatchedSummary: { one: "{count} vara matchad", other: "{count} varor matchade" },
+      showMatched: "Visa",
+      hideMatched: "Dölj",
+      matchedByBarcode: "Matchad via streckkod",
       addItemError: "Kunde inte lägga till varan — försök igen.",
     },
     registerReceipt: {
@@ -486,6 +490,10 @@ export const sv = {
       ocrError: "Kunde inte läsa bilden. Prova ett tydligare foto av kvittot.",
       noItemsError: "Lägg till minst en vara innan du registrerar.",
       existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny".',
+      autoMatchedSummary: { one: "{count} vara matchad", other: "{count} varor matchade" },
+      showMatched: "Visa",
+      hideMatched: "Dölj",
+      matchedByBarcode: "Matchad via streckkod",
     },
     shareLink: {
       button: "Dela",

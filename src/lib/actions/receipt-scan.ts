@@ -34,6 +34,7 @@ import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { receiptLineBarcode } from "@/lib/barcode";
 
 // Same reasoning/measurement as REQUEST_TIMEOUT_MS in inventory-scan.ts —
 // shared across every attempt in the chain, kept a bit under this action's
@@ -58,13 +59,24 @@ const MAX_BASE64_LENGTH = 6_000_000;
 
 const DATA_URL_RE = /^data:([\w./+-]+);base64,([\s\S]+)$/;
 
-export type ScannedReceiptLine = { name: string; quantity: number; price: number };
+// `barcode` (AUTO-11) is only present when the model read a real GTIN off
+// the line (check digit verified by receiptLineBarcode) — it lets the
+// review dialogs match the line to an item exactly instead of by name.
+export type ScannedReceiptLine = { name: string; quantity: number; price: number; barcode?: string };
 export type ScanReceiptPhotoResult = { lines?: ScannedReceiptLine[]; currency?: string; error?: string };
 
 const rawReceiptLineSchema = z.object({
   name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
   quantity: z.coerce.number().positive().max(999).default(1),
   price: z.coerce.number().positive().max(999_999),
+  // Coerced from a number too: a model may well return the digits unquoted.
+  // Anything malformed is dropped later (receiptLineBarcode), never an error
+  // — a bad barcode shouldn't fail an otherwise good scan.
+  barcode: z
+    .union([z.string(), z.number()])
+    .nullable()
+    .optional()
+    .transform((v) => (v == null ? null : String(v))),
 });
 type RawReceiptLine = z.infer<typeof rawReceiptLineSchema>;
 
@@ -79,7 +91,9 @@ const SYSTEM_PROMPT =
   "per-unit price shown alongside it). If a line shows a quantity greater than one for the same product " +
   "(e.g. '3 x Milk'), report it as one entry with that quantity and the line's total price, not three " +
   "separate entries. Read each name directly off the receipt — don't shorten, translate, or 'clean up' it " +
-  "beyond stripping an obvious store article/PLU number printed next to it. Never report a subtotal, tax/VAT " +
+  "beyond stripping an obvious store article/PLU number printed next to it. If the line prints the product's " +
+  "EAN/UPC barcode digits (usually 8 or 13 digits), report them separately as the line's barcode; otherwise " +
+  "leave barcode null — never guess or construct one. Never report a subtotal, tax/VAT " +
   "line, payment method (card/cash/Swish), change given, discount/rounding line, loyalty/membership line, or " +
   "any other receipt boilerplate as if it were a purchased item. Also report the ISO 4217 currency code " +
   `(one of ${SUPPORTED_CURRENCIES.join(", ")}) the receipt's prices are printed in, judging from any currency ` +
@@ -123,6 +137,11 @@ const GEMINI_LINES_SCHEMA = {
           price: {
             type: "NUMBER",
             description: "The line's total price actually charged, not a per-unit price.",
+          },
+          barcode: {
+            type: "STRING",
+            nullable: true,
+            description: "The product's EAN/UPC digits if printed on this line, otherwise null.",
           },
         },
         required: ["name", "quantity", "price"],
@@ -226,6 +245,10 @@ const RECEIPT_SCAN_TOOL = {
               description: "The quantity printed for this line (e.g. from a leading '3 x'); 1 when none is shown.",
             },
             price: { type: "number", description: "The line's total price actually charged, not a per-unit price." },
+            barcode: {
+              type: ["string", "null"],
+              description: "The product's EAN/UPC digits if printed on this line, otherwise null.",
+            },
           },
           required: ["name", "quantity", "price"],
         },
@@ -418,7 +441,11 @@ export async function scanReceiptPhotoAction(photoDataUrl: string): Promise<Scan
     const currency = result.currency && (SUPPORTED_CURRENCIES as readonly string[]).includes(result.currency)
       ? result.currency
       : undefined;
-    return { lines: result.lines ?? [], currency };
+    const lines: ScannedReceiptLine[] = (result.lines ?? []).map(({ name, quantity, price, barcode }) => {
+      const gtin = receiptLineBarcode(barcode);
+      return { name, quantity, price, ...(gtin ? { barcode: gtin } : {}) };
+    });
+    return { lines, currency };
   } finally {
     clearTimeout(timeout);
   }

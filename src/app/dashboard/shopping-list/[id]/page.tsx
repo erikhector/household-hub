@@ -30,7 +30,12 @@ export default async function ShoppingListDetailPage(
         // (AUTO-3, groupPendingItemsByCategory): grouping pending rows by
         // aisle needs it on every row, not just the picker's own item list
         // below.
-        items: { orderBy: { createdAt: "asc" }, include: { inventoryItem: { select: { category: true } } } },
+        // Its barcode (AUTO-6) too, so ReceiptScanDialog can match a
+        // receipt line that prints an EAN to its list row exactly (AUTO-11).
+        items: {
+          orderBy: { createdAt: "asc" },
+          include: { inventoryItem: { select: { category: true, barcode: true } } },
+        },
       },
     }),
     // Stock level and last purchase ride along for the smart add line's
@@ -82,6 +87,7 @@ export default async function ShoppingListDetailPage(
         items: list.items.map(({ inventoryItem, ...item }) => ({
           ...item,
           category: inventoryItem?.category ?? null,
+          barcode: inventoryItem?.barcode ?? null,
         })),
       }}
       inventoryItems={inventoryItems.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
