@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.22.0",
+    "date": "2026-09-25",
+    "pr": 49,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Planning a new week? On an empty week, tap \"Copy last week\" to bring over last week's meals in one go. Undo is right there if you change your mind.",
+      "sv": "Ska du planera en ny vecka? Tryck på \"Kopiera förra veckan\" på en tom vecka för att ta med förra veckans måltider på en gång. Du kan ångra direkt om du ångrar dig."
+    }
+  },
+  {
     "version": "0.21.0",
     "date": "2026-09-25",
     "pr": 41,
