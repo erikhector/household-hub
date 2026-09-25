@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ComboField } from "@/components/inventory/combo-field";
 import { bulkCreateInventoryItemsAction, bulkSetInventoryQuantitiesAction } from "@/app/dashboard/inventory/actions";
+import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { scanShelfPhotoAction, type ScanShelfMode } from "@/lib/actions/inventory-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { format, plural } from "@/lib/i18n/format";
@@ -244,6 +245,7 @@ export function AiShelfScanDialog({
     const added = createResult.added ?? 0;
     if (updated > 0) toast.success(format(plural(updated, t.updatedToast), { count: updated }));
     if (added > 0) toast.success(format(plural(added, dict.bulkScan.addedToast), { count: added }));
+    showAutoAddedToast(updateResult.autoAdded, dict.autoAdd);
     handleOpenChange(false);
   }
 

@@ -62,16 +62,24 @@ export type BudgetDict = {
     amountAriaLabel: string;
     mismatchWarning: string;
     paidByBadge: string;
-    paidByLabel: string;
     sharesLabel: string;
     splitBadge: string;
     splitEvenlyButton: string;
     toggleLabel: string;
+    // SplitEditor's "share" + "paid" columns (partial payments) and the
+    // transaction list's "left due" badge.
+    shareColumn: string;
+    paidColumn: string;
+    paidAriaLabel: string;
+    overpaidWarning: string;
+    leftDueHint: string;
+    leftDue: string;
   };
   // Personal-only: a household RecurringTemplate/Transaction split the user
   // has opted into, mirrored read-only into their personal budget — see
   // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
   shared?: {
+    leftDue: string;
     paidBy: string;
     sharedBadge: string;
     viewInHouseholdBudget: string;

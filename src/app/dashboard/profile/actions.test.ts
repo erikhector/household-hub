@@ -17,6 +17,8 @@ const {
   householdMemberFindManyMock,
   householdMemberDeleteMock,
   householdDeleteMock,
+  transactionSplitFindManyMock,
+  transactionSplitUpdateMock,
   emailVerificationTokenCreateMock,
   emailVerificationTokenDeleteManyMock,
   transactionMock,
@@ -37,6 +39,12 @@ const {
   householdMemberFindManyMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
   householdDeleteMock: vi.fn(),
+  // settleDepartingMemberSplits' two calls (src/lib/settle-departing-member.ts,
+  // called from deleteAccountAction for each CONTRIBUTOR membership) —
+  // defaults to no other members' splits so tests that don't care about
+  // splitting keep passing unchanged.
+  transactionSplitFindManyMock: vi.fn(async () => []),
+  transactionSplitUpdateMock: vi.fn(async () => ({})),
   emailVerificationTokenCreateMock: vi.fn(async () => ({ token: "generated-token" })),
   emailVerificationTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) =>
@@ -44,6 +52,7 @@ const {
       household: { delete: householdDeleteMock },
       householdMember: { delete: householdMemberDeleteMock },
       user: { delete: userDeleteMock },
+      transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
     }),
   ),
   signOutMock: vi.fn(),

@@ -17,6 +17,12 @@ import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
+import {
+  addToDefaultListOnLowStock,
+  getOrCreateDefaultShoppingList,
+  revalidateAutoAdded,
+  type AutoAddedItem,
+} from "@/lib/shopping/default-list";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
 import type { InventoryItem } from "@/generated/prisma/client";
 
@@ -90,9 +96,13 @@ export async function archiveShoppingListAction(listId: string): Promise<ActionS
   const { household } = await requireHousehold();
 
   try {
+    // Archiving the default list un-defaults it (AUTO-8): unarchive always
+    // returns a list to ACTIVE, and an old default coming back alongside the
+    // current one would break "at most one ACTIVE default" (and trip the
+    // partial unique index). The next auto-add lazily starts a fresh one.
     await prisma.shoppingList.updateMany({
       where: { id: listId, householdId: household.id },
-      data: { status: "ARCHIVED", archivedAt: new Date() },
+      data: { status: "ARCHIVED", archivedAt: new Date(), isDefault: false },
     });
   } catch (error) {
     return toFriendlyError(error);
@@ -990,7 +1000,9 @@ export async function resolveShoppingListMappingsAction(
   return { resolvedCount };
 }
 
-export async function togglePurchasedAction(itemId: string): Promise<ActionState> {
+export async function togglePurchasedAction(
+  itemId: string,
+): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
@@ -1001,6 +1013,7 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
 
   const nextPurchased = !item.purchased;
 
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
@@ -1041,6 +1054,16 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
           nextQuantity,
           userId,
         );
+        // Only un-checking can decrease stock here. Un-checking a row on the
+        // default list itself is a no-op: that same row is pending again,
+        // which is exactly what the dedupe looks for.
+        autoAdded = await addToDefaultListOnLowStock(
+          tx,
+          household.id,
+          item.inventoryItem.id,
+          item.inventoryItem.quantity,
+          nextQuantity,
+        );
 
         if (priceToRecord != null) {
           await tx.priceHistory.create({
@@ -1063,7 +1086,8 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return {};
+  revalidateAutoAdded([autoAdded]);
+  return autoAdded ? { autoAdded: [autoAdded] } : {};
 }
 
 export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
@@ -1483,6 +1507,52 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+const undoAutoAddSchema = z.array(z.string().trim().min(1)).min(1).max(300);
+
+// The Undo on the "Added X to Next shop" toast (AUTO-8). Removes exactly the
+// rows an auto-add just created — the ids come back from the action that
+// added them (see AutoAddedItem in src/lib/shopping/default-list.ts) — and
+// nothing else. Scoped three ways so a stale or forged id can't reach
+// anything it shouldn't: the row must be in one of this household's lists,
+// still flagged `addedAutomatically` (never a row a person added by hand),
+// and still unpurchased (once it's been checked off it's shopping history,
+// not a mistaken add). `deleteMany` makes it idempotent — a double-clicked
+// Undo, or one fired after the row was already removed, is a quiet no-op.
+//
+// Deliberately doesn't run recordListClearedTransition: undoing the only
+// pending row on a list returns it to how it was a moment ago, not "the
+// shopping is done".
+export async function undoAutoAddedItemsAction(
+  shoppingListItemIds: string[],
+): Promise<ActionState & { removed?: number }> {
+  const { household } = await requireHousehold();
+
+  const parsed = undoAutoAddSchema.safeParse(shoppingListItemIds);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  const where = {
+    id: { in: parsed.data },
+    addedAutomatically: true,
+    purchased: false,
+    shoppingList: { householdId: household.id },
+  };
+
+  let removed = 0;
+  let listIds: string[] = [];
+  try {
+    const rows = await prisma.shoppingListItem.findMany({ where, select: { shoppingListId: true } });
+    listIds = [...new Set(rows.map((row) => row.shoppingListId))];
+    const result = await prisma.shoppingListItem.deleteMany({ where });
+    removed = result.count;
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  for (const listId of listIds) revalidatePath(`/dashboard/shopping-list/${listId}`);
+  if (listIds.length > 0) revalidatePath("/dashboard/shopping-list");
+  return { removed };
+}
+
 export async function completeShoppingListAction(
   listId: string,
 ): Promise<{
@@ -1517,10 +1587,26 @@ export async function completeShoppingListAction(
   // via resolveShoppingListMappingsAction below), completed list or not.
   const unresolvedCount = list.items.filter((item) => item.inventoryItemId === null).length;
 
-  await prisma.shoppingList.update({
-    where: { id: list.id },
-    data: { status: "COMPLETED", completedAt: new Date() },
-  });
+  // Completing the default list (AUTO-8) hands the role straight to a
+  // fresh, empty one, so there's always a "Next shop" to fill — the next
+  // low-stock crossing after a shop shouldn't have to wait for a list to be
+  // made. `isDefault` is cleared on the completed list first (same
+  // transaction) so the partial unique index never sees two ACTIVE defaults
+  // and a later un-archive can't resurrect a second one.
+  if (list.isDefault) {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingList.update({
+        where: { id: list.id },
+        data: { status: "COMPLETED", completedAt: new Date(), isDefault: false },
+      });
+      await getOrCreateDefaultShoppingList(tx, household.id);
+    });
+  } else {
+    await prisma.shoppingList.update({
+      where: { id: list.id },
+      data: { status: "COMPLETED", completedAt: new Date() },
+    });
+  }
 
   // Log a "Groceries" expense for whatever purchased items actually have an
   // estimated price set — never invent/estimate a price for items that

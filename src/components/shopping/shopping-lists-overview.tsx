@@ -31,6 +31,7 @@ type ListSummary = {
   id: string;
   name: string;
   status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
+  isDefault: boolean;
   pendingItemCount: number;
 };
 
@@ -98,7 +99,14 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
           <ShoppingCart className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-medium" title={list.name}>{list.name}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate font-medium" title={list.name}>{list.name}</p>
+            {list.isDefault && (
+              <Badge variant="secondary" className="shrink-0" title={dict.defaultListHint}>
+                {dict.defaultListBadge}
+              </Badge>
+            )}
+          </div>
           {list.status === "ACTIVE" ? (
             <p className="text-sm text-muted-foreground">
               {format(plural(list.pendingItemCount, dict.itemsToBuy), {

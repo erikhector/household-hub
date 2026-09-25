@@ -89,6 +89,7 @@ export default async function ShoppingListDetailPage(
       categories={categories}
       units={units}
       dict={dict.shoppingList}
+      autoAddDict={dict.inventory.autoAdd}
       barcodeDict={dict.barcodeScanner}
       exportLabel={dict.export.button}
       locale={locale}

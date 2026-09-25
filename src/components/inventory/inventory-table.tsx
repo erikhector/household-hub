@@ -37,6 +37,7 @@ import { StockBadge } from "@/components/inventory/stock-badge";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
+import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { getStockStatus } from "@/lib/stock-status";
 import { formatQuantity } from "@/lib/format-quantity";
 import {
@@ -167,6 +168,8 @@ export function InventoryTable({
         toast.error(result.error);
       } else if (result.listName) {
         toast.success(format(dict.markedEmptyAddedToast, { name: item.name, list: result.listName }));
+      } else {
+        showAutoAddedToast(result.autoAdded, dict.autoAdd);
       }
     });
   }
@@ -175,6 +178,7 @@ export function InventoryTable({
     startTransition(async () => {
       const result = await adjustQuantityAction(itemId, delta);
       if (result.error) toast.error(result.error);
+      else showAutoAddedToast(result.autoAdded, dict.autoAdd);
     });
   }
 
@@ -224,6 +228,7 @@ export function InventoryTable({
       toast.success(
         format(plural(count, dict.bulkActions.updatedToast), { count, field: fieldLabels[field] }),
       );
+      showAutoAddedToast(result.autoAdded, dict.autoAdd);
       setBulkValue("");
     });
   }

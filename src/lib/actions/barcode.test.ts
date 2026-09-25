@@ -3,7 +3,8 @@
 // ever calling Open Food Facts, plus the response mapping (with `fetch`
 // stubbed) now that the product's category tags are used too (AUTO-2).
 // Also the remembered-barcode actions (AUTO-6): household scoping (IDOR),
-// clamping, the move-don't-share link rule, and undo. Prisma is mocked —
+// clamping, the move-don't-share link rule, undo, and the AUTO-8
+// low-stock auto-add hook. Prisma is mocked —
 // no database is touched.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -15,6 +16,7 @@ const {
   createMock,
   transactionMock,
   recordOutOfStockTransitionMock,
+  addToDefaultListOnLowStockMock,
   resolverMock,
   scheduleAiCategoryFallbackMock,
   revalidatePathMock,
@@ -26,6 +28,7 @@ const {
   createMock: vi.fn(),
   transactionMock: vi.fn(),
   recordOutOfStockTransitionMock: vi.fn(),
+  addToDefaultListOnLowStockMock: vi.fn(async () => null),
   resolverMock: vi.fn(),
   scheduleAiCategoryFallbackMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -47,6 +50,10 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
   return { getDictionary: vi.fn(async () => en) };
 });
 vi.mock("@/lib/notifications", () => ({ recordOutOfStockTransition: recordOutOfStockTransitionMock }));
+vi.mock("@/lib/shopping/default-list", () => ({
+  addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  revalidateAutoAdded: vi.fn(),
+}));
 vi.mock("@/lib/inventory/category-resolver", () => ({
   createCategoryResolver: () => resolverMock,
   scheduleAiCategoryFallback: scheduleAiCategoryFallbackMock,
@@ -139,6 +146,8 @@ describe("scanStockChangeAction (AUTO-6)", () => {
     expect(updateMock).toHaveBeenCalledWith({ where: { id: "item-1" }, data: { quantity: 0, updatedByUserId: "user-1" } });
     expect(result).toMatchObject({ kind: "applied", appliedDelta: -0.5 });
     expect(recordOutOfStockTransitionMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 0.5, 0, "user-1");
+    // AUTO-8: same low-stock auto-add as every other decrease.
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "item-1", 0.5, 0);
   });
 
   it("resolves a 12-digit UPC-A decode to the item stored under its GTIN-13 form", async () => {

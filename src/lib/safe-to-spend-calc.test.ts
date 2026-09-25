@@ -353,3 +353,84 @@ describe("deriveSafeToSpend", () => {
     expect(result.status).toBe("over");
   });
 });
+
+describe("computeSafeToSpend with recurring items", () => {
+  const base = {
+    monthStart,
+    monthEnd,
+    incomeSoFar: 30000,
+    expenseSoFar: 0,
+    savingsSoFar: 0,
+  };
+
+  it("subtracts due payments and due savings separately", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "due" },
+        { id: "t2", name: "Buffer", categoryId: "sav", type: "SAVINGS", amount: 5000, status: "due" },
+        { id: "t3", name: "Salary", categoryId: "sal", type: "INCOME", amount: 30000, status: "due" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(17000);
+    expect(result.breakdown).toMatchObject({ duePayments: 8000, dueSavings: 5000 });
+    expect(result.expectedRecurring.map((e) => e.categoryName)).toEqual(["Rent", "Buffer"]);
+  });
+
+  it("counts only what was actually saved once a saving is logged for less than planned", () => {
+    // Planned 5000, logged 3000: the template is posted, so only the 3000
+    // saving reduces the number — the 2000 not saved stays spendable.
+    const result = computeSafeToSpend({
+      ...base,
+      savingsSoFar: 3000,
+      transactions: [],
+      templates: [
+        { id: "t2", name: "Buffer", categoryId: "sav", type: "SAVINGS", amount: 5000, status: "posted" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(27000);
+    expect(result.breakdown.dueSavings).toBe(0);
+  });
+
+  it("treats an acknowledged item as handled", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "acknowledged" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(30000);
+  });
+
+  it("doesn't also estimate a category that has a recurring item", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [tx({ categoryId: "rent", amount: 7000 })],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "due" },
+      ],
+    });
+    expect(result.expectedRecurring).toHaveLength(1);
+    expect(result.safeToSpend).toBe(22000);
+  });
+
+  it("still estimates categories without a recurring item", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [tx({ categoryId: "gym", categoryName: "Gym", amount: 300 })],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "posted" },
+      ],
+    });
+    expect(result.expectedRecurring).toEqual([{ categoryId: "gym", categoryName: "Gym", amount: 300 }]);
+    expect(result.safeToSpend).toBe(29700);
+  });
+
+  it("subtracts what was still owed from earlier months", () => {
+    const result = computeSafeToSpend({ ...base, transactions: [], owedFromEarlier: 3000 });
+    expect(result.safeToSpend).toBe(27000);
+    expect(result.breakdown.owedFromEarlier).toBe(3000);
+  });
+});

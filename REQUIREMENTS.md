@@ -130,6 +130,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     owner removing them can still leave them with none; see "Users with no
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
+  - Everything else on the Household page is open to both roles, including
+    the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
+    AUTO-8) — day-to-day shopping behaviour, not administration.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
     (`DeleteHouseholdDialog`, which requires typing the household's name to
@@ -405,9 +408,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     shows it).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
-  there's no longer a "one active list" constraint. Each list has a status:
+  there's no longer a "one active list" constraint. At most one `ACTIVE`
+  list per household is flagged `isDefault` — the always-on "Next shop"
+  list low-stock items fill themselves into (see "Always-on default list
+  (AUTO-8)" below). Each list has a status:
   `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`; one-way apart
-  from the short-lived toast "Undo" below) or
+  from the short-lived toast "Undo" below — undoing the completion of the
+  default list reopens it as an ordinary list, since completing it already
+  handed the default role to a fresh "Next shop") or
   `ACTIVE`/`COMPLETED` → `ARCHIVED` (via `archiveShoppingListAction`,
   reversible with `unarchiveShoppingListAction`, which always returns to
   `ACTIVE`). Any list can be permanently removed with
@@ -456,6 +464,73 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+- **Always-on default list (AUTO-8)** — every household has one
+  `ACTIVE` list flagged `ShoppingList.isDefault`, named "Next shop" /
+  "Att handla" in the locale of whoever caused it to exist, and restocking
+  no longer depends on anyone remembering to press "Add low-stock items".
+  - **Lazy, always one.** `getOrCreateDefaultShoppingList`
+    (`src/lib/shopping/default-list.ts`) returns the active default or
+    creates it on first need (an auto-add, a mark-empty, or a completion) —
+    a household that never runs low never gets an empty list it didn't ask
+    for. "At most one active default" is enforced in the actions and backed
+    by a partial unique index written by hand in the migration
+    (`ShoppingList_one_active_default_per_household`, `WHERE "isDefault" AND
+    status = 'ACTIVE'`); the create is `INSERT … ON CONFLICT DO NOTHING`
+    (`createMany({ skipDuplicates })`) plus a re-read, so two members
+    triggering the first add at once converge on one list, and it works
+    inside an interactive transaction. `completeShoppingListAction` on the
+    default list clears its `isDefault` and immediately creates a fresh,
+    empty default in the same transaction, so there's always one to fill.
+    `archiveShoppingListAction` also clears `isDefault` (un-archive always
+    returns a list to `ACTIVE`, and an old default must never come back
+    beside the current one); deleting the default is allowed — the next
+    need recreates it. The overview lists the default first among Active
+    lists with a "Fills itself" badge. Other named lists (the big monthly
+    trip) behave exactly as before.
+  - **Auto-add on the crossing into low stock.**
+    `addToDefaultListOnLowStock(db, householdId, itemId, prev, next)`, the
+    sibling of `recordOutOfStockTransition`, is called from exactly the same
+    call sites (see "Notification center" → Out of stock:
+    `adjustQuantityAction`, `markItemEmptyAction`,
+    `updateInventoryItemAction`, `bulkUpdateFieldAction`,
+    `bulkSetInventoryQuantitiesAction` (AI shelf scan restock),
+    `markMealEntryCookedAction`, `togglePurchasedAction` and the share-link
+    `toggleItemViaShareTokenAction`) — once per path, in the actions layer,
+    never per UI; the in-transaction callers pass their `tx`. It fires only
+    when `getStockStatus` goes from `in` to `low`/`out` (judged against the
+    item's threshold after the write, so raising a threshold alone never
+    adds anything); an item that was already low dropping further is a
+    no-op, so the list isn't refilled over a row someone removed on
+    purpose. The row is deduped against a pending row for the same item
+    exactly like `generateFromLowStockAction`, sized
+    `max(1, threshold − quantity)`, carries the item's `lastKnownPrice`
+    (AUTO-4) and is flagged `addedAutomatically` (the existing "Low stock"
+    badge on the row).
+  - **Undo, not confirm.** Each of those actions returns
+    `autoAdded: AutoAddedItem[]` (the created row ids plus list/item
+    names), and `showAutoAddedToast`
+    (`src/components/shopping/auto-added-toast.ts`) shows "Added Oat milk
+    to "Next shop"" with Undo. Undo calls `undoAutoAddedItemsAction(ids)`,
+    which deletes only rows among those ids that are in one of this
+    household's lists, still `addedAutomatically` and still unpurchased
+    (`deleteMany`, so a double tap is a quiet no-op), and deliberately
+    doesn't fire a "list cleared" notification. Mark meal as cooked folds
+    its auto-adds into its own existing Undo toast instead of stacking a
+    second one (see "Mark meal as cooked" below). The share-link toggle
+    auto-adds too, but with no toast: an anonymous visitor has no session
+    to undo with.
+  - **Mark as empty targets the default list.** `markItemEmptyAction`'s old
+    "most recently created `ACTIVE` list" guess is gone. "Mark as empty &
+    add to shopping list" puts the item on the default list as an explicit,
+    person-added row (not flagged `addedAutomatically`, and regardless of
+    the setting below); plain "Mark as empty" behaves like any other
+    decrease and auto-adds (with Undo) when the item was in stock.
+  - **Household setting.** `Household.autoAddLowStockToList` (default on)
+    is a checkbox under "Shopping" on the Household page
+    (`AutoAddSetting`, `setAutoAddLowStockToListAction` in
+    `src/lib/actions/household.ts`). Not owner-gated — see "Roles". Off
+    means no crossing ever adds anything; "Add low-stock items" and "Mark
+    as empty & add" still work by hand.
 - **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the
@@ -665,7 +740,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `PersonalRecurringTemplateAck` — not documented further here, as it isn't
   part of this file's original household-budgeting scope.
 - **Period summary**: `PeriodSummary` shows the selected calendar month —
-  income/expense/net totals, plus a per-category breakdown for each with a
+  income, expense and savings totals and "Remaining after expenses and
+  savings" (the same number as Safe to spend below, passed in as
+  `remaining`; it replaced a plain income − expenses "Net" that ignored
+  savings and anything still due, so the two cards used to disagree), plus a per-category breakdown for each with a
   proportional bar cycling through the existing `--chart-1..5` tokens (the
   "small rainbow ... for future charts" REQUIREMENTS already called out).
   All aggregation happens in the page's Server Component (grouping the
@@ -687,11 +765,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   budget/page.tsx` fetches `Transaction` rows bounded to the selected
   month's `[monthStart, monthEnd)` window (rather than the household's
   entire history — see SCALE-F, BACKLOG.md, for why an unbounded query
-  here doesn't scale) for the transaction list, this section's totals and
-  the settle-up balances below; Safe to spend and the recurring-template
-  status checks each read from their own wider trailing window instead
-  (see those subsections) since they need to see further back than just
-  the month on screen.
+  here doesn't scale) for the transaction list and this section's totals;
+  Safe to spend and the recurring-template status checks each read from
+  their own wider trailing window instead (see those subsections) since
+  they need to see further back than just the month on screen. The
+  settle-up balances read every split transaction the household has (split
+  rows only), since debts carry over until they're cleared — see
+  "Household expense splitting".
 - **Viewing another household (`?household=`)**: "View in {household}
   Budget" links on shared rows in Personal Budget (F1) open
   `/dashboard/budget?month=…&household=<id>`, so the page shows the bill's
@@ -960,43 +1040,76 @@ which delegates the actual math to a pure, dependency-free
 import, so no mocking needed) rather than inlining it, since a Server
 Component page function can't itself be unit-tested.
 
-- **The headline number**: the selected month's income so far minus that
-  month's expenses so far minus that month's savings so far (the same
-  totals `PeriodSummary` computes from the page's month-scoped
-  `transaction.findMany` query, see "Month navigation" above) minus an
-  estimate of recurring expense categories that haven't posted a
-  transaction yet this month (below). Savings is subtracted too — money
-  moved into a `SAVINGS` category is money that's no longer safe to spend,
-  same as an expense already paid, even though it isn't a cost.
-- **The recurring-expense estimate**: for every `EXPENSE`-type
-  `BudgetCategory` with at least one `isRecurring` transaction dated before
-  the selected month, check whether that category already has *any*
-  transaction dated in that month. If it does, it's assumed
-  posted/accounted for and contributes nothing to the estimate. If it
-  doesn't, the amount of that category's most recent recurring transaction
-  (by `date`) is treated as "expected but not yet logged" and subtracted
-  from the headline number. This is a best-effort heuristic, not a
-  scheduler: `computeSafeToSpend` only ever looks at
-  `Transaction.isRecurring`, so it can't know a bill isn't due yet vs.
-  simply not entered; a one-line caveat under the headline number says so
-  explicitly. It deliberately doesn't use the separate `RecurringTemplate`
-  due/posted/acknowledged system (see "Recurring budget templates" above)
-  — that system already distinguishes "due" from "acknowledged"/"posted"
-  per period, which would make a better signal than this heuristic, but
-  wiring the headline number to it wasn't part of this feature's own pass.
-  Fed from a trailing 12-month window ending at the selected month (rather
-  than the household's entire history — see SCALE-F, BACKLOG.md) so
-  "most recent recurring transaction" has enough history to find a
-  WEEKLY/MONTHLY/YEARLY bill's last occurrence without re-fetching every
-  transaction the household has ever logged; `computeTemplateStatuses`
-  (see "Recurring budget templates" above) shares the same window for the
-  same reason.
-- **The breakdown**: beneath the headline number, a small list of every
-  category counted into the estimate (name + its expected amount, tinted
-  `text-destructive` like every other expense amount on the page) so the
-  number isn't a black box — e.g. "Rent  –1,200.00". Hidden entirely when no
-  category qualifies (nothing recurring, or everything recurring has
-  already posted this month).
+- **The headline number** ("Remaining after expenses and savings"): the
+  selected month's income so far, minus that month's expenses and savings
+  so far (the same totals `PeriodSummary` computes from the page's
+  month-scoped `transaction.findMany` query, see "Month navigation" above),
+  minus everything still due this month (below). Savings is subtracted
+  too — money moved into a `SAVINGS` category is money that's no longer
+  safe to spend, same as an expense already paid, even though it isn't a
+  cost. `computeSafeToSpend` returns each term separately (`breakdown`) as
+  well as the total.
+- **What's still due — recurring items first**: `computeSafeToSpend` takes
+  the month's recurring items with their status (`templates`, from
+  `computeTemplateStatuses` — see "Recurring budget templates" above).
+  Every active item still `"due"` is subtracted at its full amount: an
+  `EXPENSE` item as a *due payment*, a `SAVINGS` item as a *due saving*
+  (income items are ignored). A `"posted"` item counts only through the
+  transaction logged from it, even when that was for less than the item
+  says: a 5000 saving logged as 3000 means 3000 was saved and the other
+  2000 is spendable, not still owed. `"acknowledged"` counts as handled.
+  Before this, only expense categories were estimated, so a recurring
+  saving was never subtracted until it was logged.
+- **Fallback estimate for categories without a recurring item**: for every
+  `EXPENSE` category with at least one `isRecurring` transaction dated
+  before the selected month and *no* active recurring item, check whether
+  it already has any transaction dated in that month. If not, the amount of
+  its most recent recurring transaction (by `date`) is treated as "expected
+  but not yet logged". Categories that do have a recurring item are
+  skipped here, so a bill is never counted twice. This is the original,
+  best-effort heuristic (it can't tell "not due yet" from "not entered"),
+  kept so households that only ever ticked "this repeats" keep getting an
+  estimate. Fed from a trailing 12-month window ending at the selected
+  month (rather than the household's entire history — see SCALE-F,
+  BACKLOG.md) so "most recent recurring transaction" has enough history to
+  find a WEEKLY/MONTHLY/YEARLY bill's last occurrence without re-fetching
+  every transaction the household has ever logged; `computeTemplateStatuses`
+  shares the same window for the same reason.
+- **Personal budget and the dashboard**: `loadPersonalBudgetPosition`
+  (`src/lib/personal-budget-position.ts`) loads and computes everything
+  Personal Budget's number needs, and the dashboard's "Your budget" card
+  calls the same loader, so the two always show the same number. The card
+  used to run its own simplified copy of the math that left out shared
+  bills, debts to household members and due items. For the personal
+  budget:
+  - The user's *share* (`amountOwed`) of a split household bill counts as
+    an expense in the bill's month, whoever actually paid it. Paying more
+    than your share doesn't make you poorer (the others owe it back), and
+    paying less doesn't make you richer (you still owe the rest), so paying
+    a member back later doesn't move the number a second time.
+  - **Owed from earlier months**: what the user still owed when the month
+    started is subtracted again (debts carry over until cleared): their net
+    debt to other members plus their unpaid share of older bills, from
+    `computeMemberPosition` in `settle-up-calc.ts` as of `monthStart`.
+    Money others owe the user from earlier months is *not* added back,
+    since it isn't spendable until they pay. `TransactionSplit.amountPaid`
+    isn't dated, so paying off an old bill's remainder counts as if it had
+    been paid on time.
+  - Due payments and due savings include the user's share of shared
+    recurring items that are still due (the "Rent pops up" rows).
+  - Under the number, "Your household balance" shows where the user stands
+    per household at the end of the month (`householdDebts`): what they owe
+    other members or are owed, and their unpaid share of bills, with a
+    "Settle up" link to that household's budget, Insights tab
+    (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
+- **The breakdown**: beneath the headline number, one line per term
+  (income, expenses, savings, and — only when non-zero — owed from earlier
+  months, due payments, due savings) adding up to "Remaining after
+  expenses and savings", then a "Still due this month" list of every item
+  counted as due (name + amount; savings tinted `text-chart-2` with a
+  "Saving" badge, payments `text-destructive`, shared items badged
+  "Shared") — so the number is never a black box. The list is hidden when
+  nothing is due.
 - Same no-currency-symbol `Intl.NumberFormat` convention as the rest of
   Budgeting; the headline number is colored `text-chart-5` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
@@ -1011,15 +1124,20 @@ has. Two new Prisma models/fields, added via a hand-written migration
 (`prisma/migrations/20260905120000_add_transaction_splits/`) since this is
 a real schema change, unlike the schema-free Wave 1 tasks:
 
-- **`Transaction.paidByMemberId`** (`String?`, `onDelete: SetNull` on its
-  `HouseholdMember` relation) — which member fronted the money. `SetNull`
-  rather than `Cascade`: the transaction itself must survive its payer
-  later leaving the household, the same tradeoff
-  `RecipeIngredient.inventoryItemId` already makes for a similar
-  optional-info relation.
 - **`TransactionSplit`** — one row per member included in a split
-  transaction's cost share (`transactionId`, `householdMemberId`,
-  `amountOwed`), unique per `(transactionId, householdMemberId)`. No
+  transaction (`transactionId`, `householdMemberId`, `amountOwed` — their
+  share — and `amountPaid` — what they've paid towards the bill itself),
+  unique per `(transactionId, householdMemberId)`. A member can pay more
+  than their share, less, or nothing, so a bill can be paid partly by
+  several members: pay 3000 of a shared 6000 bill and 3000 shows as left
+  due. A member who paid without owing a share gets a row with
+  `amountOwed: 0`. This replaced a single `Transaction.paidByMemberId`
+  ("who fronted the whole bill"); migration
+  `20260925050231_partial_payments_and_settlements` backfilled it as "the
+  payer paid the whole amount" before dropping the column, and marked
+  every member of a split whose payer had since left the household as
+  having paid their own share, since those never produced a balance
+  before. No
   `householdId` column — scoped through its parent `Transaction`, the same
   convention `PriceHistory`/`RecipeIngredient` already use for a
   household-scoped child row. `amountOwed` is an absolute currency amount,
@@ -1031,52 +1149,71 @@ a real schema change, unlike the schema-free Wave 1 tasks:
   to still sum to the transaction's total if a member with an outstanding
   split leaves).
 
+- **`MemberSettlement`** — a repayment between two members
+  (`fromMemberId` paid `amount` to `toMemberId` on `date`), recorded with
+  "Clear debt" below. Both member relations cascade, like
+  `TransactionSplit`'s, so a leaving member's balance goes as a whole.
+
 **Recording a split** (`TransactionDialog`,
-`src/components/budget/transaction-dialog.tsx`): only offered when the
+`src/components/budget/transaction-dialog.tsx`, and Personal Budget's
+`LogSharedExpenseDialog`, which share `SplitEditor`,
+`src/components/budget/split-editor.tsx`): only offered when the
 household has more than one member (`members.length > 1`, fetched by
 `src/app/dashboard/budget/page.tsx` alongside categories/transactions). A
-"Split this expense" checkbox reveals a "Paid by" select (defaulting to
-the signed-in user's own membership) and one amount input per household
-member, defaulting to an even split of the transaction's amount
+"Split this expense" checkbox reveals one row per household member with a
+"Share" and a "Paid" input. "Paid" defaults to the signed-in member paying
+the whole amount (following the amount field until the user edits a
+payment), and the editor shows how much is still left to pay. Shares
+default to an even split of the transaction's amount
 (`evenSplitAmounts` in `src/components/budget/split-amounts.ts` — a pure,
 unit-tested cents-based helper so the shares always sum exactly to the
 total instead of drifting from naive floating-point division) via a "Split
 evenly" reset button, individually adjustable afterward. The dialog shows
-a live mismatch warning and disables submit whenever the per-member
-amounts don't (yet) sum to the transaction total; `createTransactionAction`/
+a live warning and disables submit whenever the shares don't (yet) sum to
+the transaction total or the payments add up to more than it
+(`checkSplitForm`, `split-amounts.ts`); `createTransactionAction`/
 `updateTransactionAction` (`src/app/dashboard/budget/actions.ts`)
-re-validate the same invariant server-side (`parseSplitFormData`, ±0.01
+re-validate the same invariants server-side (`parseSplitFormData`, ±0.01
 floating-point tolerance) plus that every referenced member id actually
 belongs to the caller's household, the same "never trust a client-supplied
 id beyond re-checking it" rule every other action in this file follows.
+Payments may add up to less than the total; the rest is still due. A
+member with no share who paid nothing is dropped from the split.
+"Log as-is" on a split recurring item records the whole bill as paid by
+whoever clicked it.
 Editing an existing split transaction pre-fills every field from its
 current `TransactionSplit` rows and replaces them wholesale on save
 (delete-all then recreate in one `$transaction`), the same convention
 recipe-ingredient editing already uses. `TransactionList`
 (`src/components/budget/transaction-list.tsx`) shows a "Split" badge
-(hover tooltip naming the payer) next to a split transaction's category
-badge.
+(hover tooltip naming who paid how much) next to a split transaction's
+category badge, plus an "{amount} left due" badge while part of it is
+unpaid. Personal Budget's shared rows say who paid and what's left due the
+same way.
 
 **"Who owes whom"** (`HouseholdBalances`,
-`src/components/budget/household-balances.tsx`) — a third `BudgetTabs` tab,
-"Balances", shown only when the household has more than one member
-(chosen over the Household page: the view is derived entirely from
-`Transaction`/`TransactionSplit` data the Budget page already scopes and
-fetches, and this keeps the Household page, not a primary file for this
-task, untouched). Scoped to the selected budget month, same
-`monthTransactions` window `PeriodSummary`/`SafeToSpend` use (via the page's
-shared `MonthNavigator`), so balances reset each month instead of
-accumulating across the household's whole history — a transaction split in
-August no longer shows up in September's settle-up list. Like
-`PeriodSummary`/`CostAnalyzer`/`SafeToSpend`, it's a plain presentational
-component; all netting and debt-simplification logic is pure and
-unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
+`src/components/budget/household-balances.tsx`) — on the Budget page's
+Insights tab, shown only when the household has more than one member.
+Covers every split bill and repayment the household has, not just the
+month on screen: a debt carries over until it's cleared. (It used to be
+scoped to the selected month, so an unpaid August debt silently vanished
+in September.) All netting and debt-simplification logic is pure and
+unit-tested in `src/lib/settle-up-calc.ts` (moved from
+`src/app/dashboard/budget/` since Personal Budget uses it too):
 
-- `computeNetBalances` nets every split transaction to one balance per
-  member — the payer's balance increases by the full amount, every member
-  with a split on that transaction (payer included) has their balance
-  reduced by their own share, so a payer's own share nets out to what
-  they're actually owed by everyone else.
+- `computeBillPositions` splits one bill into what each member owes the
+  *other members* and what's still owed *to the bill*. A member who paid
+  more than their share is owed the difference; a member who paid less
+  still has the difference outstanding. The shortfalls cover both the
+  overpayments and the bill's unpaid remainder, split in proportion. With
+  two members that's exact: pay 4000 of a 6000 bill split 3000/3000 and
+  your partner owes you 1000 and the bill 2000. With three or more it's a
+  fair approximation, since nothing records whose shortfall an
+  overpayment was meant to cover. Money still owed to a bill is nobody's
+  debt to another member.
+- `computeNetBalances` nets every bill's member-to-member part plus every
+  `MemberSettlement` (the payer's balance goes up, the receiver's down)
+  down to one balance per member.
 - `simplifyDebts` then applies Splitwise's debt-simplification pattern
   (greedily matching the largest debtor against the largest creditor) to
   reduce those balances to the **minimum number of settle-up transfers**,
@@ -1084,12 +1221,24 @@ unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
   everyone and Bob separately paid Carol back for something unrelated, the
   view nets straight to "Bob owes Alice X", never surfacing Carol at all
   once her balance is zero.
-- The view is read-only for this pass — no "mark as settled" persistence
-  was added. The task's own scope note describes a manual settle-up action
-  only as an example of what a *future* pass could add ("a note or a
-  zeroing transaction... no payment integration of any kind"), and the
-  feature's actual goal is to *surface* the net balance view; adding a new
-  table/action for recording settlements would be scope creep beyond that.
+- `computeMemberPosition` is one member's balance and unpaid bill share
+  counting only bills and repayments dated before a given day — how
+  Personal Budget works out "owed from earlier months" (see "Safe to
+  spend").
+- **Clear debt**: each suggested transfer has a "Clear debt" button
+  opening a dialog pre-filled with the whole amount and today's date;
+  lowering the amount records a partial repayment.
+  `recordSettlementAction` re-checks both members against the caller's
+  household and doesn't cap the amount (a rounded-up repayment is real;
+  the excess just shows as a balance the other way). Below the transfers
+  the card lists split bills with money still due, and the 10 most recent
+  repayments, each removable (`deleteSettlementAction`) in case one was
+  entered by mistake. There's no payment integration; a Swish link is
+  GAP-7 in BACKLOG.md.
+- Every action that writes split transactions or repayments revalidates
+  the household budget, Personal Budget and the dashboard
+  (`revalidateBudgetPages`), since all three show numbers derived from
+  them.
 
 **User profile** (built)
 - `/dashboard/profile` (`src/app/dashboard/profile/page.tsx`) lets the
@@ -1217,9 +1366,9 @@ intentional duplication (see `PersonalRecurringTemplate`'s doc comment in
   field `personalBudget`'s dict omits outright), which is `true` exactly on
   the household side.
 - **Row types stay "empty-array-safe" too, not optional.** `TransactionRow`
-  keeps a required `paidByMemberId`/`splits`, and `RecurringTemplateRow`
-  keeps a required `splits` — the personal budget page's row-mapping code
-  supplies `null`/`[]` for these instead of the type making them optional,
+  keeps a required `splits`, and `RecurringTemplateRow` keeps a required
+  `splits` — the personal budget page's row-mapping code supplies `[]` for
+  these instead of the type making them optional,
   so nothing downstream needs an extra `?? []`.
 
 #### CategoryManager (BUDGET-3)
@@ -2077,6 +2226,10 @@ actually used, once they've cooked it.
   inventory back twice). Once that window closes there's no further undo — a
   wrong decrement discovered later is corrected the same way any inventory
   number is corrected: the existing +/- adjuster on the inventory page.
+  When the cook pushed ingredients into low stock (AUTO-8), the toast says
+  how many were added to "Next shop", and the same Undo also removes those
+  rows via `undoAutoAddedItemsAction` — undoing the cook undoes everything
+  it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
 
@@ -2163,7 +2316,7 @@ rewards.
   nullable fields — a task can be completed by someone other than whoever
   it was assigned to, and an unassigned task can still be completed. Both
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
-  `Transaction.paidByMemberId` makes: a member leaving the household
+  `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
 - **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`,
   `toggleTaskCompletedAction` (flips `completedAt` between `null` and
@@ -2450,7 +2603,10 @@ Exactly three triggers exist — nothing else creates a notification:
   puts its quantity back down). It only fires on the crossing itself — a
   further decrease while already at zero, or a decrease that doesn't reach
   zero, is a no-op — and it's deduped against any already-active
-  (undismissed) alert for the same item.
+  (undismissed) alert for the same item. Every one of these call sites
+  also runs AUTO-8's `addToDefaultListOnLowStock`, which fires one step
+  earlier (into *low*) and adds to the default list rather than alerting —
+  see "Always-on default list (AUTO-8)".
   - **Deliberately never fires on item creation.** `createInventoryItemAction`,
     `quickAddInventoryItemAction`, `addStarterKitItemsAction`, every
     find-or-create-linking path (meal-planning ingredients and shopping-list

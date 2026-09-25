@@ -13,6 +13,7 @@ import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -394,7 +395,13 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
   if (member.role === "OWNER") return { error: "The owner can't be removed" };
 
   try {
-    await prisma.householdMember.delete({ where: { id: member.id } });
+    // settleDepartingMemberSplits must run before (and atomically with) the
+    // delete — see its doc comment — since HouseholdMember->TransactionSplit
+    // cascades and would otherwise take the member's payment history with it.
+    await prisma.$transaction(async (tx) => {
+      await settleDepartingMemberSplits(tx, member.id);
+      await tx.householdMember.delete({ where: { id: member.id } });
+    });
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -471,7 +478,14 @@ export async function leaveHouseholdAction(): Promise<ActionState> {
   if (!membership) return { error: "Membership not found" };
 
   try {
-    await prisma.householdMember.delete({ where: { id: membership.id } });
+    // See removeMemberAction's identical comment — settleDepartingMemberSplits
+    // must run before (and atomically with) the delete, since it's the
+    // leaving member's own membership that's about to cascade away their
+    // split rows here too.
+    await prisma.$transaction(async (tx) => {
+      await settleDepartingMemberSplits(tx, membership.id);
+      await tx.householdMember.delete({ where: { id: membership.id } });
+    });
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -522,6 +536,31 @@ export async function transferOwnershipAction(newOwnerMemberId: string): Promise
         data: { role: "OWNER" },
       }),
     ]);
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
+
+// AUTO-8's household-wide switch for the low-stock auto-add (see
+// addToDefaultListOnLowStock in src/lib/shopping/default-list.ts). Open to
+// every member, not owner-gated: REQUIREMENTS.md's "Roles" keeps owner-only
+// to removing members and deleting the household, and this is day-to-day
+// shopping behaviour that both roles already fully operate. A click action
+// (a switch), so it takes the value directly rather than FormData; the
+// household comes from the session, never the client.
+export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  if (typeof enabled !== "boolean") return { error: "Invalid input" };
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { autoAddLowStockToList: enabled },
+    });
   } catch (error) {
     return toFriendlyError(error);
   }

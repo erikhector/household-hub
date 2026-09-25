@@ -29,6 +29,8 @@ const {
   recurringTemplateDeleteManyMock,
   recurringTemplateAckUpsertMock,
   recurringTemplateAckDeleteManyMock,
+  settlementCreateMock,
+  settlementDeleteManyMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
@@ -53,6 +55,8 @@ const {
   recurringTemplateDeleteManyMock: vi.fn(),
   recurringTemplateAckUpsertMock: vi.fn(),
   recurringTemplateAckDeleteManyMock: vi.fn(),
+  settlementCreateMock: vi.fn(),
+  settlementDeleteManyMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
 
@@ -73,6 +77,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: transactionDeleteManyMock,
     },
     transactionSplit: { deleteMany: vi.fn() },
+    memberSettlement: { create: settlementCreateMock, deleteMany: settlementDeleteManyMock },
     householdMember: { findMany: householdMemberFindManyMock, findFirst: householdMemberFindFirstMock },
     recurringTemplate: {
       findFirst: recurringTemplateFindFirstMock,
@@ -111,6 +116,8 @@ const {
   acknowledgeTemplatePeriodAction,
   unacknowledgeTemplatePeriodAction,
   logRecurringTemplateAction,
+  recordSettlementAction,
+  deleteSettlementAction,
 } = await import("@/app/dashboard/budget/actions");
 
 function formData(fields: Record<string, string>) {
@@ -387,33 +394,50 @@ describe("createTransactionAction", () => {
   });
 
   describe("split validation (parseSplitFormData)", () => {
-    function splitFormData(overrides: Record<string, string> = {}) {
-      const fd = formData({ ...base, splitEnabled: "on", paidByMemberId: "member-1", ...overrides });
+    // member-1 paid the whole 50 unless a test says otherwise.
+    function splitFormData(
+      overrides: Record<string, string> = {},
+      paid: [string, string] = ["50", "0"],
+    ) {
+      const fd = formData({ ...base, splitEnabled: "on", ...overrides });
       fd.append("splitMemberId", "member-1");
       fd.append("splitMemberId", "member-2");
       fd.append("splitAmount", "25");
       fd.append("splitAmount", "25");
+      fd.append("splitPaid", paid[0]);
+      fd.append("splitPaid", paid[1]);
       return fd;
     }
 
-    it("requires choosing who paid", async () => {
-      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
-      const fd = splitFormData({ paidByMemberId: "" });
-
-      const result = await createTransactionAction({}, fd);
-
-      expect(result.error).toBe("Choose who paid");
-    });
-
     it("rejects a negative split amount", async () => {
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
-      const fd = formData({ ...base, splitEnabled: "on", paidByMemberId: "member-1" });
+      const fd = formData({ ...base, splitEnabled: "on" });
       fd.append("splitMemberId", "member-1");
       fd.append("splitAmount", "-5");
+      fd.append("splitPaid", "0");
 
       const result = await createTransactionAction({}, fd);
 
       expect(result.error).toBe("Each split amount must be zero or more");
+    });
+
+    it("rejects a negative paid amount", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+
+      const result = await createTransactionAction({}, splitFormData({}, ["-5", "0"]));
+
+      expect(result.error).toBe("Each paid amount must be zero or more");
+    });
+
+    it("rejects misaligned split fields", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      const fd = formData({ ...base, splitEnabled: "on" });
+      fd.append("splitMemberId", "member-1");
+      fd.append("splitAmount", "50");
+
+      const result = await createTransactionAction({}, fd);
+
+      expect(result.error).toBe("Invalid split");
     });
 
     it("rejects when a referenced member no longer belongs to the household (IDOR guard)", async () => {
@@ -429,45 +453,41 @@ describe("createTransactionAction", () => {
     it("rejects when split amounts don't sum to the transaction total", async () => {
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
       householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
-      const fd = formData({
-        ...base,
-        amount: "100",
-        splitEnabled: "on",
-        paidByMemberId: "member-1",
-      });
-      fd.append("splitMemberId", "member-1");
-      fd.append("splitMemberId", "member-2");
-      fd.append("splitAmount", "25");
-      fd.append("splitAmount", "25"); // sums to 50, not 100
 
-      const result = await createTransactionAction({}, fd);
+      // Shares still sum to 50, not 100.
+      const result = await createTransactionAction({}, splitFormData({ amount: "100" }));
 
       expect(result.error).toBe("The split amounts must add up to the transaction total");
+    });
+
+    it("rejects payments that add up to more than the transaction total", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+
+      const result = await createTransactionAction({}, splitFormData({}, ["50", "10"]));
+
+      expect(result.error).toBe("The paid amounts can't add up to more than the transaction total");
+      expect(transactionCreateMock).not.toHaveBeenCalled();
     });
 
     it("accepts split amounts within floating-point tolerance of the total", async () => {
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
       householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
       transactionCreateMock.mockResolvedValue({});
-      const fd = formData({
-        ...base,
-        amount: "10",
-        splitEnabled: "on",
-        paidByMemberId: "member-1",
-      });
+      const fd = formData({ ...base, amount: "10", splitEnabled: "on" });
       fd.append("splitMemberId", "member-1");
       fd.append("splitMemberId", "member-2");
-      fd.append("splitAmount", "3.33");
-      fd.append("splitAmount", "3.34");
-      fd.append("splitAmount", "3.33");
-      fd.append("splitMemberId", "member-1");
+      fd.append("splitAmount", "4.995");
+      fd.append("splitAmount", "5");
+      fd.append("splitPaid", "10.005");
+      fd.append("splitPaid", "");
 
       const result = await createTransactionAction({}, fd);
 
       expect(result).toEqual({});
     });
 
-    it("creates the transaction with splits when everything validates", async () => {
+    it("creates the transaction with shares and payments when everything validates", async () => {
       categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
       householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
       transactionCreateMock.mockResolvedValue({});
@@ -476,13 +496,53 @@ describe("createTransactionAction", () => {
 
       expect(transactionCreateMock).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          paidByMemberId: "member-1",
           splits: {
             create: [
-              { householdMemberId: "member-1", amountOwed: 25 },
-              { householdMemberId: "member-2", amountOwed: 25 },
+              { householdMemberId: "member-1", amountOwed: 25, amountPaid: 50 },
+              { householdMemberId: "member-2", amountOwed: 25, amountPaid: 0 },
             ],
           },
+        }),
+      });
+    });
+
+    it("accepts a partly paid bill — the rest stays due", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+      transactionCreateMock.mockResolvedValue({});
+
+      const result = await createTransactionAction({}, splitFormData({}, ["25", "0"]));
+
+      expect(result).toEqual({});
+      expect(transactionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          splits: {
+            create: [
+              { householdMemberId: "member-1", amountOwed: 25, amountPaid: 25 },
+              { householdMemberId: "member-2", amountOwed: 25, amountPaid: 0 },
+            ],
+          },
+        }),
+      });
+    });
+
+    it("drops a member with no share who paid nothing", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+      transactionCreateMock.mockResolvedValue({});
+      const fd = formData({ ...base, splitEnabled: "on" });
+      fd.append("splitMemberId", "member-1");
+      fd.append("splitMemberId", "member-2");
+      fd.append("splitAmount", "50");
+      fd.append("splitAmount", "0");
+      fd.append("splitPaid", "50");
+      fd.append("splitPaid", "0");
+
+      await createTransactionAction({}, fd);
+
+      expect(transactionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          splits: { create: [{ householdMemberId: "member-1", amountOwed: 50, amountPaid: 50 }] },
         }),
       });
     });
@@ -498,13 +558,14 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
       date: "2026-01-15",
       isRecurring: "",
       splitEnabled: "on",
-      paidByMemberId: "member-1",
       ...overrides,
     });
     fd.append("splitMemberId", "member-1");
     fd.append("splitMemberId", "member-2");
     fd.append("splitAmount", "25");
     fd.append("splitAmount", "25");
+    fd.append("splitPaid", "50");
+    fd.append("splitPaid", "0");
     return fd;
   }
 
@@ -569,11 +630,10 @@ describe("createSharedExpenseFromPersonalBudgetAction", () => {
         amount: 50,
         type: "EXPENSE",
         createdByUserId: "user-1",
-        paidByMemberId: "member-1",
         splits: {
           create: [
-            { householdMemberId: "member-1", amountOwed: 25 },
-            { householdMemberId: "member-2", amountOwed: 25 },
+            { householdMemberId: "member-1", amountOwed: 25, amountPaid: 50 },
+            { householdMemberId: "member-2", amountOwed: 25, amountPaid: 0 },
           ],
         },
       }),
@@ -804,6 +864,74 @@ describe("recurring templates", () => {
           recurringTemplateId: "template-1",
         }),
       });
+    });
+  });
+});
+
+describe("settling up", () => {
+  function settlementFormData(overrides: Record<string, string> = {}) {
+    return formData({
+      fromMemberId: "member-2",
+      toMemberId: "member-1",
+      amount: "3000",
+      date: "2026-09-25",
+      ...overrides,
+    });
+  }
+
+  it("records a repayment between two members of the caller's household", async () => {
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }]);
+    settlementCreateMock.mockResolvedValue({});
+
+    const result = await recordSettlementAction({}, settlementFormData());
+
+    expect(result).toEqual({});
+    expect(householdMemberFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["member-2", "member-1"] }, householdId: "household-1" },
+      }),
+    );
+    expect(settlementCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        householdId: "household-1",
+        fromMemberId: "member-2",
+        toMemberId: "member-1",
+        amount: 3000,
+        createdByUserId: "user-1",
+      }),
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("rejects a member outside the household (IDOR guard)", async () => {
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }]);
+
+    const result = await recordSettlementAction({}, settlementFormData());
+
+    expect(result.error).toBe("One of the selected members no longer belongs to this household");
+    expect(settlementCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects paying yourself", async () => {
+    const result = await recordSettlementAction({}, settlementFormData({ toMemberId: "member-2" }));
+
+    expect(result.error).toBe("Choose two different members");
+    expect(settlementCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a zero amount", async () => {
+    const result = await recordSettlementAction({}, settlementFormData({ amount: "0" }));
+
+    expect(result.error).toBe("Amount must be greater than 0");
+  });
+
+  it("scopes deleting a repayment to the caller's household", async () => {
+    settlementDeleteManyMock.mockResolvedValue({ count: 0 });
+
+    await deleteSettlementAction("someone-elses-settlement");
+
+    expect(settlementDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-settlement", householdId: "household-1" },
     });
   });
 });
