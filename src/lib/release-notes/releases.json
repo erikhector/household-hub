@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.21.0",
+    "date": "2026-09-25",
+    "pr": 41,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Tap the new microphone button on a shopping list and say what you need, like \"two liters of milk and eggs\". It's only shown in browsers that support speech recognition.",
+      "sv": "Tryck på den nya mikrofonknappen på en inköpslista och säg vad du behöver, t.ex. \"två liter mjölk och ägg\". Knappen visas bara i webbläsare som har stöd för taligenkänning."
+    }
+  },
+  {
     "version": "0.20.0",
     "date": "2026-09-25",
     "pr": 44,
