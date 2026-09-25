@@ -464,6 +464,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+- **Per-item notes (GAP-5)** — `ShoppingListItem.note` (`String?`,
+  migration `20260925124224_shopping_item_note`) holds an optional
+  free-text hint for whoever does the shopping ("get the ripe ones", "any
+  brand is fine"). It's set from the row's edit dialog
+  (`ShoppingItemFormDialog`'s edit mode, a "Note (optional)" textarea) and
+  never at add time: the "+" quick-add, the smart add line, imports and
+  every automatic path leave it null, so adding stays a fast
+  type-and-enter. `updateShoppingListItemAction` takes an optional `note`
+  (trimmed, max 200 characters via Zod). Leaving it out keeps the existing
+  note, and a blank note clears it to `null`, never `""`. Like every item
+  action, the lookup is household-scoped. When set, the note shows as a
+  muted second line under the item name, wrapped rather than truncated,
+  outside the row's `<label>` so tapping it doesn't toggle purchased. It
+  also shows on the public share page (`getShoppingListByShareToken` returns
+  it, since the person the list is shared with is often the one shopping)
+  and is the last column of the list's CSV export (see "Data export (CSV)").
 - **Always-on default list (AUTO-8)** — every household has one
   `ACTIVE` list flagged `ShoppingList.isDefault`, named "Next shop" /
   "Att handla" in the locale of whoever caused it to exist, and restocking
@@ -1469,7 +1485,9 @@ further here, as it isn't part of this section's original CSV-export scope.
 - **What's exported**: inventory exports every `InventoryItem` (name,
   category, quantity, unit, location, low-stock threshold, last known
   price); a shopping list export is that list's items (name, quantity,
-  estimated price, purchased yes/no); the budget export is every
+  unit, estimated price, purchased yes/no, and GAP-5's note — last, so a
+  consumer of the older five-column file keeps its column positions); the
+  budget export is every
   `Transaction` in the **current calendar month** — the same
   `[monthStart, monthEnd)` window `PeriodSummary` already computes on the
   budget page, not the household's full transaction history — with date,

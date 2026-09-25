@@ -412,11 +412,16 @@ model ShoppingListItem {
   quantity           Float    @default(1)
   unit               String   @default("pcs")
   estimatedPrice     Float?
+  // GAP-5: optional free-text note on a line ("get the ripe ones", "any
+  // brand is fine"). Set from the row's edit dialog after the item is
+  // added, never asked for at add time, so the smart add line stays one
+  // quick type-and-enter. null (never "") when there's no note.
+  note               String?
   purchased          Boolean  @default(false)
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
 
-  shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  shoppingList  ShoppingList  @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([shoppingListId])

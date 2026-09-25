@@ -373,6 +373,8 @@ export const en = {
       quantityLabel: "Quantity",
       unitLabel: "Unit",
       unitPlaceholder: "e.g. pcs",
+      noteLabel: "Note (optional)",
+      notePlaceholder: "e.g. get the ripe ones, any brand is fine",
       comboboxNoMatches: "No matches yet — keep typing to add a new one.",
       comboboxAddNew: 'Use "{value}"',
       linkSectionLabel: "Inventory link",
@@ -1665,6 +1667,7 @@ export const en = {
       headerUnit: "Unit",
       headerEstimatedPrice: "Estimated price",
       headerPurchased: "Purchased",
+      headerNote: "Note",
     },
     budget: {
       fileNamePrefix: "budget-transactions",
