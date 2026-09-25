@@ -10,8 +10,19 @@
 // exclusively with the existing `--chart-1..5` tokens via Tailwind's
 // auto-generated `bg-chart-*`/`stroke-chart-*`/`fill-chart-*` utilities, so
 // they theme automatically in light/dark.
+//
+// "Cheapest store" (GAP-6) is a third, much smaller section below the two
+// charts — a plain one-line-per-item list rather than a chart, since the
+// underlying data (which store had the cheapest last recorded price) isn't
+// really a trend to visualize, just a fact worth surfacing once it exists.
+// It's kept deliberately terse (no full per-store price breakdown) so it
+// stays unobtrusive next to the two charts above it — see
+// computeCheapestStoreComparisons (src/lib/cheapest-store-calc.ts) for the
+// aggregation and its "≥2 distinct stores" bar for appearing here at all.
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { StoreComparison } from "@/lib/cheapest-store-calc";
+import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type MonthlySpendPoint = { month: string; total: number };
@@ -22,15 +33,18 @@ export type ItemPriceTrend = {
   points: PricePoint[];
   changePercent: number;
 };
+export type { StoreComparison };
 
 export function CostAnalyzer({
   monthlySpending,
   itemTrends,
+  storeComparisons,
   dict,
   locale,
 }: {
   monthlySpending: MonthlySpendPoint[];
   itemTrends: ItemPriceTrend[];
+  storeComparisons: StoreComparison[];
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
 }) {
@@ -101,6 +115,32 @@ export function CostAnalyzer({
                   numberFormat={numberFormat}
                   dateFormat={dateFormat}
                 />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{dict.cheapestStoreTitle}</CardTitle>
+          <CardDescription>{dict.cheapestStoreSubtitle}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {storeComparisons.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{dict.noCheapestStoreData}</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {storeComparisons.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {format(dict.cheapestStoreLabel, { store: c.cheapestStore })}{" "}
+                    <span className="tabular-nums text-chart-5">
+                      {numberFormat.format(c.cheapestPrice)}
+                    </span>
+                  </span>
+                </div>
               ))}
             </div>
           )}

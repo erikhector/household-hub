@@ -878,7 +878,9 @@ describe("updateShoppingListItemPriceAction (AUTO-4 inline price correction)", (
       where: { id: "item-1" },
       data: { estimatedPrice: 27.5 },
     });
+    expect(priceHistoryCreateMock).not.toHaveBeenCalled();
   });
+
 });
 
 describe("unlinkShoppingListItemAction", () => {
@@ -1386,8 +1388,37 @@ describe("applyReceiptScanAction", () => {
       where: { id: "inv-2" },
       data: { quantity: 6, lastKnownPrice: 25 },
     });
-    expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-1", price: 10 } });
-    expect(priceHistoryCreateMock).toHaveBeenCalledWith({ data: { inventoryItemId: "inv-2", price: 25 } });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 10, store: null },
+    });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-2", price: 25, store: null },
+    });
+  });
+
+  it("stamps every PriceHistory row it writes with the receipt's store (GAP-6)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(baseList);
+
+    await applyReceiptScanAction(
+      "list-1",
+      "SEK",
+      [{ shoppingListItemId: "sli-1", price: 10 }],
+      "  ICA Maxi  ",
+    );
+
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 10, store: "ICA Maxi" },
+    });
+  });
+
+  it("treats a blank/whitespace-only store the same as no store (GAP-6)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(baseList);
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }], "   ");
+
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 10, store: null },
+    });
   });
 
   it("converts a foreign-currency price using the fetched exchange rate", async () => {
@@ -1538,7 +1569,7 @@ describe("registerReceiptAction", () => {
       data: { quantity: 4, lastKnownPrice: 15 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 15 },
+      data: { inventoryItemId: "inv-1", price: 15, store: null },
     });
     expect(transactionCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1617,6 +1648,23 @@ describe("registerReceiptAction", () => {
       data: { quantity: 15, lastKnownPrice: 6 }, // 10 + 2 + 3
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("stamps every PriceHistory row it writes with the receipt's store, trimmed (GAP-6)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    await registerReceiptAction(
+      "My receipt",
+      "SEK",
+      [{ name: "Milk", quantity: 2, unit: "l", price: 15 }],
+      "  ICA Maxi  ",
+    );
+
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 15, store: "ICA Maxi" },
+    });
   });
 
   it("links to the inventory item the user explicitly matched in review, skipping exact/fuzzy auto-match", async () => {
@@ -1789,8 +1837,8 @@ describe("completeShoppingListAction", () => {
     shoppingListUpdateMock.mockResolvedValue({});
     getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
     const txShoppingListUpdate = vi.fn();
-    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
-      cb({ shoppingList: { update: txShoppingListUpdate } }),
+    transactionMock.mockImplementationOnce(async (arg: unknown) =>
+      (arg as (tx: unknown) => unknown)({ shoppingList: { update: txShoppingListUpdate } }),
     );
 
     const result = await completeShoppingListAction("list-1");

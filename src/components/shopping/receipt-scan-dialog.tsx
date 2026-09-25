@@ -91,6 +91,9 @@ export function ReceiptScanDialog({
   const [phase, setPhase] = useState<Phase>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currency, setCurrency] = useState<string>(HOUSEHOLD_BASE_CURRENCY);
+  // GAP-6: optional, one store for the whole receipt — see
+  // applyReceiptScanAction's doc comment for why this isn't per-line.
+  const [store, setStore] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   // Items created mid-scan via the "add as new item" shortcut below, kept
   // separate from the `pendingItems` prop (which only updates once the
@@ -122,6 +125,7 @@ export function ReceiptScanDialog({
     setAddingKey(null);
     setNewItemDraftKey(null);
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
+    setStore("");
   }
 
   function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
@@ -268,7 +272,7 @@ export function ReceiptScanDialog({
     setPhase("applying");
     setErrorMessage(null);
     void (async () => {
-      const result = await applyReceiptScanAction(listId, currency, matches);
+      const result = await applyReceiptScanAction(listId, currency, matches, store);
       if (result.error) {
         setPhase("review");
         setErrorMessage(result.error);
@@ -396,20 +400,32 @@ export function ReceiptScanDialog({
             <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
               <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="receipt-currency">{dict.currencyLabel}</Label>
-                <Select value={currency} onValueChange={(v) => setCurrency(String(v))}>
-                  <SelectTrigger id="receipt-currency" className="w-32">
-                    <SelectValue>{(v: string) => v}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="receipt-currency">{dict.currencyLabel}</Label>
+                  <Select value={currency} onValueChange={(v) => setCurrency(String(v))}>
+                    <SelectTrigger id="receipt-currency" className="w-32">
+                      <SelectValue>{(v: string) => v}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-1 flex-col gap-2">
+                  <Label htmlFor="receipt-store">{dict.storeLabel}</Label>
+                  <Input
+                    id="receipt-store"
+                    value={store}
+                    onChange={(e) => setStore(e.target.value)}
+                    placeholder={dict.storePlaceholder}
+                    maxLength={120}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

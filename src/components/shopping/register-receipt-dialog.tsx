@@ -91,6 +91,9 @@ export function RegisterReceiptDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attemptedApply, setAttemptedApply] = useState(false);
   const [currency, setCurrency] = useState<string>(HOUSEHOLD_BASE_CURRENCY);
+  // GAP-6: optional, one store for the whole receipt — see
+  // ReceiptScanDialog's matching field for why this isn't per-line.
+  const [store, setStore] = useState("");
   const [listName, setListName] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -106,6 +109,7 @@ export function RegisterReceiptDialog({
     setRows([]);
     setListName("");
     setCurrency(HOUSEHOLD_BASE_CURRENCY);
+    setStore("");
   }
 
   function buildRows(lines: { name: string; quantity: number; price: number }[]): ReviewRow[] {
@@ -254,7 +258,7 @@ export function RegisterReceiptDialog({
     setPhase("applying");
     setErrorMessage(null);
     void (async () => {
-      const result = await registerReceiptAction(listName.trim() || undefined, currency, items);
+      const result = await registerReceiptAction(listName.trim() || undefined, currency, items, store);
       if (result.error) {
         setPhase("review");
         setErrorMessage(result.error);
@@ -384,20 +388,32 @@ export function RegisterReceiptDialog({
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="register-receipt-currency">{dict.currencyLabel}</Label>
-                <Select value={currency} onValueChange={(v) => setCurrency(String(v))}>
-                  <SelectTrigger id="register-receipt-currency" className="w-32">
-                    <SelectValue>{(v: string) => v}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="register-receipt-currency">{dict.currencyLabel}</Label>
+                  <Select value={currency} onValueChange={(v) => setCurrency(String(v))}>
+                    <SelectTrigger id="register-receipt-currency" className="w-32">
+                      <SelectValue>{(v: string) => v}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-1 flex-col gap-2">
+                  <Label htmlFor="register-receipt-store">{dict.storeLabel}</Label>
+                  <Input
+                    id="register-receipt-store"
+                    value={store}
+                    onChange={(e) => setStore(e.target.value)}
+                    placeholder={dict.storePlaceholder}
+                    maxLength={120}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">

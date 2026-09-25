@@ -11,6 +11,7 @@ import {
   type ItemPriceTrend,
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
+import { computeCheapestStoreComparisons } from "@/lib/cheapest-store-calc";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import {
   HouseholdBalances,
@@ -105,6 +106,9 @@ async function CostAnalyzerSection({
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
 }) {
+  // `store` (GAP-6) is optional and mostly null on older rows — it's only
+  // ever set when the household typed one in on a receipt scan/register
+  // (see applyReceiptScanAction/registerReceiptAction).
   const priceHistoryRows = await prisma.priceHistory.findMany({
     where: { inventoryItem: { householdId } },
     include: { inventoryItem: { select: { id: true, name: true } } },
@@ -136,6 +140,22 @@ async function CostAnalyzerSection({
       });
     }
   }
+  // GAP-6: which store was cheapest "last time" for an item bought at ≥2
+  // distinct stores — independent of MIN_PRICE_POINTS_FOR_TREND above, since
+  // two rows at two different stores is already a meaningful comparison
+  // even if it isn't (yet) enough purchase history for a trend line. See
+  // computeCheapestStoreComparisons's doc comment for the "last recorded
+  // price per store, not lowest ever" rule this follows.
+  const storeComparisons = computeCheapestStoreComparisons(
+    priceHistoryRows.map((row) => ({
+      inventoryItemId: row.inventoryItemId,
+      itemName: row.inventoryItem.name,
+      price: row.price,
+      store: row.store,
+      date: row.date,
+    })),
+  );
+
   const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
     .filter((item) => item.points.length >= MIN_PRICE_POINTS_FOR_TREND)
     .map((item) => {
@@ -146,7 +166,15 @@ async function CostAnalyzerSection({
     })
     .sort((a, b) => b.points.length - a.points.length);
 
-  return <CostAnalyzer monthlySpending={monthlySpending} itemTrends={itemTrends} dict={dict} locale={locale} />;
+  return (
+    <CostAnalyzer
+      monthlySpending={monthlySpending}
+      itemTrends={itemTrends}
+      storeComparisons={storeComparisons}
+      dict={dict}
+      locale={locale}
+    />
+  );
 }
 
 function CostAnalyzerSkeleton() {

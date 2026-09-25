@@ -843,6 +843,12 @@ item is marked purchased with an estimated price
 - Empty states (no priced purchases yet; no item with enough history yet)
   are separate per section, same dashed-border/muted-text treatment as
   `noCategoriesWarning` elsewhere on the page.
+- **Cheapest store**: a third section below the two charts above, showing
+  which store had the cheapest last recorded price for any item bought at
+  ≥2 distinct stores — see "Store name and cheapest-store comparison
+  (GAP-6)" below for the full write-up (it's grouped there with the receipt
+  scan/register changes that feed it `PriceHistory.store`
+  in the first place).
 
 ### Shopping-list → budget expense link
 
@@ -935,6 +941,50 @@ itself is a pure, unit-tested helper
   No new settings/toggle to disable this — it's the intended default
   behavior, not optional. It also returns `transactionId`, the id of the
   expense it logged (if any), for the Undo below.
+
+#### Store name and cheapest-store comparison (GAP-6)
+
+`PriceHistory.store` has existed in the schema since AUTO-9's own
+groundwork (it needed *some* notion of "which store" to eventually learn
+a shopping order from), but nothing ever wrote it — every row was created
+with `store` left at its default `null`. GAP-6 is purely wiring: an
+optional store name on the receipt flows, plus a small Cost analyzer insight built on
+top of it. No migration was needed.
+
+- **Receipt scan / register**: `ReceiptScanDialog` and
+  `RegisterReceiptDialog` (`src/components/shopping/`) each gained one
+  optional "Store" text input next to the currency picker — one store for
+  the *whole* receipt, not per line, since a single receipt is always from
+  one store. `applyReceiptScanAction` and `registerReceiptAction`
+  (`src/app/dashboard/shopping-list/actions.ts`) both take it as a trailing
+  optional `store` parameter, trim it (empty/whitespace-only collapses to
+  `null`, same as leaving it blank), and stamp every `PriceHistory` row the
+  call writes with it.
+- **Not on manual price correction (AUTO-4)**: the inline price edit on a
+  list row deliberately has no store field. A correction isn't a purchase
+  — checking the item off afterwards writes its own `PriceHistory` row —
+  so recording one there too would count the same purchase twice in
+  "Grocery spending over time" and add a phantom point to its price
+  trend. Receipts are the purchase event, so that's where the store goes.
+- **Cost analyzer's "Cheapest store" section**
+  (`src/components/budget/cost-analyzer.tsx`): a third card below "Grocery
+  spending over time" and "Price trends" — a plain one-line-per-item list,
+  not a chart, since there's nothing to plot, just a fact to surface. For
+  every item with at least 2 distinct non-null `store` values on record, it
+  shows which store had the *cheapest last recorded price* — deliberately
+  "last recorded", not "lowest ever", so it reflects what you'd likely pay
+  today at each store rather than a historical low that might no longer
+  hold (the ICA-app-style comparison this data already supported once
+  `store` started getting populated). The aggregation
+  (`computeCheapestStoreComparisons`, `src/lib/cheapest-store-calc.ts`) is a
+  pure, unit-tested function — same "extract the aggregation out of the
+  page into a dependency-free calculator" convention as
+  `safe-to-spend-calc.ts` — fed the same `priceHistoryRows` query
+  `src/app/dashboard/budget/page.tsx` already runs for the two charts
+  above it, so it costs no extra query. It's independent of
+  `MIN_PRICE_POINTS_FOR_TREND`: an item only needs 2 rows from 2 different
+  stores to appear here, even if that's not (yet) enough total history for
+  a trend card.
 
 #### Finishing the trip in one gesture (AUTO-5)
 
