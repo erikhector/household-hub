@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.7.4",
+    "date": "2026-09-25",
+    "pr": 35,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "If you're removed from your only household, Squirrel no longer gets stuck reloading. You'll now see a page where you can create a new household or join one with an invite link.",
+      "sv": "Om du tas bort från ditt enda hushåll fastnar Squirrel inte längre i en omladdningsloop. Du kommer i stället till en sida där du kan skapa ett nytt hushåll eller gå med i ett via en inbjudningslänk."
+    }
+  },
+  {
     "version": "0.7.3",
     "date": "2026-09-24",
     "pr": 27,
