@@ -98,6 +98,7 @@ const {
   createRecipeAction,
   updateRecipeAction,
   deleteRecipeAction,
+  toggleRecipeFavoriteAction,
   importRecipeFromUrlAction,
 } = await import("@/app/dashboard/meal-planning/recipe-actions");
 
@@ -553,6 +554,55 @@ describe("deleteRecipeAction", () => {
 
     expect(result.error).toBe('Can\'t delete — used as a sub-recipe in "Lasagna".');
     expect(recipeDeleteMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleRecipeFavoriteAction", () => {
+  it("no-ops for a recipe outside the caller's household (IDOR guard)", async () => {
+    recipeFindFirstMock.mockResolvedValue(null);
+
+    const result = await toggleRecipeFavoriteAction("someone-elses-recipe");
+
+    expect(result).toEqual({});
+    expect(recipeFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-recipe", householdId: "household-1" },
+      select: { id: true, isFavorite: true },
+    });
+    expect(recipeUpdateMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("stars an un-starred recipe", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", isFavorite: false });
+    recipeUpdateMock.mockResolvedValue({});
+
+    const result = await toggleRecipeFavoriteAction("recipe-1");
+
+    expect(result).toEqual({});
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1" },
+      data: { isFavorite: true },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("un-stars a starred recipe, flipping the stored value rather than trusting the client", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", isFavorite: true });
+    recipeUpdateMock.mockResolvedValue({});
+
+    await toggleRecipeFavoriteAction("recipe-1");
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "recipe-1" },
+      data: { isFavorite: false },
+    });
+  });
+
+  it("requires a household session", async () => {
+    requireHouseholdMock.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(toggleRecipeFavoriteAction("recipe-1")).rejects.toThrow("NEXT_REDIRECT");
+    expect(recipeFindFirstMock).not.toHaveBeenCalled();
   });
 });
 

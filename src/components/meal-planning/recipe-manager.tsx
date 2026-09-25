@@ -1,17 +1,20 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { ChefHat, Layers, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { ChefHat, Layers, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
-import { deleteRecipeAction } from "@/app/dashboard/meal-planning/recipe-actions";
+import { deleteRecipeAction, toggleRecipeFavoriteAction } from "@/app/dashboard/meal-planning/recipe-actions";
+import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
+import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -27,18 +30,32 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
 
 export function RecipeManager({
   dict,
+  locale,
   recipes,
+  recipeCosts,
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   recipes: RecipeData[];
+  // GAP-15: keyed by recipe id. A recipe with no entry had no ingredient
+  // that could be priced and shows no cost line — see page.tsx.
+  recipeCosts: Record<string, RecipeCost>;
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
+  // Same convention as the shopping list's and budget page's amounts:
+  // locale-aware decimals, no currency symbol — there's no household-level
+  // currency setting, so a symbol would be a guess. Built once here rather
+  // than per row.
+  const numberFormat = useMemo(
+    () => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    [locale],
+  );
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesQuery(recipe, query)),
     [recipes, query],
@@ -93,6 +110,8 @@ export function RecipeManager({
                   key={recipe.id}
                   dict={dict}
                   recipe={recipe}
+                  cost={recipeCosts[recipe.id] ?? null}
+                  numberFormat={numberFormat}
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
                   ingredientUnits={ingredientUnits}
@@ -109,12 +128,16 @@ export function RecipeManager({
 function RecipeRow({
   dict,
   recipe,
+  cost,
+  numberFormat,
   allRecipes,
   ingredientNames,
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
   recipe: RecipeData;
+  cost: RecipeCost | null;
+  numberFormat: Intl.NumberFormat;
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
@@ -140,10 +163,43 @@ function RecipeRow({
       : null,
   ].filter((part): part is string => part !== null);
   const nutritionSummary = nutritionParts.join(" · ");
+  // GAP-15: hidden (null cost) when no ingredient could be priced, same as
+  // the nutrition line above. When some ingredients were skipped the line
+  // says how many, so the "~" total reads as the partial estimate it is
+  // rather than what the whole recipe costs.
+  const costSummary = cost
+    ? [
+        format(dict.recipeCostValue, {
+          total: numberFormat.format(cost.total),
+          perServing: numberFormat.format(cost.perServing),
+        }),
+        cost.skippedCount > 0
+          ? format(plural(cost.skippedCount, dict.recipeCostSkipped), { count: cost.skippedCount })
+          : null,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(" · ")
+    : "";
 
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteRecipeAction(recipe.id);
+      if (result.error) toast.error(result.error);
+    });
+  };
+
+  // Star toggle (GAP-18). Its own transition, separate from delete's, so a
+  // pending star doesn't grey out the delete button and vice versa. The
+  // star flips immediately via useOptimistic and snaps back on its own if
+  // the save fails — same pattern as AutoAddSetting — since the optimistic
+  // value only lives for the length of the transition and the
+  // server-rendered `recipe.isFavorite` is the truth afterwards.
+  const [isFavoritePending, startFavoriteTransition] = useTransition();
+  const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(recipe.isFavorite);
+  const handleToggleFavorite = () => {
+    startFavoriteTransition(async () => {
+      setOptimisticFavorite(!optimisticFavorite);
+      const result = await toggleRecipeFavoriteAction(recipe.id);
       if (result.error) toast.error(result.error);
     });
   };
@@ -176,6 +232,11 @@ function RecipeRow({
             {nutritionSummary}
           </p>
         )}
+        {costSummary && (
+          <p className="truncate text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
+            {costSummary}
+          </p>
+        )}
       </div>
       <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
         {format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings })}
@@ -185,6 +246,21 @@ function RecipeRow({
         })}
       </span>
       <span className="flex shrink-0 items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={cn(
+            optimisticFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground",
+          )}
+          disabled={isFavoritePending}
+          aria-pressed={optimisticFavorite}
+          aria-label={dict.favoriteAriaLabel}
+          title={dict.favoriteAriaLabel}
+          onClick={handleToggleFavorite}
+        >
+          <Star className={cn("size-3.5", optimisticFavorite && "fill-current")} />
+        </Button>
         <RecipeFormDialog
           dict={dict}
           mode="edit"
