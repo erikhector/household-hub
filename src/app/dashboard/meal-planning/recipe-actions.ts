@@ -364,7 +364,7 @@ export async function toggleRecipeFavoriteAction(recipeId: string): Promise<Acti
   return {};
 }
 
-export type ImportedRecipeIngredient ={ name: string; quantity: number; unit: string };
+export type ImportedRecipeIngredient = { name: string; quantity: number; unit: string };
 export type ImportRecipeState = ActionState & {
   recipe?: {
     name: string;
