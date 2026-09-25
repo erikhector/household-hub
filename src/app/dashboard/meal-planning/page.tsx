@@ -4,6 +4,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { MealPlanningView } from "@/components/meal-planning/meal-planning-view";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
+import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
@@ -69,6 +70,22 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   }
 
   const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
+
+  // Feeds the "nutrition recap" (BACKLOG GAP-2) — scoped to just the
+  // currently-displayed week's entries (mealPlan.entries above, already
+  // filtered by weekStartDate), unlike the variety recap's independent
+  // trailing-30-day window. Reuses the recipe fields already joined onto
+  // each entry via `include: { recipe: true }` rather than a separate query.
+  const nutritionRecapTotals = computeNutritionRecap(
+    (mealPlan?.entries ?? []).map((entry) => ({
+      recipeId: entry.recipeId,
+      portions: entry.portions,
+      caloriesPerServing: entry.recipe?.caloriesPerServing ?? null,
+      proteinGramsPerServing: entry.recipe?.proteinGramsPerServing ?? null,
+      carbsGramsPerServing: entry.recipe?.carbsGramsPerServing ?? null,
+      fatGramsPerServing: entry.recipe?.fatGramsPerServing ?? null,
+    })),
+  );
 
   // Depends on `recipes` above, so it can't join the Promise.all batch —
   // runs after, one expansion per recipe plus (at most) one inventory query.
@@ -153,6 +170,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       }))}
       activeShoppingLists={activeShoppingLists}
       varietyCount={distinctRecipeCount}
+      nutritionRecapTotals={nutritionRecapTotals}
       cookableRecipes={cookableRecipes}
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}

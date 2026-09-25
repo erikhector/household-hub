@@ -6,6 +6,7 @@ import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
 import { CookNowList } from "@/components/meal-planning/cook-now-list";
 import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
+import { MealNutritionRecap } from "@/components/meal-planning/meal-nutrition-recap";
 import type {
   ActiveShoppingListOption,
   CookableRecipeData,
@@ -13,6 +14,7 @@ import type {
   RecipeData,
   UseItUpSuggestionData,
 } from "@/components/meal-planning/types";
+import type { NutritionRecapTotals } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Tab = "planner" | "recipes" | "cook";
@@ -24,6 +26,7 @@ export function MealPlanningView({
   entries,
   activeShoppingLists,
   varietyCount,
+  nutritionRecapTotals,
   cookableRecipes,
   useItUpSuggestions,
   ingredientNames,
@@ -35,6 +38,7 @@ export function MealPlanningView({
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
   varietyCount: number;
+  nutritionRecapTotals: NutritionRecapTotals;
   cookableRecipes: CookableRecipeData[];
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
@@ -56,6 +60,9 @@ export function MealPlanningView({
       </div>
 
       {varietyCount > 0 && <MealVarietyRecap count={varietyCount} dict={dict} />}
+      {nutritionRecapTotals.contributingEntryCount > 0 && (
+        <MealNutritionRecap totals={nutritionRecapTotals} weekStartKey={weekStartKey} dict={dict} />
+      )}
 
       <Tabs tabs={tabItems} value={tab} onChange={setTab} />
 

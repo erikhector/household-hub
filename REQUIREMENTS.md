@@ -1880,6 +1880,52 @@ recipe can have calories set with the rest left blank).
   shown at all for a recipe with all four fields null, which is expected to
   be the common case.
 
+### Weekly nutrition recap
+
+A dismissible summary card on the Planner tab (BACKLOG GAP-2) that sums the
+*currently-displayed week's* planned entries' per-serving nutrition fields
+(above) into one line — e.g. `"This week's planned meals: 1000 kcal · 70g
+protein · 80g carbs · 30g fat"`. It sits directly under the existing
+`MealVarietyRecap` card and mirrors its shape exactly (dashed-border row,
+leading icon, one-line text, trailing dismiss button), but is a separate
+component and computation, since the two summarize different things: variety
+counts distinct recipes over a trailing 30-day window regardless of which
+week is on screen, while the nutrition recap totals nutrition for just the
+one week currently shown.
+
+- **Computation**: `computeNutritionRecap`
+  (`src/app/dashboard/meal-planning/nutrition-recap-calc.ts`) is a pure
+  function over the week's `MealPlanEntry` rows (already loaded with their
+  `Recipe` joined in for the planner grid, so this adds no extra query). Each
+  of the four nutrition fields is summed **independently** — a recipe with
+  calories but no protein entered still contributes its calories — by
+  multiplying the recipe's per-serving figure by that entry's `portions`
+  (already a serving count, not a multiplier on `Recipe.servings`, so no
+  further scaling is needed). A freeform entry (`recipeId: null`) and a
+  recipe with all four fields null never contribute. A total stays `null`
+  (not `0`) when nothing in the week set that field, so the summary line
+  only lists fields the household actually entered, same "quiet week
+  produces nothing, not a zero" framing as the variety recap.
+- **Not a goal tracker**: there is no macro target anywhere in this feature —
+  no "goal" field, no over/under coloring, no progress bar. It only ever
+  states what was planned. A goal-setting layer on top of this is explicitly
+  out of scope; it would be a much bigger, opt-in feature worth considering
+  later only if this recap turns out to get used.
+- **Display**: `MealNutritionRecap`
+  (`src/components/meal-planning/meal-nutrition-recap.tsx`) renders only
+  when `contributingEntryCount > 0`, reusing the same
+  `nutritionCaloriesValue`/`nutritionProteinValue`/`nutritionCarbsValue`/`nutritionFatValue`
+  dictionary templates `RecipeManager`'s per-recipe nutrition line uses, so
+  the units read identically in both places.
+- **Dismissal**: persists in `localStorage` under
+  `mealPlanning.nutritionRecapDismissedWeek` (listed in
+  `src/lib/cookie-inventory.ts`), keyed by the planner's own `weekStartKey` —
+  unlike `MealVarietyRecap`'s dismissed-*count* key, this recap is
+  inherently tied to one specific week, so it uses the same per-week-key
+  approach as `TasksWeeklyRecap` (`src/components/tasks/tasks-weekly-recap.tsx`)
+  instead: dismissing this week's recap doesn't hide a different week's, and
+  navigating back to an already-dismissed week keeps it hidden.
+
 ### Recipe import from URL
 
 `RecipeFormDialog` (`src/components/meal-planning/recipe-form-dialog.tsx`,
