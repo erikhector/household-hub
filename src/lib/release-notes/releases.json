@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.16.0",
+    "date": "2026-09-25",
+    "pr": 43,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now print a shopping list. Choose \"Print\" in the list's ⋯ menu to get a clean, large-text copy of what's left to buy, grouped by category.",
+      "sv": "Nu kan du skriva ut en inköpslista. Välj \"Skriv ut\" i listans ⋯-meny för en ren kopia med stor text av det som återstår att köpa, grupperad efter kategori."
+    }
+  },
+  {
     "version": "0.15.0",
     "date": "2026-09-25",
     "pr": 39,
