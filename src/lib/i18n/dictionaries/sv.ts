@@ -1448,6 +1448,11 @@ export const sv = {
       unpaidBillsTitle: "Kvar att betala på räkningar",
       leftDue: "{amount} kvar att betala",
       repaymentsTitle: "Senaste återbetalningar",
+      swishButton: "Betala med Swish",
+      swishAriaLabel: "Betala {amount} kr till {name} med Swish ({number})",
+      swishMessage: "Återbetalning (Squirrel)",
+      swishHint:
+        "Swish öppnas i telefonen med beloppet ifyllt. Betalningen där uppdaterar inte listan — tryck på \"Reglera skuld\" när pengarna har gått iväg.",
       deleteRepaymentAriaLabel: "Ta bort återbetalning",
       confirmDeleteRepayment: {
         title: "Ta bort återbetalningen?",
@@ -1857,6 +1862,17 @@ export const sv = {
       saved: "Sparat",
       saving: "Sparar…",
       save: "Spara ändringar",
+    },
+    swishForm: {
+      title: "Swishnummer",
+      description:
+        "Lägg till ditt Swishnummer så får hushållsmedlemmar som är skyldiga dig pengar en \"Betala med Swish\"-knapp med beloppet ifyllt. Numret visas för medlemmarna i dina hushåll. Lämna fältet tomt för att ta bort det.",
+      label: "Mobilnummer",
+      placeholder: "070-123 45 67",
+      invalid: "Ange ett svenskt mobilnummer, till exempel 070-123 45 67.",
+      saved: "Sparat",
+      saving: "Sparar…",
+      save: "Spara",
     },
     emailForm: {
       title: "E-postadress",

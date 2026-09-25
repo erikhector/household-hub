@@ -1504,6 +1504,11 @@ export const en = {
       unpaidBillsTitle: "Still due on bills",
       leftDue: "{amount} left due",
       repaymentsTitle: "Recent repayments",
+      swishButton: "Pay with Swish",
+      swishAriaLabel: "Pay {amount} kr to {name} with Swish ({number})",
+      swishMessage: "Settle up (Squirrel)",
+      swishHint:
+        "Swish opens on your phone with the amount filled in. Paying there doesn't update this list — tap \"Clear debt\" once the money has gone through.",
       deleteRepaymentAriaLabel: "Remove repayment",
       confirmDeleteRepayment: {
         title: "Remove this repayment?",
@@ -1916,6 +1921,17 @@ export const en = {
       saved: "Saved",
       saving: "Saving…",
       save: "Save changes",
+    },
+    swishForm: {
+      title: "Swish number",
+      description:
+        "Add your Swish number and household members who owe you money get a \"Pay with Swish\" button with the amount filled in. Your number is shown to members of your households. Leave it blank to remove it.",
+      label: "Mobile number",
+      placeholder: "070-123 45 67",
+      invalid: "Enter a Swedish mobile number, like 070-123 45 67.",
+      saved: "Saved",
+      saving: "Saving…",
+      save: "Save",
     },
     emailForm: {
       title: "Email address",

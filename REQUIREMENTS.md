@@ -1465,8 +1465,51 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
   the excess just shows as a balance the other way). Below the transfers
   the card lists split bills with money still due, and the 10 most recent
   repayments, each removable (`deleteSettlementAction`) in case one was
-  entered by mistake. There's no payment integration; a Swish link is
-  GAP-7 in BACKLOG.md.
+  entered by mistake.
+- **Pay with Swish** (GAP-7): when the signed-in member owes someone who
+  has saved a Swish number on their Profile, that transfer also gets a
+  "Pay with Swish" link next to "Clear debt". It's Swish's app-switch deep
+  link, `swish://payment?data=<url-encoded JSON>` — no merchant agreement
+  or API key — with `version: 1` (a number; the string `"1.0"` breaks it),
+  `payee` as the Swish alias (`46` + the mobile number without its leading
+  0), `amount` rounded to two decimals, and a translated message
+  (`balances.swishMessage`) sanitized to the characters Swish accepts and
+  capped at 50. Every field is sent with `editable: false`: leaving any
+  field open also unlocks the payee, and the link is meant to pay exactly
+  this debt to exactly this person. The format isn't in Swish's public
+  developer docs (those only cover the merchant `paymentrequest` flow), so
+  it follows the documented-in-the-wild shape — see `src/lib/swish.ts`'s
+  header comment. All of it is pure and unit-tested in
+  `src/lib/swish.test.ts` (`normalizeSwishNumber`, `formatSwishNumber`,
+  `sanitizeSwishMessage`, `buildSwishPaymentUrl`, `swishNumbersForPayer`).
+  - Only the payer sees it: the page passes the component just the numbers
+    of members the signed-in member owes a positive amount
+    (`swishNumbersForPayer`), and `HouseholdBalances` re-checks
+    `fromMemberId === currentMemberId` before rendering a link, so nobody
+    else's number reaches the browser for no reason.
+  - Swish only moves SEK. There's no per-household currency yet (GAP-13);
+    every amount is assumed to be in `HOUSEHOLD_BASE_CURRENCY`
+    (`src/lib/currency.ts`, `"SEK"`), and the link is only offered while
+    `swishSupportsCurrency` accepts that — so it disappears by itself if
+    that constant, or a future household setting, says otherwise.
+  - Tapping it records nothing. The app can't see whether a Swish payment
+    went through, and money changes are always an explicit action
+    (BACKLOG.md's Guardrails), so a hint under the list tells the payer to
+    use "Clear debt" once the money has gone.
+  - **The number** is `User.swishNumber` (nullable, migration
+    `20260925205015_add_user_swish_number`), stored in alias form. It's on
+    `User`, not `HouseholdMember`: it's personal data the user sets once,
+    and the same person in two households gets paid on the same phone.
+    Only the user can set it, from the "Swish number" card on their Profile
+    (`SwishNumberForm`, `updateSwishNumberAction` — user id from the
+    session, blank clears it). The card says outright that the number is
+    shown to household members. `normalizeSwishNumber` accepts
+    `07XXXXXXXX`, `+467XXXXXXXX`, `00467XXXXXXXX` and `467XXXXXXXX` with
+    any spaces, hyphens, dots or parentheses (and `+46 (0)7…`), and rejects
+    landlines and foreign numbers; the form shows it back as
+    `070-123 45 67`. It's part of the Profile's "Export my data" JSON
+    (`profile.swishNumber`), goes with the `User` row when the account is
+    deleted, and is listed on the privacy page.
 - Every action that writes split transactions or repayments revalidates
   the household budget, Personal Budget and the dashboard
   (`revalidateBudgetPages`), since all three show numbers derived from

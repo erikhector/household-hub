@@ -52,6 +52,17 @@ model User {
   // since this is user-controlled JSON, not schema-checked.
   inventoryViewPrefs Json?
 
+  // GAP-7: the user's own Swish number, so household members who owe them
+  // money get a "Pay with Swish" link on the Budget page's "Who owes whom"
+  // card. Stored normalized as Swish's alias format (46 + number without
+  // its leading 0, e.g. "46701234567" — see normalizeSwishNumber in
+  // src/lib/swish.ts). Null = not set, and no link is shown. On User rather
+  // than HouseholdMember because it's personal data the user edits once on
+  // their Profile page, not a per-household setting — the same person in two
+  // households gets paid on the same phone. Included in the profile data
+  // export and deleted with the account.
+  swishNumber String?
+
   memberships                HouseholdMember[]
   personalBudgetCategories   PersonalBudgetCategory[]
   personalTransactions       PersonalTransaction[]
