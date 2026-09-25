@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { ExportButton } from "@/components/export/export-button";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
 import { BudgetOnboarding } from "@/components/budget/budget-onboarding";
@@ -73,43 +74,127 @@ const MAX_FIXED_TREND_MONTHS = 12;
 // trailing window already makes for the fixed-cost trend chart below.
 const RECURRING_LOOKBACK_MONTHS = 12;
 
-export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
-  const [{ household, userId, households }, dict, locale, searchParams] = await Promise.all([
-    requireHousehold(),
-    getDictionary(),
-    getLocale(),
-    props.searchParams,
-  ]);
-
-  const monthParam = searchParams.month;
-  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
-  const now = new Date();
-  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const monthKey = toMonthKey(monthStart);
-
-  // F1: "View in {household} Budget" links (from a shared row in Personal
-  // Budget) carry an explicit `?household=` so this page shows the bill's
-  // *actual* household, which can differ from the "active" one in the
-  // session cookie once a user belongs to more than one. The param is only
-  // trusted when it names one of the user's own households, and a
-  // non-active household is shown read-only, since every budget action
-  // writes to the active household. See resolveBudgetHouseholdView.
-  const { householdId, householdParam, readOnly } = resolveBudgetHouseholdView({
-    param: searchParams.household,
-    activeHouseholdId: household.id,
-    memberHouseholdIds: households.map((h) => h.id),
+// SCALE-J: the cost analyzer (PriceHistory, below) is the one section of
+// this page with no data dependency on anything BudgetTabsSection computes
+// — it doesn't touch Transaction, RecurringTemplate or HouseholdMember at
+// all — so it gets its own Suspense boundary/query instead of sitting in
+// BudgetTabsSection's Promise.all. Previously it was fetched with a plain
+// `await` *after* that Promise.all resolved (see git history), so a slow
+// PriceHistory query added its own latency on top of every other query's
+// instead of overlapping with them; isolating it here both runs it
+// concurrently with BudgetTabsSection's own fetch and, since it's read by
+// only this one component, lets Insights render everything else the moment
+// BudgetTabsSection's own data is ready without waiting on this query too.
+async function CostAnalyzerSection({
+  householdId,
+  dict,
+  locale,
+}: {
+  householdId: string;
+  dict: Dictionary["budget"]["costAnalyzer"];
+  locale: Locale;
+}) {
+  const priceHistoryRows = await prisma.priceHistory.findMany({
+    where: { inventoryItem: { householdId } },
+    include: { inventoryItem: { select: { id: true, name: true } } },
+    orderBy: { date: "asc" },
   });
-  const viewedHouseholdName = households.find((h) => h.id === householdId)?.name ?? household.name;
 
-  // Bounds for the two queries below that need to see further than just the
-  // viewed month — see RECURRING_LOOKBACK_MONTHS's and MAX_FIXED_TREND_MONTHS's
-  // doc comments above.
-  const recurringLookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
-  const trendMonthStart = getMonthStart(now);
-  const trendWindowStart = addMonths(trendMonthStart, -(MAX_FIXED_TREND_MONTHS - 1));
-  const trendWindowEnd = getMonthEnd(trendMonthStart);
+  const monthlyTotals = new Map<string, number>();
+  for (const row of priceHistoryRows) {
+    const key = `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, "0")}`;
+    monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + row.price);
+  }
+  const monthlySpending: MonthlySpendPoint[] = [...monthlyTotals.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-MAX_SPENDING_MONTHS)
+    .map(([month, total]) => ({ month, total }));
 
+  const pointsByItem = new Map<string, ItemPriceTrend>();
+  for (const row of priceHistoryRows) {
+    const point = { date: row.date, price: row.price };
+    const existing = pointsByItem.get(row.inventoryItemId);
+    if (existing) {
+      existing.points.push(point);
+    } else {
+      pointsByItem.set(row.inventoryItemId, {
+        id: row.inventoryItemId,
+        name: row.inventoryItem.name,
+        points: [point],
+        changePercent: 0,
+      });
+    }
+  }
+  const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
+    .filter((item) => item.points.length >= MIN_PRICE_POINTS_FOR_TREND)
+    .map((item) => {
+      const first = item.points[0].price;
+      const last = item.points[item.points.length - 1].price;
+      const changePercent = first === 0 ? 0 : ((last - first) / first) * 100;
+      return { ...item, changePercent };
+    })
+    .sort((a, b) => b.points.length - a.points.length);
+
+  return <CostAnalyzer monthlySpending={monthlySpending} itemTrends={itemTrends} dict={dict} locale={locale} />;
+}
+
+function CostAnalyzerSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label="Loading">
+      <div className="h-40 rounded-lg border bg-muted/40" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="h-28 rounded-lg border bg-muted/40" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// SCALE-J: everything else on this page — Overview's Safe to spend/due
+// widget, Manage's recurring templates + categories, the Transactions tab
+// and Insights' period summary/fixed-cost trend/balances — funnels into one
+// client component (BudgetTabs) that needs categories/safeToSpend/
+// dueTemplates/members as plain props (not further Suspense-streamable
+// ReactNode) to decide what to render at all, so unlike the cost analyzer
+// above there's no clean way to split these into independently-streamed
+// pieces without restructuring BudgetTabs itself (shared with the personal
+// budget page) into accepting every one of those as its own Suspense slot —
+// judged not worth the risk/complexity for this pass. They're kept together
+// in one Suspense boundary instead, still a real win over the previous
+// all-or-nothing page: the static title above and the read-only banner (no
+// DB dependency, see BudgetPage) now render immediately, and this section's
+// own query batch runs concurrently with CostAnalyzerSection's instead of
+// blocking on it.
+async function BudgetTabsSection({
+  householdId,
+  userId,
+  dict,
+  locale,
+  monthStart,
+  monthEnd,
+  monthKey,
+  recurringLookbackStart,
+  trendWindowStart,
+  trendWindowEnd,
+  now,
+  readOnly,
+  householdParam,
+}: {
+  householdId: string;
+  userId: string;
+  dict: Dictionary;
+  locale: Locale;
+  monthStart: Date;
+  monthEnd: Date;
+  monthKey: string;
+  recurringLookbackStart: Date;
+  trendWindowStart: Date;
+  trendWindowEnd: Date;
+  now: Date;
+  readOnly: boolean;
+  householdParam: string | undefined;
+}) {
   const [
     categories,
     monthTransactions,
@@ -387,53 +472,6 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   );
   const budgetBalanceStatus = computeBudgetBalanceStatus(fixedMonthlySummary);
 
-  // --- Cost analyzer aggregation ------------------------------------------
-  // Fed from PriceHistory, populated whenever a shopping list item is marked
-  // purchased with an estimated price (togglePurchasedAction in
-  // src/app/dashboard/shopping-list/actions.ts). All aggregation happens
-  // here in the page's Server Component, same convention as the period
-  // summary above — CostAnalyzer itself is a plain presentational component.
-  const priceHistoryRows = await prisma.priceHistory.findMany({
-    where: { inventoryItem: { householdId } },
-    include: { inventoryItem: { select: { id: true, name: true } } },
-    orderBy: { date: "asc" },
-  });
-
-  const monthlyTotals = new Map<string, number>();
-  for (const row of priceHistoryRows) {
-    const key = `${row.date.getFullYear()}-${String(row.date.getMonth() + 1).padStart(2, "0")}`;
-    monthlyTotals.set(key, (monthlyTotals.get(key) ?? 0) + row.price);
-  }
-  const monthlySpending: MonthlySpendPoint[] = [...monthlyTotals.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-MAX_SPENDING_MONTHS)
-    .map(([month, total]) => ({ month, total }));
-
-  const pointsByItem = new Map<string, ItemPriceTrend>();
-  for (const row of priceHistoryRows) {
-    const point = { date: row.date, price: row.price };
-    const existing = pointsByItem.get(row.inventoryItemId);
-    if (existing) {
-      existing.points.push(point);
-    } else {
-      pointsByItem.set(row.inventoryItemId, {
-        id: row.inventoryItemId,
-        name: row.inventoryItem.name,
-        points: [point],
-        changePercent: 0,
-      });
-    }
-  }
-  const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
-    .filter((item) => item.points.length >= MIN_PRICE_POINTS_FOR_TREND)
-    .map((item) => {
-      const first = item.points[0].price;
-      const last = item.points[item.points.length - 1].price;
-      const changePercent = first === 0 ? 0 : ((last - first) / first) * 100;
-      return { ...item, changePercent };
-    })
-    .sort((a, b) => b.points.length - a.points.length);
-
   // --- Manage tab: recurring items + categories -----------------------------
   // Grouped together — both are setup/maintenance actions you reach for far
   // less often than logging a transaction, so they share one tab instead of
@@ -523,12 +561,11 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         dict={dict.budget.fixedSummary}
         locale={locale}
       />
-      <CostAnalyzer
-        monthlySpending={monthlySpending}
-        itemTrends={itemTrends}
-        dict={dict.budget.costAnalyzer}
-        locale={locale}
-      />
+      {/* SCALE-J: its own Suspense boundary/query — see CostAnalyzerSection's
+          doc comment above. */}
+      <Suspense fallback={<CostAnalyzerSkeleton />}>
+        <CostAnalyzerSection householdId={householdId} dict={dict.budget.costAnalyzer} locale={locale} />
+      </Suspense>
       {memberOptions.length > 1 && (
         <HouseholdBalances
           settlements={settlements}
@@ -539,6 +576,100 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       )}
     </div>
   );
+
+  return (
+    <BudgetTabs
+      dict={dict.budget}
+      locale={locale}
+      monthKey={monthKey}
+      basePath="/dashboard/budget"
+      householdParam={householdParam}
+      readOnly={readOnly}
+      categories={categoryRows}
+      safeToSpendAmount={safeToSpend}
+      safeToSpendStatus={safeToSpendStatus}
+      safeToSpendExpectedRecurring={expectedRecurring}
+      dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+      hasRecurringTemplates={recurringTemplateRows.length > 0}
+      members={memberOptions}
+      currentMemberId={currentMemberId}
+      createTransactionAction={createTransactionAction}
+      updateTransactionAction={updateTransactionAction}
+      onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
+      onLogTemplateAsIs={logRecurringTemplateAction}
+      periodSummary={periodSummary}
+      onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
+      manage={manage}
+      transactions={transactionsTab}
+      insights={insights}
+    />
+  );
+}
+
+// Mirrors the tab bar (MonthNavigator + pill buttons) BudgetTabs renders
+// once loaded, so the skeleton doesn't jump the page's layout when the real
+// content swaps in.
+function BudgetTabsSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label="Loading">
+      <div className="flex items-center justify-between gap-2">
+        <div className="h-9 w-9 rounded-md bg-muted" />
+        <div className="h-6 w-32 rounded-md bg-muted" />
+        <div className="h-9 w-9 rounded-md bg-muted" />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="h-9 w-64 rounded-md bg-muted" />
+        <div className="h-9 w-32 rounded-md bg-muted" />
+      </div>
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-lg border bg-muted/40" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default async function BudgetPage(props: PageProps<"/dashboard/budget">) {
+  const [{ household, userId, households }, dict, locale, searchParams] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    getLocale(),
+    props.searchParams,
+  ]);
+
+  const monthParam = searchParams.month;
+  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
+  const now = new Date();
+  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
+  const monthEnd = getMonthEnd(monthStart);
+  const monthKey = toMonthKey(monthStart);
+
+  // F1: "View in {household} Budget" links (from a shared row in Personal
+  // Budget) carry an explicit `?household=` so this page shows the bill's
+  // *actual* household, which can differ from the "active" one in the
+  // session cookie once a user belongs to more than one. The param is only
+  // trusted when it names one of the user's own households, and a
+  // non-active household is shown read-only, since every budget action
+  // writes to the active household. See resolveBudgetHouseholdView. Pure
+  // (no DB) — resolved from `households`, already in hand from
+  // requireHousehold() above — so the banner below renders immediately,
+  // without waiting on BudgetTabsSection's own query batch.
+  const { householdId, householdParam, readOnly } = resolveBudgetHouseholdView({
+    param: searchParams.household,
+    activeHouseholdId: household.id,
+    memberHouseholdIds: households.map((h) => h.id),
+  });
+  const viewedHouseholdName = households.find((h) => h.id === householdId)?.name ?? household.name;
+
+  // Bounds for two of BudgetTabsSection's queries that need to see further
+  // than just the viewed month — see RECURRING_LOOKBACK_MONTHS's and
+  // MAX_FIXED_TREND_MONTHS's doc comments above. Computed here (pure, no DB)
+  // so BudgetTabsSection doesn't need to recompute them itself.
+  const recurringLookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
+  const trendMonthStart = getMonthStart(now);
+  const trendWindowStart = addMonths(trendMonthStart, -(MAX_FIXED_TREND_MONTHS - 1));
+  const trendWindowEnd = getMonthEnd(trendMonthStart);
 
   return (
     <div className="flex flex-col gap-6">
@@ -557,31 +688,23 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         />
       )}
 
-      <BudgetTabs
-        dict={dict.budget}
-        locale={locale}
-        monthKey={monthKey}
-        basePath="/dashboard/budget"
-        householdParam={householdParam}
-        readOnly={readOnly}
-        categories={categoryRows}
-        safeToSpendAmount={safeToSpend}
-        safeToSpendStatus={safeToSpendStatus}
-        safeToSpendExpectedRecurring={expectedRecurring}
-        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-        hasRecurringTemplates={recurringTemplateRows.length > 0}
-        members={memberOptions}
-        currentMemberId={currentMemberId}
-        createTransactionAction={createTransactionAction}
-        updateTransactionAction={updateTransactionAction}
-        onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
-        onLogTemplateAsIs={logRecurringTemplateAction}
-        periodSummary={periodSummary}
-        onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
-        manage={manage}
-        transactions={transactionsTab}
-        insights={insights}
-      />
+      <Suspense fallback={<BudgetTabsSkeleton />}>
+        <BudgetTabsSection
+          householdId={householdId}
+          userId={userId}
+          dict={dict}
+          locale={locale}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
+          monthKey={monthKey}
+          recurringLookbackStart={recurringLookbackStart}
+          trendWindowStart={trendWindowStart}
+          trendWindowEnd={trendWindowEnd}
+          now={now}
+          readOnly={readOnly}
+          householdParam={householdParam}
+        />
+      </Suspense>
     </div>
   );
 }

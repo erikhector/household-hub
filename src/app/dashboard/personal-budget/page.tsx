@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { ExportButton } from "@/components/export/export-button";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { BudgetTabs } from "@/components/budget/budget-tabs";
@@ -58,56 +59,75 @@ import {
 // Same cap as the household budget's cost analyzer / fixed trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
 
-export default async function PersonalBudgetPage(props: PageProps<"/dashboard/personal-budget">) {
-  const [userId, dict, locale, searchParams] = await Promise.all([
-    requireUserId(),
-    getDictionary(),
-    getLocale(),
-    props.searchParams,
-  ]);
-
-  const monthParam = searchParams.month;
-  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
-  const now = new Date();
-  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
-  const monthEnd = getMonthEnd(monthStart);
-  const monthKey = toMonthKey(monthStart);
-
-  const [categories, transactions, recurringTemplates, recurringTemplateAcks] = await Promise.all([
-    prisma.personalBudgetCategory.findMany({
-      where: { userId },
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-    }),
-    prisma.personalTransaction.findMany({
-      where: { userId },
-      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { category: true },
-    }),
-    // Recurring bill templates — mirrors the household budget's, see
-    // src/lib/recurring-template-calc.ts.
-    prisma.personalRecurringTemplate.findMany({
-      where: { userId },
-      include: { category: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.personalRecurringTemplateAck.findMany({
-      where: { personalRecurringTemplate: { userId } },
-    }),
-  ]);
+// SCALE-J: unlike the household budget page, nothing here is independent
+// enough of everything else to earn its own Suspense boundary — the
+// "shared with your household" mirror below (sharedDueRows/
+// sharedExpenseHouseholds) feeds straight into the same safe-to-spend number
+// and BudgetTabs props as the user's own PersonalTransaction/
+// PersonalRecurringTemplate data, so splitting it out would just mean
+// BudgetTabs itself waiting on two Suspense children instead of one. Kept as
+// a single section behind one boundary — the real win is still there: the
+// static header below (and, unlike the household page, there's no read-only
+// banner here to render alongside it) no longer waits on any of this, and
+// the personal-scoped queries and the shared-household chain below now run
+// concurrently with each other instead of the sequential
+// `await`-then-`await` the page previously had (memberships was fetched
+// only after the categories/transactions/templates Promise.all had already
+// resolved, despite neither depending on the other).
+async function PersonalBudgetTabsSection({
+  userId,
+  dict,
+  locale,
+  monthStart,
+  monthEnd,
+  monthKey,
+  now,
+}: {
+  userId: string;
+  dict: Dictionary;
+  locale: Locale;
+  monthStart: Date;
+  monthEnd: Date;
+  monthKey: string;
+  now: Date;
+}) {
+  const [categories, transactions, recurringTemplates, recurringTemplateAcks, memberships] =
+    await Promise.all([
+      prisma.personalBudgetCategory.findMany({
+        where: { userId },
+        orderBy: [{ type: "asc" }, { name: "asc" }],
+      }),
+      prisma.personalTransaction.findMany({
+        where: { userId },
+        orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        include: { category: true },
+      }),
+      // Recurring bill templates — mirrors the household budget's, see
+      // src/lib/recurring-template-calc.ts.
+      prisma.personalRecurringTemplate.findMany({
+        where: { userId },
+        include: { category: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.personalRecurringTemplateAck.findMany({
+        where: { personalRecurringTemplate: { userId } },
+      }),
+      // --- Shared with your household ----------------------------------
+      // See docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only
+      // mirror of the user's own share of split household costs, aggregated
+      // across every household they belong to (not just the "active" one —
+      // a user's rent share shouldn't disappear from their personal budget
+      // just because a different household is selected elsewhere in the
+      // app). Never depends on the four queries above, so it's fetched in
+      // the same Promise.all instead of after them.
+      prisma.householdMember.findMany({
+        where: { userId },
+        select: { id: true, household: { select: { id: true, name: true } } },
+      }),
+    ]);
 
   const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
 
-  // --- Shared with your household -------------------------------------------
-  // See docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md: a read-only mirror of the user's
-  // own share of split household costs, aggregated across every household
-  // they belong to (not just the "active" one — a user's rent share
-  // shouldn't disappear from their personal budget just because a different
-  // household is selected elsewhere in the app). Never a full transaction/
-  // template amount, always this user's own `amountOwed` share.
-  const memberships = await prisma.householdMember.findMany({
-    where: { userId },
-    select: { id: true, household: { select: { id: true, name: true } } },
-  });
   const householdMemberIds = memberships.map((m) => m.id);
   const householdNameByMemberId = new Map(memberships.map((m) => [m.id, m.household]));
   // Only shown on each row once the user is in more than one household —
@@ -519,42 +539,95 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   );
 
   return (
+    <BudgetTabs
+      dict={dict.personalBudget}
+      locale={locale}
+      monthKey={monthKey}
+      basePath="/dashboard/personal-budget"
+      categories={categoryRows}
+      safeToSpendAmount={safeToSpend}
+      safeToSpendStatus={safeToSpendStatus}
+      safeToSpendExpectedRecurring={expectedRecurring}
+      dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
+      hasRecurringTemplates={recurringTemplateRows.length > 0}
+      sharedDueRows={sharedDueRows}
+      showHouseholdName={showHouseholdName}
+      sharedExpenseHouseholds={sharedExpenseHouseholds}
+      logSharedDialogDict={dict.personalBudget}
+      createTransactionAction={createPersonalTransactionAction}
+      updateTransactionAction={updatePersonalTransactionAction}
+      onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
+      onLogTemplateAsIs={logPersonalRecurringTemplateAction}
+      periodSummary={periodSummary}
+      onboarding={
+        <PersonalBudgetOnboarding
+          dict={dict.personalBudget}
+          createCategoryAction={createPersonalCategoryAction}
+        />
+      }
+      manage={manage}
+      transactions={transactionsTab}
+      insights={insights}
+    />
+  );
+}
+
+// Same shape as the household budget's BudgetTabsSkeleton — see
+// src/app/dashboard/budget/page.tsx.
+function PersonalBudgetTabsSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label="Loading">
+      <div className="flex items-center justify-between gap-2">
+        <div className="h-9 w-9 rounded-md bg-muted" />
+        <div className="h-6 w-32 rounded-md bg-muted" />
+        <div className="h-9 w-9 rounded-md bg-muted" />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="h-9 w-64 rounded-md bg-muted" />
+        <div className="h-9 w-32 rounded-md bg-muted" />
+      </div>
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-lg border bg-muted/40" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default async function PersonalBudgetPage(props: PageProps<"/dashboard/personal-budget">) {
+  const [userId, dict, locale, searchParams] = await Promise.all([
+    requireUserId(),
+    getDictionary(),
+    getLocale(),
+    props.searchParams,
+  ]);
+
+  const monthParam = searchParams.month;
+  const monthParamValue = Array.isArray(monthParam) ? monthParam[0] : monthParam;
+  const now = new Date();
+  const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
+  const monthEnd = getMonthEnd(monthStart);
+  const monthKey = toMonthKey(monthStart);
+
+  return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.personalBudget.title}</h1>
         <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
       </div>
 
-      <BudgetTabs
-        dict={dict.personalBudget}
-        locale={locale}
-        monthKey={monthKey}
-        basePath="/dashboard/personal-budget"
-        categories={categoryRows}
-        safeToSpendAmount={safeToSpend}
-        safeToSpendStatus={safeToSpendStatus}
-        safeToSpendExpectedRecurring={expectedRecurring}
-        dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
-        hasRecurringTemplates={recurringTemplateRows.length > 0}
-        sharedDueRows={sharedDueRows}
-        showHouseholdName={showHouseholdName}
-        sharedExpenseHouseholds={sharedExpenseHouseholds}
-        logSharedDialogDict={dict.personalBudget}
-        createTransactionAction={createPersonalTransactionAction}
-        updateTransactionAction={updatePersonalTransactionAction}
-        onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
-        onLogTemplateAsIs={logPersonalRecurringTemplateAction}
-        periodSummary={periodSummary}
-        onboarding={
-          <PersonalBudgetOnboarding
-            dict={dict.personalBudget}
-            createCategoryAction={createPersonalCategoryAction}
-          />
-        }
-        manage={manage}
-        transactions={transactionsTab}
-        insights={insights}
-      />
+      <Suspense fallback={<PersonalBudgetTabsSkeleton />}>
+        <PersonalBudgetTabsSection
+          userId={userId}
+          dict={dict}
+          locale={locale}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
+          monthKey={monthKey}
+          now={now}
+        />
+      </Suspense>
     </div>
   );
 }
