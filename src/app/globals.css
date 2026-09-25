@@ -200,3 +200,21 @@
     visibility: hidden;
   }
 }
+
+/* GAP-24 (the shopping list's "Print"): paper is always plain white, even
+   from the dark theme. With "background graphics" ticked in the print
+   dialog, body's radial gradient above would otherwise print as a sheet of
+   toner. Sonner's toasts sit in their own portal outside anything a page
+   can hide, so they're dropped here instead of a mid-fade "List completed"
+   landing on the printout. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}
