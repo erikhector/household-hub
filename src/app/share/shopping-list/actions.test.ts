@@ -206,7 +206,8 @@ describe("toggleItemViaShareTokenAction", () => {
     expect(result).toEqual({});
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { purchased: true },
+      // AUTO-9: share-link ticks teach the store order too.
+      data: { purchased: true, checkedOffAt: expect.any(Date) },
     });
     // AUTO-8: same call site as the out-of-stock check, scoped to the
     // list's own household (never anything from the visitor).

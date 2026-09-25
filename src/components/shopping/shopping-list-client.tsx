@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Archive,
   ArchiveRestore,
+  ArrowUpDown,
   Check,
   CheckCheck,
   ClipboardPaste,
@@ -16,6 +17,7 @@ import {
   PackagePlus,
   Plus,
   Printer,
+  RotateCcw,
   Share2,
   Trash2,
   X,
@@ -40,12 +42,15 @@ import { ImportListDialog } from "@/components/shopping/import-list-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
+import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
   deleteShoppingListAction,
   deleteShoppingListItemAction,
   generateFromLowStockAction,
+  resetCategoryOrderAction,
+  saveCategoryOrderAction,
   togglePurchasedAction,
   unarchiveShoppingListAction,
   uncompleteShoppingListAction,
@@ -56,6 +61,7 @@ import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
+import type { StoreOrder } from "@/lib/shopping/store-order";
 import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -118,6 +124,7 @@ export function ShoppingListClient({
   barcodeDict,
   exportLabel,
   locale,
+  storeOrder,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -131,6 +138,8 @@ export function ShoppingListClient({
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
   locale: Locale;
+  /** AUTO-9: the household's learned and hand-arranged store order. */
+  storeOrder: StoreOrder;
 }) {
   const [isPending, startTransition] = useTransition();
   // Same convention as the budget page's amounts (SafeToSpend,
@@ -146,7 +155,16 @@ export function ShoppingListClient({
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
-  const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory);
+  const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
+  // AUTO-9: "Reorder sections" offers every section this list has, pending
+  // or already ticked off (you might arrange the store before the next trip
+  // with everything ticked), in the order shopping mode walks them. "Other"
+  // is left out — it has no aisle and always sorts last. Needs two to be
+  // worth offering at all.
+  const reorderSections = groupPendingItemsByCategory(list.items, dict.otherCategory, storeOrder).flatMap(
+    (group) => (group.key === null ? [] : [{ key: group.key, label: group.label }]),
+  );
+  const hasManualOrder = storeOrder.manual.length > 0;
   // AUTO-4: "what's left to buy is roughly going to cost" — see
   // sumEstimatedPendingTotal's own doc comment for why this is pending-only
   // and per-unit/unmultiplied.
@@ -167,6 +185,7 @@ export function ShoppingListClient({
     resolveMappings: createDialogHandle(),
     completeList: createDialogHandle(),
     deleteList: createDialogHandle(),
+    reorderSections: createDialogHandle(),
   }));
 
   const addLowStock = () =>
@@ -209,6 +228,31 @@ export function ShoppingListClient({
         },
       });
       if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
+    });
+
+  // AUTO-9: back to the learned order, undoable rather than confirm-gated
+  // (the dropped order comes back from the action for exactly that).
+  const resetStoreOrder = () =>
+    startTransition(async () => {
+      const result = await resetCategoryOrderAction();
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const previous = result.previous ?? [];
+      toast.success(dict.reorderSections.resetToast, {
+        action:
+          previous.length > 0
+            ? {
+                label: dict.undo,
+                onClick: () =>
+                  startTransition(async () => {
+                    const undo = await saveCategoryOrderAction(previous);
+                    if (undo.error) toast.error(undo.error);
+                  }),
+              }
+            : undefined,
+      });
     });
 
   // AUTO-3: keep the screen on while there's an ACTIVE list open on a phone.
@@ -326,6 +370,18 @@ export function ShoppingListClient({
                     <Share2 />
                     {dict.shareLink.button}
                   </DropdownMenuItem>
+                  {reorderSections.length >= 2 && (
+                    <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
+                      <ArrowUpDown />
+                      {dict.reorderSections.menuItem}
+                    </DropdownMenuItem>
+                  )}
+                  {hasManualOrder && (
+                    <DropdownMenuItem onClick={resetStoreOrder}>
+                      <RotateCcw />
+                      {dict.reorderSections.resetMenuItem}
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
               <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
@@ -392,6 +448,11 @@ export function ShoppingListClient({
           />
           <ImportListDialog listId={list.id} dict={dict.importList} handle={dialogs.importList} />
           <ShareListButton shoppingListId={list.id} dict={dict.shareLink} handle={dialogs.share} />
+          <ReorderSectionsDialog
+            sections={reorderSections}
+            dict={dict.reorderSections}
+            handle={dialogs.reorderSections}
+          />
           {showResolveMappings && (
             <ResolveMappingsDialog
               items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
@@ -458,11 +519,12 @@ export function ShoppingListClient({
         ) : (
           <>
             {/* Shopping mode (AUTO-3): pending items grouped by the linked
-                inventory item's category, in a fixed store-walk order —
+                inventory item's category, in the household's store order
+                (AUTO-9: learned from check-offs, or arranged by hand) —
                 see groupPendingItemsByCategory. Purchased items below stay
                 a single flat "Purchased" section, unchanged. */}
             {pendingGroups.map((group) => (
-              <Fragment key={group.label}>
+              <Fragment key={group.key ?? ""}>
                 <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
                 {group.items.map((item) => (
                   <ShoppingRow
@@ -537,7 +599,7 @@ function PrintableList({
         <p className="text-2xl">{dict.printEmpty}</p>
       ) : (
         groups.map((group) => (
-          <div key={group.label} className="mb-6 break-inside-avoid">
+          <div key={group.key ?? ""} className="mb-6 break-inside-avoid">
             <h2 className="mb-2 text-lg font-bold uppercase tracking-wide">{group.label}</h2>
             <ul className="flex flex-col gap-2">
               {group.items.map((item) => (

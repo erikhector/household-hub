@@ -501,9 +501,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   sorts after the known ones, alphabetically; items with no linked item, a
   blank category, or still sitting in the "Uncategorized" placeholder
   collect under "Other" at the end. Only categories actually present get a
-  header. This wave's order is fixed; AUTO-9 will let it learn a
-  household's own store layout. Purchased items are unaffected — they still
-  collapse into the flat "Purchased" section below.
+  header. That fixed order is only the starting point: AUTO-9 (below)
+  replaces it with the household's own store order. Purchased items are
+  unaffected — they still collapse into the flat "Purchased" section below.
   While the list is `ACTIVE`, rows get a larger touch target (more
   vertical padding, a bigger checkbox) and the whole row — not just the
   checkbox — toggles purchased, via the row's existing `<label>`/`<input>`
@@ -514,6 +514,55 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+- **Learned store order (AUTO-9)** — shopping mode's groups gradually
+  reorder to match the order this household actually ticks things off in,
+  with no setup. Pure logic lives in `src/lib/shopping/store-order.ts`
+  (unit-tested); `groupPendingItemsByCategory` takes the order as an
+  optional third argument and, without one, is exactly AUTO-3's fixed order.
+  - *Category keys*: a category is learned under `categoryKey()`
+    (shopping-mode-grouping.ts): `auto:<key>` for any `AUTO_CATEGORY_KEYS`
+    label in either locale (so "Dairy & eggs" and "Mejeri & ägg" learn as
+    one), otherwise the custom category's trimmed, lower-cased text.
+    "Other" has no key, is never learned and always sorts last.
+  - *Recording*: `togglePurchasedAction` and the share-link toggle set
+    `ShoppingListItem.checkedOffAt` in the same row write that flips
+    `purchased`, and clear it on un-tick, so a mistaken tick leaves no
+    stale step and a re-tick records when the item was really picked up.
+    Receipt apply deliberately doesn't set it (a whole receipt lands at
+    one instant and says nothing about aisle order). Nothing else is
+    stored per trip.
+  - *Learning*: `completeShoppingListAction` sorts the list's timestamped
+    rows by `checkedOffAt`, gives each the midpoint of its slot on a 0..1
+    entrance→checkout scale, averages per category, and moves each
+    observed category `LEARNING_RATE` (0.3) of the way toward that rank —
+    an exponential moving average. Categories the trip didn't touch keep
+    their position; a trip that touched fewer than two categories teaches
+    nothing and writes nothing. Before anything is learned a known
+    category sits at its `AUTO_CATEGORY_KEYS` slot midpoint and a custom
+    one at 1 (after them, alphabetically). The write is best-effort: a
+    failure is logged and never fails "Done shopping".
+  - *Manual order*: "Reorder sections" in the `⋯` menu (active lists with
+    at least two non-"Other" sections) opens `ReorderSectionsDialog`,
+    up/down buttons rather than drag and drop (no new dependency, works
+    the same by thumb and keyboard). `saveCategoryOrderAction` merges the
+    list's sections into the household's whole current order
+    (`applySubsetReorder`: they're poured back into the slots they already
+    held, so sections this list lacks don't move). A manual order always
+    beats the learned one; a category it doesn't mention sorts after every
+    arranged one. "Use learned order" (shown only while a manual order
+    exists) calls `resetCategoryOrderAction`, whose toast offers Undo.
+    Learning keeps running underneath, so a reset lands on an up-to-date
+    learned order.
+  - *Storage*: two columns on `Household` — `categoryOrderLearned Json?`
+    (`{ [categoryKey]: position }`) and `categoryOrderManual String[]`
+    (empty = none) — rather than a `HouseholdCategoryOrder` table. The
+    learned map is always read and rewritten whole, once per completed
+    list, so rows would only add N upserts; a separate manual column means
+    a completion can't clobber a hand-saved order, and reset is emptying
+    an array. `requireHousehold()` already loads the row, so reading it
+    costs no extra query. Household-wide, never per member; per-store
+    orders are a non-goal (`PriceHistory.store` is too sparse to key off).
+    Migration: `store_order_learning`.
 - **Per-item notes (GAP-5)** — `ShoppingListItem.note` (`String?`,
   migration `20260925124224_shopping_item_note`) holds an optional
   free-text hint for whoever does the shopping ("get the ripe ones", "any
