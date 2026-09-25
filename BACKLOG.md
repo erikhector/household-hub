@@ -235,24 +235,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-24 scan
 
-- [ ] **GAP-11. Scale a recipe's ingredients to how many it's actually
-      feeding** — `prisma/schema.prisma` (`MealPlanEntry`),
-      `src/app/dashboard/meal-planning/missing-ingredients.ts`,
-      `src/components/meal-planning/meal-entry-dialog.tsx`. Plan to Eat and
-      Mealime both scale a recipe's ingredient list to a chosen headcount
-      before it hits the shopping list; today `Recipe.servings` is captured
-      but never used as a multiplier — a recipe written for 4 always
-      contributes its as-written quantities to `computeMissingIngredients`
-      regardless of how many the household is actually cooking for that day.
-      Add an optional `servingsOverride Int?` to `MealPlanEntry` (Phase 2
-      migration), default to the recipe's own `servings` when unset, and
-      multiply each `RecipeIngredient` quantity by
-      `servingsOverride / recipe.servings` in `expandRecipeIngredients`
-      before it reaches `computeMissingIngredients`/`getCookableRecipes` —
-      both already consume that shared expansion step, so this is one change
-      that fixes the shopping-list bridge and the "what can I cook" tab
-      together.
-
 - [ ] **GAP-13. A household currency setting** —
       `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
       page.tsx`, every `Intl.NumberFormat` call site in
