@@ -252,23 +252,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-25 scan
 
-- [ ] **GAP-22. Savings goals on a budget category** —
-      `prisma/schema.prisma` (`BudgetCategory`),
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/safe-to-spend.tsx`. Distinct from GAP-12's
-      spending cap: a `SAVINGS`-type category (the type already exists per
-      "Safe to spend"'s "money moved into a `SAVINGS` category") has no way
-      to target an amount by a date the way YNAB's/Qapital's goals do — today
-      it's just a running total with no destination. Add optional
-      `goalAmount Float?` and `goalDate DateTime?` to `BudgetCategory` (Phase
-      2 migration), settable only when `type === "SAVINGS"` in
-      `CategoryManager`. A small pure helper (`computeSavingsGoalProgress`,
-      colocated with `safe-to-spend-calc.ts` or its own file) turns
-      (amount saved so far, goal, months remaining until `goalDate`) into a
-      "save ~X/month to reach this by {date}" line and a progress bar —
-      informational only, never a notification (Guardrails: no
-      streaks/loss-aversion on money) and never blocks a transaction.
-
 - [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
       needs an infrastructure decision before scoping. Bring! and AnyList
       show a live indicator when another household member has the same list

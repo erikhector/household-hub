@@ -15,6 +15,8 @@ import {
 import { TransactionList } from "@/components/budget/transaction-list";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
+import { SavingsGoals } from "@/components/budget/savings-goals";
+import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
@@ -123,6 +125,8 @@ async function PersonalBudgetTabsSection({
     type: c.type,
     monthlyLimit: c.monthlyLimit,
     rolloverEnabled: c.rolloverEnabled,
+    goalAmount: c.goalAmount,
+    goalDate: c.goalDate,
   }));
 
   // Households the user can log a shared expense into directly from this
@@ -316,6 +320,25 @@ async function PersonalBudgetTabsSection({
     />
   );
 
+  // GAP-22 — see the household page's identical card. The loader's
+  // `transactions` is already the user's whole history, so each category's
+  // all-time savings are summed here rather than with another query. It
+  // holds only the user's own PersonalTransactions (the shared-household
+  // mirror is kept separately), so nothing household-side counts towards a
+  // personal goal.
+  const savedByCategory = new Map<string, number>();
+  for (const t of transactions) {
+    if (t.type !== "SAVINGS") continue;
+    savedByCategory.set(t.categoryId, (savedByCategory.get(t.categoryId) ?? 0) + t.amount);
+  }
+  const savingsGoals = (
+    <SavingsGoals
+      goals={savingsGoalRows(categories, savedByCategory, now)}
+      dict={dict.personalBudget.savingsGoals}
+      locale={locale}
+    />
+  );
+
   const insights = (
     <div className="flex flex-col gap-6">
       {periodSummary}
@@ -356,6 +379,7 @@ async function PersonalBudgetTabsSection({
       onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
       onLogTemplateAsIs={logPersonalRecurringTemplateAction}
       periodSummary={periodSummary}
+      savingsGoals={savingsGoals}
       onboarding={
         <PersonalBudgetOnboarding
           dict={dict.personalBudget}
