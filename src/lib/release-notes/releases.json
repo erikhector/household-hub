@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.27.0",
+    "date": "2026-09-25",
+    "pr": 53,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now tells you when you've paid noticeably more than usual for something. If a receipt or a checked-off price is well above what that item normally costs, you'll get a notification that links to your price trends.",
+      "sv": "Squirrel säger nu till när du har betalat märkbart mer än vanligt för något. Om ett kvitto eller ett avbockat pris ligger klart över vad varan brukar kosta får du en notis som leder till dina pristrender."
+    }
+  },
+  {
     "version": "0.26.0",
     "date": "2026-09-25",
     "pr": 51,

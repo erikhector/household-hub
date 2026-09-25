@@ -48,6 +48,10 @@ export const en = {
     // ExpiringSoonNotification.estimated in src/lib/notifications.ts.
     expiringSoonEstimated: "{name} is probably expiring soon",
     listCleared: "{name} is all checked off",
+    // GAP-9: PRICE_SPIKE — see detectPriceSpike (src/lib/price-spike.ts).
+    // The plain variant only shows for a row with no stored percentage.
+    priceSpike: "{name} cost {percent}% more than usual",
+    priceSpikePlain: "{name} cost more than usual",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",

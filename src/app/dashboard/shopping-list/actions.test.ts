@@ -28,6 +28,7 @@ const {
   shoppingListItemCountMock,
   shoppingListFindUniqueMock,
   priceHistoryCreateMock,
+  recordPriceSpikesMock,
   transactionCreateMock,
   transactionDeleteManyMock,
   transactionMock,
@@ -61,7 +62,11 @@ const {
   shoppingListItemDeleteMock: vi.fn(),
   shoppingListItemCountMock: vi.fn(async () => 0),
   shoppingListFindUniqueMock: vi.fn(),
-  priceHistoryCreateMock: vi.fn(),
+  // Returns a row id so the actions can hand it to recordPriceSpikes (GAP-9).
+  priceHistoryCreateMock: vi.fn(async (args: { data: { inventoryItemId: string } }) => ({
+    id: `ph-${args.data.inventoryItemId}`,
+  })),
+  recordPriceSpikesMock: vi.fn(async () => {}),
   transactionCreateMock: vi.fn(),
   transactionDeleteManyMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
@@ -165,6 +170,14 @@ vi.mock("@/app/dashboard/budget/actions", () => ({
 vi.mock("@/lib/exchange-rate", () => ({ fetchExchangeRate: fetchExchangeRateMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// GAP-9: recordPriceSpikes has its own unit (src/lib/notifications.test.ts);
+// here we only check each PriceHistory writer hands it what it wrote. The
+// rest of the module stays real, since the LIST_CLEARED/OUT_OF_STOCK
+// assertions below go through it.
+vi.mock("@/lib/notifications", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/notifications")>()),
+  recordPriceSpikes: recordPriceSpikesMock,
+}));
 // AUTO-8's helpers have their own unit (src/lib/shopping/default-list.test.ts);
 // here we only check the actions call them at the right moments.
 vi.mock("@/lib/shopping/default-list", () => ({
@@ -1170,6 +1183,7 @@ describe("togglePurchasedAction", () => {
       shoppingListId: "list-1",
       purchased: false,
       quantity: 3,
+      unit: "pcs",
       estimatedPrice: 25,
       inventoryItem: { id: "inv-1", quantity: 2 },
     });
@@ -1185,9 +1199,16 @@ describe("togglePurchasedAction", () => {
       // AUTO-4: this purchase's price also becomes the item's lastKnownPrice.
       data: { quantity: 5, lastKnownPrice: 25 },
     });
+    // GAP-9: with the line's quantity/unit, then checked for a price spike
+    // once the transaction has committed, excluding the acting user's push.
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 25 },
+      data: { inventoryItemId: "inv-1", price: 25, quantity: 3, unit: "pcs" },
     });
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith(
+      "household-1",
+      [{ priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 25, quantity: 3, unit: "pcs" }],
+      "user-1",
+    );
     // Only pending item on the list — checking it off crosses pending
     // count from 1 to 0, firing a LIST_CLEARED notification.
     expect(shoppingListItemCountMock).toHaveBeenCalledWith({
@@ -1466,8 +1487,8 @@ describe("applyReceiptScanAction", () => {
   const baseList = {
     id: "list-1",
     items: [
-      { id: "sli-1", purchased: false, quantity: 2, inventoryItem: { id: "inv-1", quantity: 1 } },
-      { id: "sli-2", purchased: true, quantity: 1, inventoryItem: { id: "inv-2", quantity: 5 } },
+      { id: "sli-1", purchased: false, quantity: 2, unit: "pcs", inventoryItem: { id: "inv-1", quantity: 1 } },
+      { id: "sli-2", purchased: true, quantity: 1, unit: "pcs", inventoryItem: { id: "inv-2", quantity: 5 } },
     ],
   };
 
@@ -1510,9 +1531,9 @@ describe("applyReceiptScanAction", () => {
     shoppingListFindFirstMock.mockResolvedValue({
       id: "list-1",
       items: [
-        { id: "sli-1", purchased: false, quantity: 2, inventoryItem: { id: "inv-1", quantity: 1 } },
-        { id: "sli-2", purchased: false, quantity: 1, inventoryItem: { id: "inv-2", quantity: 5 } },
-        { id: "sli-3", purchased: false, quantity: 3, inventoryItem: null },
+        { id: "sli-1", purchased: false, quantity: 2, unit: "pcs", inventoryItem: { id: "inv-1", quantity: 1 } },
+        { id: "sli-2", purchased: false, quantity: 1, unit: "kg", inventoryItem: { id: "inv-2", quantity: 5 } },
+        { id: "sli-3", purchased: false, quantity: 3, unit: "pcs", inventoryItem: null },
       ],
     });
 
@@ -1534,11 +1555,38 @@ describe("applyReceiptScanAction", () => {
       data: { quantity: 6, lastKnownPrice: 25 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 10, store: null },
+      data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: null },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-2", price: 25, store: null },
+      data: { inventoryItemId: "inv-2", price: 25, quantity: 1, unit: "kg", store: null },
     });
+    // GAP-9: every row written, as one batch, after the transaction — the
+    // unlinked sli-3 wrote no PriceHistory and so isn't in it.
+    expect(recordPriceSpikesMock).toHaveBeenCalledTimes(1);
+    const [householdId, recorded, actingUserId] = recordPriceSpikesMock.mock.calls[0] as unknown as [
+      string,
+      { inventoryItemId: string }[],
+      string,
+    ];
+    expect(householdId).toBe("household-1");
+    expect(actingUserId).toBe("user-1");
+    expect(recorded).toHaveLength(2);
+    expect(recorded).toEqual(
+      expect.arrayContaining([
+        { priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs" },
+        { priceHistoryId: "ph-inv-2", inventoryItemId: "inv-2", price: 25, quantity: 1, unit: "kg" },
+      ]),
+    );
+  });
+
+  it("doesn't check for price spikes when the transaction fails", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(baseList);
+    transactionMock.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(
+      applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }]),
+    ).rejects.toThrow("boom");
+    expect(recordPriceSpikesMock).not.toHaveBeenCalled();
   });
 
   it("stamps every PriceHistory row it writes with the receipt's store (GAP-6)", async () => {
@@ -1552,7 +1600,7 @@ describe("applyReceiptScanAction", () => {
     );
 
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 10, store: "ICA Maxi" },
+      data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: "ICA Maxi" },
     });
   });
 
@@ -1562,7 +1610,7 @@ describe("applyReceiptScanAction", () => {
     await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }], "   ");
 
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 10, store: null },
+      data: { inventoryItemId: "inv-1", price: 10, quantity: 2, unit: "pcs", store: null },
     });
   });
 
@@ -1714,8 +1762,13 @@ describe("registerReceiptAction", () => {
       data: { quantity: 4, lastKnownPrice: 15 },
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 15, store: null },
+      data: { inventoryItemId: "inv-1", price: 15, quantity: 2, unit: "l", store: null },
     });
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith(
+      "household-1",
+      [{ priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 15, quantity: 2, unit: "l" }],
+      "user-1",
+    );
     expect(transactionCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ categoryId: "cat-groceries", amount: 15, type: "EXPENSE" }),
@@ -1793,6 +1846,17 @@ describe("registerReceiptAction", () => {
       data: { quantity: 15, lastKnownPrice: 6 }, // 10 + 2 + 3
     });
     expect(priceHistoryCreateMock).toHaveBeenCalledTimes(2);
+    // GAP-9: both lines go to recordPriceSpikes in one call, which pools
+    // them into one decision for the item.
+    expect(recordPriceSpikesMock).toHaveBeenCalledTimes(1);
+    expect(recordPriceSpikesMock.mock.calls[0]).toEqual([
+      "household-1",
+      [
+        { priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 5, quantity: 2, unit: "pcs" },
+        { priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 6, quantity: 3, unit: "pcs" },
+      ],
+      "user-1",
+    ]);
   });
 
   it("stamps every PriceHistory row it writes with the receipt's store, trimmed (GAP-6)", async () => {
@@ -1808,7 +1872,7 @@ describe("registerReceiptAction", () => {
     );
 
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 15, store: "ICA Maxi" },
+      data: { inventoryItemId: "inv-1", price: 15, quantity: 2, unit: "l", store: "ICA Maxi" },
     });
   });
 
