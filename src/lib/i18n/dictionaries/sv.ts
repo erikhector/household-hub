@@ -911,6 +911,12 @@ export const sv = {
     nutritionProteinValue: "{value} g protein",
     nutritionCarbsValue: "{value} g kolhydrater",
     nutritionFatValue: "{value} g fett",
+    recipeCostValue: "~{total} totalt · ~{perServing}/portion",
+    recipeCostSkipped: {
+      one: "{count} ingrediens utan pris",
+      other: "{count} ingredienser utan pris",
+    },
+    recipeCostHint: "Uppskattat utifrån vad ni senast betalade för varje ingrediens",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",
     comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",

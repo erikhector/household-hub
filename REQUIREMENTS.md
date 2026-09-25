@@ -2004,6 +2004,41 @@ recipe can have calories set with the rest left blank).
   shown at all for a recipe with all four fields null, which is expected to
   be the common case.
 
+### Recipe cost estimate (GAP-15)
+
+Each recipe on the Recipes tab shows a rough cost to make it, e.g.
+`"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
+summary. No schema change: it joins data that already exists —
+`RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
+by AUTO-4, above) — through the same unit table (`src/lib/units.ts`) the
+meal-plan → shopping-list bridge uses.
+
+- **Calculation**: `computeRecipeCost(ingredients, servings)`
+  (`src/app/dashboard/meal-planning/recipe-cost.ts`, pure, unit-tested in
+  `recipe-cost.test.ts`) converts each ingredient's quantity into its linked
+  item's own unit — exact case/whitespace-insensitive match first, then
+  `convertQuantity` — and multiplies by `lastKnownPrice`, read as the price
+  of one of that unit (the same per-unit reading the shopping list gives it
+  when defaulting `estimatedPrice`). `total` and `perServing`
+  (`total / servings`) are rounded to 2 decimals.
+- **Skipped, not guessed**: an ingredient with no linked inventory item, a
+  linked item that has never been priced, or a unit that can't be converted
+  into the item's (volume vs. weight, or an unrecognized unit like "clove"
+  against "pcs") is left out and counted in `skippedCount`. The card then
+  appends "N ingredients not priced" so the total reads as a partial
+  estimate. A price of 0 counts as priced.
+- **Hidden when unknown**: if no ingredient at all could be priced the
+  function returns `null` and no line is shown, same as the nutrition line.
+- **Own ingredients only**: a sub-recipe's (`RecipeComponent`) ingredients
+  aren't added in, matching how the nutrition line is per recipe.
+- **Data flow**: `RecipesTabSection` (`meal-planning/page.tsx`) computes a
+  `recipeCosts` map keyed by recipe id from the already-cached core fetch
+  (`lastKnownPrice` was added to its inventory `select`; no extra query) and
+  passes it with the `locale` to `RecipeManager`. Amounts use the app's
+  `Intl.NumberFormat` convention (locale-aware, 2 decimals, no currency
+  symbol), prefixed with "~" to mark them as estimates; the line's tooltip
+  explains they come from what was last paid.
+
 ### Weekly nutrition recap
 
 A dismissible summary card on the Planner tab (BACKLOG GAP-2) that sums the
