@@ -6,7 +6,7 @@ import {
 } from "@/lib/inventory/use-it-up-calc";
 
 function recipe(overrides: Partial<RecipeForUseItUp>): RecipeForUseItUp {
-  return { recipeId: "r1", recipeName: "Recipe", ingredients: [], ...overrides };
+  return { recipeId: "r1", recipeName: "Recipe", isFavorite: false, ingredients: [], ...overrides };
 }
 
 // Defaults to quantity 1 (comfortably "on hand") so each test only has to
@@ -147,6 +147,57 @@ describe("computeUseItUpSuggestions", () => {
     // despite the name order.
     const result = computeUseItUpSuggestions(recipes, flagged);
     expect(result.map((r) => r.recipeId)).toEqual(["expiring", "low-stock"]);
+  });
+
+  it("ranks a favorite ahead of an otherwise-tied non-favorite (GAP-18)", () => {
+    const flagged = [
+      item({ id: "i1", name: "Cream", expiryStatus: "soon" }),
+      item({ id: "i2", name: "Milk", expiryStatus: "soon" }),
+    ];
+    const recipes = [
+      recipe({ recipeId: "plain", recipeName: "Aaa plain", ingredients: [{ name: "Cream", inventoryItemId: "i1" }] }),
+      recipe({
+        recipeId: "starred",
+        recipeName: "Zzz starred",
+        isFavorite: true,
+        ingredients: [{ name: "Milk", inventoryItemId: "i2" }],
+      }),
+    ];
+
+    // Same match count, both expiring — only the star separates them, and
+    // it beats the alphabetical order.
+    const result = computeUseItUpSuggestions(recipes, flagged);
+    expect(result.map((r) => r.recipeId)).toEqual(["starred", "plain"]);
+  });
+
+  it("never lets a favorite outrank a suggestion with more matches or a more urgent reason", () => {
+    const flagged = [
+      item({ id: "i1", name: "Butter", stockStatus: "low" }),
+      item({ id: "i2", name: "Cream", expiryStatus: "soon" }),
+      item({ id: "i3", name: "Eggs", expiryStatus: "soon" }),
+    ];
+    const recipes = [
+      recipe({
+        recipeId: "starred-low-stock",
+        recipeName: "Aaa starred",
+        isFavorite: true,
+        ingredients: [{ name: "Butter", inventoryItemId: "i1" }],
+      }),
+      recipe({ recipeId: "expiring", recipeName: "Mmm expiring", ingredients: [{ name: "Cream", inventoryItemId: "i2" }] }),
+      recipe({
+        recipeId: "two-matches",
+        recipeName: "Zzz two",
+        ingredients: [
+          { name: "Cream", inventoryItemId: "i2" },
+          { name: "Eggs", inventoryItemId: "i3" },
+        ],
+      }),
+    ];
+
+    // A tiebreaker, not a filter or a boost: the favorite is still listed,
+    // just after both recipes that would prevent more waste.
+    const result = computeUseItUpSuggestions(recipes, flagged);
+    expect(result.map((r) => r.recipeId)).toEqual(["two-matches", "expiring", "starred-low-stock"]);
   });
 
   it("sorts by match count descending, then recipe name, and caps the list at 5", () => {

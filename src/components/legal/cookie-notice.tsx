@@ -47,7 +47,7 @@ export function CookieNotice({
       role="region"
       aria-label={dict.title}
       className={cn(
-        "fixed inset-x-3 z-40 flex flex-col gap-3 rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:flex-row sm:items-center",
+        "fixed inset-x-3 z-40 flex print:hidden flex-col gap-3 rounded-xl border bg-popover p-4 text-sm text-popover-foreground shadow-lg sm:inset-x-auto sm:bottom-4 sm:left-1/2 sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:flex-row sm:items-center",
         aboveBottomNav
           ? "bottom-[calc(4.75rem+env(safe-area-inset-bottom))]"
           : "bottom-[max(0.75rem,env(safe-area-inset-bottom))]",

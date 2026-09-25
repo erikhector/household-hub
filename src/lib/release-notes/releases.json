@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-09-25",
+    "pr": 42,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now give an expense category a monthly spending limit. The month's summary shows how much of each limit you've used and turns red when you go over.",
+      "sv": "Du kan nu sätta en månadsgräns på en utgiftskategori. Månadens sammanställning visar hur mycket av gränsen du har använt och blir röd när du går över."
+    }
+  },
+  {
+    "version": "0.18.0",
+    "date": "2026-09-25",
+    "pr": 45,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now star your favorite recipes. When several recipes are just as easy to cook right now, or use up the same things, your favorites are listed first.",
+      "sv": "Nu kan du stjärnmärka dina favoritrecept. När flera recept är lika enkla att laga just nu, eller tar till vara samma saker, visas dina favoriter först."
+    }
+  },
+  {
+    "version": "0.17.0",
+    "date": "2026-09-25",
+    "pr": 46,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes now show a rough cost to make them, in total and per serving, based on what you last paid for each ingredient. If some ingredients don't have a price yet, the recipe says how many were left out.",
+      "sv": "Recept visar nu ungefär vad de kostar att laga, totalt och per portion, utifrån vad ni senast betalade för varje ingrediens. Om några ingredienser saknar pris står det hur många som inte räknats med."
+    }
+  },
+  {
+    "version": "0.16.0",
+    "date": "2026-09-25",
+    "pr": 43,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now print a shopping list. Choose \"Print\" in the list's ⋯ menu to get a clean, large-text copy of what's left to buy, grouped by category.",
+      "sv": "Nu kan du skriva ut en inköpslista. Välj \"Skriv ut\" i listans ⋯-meny för en ren kopia med stor text av det som återstår att köpa, grupperad efter kategori."
+    }
+  },
+  {
     "version": "0.15.0",
     "date": "2026-09-25",
     "pr": 39,

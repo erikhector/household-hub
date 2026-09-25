@@ -15,6 +15,7 @@ import {
 import { TransactionList } from "@/components/budget/transaction-list";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
+import { withCategoryLimits } from "@/lib/budget-category-limit";
 import {
   acknowledgePersonalTemplatePeriodAction,
   createPersonalRecurringTemplateAction,
@@ -115,7 +116,12 @@ async function PersonalBudgetTabsSection({
     expectedRecurring,
   } = position;
 
-  const categoryRows = categories.map((c) => ({ id: c.id, name: c.name, type: c.type }));
+  const categoryRows = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    type: c.type,
+    monthlyLimit: c.monthlyLimit,
+  }));
 
   // Households the user can log a shared expense into directly from this
   // page (LogSharedExpenseDialog) — the entry-point half of the personal
@@ -290,7 +296,10 @@ async function PersonalBudgetTabsSection({
       savings={savings}
       remaining={safeToSpend}
       incomeByCategory={incomeByCategory}
-      expenseByCategory={expenseByCategory}
+      // GAP-12 — see the household page's identical comment. The
+      // shared-household mirror rows (`shared:` ids) never match a
+      // personal category, so they keep their plain proportional bar.
+      expenseByCategory={withCategoryLimits(expenseByCategory, categories)}
       savingsByCategory={savingsByCategory}
       dict={dict.personalBudget.summary}
       locale={locale}

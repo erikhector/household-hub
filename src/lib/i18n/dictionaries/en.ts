@@ -331,6 +331,10 @@ export const en = {
     emptyListActive: "Nothing on this list yet — type what you need in the box above, or pull in what's low on stock.",
     emptyListOther: "Nothing on this list.",
     moreActions: "More list actions",
+    // GAP-24: the ⋯ menu's "Print" item, and the paper copy's stand-in line
+    // when there's nothing pending left to print.
+    print: "Print",
+    printEmpty: "Nothing left to buy.",
     doneShopping: "Done shopping",
     completedToast: "List completed",
     undo: "Undo",
@@ -945,6 +949,12 @@ export const en = {
     nutritionProteinValue: "{value}g protein",
     nutritionCarbsValue: "{value}g carbs",
     nutritionFatValue: "{value}g fat",
+    recipeCostValue: "~{total} total · ~{perServing}/serving",
+    recipeCostSkipped: {
+      one: "{count} ingredient not priced",
+      other: "{count} ingredients not priced",
+    },
+    recipeCostHint: "Estimated from what you last paid for each ingredient",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
     comboboxNoMatches: "No matches yet — keep typing to add a new one.",
@@ -967,6 +977,9 @@ export const en = {
     deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
     editAriaLabel: "Edit recipe",
     deleteAriaLabel: "Delete recipe",
+    // Stable label for the star toggle (GAP-18) — its on/off state is
+    // conveyed by aria-pressed, so the label must not flip with it too.
+    favoriteAriaLabel: "Favorite recipe",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
@@ -1188,6 +1201,9 @@ export const en = {
       incomeSection: "Income",
       expenseSection: "Expense",
       savingsSection: "Savings",
+      limitLabel: "Monthly limit (optional)",
+      limitPlaceholder: "No limit",
+      limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
     },
     summary: {
       title: "This month",
@@ -1202,6 +1218,8 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} over",
     },
     safeToSpend: {
       title: "Safe to spend",
@@ -1497,6 +1515,9 @@ export const en = {
       incomeSection: "Income",
       expenseSection: "Expense",
       savingsSection: "Savings",
+      limitLabel: "Monthly limit (optional)",
+      limitPlaceholder: "No limit",
+      limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
     },
     summary: {
       title: "This month",
@@ -1511,6 +1532,8 @@ export const en = {
       savings: "Savings",
       savingsByCategory: "Savings by category",
       noSavings: "No savings recorded this month.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} over",
     },
     safeToSpend: {
       title: "Safe to spend",
