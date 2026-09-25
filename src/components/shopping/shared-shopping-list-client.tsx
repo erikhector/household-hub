@@ -98,11 +98,18 @@ function SharedRow({
         onChange={() => onToggle(item.id)}
         className="size-4 shrink-0"
       />
-      <span
-        className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
-        title={`${item.name} × ${item.quantity} ${item.unit}`}
-      >
-        {item.name} × {item.quantity} {item.unit}
+      {/* GAP-5: name line plus the note (when set) as a muted second line,
+          same treatment as ShoppingListClient's rows. */}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span
+          className={`truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+          title={`${item.name} × ${item.quantity} ${item.unit}`}
+        >
+          {item.name} × {item.quantity} {item.unit}
+        </span>
+        {item.note && (
+          <span className="text-xs break-words whitespace-pre-line text-muted-foreground">{item.note}</span>
+        )}
       </span>
     </label>
   );

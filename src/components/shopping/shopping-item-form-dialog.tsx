@@ -6,6 +6,7 @@ import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -39,6 +40,7 @@ type EditableShoppingItem = {
   quantity: number;
   unit: string;
   inventoryItemId: string | null;
+  note: string | null;
 };
 
 type ShoppingListDict = Dictionary["shoppingList"];
@@ -151,6 +153,10 @@ export function ShoppingItemFormDialog({
 
   // --- edit-only state ---------------------------------------------------
   const [quantity, setQuantity] = useState(String(item?.quantity ?? 1));
+  // GAP-5: edit mode only. Create mode deliberately has no note field — the
+  // "+" quick-add and the smart add line are about getting the item on the
+  // list fast; a note is added afterward from here, on the row.
+  const [note, setNote] = useState(item?.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [editPending, startTransition] = useTransition();
 
@@ -185,6 +191,7 @@ export function ShoppingItemFormDialog({
     setName(item.name);
     setQuantity(String(item.quantity));
     setUnit(item.unit);
+    setNote(item.note ?? "");
     setLinkMode(item.inventoryItemId ? "linked" : inventoryItems.length > 0 ? "existing" : "new");
     setSelectedId(item.inventoryItemId ?? orderedItems[0]?.id ?? "");
     setNewCategory("");
@@ -199,6 +206,9 @@ export function ShoppingItemFormDialog({
         name,
         quantity: Number(quantity),
         unit,
+        // Always sent (possibly as ""), since this dialog is the one place
+        // a note is edited — "" is what clears it server-side.
+        note,
       });
       if (fieldsResult.error) {
         setError(fieldsResult.error);
@@ -382,6 +392,19 @@ export function ShoppingItemFormDialog({
                       dict={dict.editItem}
                     />
                   </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="edit-item-note">{dict.editItem.noteLabel}</Label>
+                  {/* maxLength mirrors actions.ts's SHOPPING_ITEM_NOTE_MAX_LENGTH. */}
+                  <Textarea
+                    id="edit-item-note"
+                    name="note"
+                    rows={2}
+                    maxLength={200}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={dict.editItem.notePlaceholder}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2 rounded-md border p-3">

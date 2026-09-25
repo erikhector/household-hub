@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Privacy Policy — Squirrel",
 };
 
-const LAST_UPDATED = "September 24, 2026";
+const LAST_UPDATED = "September 25, 2026";
 
 function Section({
   title,
@@ -167,6 +167,18 @@ export default async function PrivacyPage() {
               your items is looked up in your own inventory instead, and nothing is sent.
             </p>
             <p>
+              <strong>Your browser&apos;s speech recognition</strong> is used when you tap the
+              microphone button on a shopping list to add items by voice. Squirrel doesn&apos;t
+              record or receive any audio — it only gets the text your browser hands back, which
+              is then added exactly as if you&apos;d typed it. But some browsers don&apos;t
+              recognize speech on your device: Chrome and Edge, for example, send the recording
+              to Google&apos;s or Microsoft&apos;s servers, and Safari may send it to Apple,
+              under that company&apos;s own privacy policy. Nothing is recorded until you tap the
+              button, listening stops after one phrase, and if you&apos;d rather not use it, typing
+              works exactly the same. Browsers without speech recognition don&apos;t show the
+              button at all.
+            </p>
+            <p>
               <strong>Gemini</strong> (Google) and <strong>Anthropic</strong> are used by three
               optional AI features, and only when whoever operates your instance has configured
               an API key for one of them — with no key configured, none of this ever runs.
@@ -208,9 +220,10 @@ export default async function PrivacyPage() {
             </p>
             <p>
               We don&apos;t use any analytics or advertising service. There is no tracking pixel
-              and no ad network. Apart from the barcode digits sent to Open Food Facts and the
-              optional Gemini/Anthropic AI features described above, no third party receives your
-              inventory, shopping list, meal plan, or budget data.
+              and no ad network. Apart from the barcode digits sent to Open Food Facts, the
+              optional Gemini/Anthropic AI features, and the speech your own browser may send its
+              vendor when you add items by voice, all described above, no third party receives
+              your inventory, shopping list, meal plan, or budget data.
             </p>
           </Section>
 

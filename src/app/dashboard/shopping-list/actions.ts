@@ -366,14 +366,27 @@ export async function quickAddShoppingListItemAction(
   }
 }
 
+// GAP-5: a note is a short hint for whoever's shopping ("get the ripe
+// ones"), not a recipe — long enough for a sentence or two, short enough to
+// stay a muted line or two under the item name on a phone. Mirrored by the
+// edit dialog's maxLength (ShoppingItemFormDialog), since a "use server"
+// file can't export a plain constant for it to import.
+const SHOPPING_ITEM_NOTE_MAX_LENGTH = 200;
+
 const updateItemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
   unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+  note: z
+    .string()
+    .trim()
+    .max(SHOPPING_ITEM_NOTE_MAX_LENGTH, `Note must be ${SHOPPING_ITEM_NOTE_MAX_LENGTH} characters or fewer`)
+    .optional(),
 });
 
 /**
- * Edits a shopping-list item's own fields (name/quantity/unit). Previously
+ * Edits a shopping-list item's own fields (name/quantity/unit, and GAP-5's
+ * optional note). Previously
  * the only way to fix a typo or change a quantity was delete-and-re-add,
  * which lost addedAutomatically/estimatedPrice/the inventory link in the
  * process. Scoped the same way as deleteShoppingListItemAction: household
@@ -382,7 +395,7 @@ const updateItemSchema = z.object({
  */
 export async function updateShoppingListItemAction(
   itemId: string,
-  data: { name: string; quantity: number; unit: string },
+  data: { name: string; quantity: number; unit: string; note?: string },
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -404,6 +417,11 @@ export async function updateShoppingListItemAction(
         name: parsed.data.name,
         quantity: parsed.data.quantity,
         unit: parsed.data.unit || "pcs",
+        // GAP-5: `note` left out (undefined) means "don't touch it", so a
+        // caller that only edits name/quantity/unit can't wipe a note by
+        // accident. A blank or whitespace-only note clears it to null
+        // rather than storing "", so "has a note" is just `note != null`.
+        ...(parsed.data.note !== undefined ? { note: parsed.data.note || null } : {}),
       },
     });
   } catch (error) {
