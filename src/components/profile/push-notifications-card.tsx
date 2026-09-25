@@ -4,11 +4,14 @@
 // node_modules/next/dist/docs/01-app/02-guides/progressive-web-apps.md's
 // "Implementing Web Push Notifications" step (per AGENTS.md). Delivery is
 // wired into the notification center's two triggers server-side — see
-// sendPushToHousehold's doc comment in src/lib/push.ts.
+// sendPushToHousehold's doc comment in src/lib/push.ts. Once subscribed,
+// the card also shows this browser's quiet hours (GAP-14,
+// push-quiet-hours-form.tsx).
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PushQuietHoursForm } from "@/components/profile/push-quiet-hours-form";
 import { subscribeToPushAction, unsubscribeFromPushAction } from "@/lib/actions/push";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -42,9 +45,27 @@ const getSupportServerSnapshot = (): Support => "unsupported";
 
 type SubscriptionState = "checking" | "subscribed" | "unsubscribed";
 
-export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["pushNotifications"] }) {
+// The signed-in user's stored subscriptions, loaded by the profile page. The
+// server can't know which one is *this* browser — only the browser's own
+// pushManager knows its endpoint — so the card matches on that client-side.
+// They're all the user's own rows (the page scopes by userId), so exposing
+// the endpoints to this user's browser reveals nothing they don't own.
+export type StoredPushSubscription = {
+  endpoint: string;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+};
+
+export function PushNotificationsCard({
+  subscriptions,
+  dict,
+}: {
+  subscriptions: StoredPushSubscription[];
+  dict: Dictionary["profile"]["pushNotifications"];
+}) {
   const support = useSyncExternalStore(noSubscription, getSupportSnapshot, getSupportServerSnapshot);
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>("checking");
+  const [endpoint, setEndpoint] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
 
@@ -54,7 +75,10 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
     navigator.serviceWorker
       .register(new URL("../../lib/service-worker.js", import.meta.url), { scope: "/", updateViaCache: "none" })
       .then((registration) => registration.pushManager.getSubscription())
-      .then((sub) => setSubscriptionState(sub ? "subscribed" : "unsubscribed"))
+      .then((sub) => {
+        setEndpoint(sub?.endpoint ?? null);
+        setSubscriptionState(sub ? "subscribed" : "unsubscribed");
+      })
       .catch(() => setSubscriptionState("unsubscribed"));
   }, [support]);
 
@@ -72,7 +96,11 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
       await subscribeToPushAction({
         endpoint: sub.endpoint,
         keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth },
+        // Stored so quiet hours are evaluated in this device's local time
+        // rather than the server's (see isWithinQuietHours).
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
+      setEndpoint(sub.endpoint);
       setSubscriptionState("subscribed");
     } catch {
       setError(true);
@@ -91,6 +119,7 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
         await sub.unsubscribe();
         await unsubscribeFromPushAction(sub.endpoint);
       }
+      setEndpoint(null);
       setSubscriptionState("unsubscribed");
     } catch {
       setError(true);
@@ -106,6 +135,11 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
       : subscriptionState === "checking"
         ? null
         : subscriptionState;
+
+  // Undefined for a moment right after subscribing, until
+  // subscribeToPushAction's revalidatePath delivers the refreshed
+  // `subscriptions` prop — the picker simply appears once it lands.
+  const stored = endpoint ? subscriptions.find((s) => s.endpoint === endpoint) : undefined;
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-4">
@@ -124,6 +158,15 @@ export function PushNotificationsCard({ dict }: { dict: Dictionary["profile"]["p
             {dict.disableButton}
           </Button>
         </div>
+      )}
+      {status === "subscribed" && stored && (
+        <PushQuietHoursForm
+          key={stored.endpoint}
+          endpoint={stored.endpoint}
+          quietHoursStart={stored.quietHoursStart}
+          quietHoursEnd={stored.quietHoursEnd}
+          dict={dict.quietHours}
+        />
       )}
       {status === "unsubscribed" && (
         <Button type="button" onClick={handleSubscribe} disabled={pending} className="self-start">

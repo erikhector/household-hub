@@ -3150,6 +3150,48 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
     retrying it; any other error is just logged.
+  - **Quiet hours** (GAP-14): each `PushSubscription` row carries optional
+    `quietHoursStart`/`quietHoursEnd` (0-23, local hour) and `timeZone`
+    (the browser's IANA zone from
+    `Intl.DateTimeFormat().resolvedOptions().timeZone`). They live on the
+    subscription rather than on `User` because they're per device: a phone
+    can be silenced overnight while a laptop keeps notifying.
+    `sendPushToHousehold` drops any subscription for which
+    `isWithinQuietHours` (`src/lib/quiet-hours.ts`, pure and unit-tested)
+    is true at send time. The window is half-open `[start, end)` evaluated
+    in the stored zone, and may wrap midnight (22 → 7 silences 22:00-06:59).
+    It fails *open*, so the push is sent: either hour null, start equal to
+    end, an out-of-range hour, or a missing or unrecognised zone all mean
+    "not quiet". A subscription created before quiet hours existed has no
+    zone and keeps working exactly as before. Only the OS push is
+    suppressed. The `Notification` row is already written and the bell
+    shows it as usual, and a suppressed push isn't queued for later, since
+    a stale "out of stock" push at 07:00 is noise.
+    - **Capturing the zone**: `subscribeToPushAction` stores the zone sent
+      by the card (an unrecognised one is stored as null rather than
+      failing the subscribe), and every quiet-hours save re-captures it, so
+      an older subscription gains one and a device that changed zones
+      follows along.
+    - **UI**: once this browser is subscribed, `PushNotificationsCard`
+      shows `PushQuietHoursForm`
+      (`src/components/profile/push-quiet-hours-form.tsx`): two hour
+      selects ("From"/"Until", 24-hour `HH:00` labels, defaulting to
+      22:00-07:00), a save button, and a "Turn off quiet hours" button when
+      a window is set. Only the browser knows its own endpoint, so the
+      profile page passes the user's own subscriptions (endpoint plus the
+      two hours, never the keys) and the card matches on the endpoint from
+      `pushManager.getSubscription()`. Equal hours are blocked in the form
+      with a hint.
+    - **Actions** (`src/lib/actions/push.ts`): `setPushQuietHoursAction`
+      (form action) and `clearPushQuietHoursAction` (click action) both
+      scope by `requireUserId()` and write with `updateMany({ where: {
+      endpoint, userId } })`. The endpoint is the only client-supplied
+      identifier, so an endpoint belonging to another user matches zero
+      rows and nothing is written; the save reports that as an error. The
+      save validates both hours as integers 0-23 (a missing field is
+      rejected, not coerced to midnight), rejects equal hours, and rejects
+      an unrecognised zone, since saving a window that would silently never
+      apply is worse than an error.
   - **Showing it**: `src/lib/service-worker.js` only implements two
     listeners — `push` (shows the notification via
     `registration.showNotification`, with `{ title, body, url }` as sent)

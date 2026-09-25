@@ -282,22 +282,6 @@ out to be a product-scope question rather than a scoped task should move to
       "Data export (CSV)"'s locale-collision reasoning) — this only touches
       on-screen formatting.
 
-- [ ] **GAP-14. Quiet hours for push notifications** —
-      `prisma/schema.prisma` (`PushSubscription`),
-      `src/lib/push.ts` (`sendPushToHousehold`),
-      `src/components/profile/push-notifications-card.tsx`. Bring! and
-      AnyList both let a user silence phone push overnight without touching
-      the in-app bell. Add `quietHoursStart Int?`/`quietHoursEnd Int?`
-      (0-23, local hour) and `timeZone String?` (captured from
-      `Intl.DateTimeFormat().resolvedOptions().timeZone` at subscribe time)
-      to `PushSubscription` (Phase 2 migration — it's already the
-      per-browser, per-user scoped row, so quiet hours naturally live here
-      rather than on `User`). `sendPushToHousehold` skips a subscription
-      whose owner's current local hour (via the stored `timeZone`) falls in
-      its quiet window; the `Notification` row and in-app bell badge are
-      unaffected — only the OS push is suppressed, same as the card's
-      existing "on top of the bell, not a replacement for it" framing.
-
 - [ ] **GAP-16. A shared household notes board** —
       `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
       actions.ts`, `src/components/household/household-notes.tsx`. Cozi's

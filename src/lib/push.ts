@@ -6,6 +6,7 @@
 
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { isWithinQuietHours } from "@/lib/quiet-hours";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
@@ -50,6 +51,16 @@ type PushPayload = {
 // the action that triggered this notification shouldn't be pushed a
 // notification about their own action. Triggers with no single actor (the
 // lazy background syncs in notifications.ts) simply omit it.
+//
+// A subscription whose quiet hours (GAP-14) cover the current hour in its
+// own stored time zone is skipped. That filter runs here, in JS, rather than
+// in the `where` clause because "current local hour" differs per row and
+// Postgres would need each zone's offset at query time — a household has a
+// handful of subscriptions, so fetching then filtering is cheap. Skipping is
+// deliberately silent and lossy: the Notification row that triggered this
+// was already written by the caller, so the in-app bell still shows it when
+// the user next opens the app; only the OS-level buzz is suppressed, and it
+// isn't queued for later (a stale "eggs ran out" push at 07:00 is noise).
 export async function sendPushToHousehold(
   householdId: string,
   payload: PushPayload,
@@ -57,12 +68,16 @@ export async function sendPushToHousehold(
 ): Promise<void> {
   if (!configured) return;
 
-  const subscriptions = await prisma.pushSubscription.findMany({
+  const found = await prisma.pushSubscription.findMany({
     where: {
       user: { memberships: { some: { householdId } } },
       ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
     },
   });
+  const now = new Date();
+  const subscriptions = found.filter(
+    (sub) => !isWithinQuietHours(sub.quietHoursStart, sub.quietHoursEnd, sub.timeZone, now),
+  );
   if (subscriptions.length === 0) return;
 
   const body = JSON.stringify(payload);

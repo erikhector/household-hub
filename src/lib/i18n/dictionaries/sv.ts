@@ -1819,6 +1819,22 @@ export const sv = {
       notConfigured: "Push-notiser är inte konfigurerade för appen ännu.",
       permissionDenied: "Notiser är blockerade för den här sidan — kontrollera webbläsarens webbplatsinställningar.",
       error: "Något gick fel. Försök igen.",
+      quietHours: {
+        title: "Tysta timmar",
+        description:
+          "Pausa notiser på den här enheten under vissa timmar, till exempel på natten. Du ser fortfarande allt under klockan när du öppnar appen.",
+        activeDescription:
+          "Notiser på den här enheten är pausade från {start} till {end}. Du ser fortfarande allt under klockan när du öppnar appen.",
+        startLabel: "Från",
+        endLabel: "Till",
+        sameHours: "Välj två olika tider.",
+        save: "Spara tysta timmar",
+        saving: "Sparar…",
+        saved: "Tysta timmar sparade",
+        clear: "Stäng av tysta timmar",
+        cleared: "Tysta timmar avstängda",
+        error: "Det gick inte att spara tysta timmar. Försök igen.",
+      },
     },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
