@@ -110,4 +110,11 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     purpose: 'Remembers which "use it up" recipe suggestions you\'ve dismissed on the Recipes tab.',
     duration: "Until you clear site data",
   },
+  {
+    name: "mealPlanning.nutritionRecapDismissedWeek",
+    kind: "localStorage",
+    category: "preference",
+    purpose: "Remembers that you've dismissed the weekly nutrition recap for a given week on the Planner tab.",
+    duration: "Until you clear site data",
+  },
 ];

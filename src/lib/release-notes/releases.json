@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.14.0",
+    "date": "2026-09-25",
+    "pr": 37,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning now shows a soft weekly nutrition recap — a quick \"here's what\nyou've got planned\" total for any recipes with nutrition info filled in.\nDismiss it any time; it's just a summary, not a goal tracker.",
+      "sv": "Måltidsplaneringen visar nu en enkel veckosammanfattning av näringsvärden —\nen snabb totalsumma för recept där du fyllt i näringsinformation. Du kan\nstänga den när du vill; det är bara en sammanfattning, inget mål att nå."
+    }
+  },
+  {
+    "version": "0.13.1",
+    "date": "2026-09-25",
+    "pr": 40,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Budget, Personal Budget and Meal Planning now load a bit faster — the page appears right away while its data streams in.",
+      "sv": "Budget, Personlig budget och Måltidsplanering laddas nu lite snabbare — sidan visas direkt medan datan strömmas in."
+    }
+  },
+  {
     "version": "0.13.0",
     "date": "2026-09-25",
     "pr": 36,

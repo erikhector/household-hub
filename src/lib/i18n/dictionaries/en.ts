@@ -872,6 +872,12 @@ export const en = {
       other: "{count} different meals this month",
     },
     varietyRecapDismissAriaLabel: "Dismiss",
+    // Weekly nutrition recap (BACKLOG GAP-2) — {summary} is the joined
+    // "320 kcal · 20g protein · …" string built in MealNutritionRecap from
+    // the nutritionXValue templates below, listing only the fields actually
+    // set on that week's planned recipes.
+    nutritionRecap: "This week's planned meals: {summary}",
+    nutritionRecapDismissAriaLabel: "Dismiss",
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",

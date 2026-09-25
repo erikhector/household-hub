@@ -842,6 +842,8 @@ export const sv = {
       other: "{count} olika måltider den här månaden",
     },
     varietyRecapDismissAriaLabel: "Stäng",
+    nutritionRecap: "Den här veckans planerade måltider: {summary}",
+    nutritionRecapDismissAriaLabel: "Stäng",
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",

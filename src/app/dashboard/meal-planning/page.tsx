@@ -7,8 +7,10 @@ import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
 import { CookNowList } from "@/components/meal-planning/cook-now-list";
 import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
+import { MealNutritionRecap } from "@/components/meal-planning/meal-nutrition-recap";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
+import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
@@ -96,7 +98,23 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
   }));
 
-  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems };
+  // Feeds the "nutrition recap" (BACKLOG GAP-2) — scoped to just the
+  // currently-displayed week's entries (mealPlan.entries above, already
+  // filtered by weekStartDate), unlike the variety recap's independent
+  // trailing-30-day window. Reuses the recipe fields already joined onto
+  // each entry via `include: { recipe: true }` rather than a separate query.
+  const nutritionRecapTotals = computeNutritionRecap(
+    (mealPlan?.entries ?? []).map((entry) => ({
+      recipeId: entry.recipeId,
+      portions: entry.portions,
+      caloriesPerServing: entry.recipe?.caloriesPerServing ?? null,
+      proteinGramsPerServing: entry.recipe?.proteinGramsPerServing ?? null,
+      carbsGramsPerServing: entry.recipe?.carbsGramsPerServing ?? null,
+      fatGramsPerServing: entry.recipe?.fatGramsPerServing ?? null,
+    })),
+  );
+
+  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems, nutritionRecapTotals };
 });
 
 // SCALE-J: a trailing-30-day window across all weeks, independent of
@@ -122,6 +140,24 @@ async function MealVarietyRecapSection({
   const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
   if (distinctRecipeCount === 0) return null;
   return <MealVarietyRecap count={distinctRecipeCount} dict={dict} />;
+}
+
+// GAP-2: week-scoped, so unlike MealVarietyRecapSection it reads from the
+// shared core fetch rather than running its own query. Same `null`
+// fallback as the variety recap — a footnote-weight card that either
+// appears once ready or not at all.
+async function MealNutritionRecapSection({
+  householdId,
+  dict,
+  weekStartKey,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+  weekStartKey: string;
+}) {
+  const { nutritionRecapTotals } = await getMealPlanningCoreData(householdId, weekStartKey);
+  if (nutritionRecapTotals.contributingEntryCount === 0) return null;
+  return <MealNutritionRecap totals={nutritionRecapTotals} weekStartKey={weekStartKey} dict={dict} />;
 }
 
 async function PlannerTabSection({
@@ -301,6 +337,11 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         varietyRecap={
           <Suspense key="variety-recap" fallback={null}>
             <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />
+          </Suspense>
+        }
+        nutritionRecap={
+          <Suspense key="nutrition-recap" fallback={null}>
+            <MealNutritionRecapSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
           </Suspense>
         }
         plannerTab={
