@@ -1,5 +1,5 @@
 import { Suspense, cache } from "react";
-import { ClipboardList, Plus, ScanLine, Sparkles } from "lucide-react";
+import { ClipboardList, Plus, ScanBarcode, ScanLine, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
+import { StockScanDialog } from "@/components/inventory/stock-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
@@ -78,7 +79,7 @@ async function InventoryWellStockedNote({ householdId, dict }: { householdId: st
 function InventoryActionButtonsSkeleton() {
   return (
     <div className="flex items-center gap-2" aria-hidden="true">
-      {Array.from({ length: 3 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-24" />
       ))}
       <div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-28" />
@@ -95,10 +96,24 @@ async function InventoryActionButtons({
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
 }) {
-  const { categories, locations, units } = await getInventoryData(householdId);
+  const { items, categories, locations, units } = await getInventoryData(householdId);
 
   return (
     <>
+      {/* AUTO-6: scan a remembered barcode to change its stock by one —
+          the everyday scan, as opposed to "Scan multiple"'s one-off bulk
+          add of new items. */}
+      <StockScanDialog
+        dict={dict}
+        barcodeDict={barcodeDict}
+        items={items.map((item) => ({ id: item.id, name: item.name }))}
+        trigger={
+          <Button variant="outline" className="gap-1.5">
+            <ScanBarcode className="size-4" />
+            <span className="sr-only sm:not-sr-only">{dict.stockScan.triggerLabel}</span>
+          </Button>
+        }
+      />
       <BulkPasteDialog
         dict={dict}
         categories={categories}

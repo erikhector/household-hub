@@ -88,42 +88,7 @@ enough to trust.
 
 ## Phase 1 — independent, no schema changes
 
-Parallel-safe except where noted. **File conflicts to watch:**
-AUTO-2b and AUTO-5 both edit
-`src/components/shopping/shopping-list-client.tsx` — run them sequentially or
-in one branch.
-
-### Shopping list & inventory automation
-
-- [ ] **AUTO-2b. Tappable category chip on shopping-list rows**
-      — `src/components/shopping/shopping-list-client.tsx`
-      AUTO-2 shipped the deterministic categorizer (household memory, the
-      bilingual dictionary, Open Food Facts categories); this item's own
-      optional AI fallback tier and the recipe-ingredient find-or-create fix
-      are also done (see REQUIREMENTS.md, "Data model" → Auto-categorization).
-      Still open: a way to correct a guess in place. The category is already
-      on each row (AUTO-3's `ShoppingListItemRow.category`, sourced from the
-      linked `InventoryItem`) — this just needs the chip UI to edit it there.
-
-- [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
-      — `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** ~10 header buttons; completing a list is a separate,
-      confirm-gated step after you've already checked everything off.
-      **Design brief:** visible: the smart add line (`SmartAddBar`), "Scan
-      receipt", and the overflow `⋯` menu. Everything else — import,
-      export, share, add low-stock, resolve mappings, archive, delete —
-      moves into the menu (delete stays visually destructive there). When
-      the last pending item is checked, the existing "cleared" state
-      (the "cleared" state from the archived Joy Gap backlog, item 1) gains a primary "Done shopping" button that completes
-      the list without a second confirm dialog, with an "Undo" on the toast
-      instead (see Guardrails). The existing "Complete list" path stays in
-      the menu for completing with items still pending.
-      **Dev notes:** undo needs an `uncompleteShoppingListAction` that
-      restores `ACTIVE` and deletes the Groceries `Transaction` created by
-      that completion — idempotent, household-scoped, same shape as
-      `undoMarkMealEntryCookedAction`. Return the created `Transaction` id
-      from `completeShoppingListAction` so undo targets exactly that row.
-      Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
+Parallel-safe except where noted.
 
 ### Budget component unification
 
@@ -140,108 +105,7 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-### Performance & security
-
-- [ ] **SCALE-H. Invalidate JWT sessions on password change** — currently, `resetPasswordAction`
-      (`src/lib/actions/auth.ts:318`) and `updatePasswordAction`
-      (`src/app/dashboard/profile/actions.ts:124`) both update `passwordHash` but do nothing
-      to the JWT session model (`src/lib/auth.config.ts` — `session: { strategy: "jwt" }`),
-      so a stolen session cookie survives a password reset/change. This is a known,
-      previously-documented gap (see `docs/archive/PRODUCTION_READINESS.md`'s task K note) — this task
-      closes it. Concrete design (already worked out, follow it rather than redesigning):
-      1. Add `passwordChangedAt DateTime?` to `User` in `prisma/schema.prisma` +
-         migration.
-      2. In `resetPasswordAction` and `updatePasswordAction`, set
-         `passwordChangedAt: new Date()` in the same `prisma.user.update` call that sets
-         `passwordHash` (both already do exactly one such update — find it and add the
-         field).
-      3. In `src/lib/auth.ts`'s `authorize()` callback, the `user` row is
-         already fetched in full from Prisma — include `passwordChangedAt` in the object
-         returned to NextAuth (currently just `{ id, email, name }`) so it's available to
-         the `jwt` callback at sign-in.
-      4. In `src/lib/auth.config.ts`'s `jwt` callback, stash it:
-         `if (user) token.pwdChangedAt = user.passwordChangedAt?.getTime() ?? null;`
-         alongside the existing `token.id = user.id`. This config is shared by both the
-         Edge-safe `proxy.ts` and the full `auth.ts` — this is fine since it only *reads*
-         the `user` object NextAuth already gives it, no new Prisma call in the Edge path.
-      5. In `src/lib/session.ts`'s `requireHousehold` and `requireUserId` (both already run
-         Node-side with Prisma access — `requireHousehold` already queries the DB, so this
-         adds no *new* query there; `requireUserId` currently does zero DB queries, so this
-         does add one there), after `auth()` returns a session, fetch the user's current
-         `passwordChangedAt` and compare it against `token.pwdChangedAt` from the session
-         (`session.user` needs `pwdChangedAt` piped through the `session` callback in
-         `auth.config.ts` the same way `id` already is). If the DB value is
-         newer than what's embedded in the token, treat it as an invalid session — call
-         `redirect("/login")` exactly like the existing "no session" branches do.
-      6. Existing users have `passwordChangedAt: null` — treat `null` as "never
-         changed, any token is valid" (no forced logout for the entire existing user base
-         on deploy).
-      Add tests covering: a session issued before a password change is rejected by
-      `requireHousehold`, a session issued after is accepted, and a user who has never
-      changed their password (`passwordChangedAt: null`) is unaffected — matching this
-      repo's existing mocked-Prisma vitest style (see `src/lib/session.test.ts` if it
-      exists, otherwise create one). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, `npm run build`, and a manual live check: log in, reset the password
-      from another tab/session, confirm the original session is now rejected on its next
-      request.
-
 ### Shopping list & inventory automation
-
-- [ ] **AUTO-6. Remember barcodes: scan = one-tap stock change**
-      — `prisma/schema.prisma` (`InventoryItem`),
-      `src/components/shared/barcode-scanner.tsx`,
-      `src/lib/actions/barcode.ts`, `src/app/dashboard/inventory/page.tsx`
-      **Problem:** barcode scanning only ever pre-fills a name; nothing is
-      remembered, so it never gets faster.
-      **Design brief:** a "Scan" button on the inventory page that opens
-      the camera in a *continuous* mode with a two-state toggle: **Put
-      away** (+1 per scan) and **Used up** (−1 per scan, with "…and add to
-      list" when it hits 0). A known barcode applies instantly with a short
-      toast + Undo and the camera stays open for the next item; an unknown
-      barcode shows the Open Food Facts name (and category, via AUTO-2)
-      with a one-tap "Add as new item" or "This is…" picker to link it to an
-      existing item. The shopping-list scan button (in the smart add line) adds a
-      known barcode's item to the list in one scan.
-      **Dev notes:** `barcode String?` on `InventoryItem` plus
-      `@@unique([householdId, barcode])` (one product per household per
-      code; a second product may link the same code only by moving it).
-      New `scanStockChangeAction(barcode, delta)` resolves the barcode
-      household-scoped and reuses `adjustQuantityAction`'s clamping and
-      `recordOutOfStockTransition` side effect (the `RESTOCKED` kind is
-      retired — see `src/lib/notifications.ts` — so don't revive it here),
-      plus AUTO-8's `addToDefaultListOnLowStock` beside it (return its
-      `AutoAddedItem` so the scan toast can offer Undo via
-      `showAutoAddedToast`; "…and add to list" should target the default
-      list the way `markItemEmptyAction` does).
-      REQUIREMENTS.md's barcode section currently says "nothing about a scan
-      is ever persisted" — update it, and update the privacy note (still
-      only digits leave the device; the barcode is now stored with the
-      household's own inventory). Keep the existing "never blocks manual
-      entry" fallback behavior.
-
-- [ ] **AUTO-7. Estimated expiry from default shelf life**
-      — `prisma/schema.prisma` (`InventoryItem`), `src/lib/inventory/
-      expiry.ts`, bulk-create / receipt / shopping-list purchase paths
-      **Problem:** only the single-item form sets `expiresAt`, so almost no
-      items have one. Grocy solves this with per-product "default best
-      before days".
-      **Design brief:** when stock arrives (checked off a list, receipt
-      registered, put-away scan) an item with a known shelf life gets an
-      *estimated* expiry, shown in `ExpiryBadge` with a "≈" prefix and a
-      softer style than a real date. Editing the date in the item form
-      turns it into a real date. Items the user never wants tracked (salt,
-      rice) can be set to "doesn't expire".
-      **Dev notes:** `shelfLifeDays Int?` on `InventoryItem` (null = use
-      the category default, -1 = never expires — Grocy's convention) and
-      `expiresAtEstimated Boolean @default(false)`. Category defaults live
-      in the item-2 category table (e.g. dairy 7, bakery 4, fresh meat 3,
-      produce 5, frozen/dry/household = none). Only set an estimate when
-      stock goes from 0 → >0 or the item has no expiry yet — never push a
-      real (user-entered) date later. `getExpiryStatus` unchanged; the
-      `EXPIRING_SOON` notification should skip or soften estimated dates
-      (decide in design — recommended: include them, the notification copy
-      says "probably"). This supersedes REQUIREMENTS.md's "never set by any
-      bulk-add flow" rule for estimated dates only — update that text.
 
 - [ ] **AUTO-9. Learn the household's store order**
       — `prisma/schema.prisma`, `src/components/shopping/
@@ -330,9 +194,9 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       exists, it's just shorter.
       **Dev notes:** a second, stricter threshold alongside the current
       pre-select threshold for `findInventoryMatches`; tune against real
-      receipts before shipping. Once AUTO-6 exists, receipts with EANs
-      (rare in Swedish receipts, but some chains print them) can match by
-      barcode exactly.
+      receipts before shipping. Receipts with EANs (rare in Swedish receipts,
+      but some chains print them) can also match by barcode exactly, now
+      that AUTO-6 stores `InventoryItem.barcode`.
 
 - [ ] **AUTO-12. Voice add**
       — `src/components/shopping/smart-add-bar.tsx`
@@ -627,6 +491,147 @@ out to be a product-scope question rather than a scoped task should move to
       least one of those Phase 2 items has real usage.
 
 ---
+
+### 2026-09-25 scan
+
+- [ ] **GAP-21. Budget category rollover (envelope carryover)** —
+      `prisma/schema.prisma` (`BudgetCategory`), `src/lib/safe-to-spend-calc.ts`,
+      `src/components/budget/category-manager.tsx`,
+      `src/components/budget/period-summary.tsx`. GAP-12 (2026-09-24 scan)
+      adds a per-category spending *cap*; this is the other half of
+      Goodbudget/YNAB-style envelope budgeting neither this app nor GAP-12
+      covers — unspent budget in a category simply resets to zero "progress
+      toward the limit" each month instead of accumulating the way
+      an envelope's leftover cash would. Add an optional
+      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (same
+      Phase 2 migration as GAP-12 if both land together; independent
+      otherwise). A pure `computeCategoryRollover` helper (new
+      `src/lib/budget-rollover-calc.ts` + test, dependency-free like
+      `safe-to-spend-calc.ts`) sums each prior month's (limit − spent) for a
+      rollover-enabled category and folds it into that category's *available*
+      amount for the selected month; `PeriodSummary`'s bar then renders
+      against limit + carried-over balance, not just the raw limit. Carried
+      balance never goes below zero (overspending a month doesn't create
+      debt the next one has to dig out of) — the simpler, more forgiving half
+      of true envelope budgeting, matching this app's "suggest, don't gate"
+      stance.
+
+- [ ] **GAP-22. Savings goals on a budget category** —
+      `prisma/schema.prisma` (`BudgetCategory`),
+      `src/components/budget/category-manager.tsx`,
+      `src/components/budget/safe-to-spend.tsx`. Distinct from GAP-12's
+      spending cap: a `SAVINGS`-type category (the type already exists per
+      "Safe to spend"'s "money moved into a `SAVINGS` category") has no way
+      to target an amount by a date the way YNAB's/Qapital's goals do — today
+      it's just a running total with no destination. Add optional
+      `goalAmount Float?` and `goalDate DateTime?` to `BudgetCategory` (Phase
+      2 migration), settable only when `type === "SAVINGS"` in
+      `CategoryManager`. A small pure helper (`computeSavingsGoalProgress`,
+      colocated with `safe-to-spend-calc.ts` or its own file) turns
+      (amount saved so far, goal, months remaining until `goalDate`) into a
+      "save ~X/month to reach this by {date}" line and a progress bar —
+      informational only, never a notification (Guardrails: no
+      streaks/loss-aversion on money) and never blocks a transaction.
+
+- [ ] **GAP-23. Copy last week's meal plan forward** —
+      `src/app/dashboard/meal-planning/planner-actions.ts`,
+      `src/components/meal-planning/week-planner.tsx`. Plan to Eat and
+      Mealime both let a household repeat a week instead of re-picking every
+      recipe; today `week-planner.tsx` only supports adding one
+      `MealPlanEntry` at a time per day/slot (`addMealEntryAction`), so a
+      household that eats similar rotations has to re-enter the whole grid
+      every Monday. A `copyWeekAction(fromWeekStart, toWeekStart)` that reads
+      the source week's `MealPlanEntry` rows (`recipeId`/`freeformName` +
+      `mealType`, re-dated onto the target week via the existing
+      `date-utils.ts` normalization) and bulk-inserts them onto the target
+      week's `MealPlan` (created lazily via the same `upsert` pattern
+      `addMealEntryAction` already uses), skipping any slot the target week
+      already has an entry in rather than overwriting. Exposed as a "Copy
+      last week" button on an empty week's planner view — the lowest-friction
+      entry point, since that's exactly when a household would reach for it.
+
+- [ ] **GAP-24. Print-friendly shopping list view** —
+      `src/app/dashboard/shopping-list/[id]/page.tsx`,
+      `src/components/shopping/shopping-list-client.tsx`. AnyList and
+      Listonic both offer a plain printable list for households that still
+      shop with paper or want a large-text version taped to the fridge; this
+      app's CSV export (Data export section) is spreadsheet-oriented, not
+      reading-oriented, and there's no print stylesheet today. A `@media
+      print` rule (Tailwind's `print:` variant) on the shopping list detail
+      page hiding buttons/nav/chrome and rendering pending items grouped by
+      category in a large, single-column, high-contrast layout — no new
+      route, no new dependency, just CSS plus the browser's native print
+      dialog (`window.print()` behind a small "Print" affordance in the
+      `⋯` menu, same menu AUTO-5 is consolidating actions into).
+
+- [ ] **GAP-25. Substitution hints for missing ingredients** —
+      `src/app/dashboard/meal-planning/missing-ingredients.ts`,
+      `src/components/meal-planning/missing-ingredients-dialog.tsx`.
+      Paprika and Plan to Eat both suggest a common swap ("no buttermilk? use
+      milk + lemon juice") instead of just flagging a shortfall; today
+      `computeMissingIngredients` only ever reports "need 2, have 0.5" with
+      no next step besides adding it to the shopping list. A small static
+      bilingual substitution table (`src/lib/inventory/substitutions.ts`,
+      keyed by normalized ingredient name — same `normalizeUnit`-style
+      lowercase/trim keying `missing-ingredients.ts` already uses for
+      grouping, mirroring AUTO-2's category dictionary approach rather than
+      an AI call) surfaces a muted "try: X instead" line under a missing
+      ingredient in the dialog when a match exists. No schema change,
+      deterministic and keyless per the Guardrails' AI-is-the-long-tail rule
+      — a good candidate to *not* need AI at all, unlike most of the
+      `AUTO-` items.
+
+- [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
+      needs an infrastructure decision before scoping. Bring! and AnyList
+      show a live indicator when another household member has the same list
+      open, which matters for exactly the moment this app doesn't yet handle
+      well: two people at the same store both working off
+      `ShoppingListShareLink`/the household's own list. Today updates only
+      reach other viewers via `revalidatePath` on the next Server Action
+      (`src/app/share/shopping-list/actions.ts`) — there's no polling or
+      push between household members' own open tabs, so a stale list is
+      silently possible for as long as nobody taps anything. A real presence
+      indicator needs either short-interval polling (cheap, but a genuine
+      new request pattern for a page that's otherwise fully
+      Server-Action-driven) or a push channel (WebSocket/SSE — no such
+      infrastructure exists in this app today, `web-push` only sends
+      one-shot OS notifications). Worth deciding the mechanism before
+      committing, rather than treating it as a routine feature slice.
+
+- [ ] **GAP-27. Weekly household digest email** — new
+      `src/lib/actions/digest.ts` (or a scheduled route handler),
+      `src/lib/email.ts`. Cozi's daily family agenda email is a top-cited
+      reason households stick with it; this app's Resend integration
+      (`src/lib/email.ts`) is wired only for transactional auth mail
+      (invites, password reset, verification) — nothing summarizes what's
+      already computed for the in-app recaps (`MealVarietyRecap`,
+      `TasksWeeklyRecap`, expiring-soon items, the current month's
+      `SafeToSpend` headline). An opt-in (default off — email is a higher-
+      commitment channel than the bell) weekly digest reusing those same
+      pure calculators against each household's data, sent to every member
+      who's turned it on. Needs a scheduler this app doesn't have yet (a
+      cron-triggered route, e.g. Vercel Cron hitting a protected route
+      handler) — note that as a dependency before estimating, same spirit as
+      the `INFRA-` items' "needs a service" flag even though this one needs
+      no new paid provider, just a trigger.
+
+- [ ] **GAP-28. "Mark as opened" shelf-life reset** —
+      `prisma/schema.prisma` (`InventoryItem`), `src/lib/inventory/expiry.ts`.
+      Distinct from AUTO-7 (Phase 2, estimated expiry from default shelf
+      life on *arrival*): Grocy also tracks a shorter "use within N days once
+      opened" clock separately from the unopened best-before date (milk
+      might keep 14 days sealed but only 3 once opened) — today this app has
+      exactly one `expiresAt` per item and no concept of "opened" at all. Add
+      `openedAt DateTime?` and `useWithinDaysOpened Int?` to `InventoryItem`
+      (Phase 2 migration, layers naturally on top of AUTO-7's
+      `shelfLifeDays`/`expiresAtEstimated` fields once those land — build
+      this after AUTO-7, not instead of it). A "Mark opened" action on the
+      inventory row sets `openedAt` and recomputes `expiresAt` to
+      `min(existing expiresAt, openedAt + useWithinDaysOpened)` when the
+      latter is set; `ExpiryBadge` shows an "opened" tag alongside the
+      existing "≈" estimate styling. Only meaningful for items with
+      `useWithinDaysOpened` set, so the action is hidden otherwise rather
+      than always showing a no-op button.
 
 ## Needs a decision before building
 

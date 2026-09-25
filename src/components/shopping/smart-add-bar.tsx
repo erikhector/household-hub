@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { smartAddShoppingListItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { findItemByBarcodeAction } from "@/lib/actions/barcode";
+import { BarcodeScannerButton } from "@/components/shared/barcode-scanner";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import {
@@ -26,13 +28,19 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  * rankSmartAddSuggestions for the order). Same rhythm as the inventory's
  * QuickAddBar — commit, clear, keep focus, type the next one — with no
  * dialog in between. ShoppingItemFormDialog is still there for editing a
- * row and for the advanced add (barcode, explicit link/create).
+ * row and for the advanced add (explicit link/create).
+ *
+ * The scan button next to it (AUTO-6) adds a remembered barcode's item in
+ * one scan, through the same action and dedupe as a typed name. An unknown
+ * code never blocks: its Open Food Facts name (if any) is dropped into the
+ * input for the user to check and press Enter, same as typing it.
  */
 export function SmartAddBar({
   listId,
   candidates,
   pendingInventoryItemIds,
   dict,
+  barcodeDict,
   onAdded,
 }: {
   listId: string;
@@ -40,6 +48,7 @@ export function SmartAddBar({
   /** Inventory items already pending on this list — not worth suggesting. */
   pendingInventoryItemIds: string[];
   dict: Dictionary["shoppingList"]["smartAdd"];
+  barcodeDict: Dictionary["barcodeScanner"];
   onAdded: (shoppingListItemIds: string[]) => void;
 }) {
   const [value, setValue] = useState("");
@@ -75,16 +84,44 @@ export function SmartAddBar({
         setValue((current) => current || submitted);
         return;
       }
-      const addedIds = result.addedIds ?? [];
-      const alreadyOnList = result.alreadyOnList ?? [];
-      if (addedIds.length > 0) {
-        onAdded(addedIds);
-        setAnnouncement(format(plural(addedIds.length, dict.addedAnnouncement), { count: addedIds.length }));
-      }
-      if (alreadyOnList.length > 0) {
-        toast.info(format(plural(alreadyOnList.length, dict.alreadyOnList), { names: alreadyOnList.join(", ") }));
-      }
+      reportAdded(result);
     });
+  };
+
+  const reportAdded = (result: { addedIds?: string[]; alreadyOnList?: string[] }) => {
+    const addedIds = result.addedIds ?? [];
+    const alreadyOnList = result.alreadyOnList ?? [];
+    if (addedIds.length > 0) {
+      onAdded(addedIds);
+      setAnnouncement(format(plural(addedIds.length, dict.addedAnnouncement), { count: addedIds.length }));
+    }
+    if (alreadyOnList.length > 0) {
+      toast.info(format(plural(alreadyOnList.length, dict.alreadyOnList), { names: alreadyOnList.join(", ") }));
+    }
+  };
+
+  const handleScanned = async (barcode: string) => {
+    const found = await findItemByBarcodeAction(barcode);
+    if (found.kind === "error") {
+      toast.error(found.error);
+      return;
+    }
+    if (found.kind === "unknown") {
+      if (found.name) setValue(found.name);
+      toast.info(found.name ? dict.scanUnknown : dict.scanUnknownNoName);
+      inputRef.current?.focus();
+      return;
+    }
+    const { item } = found;
+    const result = await smartAddShoppingListItemsAction(listId, [
+      { name: item.name, quantity: 1, unit: item.unit, inventoryItemId: item.id },
+    ]);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    if ((result.addedIds ?? []).length > 0) toast.success(format(dict.scanAddedToast, { name: item.name }));
+    reportAdded(result);
   };
 
   const pick = (suggestion: SmartAddCandidate) => commit(rowsForSuggestion(value, suggestion));
@@ -187,6 +224,12 @@ export function SmartAddBar({
             </ul>
           )}
         </div>
+        <BarcodeScannerButton
+          dict={barcodeDict}
+          size="icon"
+          label={dict.scanLabel}
+          onDetected={handleScanned}
+        />
         <Button
           type="button"
           size="icon"

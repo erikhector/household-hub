@@ -283,14 +283,14 @@ describe("syncMealNotLoggedNotifications", () => {
 
 describe("syncExpiringSoonNotifications", () => {
   it("creates an EXPIRING_SOON alert for an in-stock item nearing its expiry date", async () => {
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt" }]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt", expiresAtEstimated: false }]);
     notificationFindManyMock.mockResolvedValueOnce([]); // no existing undismissed alert
 
     await syncExpiringSoonNotifications("household-1");
 
     expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
       where: { householdId: "household-1", quantity: { gt: 0 }, expiresAt: { lte: expect.any(Date) } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, expiresAtEstimated: true },
     });
     expect(notificationCreateMock).toHaveBeenCalledWith({
       data: { householdId: "household-1", kind: "EXPIRING_SOON", inventoryItemId: "item-1" },
@@ -298,6 +298,23 @@ describe("syncExpiringSoonNotifications", () => {
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
       title: "Expiring soon",
       body: "Yogurt is expiring soon",
+      url: "/dashboard/inventory",
+    });
+  });
+
+  // AUTO-7: an estimated expiry still fires the alert (Guardrails: this is
+  // an inventory-quantity-adjacent guess worth surfacing), just with
+  // softened "probably" push copy — see notification-bell.tsx's
+  // notificationLabel for the bell's own equivalent softening.
+  it("softens the push copy to 'probably' for an item whose expiry is an estimate", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Yogurt", expiresAtEstimated: true }]);
+    notificationFindManyMock.mockResolvedValueOnce([]);
+
+    await syncExpiringSoonNotifications("household-1");
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith("household-1", {
+      title: "Expiring soon",
+      body: "Yogurt is probably expiring soon",
       url: "/dashboard/inventory",
     });
   });
@@ -409,14 +426,36 @@ describe("getActiveNotifications", () => {
         id: "notif-3",
         kind: "EXPIRING_SOON",
         inventoryItemId: "item-1",
-        inventoryItem: { name: "Yogurt" },
+        inventoryItem: { name: "Yogurt", expiresAtEstimated: false },
         mealPlanEntry: null,
       },
     ]);
 
     const notifications = await getActiveNotifications("household-1");
 
-    expect(notifications).toEqual([{ id: "notif-3", kind: "expiringSoon", itemId: "item-1", name: "Yogurt" }]);
+    expect(notifications).toEqual([
+      { id: "notif-3", kind: "expiringSoon", itemId: "item-1", name: "Yogurt", estimated: false },
+    ]);
+  });
+
+  // AUTO-7: carries the item's expiresAtEstimated flag through so the bell
+  // can soften its wording (see notification-bell.tsx's notificationLabel).
+  it("marks an EXPIRING_SOON row as estimated when its expiry is a shelf-life guess", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "notif-3",
+        kind: "EXPIRING_SOON",
+        inventoryItemId: "item-1",
+        inventoryItem: { name: "Yogurt", expiresAtEstimated: true },
+        mealPlanEntry: null,
+      },
+    ]);
+
+    const notifications = await getActiveNotifications("household-1");
+
+    expect(notifications).toEqual([
+      { id: "notif-3", kind: "expiringSoon", itemId: "item-1", name: "Yogurt", estimated: true },
+    ]);
   });
 
   it("drops an EXPIRING_SOON row whose inventory item no longer exists", async () => {

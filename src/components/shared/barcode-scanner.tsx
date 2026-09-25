@@ -48,13 +48,23 @@ type Phase = "idle" | "starting" | "scanning" | "looking-up" | "error";
 export function BarcodeScannerButton({
   dict,
   onResult,
+  onDetected,
   disabled,
   size = "default",
+  label,
 }: {
   dict: BarcodeScannerDict;
-  onResult: (result: BarcodeScanResult) => void;
+  onResult?: (result: BarcodeScanResult) => void;
+  /** Replaces the default Open Food Facts lookup + `onResult` with the
+   * caller's own handling of the decoded code — the shopping list's smart
+   * add line uses it to resolve a remembered barcode (AUTO-6) first. The
+   * dialog shows "looking up" until it settles, then closes. */
+  onDetected?: (barcode: string) => Promise<void>;
   disabled?: boolean;
-  size?: "default" | "sm" | "xs";
+  /** "icon" renders just the scan icon, with `label` (or the default
+   * "Scan barcode") as its accessible name. */
+  size?: "default" | "sm" | "xs" | "icon";
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -215,9 +225,15 @@ export function BarcodeScannerButton({
       if (cancelled) return;
       stopCamera();
       setPhase("looking-up");
+      if (onDetected) {
+        await onDetected(barcode);
+        if (cancelled) return;
+        setOpen(false);
+        return;
+      }
       const result = await lookupBarcodeAction(barcode);
       if (cancelled) return;
-      onResult({ barcode, name: result.name, category: result.category ?? null });
+      onResult?.({ barcode, name: result.name, category: result.category ?? null });
       setOpen(false);
     };
 
@@ -238,9 +254,10 @@ export function BarcodeScannerButton({
         size={size}
         disabled={disabled}
         onClick={() => setOpen(true)}
+        aria-label={size === "icon" ? (label ?? dict.scanButton) : undefined}
       >
         <ScanLine className="size-4" />
-        {dict.scanButton}
+        {size !== "icon" && (label ?? dict.scanButton)}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">

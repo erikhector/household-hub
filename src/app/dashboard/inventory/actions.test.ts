@@ -21,6 +21,8 @@ const {
   notificationFindFirstMock,
   notificationCreateMock,
   inventoryItemFindUniqueMock,
+  updateManyMock,
+  transactionMock,
   revalidatePathMock,
   addToDefaultListOnLowStockMock,
   addItemToDefaultListMock,
@@ -39,13 +41,18 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
+  updateManyMock: vi.fn(),
+  transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
   addItemToDefaultListMock: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", () => {
+  const prisma = {
+    // Interactive transactions run against the same mocked client, so
+    // assertions see every write regardless of which client made it.
+    $transaction: transactionMock,
     inventoryItem: {
       create: createMock,
       createMany: createManyMock,
@@ -54,12 +61,15 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: findFirstMock,
       findUnique: inventoryItemFindUniqueMock,
       deleteMany: deleteManyMock,
+      updateMany: updateManyMock,
     },
     shoppingList: { findFirst: shoppingListFindFirstMock, create: shoppingListCreateMock },
     shoppingListItem: { findFirst: shoppingListItemFindFirstMock, create: shoppingListItemCreateMock },
     notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
-  },
-}));
+  };
+  transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => {
   const { en } = await import("@/lib/i18n/dictionaries/en");
@@ -216,11 +226,27 @@ describe("createInventoryItemAction validation (itemSchema)", () => {
         category: "Baking",
         quantity: 2,
         unit: "kg",
+        location: undefined,
         lowStockThreshold: 1,
         expiresAt: null,
+        expiresAtEstimated: false,
+        shelfLifeDays: null,
         updatedByUserId: "user-1",
       },
     });
+  });
+
+  // AUTO-7
+  it("sets shelfLifeDays to -1 and clears expiresAt when 'doesn't expire' is checked", async () => {
+    createMock.mockResolvedValue({});
+    const fd = formData({ ...validItem, expiresAt: "2026-12-25" });
+    fd.set("neverExpires", "on");
+
+    await createInventoryItemAction({}, fd);
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expiresAt: null, shelfLifeDays: -1 }) }),
+    );
   });
 });
 
@@ -282,6 +308,67 @@ describe("updateInventoryItemAction", () => {
     });
   });
 
+  // AUTO-7: "editing the date makes it real" means the date, not the form —
+  // saving the form for an unrelated reason must not silently turn an
+  // existing estimate into a "real" one.
+  describe("expiresAtEstimated (AUTO-7)", () => {
+    const estimatedDate = new Date("2026-10-01T20:49:39.440Z");
+
+    it("keeps an existing estimate when the submitted date is the same calendar day (an untouched, re-submitted date input)", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      // The date input round-trips only the YYYY-MM-DD portion of the
+      // estimate — same calendar day, different time of day.
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-10-01" });
+
+      await updateInventoryItemAction({}, fd);
+
+      const data = updateMock.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty("expiresAtEstimated");
+      expect(data.expiresAt).toEqual(new Date("2026-10-01"));
+    });
+
+    it("makes the date real when the submitted date is a different day", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-11-15" });
+
+      await updateInventoryItemAction({}, fd);
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ expiresAt: new Date("2026-11-15"), expiresAtEstimated: false }),
+        }),
+      );
+    });
+
+    it("clears the estimate flag when the date is cleared", async () => {
+      findFirstMock.mockResolvedValue({
+        id: "item-1",
+        expiresAt: estimatedDate,
+        expiresAtEstimated: true,
+      });
+      updateMock.mockResolvedValue({});
+      const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-10-01" });
+      fd.delete("expiresAt");
+
+      await updateInventoryItemAction({}, fd);
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ expiresAt: null, expiresAtEstimated: false }),
+        }),
+      );
+    });
+  });
 });
 
 describe("adjustQuantityAction", () => {
@@ -494,5 +581,68 @@ describe("auto-categorizing quick-add and bulk-add (AUTO-2)", () => {
 
     const rows = createManyMock.mock.calls[0][0].data;
     expect(rows.map((row: { category: string }) => row.category)).toEqual(["Skafferi", "Skafferi"]);
+  });
+
+  // AUTO-7: a brand-new bulk-created row has no prior expiresAt to protect,
+  // so it gets an estimate whenever its (guessed or shared) category has a
+  // default shelf life — never for one that doesn't.
+  it("bulk-add estimates an expiry for items whose category has a default shelf life", async () => {
+    createManyMock.mockResolvedValue({ count: 3 });
+
+    await bulkCreateInventoryItemsAction([
+      { name: "Bananer" }, // guesses "Produce" (5 days)
+      { name: "Zoégas Skånerost", category: "Pantry basics" }, // no default
+      { name: "AA batteries" }, // falls back to "Uncategorized", no default
+    ]);
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows[0].expiresAtEstimated).toBe(true);
+    expect(rows[0].expiresAt).toBeInstanceOf(Date);
+    expect(rows[1].expiresAtEstimated).toBeUndefined();
+    expect(rows[2].expiresAtEstimated).toBeUndefined();
+  });
+});
+
+describe("remembering a scanned barcode on create (AUTO-6)", () => {
+  it("stores the form's scanned code on the new item, moving it off any other item first", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, barcode: "036000291452" }));
+
+    // 12-digit UPC-A is stored in its GTIN-13 form (normalizeBarcode).
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", barcode: "0036000291452" },
+      data: { barcode: null },
+    });
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ householdId: "household-1", name: "Flour", barcode: "0036000291452" }),
+    });
+  });
+
+  it("ignores a barcode field that isn't barcode-shaped", async () => {
+    createMock.mockResolvedValue({});
+
+    await createInventoryItemAction({}, formData({ ...validItem, barcode: "not-a-code" }));
+
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(createMock.mock.calls[0][0].data).not.toHaveProperty("barcode");
+  });
+
+  it("bulk-add keeps each scanned row's code, once per code, and releases it from older items", async () => {
+    createManyMock.mockResolvedValue({ count: 3 });
+
+    await bulkCreateInventoryItemsAction([
+      { name: "Milk", barcode: "7310865004703" },
+      { name: "Oat milk", barcode: "7310865004703" },
+      { name: "Bread" },
+    ]);
+
+    const rows = createManyMock.mock.calls[0][0].data;
+    expect(rows.map((row: { barcode: string | null }) => row.barcode)).toEqual(["7310865004703", null, null]);
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", barcode: "7310865004703" },
+      data: { barcode: null },
+    });
   });
 });

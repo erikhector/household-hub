@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 
 export function ConfirmDialog({
@@ -30,10 +31,14 @@ export function ConfirmDialog({
   pendingLabel,
   variant = "destructive",
   onConfirm,
+  handle,
 }: {
   /** The element that opens the dialog — usually the existing trash/remove
-   * icon button, unchanged except its onClick moves into `onConfirm`. */
-  trigger: ReactElement;
+   * icon button, unchanged except its onClick moves into `onConfirm`.
+   * Omit it when the dialog is opened through `handle` instead (e.g. from a
+   * DropdownMenu item — see createDialogHandle). */
+  trigger?: ReactElement;
+  handle?: DialogHandle;
   title: string;
   description: string;
   cancelLabel: string;
@@ -60,8 +65,8 @@ export function ConfirmDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={setOpen} handle={handle}>
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="break-words">{title}</DialogTitle>

@@ -23,6 +23,7 @@ const {
   emailVerificationTokenCreateMock,
   transactionMock,
   requireHouseholdMock,
+  requireUserIdMock,
   cookieSetMock,
   headersMock,
   redirectMock,
@@ -59,6 +60,7 @@ const {
     });
   }),
   requireHouseholdMock: vi.fn(),
+  requireUserIdMock: vi.fn(),
   cookieSetMock: vi.fn(),
   headersMock: vi.fn(async () => new Map()),
   redirectMock: vi.fn((path: string) => {
@@ -74,8 +76,13 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     household: { create: householdCreateMock, delete: householdDeleteMock, update: householdUpdateMock },
     user: { findUnique: userFindUniqueMock },
-    invitation: { findUnique: invitationFindUniqueMock, findFirst: invitationFindFirstMock },
+    invitation: {
+      findUnique: invitationFindUniqueMock,
+      findFirst: invitationFindFirstMock,
+      update: vi.fn(async () => ({})),
+    },
     householdMember: {
+      create: vi.fn(async () => ({})),
       findFirst: householdMemberFindFirstMock,
       findUnique: householdMemberFindUniqueMock,
       delete: householdMemberDeleteMock,
@@ -88,6 +95,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({
   ACTIVE_HOUSEHOLD_COOKIE: "active_household",
   requireHousehold: requireHouseholdMock,
+  requireUserId: requireUserIdMock,
 }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build — stub it out.
@@ -107,6 +115,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
   createHouseholdAction,
+  acceptInviteAction,
   joinViaInviteSignupAction,
   sendInviteEmailAction,
   removeMemberAction,
@@ -144,7 +153,7 @@ afterEach(() => {
 
 describe("createHouseholdAction validation (createHouseholdSchema)", () => {
   it("rejects an empty name", async () => {
-    requireHouseholdMock.mockResolvedValue({ userId: "user-1" });
+    requireUserIdMock.mockResolvedValue("user-1");
 
     const result = await createHouseholdAction({}, formData({ name: "  " }));
 
@@ -152,8 +161,11 @@ describe("createHouseholdAction validation (createHouseholdSchema)", () => {
     expect(householdCreateMock).not.toHaveBeenCalled();
   });
 
+  // requireUserId rather than requireHousehold, so a user with zero
+  // memberships (the no-household page) can create one without being
+  // redirected away first.
   it("creates the household, sets the active cookie, and redirects on valid input", async () => {
-    requireHouseholdMock.mockResolvedValue({ userId: "user-1" });
+    requireUserIdMock.mockResolvedValue("user-1");
     householdCreateMock.mockResolvedValue({ id: "new-household" });
 
     await expect(
@@ -169,6 +181,33 @@ describe("createHouseholdAction validation (createHouseholdSchema)", () => {
     expect(cookieSetMock).toHaveBeenCalledWith(
       "active_household",
       "new-household",
+      expect.objectContaining({ path: "/" }),
+    );
+    expect(requireHouseholdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("acceptInviteAction", () => {
+  it("lets a signed-in user with no household join via the invite", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      household: { id: "household-1", name: "The Hectors" },
+    });
+    householdMemberFindUniqueMock.mockResolvedValue(null);
+
+    await expect(acceptInviteAction({}, formData({ token: "invite-token" }))).rejects.toThrow(
+      "REDIRECT:/dashboard",
+    );
+
+    expect(requireHouseholdMock).not.toHaveBeenCalled();
+    expect(transactionMock).toHaveBeenCalled();
+    expect(cookieSetMock).toHaveBeenCalledWith(
+      "active_household",
+      "household-1",
       expect.objectContaining({ path: "/" }),
     );
   });

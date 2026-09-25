@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactElement } from "react";
+import { useId, useRef, useState, type ReactElement } from "react";
 import { Camera, CameraOff, Loader2, ScanLine, X } from "lucide-react";
-import type { BarcodeDetector as BarcodeDetectorInstance } from "barcode-detector/ponyfill";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,18 +17,16 @@ import {
 import { ComboField } from "@/components/inventory/combo-field";
 import { bulkCreateInventoryItemsAction } from "@/app/dashboard/inventory/actions";
 import { lookupBarcodeAction } from "@/lib/actions/barcode";
+import { useBarcodeCamera } from "@/components/shared/use-barcode-camera";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-const BARCODE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"] as const;
-const DETECT_INTERVAL_MS = 350;
-// How long the queue pauses after a hit before it starts decoding again —
+// How long the queue ignores detections after a hit —
 // long enough that the same can/box still in frame isn't immediately
 // re-added, short enough that moving to the next item doesn't feel like a
 // wait. The user can also just move the item out of frame sooner.
 const COOLDOWN_MS = 1400;
 
-type Phase = "idle" | "starting" | "scanning" | "error";
 type Step = "scan" | "review";
 
 // `category` is Open Food Facts' suggestion for the product (AUTO-2), used
@@ -52,33 +49,13 @@ export function BulkScanDialog({
   const t = dict.bulkScan;
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("scan");
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [queue, setQueue] = useState<QueuedScan[]>([]);
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const idPrefix = useId();
 
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cooldownUntilRef = useRef(0);
-
-  const stopCamera = () => {
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    if (streamRef.current) {
-      for (const track of streamRef.current.getTracks()) track.stop();
-      streamRef.current = null;
-    }
-    if (videoRef.current) videoRef.current.srcObject = null;
-    detectorRef.current = null;
-  };
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -87,164 +64,54 @@ export function BulkScanDialog({
       setQueue([]);
       setCategory("");
       setLocation("");
-      setErrorMessage(null);
+      cooldownUntilRef.current = 0;
     }
   };
 
-  // Runs the camera + decode loop whenever the dialog is open and on the
-  // scanning step — see barcode-scanner.tsx's BarcodeScannerButton for the
-  // original single-shot version this generalizes to a running queue.
-  useEffect(() => {
-    if (!open || step !== "scan") return;
+  const handleDetected = async (barcode: string) => {
+    if (Date.now() < cooldownUntilRef.current) return;
+    cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
 
-    let cancelled = false;
-
-    const run = async () => {
-      setPhase("starting");
-      setErrorMessage(null);
-
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        if (!cancelled) {
-          setPhase("error");
-          setErrorMessage(barcodeDict.cameraUnavailable);
-        }
-        return;
+    let addedName = "";
+    let becameQuantity = 1;
+    setQueue((prev) => {
+      const idx = prev.findIndex((q) => q.barcode === barcode);
+      if (idx >= 0) {
+        const next = [...prev];
+        const nextQuantity = (Number(next[idx].quantity) || 0) + 1;
+        next[idx] = { ...next[idx], quantity: String(nextQuantity) };
+        addedName = next[idx].name || barcode;
+        becameQuantity = nextQuantity;
+        return next;
       }
+      return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: "1", category: null }];
+    });
 
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-      } catch (err) {
-        if (cancelled) return;
-        setPhase("error");
-        const name = err instanceof DOMException ? err.name : "";
-        setErrorMessage(
-          name === "NotAllowedError" || name === "PermissionDeniedError"
-            ? barcodeDict.cameraPermissionDenied
-            : barcodeDict.cameraUnavailable,
-        );
-        return;
-      }
-
-      if (cancelled) {
-        for (const track of stream.getTracks()) track.stop();
-        return;
-      }
-      streamRef.current = stream;
-
-      const video = videoRef.current;
-      if (!video) {
-        for (const track of stream.getTracks()) track.stop();
-        streamRef.current = null;
-        return;
-      }
-      video.srcObject = stream;
-      try {
-        await video.play();
-      } catch {
-        // Autoplay can reject even with muted+playsInline; frames still
-        // arrive and the decode loop below still runs.
-      }
-
-      let detector: BarcodeDetectorInstance;
-      try {
-        const { BarcodeDetector } = await import("barcode-detector/ponyfill");
-        detector = new BarcodeDetector({ formats: [...BARCODE_FORMATS] });
-      } catch {
-        if (!cancelled) {
-          setPhase("error");
-          setErrorMessage(barcodeDict.cameraError);
-        }
-        return;
-      }
-      if (cancelled) return;
-      detectorRef.current = detector;
-
-      if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
-      const canvas = canvasRef.current;
-
-      setPhase("scanning");
-      cooldownUntilRef.current = 0;
-
-      let decoding = false;
-      intervalRef.current = setInterval(() => {
-        if (decoding || Date.now() < cooldownUntilRef.current) return;
-        void (async () => {
-          const currentVideo = videoRef.current;
-          const currentDetector = detectorRef.current;
-          if (!currentVideo || !currentDetector) return;
-          if (currentVideo.readyState < currentVideo.HAVE_CURRENT_DATA) return;
-          if (currentVideo.videoWidth === 0 || currentVideo.videoHeight === 0) return;
-
-          decoding = true;
-          try {
-            if (canvas.width !== currentVideo.videoWidth || canvas.height !== currentVideo.videoHeight) {
-              canvas.width = currentVideo.videoWidth;
-              canvas.height = currentVideo.videoHeight;
-            }
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return;
-            ctx.drawImage(currentVideo, 0, 0, canvas.width, canvas.height);
-
-            try {
-              const results = await currentDetector.detect(canvas);
-              const barcode = results[0]?.rawValue;
-              if (barcode && !cancelled) await handleDetected(barcode);
-            } catch {
-              // A single failed detect() on one frame isn't fatal.
-            }
-          } finally {
-            decoding = false;
-          }
-        })();
-      }, DETECT_INTERVAL_MS);
-    };
-
-    const handleDetected = async (barcode: string) => {
-      cooldownUntilRef.current = Date.now() + COOLDOWN_MS;
-
-      let addedName = "";
-      let becameQuantity = 1;
-      setQueue((prev) => {
-        const idx = prev.findIndex((q) => q.barcode === barcode);
-        if (idx >= 0) {
-          const next = [...prev];
-          const nextQuantity = (Number(next[idx].quantity) || 0) + 1;
-          next[idx] = { ...next[idx], quantity: String(nextQuantity) };
-          addedName = next[idx].name || barcode;
-          becameQuantity = nextQuantity;
-          return next;
-        }
-        return [...prev, { key: `${barcode}-${Date.now()}`, barcode, name: "", quantity: "1", category: null }];
-      });
-
-      const result = await lookupBarcodeAction(barcode);
-      if (cancelled) return;
-      if (result.name) {
-        addedName = result.name;
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.barcode === barcode && !q.name ? { ...q, name: result.name ?? "", category: result.category ?? null } : q,
-          ),
-        );
-      }
-      toast.success(
-        becameQuantity > 1
-          ? format(t.scannedAgainFlash, { name: addedName || barcode, count: becameQuantity })
-          : format(t.scannedFlash, { name: addedName || barcode }),
+    const result = await lookupBarcodeAction(barcode);
+    if (result.name) {
+      addedName = result.name;
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.barcode === barcode && !q.name ? { ...q, name: result.name ?? "", category: result.category ?? null } : q,
+        ),
       );
-    };
+    }
+    toast.success(
+      becameQuantity > 1
+        ? format(t.scannedAgainFlash, { name: addedName || barcode, count: becameQuantity })
+        : format(t.scannedFlash, { name: addedName || barcode }),
+    );
+  };
 
-    void run();
-
-    return () => {
-      cancelled = true;
-      stopCamera();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, step]);
+  // The camera runs only on the scanning step — see useBarcodeCamera. The
+  // cooldown above (rather than the stock scan's "wait until it leaves the
+  // frame" guard) is deliberate here: holding a second identical can up is
+  // how the queue counts ×2.
+  const { phase, errorMessage, videoRef } = useBarcodeCamera({
+    active: open && step === "scan",
+    dict: barcodeDict,
+    onDetected: handleDetected,
+  });
 
   const updateRow = (key: string, patch: Partial<QueuedScan>) => {
     setQueue((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -255,7 +122,8 @@ export function BulkScanDialog({
   };
 
   const handleDone = () => {
-    stopCamera();
+    // Leaving the scanning step turns the camera off (useBarcodeCamera's
+    // `active` goes false).
     setStep("review");
   };
 
@@ -275,6 +143,9 @@ export function BulkScanDialog({
         quantity: Number(row.quantity) || 0,
         unit: "pcs",
         category: row.category ?? undefined,
+        // Remembered on the created item (AUTO-6), so a later stock scan
+        // of the same product resolves straight to it.
+        barcode: row.barcode,
       })),
       { category: category.trim() || undefined, location: location.trim() || undefined },
     );

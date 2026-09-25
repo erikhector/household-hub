@@ -84,6 +84,11 @@ export type ExpiringSoonNotification = {
   kind: "expiringSoon";
   itemId: string;
   name: string;
+  // AUTO-7: the item's expiry is a shelf-life estimate, not a date the
+  // household actually entered — the bell softens its wording for these
+  // ("probably", see notification-bell.tsx's notificationLabel) rather than
+  // stating a guess as fact.
+  estimated: boolean;
 };
 
 export type ListClearedNotification = {
@@ -112,7 +117,7 @@ type DbClient = typeof prisma | Prisma.TransactionClient;
 
 type NotificationRow = Prisma.NotificationGetPayload<{
   include: {
-    inventoryItem: { select: { name: true } };
+    inventoryItem: { select: { name: true; expiresAtEstimated: true } };
     mealPlanEntry: { select: { date: true; freeformName: true; recipe: { select: { name: true } } } };
     shoppingList: { select: { name: true } };
   };
@@ -131,7 +136,15 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
 
   if (row.kind === "EXPIRING_SOON") {
     if (!row.inventoryItem) return [];
-    return [{ id: row.id, kind: "expiringSoon", itemId: row.inventoryItemId!, name: row.inventoryItem.name }];
+    return [
+      {
+        id: row.id,
+        kind: "expiringSoon",
+        itemId: row.inventoryItemId!,
+        name: row.inventoryItem.name,
+        estimated: row.inventoryItem.expiresAtEstimated,
+      },
+    ];
   }
 
   if (row.kind === "RESTOCKED") return [];
@@ -156,7 +169,7 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
 }
 
 const notificationRowInclude = {
-  inventoryItem: { select: { name: true } },
+  inventoryItem: { select: { name: true, expiresAtEstimated: true } },
   mealPlanEntry: {
     select: { date: true, freeformName: true, recipe: { select: { name: true } } },
   },
@@ -333,6 +346,12 @@ export async function syncMealNotLoggedNotifications(householdId: string): Promi
 // dismissed, and a unique constraint on `inventoryItemId` would then block
 // the new one from ever being created.
 //
+// AUTO-7: deliberately doesn't filter out estimated dates (`expiresAtEstimated`)
+// — a shelf-life guess is still useful enough to warn about, per the design
+// brief's recommended option, just softened to "probably" for both the push
+// copy here and the bell's own wording (see ExpiringSoonNotification.estimated,
+// notification-bell.tsx's notificationLabel).
+//
 // Exported for `/api/cron/sync-notifications` (the only caller — see this
 // file's top doc comment for why this isn't run from getActiveNotifications
 // on the read path anymore).
@@ -345,7 +364,7 @@ export async function syncExpiringSoonNotifications(householdId: string): Promis
       quantity: { gt: 0 },
       expiresAt: { lte: threshold },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, expiresAtEstimated: true },
   });
   if (candidates.length === 0) return;
 
@@ -375,7 +394,7 @@ export async function syncExpiringSoonNotifications(householdId: string): Promis
       // invocation can be frozen/killed right after the response is sent).
       await sendPushToHousehold(householdId, {
         title: "Expiring soon",
-        body: `${item.name} is expiring soon`,
+        body: item.expiresAtEstimated ? `${item.name} is probably expiring soon` : `${item.name} is expiring soon`,
         url: "/dashboard/inventory",
       });
     }),

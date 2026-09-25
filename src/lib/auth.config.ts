@@ -9,11 +9,20 @@ export const authConfig = {
   providers: [],
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        // SCALE-H: stamp the token with the password version it was issued
+        // under. Only reads what authorize() already returned — no Prisma
+        // call, so this stays Edge-safe for proxy.ts.
+        token.pwdChangedAt = user.passwordChangedAt?.getTime() ?? null;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.pwdChangedAt = token.pwdChangedAt as number | null | undefined;
+      }
       return session;
     },
   },
