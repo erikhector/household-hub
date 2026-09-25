@@ -1281,6 +1281,26 @@ export const en = {
       noCheapestStoreData:
         "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
+      expiredTitle: "Went past its date",
+      expiredSubtitle:
+        "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",
+      noExpiredData: "Nothing has gone past its date this month.",
+      expiredCount: {
+        one: "{count} item went past its date",
+        other: "{count} items went past their date",
+      },
+      expiredEstimatedValue:
+        "Maybe ≈ {amount} more from estimated dates — those are a guess, and a lot of it is probably still fine.",
+      expiredUnpriced: {
+        one: "{count} of them has no known price yet.",
+        other: "{count} of them have no known price yet.",
+      },
+      expiredEstimatedBadge: "≈ estimated date",
+      expiredMore: "+{count} more",
+      expiredLastMonth: {
+        one: "Last month: {count} item",
+        other: "Last month: {count} items",
+      },
     },
     split: {
       toggleLabel: "Split this expense",

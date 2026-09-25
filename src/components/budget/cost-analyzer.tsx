@@ -19,10 +19,19 @@
 // stays unobtrusive next to the two charts above it — see
 // computeCheapestStoreComparisons (src/lib/cheapest-store-calc.ts) for the
 // aggregation and its "≥2 distinct stores" bar for appearing here at all.
+//
+// "Went past its date" (GAP-17) is the last section: a quiet monthly recap
+// of food that expired unused, valued at what it cost last time. Same
+// register as MealVarietyRecap — "here's what happened", never an alert
+// (there's deliberately no notification for it). See
+// src/lib/inventory/expired-waste.ts for which items count and why
+// estimated dates are kept out of the headline figure.
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { StoreComparison } from "@/lib/cheapest-store-calc";
-import { format } from "@/lib/i18n/format";
+import type { ExpiredWasteSummary } from "@/lib/inventory/expired-waste";
+import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type MonthlySpendPoint = { month: string; total: number };
@@ -39,12 +48,16 @@ export function CostAnalyzer({
   monthlySpending,
   itemTrends,
   storeComparisons,
+  expiredThisMonth,
+  expiredLastMonth,
   dict,
   locale,
 }: {
   monthlySpending: MonthlySpendPoint[];
   itemTrends: ItemPriceTrend[];
   storeComparisons: StoreComparison[];
+  expiredThisMonth: ExpiredWasteSummary;
+  expiredLastMonth: ExpiredWasteSummary;
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
 }) {
@@ -146,7 +159,120 @@ export function CostAnalyzer({
           )}
         </CardContent>
       </Card>
+
+      <ExpiredWasteCard
+        thisMonth={expiredThisMonth}
+        lastMonth={expiredLastMonth}
+        dict={dict}
+        numberFormat={numberFormat}
+        dateFormat={dateFormat}
+      />
     </div>
+  );
+}
+
+// How many items the recap names before collapsing the rest into "+N more"
+// — enough to recognize what went off, short enough to stay a recap.
+const MAX_EXPIRED_ITEMS_SHOWN = 5;
+
+function ExpiredWasteCard({
+  thisMonth,
+  lastMonth,
+  dict,
+  numberFormat,
+  dateFormat,
+}: {
+  thisMonth: ExpiredWasteSummary;
+  lastMonth: ExpiredWasteSummary;
+  dict: Dictionary["budget"]["costAnalyzer"];
+  numberFormat: Intl.NumberFormat;
+  dateFormat: Intl.DateTimeFormat;
+}) {
+  const shown = thisMonth.items.slice(0, MAX_EXPIRED_ITEMS_SHOWN);
+  const hiddenCount = thisMonth.items.length - shown.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{dict.expiredTitle}</CardTitle>
+        <CardDescription>{dict.expiredSubtitle}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {thisMonth.items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{dict.noExpiredData}</p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm">
+                {format(plural(thisMonth.items.length, dict.expiredCount), {
+                  count: thisMonth.items.length,
+                })}
+                {thisMonth.confirmedValue > 0 && (
+                  <>
+                    {" · "}
+                    <span className="font-medium tabular-nums">
+                      ≈ {numberFormat.format(thisMonth.confirmedValue)}
+                    </span>
+                  </>
+                )}
+              </p>
+              {thisMonth.estimatedValue > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {format(dict.expiredEstimatedValue, {
+                    amount: numberFormat.format(thisMonth.estimatedValue),
+                  })}
+                </p>
+              )}
+              {thisMonth.unpricedCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {format(plural(thisMonth.unpricedCount, dict.expiredUnpriced), {
+                    count: thisMonth.unpricedCount,
+                  })}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col divide-y divide-border">
+              {shown.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate font-medium">{item.name}</span>
+                    {item.estimated && (
+                      <Badge variant="outline" className="shrink-0">
+                        {dict.expiredEstimatedBadge}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {dateFormat.format(item.expiresAt)}
+                    {item.value != null && (
+                      <>
+                        {" · "}
+                        <span className="tabular-nums text-foreground">
+                          {numberFormat.format(item.value)}
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {hiddenCount > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {format(dict.expiredMore, { count: hiddenCount })}
+              </p>
+            )}
+          </>
+        )}
+        {lastMonth.items.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {format(plural(lastMonth.items.length, dict.expiredLastMonth), {
+              count: lastMonth.items.length,
+            })}
+            {lastMonth.confirmedValue > 0 && ` · ≈ ${numberFormat.format(lastMonth.confirmedValue)}`}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

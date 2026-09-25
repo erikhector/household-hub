@@ -387,22 +387,6 @@ out to be a product-scope question rather than a scoped task should move to
       Deliberately not a notification trigger (Guardrails: a bell badge must
       mean something's wrong) — just a page you check.
 
-- [ ] **GAP-17. Surface the cost of food that expired unused** —
-      `src/app/dashboard/inventory/`, `src/lib/inventory/expiry.ts`. Grocy's
-      stats screen tracks consumed-vs-wasted value; this app tracks expiry
-      (`ExpiryBadge`) and price (`lastKnownPrice`) but never connects "this
-      expired" to "this cost money." When an expired item's quantity is
-      zeroed out (mark-empty, edited to 0, or a low-stock crossing while
-      still past its `expiresAt`), record it as waste rather than silently
-      losing the signal: either a lightweight `wastedAt`/`wastedValue` pair
-      on `InventoryItem` set the moment quantity hits 0 while expired (Phase
-      2 migration), or — cheaper, no migration — a derived monthly figure
-      computed from existing `PriceHistory`/expiry data if a precise
-      per-write hook turns out not to be needed. Either way, surface it as a
-      quiet monthly figure (Cost analyzer or the inventory page), not a
-      notification — this is a "here's what happened" recap, the same
-      register as `MealVarietyRecap`, not an alert.
-
 - [ ] **GAP-18. Recipe favorites, so the good ones resurface** —
       `prisma/schema.prisma` (`Recipe`), `src/components/meal-planning/
       recipe-manager.tsx`, `src/app/dashboard/meal-planning/cookable-
