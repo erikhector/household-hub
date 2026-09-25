@@ -111,6 +111,10 @@ export function PeriodSummary({
           total={expense}
           emptyMessage={dict.noExpenses}
           numberFormat={numberFormat}
+          // GAP-12: expense rows carrying a `limit` (attached by the page
+          // via withCategoryLimits) draw against it. Income and savings
+          // categories never have one.
+          limitDict={dict}
         />
         <CategoryBreakdown
           title={dict.savingsByCategory}

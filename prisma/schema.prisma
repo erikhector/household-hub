@@ -595,11 +595,18 @@ enum RecurrenceFrequency {
 }
 
 model BudgetCategory {
-  id          String          @id @default(cuid())
-  householdId String
-  name        String
-  type        TransactionType
-  createdAt   DateTime        @default(now())
+  id           String          @id @default(cuid())
+  householdId  String
+  name         String
+  type         TransactionType
+  // Optional monthly spending cap (GAP-12). Only meaningful on EXPENSE
+  // categories (the category actions clear it for INCOME/SAVINGS) and purely
+  // advisory: PeriodSummary draws the category's bar against it and turns it
+  // red past 100%, but nothing blocks a transaction or sends a notification.
+  // Float like every other money column (Transaction.amount etc.). Null =
+  // no cap.
+  monthlyLimit Float?
+  createdAt    DateTime        @default(now())
 
   household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
@@ -818,11 +825,14 @@ model RecurringTemplateAck {
 // reused as-is.
 
 model PersonalBudgetCategory {
-  id        String          @id @default(cuid())
-  userId    String
-  name      String
-  type      TransactionType
-  createdAt DateTime        @default(now())
+  id           String          @id @default(cuid())
+  userId       String
+  name         String
+  type         TransactionType
+  // Mirrors BudgetCategory.monthlyLimit (GAP-12): CategoryManager and
+  // PeriodSummary serve both budgets, so the cap exists on both.
+  monthlyLimit Float?
+  createdAt    DateTime        @default(now())
 
   user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions       PersonalTransaction[]

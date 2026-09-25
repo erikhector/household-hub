@@ -183,8 +183,44 @@ describe("createCategoryAction", () => {
 
     expect(result).toEqual({});
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE" },
+      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE", monthlyLimit: null },
     });
+  });
+
+  // GAP-12: optional monthly spending cap.
+  it("stores a monthly limit on an expense category", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Dining out", type: "EXPENSE", monthlyLimit: "1500" }),
+    );
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", name: "Dining out", type: "EXPENSE", monthlyLimit: 1500 },
+    });
+  });
+
+  it("drops a monthly limit sent for an income or savings category", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction({}, formData({ name: "Salary", type: "INCOME", monthlyLimit: "1500" }));
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", name: "Salary", type: "INCOME", monthlyLimit: null },
+    });
+  });
+
+  it("rejects a monthly limit that isn't positive", async () => {
+    const result = await createCategoryAction(
+      {},
+      formData({ name: "Dining out", type: "EXPENSE", monthlyLimit: "0" }),
+    );
+
+    expect(result.error).toBe("Monthly limit must be greater than 0");
+    expect(categoryCreateMock).not.toHaveBeenCalled();
   });
 });
 
@@ -300,7 +336,32 @@ describe("updateCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money" },
+      data: { name: "Fun money", monthlyLimit: null },
+    });
+  });
+
+  it("sets or clears the monthly limit based on the stored category's type", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    await updateCategoryAction({}, formData({ id: "cat-1", name: "Food", monthlyLimit: "3000" }));
+
+    expect(categoryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Food", monthlyLimit: 3000 },
+    });
+
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-2", type: "SAVINGS" })
+      .mockResolvedValueOnce(null);
+
+    await updateCategoryAction({}, formData({ id: "cat-2", name: "Buffer", monthlyLimit: "3000" }));
+
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-2" },
+      data: { name: "Buffer", monthlyLimit: null },
     });
   });
 });

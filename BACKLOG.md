@@ -302,22 +302,6 @@ out to be a product-scope question rather than a scoped task should move to
       that fixes the shopping-list bridge and the "what can I cook" tab
       together.
 
-- [ ] **GAP-12. Per-category monthly spending caps** —
-      `prisma/schema.prisma` (`BudgetCategory`),
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. Goodbudget/YNAB-style
-      envelope caps are the one budgeting pattern this app doesn't have yet
-      — `PeriodSummary`'s per-category bars are proportional to each other,
-      not to a limit, and `SafeToSpend` only ever projects *recurring*
-      bills, not discretionary categories like "Dining out". Add an optional
-      `monthlyLimit Float?` to `BudgetCategory` (Phase 2 migration), settable
-      from `CategoryManager`; `PeriodSummary`'s existing per-category bar
-      renders against the limit when set (fill percentage, `text-destructive`
-      past 100%) instead of against the category total, purely visual —
-      no blocking, no notification, matching this app's "suggest, don't gate"
-      stance on money (see the `AUTO-` Guardrails' "suggest, don't silently
-      mutate" reasoning, same spirit applied to budget UI).
-
 - [ ] **GAP-13. A household currency setting** —
       `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
       page.tsx`, every `Intl.NumberFormat` call site in
@@ -452,16 +436,17 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-21. Budget category rollover (envelope carryover)** —
       `prisma/schema.prisma` (`BudgetCategory`), `src/lib/safe-to-spend-calc.ts`,
       `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. GAP-12 (2026-09-24 scan)
-      adds a per-category spending *cap*; this is the other half of
-      Goodbudget/YNAB-style envelope budgeting neither this app nor GAP-12
-      covers — unspent budget in a category simply resets to zero "progress
+      `src/components/budget/period-summary.tsx`. GAP-12 (done — see
+      REQUIREMENTS.md, "Monthly spending limits") added a per-category
+      spending *cap* (`monthlyLimit` on both category models); this is the
+      other half of Goodbudget/YNAB-style envelope budgeting that GAP-12 left
+      out — unspent budget in a category simply resets to zero "progress
       toward the limit" each month instead of accumulating the way
       an envelope's leftover cash would. Add an optional
-      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (same
-      Phase 2 migration as GAP-12 if both land together; independent
-      otherwise). A pure `computeCategoryRollover` helper (new
-      `src/lib/budget-rollover-calc.ts` + test, dependency-free like
+      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (and
+      `PersonalBudgetCategory`, matching how GAP-12's `monthlyLimit` landed
+      on both) in its own migration. A pure `computeCategoryRollover` helper
+      (new `src/lib/budget-rollover-calc.ts` + test, dependency-free like
       `safe-to-spend-calc.ts`) sums each prior month's (limit − spent) for a
       rollover-enabled category and folds it into that category's *available*
       amount for the selected month; `PeriodSummary`'s bar then renders

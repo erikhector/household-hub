@@ -128,7 +128,7 @@ describe("createPersonalCategoryAction", () => {
     await createPersonalCategoryAction({}, formData({ name: "Fun money", type: "EXPENSE" }));
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { userId, name: "Fun money", type: "EXPENSE" },
+      data: { userId, name: "Fun money", type: "EXPENSE", monthlyLimit: null },
     });
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ userId }) }),
@@ -169,8 +169,37 @@ describe("updatePersonalCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money" },
+      data: { name: "Fun money", monthlyLimit: null },
     });
+  });
+
+  // GAP-12: same monthly-limit handling as the household budget's
+  // updateCategoryAction.
+  it("stores a monthly limit on an expense category", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    await updatePersonalCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Hobbies", monthlyLimit: "750.5" }),
+    );
+
+    expect(categoryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Hobbies", monthlyLimit: 750.5 },
+    });
+  });
+
+  it("rejects a monthly limit that isn't a number", async () => {
+    const result = await updatePersonalCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Hobbies", monthlyLimit: "lots" }),
+    );
+
+    expect(result.error).toBe("Monthly limit must be a number");
+    expect(categoryUpdateMock).not.toHaveBeenCalled();
   });
 });
 

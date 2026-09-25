@@ -672,6 +672,26 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   relation with no `onDelete` cascade/set-null in the schema, so an
   unguarded delete would otherwise fail at the database level with a
   confusing FK error; this way the user gets a clear message instead.
+- **Monthly spending limits (GAP-12)**: an expense category can carry an
+  optional `monthlyLimit Float?` (on both `BudgetCategory` and
+  `PersonalBudgetCategory`, since `CategoryManager` and `PeriodSummary`
+  serve both budgets; migration `20260925124156_budget_category_monthly_limit`).
+  It's set from `CategoryManager`'s add and edit dialogs ("Monthly limit
+  (optional)", shown only for expense categories) and parsed by
+  `monthlyLimitField` in `src/lib/budget-category-limit.ts`: empty means no
+  limit (and clears one on edit), anything else must be a positive number.
+  Income and savings categories always store null (`limitForType`, decided
+  from the stored type on edit, not from the form). In `PeriodSummary`'s
+  "Expenses by category" card a capped row draws its bar against its own
+  limit (`limitProgress`: fill %, clamped at 100) and reads "spent / limit";
+  past 100% the bar and figure turn `text-destructive`/`bg-destructive` with
+  an "X over" note. Capped categories with nothing spent yet this month are
+  still listed at 0 (`withCategoryLimits`, applied by each page). Uncapped
+  rows keep the old proportional bar. Purely visual, in keeping with the
+  app's "suggest, don't gate" stance on money: nothing blocks a transaction
+  and no notification fires. A read-only view of another household's budget
+  (PR #27) shows that household's limits the same way, with the edit
+  controls disabled like the rest of the Manage tab.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
