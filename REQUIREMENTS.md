@@ -672,6 +672,26 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   relation with no `onDelete` cascade/set-null in the schema, so an
   unguarded delete would otherwise fail at the database level with a
   confusing FK error; this way the user gets a clear message instead.
+- **Monthly spending limits (GAP-12)**: an expense category can carry an
+  optional `monthlyLimit Float?` (on both `BudgetCategory` and
+  `PersonalBudgetCategory`, since `CategoryManager` and `PeriodSummary`
+  serve both budgets; migration `20260925124156_budget_category_monthly_limit`).
+  It's set from `CategoryManager`'s add and edit dialogs ("Monthly limit
+  (optional)", shown only for expense categories) and parsed by
+  `monthlyLimitField` in `src/lib/budget-category-limit.ts`: empty means no
+  limit (and clears one on edit), anything else must be a positive number.
+  Income and savings categories always store null (`limitForType`, decided
+  from the stored type on edit, not from the form). In `PeriodSummary`'s
+  "Expenses by category" card a capped row draws its bar against its own
+  limit (`limitProgress`: fill %, clamped at 100) and reads "spent / limit";
+  past 100% the bar and figure turn `text-destructive`/`bg-destructive` with
+  an "X over" note. Capped categories with nothing spent yet this month are
+  still listed at 0 (`withCategoryLimits`, applied by each page). Uncapped
+  rows keep the old proportional bar. Purely visual, in keeping with the
+  app's "suggest, don't gate" stance on money: nothing blocks a transaction
+  and no notification fires. A read-only view of another household's budget
+  (PR #27) shows that household's limits the same way, with the edit
+  controls disabled like the rest of the Manage tab.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
@@ -992,7 +1012,7 @@ The detail page's header keeps only what's used on every trip visible:
 "Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
 smart add line below. The menu holds add item, import, add low-stock
 items, resolve mappings (when there are enough unlinked items), share,
-export, then — after a separator — "Complete list", archive/unarchive, and
+export, print (below), then — after a separator — "Complete list", archive/unarchive, and
 a destructive-styled delete. The dialogs those items open are rendered
 outside the menu, since its popup unmounts as it closes, and are opened
 through Base UI dialog handles (`createDialogHandle` in
@@ -1016,6 +1036,38 @@ reversal, because completing never touches it. The menu's "Complete list" is
 still confirm-gated, since it can complete a list with items still pending.
 Its toast carries the same Undo. Like "Undo mark cooked", this is a
 fat-finger undo on the toast, not a permanent "reopen list" control.
+
+#### Printing a list (GAP-24)
+
+For households that still shop from paper, or want a big-text copy on the
+fridge. The `⋯` menu's **"Print"** item (on any list, whatever its status)
+just calls `window.print()`. There's no print route, no PDF and no new
+dependency, only CSS. `ShoppingListClient` renders a `PrintableList` that is
+`hidden print:block`. It's the list name as a heading, then the **pending**
+items grouped under the same category headers and store-walk order as
+shopping mode (`groupPendingItemsByCategory`), one per line in large
+(`text-2xl`) black-on-white type, each with an empty box to tick with a pen.
+Groups use `break-inside-avoid` so a header isn't stranded at the bottom of a
+page. A list with nothing pending prints "Nothing left to buy." Purchased
+items, prices, badges and the estimated total are left out on purpose.
+
+Everything else is hidden on paper:
+
+- The page's own column hides every child except the `[data-print-list]`
+  section with one arbitrary-variant selector, so the interactive tree is
+  untouched. The `⋯` menu popup (portalled, and possibly still fading out
+  when the print snapshot is taken) is `print:hidden`.
+- The dashboard chrome hides itself: `Sidebar`, the mobile header,
+  `BottomNav`, the email-verification banner and the cookie notice are all
+  `print:hidden`. The dashboard layout's viewport-height, internally
+  scrolling column and `main` are reset to plain document flow in print,
+  because otherwise a long list would be clipped to one screenful.
+- `globals.css` has an `@media print` block that forces a white page with
+  black text, even from the dark theme and with "background graphics" on,
+  and hides Sonner's toaster.
+
+The export route (Data export) is still the spreadsheet-oriented option.
+Print is the reading-oriented one.
 
 ### Safe to spend
 
@@ -2004,6 +2056,58 @@ recipe can have calories set with the rest left blank).
   shown at all for a recipe with all four fields null, which is expected to
   be the common case.
 
+### Recipe cost estimate (GAP-15)
+
+Each recipe on the Recipes tab shows a rough cost to make it, e.g.
+`"~45.00 total · ~11.25/serving"`, on its own line under the nutrition
+summary. No schema change: it joins data that already exists —
+`RecipeIngredient` → its linked `InventoryItem.lastKnownPrice` (kept current
+by AUTO-4, above) and the purchased shopping-list line that set it — through
+the same unit table (`src/lib/units.ts`) the
+meal-plan → shopping-list bridge uses.
+
+- **Per-unit price**: `lastKnownPrice` is the price of one purchased
+  shopping-list *line*, whatever quantity that line was for (a 500 g pack
+  of flour for 24 records 24), not the price of one of the item's unit. So
+  `unitPriceFromLastPurchase` recovers the line that set it — the newest
+  purchased `ShoppingListItem` linked to the item whose `estimatedPrice`
+  equals `lastKnownPrice` (every writer of `lastKnownPrice` leaves one) —
+  converts that line's `quantity`/`unit` into the item's unit, and divides:
+  24 ÷ 500 g = 0.048 per g. Matching on the price, not just taking the
+  newest row, matters because `ShoppingListItem` only has `createdAt`, not a
+  purchase time.
+- **Calculation**: `computeRecipeCost(ingredients, servings)`
+  (`src/app/dashboard/meal-planning/recipe-cost.ts`, pure, unit-tested in
+  `recipe-cost.test.ts`) converts each ingredient's quantity into its linked
+  item's own unit — exact case/whitespace-insensitive match first, then
+  `convertQuantity` — and multiplies by that per-unit price (200 g of the
+  flour above is 9.60). `total` and `perServing` (`total / servings`) are
+  rounded to 2 decimals.
+- **Skipped, not guessed**: an ingredient with no linked inventory item, a
+  linked item that has never been priced, a price whose purchase line can't
+  be found (its list was deleted, or the price was corrected afterwards), a
+  purchase line in a unit that can't be converted into the item's (the
+  typical "1 pcs" receipt line for an item kept in grams), or a recipe unit
+  that can't be converted into the item's (volume vs. weight, or an
+  unrecognized unit like "clove" against "pcs") is left out and counted in
+  `skippedCount`. The card then appends "N ingredients not priced" so the
+  total reads as a partial estimate. A price of 0 counts as priced. A
+  multi-pack entered as "1 pcs" of an item counted in pcs still reads as one
+  piece — the same way inventory stock counted it.
+- **Hidden when unknown**: if no ingredient at all could be priced the
+  function returns `null` and no line is shown, same as the nutrition line.
+- **Own ingredients only**: a sub-recipe's (`RecipeComponent`) ingredients
+  aren't added in, matching how the nutrition line is per recipe.
+- **Data flow**: `RecipesTabSection` (`meal-planning/page.tsx`) computes a
+  `recipeCosts` map keyed by recipe id from the already-cached core fetch
+  (`lastKnownPrice` was added to its inventory `select`) plus one extra
+  query on this tab only: the household's purchased, priced shopping-list
+  lines for the inventory items some recipe links to, newest first. It
+  passes the map with the `locale` to `RecipeManager`. Amounts use the app's
+  `Intl.NumberFormat` convention (locale-aware, 2 decimals, no currency
+  symbol), prefixed with "~" to mark them as estimates; the line's tooltip
+  explains they come from what was last paid.
+
 ### Weekly nutrition recap
 
 A dismissible summary card on the Planner tab (BACKLOG GAP-2) that sums the
@@ -2336,7 +2440,8 @@ computed by `computeUseItUpSuggestions`
 - **Ranking**: sorted by match count descending, then — on a tie — a
   suggestion with an expiring-reason match ahead of one that's low-stock-only
   (using up something already low makes it run out even sooner, so it's the
-  less urgent of the two on equal footing), then recipe name, capped at 5
+  less urgent of the two on equal footing), then a starred recipe ahead of
+  an un-starred one (see "Recipe favorites" below), then recipe name, capped at 5
   suggestions — the same "keep it short and actionable" reasoning as
   `MAX_MISSING_TO_SURFACE` in cookable-recipes.ts. **Product call (PR #24
   review)**: low-stock stays as a first-class reason rather than being
@@ -2353,6 +2458,42 @@ computed by `computeUseItUpSuggestions`
   chip stays hidden, but a since-changed "uses flour, sugar" nudge for the
   same recipe isn't suppressed by yesterday's dismissal. Dismissal is
   per-device only, same as `MealVarietyRecap`.
+
+### Recipe favorites
+
+BACKLOG GAP-18, from the same competitive gap scan: AnyList and Paprika let
+a household mark the recipes it actually likes and use that to bias
+suggestions. `Recipe.isFavorite Boolean @default(false)` (migration
+`recipe_is_favorite`) is a single household-wide flag — not a per-member
+rating or a star scale, the same minimal-first call `HouseholdTask` v1 made
+for assignment. It answers "which recipes does this household like", and
+any member's star is everyone's star.
+
+- **Toggle**: a star button on each `RecipeManager` row, left of the
+  existing edit/delete actions. It's a click action
+  (`toggleRecipeFavoriteAction(recipeId)` in
+  `src/app/dashboard/meal-planning/recipe-actions.ts`) called inside its own
+  `useTransition`, with `useOptimistic` so the star fills immediately and
+  snaps back if the save fails (the same pattern as `AutoAddSetting`). The
+  action flips the stored value itself rather than accepting a desired
+  state from the client, and scopes its lookup to `requireHousehold()`'s
+  household, so a foreign recipe id is a silent no-op (the same IDOR guard
+  as `deleteRecipeAction`). Accessibility: the button has a stable
+  localized `aria-label` (`mealPlanning.favoriteAriaLabel`) and conveys
+  on/off through `aria-pressed`, so the label doesn't flip as well.
+- **A tiebreaker, never a filter**: favorites never hide an un-starred
+  recipe and never outrank a better match. In the Cook tab
+  (`computeCookableRecipes`, `cookable-recipes.ts`) the sort is missing-
+  ingredient count, then favorites first, then name. A starred recipe
+  missing one thing still sorts below an un-starred one missing nothing,
+  and a starred recipe missing more than `MAX_MISSING_TO_SURFACE` still
+  drops out. In "use it up" (`computeUseItUpSuggestions`) the star comes
+  after both waste-prevention keys (match count, then expiring-before-low-
+  stock) and before name. Both orders are covered by the colocated
+  pure-calc tests.
+- **Not in scope**: no favorites-only filter or separate page, and the
+  Recipes list itself stays alphabetical. The star is visible there, and
+  search already narrows the list.
 
 ## Household tasks
 

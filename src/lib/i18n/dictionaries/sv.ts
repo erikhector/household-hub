@@ -320,6 +320,8 @@ export const sv = {
     emptyListActive: "Inget på listan än — skriv vad du behöver i rutan ovan, eller hämta det som har lågt lager.",
     emptyListOther: "Inget på listan.",
     moreActions: "Fler liståtgärder",
+    print: "Skriv ut",
+    printEmpty: "Inget kvar att köpa.",
     doneShopping: "Klar med handlingen",
     completedToast: "Listan är klarmarkerad",
     undo: "Ångra",
@@ -911,6 +913,12 @@ export const sv = {
     nutritionProteinValue: "{value} g protein",
     nutritionCarbsValue: "{value} g kolhydrater",
     nutritionFatValue: "{value} g fett",
+    recipeCostValue: "~{total} totalt · ~{perServing}/portion",
+    recipeCostSkipped: {
+      one: "{count} ingrediens utan pris",
+      other: "{count} ingredienser utan pris",
+    },
+    recipeCostHint: "Uppskattat utifrån vad ni senast betalade för varje ingrediens",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",
     comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",
@@ -933,6 +941,7 @@ export const sv = {
     deleteRecipeInUseError: 'Kan inte tas bort — används som delrecept i "{recipeName}".',
     editAriaLabel: "Redigera recept",
     deleteAriaLabel: "Ta bort recept",
+    favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",
@@ -1181,6 +1190,9 @@ export const sv = {
       incomeSection: "Inkomst",
       expenseSection: "Utgift",
       savingsSection: "Sparande",
+      limitLabel: "Månadsgräns (valfri)",
+      limitPlaceholder: "Ingen gräns",
+      limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
     },
     summary: {
       title: "Den här månaden",
@@ -1195,6 +1207,8 @@ export const sv = {
       savings: "Sparande",
       savingsByCategory: "Sparande per kategori",
       noSavings: "Inget sparande registrerat denna månad.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} över",
     },
     safeToSpend: {
       title: "Säkert att spendera",
@@ -1469,6 +1483,9 @@ export const sv = {
       incomeSection: "Inkomst",
       expenseSection: "Utgift",
       savingsSection: "Sparande",
+      limitLabel: "Månadsgräns (valfri)",
+      limitPlaceholder: "Ingen gräns",
+      limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
     },
     summary: {
       title: "Denna månad",
@@ -1483,6 +1500,8 @@ export const sv = {
       savings: "Sparande",
       savingsByCategory: "Sparande per kategori",
       noSavings: "Inget sparande registrerat denna månad.",
+      spentOfLimit: "{spent} / {limit}",
+      overLimitBy: "{amount} över",
     },
     safeToSpend: {
       title: "Säkert att spendera",

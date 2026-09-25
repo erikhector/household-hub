@@ -81,6 +81,12 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // the page instead of staying put. `main`'s overscroll-contain stops
     // the same thing happening transiently: iOS rubber-banding past the end
     // of the inner scroll and bleeding into a drag of the outer page.
+    //
+    // print: (GAP-24, the shopping list's "Print") undoes all of that on
+    // paper. A viewport-sized, internally scrolling column would clip the
+    // printout to its first screenful, so the column and `main` go back to
+    // plain document flow, and the chrome (Sidebar, header, BottomNav, the
+    // email banner, each hiding itself) drops out so only the page prints.
     <div className="flex flex-1">
       <Sidebar
         defaultExpanded={sidebarExpanded}
@@ -91,8 +97,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         notifications={notifications}
         unseenRelease={unseenRelease}
       />
-      <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden">
-        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden">
+      <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
+        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict} />
         </header>
         {/* Below the header, not above it: the header is what carries the
@@ -119,7 +125,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             scrollIntoView (e.g. the shopping list scrolling a just-added
             row into view): without it "nearest" stops at main's bottom
             edge, which is behind BottomNav. */}
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))]">
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
           {children}
         </main>
       </div>

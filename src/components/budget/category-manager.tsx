@@ -26,7 +26,18 @@ import {
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 
-export type CategoryRow = { id: string; name: string; type: "INCOME" | "EXPENSE" | "SAVINGS" };
+type CategoryType = "INCOME" | "EXPENSE" | "SAVINGS";
+
+export type CategoryRow = {
+  id: string;
+  name: string;
+  type: CategoryType;
+  // GAP-12's optional monthly spending cap. Optional on the type because
+  // CategoryRow is also built for pickers that never show it (the
+  // transaction dialog, the personal page's household category list); only
+  // the rows fed to CategoryManager need to carry it for the edit form.
+  monthlyLimit?: number | null;
+};
 
 // Shared by both createCategoryAction/updateCategoryAction/deleteCategoryAction
 // (household, src/app/dashboard/budget/actions.ts) and
@@ -77,6 +88,9 @@ export type CategoryManagerDict = {
     incomeSection: string;
     expenseSection: string;
     savingsSection: string;
+    limitLabel: string;
+    limitPlaceholder: string;
+    limitHint: string;
   };
   type: {
     income: string;
@@ -269,6 +283,16 @@ function EditCategoryDialog({
               placeholder={dict.categories.namePlaceholder}
             />
           </div>
+          {/* A category's type can't be changed, so the limit field is
+              simply absent for income/savings categories (the action also
+              stores null for them regardless of what's sent). */}
+          {category.type === "EXPENSE" && (
+            <MonthlyLimitField
+              id={`category-limit-${category.id}`}
+              defaultValue={category.monthlyLimit}
+              dict={dict}
+            />
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
@@ -294,6 +318,9 @@ export function AddCategoryDialog({
   createAction: CategoryFormAction;
 }) {
   const [open, setOpen] = useState(false);
+  // Controlled (rather than the Select's own defaultValue) only so the
+  // monthly limit field below can appear for expense categories alone.
+  const [type, setType] = useState<CategoryType>("EXPENSE");
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -329,7 +356,11 @@ export function AddCategoryDialog({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="category-type">{dict.categories.typeLabel}</Label>
-            <Select name="type" defaultValue="EXPENSE">
+            <Select
+              name="type"
+              value={type}
+              onValueChange={(v) => setType((v as CategoryType | null) ?? "EXPENSE")}
+            >
               <SelectTrigger id="category-type" className="w-full">
                 <SelectValue>
                   {(v: string) =>
@@ -348,6 +379,7 @@ export function AddCategoryDialog({
               </SelectContent>
             </Select>
           </div>
+          {type === "EXPENSE" && <MonthlyLimitField id="category-limit" dict={dict} />}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
@@ -357,5 +389,41 @@ export function AddCategoryDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * GAP-12's optional monthly spending cap, shared by the add and edit
+ * dialogs. Empty means "no limit" (and clears an existing one on edit) —
+ * see monthlyLimitField in src/lib/budget-category-limit.ts for the
+ * server-side parsing.
+ */
+function MonthlyLimitField({
+  id,
+  defaultValue,
+  dict,
+}: {
+  id: string;
+  defaultValue?: number | null;
+  dict: CategoryManagerDict;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{dict.categories.limitLabel}</Label>
+      <Input
+        id={id}
+        name="monthlyLimit"
+        type="number"
+        min={0.01}
+        step="any"
+        inputMode="decimal"
+        defaultValue={defaultValue ?? undefined}
+        placeholder={dict.categories.limitPlaceholder}
+        aria-describedby={`${id}-hint`}
+      />
+      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+        {dict.categories.limitHint}
+      </p>
+    </div>
   );
 }

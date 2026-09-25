@@ -302,22 +302,6 @@ out to be a product-scope question rather than a scoped task should move to
       that fixes the shopping-list bridge and the "what can I cook" tab
       together.
 
-- [ ] **GAP-12. Per-category monthly spending caps** —
-      `prisma/schema.prisma` (`BudgetCategory`),
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. Goodbudget/YNAB-style
-      envelope caps are the one budgeting pattern this app doesn't have yet
-      — `PeriodSummary`'s per-category bars are proportional to each other,
-      not to a limit, and `SafeToSpend` only ever projects *recurring*
-      bills, not discretionary categories like "Dining out". Add an optional
-      `monthlyLimit Float?` to `BudgetCategory` (Phase 2 migration), settable
-      from `CategoryManager`; `PeriodSummary`'s existing per-category bar
-      renders against the limit when set (fill percentage, `text-destructive`
-      past 100%) instead of against the category total, purely visual —
-      no blocking, no notification, matching this app's "suggest, don't gate"
-      stance on money (see the `AUTO-` Guardrails' "suggest, don't silently
-      mutate" reasoning, same spirit applied to budget UI).
-
 - [ ] **GAP-13. A household currency setting** —
       `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
       page.tsx`, every `Intl.NumberFormat` call site in
@@ -352,25 +336,6 @@ out to be a product-scope question rather than a scoped task should move to
       unaffected — only the OS push is suppressed, same as the card's
       existing "on top of the bell, not a replacement for it" framing.
 
-- [ ] **GAP-15. Show what a recipe actually costs to make** —
-      new `src/app/dashboard/meal-planning/recipe-cost.ts` (+ test),
-      `src/components/meal-planning/recipe-manager.tsx`. Grocy surfaces a
-      recipe's cost from the same price data it already tracks; this app
-      already has `InventoryItem.lastKnownPrice`/`PriceHistory` and a
-      unit-conversion table (`src/lib/units.ts`, used by
-      `missing-ingredients.ts`) with nothing joining them to `Recipe`. A pure
-      `computeRecipeCost(ingredients, servings)` helper sums each
-      `RecipeIngredient`'s quantity (unit-converted the same way
-      `computeMissingIngredients` already does) times its linked
-      `InventoryItem.lastKnownPrice`, skipping any ingredient with no known
-      price and noting how many were skipped so the total reads as a partial
-      estimate, not a hard number. `RecipeManager` shows it next to the
-      nutrition summary line ("~45.00 total · ~11.00/serving", same
-      no-currency-symbol convention) only when at least one ingredient has a
-      price — otherwise hidden, same as the nutrition line today. No schema
-      change; ships once AUTO-4 (BACKLOG.md, Phase 1) is populating
-      `lastKnownPrice` in practice, since right now it's rarely set.
-
 - [ ] **GAP-16. A shared household notes board** —
       `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
       actions.ts`, `src/components/household/household-notes.tsx`. Cozi's
@@ -402,21 +367,6 @@ out to be a product-scope question rather than a scoped task should move to
       quiet monthly figure (Cost analyzer or the inventory page), not a
       notification — this is a "here's what happened" recap, the same
       register as `MealVarietyRecap`, not an alert.
-
-- [ ] **GAP-18. Recipe favorites, so the good ones resurface** —
-      `prisma/schema.prisma` (`Recipe`), `src/components/meal-planning/
-      recipe-manager.tsx`, `src/app/dashboard/meal-planning/cookable-
-      recipes.ts`. AnyList and Paprika both let a household mark a recipe
-      as a favorite and use that to bias suggestions. Add
-      `isFavorite Boolean @default(false)` to `Recipe` (Phase 2 migration),
-      a toggle (star icon) on each `RecipeManager` card next to its existing
-      actions, and use it as a tiebreaker — not a filter — in
-      `computeCookableRecipes`'s sort (favorites first among recipes with
-      the same missing-ingredient count) and GAP-1's "use it up" ranking
-      once that ships. No new page, no rating scale (a plain boolean is
-      enough to answer "which recipes does this household actually like",
-      the same minimal-first instinct `HouseholdTask` v1 used for
-      assignment).
 
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
@@ -452,16 +402,17 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-21. Budget category rollover (envelope carryover)** —
       `prisma/schema.prisma` (`BudgetCategory`), `src/lib/safe-to-spend-calc.ts`,
       `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. GAP-12 (2026-09-24 scan)
-      adds a per-category spending *cap*; this is the other half of
-      Goodbudget/YNAB-style envelope budgeting neither this app nor GAP-12
-      covers — unspent budget in a category simply resets to zero "progress
+      `src/components/budget/period-summary.tsx`. GAP-12 (done — see
+      REQUIREMENTS.md, "Monthly spending limits") added a per-category
+      spending *cap* (`monthlyLimit` on both category models); this is the
+      other half of Goodbudget/YNAB-style envelope budgeting that GAP-12 left
+      out — unspent budget in a category simply resets to zero "progress
       toward the limit" each month instead of accumulating the way
       an envelope's leftover cash would. Add an optional
-      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (same
-      Phase 2 migration as GAP-12 if both land together; independent
-      otherwise). A pure `computeCategoryRollover` helper (new
-      `src/lib/budget-rollover-calc.ts` + test, dependency-free like
+      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (and
+      `PersonalBudgetCategory`, matching how GAP-12's `monthlyLimit` landed
+      on both) in its own migration. A pure `computeCategoryRollover` helper
+      (new `src/lib/budget-rollover-calc.ts` + test, dependency-free like
       `safe-to-spend-calc.ts`) sums each prior month's (limit − spent) for a
       rollover-enabled category and folds it into that category's *available*
       amount for the selected month; `PeriodSummary`'s bar then renders
@@ -504,20 +455,6 @@ out to be a product-scope question rather than a scoped task should move to
       already has an entry in rather than overwriting. Exposed as a "Copy
       last week" button on an empty week's planner view — the lowest-friction
       entry point, since that's exactly when a household would reach for it.
-
-- [ ] **GAP-24. Print-friendly shopping list view** —
-      `src/app/dashboard/shopping-list/[id]/page.tsx`,
-      `src/components/shopping/shopping-list-client.tsx`. AnyList and
-      Listonic both offer a plain printable list for households that still
-      shop with paper or want a large-text version taped to the fridge; this
-      app's CSV export (Data export section) is spreadsheet-oriented, not
-      reading-oriented, and there's no print stylesheet today. A `@media
-      print` rule (Tailwind's `print:` variant) on the shopping list detail
-      page hiding buttons/nav/chrome and rendering pending items grouped by
-      category in a large, single-column, high-contrast layout — no new
-      route, no new dependency, just CSS plus the browser's native print
-      dialog (`window.print()` behind a small "Print" affordance in the
-      `⋯` menu, same menu AUTO-5 is consolidating actions into).
 
 - [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
       needs an infrastructure decision before scoping. Bring! and AnyList
