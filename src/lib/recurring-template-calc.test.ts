@@ -5,6 +5,7 @@ import {
   computeRecurringBreakdown,
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
+  expandMonthlyDueDates,
   getPeriodKey,
   monthlyEquivalentAmount,
 } from "@/lib/recurring-template-calc";
@@ -351,5 +352,68 @@ describe("computeBudgetBalanceStatus", () => {
 
   it("is 'balanced' at exactly zero net with no income planned, rather than guessing at a ratio", () => {
     expect(computeBudgetBalanceStatus({ monthlyIncome: 0, monthlyExpense: 0 })).toBe("balanced");
+  });
+});
+
+describe("expandMonthlyDueDates (GAP-3 calendar feed)", () => {
+  const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d));
+  const keys = (dates: Date[]) => dates.map((d) => d.toISOString().slice(0, 10));
+
+  it("returns one date per month in the window", () => {
+    expect(keys(expandMonthlyDueDates(3, utc(2026, 1, 1), utc(2026, 4, 30)))).toEqual([
+      "2026-01-03",
+      "2026-02-03",
+      "2026-03-03",
+      "2026-04-03",
+    ]);
+  });
+
+  it("includes both window edges and excludes days just outside them", () => {
+    expect(keys(expandMonthlyDueDates(15, utc(2026, 1, 15), utc(2026, 3, 15)))).toEqual([
+      "2026-01-15",
+      "2026-02-15",
+      "2026-03-15",
+    ]);
+    expect(keys(expandMonthlyDueDates(15, utc(2026, 1, 16), utc(2026, 3, 14)))).toEqual(["2026-02-15"]);
+  });
+
+  it("clamps a day past the end of a short month to its last day", () => {
+    expect(keys(expandMonthlyDueDates(31, utc(2026, 1, 1), utc(2026, 4, 30)))).toEqual([
+      "2026-01-31",
+      "2026-02-28",
+      "2026-03-31",
+      "2026-04-30",
+    ]);
+  });
+
+  it("uses 29 February in a leap year", () => {
+    expect(keys(expandMonthlyDueDates(30, utc(2028, 2, 1), utc(2028, 2, 29)))).toEqual(["2028-02-29"]);
+  });
+
+  it("crosses year boundaries", () => {
+    expect(keys(expandMonthlyDueDates(10, utc(2026, 11, 1), utc(2027, 2, 28)))).toEqual([
+      "2026-11-10",
+      "2026-12-10",
+      "2027-01-10",
+      "2027-02-10",
+    ]);
+  });
+
+  it("ignores the time of day on the window's edges", () => {
+    expect(
+      keys(expandMonthlyDueDates(5, new Date("2026-05-05T23:59:00Z"), new Date("2026-06-05T00:01:00Z"))),
+    ).toEqual(["2026-05-05", "2026-06-05"]);
+  });
+
+  it("returns nothing for an empty or inverted window, or an invalid day", () => {
+    expect(expandMonthlyDueDates(5, utc(2026, 5, 6), utc(2026, 5, 31))).toEqual([]);
+    expect(expandMonthlyDueDates(5, utc(2026, 6, 1), utc(2026, 5, 1))).toEqual([]);
+    expect(expandMonthlyDueDates(0, utc(2026, 1, 1), utc(2026, 12, 31))).toEqual([]);
+    expect(expandMonthlyDueDates(1.5, utc(2026, 1, 1), utc(2026, 12, 31))).toEqual([]);
+  });
+
+  it("returns UTC midnights", () => {
+    const [date] = expandMonthlyDueDates(7, utc(2026, 7, 1), utc(2026, 7, 31));
+    expect(date.toISOString()).toBe("2026-07-07T00:00:00.000Z");
   });
 });

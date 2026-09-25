@@ -309,3 +309,42 @@ export function computeTemplateStatuses<T extends RecurringTemplateInput>({
       return { template, periodKey, status };
     });
 }
+
+/**
+ * Concrete due dates for a MONTHLY template with a `dayOfMonth`, for every
+ * month that overlaps [from, to] (both inclusive, compared as UTC days).
+ * Used by the read-only calendar feed (GAP-3, src/lib/calendar-feed.ts),
+ * the only place a template's due day has to become an actual date rather
+ * than the "due on the 3rd" display hint it is everywhere else.
+ *
+ * A day past the end of a short month (31 in April, 29–31 in February) is
+ * clamped to that month's last day, so a bill "due on the 31st" still shows
+ * up once every month instead of silently skipping months — the same way
+ * banks treat end-of-month standing orders.
+ *
+ * Works in UTC throughout: the results are emitted as floating all-day
+ * dates, so the server's own time zone must not shift them.
+ */
+export function expandMonthlyDueDates(dayOfMonth: number, from: Date, to: Date): Date[] {
+  const fromDay = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
+  const toDay = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
+  if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || fromDay > toDay) return [];
+
+  const dates: Date[] = [];
+  let year = from.getUTCFullYear();
+  let month = from.getUTCMonth();
+  for (;;) {
+    const firstOfMonth = Date.UTC(year, month, 1);
+    if (firstOfMonth > toDay) break;
+    // Day 0 of the next month is the last day of this one.
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const due = Date.UTC(year, month, Math.min(dayOfMonth, daysInMonth));
+    if (due >= fromDay && due <= toDay) dates.push(new Date(due));
+    month += 1;
+    if (month === 12) {
+      month = 0;
+      year += 1;
+    }
+  }
+  return dates;
+}
