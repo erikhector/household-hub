@@ -12,6 +12,7 @@ import {
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
 import { computeCheapestStoreComparisons } from "@/lib/cheapest-store-calc";
+import { computeExpiredWaste } from "@/lib/inventory/expired-waste";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import {
   HouseholdBalances,
@@ -110,11 +111,38 @@ async function CostAnalyzerSection({
   // `store` (GAP-6) is optional and mostly null on older rows — it's only
   // ever set when the household typed one in on a receipt scan/register
   // (see applyReceiptScanAction/registerReceiptAction).
-  const priceHistoryRows = await prisma.priceHistory.findMany({
-    where: { inventoryItem: { householdId } },
-    include: { inventoryItem: { select: { id: true, name: true } } },
-    orderBy: { date: "asc" },
-  });
+  //
+  // GAP-17: alongside it, items whose expiry date fell in this or last
+  // month and has already passed — the only rows computeExpiredWaste can
+  // ever count. Same Suspense boundary and household scope rather than its
+  // own section, since it's one small read on InventoryItem.
+  const now = new Date();
+  const thisMonthStart = getMonthStart(now);
+  const lastMonthStart = addMonths(thisMonthStart, -1);
+  const [priceHistoryRows, expiredCandidates] = await Promise.all([
+    prisma.priceHistory.findMany({
+      where: { inventoryItem: { householdId } },
+      include: { inventoryItem: { select: { id: true, name: true } } },
+      orderBy: { date: "asc" },
+    }),
+    prisma.inventoryItem.findMany({
+      where: { householdId, expiresAt: { gte: lastMonthStart, lt: now } },
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        expiresAt: true,
+        expiresAtEstimated: true,
+        lastKnownPrice: true,
+        updatedAt: true,
+      },
+    }),
+  ]);
+  // This month is the recap itself, last month one line of context — no
+  // further back, since the snapshot it's derived from decays (a restock
+  // re-estimates the date; see expired-waste.ts's doc comment).
+  const expiredThisMonth = computeExpiredWaste(expiredCandidates, thisMonthStart, getMonthEnd(now), now);
+  const expiredLastMonth = computeExpiredWaste(expiredCandidates, lastMonthStart, thisMonthStart, now);
 
   const monthlyTotals = new Map<string, number>();
   for (const row of priceHistoryRows) {
@@ -172,6 +200,8 @@ async function CostAnalyzerSection({
       monthlySpending={monthlySpending}
       itemTrends={itemTrends}
       storeComparisons={storeComparisons}
+      expiredThisMonth={expiredThisMonth}
+      expiredLastMonth={expiredLastMonth}
       dict={dict}
       locale={locale}
     />

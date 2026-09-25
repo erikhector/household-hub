@@ -926,6 +926,48 @@ item is marked purchased with an estimated price
   (GAP-6)" below for the full write-up (it's grouped there with the receipt
   scan/register changes that feed it `PriceHistory.store`
   in the first place).
+- **Went past its date (GAP-17)**: a fourth, last section — a quiet monthly
+  recap of food that expired unused, valued at what it cost last time.
+  It's a "here's what happened" card in the same register as
+  `MealVarietyRecap`, never a notification. Built as a **derived** figure
+  with no migration (no `wastedAt`/`wastedValue` columns, no per-write
+  hook), computed by the pure `computeExpiredWaste`
+  (`src/lib/inventory/expired-waste.ts`, unit-tested) from one extra
+  `InventoryItem` read in `CostAnalyzerSection` (items whose `expiresAt`
+  fell in this or last month and has passed, same household scope as the
+  `PriceHistory` read).
+  - **Which items count.** There's no stock-movement log, so the amount
+    thrown out is lost when a quantity is zeroed, and the figure is read
+    from a snapshot. An item counts for a month when its `expiresAt` is in
+    that month, the date has already passed, and either it **still has
+    stock** (nobody used it up in time) or it's **empty and was last
+    written on or after its date** (`updatedAt >= expiresAt`: emptied after
+    it expired, the mark-empty/edit-to-0 case). An empty item last written
+    *before* its date was used up in time and never counts. The second rule
+    is an inference: `updatedAt` moves on any write, so an item emptied
+    before its date and renamed afterwards would be miscounted. That was
+    judged better than dropping emptied items, which would make throwing
+    something out erase it from the recap.
+  - **Value.** One `lastKnownPrice` per item, never `lastKnownPrice ×
+    quantity`: `lastKnownPrice` is the price of one shopping-list line
+    (AUTO-4's per-line convention), not a price per inventory unit, so
+    multiplying it by a quantity in grams or millilitres would be nonsense.
+    The figure is shown with "≈". Items with no known price are listed and
+    counted ("N of them have no known price yet") but add nothing to the
+    sum.
+  - **Estimated dates (AUTO-7).** An estimated `expiresAt` is a
+    category-default guess, and plenty of it is still fine and gets eaten.
+    So the headline figure sums **real (user-entered) dates only**; items
+    with an estimated date are still listed (with an outline
+    "≈ estimated date" badge) and their value is shown separately on a
+    softer "Maybe ≈ X more from estimated dates" line instead of being
+    folded into money lost.
+  - **Range.** This calendar month is the recap (up to 5 items named, real
+    dates first then by value, "+N more" after that); last month gets one
+    muted line of context. Nothing further back, since the snapshot decays:
+    a restock re-estimates an estimated date, and later edits move
+    `updatedAt`. An empty month shows a plain "Nothing has gone past its
+    date this month" rather than a zero.
 
 ### Shopping-list → budget expense link
 

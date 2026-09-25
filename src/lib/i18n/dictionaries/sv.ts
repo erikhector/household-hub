@@ -1276,6 +1276,26 @@ export const sv = {
       noCheapestStoreData:
         "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
+      expiredTitle: "Gick ut innan den användes",
+      expiredSubtitle:
+        "Mat som nådde sitt bäst före-datum den här månaden innan den tog slut, ungefär till vad den kostade senast du köpte den.",
+      noExpiredData: "Inget har gått ut den här månaden.",
+      expiredCount: {
+        one: "{count} vara gick ut",
+        other: "{count} varor gick ut",
+      },
+      expiredEstimatedValue:
+        "Kanske ≈ {amount} till från uppskattade datum — de är en gissning, och mycket av det är nog fortfarande gott.",
+      expiredUnpriced: {
+        one: "{count} av dem har inget känt pris än.",
+        other: "{count} av dem har inget känt pris än.",
+      },
+      expiredEstimatedBadge: "≈ uppskattat datum",
+      expiredMore: "+{count} till",
+      expiredLastMonth: {
+        one: "Förra månaden: {count} vara",
+        other: "Förra månaden: {count} varor",
+      },
     },
     split: {
       toggleLabel: "Dela denna utgift",
