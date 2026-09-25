@@ -12,6 +12,7 @@ import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { sendVerificationEmail } from "@/lib/email";
+import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 
 // Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
 // 72, so anything longer is rejected rather than accepted-but-misleading.
@@ -221,17 +222,21 @@ const deleteAccountSchema = z.object({
 
 // Per-membership rules (see docs/archive/PRODUCTION_READINESS.md task M for the full
 // reasoning):
-//  - CONTRIBUTOR: just remove that HouseholdMember row — identical effect
-//    to leaveHouseholdAction (src/lib/actions/household.ts), since the
-//    household and its shared data (Transaction, InventoryItem, ...) must
-//    survive for the remaining members. Every FK from shared data back to
-//    HouseholdMember is `onDelete: SetNull` (e.g. HouseholdTask.assignedToMemberId)
-//    except TransactionSplit.householdMemberId and MemberSettlement's two
-//    member relations, which cascade — but that only removes *this member's
-//    own* cost-share/payment rows and repayments, never the Transaction
-//    itself or another member's split row, so no other member's
-//    data is lost. Confirmed by reading every `onDelete:` in
-//    prisma/schema.prisma touching HouseholdMember/User.
+//  - CONTRIBUTOR: settle their split bills, then remove that HouseholdMember
+//    row — identical effect to leaveHouseholdAction (src/lib/actions/
+//    household.ts), since the household and its shared data (Transaction,
+//    InventoryItem, ...) must survive for the remaining members. Every FK
+//    from shared data back to HouseholdMember is `onDelete: SetNull` (e.g.
+//    HouseholdTask.assignedToMemberId) except TransactionSplit.householdMemberId
+//    and MemberSettlement's two member relations, which cascade — that
+//    removes *this member's own* cost-share/payment rows and repayments,
+//    never the Transaction itself or another member's split row, so no
+//    other member's data is lost outright. But their own split row is where
+//    any payment they'd made lived (TransactionSplit.amountPaid), so
+//    settleDepartingMemberSplits runs first to carry that forward onto the
+//    remaining members' rows — see its doc comment. Confirmed every other
+//    `onDelete:` in prisma/schema.prisma touching HouseholdMember/User is
+//    accounted for by reading through them.
 //  - OWNER of a household where they're the only member: delete the whole
 //    household too (Household's Cascade relations take care of every
 //    household-scoped table), same as deleteHouseholdAction but targeting a
@@ -294,6 +299,11 @@ export async function deleteAccountAction(
         await tx.household.delete({ where: { id: householdId } });
       }
       for (const membershipId of contributorMembershipIds) {
+        // Same reasoning as removeMemberAction/leaveHouseholdAction in
+        // src/lib/actions/household.ts: this membership's split rows are
+        // about to cascade away with it, so settle them first — see
+        // settleDepartingMemberSplits's doc comment.
+        await settleDepartingMemberSplits(tx, membershipId);
         await tx.householdMember.delete({ where: { id: membershipId } });
       }
       await tx.user.delete({ where: { id: userId } });

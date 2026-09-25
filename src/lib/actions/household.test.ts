@@ -8,6 +8,7 @@
 // see its doc comment), so unlike auth.test.ts this file needs no next-auth
 // stand-in.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { computeBillPositions } from "@/lib/settle-up-calc";
 
 const {
   householdCreateMock,
@@ -19,6 +20,8 @@ const {
   householdMemberFindUniqueMock,
   householdMemberDeleteMock,
   householdMemberUpdateMock,
+  transactionSplitFindManyMock,
+  transactionSplitUpdateMock,
   emailVerificationTokenCreateMock,
   transactionMock,
   requireHouseholdMock,
@@ -39,21 +42,32 @@ const {
   householdMemberFindUniqueMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
   householdMemberUpdateMock: vi.fn(),
+  // settleDepartingMemberSplits' two calls (src/lib/settle-departing-member.ts)
+  // — findMany defaults to no other members' splits so removeMemberAction/
+  // leaveHouseholdAction tests that don't care about splitting keep passing
+  // unchanged; individual tests override it.
+  transactionSplitFindManyMock: vi.fn(async (): Promise<Array<{ id: string; amountOwed: number }>> => []),
+  transactionSplitUpdateMock: vi.fn(async () => ({})),
   emailVerificationTokenCreateMock: vi.fn(async () => ({
     id: "verify-token-row",
     token: "generated-verify-token",
   })),
   // Handles both $transaction call shapes the module uses: an interactive
-  // callback (joinViaInviteSignupAction) and a plain array of already-issued
-  // mocked-Prisma calls (transferOwnershipAction) — Prisma's array form just
-  // runs each query and resolves with the results, which Promise.all mirrors
-  // closely enough for these tests.
+  // callback (joinViaInviteSignupAction, removeMemberAction,
+  // leaveHouseholdAction) and a plain array of already-issued mocked-Prisma
+  // calls (transferOwnershipAction) — Prisma's array form just runs each
+  // query and resolves with the results, which Promise.all mirrors closely
+  // enough for these tests. The interactive callback is handed every
+  // sub-client method any of those callers touches, routed to the same
+  // top-level mocks so assertions against e.g. householdMemberDeleteMock
+  // work whether the module called it directly or through $transaction.
   transactionMock: vi.fn(async (arg: unknown) => {
     if (Array.isArray(arg)) return Promise.all(arg);
     return (arg as (tx: unknown) => unknown)({
       user: { create: vi.fn(async () => ({ id: "new-user" })) },
-      householdMember: { create: vi.fn(async () => ({})) },
+      householdMember: { create: vi.fn(async () => ({})), delete: householdMemberDeleteMock },
       invitation: { update: vi.fn(async () => ({})) },
+      transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
     });
   }),
   requireHouseholdMock: vi.fn(),
@@ -482,6 +496,56 @@ describe("removeMemberAction", () => {
     expect(result).toEqual({});
     expect(householdMemberDeleteMock).toHaveBeenCalledWith({ where: { id: "member-2" } });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  // Regression test for the bug settle-departing-member.ts fixes: before
+  // that fix, removing a member who'd paid a shared bill cascade-deleted
+  // their split row (with its amountPaid) along with their membership, so a
+  // fully-paid bill looked unpaid again for whoever was left. See that
+  // file's doc comment and migration
+  // 20260925050231_partial_payments_and_settlements's backfill 3, which this
+  // mirrors for historical data.
+  it("settles the remaining member's share before removing a member who'd paid a shared bill in full", async () => {
+    requireHouseholdMock.mockResolvedValue(ownerSession);
+    householdMemberFindFirstMock.mockResolvedValue({
+      id: "member-b",
+      householdId: "household-1",
+      userId: "b-user",
+      role: "CONTRIBUTOR",
+    });
+    householdMemberDeleteMock.mockResolvedValue({});
+    // A and B split a 6000 rent bill 3000/3000, and B paid it in full. B's
+    // own split row (owed 3000, paid 6000) is about to cascade away with
+    // their membership — only A's row (owed 3000) is left to settle.
+    transactionSplitFindManyMock.mockResolvedValue([{ id: "split-a", amountOwed: 3000 }]);
+
+    const result = await removeMemberAction("member-b");
+
+    expect(result).toEqual({});
+    expect(transactionSplitFindManyMock).toHaveBeenCalledWith({
+      where: {
+        householdMemberId: { not: "member-b" },
+        transaction: { splits: { some: { householdMemberId: "member-b" } } },
+      },
+      select: { id: true, amountOwed: true },
+    });
+    // A's share is marked paid before B's row (and payment) disappears.
+    expect(transactionSplitUpdateMock).toHaveBeenCalledWith({
+      where: { id: "split-a" },
+      data: { amountPaid: 3000 },
+    });
+    expect(householdMemberDeleteMock).toHaveBeenCalledWith({ where: { id: "member-b" } });
+
+    // computeBillPositions confirms what that update means for A: with
+    // amountPaid now equal to amountOwed, A owes nothing back to the bill
+    // and nothing to another member — the bill doesn't regress to "left
+    // due"/"unpaid" just because B, who'd actually paid it, left.
+    const position = computeBillPositions({
+      amount: 3000,
+      splits: [{ householdMemberId: "member-a", amountOwed: 3000, amountPaid: 3000 }],
+    }).get("member-a");
+    expect(position?.owedToBill).toBe(0);
+    expect(position?.memberBalance).toBe(0);
   });
 });
 

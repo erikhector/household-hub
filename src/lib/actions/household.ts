@@ -13,6 +13,7 @@ import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
+import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -389,7 +390,13 @@ export async function removeMemberAction(memberId: string): Promise<ActionState>
   if (member.role === "OWNER") return { error: "The owner can't be removed" };
 
   try {
-    await prisma.householdMember.delete({ where: { id: member.id } });
+    // settleDepartingMemberSplits must run before (and atomically with) the
+    // delete — see its doc comment — since HouseholdMember->TransactionSplit
+    // cascades and would otherwise take the member's payment history with it.
+    await prisma.$transaction(async (tx) => {
+      await settleDepartingMemberSplits(tx, member.id);
+      await tx.householdMember.delete({ where: { id: member.id } });
+    });
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -466,7 +473,14 @@ export async function leaveHouseholdAction(): Promise<ActionState> {
   if (!membership) return { error: "Membership not found" };
 
   try {
-    await prisma.householdMember.delete({ where: { id: membership.id } });
+    // See removeMemberAction's identical comment — settleDepartingMemberSplits
+    // must run before (and atomically with) the delete, since it's the
+    // leaving member's own membership that's about to cascade away their
+    // split rows here too.
+    await prisma.$transaction(async (tx) => {
+      await settleDepartingMemberSplits(tx, membership.id);
+      await tx.householdMember.delete({ where: { id: membership.id } });
+    });
   } catch (error) {
     return toFriendlyError(error);
   }

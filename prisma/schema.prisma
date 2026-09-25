@@ -630,9 +630,12 @@ model TransactionSplit {
 // `fromMember` handed `amount` to `toMember`. Balances carry over between
 // months until one of these clears them (see settle-up-calc.ts); nothing
 // else ever zeroes a debt. Money only moves between members here, so it's
-// never income or an expense for the household's own budget. For the
-// payer's personal budget it counts as spending in the month it was made
-// (see src/lib/personal-budget-position.ts).
+// never income or an expense for the household's own budget. It's also not
+// counted again in the payer's personal budget: their share of the split
+// bill this repays already counted as spending in the bill's month (see
+// src/lib/personal-budget-position.ts), so paying a member back only stops
+// that debt being subtracted again as "owed from earlier months" — it
+// doesn't change the number a second time.
 model MemberSettlement {
   id              String   @id @default(cuid())
   householdId     String
