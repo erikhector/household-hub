@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.10.0",
+    "date": "2026-09-25",
+    "pr": 32,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Inventory items with a known shelf life (like dairy, bakery, meat, and produce) now get an estimated expiry date automatically when they're checked off a shopping list, added from a receipt, or added in bulk — shown with a \"≈\" so you know it's a guess. You can turn this off per item with a new \"doesn't expire\" option on the item form.",
+      "sv": "Varor med en känd hållbarhet (som mejeri, bröd, kött och frukt/grönt) får nu automatiskt ett uppskattat utgångsdatum när de bockas av på en inköpslista, läggs till från ett kvitto, eller läggs till i bulk — visas med ett \"≈\" så du vet att det är en gissning. Du kan stänga av det för enskilda varor med ett nytt alternativ \"Den här varan går inte ut\" i varuformuläret."
+    }
+  },
+  {
     "version": "0.9.0",
     "date": "2026-09-25",
     "pr": 29,
