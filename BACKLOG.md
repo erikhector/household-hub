@@ -206,16 +206,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-2. Weekly nutrition recap for the meal plan** —
-      `src/app/dashboard/meal-planning/`. The per-serving nutrition fields
-      (`caloriesPerServing` etc., see REQUIREMENTS.md "Recipe nutrition
-      info") are captured per recipe but never aggregated. Sum the current
-      week's planned entries' nutrition (skipping entries with no
-      nutrition set, and freeform meals which have none) into a dismissible
-      recap card mirroring `MealVarietyRecap`'s shape — a soft "here's your
-      week" summary, not a goal/target tracker (no macro-goal-setting; that's
-      a much bigger, opt-in feature to consider only if this gets used).
-
 - [ ] **GAP-3. Read-only calendar feed for the meal plan + recurring bills** —
       new `src/app/api/calendar/[token]/route.ts`. Cozi's core
       differentiator is that a household's plan shows up in the calendar app
