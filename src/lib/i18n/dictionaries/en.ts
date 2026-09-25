@@ -420,6 +420,22 @@ export const en = {
     // inventory item has no category, or is still sitting in the
     // "Uncategorized" placeholder — see groupPendingItemsByCategory.
     otherCategory: "Other",
+    // AUTO-9: the ⋯ menu's hand-arranged store order, and its reset back to
+    // the order learned from the household's check-offs.
+    reorderSections: {
+      menuItem: "Reorder sections",
+      title: "Reorder sections",
+      description:
+        "Arrange this list's sections in the order you walk the store. It's saved for the whole household and used on every list. Without it, the order is learned from what you check off.",
+      moveUp: "Move {name} up",
+      moveDown: "Move {name} down",
+      cancel: "Cancel",
+      save: "Save order",
+      saving: "Saving…",
+      savedToast: "Section order saved",
+      resetMenuItem: "Use learned order",
+      resetToast: "Back to the learned order",
+    },
     lowStockBadge: "Low stock",
     expenseLogged: "Logged {amount} to your Groceries budget",
     expenseDescription: 'From "{name}"',

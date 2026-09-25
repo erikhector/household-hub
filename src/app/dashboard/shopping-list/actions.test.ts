@@ -42,6 +42,7 @@ const {
   shoppingListItemDeleteManyMock,
   getOrCreateDefaultShoppingListMock,
   addToDefaultListOnLowStockMock,
+  householdUpdateMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
@@ -106,6 +107,7 @@ const {
   shoppingListItemDeleteManyMock: vi.fn(),
   getOrCreateDefaultShoppingListMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
+  householdUpdateMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -135,6 +137,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     priceHistory: { create: priceHistoryCreateMock },
     transaction: { create: transactionCreateMock },
+    household: { update: householdUpdateMock },
     $transaction: transactionMock,
   },
 }));
@@ -209,6 +212,8 @@ const {
   uncompleteShoppingListAction,
   registerReceiptAction,
   undoAutoAddedItemsAction,
+  saveCategoryOrderAction,
+  resetCategoryOrderAction,
 } = await import("@/app/dashboard/shopping-list/actions");
 
 function formData(fields: Record<string, string>) {
@@ -1192,7 +1197,8 @@ describe("togglePurchasedAction", () => {
 
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { purchased: true },
+      // AUTO-9: the tick is timestamped for store-order learning.
+      data: { purchased: true, checkedOffAt: expect.any(Date) },
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -1252,6 +1258,12 @@ describe("togglePurchasedAction", () => {
       data: { quantity: 0 },
     });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+    // AUTO-9: an un-tick clears its step from the check-off sequence, so a
+    // mistaken tick never teaches the store order anything.
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { purchased: false, checkedOffAt: null },
+    });
   });
 
   // AUTO-7
@@ -2149,5 +2161,113 @@ describe("uncompleteShoppingListAction", () => {
     expect(result).toEqual({});
     expect(transactionMock).not.toHaveBeenCalled();
     expect(transactionDeleteManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("completeShoppingListAction → store-order learning (AUTO-9)", () => {
+  const at = (minute: number) => new Date(Date.UTC(2026, 8, 25, 10, minute));
+
+  it("folds the hand-ticked sequence into the learned order, keyed by category", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { ...household, categoryOrderLearned: { "auto:produce": 0.05 } },
+      userId: "user-1",
+    });
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [
+        // Frozen ticked first, produce last: the reverse of the default.
+        { inventoryItemId: "a", purchased: true, estimatedPrice: null, checkedOffAt: at(1), inventoryItem: { category: "Frozen" } },
+        { inventoryItemId: "b", purchased: true, estimatedPrice: null, checkedOffAt: at(9), inventoryItem: { category: "Produce" } },
+        // Receipt-applied (no timestamp) and unlinked "Other" rows teach nothing.
+        { inventoryItemId: "c", purchased: true, estimatedPrice: null, checkedOffAt: null, inventoryItem: { category: "Bakery" } },
+        { inventoryItemId: null, purchased: true, estimatedPrice: null, checkedOffAt: at(5), inventoryItem: null },
+      ],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+
+    await completeShoppingListAction("list-1");
+
+    expect(householdUpdateMock).toHaveBeenCalledTimes(1);
+    const { where, data } = householdUpdateMock.mock.calls[0][0];
+    expect(where).toEqual({ id: "household-1" });
+    expect(Object.keys(data.categoryOrderLearned).sort()).toEqual(["auto:frozen", "auto:produce"]);
+    // Produce was observed at the far end (0.75), so it moves up from 0.05.
+    expect(data.categoryOrderLearned["auto:produce"]).toBeCloseTo(0.05 + 0.3 * (0.75 - 0.05), 4);
+  });
+
+  it("writes nothing when the trip touched fewer than two categories", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [
+        { inventoryItemId: "a", purchased: true, estimatedPrice: null, checkedOffAt: at(1), inventoryItem: { category: "Frozen" } },
+        { inventoryItemId: "b", purchased: true, estimatedPrice: null, checkedOffAt: at(2), inventoryItem: { category: "Frozen" } },
+      ],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+
+    await completeShoppingListAction("list-1");
+
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("still completes the list when saving what it learned fails", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      name: "This week",
+      items: [
+        { inventoryItemId: "a", purchased: true, estimatedPrice: null, checkedOffAt: at(1), inventoryItem: { category: "Frozen" } },
+        { inventoryItemId: "b", purchased: true, estimatedPrice: null, checkedOffAt: at(2), inventoryItem: { category: "Produce" } },
+      ],
+    });
+    shoppingListUpdateMock.mockResolvedValue({});
+    householdUpdateMock.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.error).toBeUndefined();
+  });
+});
+
+describe("saveCategoryOrderAction / resetCategoryOrderAction (AUTO-9)", () => {
+  it("rejects an empty or malformed order without writing", async () => {
+    expect((await saveCategoryOrderAction([])).error).toBe("Invalid section order");
+    expect((await saveCategoryOrderAction(["ok", "x".repeat(201)])).error).toBe("Invalid section order");
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("merges one list's reordered sections into the household's whole order", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { ...household, categoryOrderLearned: null, categoryOrderManual: [] },
+      userId: "user-1",
+    });
+
+    const result = await saveCategoryOrderAction(["auto:frozen", "auto:produce"]);
+
+    expect(result.error).toBeUndefined();
+    const manual: string[] = householdUpdateMock.mock.calls[0][0].data.categoryOrderManual;
+    expect(householdUpdateMock.mock.calls[0][0].where).toEqual({ id: "household-1" });
+    // Frozen takes produce's old first slot; everything else keeps its place.
+    expect(manual[0]).toBe("auto:frozen");
+    expect(manual.indexOf("auto:produce")).toBeGreaterThan(manual.indexOf("auto:dairy"));
+    expect(manual.indexOf("auto:bakery")).toBe(1);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/[id]", "page");
+  });
+
+  it("reset empties the manual order and hands back the old one for Undo", async () => {
+    requireHouseholdMock.mockResolvedValue({
+      household: { ...household, categoryOrderManual: ["garage", "auto:produce"] },
+      userId: "user-1",
+    });
+
+    const result = await resetCategoryOrderAction();
+
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { categoryOrderManual: [] },
+    });
+    expect(result.previous).toEqual(["garage", "auto:produce"]);
   });
 });
