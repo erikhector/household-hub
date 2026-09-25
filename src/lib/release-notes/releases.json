@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.8.0",
+    "date": "2026-09-25",
+    "pr": 28,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now fix an item's category right from the shopping list: tap the small category label on a row and pick another one, or create a new one. Squirrel remembers the choice the next time you add that item.",
+      "sv": "Nu kan du rätta en varas kategori direkt i inköpslistan: tryck på den lilla kategorietiketten på raden och välj en annan eller skapa en ny. Squirrel kommer ihåg valet nästa gång du lägger till varan."
+    }
+  },
+  {
     "version": "0.7.4",
     "date": "2026-09-25",
     "pr": 35,
