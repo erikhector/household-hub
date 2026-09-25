@@ -15,6 +15,12 @@ export type CategoryTotal = {
    * with a limit draws its bar against that limit instead of against the
    * other rows (see CategoryBreakdown). */
   limit?: number | null;
+  /** GAP-21: unspent budget carried in from earlier months, present only on
+   * a rollover-enabled capped row (see withCategoryRollover in
+   * src/lib/budget-rollover-calc.ts). The bar is drawn against
+   * limit + carried — this month's envelope, not just this month's
+   * allowance. */
+  carried?: number | null;
 };
 
 /** The two strings a capped row needs — only PeriodSummary's expense
@@ -22,6 +28,7 @@ export type CategoryTotal = {
 export type CategoryLimitDict = {
   spentOfLimit: string;
   overLimitBy: string;
+  carriedOver: string;
 };
 
 export const CHART_COLORS = [
@@ -62,7 +69,14 @@ export function CategoryBreakdown({
               // not "its share of this card's total" — so a category can
               // read as nearly full even while it's a small slice of the
               // month. Purely visual: going over only turns the row red.
-              const progress = limitDict ? limitProgress(item.total, item.limit) : null;
+              //
+              // GAP-21: with rollover, "its own limit" is the envelope —
+              // the monthly limit plus whatever was left over from earlier
+              // months — so the bar, the "spent / X" figure and the "over"
+              // note all use that available amount.
+              const carried = item.limit != null && item.carried ? item.carried : 0;
+              const available = item.limit != null ? item.limit + carried : null;
+              const progress = limitDict ? limitProgress(item.total, available) : null;
               const share = progress
                 ? progress.fillPercent
                 : total > 0
@@ -75,7 +89,7 @@ export function CategoryBreakdown({
                 <div key={item.id} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 truncate">{item.name}</span>
-                    {progress && limitDict && item.limit != null ? (
+                    {progress && limitDict && available != null ? (
                       <span
                         className={
                           "shrink-0 tabular-nums " +
@@ -84,13 +98,13 @@ export function CategoryBreakdown({
                       >
                         {format(limitDict.spentOfLimit, {
                           spent: numberFormat.format(item.total),
-                          limit: numberFormat.format(item.limit),
+                          limit: numberFormat.format(available),
                         })}
                         {progress.over && (
                           <>
                             {" · "}
                             {format(limitDict.overLimitBy, {
-                              amount: numberFormat.format(item.total - item.limit),
+                              amount: numberFormat.format(item.total - available),
                             })}
                           </>
                         )}
@@ -111,6 +125,11 @@ export function CategoryBreakdown({
                       style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
                     />
                   </div>
+                  {progress && limitDict && carried > 0 && (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
+                    </p>
+                  )}
                 </div>
               );
             })}

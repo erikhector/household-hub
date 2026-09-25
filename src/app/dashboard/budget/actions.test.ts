@@ -183,7 +183,7 @@ describe("createCategoryAction", () => {
 
     expect(result).toEqual({});
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE", monthlyLimit: null },
+      data: { householdId: "household-1", name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false },
     });
   });
 
@@ -198,7 +198,7 @@ describe("createCategoryAction", () => {
     );
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Dining out", type: "EXPENSE", monthlyLimit: 1500 },
+      data: { householdId: "household-1", name: "Dining out", type: "EXPENSE", monthlyLimit: 1500, rolloverEnabled: false },
     });
   });
 
@@ -209,7 +209,61 @@ describe("createCategoryAction", () => {
     await createCategoryAction({}, formData({ name: "Salary", type: "INCOME", monthlyLimit: "1500" }));
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Salary", type: "INCOME", monthlyLimit: null },
+      data: { householdId: "household-1", name: "Salary", type: "INCOME", monthlyLimit: null, rolloverEnabled: false },
+    });
+  });
+
+  // GAP-21: rollover is kept only alongside a limit.
+  it("stores rollover on an expense category that has a limit", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Dining out", type: "EXPENSE", monthlyLimit: "1500", rolloverEnabled: "on" }),
+    );
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Dining out",
+        type: "EXPENSE",
+        monthlyLimit: 1500,
+        rolloverEnabled: true,
+      },
+    });
+  });
+
+  it("drops rollover when there's no limit to carry, or the type can't have one", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Dining out", type: "EXPENSE", rolloverEnabled: "on" }),
+    );
+    expect(categoryCreateMock).toHaveBeenLastCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Dining out",
+        type: "EXPENSE",
+        monthlyLimit: null,
+        rolloverEnabled: false,
+      },
+    });
+
+    await createCategoryAction(
+      {},
+      formData({ name: "Buffer", type: "SAVINGS", monthlyLimit: "500", rolloverEnabled: "on" }),
+    );
+    expect(categoryCreateMock).toHaveBeenLastCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "Buffer",
+        type: "SAVINGS",
+        monthlyLimit: null,
+        rolloverEnabled: false,
+      },
     });
   });
 
@@ -336,7 +390,7 @@ describe("updateCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money", monthlyLimit: null },
+      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false },
     });
   });
 
@@ -350,7 +404,7 @@ describe("updateCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Food", monthlyLimit: 3000 },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false },
     });
 
     categoryFindFirstMock
@@ -361,7 +415,46 @@ describe("updateCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-2" },
-      data: { name: "Buffer", monthlyLimit: null },
+      data: { name: "Buffer", monthlyLimit: null, rolloverEnabled: false },
+    });
+  });
+
+  it("turns rollover on or off with the edit form, clearing it with the limit", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    await updateCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Food", monthlyLimit: "3000", rolloverEnabled: "on" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: true },
+    });
+
+    // An unticked checkbox isn't posted at all — that's "off".
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    await updateCategoryAction({}, formData({ id: "cat-1", name: "Food", monthlyLimit: "3000" }));
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Food", monthlyLimit: 3000, rolloverEnabled: false },
+    });
+
+    // Clearing the limit clears rollover even if the flag is still sent.
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    await updateCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Food", monthlyLimit: "", rolloverEnabled: "on" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Food", monthlyLimit: null, rolloverEnabled: false },
     });
   });
 });

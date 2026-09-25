@@ -1267,6 +1267,9 @@ export const en = {
       limitLabel: "Monthly limit (optional)",
       limitPlaceholder: "No limit",
       limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
+      rolloverLabel: "Roll unspent budget over",
+      rolloverHint: "What's left of the limit at the end of a month is added to the next one's. Overspending never carries over, and it starts fresh each January.",
+      rolloverNeedsLimit: "Set a monthly limit to roll unspent budget over.",
     },
     summary: {
       title: "This month",
@@ -1283,6 +1286,7 @@ export const en = {
       noSavings: "No savings recorded this month.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
+      carriedOver: "incl. {amount} carried over",
     },
     safeToSpend: {
       title: "Safe to spend",
@@ -1581,6 +1585,9 @@ export const en = {
       limitLabel: "Monthly limit (optional)",
       limitPlaceholder: "No limit",
       limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
+      rolloverLabel: "Roll unspent budget over",
+      rolloverHint: "What's left of the limit at the end of a month is added to the next one's. Overspending never carries over, and it starts fresh each January.",
+      rolloverNeedsLimit: "Set a monthly limit to roll unspent budget over.",
     },
     summary: {
       title: "This month",
@@ -1597,6 +1604,7 @@ export const en = {
       noSavings: "No savings recorded this month.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
+      carriedOver: "incl. {amount} carried over",
     },
     safeToSpend: {
       title: "Safe to spend",

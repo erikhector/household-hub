@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -37,6 +38,8 @@ export type CategoryRow = {
   // transaction dialog, the personal page's household category list); only
   // the rows fed to CategoryManager need to carry it for the edit form.
   monthlyLimit?: number | null;
+  // GAP-21's envelope carryover toggle, optional for the same reason.
+  rolloverEnabled?: boolean;
 };
 
 // Shared by both createCategoryAction/updateCategoryAction/deleteCategoryAction
@@ -91,6 +94,9 @@ export type CategoryManagerDict = {
     limitLabel: string;
     limitPlaceholder: string;
     limitHint: string;
+    rolloverLabel: string;
+    rolloverHint: string;
+    rolloverNeedsLimit: string;
   };
   type: {
     income: string;
@@ -290,6 +296,7 @@ function EditCategoryDialog({
             <MonthlyLimitField
               id={`category-limit-${category.id}`}
               defaultValue={category.monthlyLimit}
+              defaultRollover={category.rolloverEnabled}
               dict={dict}
             />
           )}
@@ -397,33 +404,65 @@ export function AddCategoryDialog({
  * dialogs. Empty means "no limit" (and clears an existing one on edit) —
  * see monthlyLimitField in src/lib/budget-category-limit.ts for the
  * server-side parsing.
+ *
+ * Also carries GAP-21's "Roll unspent budget over" checkbox, since rollover
+ * only means something with a limit to carry (src/lib/budget-rollover-calc.ts).
+ * The checkbox stays visible but disabled while the limit field is empty,
+ * with a hint saying why, rather than popping in and out as the user types —
+ * and a disabled checkbox isn't submitted, so the action stores "off"
+ * (it also clears the flag itself whenever the limit ends up null).
  */
 function MonthlyLimitField({
   id,
   defaultValue,
+  defaultRollover,
   dict,
 }: {
   id: string;
   defaultValue?: number | null;
+  defaultRollover?: boolean;
   dict: CategoryManagerDict;
 }) {
+  // Only tracks whether the (still uncontrolled) input has something in
+  // it, to enable the rollover checkbox below.
+  const [hasLimit, setHasLimit] = useState(defaultValue != null);
+  const rolloverId = `${id}-rollover`;
+
   return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{dict.categories.limitLabel}</Label>
-      <Input
-        id={id}
-        name="monthlyLimit"
-        type="number"
-        min={0.01}
-        step="any"
-        inputMode="decimal"
-        defaultValue={defaultValue ?? undefined}
-        placeholder={dict.categories.limitPlaceholder}
-        aria-describedby={`${id}-hint`}
-      />
-      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-        {dict.categories.limitHint}
-      </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={id}>{dict.categories.limitLabel}</Label>
+        <Input
+          id={id}
+          name="monthlyLimit"
+          type="number"
+          min={0.01}
+          step="any"
+          inputMode="decimal"
+          defaultValue={defaultValue ?? undefined}
+          placeholder={dict.categories.limitPlaceholder}
+          aria-describedby={`${id}-hint`}
+          onChange={(e) => setHasLimit(e.target.value.trim() !== "")}
+        />
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {dict.categories.limitHint}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={rolloverId} className="flex items-center gap-2 text-sm font-medium">
+          <Checkbox
+            id={rolloverId}
+            name="rolloverEnabled"
+            defaultChecked={defaultRollover ?? false}
+            disabled={!hasLimit}
+            aria-describedby={`${rolloverId}-hint`}
+          />
+          {dict.categories.rolloverLabel}
+        </label>
+        <p id={`${rolloverId}-hint`} className="text-xs text-muted-foreground">
+          {hasLimit ? dict.categories.rolloverHint : dict.categories.rolloverNeedsLimit}
+        </p>
+      </div>
     </div>
   );
 }

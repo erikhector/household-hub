@@ -3,8 +3,32 @@ import {
   limitForType,
   limitProgress,
   monthlyLimitField,
+  rolloverEnabledField,
+  rolloverForLimit,
   withCategoryLimits,
 } from "@/lib/budget-category-limit";
+
+describe("rolloverEnabledField", () => {
+  it("reads a ticked native checkbox as on", () => {
+    expect(rolloverEnabledField.parse("on")).toBe(true);
+    expect(rolloverEnabledField.parse("true")).toBe(true);
+  });
+
+  it("reads a missing or anything-else value as off", () => {
+    expect(rolloverEnabledField.parse(null)).toBe(false);
+    expect(rolloverEnabledField.parse(undefined)).toBe(false);
+    expect(rolloverEnabledField.parse("")).toBe(false);
+    expect(rolloverEnabledField.parse("off")).toBe(false);
+  });
+});
+
+describe("rolloverForLimit", () => {
+  it("keeps rollover only when there's a limit to carry", () => {
+    expect(rolloverForLimit(1000, true)).toBe(true);
+    expect(rolloverForLimit(1000, false)).toBe(false);
+    expect(rolloverForLimit(null, true)).toBe(false);
+  });
+});
 
 describe("monthlyLimitField", () => {
   it("treats an empty, blank or missing field as 'no limit'", () => {

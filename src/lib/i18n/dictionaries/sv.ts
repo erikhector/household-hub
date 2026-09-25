@@ -1217,6 +1217,9 @@ export const sv = {
       limitLabel: "Månadsgräns (valfri)",
       limitPlaceholder: "Ingen gräns",
       limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
+      rolloverLabel: "För över det som blir kvar",
+      rolloverHint: "Det som blir kvar av gränsen i slutet av en månad läggs till nästa månads. Överdrag förs aldrig vidare, och det börjar om varje januari.",
+      rolloverNeedsLimit: "Ange en månadsgräns för att kunna föra över det som blir kvar.",
     },
     summary: {
       title: "Den här månaden",
@@ -1233,6 +1236,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      carriedOver: "varav {amount} överfört",
     },
     safeToSpend: {
       title: "Säkert att spendera",
@@ -1530,6 +1534,9 @@ export const sv = {
       limitLabel: "Månadsgräns (valfri)",
       limitPlaceholder: "Ingen gräns",
       limitHint: "Månadens utgifter visas mot gränsen i sammanställningen. Lämna tomt för ingen gräns.",
+      rolloverLabel: "För över det som blir kvar",
+      rolloverHint: "Det som blir kvar av gränsen i slutet av en månad läggs till nästa månads. Överdrag förs aldrig vidare, och det börjar om varje januari.",
+      rolloverNeedsLimit: "Ange en månadsgräns för att kunna föra över det som blir kvar.",
     },
     summary: {
       title: "Denna månad",
@@ -1546,6 +1553,7 @@ export const sv = {
       noSavings: "Inget sparande registrerat denna månad.",
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
+      carriedOver: "varav {amount} överfört",
     },
     safeToSpend: {
       title: "Säkert att spendera",

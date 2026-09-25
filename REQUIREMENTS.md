@@ -749,6 +749,43 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   and no notification fires. A read-only view of another household's budget
   (PR #27) shows that household's limits the same way, with the edit
   controls disabled like the rest of the Manage tab.
+- **Budget category rollover (GAP-21)**: envelope-style carryover on top of
+  a monthly limit. `rolloverEnabled Boolean @default(false)` sits on both
+  `BudgetCategory` and `PersonalBudgetCategory` (migration
+  `20260925140300_budget_category_rollover`), set by a "Roll unspent budget
+  over" checkbox under the limit field in `CategoryManager`'s add and edit
+  dialogs. The checkbox is disabled (with a "set a monthly limit" hint) while
+  the limit field is empty, and the category actions store it through
+  `rolloverEnabledField`/`rolloverForLimit` (`src/lib/budget-category-limit.ts`),
+  which force it off whenever the stored limit is null, so clearing a limit
+  or picking an income/savings type also clears rollover. The maths lives in
+  the dependency-free `src/lib/budget-rollover-calc.ts`:
+  `computeCategoryRollover` walks the months before the viewed one, adding
+  each month's (limit − spent) to a running balance that's clamped at 0
+  after every month (`carryForward`). Overspending eats into what was saved
+  up but never creates a debt the next month has to dig out of, which is the
+  forgiving half of YNAB-style envelopes, in keeping with "suggest, don't
+  gate". A month with no spending carries its whole limit. **Where it
+  starts** (`rolloverStartMonth`): the later of the category's `createdAt`
+  month (no envelope existed before it, so backdated spending in a new
+  category can't pad or eat into a phantom allowance) and **January of the
+  viewed month's year** (the envelope starts fresh each calendar year). The
+  yearly reset keeps it cheap and consistent: the carry needs at most the 11
+  months before the viewed one, which the household page already has in its
+  12-month `recurringLookbackTransactions` window and the personal page in
+  its loader's full transaction list, so rollover adds no query. Within a
+  year carried(M+1) = max(0, carried(M) + limit − spent(M)) always holds,
+  which a rolling 12-month window wouldn't guarantee. There's no limit
+  history and no record of when rollover was switched on, so the *current*
+  limit is applied to every month in the window. Changing the limit, or
+  turning rollover on mid-year, re-evaluates the year so far, but never
+  reaches into the previous year. Each page wraps its expense rows in
+  `withCategoryRollover(withCategoryLimits(…))`, which attaches `carried` to
+  rollover-enabled rows only (the personal page's `shared:` mirror rows never
+  match). `CategoryBreakdown` then draws the bar, the "spent / X" figure and
+  the "X over" note against limit + carried and adds an "incl. X carried over"
+  line under the bar when anything was carried. Like the limit itself it's
+  purely visual: safe to spend and every total ignore it.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
