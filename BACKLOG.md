@@ -211,17 +211,6 @@ out to be a product-scope question rather than a scoped task should move to
       Splitwise itself doesn't for Swedish households. Needs a phone number
       per member, which the app doesn't store yet.
 
-- [ ] **GAP-8. Leftover tracking from "mark meal as cooked"** —
-      `src/app/dashboard/meal-planning/cooking-actions.ts`. Today marking a
-      meal cooked only decrements ingredient quantities (REQUIREMENTS.md,
-      "Mark meal as cooked → inventory decrement"); the extra portions a
-      recipe with `servings` > the household's headcount produces just
-      evaporate. An optional "servings left over" input on the mark-cooked
-      dialog that creates a small `InventoryItem` (or reuses an existing
-      "Leftovers" one) with an estimated 3-4 day expiry, so it shows up in
-      `ExpiryBadge`/expiring-soon before it's forgotten in the fridge — a
-      real food-waste gap none of the meal planners above actually close.
-
 - [ ] **GAP-9. Price-jump alerts from existing price history** —
       `src/lib/notifications.ts`, `prisma/schema.prisma`
       (`NotificationKind`). Every price-tracking competitor (ICA, Grocy)

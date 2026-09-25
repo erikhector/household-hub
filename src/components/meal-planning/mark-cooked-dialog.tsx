@@ -35,6 +35,9 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Controlled (like the quantity inputs) so a rejected submit doesn't wipe
+  // what was typed — React resets an uncontrolled form after its action runs.
+  const [leftoverServings, setLeftoverServings] = useState("");
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -56,13 +59,22 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
       // the message says so and the same Undo takes those rows back off the
       // list too — undoing the cook should undo everything it caused.
       const autoAdded = result.autoAdded ?? [];
+      // GAP-8: the leftovers change (a created row, or a merged row's
+      // previous quantity/expiry) rides along on the same Undo too.
+      const leftovers = result.leftovers;
+      const leftoverServings = Number(formData.get("leftoverServings")) || 0;
+      // One toast, so only one message: the auto-add note wins when both
+      // happened, since it's the change on *another* screen the household
+      // is least likely to notice on their own.
       const message =
         autoAdded.length > 0
           ? format(plural(autoAdded.length, dict.mealMarkedCookedAutoAddedToast), {
               count: autoAdded.length,
               list: autoAdded[0].listName,
             })
-          : dict.mealMarkedCookedToast;
+          : leftovers && leftoverServings > 0
+            ? format(plural(leftoverServings, dict.mealMarkedCookedLeftoversToast), { count: leftoverServings })
+            : dict.mealMarkedCookedToast;
 
       toast.success(message, {
         duration: 8000,
@@ -70,7 +82,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
           label: dict.undoMarkCooked,
           onClick: () => {
             void Promise.all([
-              undoMarkMealEntryCookedAction(entry.id, rows),
+              undoMarkMealEntryCookedAction(entry.id, rows, leftovers),
               autoAdded.length > 0
                 ? undoAutoAddedItemsAction(autoAdded.map((added) => added.shoppingListItemId))
                 : Promise.resolve<ActionState>({}),
@@ -94,6 +106,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
     // changed since this was last shown (mirrors MissingIngredientsDialog).
     setItems(null);
     setPreviewError(null);
+    setLeftoverServings("");
     startPreviewTransition(async () => {
       const result = await previewCookedIngredientsAction(entry.id);
       if ("error" in result) {
@@ -194,6 +207,29 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                 ))}
               </div>
             )}
+
+            {/* GAP-8: blank by default — leftovers are only ever recorded
+                when the household types a number here (Guardrails: suggest,
+                don't silently mutate), never inferred from servings. */}
+            <div className="flex flex-col gap-1">
+              <label htmlFor={`leftover-servings-${entry.id}`} className="text-sm font-medium">
+                {dict.leftoverServingsLabel}
+              </label>
+              <input
+                id={`leftover-servings-${entry.id}`}
+                name="leftoverServings"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={100}
+                step={1}
+                placeholder="0"
+                value={leftoverServings}
+                onChange={(e) => setLeftoverServings(e.target.value)}
+                className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">{dict.leftoverServingsHint}</p>
+            </div>
 
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             <DialogFooter>
