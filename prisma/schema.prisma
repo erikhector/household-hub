@@ -312,6 +312,9 @@ enum NotificationKind {
   // distinct treatment from the warning kinds. Same lifecycle as every
   // other kind (fired once at the transition, cleared only by dismissal).
   LIST_CLEARED
+  // GAP-9: a newly recorded PriceHistory price materially above that item's
+  // trailing median — see recordPriceSpikes in src/lib/notifications.ts.
+  PRICE_SPIKE
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
@@ -339,6 +342,15 @@ enum NotificationKind {
 //   most once per crossing (checking/removing another item while already
 //   at 0 is a no-op), and can fire again the next time the list refills and
 //   clears again. See recordListClearedTransition.
+// - PRICE_SPIKE (GAP-9): a newly recorded PriceHistory price (checking an
+//   item off with a price, a receipt scan/register) that's materially above
+//   that item's trailing median per unit — see detectPriceSpike
+//   (src/lib/price-spike.ts) for what "materially" means. Deduped per item
+//   against any undismissed alert *and* any alert created in the last
+//   PRICE_SPIKE_COOLDOWN_DAYS, dismissed or not, so re-checking the same
+//   purchase doesn't re-alert. `priceIncreasePercent` is set only on these
+//   rows, so the bell can say "cost N% more than usual" without re-deriving
+//   the median on every read.
 // RESTOCKED (the inverse of OUT_OF_STOCK — an item crossing back above its
 // low-stock threshold) used to be a fifth trigger; it's retired by product
 // decision (see src/lib/notifications.ts) and no longer fires.
@@ -362,6 +374,9 @@ model Notification {
   inventoryItemId String?
   mealPlanEntryId String?
   shoppingListId  String?
+  // PRICE_SPIKE only (GAP-9): how far above the trailing median the new
+  // price was, as a rounded percentage. Null on every other kind.
+  priceIncreasePercent Int?
   createdAt       DateTime         @default(now())
   dismissedAt     DateTime?
 
@@ -459,7 +474,16 @@ model ShoppingListItem {
 model PriceHistory {
   id              String   @id @default(cuid())
   inventoryItemId String
+  // The price paid for the whole purchased line, not one unit of it — a
+  // shopping-list item's estimatedPrice / a receipt line's price, for
+  // however much of the item that line bought (see recipe-cost.ts).
   price           Float
+  // GAP-9: that line's quantity and unit, so prices can be compared
+  // like-for-like per unit (2 × milk at 30 is not a price jump over 1 × milk
+  // at 15). Null on rows written before GAP-9, which detectPriceSpike
+  // (src/lib/price-spike.ts) therefore can't compare against.
+  quantity        Float?
+  unit            String?
   store           String?
   date            DateTime @default(now())
 

@@ -1,4 +1,5 @@
 // Tests recordOutOfStockTransition(), recordListClearedTransition(),
+// recordPriceSpikes(),
 // syncMealNotLoggedNotifications(), syncExpiringSoonNotifications() and
 // getActiveNotifications()
 // (src/lib/notifications.ts) — the persisted notification model (see the
@@ -22,6 +23,7 @@ const {
   inventoryItemFindUniqueMock,
   inventoryItemFindManyMock,
   shoppingListFindUniqueMock,
+  priceHistoryFindManyMock,
   sendPushToHouseholdMock,
 } = vi.hoisted(() => ({
   notificationFindFirstMock: vi.fn(),
@@ -31,6 +33,7 @@ const {
   inventoryItemFindUniqueMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
   shoppingListFindUniqueMock: vi.fn(),
+  priceHistoryFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
 }));
 
@@ -44,6 +47,7 @@ vi.mock("@/lib/prisma", () => ({
     mealPlanEntry: { findMany: mealPlanEntryFindManyMock },
     inventoryItem: { findUnique: inventoryItemFindUniqueMock, findMany: inventoryItemFindManyMock },
     shoppingList: { findUnique: shoppingListFindUniqueMock },
+    priceHistory: { findMany: priceHistoryFindManyMock },
   },
 }));
 
@@ -74,6 +78,7 @@ function pendingPush() {
 const {
   recordOutOfStockTransition,
   recordListClearedTransition,
+  recordPriceSpikes,
   syncMealNotLoggedNotifications,
   syncExpiringSoonNotifications,
   getActiveNotifications,
@@ -91,6 +96,7 @@ beforeEach(() => {
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Eggs" });
   inventoryItemFindManyMock.mockResolvedValue([]);
   shoppingListFindUniqueMock.mockResolvedValue({ name: "Weekly shop" });
+  priceHistoryFindManyMock.mockResolvedValue([]);
   sendPushToHouseholdMock.mockResolvedValue(undefined);
 });
 
@@ -218,6 +224,159 @@ describe("recordListClearedTransition", () => {
     });
     expect(notificationCreateMock).not.toHaveBeenCalled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("recordPriceSpikes", () => {
+  // Three earlier purchases of one carton at 20 — the usual price. The
+  // thresholds themselves are detectPriceSpike's and tested in
+  // src/lib/price-spike.test.ts; these tests cover the wiring around it.
+  const history = [10, 20, 30].map((days) => ({
+    inventoryItemId: "item-1",
+    price: 20,
+    quantity: 1,
+    unit: "pcs",
+    date: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+  }));
+
+  function recorded(price: number, overrides: Partial<{ priceHistoryId: string; quantity: number; inventoryItemId: string }> = {}) {
+    return {
+      priceHistoryId: overrides.priceHistoryId ?? "ph-new",
+      inventoryItemId: overrides.inventoryItemId ?? "item-1",
+      price,
+      quantity: overrides.quantity ?? 1,
+      unit: "pcs",
+    };
+  }
+
+  beforeEach(() => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "item-1", name: "Milk" }]);
+    priceHistoryFindManyMock.mockResolvedValue(history);
+  });
+
+  it("creates a PRICE_SPIKE alert with the percentage and pushes it, excluding the acting user", async () => {
+    await recordPriceSpikes("household-1", [recorded(35)], "user-1");
+
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "PRICE_SPIKE", inventoryItemId: "item-1", priceIncreasePercent: 75 },
+    });
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      { title: "Price jump", body: "Milk cost 75% more than usual", url: "/dashboard/budget?tab=insights" },
+      "user-1",
+    );
+  });
+
+  it("does nothing for an ordinary price", async () => {
+    await recordPriceSpikes("household-1", [recorded(21)]);
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("does nothing, without querying, when no price was recorded", async () => {
+    await recordPriceSpikes("household-1", []);
+
+    expect(priceHistoryFindManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("compares against the item's prior, per-unit-comparable history only, never the rows just written", async () => {
+    await recordPriceSpikes("household-1", [recorded(35, { priceHistoryId: "ph-a" }), recorded(35, { priceHistoryId: "ph-b" })]);
+
+    const where = priceHistoryFindManyMock.mock.calls[0][0].where;
+    expect(where.inventoryItemId).toEqual({ in: ["item-1"] });
+    expect(where.id).toEqual({ notIn: ["ph-a", "ph-b"] });
+    expect(where.quantity).toEqual({ not: null });
+    expect(where.unit).toEqual({ not: null });
+    expect(where.date.gte).toBeInstanceOf(Date);
+  });
+
+  it("scopes the item lookup to the household, skipping a foreign item", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    await recordPriceSpikes("household-1", [recorded(35)]);
+
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["item-1"] }, householdId: "household-1" } }),
+    );
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("raises one alert when the same item is on the receipt twice", async () => {
+    await recordPriceSpikes("household-1", [
+      recorded(35, { priceHistoryId: "ph-a" }),
+      recorded(35, { priceHistoryId: "ph-b" }),
+    ]);
+
+    expect(notificationCreateMock).toHaveBeenCalledTimes(1);
+    expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("doesn't treat buying two cartons at the usual price as a jump", async () => {
+    await recordPriceSpikes("household-1", [recorded(40, { quantity: 2 })]);
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("skips an item with an active or recently-created PRICE_SPIKE alert", async () => {
+    notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "item-1" }]);
+
+    await recordPriceSpikes("household-1", [recorded(35)]);
+
+    const where = notificationFindManyMock.mock.calls[0][0].where;
+    expect(where).toMatchObject({ householdId: "household-1", kind: "PRICE_SPIKE", inventoryItemId: { in: ["item-1"] } });
+    expect(where.OR).toEqual([
+      { dismissedAt: null },
+      // PRICE_SPIKE_COOLDOWN_DAYS (14) before the faked "now".
+      { createdAt: { gte: new Date("2026-08-22T12:00:00.000Z") } },
+    ]);
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("still alerts one item when another in the same batch is suppressed", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "item-1", name: "Milk" },
+      { id: "item-2", name: "Butter" },
+    ]);
+    priceHistoryFindManyMock.mockResolvedValue([
+      ...history,
+      ...history.map((row) => ({ ...row, inventoryItemId: "item-2" })),
+    ]);
+    notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "item-1" }]);
+
+    await recordPriceSpikes("household-1", [recorded(35), recorded(35, { inventoryItemId: "item-2", priceHistoryId: "ph-2" })]);
+
+    expect(notificationCreateMock).toHaveBeenCalledTimes(1);
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "PRICE_SPIKE", inventoryItemId: "item-2", priceIncreasePercent: 75 },
+    });
+  });
+
+  it("never throws — the prices are already saved", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    priceHistoryFindManyMock.mockRejectedValue(new Error("db down"));
+
+    await expect(recordPriceSpikes("household-1", [recorded(35)])).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("waits for the push send before resolving", async () => {
+    const release = pendingPush();
+    let settled = false;
+    const promise = recordPriceSpikes("household-1", [recorded(35)]).then(() => {
+      settled = true;
+    });
+
+    await flushMicrotasks();
+    expect(sendPushToHouseholdMock).toHaveBeenCalled();
+    expect(settled).toBe(false);
+
+    release();
+    await promise;
+    expect(settled).toBe(true);
   });
 });
 
@@ -498,6 +657,40 @@ describe("getActiveNotifications", () => {
     expect(notifications).toEqual([
       { id: "notif-5", kind: "listCleared", shoppingListId: "list-1", name: "Weekly shop" },
     ]);
+  });
+
+  it("maps a PRICE_SPIKE row using the linked item's current name and stored percentage", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "notif-6",
+        kind: "PRICE_SPIKE",
+        inventoryItemId: "item-1",
+        priceIncreasePercent: 42,
+        inventoryItem: { name: "Coffee", expiresAtEstimated: false },
+        mealPlanEntry: null,
+        shoppingList: null,
+      },
+    ]);
+
+    expect(await getActiveNotifications("household-1")).toEqual([
+      { id: "notif-6", kind: "priceSpike", itemId: "item-1", name: "Coffee", increasePercent: 42 },
+    ]);
+  });
+
+  it("drops a PRICE_SPIKE row whose inventory item no longer exists", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "notif-6",
+        kind: "PRICE_SPIKE",
+        inventoryItemId: "item-1",
+        priceIncreasePercent: 42,
+        inventoryItem: null,
+        mealPlanEntry: null,
+        shoppingList: null,
+      },
+    ]);
+
+    expect(await getActiveNotifications("household-1")).toEqual([]);
   });
 
   it("drops a LIST_CLEARED row whose shopping list no longer exists", async () => {

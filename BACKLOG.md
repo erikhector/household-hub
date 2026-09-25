@@ -211,17 +211,6 @@ out to be a product-scope question rather than a scoped task should move to
       Splitwise itself doesn't for Swedish households. Needs a phone number
       per member, which the app doesn't store yet.
 
-- [ ] **GAP-9. Price-jump alerts from existing price history** —
-      `src/lib/notifications.ts`, `prisma/schema.prisma`
-      (`NotificationKind`). Every price-tracking competitor (ICA, Grocy)
-      surfaces unusual price changes; Squirrel already records every price
-      in `PriceHistory` but never looks back at it. A new `PRICE_SPIKE`
-      notification kind (Phase 2 migration, same pattern as `LIST_CLEARED`)
-      fires when a newly recorded price (receipt scan or manual correction)
-      is materially above that item's trailing median — this is squarely a
-      "something's actually wrong" bell case per the Guardrails, not a
-      dismissible in-list chip like AUTO-9/AUTO-10's suggestions.
-
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
       both support hands-free "add milk to my shopping list" via Alexa/Google
