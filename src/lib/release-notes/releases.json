@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.12.0",
+    "date": "2026-09-25",
+    "pr": 33,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now keeps a \"Next shop\" list for you. When something runs low, it's added automatically, and you can undo that straight from the notice. You can turn this off on the Household page.",
+      "sv": "Squirrel håller nu en \"Att handla\"-lista åt er. När något börjar ta slut läggs det till automatiskt, och du kan ångra direkt i meddelandet. Du kan stänga av det på sidan Hushåll."
+    }
+  },
+  {
     "version": "0.11.0",
     "date": "2026-09-25",
     "pr": 31,
