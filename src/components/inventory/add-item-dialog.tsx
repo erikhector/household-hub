@@ -147,6 +147,9 @@ export function ItemFormDialog({
         )}
         <form action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && item && <input type="hidden" name="itemId" value={item.id} />}
+          {/* Remembered on the new item (AUTO-6) so the next scan of this
+              product resolves straight to it — see createInventoryItemAction. */}
+          {mode === "create" && scannedBarcode && <input type="hidden" name="barcode" value={scannedBarcode} />}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="name">{dict.nameLabel}</Label>

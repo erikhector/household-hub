@@ -107,34 +107,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Shopping list & inventory automation
 
-- [ ] **AUTO-6. Remember barcodes: scan = one-tap stock change**
-      — `prisma/schema.prisma` (`InventoryItem`),
-      `src/components/shared/barcode-scanner.tsx`,
-      `src/lib/actions/barcode.ts`, `src/app/dashboard/inventory/page.tsx`
-      **Problem:** barcode scanning only ever pre-fills a name; nothing is
-      remembered, so it never gets faster.
-      **Design brief:** a "Scan" button on the inventory page that opens
-      the camera in a *continuous* mode with a two-state toggle: **Put
-      away** (+1 per scan) and **Used up** (−1 per scan, with "…and add to
-      list" when it hits 0). A known barcode applies instantly with a short
-      toast + Undo and the camera stays open for the next item; an unknown
-      barcode shows the Open Food Facts name (and category, via AUTO-2)
-      with a one-tap "Add as new item" or "This is…" picker to link it to an
-      existing item. The shopping-list scan button (in the smart add line) adds a
-      known barcode's item to the list in one scan.
-      **Dev notes:** `barcode String?` on `InventoryItem` plus
-      `@@unique([householdId, barcode])` (one product per household per
-      code; a second product may link the same code only by moving it).
-      New `scanStockChangeAction(barcode, delta)` resolves the barcode
-      household-scoped and reuses `adjustQuantityAction`'s clamping and
-      `recordOutOfStockTransition` side effect (the `RESTOCKED` kind is
-      retired — see `src/lib/notifications.ts` — so don't revive it here).
-      REQUIREMENTS.md's barcode section currently says "nothing about a scan
-      is ever persisted" — update it, and update the privacy note (still
-      only digits leave the device; the barcode is now stored with the
-      household's own inventory). Keep the existing "never blocks manual
-      entry" fallback behavior.
-
 - [ ] **AUTO-8. An always-on household list that fills itself**
       — `prisma/schema.prisma` (`ShoppingList`),
       `src/app/dashboard/inventory/actions.ts`,
@@ -254,9 +226,9 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       exists, it's just shorter.
       **Dev notes:** a second, stricter threshold alongside the current
       pre-select threshold for `findInventoryMatches`; tune against real
-      receipts before shipping. Once AUTO-6 exists, receipts with EANs
-      (rare in Swedish receipts, but some chains print them) can match by
-      barcode exactly.
+      receipts before shipping. Receipts with EANs (rare in Swedish receipts,
+      but some chains print them) can also match by barcode exactly, now
+      that AUTO-6 stores `InventoryItem.barcode`.
 
 - [ ] **AUTO-12. Voice add**
       — `src/components/shopping/smart-add-bar.tsx`

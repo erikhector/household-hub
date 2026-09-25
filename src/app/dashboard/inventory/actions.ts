@@ -10,6 +10,9 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
+import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
+import { normalizeBarcode } from "@/lib/barcode";
+import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
 
 const itemSchema = z.object({
@@ -84,21 +87,32 @@ export async function createInventoryItemAction(
     // chance at names that reach this point.
     const guessed = parsed.data.category || (await createCategoryResolver(household.id)(parsed.data.name));
     const category = guessed || (await getDictionary()).inventory.uncategorized;
-    await prisma.inventoryItem.create({
-      data: {
-        householdId: household.id,
-        ...rest,
-        category,
-        updatedByUserId: userId,
-        // AUTO-7: a date typed on this form is always real, never the
-        // estimator's; "doesn't expire" clears any date and permanently
-        // opts the item out (shelfLifeDays -1) instead of leaving it to the
-        // category default (null).
-        expiresAt: neverExpires ? null : expiresAt,
-        expiresAtEstimated: false,
-        shelfLifeDays: neverExpires ? -1 : null,
-      },
-    });
+    const data = {
+      householdId: household.id,
+      ...rest,
+      category,
+      updatedByUserId: userId,
+      // AUTO-7: a date typed on this form is always real, never the
+      // estimator's; "doesn't expire" clears any date and permanently
+      // opts the item out (shelfLifeDays -1) instead of leaving it to the
+      // category default (null).
+      expiresAt: neverExpires ? null : expiresAt,
+      expiresAtEstimated: false,
+      shelfLifeDays: neverExpires ? -1 : null,
+    };
+    // A code scanned with the form's "Scan barcode" button is remembered on
+    // the new item (AUTO-6), so the next scan of it resolves straight here.
+    // Only then is a transaction needed — the code may have to move off
+    // another item first (see releaseBarcode).
+    const barcode = normalizeBarcode(String(formData.get("barcode") ?? ""));
+    if (barcode) {
+      await prisma.$transaction(async (tx) => {
+        await releaseBarcode(tx, household.id, barcode);
+        await tx.inventoryItem.create({ data: { ...data, barcode } });
+      });
+    } else {
+      await prisma.inventoryItem.create({ data });
+    }
     if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
     return toFriendlyError(error);
@@ -232,6 +246,9 @@ const bulkCreateItemSchema = z.object({
   // Per-item suggestion (a barcode scan's Open Food Facts category) — used
   // only when the batch's shared category is blank.
   category: z.string().trim().max(60).optional(),
+  // The scan queue's code for this row, remembered on the created item
+  // (AUTO-6). Anything not barcode-shaped is dropped, not rejected.
+  barcode: z.string().trim().max(20).optional(),
 });
 
 const bulkCreateSchema = z.object({
@@ -250,7 +267,7 @@ const bulkCreateSchema = z.object({
 // household already has, so re-running a scan session over the same shelf
 // doesn't create duplicate rows — it just skips the repeats.
 export async function bulkCreateInventoryItemsAction(
-  items: { name: string; quantity?: number; unit?: string; category?: string }[],
+  items: { name: string; quantity?: number; unit?: string; category?: string; barcode?: string }[],
   shared?: { category?: string; location?: string },
 ): Promise<{ error?: string; added?: number; skipped?: number }> {
   const { household, userId } = await requireHousehold();
@@ -276,7 +293,10 @@ export async function bulkCreateInventoryItemsAction(
     // Later duplicates within the same batch (two rows scanned/pasted for
     // the same item) merge into one row by summing quantity, rather than
     // creating two rows or silently dropping the second.
-    const merged = new Map<string, { name: string; quantity: number; unit: string; category?: string }>();
+    const merged = new Map<
+      string,
+      { name: string; quantity: number; unit: string; category?: string; barcode?: string }
+    >();
     for (const item of parsed.data.items) {
       const key = item.name.toLowerCase();
       if (existingNames.has(key)) {
@@ -292,36 +312,51 @@ export async function bulkCreateInventoryItemsAction(
 
     const toAdd = [];
     const aiCandidates: string[] = [];
+    // A code can only land on one new row (the unique index would reject
+    // the whole createMany otherwise) — the first row that carries it wins.
+    const seenBarcodes = new Set<string>();
     for (const item of merged.values()) {
       const guessed = parsed.data.category || item.category || (await resolveCategory(item.name));
       const category = guessed || dict.inventory.uncategorized;
       if (!guessed) aiCandidates.push(item.name);
-      toAdd.push({ ...item, category });
+      let barcode = item.barcode ? normalizeBarcode(item.barcode) : null;
+      if (barcode && seenBarcodes.has(barcode)) barcode = null;
+      if (barcode) seenBarcodes.add(barcode);
+      toAdd.push({ ...item, category, barcode });
     }
     if (toAdd.length > 0) {
-      await prisma.inventoryItem.createMany({
-        data: toAdd.map((item) => ({
-          householdId: household.id,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          category: item.category,
-          location,
-          lowStockThreshold: 1,
-          updatedByUserId: userId,
-          // AUTO-7: a bulk-created item is a brand-new row (no prior
-          // expiresAt to protect), so this only ever fills in an estimate
-          // when the item's category has a known shelf life — see
-          // estimatedExpiryUpdate's doc comment. This is the one deliberate
-          // exception to "never set by any bulk-add flow" in
-          // REQUIREMENTS.md, and only for an *estimated* date.
-          ...estimatedExpiryUpdate(
-            { expiresAt: null, expiresAtEstimated: false, shelfLifeDays: null, category: item.category },
-            0,
-            item.quantity,
-          ),
-        })),
-      });
+      const data = toAdd.map((item) => ({
+        householdId: household.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        location,
+        lowStockThreshold: 1,
+        updatedByUserId: userId,
+        barcode: item.barcode,
+        // AUTO-7: a bulk-created item is a brand-new row (no prior
+        // expiresAt to protect), so this only ever fills in an estimate
+        // when the item's category has a known shelf life — see
+        // estimatedExpiryUpdate's doc comment. This is the one deliberate
+        // exception to "never set by any bulk-add flow" in
+        // REQUIREMENTS.md, and only for an *estimated* date.
+        ...estimatedExpiryUpdate(
+          { expiresAt: null, expiresAtEstimated: false, shelfLifeDays: null, category: item.category },
+          0,
+          item.quantity,
+        ),
+      }));
+      if (seenBarcodes.size > 0) {
+        // Same move-don't-share rule as every other link (releaseBarcode):
+        // a scanned code already on an older item follows the new one.
+        await prisma.$transaction(async (tx) => {
+          for (const barcode of seenBarcodes) await releaseBarcode(tx, household.id, barcode);
+          await tx.inventoryItem.createMany({ data });
+        });
+      } else {
+        await prisma.inventoryItem.createMany({ data });
+      }
       if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
     }
     added = toAdd.length;
@@ -453,7 +488,7 @@ export async function adjustQuantityAction(
   });
   if (!item) return { error: "Item not found" };
 
-  const nextQuantity = Math.round(Math.max(0, item.quantity + delta) * 100) / 100;
+  const nextQuantity = nextQuantityAfterDelta(item.quantity, delta);
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
