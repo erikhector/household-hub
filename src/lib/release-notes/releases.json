@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.8.1",
+    "date": "2026-09-25",
+    "pr": 30,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Changing or resetting your password now signs you out on all your other devices, so anyone who had access to your account loses it.",
+      "sv": "När du byter eller återställer ditt lösenord loggas du nu ut på alla dina andra enheter, så att ingen annan som haft tillgång till ditt konto kan fortsätta använda det."
+    }
+  },
+  {
     "version": "0.8.0",
     "date": "2026-09-25",
     "pr": 28,
