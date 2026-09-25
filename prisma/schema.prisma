@@ -421,7 +421,7 @@ model ShoppingListItem {
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
 
-  shoppingList  ShoppingList  @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([shoppingListId])
