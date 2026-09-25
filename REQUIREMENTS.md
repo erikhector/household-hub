@@ -132,7 +132,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     `active_household` cookie to another of their households.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
-    AUTO-8) — day-to-day shopping behaviour, not administration.
+    AUTO-8) — day-to-day shopping behaviour, not administration — and the
+    shared notes board (GAP-16, see "Household notes board" below), where
+    any member can add or delete any note.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
     (`DeleteHouseholdDialog`, which requires typing the household's name to
@@ -2701,6 +2703,43 @@ rewards.
   "positive notifications become noise" failure the bell's other good-news
   kinds guard against, for a domain with no usage data yet. Revisit once
   6a-6c have real usage to judge against.
+
+## Household notes board
+
+GAP-16. A "Notes" card on the Household page (`/dashboard/household`) for
+things everyone should know that don't fit a shopping-list item or a task —
+"the plumber's coming Thursday", "we're out of the good coffee, don't buy
+the other one". Cozi's family journal/notes is its most-cited differentiator
+from a pure list/calendar app; this is the minimal version of it.
+
+- **Model**: `HouseholdNote` (`householdId` with `onDelete: Cascade`,
+  nullable `authorMemberId`, `body`, `createdAt`), indexed on `householdId`.
+  `authorMemberId` uses `onDelete: SetNull`, the same tradeoff
+  `HouseholdTask.completedByMemberId` makes: a member leaving keeps the
+  notes they wrote (still useful to everyone else) and the UI shows
+  "Former member" as the author instead of the note disappearing.
+- **Actions** (`src/app/dashboard/household/notes-actions.ts`):
+  `createNoteAction` is a form action (`useActionState`); the body is
+  trimmed and must be 1–`NOTE_BODY_MAX_LENGTH` (1000, in
+  `src/lib/household-notes.ts`, shared with the textarea's `maxLength`)
+  characters. The author is always the caller's own household-member id,
+  resolved from the session, never a client-supplied one.
+  `deleteNoteAction` is a click action behind the shared `ConfirmDialog`.
+  Both scope every query by the session household from
+  `requireHousehold()`; delete is a `deleteMany` on `{ id, householdId }`,
+  so another household's note id is a silent no-op.
+- **Permissions**: any member may delete any note, not just its author or
+  the owner — same as `deleteShoppingListAction`. The board is shared
+  scratch space, a note is usually cleared by whoever dealt with it, and
+  gating it would strand notes from members who've left.
+- **UI** (`src/components/household/household-notes.tsx`): an add form
+  above a flat, newest-first list. Each note shows its body (line breaks
+  kept), the author's display name (or "Former member") and the date, with
+  the year only when it isn't the current one. Add and delete only — no
+  edit, pinning or rich text in v1.
+- **Not a notification trigger**: adding a note creates no bell
+  notification or push. A bell badge must mean something's wrong (see
+  "Notification center"); the notes board is just a page you check.
 
 ## Theming
 

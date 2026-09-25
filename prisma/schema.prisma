@@ -108,6 +108,7 @@ model Household {
   memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
+  notes              HouseholdNote[]
 }
 
 model HouseholdMember {
@@ -125,6 +126,7 @@ model HouseholdMember {
   recurringTemplateSplits RecurringTemplateSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
+  authoredNotes           HouseholdNote[]
   settlementsPaid         MemberSettlement[]       @relation("SettlementFrom")
   settlementsReceived     MemberSettlement[]       @relation("SettlementTo")
 
@@ -948,4 +950,27 @@ model HouseholdTask {
 
   @@index([householdId])
   @@index([assignedToMemberId])
+}
+
+// GAP-16: a shared household notes board — free-text notes ("the plumber's
+// coming Thursday", "don't buy the other coffee") that don't fit a shopping
+// item or a task. Deliberately minimal: add + delete only, no edit, pinning
+// or rich text, and never a notification trigger (a bell badge must mean
+// something's wrong; a note is just something you check). See
+// src/app/dashboard/household/notes-actions.ts.
+// `authorMemberId` uses onDelete: SetNull (never Cascade), the same tradeoff
+// HouseholdTask.completedByMemberId makes: removing a member keeps the notes
+// they wrote (still useful to everyone else) and the UI falls back to a
+// "former member" label instead of the notes silently disappearing.
+model HouseholdNote {
+  id             String   @id @default(cuid())
+  householdId    String
+  authorMemberId String?
+  body           String
+  createdAt      DateTime @default(now())
+
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  authorMember HouseholdMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
 }
