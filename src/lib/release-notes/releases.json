@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.25.0",
+    "date": "2026-09-25",
+    "pr": 48,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "When you add missing ingredients from your meal plan, Squirrel now suggests a common substitute for many staples, like milk with lemon juice when you're out of buttermilk.",
+      "sv": "När du lägger till saknade ingredienser från matsedeln föreslår Squirrel nu en vanlig ersättning för många basvaror, till exempel filmjölk eller mjölk med citronsaft när kärnmjölken är slut."
+    }
+  },
+  {
     "version": "0.24.0",
     "date": "2026-09-25",
     "pr": 50,
