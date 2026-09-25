@@ -31,6 +31,9 @@ export type RecipeData = {
   proteinGramsPerServing: number | null;
   carbsGramsPerServing: number | null;
   fatGramsPerServing: number | null;
+  // Recipe.isFavorite (GAP-18) — the star on each RecipeManager row. Only a
+  // ranking tiebreaker elsewhere, never a filter.
+  isFavorite: boolean;
   ingredients: RecipeIngredientData[];
   components: RecipeComponentData[];
 };

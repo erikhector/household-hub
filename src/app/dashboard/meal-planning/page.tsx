@@ -73,6 +73,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     proteinGramsPerServing: recipe.proteinGramsPerServing,
     carbsGramsPerServing: recipe.carbsGramsPerServing,
     fatGramsPerServing: recipe.fatGramsPerServing,
+    isFavorite: recipe.isFavorite,
     ingredients: recipe.ingredients.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,
@@ -243,6 +244,7 @@ async function RecipesTabSection({
     recipes.map((recipe) => ({
       recipeId: recipe.id,
       recipeName: recipe.name,
+      isFavorite: recipe.isFavorite,
       ingredients: recipe.ingredients.map((ingredient) => ({
         name: ingredient.name,
         inventoryItemId: ingredient.inventoryItemId,
@@ -291,7 +293,7 @@ async function CookTabSection({
   const { recipes, recipeRows } = await getMealPlanningCoreData(householdId, weekStartKey);
   const cookableRecipes = await getCookableRecipes(
     householdId,
-    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
+    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name, isFavorite: recipe.isFavorite })),
   );
   return (
     <CookNowList

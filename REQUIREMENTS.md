@@ -2315,7 +2315,8 @@ computed by `computeUseItUpSuggestions`
 - **Ranking**: sorted by match count descending, then — on a tie — a
   suggestion with an expiring-reason match ahead of one that's low-stock-only
   (using up something already low makes it run out even sooner, so it's the
-  less urgent of the two on equal footing), then recipe name, capped at 5
+  less urgent of the two on equal footing), then a starred recipe ahead of
+  an un-starred one (see "Recipe favorites" below), then recipe name, capped at 5
   suggestions — the same "keep it short and actionable" reasoning as
   `MAX_MISSING_TO_SURFACE` in cookable-recipes.ts. **Product call (PR #24
   review)**: low-stock stays as a first-class reason rather than being
@@ -2332,6 +2333,42 @@ computed by `computeUseItUpSuggestions`
   chip stays hidden, but a since-changed "uses flour, sugar" nudge for the
   same recipe isn't suppressed by yesterday's dismissal. Dismissal is
   per-device only, same as `MealVarietyRecap`.
+
+### Recipe favorites
+
+BACKLOG GAP-18, from the same competitive gap scan: AnyList and Paprika let
+a household mark the recipes it actually likes and use that to bias
+suggestions. `Recipe.isFavorite Boolean @default(false)` (migration
+`recipe_is_favorite`) is a single household-wide flag — not a per-member
+rating or a star scale, the same minimal-first call `HouseholdTask` v1 made
+for assignment. It answers "which recipes does this household like", and
+any member's star is everyone's star.
+
+- **Toggle**: a star button on each `RecipeManager` row, left of the
+  existing edit/delete actions. It's a click action
+  (`toggleRecipeFavoriteAction(recipeId)` in
+  `src/app/dashboard/meal-planning/recipe-actions.ts`) called inside its own
+  `useTransition`, with `useOptimistic` so the star fills immediately and
+  snaps back if the save fails (the same pattern as `AutoAddSetting`). The
+  action flips the stored value itself rather than accepting a desired
+  state from the client, and scopes its lookup to `requireHousehold()`'s
+  household, so a foreign recipe id is a silent no-op (the same IDOR guard
+  as `deleteRecipeAction`). Accessibility: the button has a stable
+  localized `aria-label` (`mealPlanning.favoriteAriaLabel`) and conveys
+  on/off through `aria-pressed`, so the label doesn't flip as well.
+- **A tiebreaker, never a filter**: favorites never hide an un-starred
+  recipe and never outrank a better match. In the Cook tab
+  (`computeCookableRecipes`, `cookable-recipes.ts`) the sort is missing-
+  ingredient count, then favorites first, then name. A starred recipe
+  missing one thing still sorts below an un-starred one missing nothing,
+  and a starred recipe missing more than `MAX_MISSING_TO_SURFACE` still
+  drops out. In "use it up" (`computeUseItUpSuggestions`) the star comes
+  after both waste-prevention keys (match count, then expiring-before-low-
+  stock) and before name. Both orders are covered by the colocated
+  pure-calc tests.
+- **Not in scope**: no favorites-only filter or separate page, and the
+  Recipes list itself stays alphabetical. The star is visible there, and
+  search already narrows the list.
 
 ## Household tasks
 

@@ -967,6 +967,9 @@ export const en = {
     deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
     editAriaLabel: "Edit recipe",
     deleteAriaLabel: "Delete recipe",
+    // Stable label for the star toggle (GAP-18) — its on/off state is
+    // conveyed by aria-pressed, so the label must not flip with it too.
+    favoriteAriaLabel: "Favorite recipe",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
