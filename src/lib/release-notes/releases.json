@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.29.0",
+    "date": "2026-09-25",
+    "pr": 55,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If you're settling up with your household, you can now pay with Swish straight from \"Who owes whom\". The amount is filled in for you. To get paid this way, add your Swish number on your Profile.",
+      "sv": "När ni gör upp i hushållet kan du nu betala med Swish direkt från \"Vem är skyldig vem\", med beloppet redan ifyllt. Vill du få betalt så, lägg till ditt Swishnummer på din profil."
+    }
+  },
+  {
     "version": "0.28.0",
     "date": "2026-09-25",
     "pr": 54,
