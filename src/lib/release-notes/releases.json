@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.30.0",
+    "date": "2026-09-25",
+    "pr": 56,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now get a weekly email summary of your household: meals on the menu, tasks done, food about to expire and how the budget is doing. Turn it on under Profile. It's off by default, and every email has a one-click unsubscribe link.",
+      "sv": "Nu kan du få en veckosammanfattning av hushållet via e-post: måltider på menyn, sysslor som blivit gjorda, mat som snart går ut och hur budgeten ser ut. Slå på den under Profil. Den är avstängd från början, och varje mejl har en länk för att avsluta med ett klick."
+    }
+  },
+  {
     "version": "0.29.0",
     "date": "2026-09-25",
     "pr": 55,
