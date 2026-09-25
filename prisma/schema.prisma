@@ -67,12 +67,26 @@ model User {
 // requireHousehold). sendPushToHousehold (src/lib/push.ts) fans out to every
 // member's subscriptions when a notification fires.
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  endpoint        String   @unique
+  p256dh          String
+  auth            String
+  createdAt       DateTime @default(now())
+  // GAP-14: per-browser quiet hours. sendPushToHousehold (src/lib/push.ts)
+  // skips this subscription while the local hour in `timeZone` falls inside
+  // [quietHoursStart, quietHoursEnd) — a window may wrap midnight (22 → 7).
+  // Both hours null (or equal) means no quiet hours. Lives here rather than
+  // on User because it's a per-device choice: silence the phone overnight
+  // without silencing the laptop. Only the OS push is suppressed — the
+  // Notification row and the in-app bell are unaffected.
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  // IANA zone name from the browser's
+  // Intl.DateTimeFormat().resolvedOptions().timeZone, refreshed on every
+  // subscribe and quiet-hours save. The server runs in UTC, so without it
+  // "22-7" would mean 22-7 UTC. Null/unrecognised = never treated as quiet.
+  timeZone        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

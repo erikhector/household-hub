@@ -1893,6 +1893,22 @@ export const en = {
       notConfigured: "Push notifications aren't set up for this app yet.",
       permissionDenied: "Notifications are blocked for this site — check your browser's site settings.",
       error: "Something went wrong. Please try again.",
+      quietHours: {
+        title: "Quiet hours",
+        description:
+          "Pause notifications on this device during set hours, for example overnight. You'll still see everything in the bell when you open the app.",
+        activeDescription:
+          "Notifications on this device are paused from {start} to {end}. You'll still see everything in the bell when you open the app.",
+        startLabel: "From",
+        endLabel: "Until",
+        sameHours: "Choose two different times.",
+        save: "Save quiet hours",
+        saving: "Saving…",
+        saved: "Quiet hours saved",
+        clear: "Turn off quiet hours",
+        cleared: "Quiet hours turned off",
+        error: "Couldn't save quiet hours. Please try again.",
+      },
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
