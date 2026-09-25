@@ -1711,6 +1711,19 @@ export const en = {
       resend: "Resend verification email",
       resending: "Sending…",
     },
+    noHousehold: {
+      pageTitle: "You're not in a household",
+      description:
+        "Your account isn't a member of any household right now, for example because you were removed from one. Your account and personal budget are still here.",
+      createHeading: "Create a new household",
+      householdName: "Household name",
+      householdNamePlaceholder: "e.g. The Andersson family",
+      creating: "Creating…",
+      create: "Create household",
+      joinHeading: "Join an existing household",
+      joinDescription: "Ask someone in the household to send you an invite link, then open it while you're logged in.",
+      logOut: "Log out",
+    },
   },
   landing: {
     logIn: "Log in",

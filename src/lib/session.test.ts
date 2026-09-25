@@ -1,7 +1,8 @@
 // Tests requireHousehold()'s cookie-fallback logic (src/lib/session.ts):
 // resolve the active household from the `active_household` cookie, falling
 // back to the caller's first membership when the cookie is missing or
-// doesn't match any of their households. All I/O (auth, Prisma, cookies,
+// doesn't match any of their households. Also covers the zero-membership
+// path and requireUserWithoutHousehold, the no-household page's guard. All I/O (auth, Prisma, cookies,
 // redirect) is mocked so this never touches a real session or database —
 // see REQUIREMENTS.md's "Testing" section.
 //
@@ -10,9 +11,10 @@
 // /session-expired (not /login — see src/lib/session-revocation.ts for why).
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { authMock, findUniqueMock, cookiesGetMock, redirectMock } = vi.hoisted(() => ({
+const { authMock, findUniqueMock, countMock, cookiesGetMock, redirectMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  countMock: vi.fn(),
   cookiesGetMock: vi.fn(),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -22,15 +24,17 @@ const { authMock, findUniqueMock, cookiesGetMock, redirectMock } = vi.hoisted(()
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 vi.mock("@/lib/prisma", () => ({
   // requireHousehold reads memberships through the User row (one query for
-  // them and passwordChangedAt), so only user.findUnique is mocked.
-  prisma: { user: { findUnique: findUniqueMock } },
+  // them and passwordChangedAt); requireUserWithoutHousehold counts them.
+  prisma: { user: { findUnique: findUniqueMock }, householdMember: { count: countMock } },
 }));
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: cookiesGetMock })),
 }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { requireHousehold, requireUserId } = await import("@/lib/session");
+const { requireHousehold, requireUserId, requireUserWithoutHousehold, NO_HOUSEHOLD_PATH } = await import(
+  "@/lib/session"
+);
 
 function membership(householdId: string, role: "OWNER" | "CONTRIBUTOR" = "OWNER") {
   return {
@@ -63,11 +67,15 @@ describe("requireHousehold", () => {
     expect(findUniqueMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to /login when the user has no household memberships", async () => {
+  // Not /login: proxy.ts sends any request with a session away from /login
+  // back to /dashboard, so that redirect looped forever.
+  it("redirects to the no-household page, not /login, when the user has no household memberships", async () => {
     authMock.mockResolvedValue({ user: { id: "user-1" } });
     findUniqueMock.mockResolvedValue(userRow([]));
 
-    await expect(requireHousehold()).rejects.toThrow("REDIRECT:/login");
+    await expect(requireHousehold()).rejects.toThrow("REDIRECT:/no-household");
+    expect(NO_HOUSEHOLD_PATH).toBe("/no-household");
+    expect(redirectMock).not.toHaveBeenCalledWith("/login");
   });
 
   it("uses the household matching the active_household cookie", async () => {
@@ -223,5 +231,32 @@ describe("requireUserId", () => {
     findUniqueMock.mockResolvedValue({ passwordChangedAt: CHANGED_AT });
 
     await expect(requireUserId()).rejects.toThrow("REDIRECT:/session-expired");
+  });
+});
+
+describe("requireUserWithoutHousehold", () => {
+  it("redirects to /login when there is no session user", async () => {
+    authMock.mockResolvedValue(null);
+
+    await expect(requireUserWithoutHousehold()).rejects.toThrow("REDIRECT:/login");
+    expect(countMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects to /dashboard when the user does have a household", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    findUniqueMock.mockResolvedValue({ passwordChangedAt: null });
+    countMock.mockResolvedValue(1);
+
+    await expect(requireUserWithoutHousehold()).rejects.toThrow("REDIRECT:/dashboard");
+    expect(countMock).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+  });
+
+  it("returns the user id when the user has no household memberships", async () => {
+    authMock.mockResolvedValue({ user: { id: "user-1" } });
+    findUniqueMock.mockResolvedValue({ passwordChangedAt: null });
+    countMock.mockResolvedValue(0);
+
+    await expect(requireUserWithoutHousehold()).resolves.toBe("user-1");
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 });

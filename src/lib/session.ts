@@ -7,6 +7,14 @@ import { isSessionRevoked, SESSION_EXPIRED_PATH } from "@/lib/session-revocation
 
 export const ACTIVE_HOUSEHOLD_COOKIE = "active_household";
 
+// Where a signed-in user with zero HouseholdMember rows is sent. Deliberately
+// outside /dashboard (whose layout calls requireHousehold, so it would loop)
+// and not /login: proxy.ts bounces any request carrying a session away from
+// /login back to /dashboard, which used to trap these users in an endless
+// /dashboard → /login → /dashboard redirect. See REQUIREMENTS.md's
+// "Users with no household".
+export const NO_HOUSEHOLD_PATH = "/no-household";
+
 // For the personal budget (see AGENTS.md's "Personal hub" work): scoped to
 // the signed-in user rather than any household, so unlike requireHousehold
 // it doesn't need a membership at all.
@@ -35,6 +43,20 @@ export const requireUserId = cache(async () => {
   return session.user.id;
 });
 
+// Guard for the NO_HOUSEHOLD_PATH page itself: signed-out visitors go to
+// /login as usual, and anyone who does have a household (e.g. they just
+// accepted an invite in another tab, or typed the URL) goes back to the
+// dashboard instead of seeing a "you have no household" message that isn't
+// true.
+export async function requireUserWithoutHousehold() {
+  const userId = await requireUserId();
+  const membershipCount = await prisma.householdMember.count({ where: { userId } });
+  if (membershipCount > 0) {
+    redirect("/dashboard");
+  }
+  return userId;
+}
+
 export const requireHousehold = cache(async () => {
   const session = await auth();
   if (!session?.user?.id) {
@@ -60,8 +82,10 @@ export const requireHousehold = cache(async () => {
   }
 
   const { memberships } = user;
+  // Reachable in normal use: removeMemberAction doesn't (and can't
+  // sensibly) check whether the removed contributor has another household.
   if (memberships.length === 0) {
-    redirect("/login");
+    redirect(NO_HOUSEHOLD_PATH);
   }
 
   const cookieStore = await cookies();
