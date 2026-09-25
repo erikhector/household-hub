@@ -90,28 +90,6 @@ enough to trust.
 
 Parallel-safe except where noted.
 
-### Shopping list & inventory automation
-
-- [ ] **AUTO-5. Declutter the list header; finish the trip in one gesture**
-      — `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** ~10 header buttons; completing a list is a separate,
-      confirm-gated step after you've already checked everything off.
-      **Design brief:** visible: the smart add line (`SmartAddBar`), "Scan
-      receipt", and the overflow `⋯` menu. Everything else — import,
-      export, share, add low-stock, resolve mappings, archive, delete —
-      moves into the menu (delete stays visually destructive there). When
-      the last pending item is checked, the existing "cleared" state
-      (the "cleared" state from the archived Joy Gap backlog, item 1) gains a primary "Done shopping" button that completes
-      the list without a second confirm dialog, with an "Undo" on the toast
-      instead (see Guardrails). The existing "Complete list" path stays in
-      the menu for completing with items still pending.
-      **Dev notes:** undo needs an `uncompleteShoppingListAction` that
-      restores `ACTIVE` and deletes the Groceries `Transaction` created by
-      that completion — idempotent, household-scoped, same shape as
-      `undoMarkMealEntryCookedAction`. Return the created `Transaction` id
-      from `completeShoppingListAction` so undo targets exactly that row.
-      Use Base UI `DropdownMenu` with the `render` prop (never `asChild`).
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`

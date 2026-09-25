@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
@@ -75,6 +76,7 @@ export function ShoppingItemFormDialog({
   barcodeDict,
   editAriaLabel,
   matchItemLabel,
+  handle,
 }: {
   mode: "create" | "edit";
   /** Required in create mode: the list the new item is added to. */
@@ -92,6 +94,9 @@ export function ShoppingItemFormDialog({
   editAriaLabel?: string;
   /** Required in edit mode. */
   matchItemLabel?: string;
+  /** Create mode only: open through this handle (e.g. from the list's
+   * overflow menu) instead of rendering the "+" button. */
+  handle?: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(item?.name ?? "");
@@ -230,16 +235,18 @@ export function ShoppingItemFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       {mode === "create" ? (
-        <DialogTrigger
-          render={
-            <Button className="gap-1.5">
-              <Plus className="size-4" />
-              <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
-            </Button>
-          }
-        />
+        !handle && (
+          <DialogTrigger
+            render={
+              <Button className="gap-1.5">
+                <Plus className="size-4" />
+                <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
+              </Button>
+            }
+          />
+        )
       ) : (
         <>
           <DialogTrigger
