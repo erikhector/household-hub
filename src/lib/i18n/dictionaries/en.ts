@@ -294,6 +294,11 @@ export const en = {
     savePriceAriaLabel: "Save price",
     cancelPriceAriaLabel: "Cancel editing price",
     priceInvalid: "Enter a valid price",
+    // GAP-6: the optional store name next to the price-correction input —
+    // feeds PriceHistory.store, so Cost analyzer can show which store was
+    // cheapest last time. Left blank, nothing about this changes.
+    storePlaceholder: "Store (optional)",
+    storeInputAriaLabel: "Store for {name}'s price",
     addItem: "Add item",
     addItemDialogTitle: "Add an item",
     smartAdd: {
@@ -421,6 +426,11 @@ export const en = {
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",
       currencyLabel: "Receipt currency",
+      // GAP-6: optional, one store for the whole receipt — feeds every
+      // PriceHistory row this apply writes, so Cost analyzer can compare it
+      // against other stores the same items have been bought at.
+      storeLabel: "Store (optional)",
+      storePlaceholder: "e.g. ICA Maxi",
       reviewSubtitle: "Check the matches and prices before applying them to your list.",
       skipOption: "— Skip —",
       priceLabel: "Price",
@@ -462,6 +472,11 @@ export const en = {
       rateLimitedError: "Too many scans in a short time — wait a bit and try again.",
       providerBusyError: "The AI service is busy right now — wait a moment and try again.",
       currencyLabel: "Receipt currency",
+      // GAP-6: optional, one store for the whole receipt — see
+      // receiptScan.storeLabel above for why this is per-receipt rather
+      // than per-line.
+      storeLabel: "Store (optional)",
+      storePlaceholder: "e.g. ICA Maxi",
       nameLabel: "List name",
       namePlaceholderPrefix: "Receipt",
       reviewSubtitle:
@@ -1216,6 +1231,12 @@ export const en = {
       noTrendData:
         "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
       latestPrice: "Latest",
+      cheapestStoreTitle: "Cheapest store",
+      cheapestStoreSubtitle:
+        "Items you've bought at more than one store, and which was cheapest last time.",
+      noCheapestStoreData:
+        "No comparisons yet. Add a store name when scanning or registering a receipt, or when correcting an item's price, and once an item has prices from 2+ stores it'll show up here.",
+      cheapestStoreLabel: "Cheapest at {store}:",
     },
     split: {
       toggleLabel: "Split this expense",

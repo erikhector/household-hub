@@ -157,8 +157,10 @@ order below is a suggestion, not a dependency, unless noted.
       sequence per list session; on list completion, nudge each category's
       position toward its observed average rank (exponential moving
       average, pure helper with tests). Per-store orders are a non-goal for
-      v1 (no store concept exists yet — `PriceHistory.store` is always
-      null today).
+      v1 — `PriceHistory.store` is populated when a household names one on
+      a receipt scan/register or a manual price correction (GAP-6), but it's
+      optional and still null on most rows, nowhere near reliable enough
+      yet to key a learned order off of.
 
 ---
 
@@ -301,17 +303,6 @@ out to be a product-scope question rather than a scoped task should move to
       optional field in the smart-add/edit flow, and a muted second line
       under the item name when set. Small, low-risk, no automation/AI
       involved — a good first pick if someone wants a quick Phase 2 win.
-
-- [ ] **GAP-6. Capture purchase store; surface a "cheapest store" insight** —
-      `src/app/dashboard/shopping-list/actions.ts`,
-      `src/app/share/shopping-list/actions.ts`, Cost analyzer
-      (`src/app/dashboard/budget/`). `PriceHistory.store` already exists in
-      the schema (see AUTO-9's dev notes: "`PriceHistory.store` is always
-      null today") but nothing ever writes it — no migration needed, just
-      wiring. Add an optional store name field to receipt scan/register and
-      the manual price-correct flow (AUTO-4), then let Cost analyzer show,
-      per item with ≥2 distinct stores on record, which was cheapest last
-      time — the ICA-app-style comparison this data already supports.
 
 - [ ] **GAP-7. Settle up: record a settlement + a Swish payment link** —
       `src/app/dashboard/budget/settle-up-calc.ts`,

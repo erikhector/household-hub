@@ -406,6 +406,9 @@ export async function updateShoppingListItemAction(
 
 const updateItemPriceSchema = z.object({
   price: z.coerce.number().min(0, "Price can't be negative").max(1_000_000, "Price is too large"),
+  // GAP-6: optional store name alongside the correction — see below for why
+  // it's the one case this action writes a PriceHistory row at all.
+  store: z.string().trim().max(120).optional(),
 });
 
 /**
@@ -416,34 +419,64 @@ const updateItemPriceSchema = z.object({
  * receipt scan/registration's actual price) never need to touch this. Once
  * the user corrects a row here, nothing else in this file overwrites it
  * again — the create-path defaults only ever run once, at creation.
+ *
+ * GAP-6: when the user also names a store, that's the household actively
+ * telling us "this item costs X at store Y right now" — real enough price
+ * information to be worth a PriceHistory row (and a lastKnownPrice update)
+ * of its own, same as togglePurchasedAction/applyReceiptScanAction/
+ * registerReceiptAction above, and it's what feeds Cost analyzer's
+ * cheapest-store comparison. Leaving the store blank keeps this action's
+ * original behavior exactly as documented above — plain field update, no
+ * PriceHistory write — so a bare price correction on an item with no store
+ * info still doesn't create noise in the price-history/lastKnownPrice data
+ * the purchase-driven flows own.
  */
 export async function updateShoppingListItemPriceAction(
   itemId: string,
   price: number,
+  store?: string,
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
-    select: { id: true, shoppingListId: true },
+    select: { id: true, shoppingListId: true, inventoryItemId: true },
   });
   if (!item) return { error: "Item not found" };
 
-  const parsed = updateItemPriceSchema.safeParse({ price });
+  const parsed = updateItemPriceSchema.safeParse({ price, store });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  const trimmedStore = parsed.data.store || null;
 
   try {
-    await prisma.shoppingListItem.update({
-      where: { id: item.id },
-      data: { estimatedPrice: parsed.data.price },
-    });
+    if (trimmedStore && item.inventoryItemId) {
+      await prisma.$transaction([
+        prisma.shoppingListItem.update({
+          where: { id: item.id },
+          data: { estimatedPrice: parsed.data.price },
+        }),
+        prisma.inventoryItem.update({
+          where: { id: item.inventoryItemId },
+          data: { lastKnownPrice: parsed.data.price },
+        }),
+        prisma.priceHistory.create({
+          data: { inventoryItemId: item.inventoryItemId, price: parsed.data.price, store: trimmedStore },
+        }),
+      ]);
+    } else {
+      await prisma.shoppingListItem.update({
+        where: { id: item.id },
+        data: { estimatedPrice: parsed.data.price },
+      });
+    }
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/budget");
   return {};
 }
 
@@ -1048,13 +1081,22 @@ export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
  * (see receipt-parsing.ts) — the receipt photo itself never reaches the
  * server, same privacy stance as the barcode scanner
  * (src/components/shared/barcode-scanner.tsx).
+ *
+ * `store` (GAP-6) is one optional name for the whole receipt — a receipt is
+ * from a single store, so there's no per-line field for it — stamped onto
+ * every PriceHistory row this writes. `PriceHistory.store` has existed in
+ * the schema since AUTO-9's groundwork, but this is the first write path
+ * that ever populates it; left blank, rows are written exactly as before
+ * (store: null).
  */
 export async function applyReceiptScanAction(
   listId: string,
   currency: string,
   matches: ReceiptScanMatch[],
+  store?: string,
 ): Promise<ActionState & { itemsUpdated?: number; totalAmount?: number }> {
   const { household } = await requireHousehold();
+  const trimmedStore = store?.trim().slice(0, 120) || null;
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
@@ -1123,7 +1165,7 @@ export async function applyReceiptScanAction(
             data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...expiryUpdate },
           });
           await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
+            data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice, store: trimmedStore },
           });
         }
       }),
@@ -1165,6 +1207,9 @@ const registerReceiptItemSchema = z.object({
 const registerReceiptSchema = z.object({
   name: z.string().trim().max(120).optional(),
   currency: z.string().trim().min(1).max(10),
+  // GAP-6: optional, one store for the whole receipt — see
+  // applyReceiptScanAction's doc comment for why this is per-receipt.
+  store: z.string().trim().max(120).optional(),
   items: z.array(registerReceiptItemSchema).min(1, "Add at least one item"),
 });
 
@@ -1197,6 +1242,7 @@ export async function registerReceiptAction(
   listName: string | undefined,
   currency: string,
   items: ReceiptRegistrationItem[],
+  store?: string,
 ): Promise<
   ActionState & {
     listId?: string;
@@ -1209,10 +1255,11 @@ export async function registerReceiptAction(
   const { household, userId } = await requireHousehold();
   const dict = await getDictionary();
 
-  const parsed = registerReceiptSchema.safeParse({ name: listName, currency, items });
+  const parsed = registerReceiptSchema.safeParse({ name: listName, currency, store, items });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  const trimmedStore = parsed.data.store || null;
 
   const upperCurrency = parsed.data.currency.toUpperCase();
   let rate = 1;
@@ -1340,7 +1387,7 @@ export async function registerReceiptAction(
 
         if (item.inventoryItem) {
           await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: item.convertedPrice },
+            data: { inventoryItemId: item.inventoryItem.id, price: item.convertedPrice, store: trimmedStore },
           });
         }
       }

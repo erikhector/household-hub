@@ -10,6 +10,7 @@ import {
   type ItemPriceTrend,
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
+import { computeCheapestStoreComparisons } from "@/lib/cheapest-store-calc";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import { HouseholdBalances } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
@@ -393,6 +394,9 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   // src/app/dashboard/shopping-list/actions.ts). All aggregation happens
   // here in the page's Server Component, same convention as the period
   // summary above — CostAnalyzer itself is a plain presentational component.
+  // `store` (GAP-6) is optional and mostly null on older rows — it's only
+  // ever set when the household typed one in on a receipt scan/register or
+  // a manual price correction (see updateShoppingListItemPriceAction).
   const priceHistoryRows = await prisma.priceHistory.findMany({
     where: { inventoryItem: { householdId } },
     include: { inventoryItem: { select: { id: true, name: true } } },
@@ -424,6 +428,22 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       });
     }
   }
+  // GAP-6: which store was cheapest "last time" for an item bought at ≥2
+  // distinct stores — independent of MIN_PRICE_POINTS_FOR_TREND above, since
+  // two rows at two different stores is already a meaningful comparison
+  // even if it isn't (yet) enough purchase history for a trend line. See
+  // computeCheapestStoreComparisons's doc comment for the "last recorded
+  // price per store, not lowest ever" rule this follows.
+  const storeComparisons = computeCheapestStoreComparisons(
+    priceHistoryRows.map((row) => ({
+      inventoryItemId: row.inventoryItemId,
+      itemName: row.inventoryItem.name,
+      price: row.price,
+      store: row.store,
+      date: row.date,
+    })),
+  );
+
   const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
     .filter((item) => item.points.length >= MIN_PRICE_POINTS_FOR_TREND)
     .map((item) => {
@@ -526,6 +546,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
       <CostAnalyzer
         monthlySpending={monthlySpending}
         itemTrends={itemTrends}
+        storeComparisons={storeComparisons}
         dict={dict.budget.costAnalyzer}
         locale={locale}
       />
