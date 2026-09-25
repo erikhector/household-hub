@@ -48,7 +48,11 @@ export function notificationHref(item: NotificationItem): string {
 
 export function notificationLabel(item: NotificationItem, dict: Dictionary["notifications"]): string {
   if (item.kind === "outOfStock") return format(dict.outOfStock, { name: item.name });
-  if (item.kind === "expiringSoon") return format(dict.expiringSoon, { name: item.name });
+  if (item.kind === "expiringSoon") {
+    // AUTO-7: softer "probably" copy for a shelf-life estimate rather than
+    // a date the household actually entered.
+    return format(item.estimated ? dict.expiringSoonEstimated : dict.expiringSoon, { name: item.name });
+  }
   if (item.kind === "listCleared") return format(dict.listCleared, { name: item.name });
   return item.name ? format(dict.mealNotLoggedNamed, { name: item.name }) : dict.mealNotLogged;
 }

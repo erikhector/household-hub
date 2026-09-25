@@ -10,6 +10,7 @@ import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
+import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -30,12 +31,23 @@ const itemSchema = z.object({
   unit: z.string().trim().min(1).max(20, "Unit must be 20 characters or fewer").default("pcs"),
   lowStockThreshold: z.coerce.number().min(0, "Threshold can't be negative"),
   location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
-  // Native <input type="date"> value ("" when left blank) — only ever set
-  // from the single-item add/edit form, never any bulk-add flow.
+  // Native <input type="date"> value ("" when left blank). A date typed
+  // here is always real (never AUTO-7's estimate) — see
+  // expiresAtEstimated: false below, unconditional on both create and
+  // update.
   expiresAt: z
     .string()
     .optional()
     .transform((value) => (value ? new Date(value) : null)),
+  // AUTO-7: the item form's "doesn't expire" checkbox — native checkboxes
+  // only appear in FormData when checked ("on"), so a missing/blank value
+  // means unchecked. Checking it sets shelfLifeDays to -1 (Grocy's "never"
+  // convention) and clears any date, permanently opting the item out of
+  // both manual and estimated expiry tracking until unchecked again.
+  neverExpires: z
+    .string()
+    .optional()
+    .transform((value) => value === "on"),
 });
 
 const starterKitSchema = z.object({
@@ -57,10 +69,14 @@ export async function createInventoryItemAction(
     lowStockThreshold: formData.get("lowStockThreshold"),
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
+    neverExpires: formData.get("neverExpires") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  // Split out of the spread below — neither is an InventoryItem column by
+  // that name (see AUTO-7's expiresAt/shelfLifeDays handling just after).
+  const { neverExpires, expiresAt, ...rest } = parsed.data;
 
   try {
     // Blank on both sides of `||` means household memory and the
@@ -69,7 +85,19 @@ export async function createInventoryItemAction(
     const guessed = parsed.data.category || (await createCategoryResolver(household.id)(parsed.data.name));
     const category = guessed || (await getDictionary()).inventory.uncategorized;
     await prisma.inventoryItem.create({
-      data: { householdId: household.id, ...parsed.data, category, updatedByUserId: userId },
+      data: {
+        householdId: household.id,
+        ...rest,
+        category,
+        updatedByUserId: userId,
+        // AUTO-7: a date typed on this form is always real, never the
+        // estimator's; "doesn't expire" clears any date and permanently
+        // opts the item out (shelfLifeDays -1) instead of leaving it to the
+        // category default (null).
+        expiresAt: neverExpires ? null : expiresAt,
+        expiresAtEstimated: false,
+        shelfLifeDays: neverExpires ? -1 : null,
+      },
     });
     if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
@@ -96,10 +124,14 @@ export async function updateInventoryItemAction(
     lowStockThreshold: formData.get("lowStockThreshold"),
     location: formData.get("location") || undefined,
     expiresAt: formData.get("expiresAt") || undefined,
+    neverExpires: formData.get("neverExpires") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  // Split out of the spread below — see createInventoryItemAction's matching
+  // comment.
+  const { neverExpires, expiresAt, ...rest } = parsed.data;
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
@@ -108,14 +140,35 @@ export async function updateInventoryItemAction(
 
   const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
 
+  // AUTO-7: "editing the date in the item form makes it real" means the
+  // *date*, not the form — saving an unrelated field (name, quantity, a
+  // category typo fix) must not silently discard an existing estimate.
+  // Compared at day granularity (see sameCalendarDay's doc comment): only a
+  // date that actually changed — including being cleared — flips
+  // expiresAtEstimated back to false. Left untouched, it stays whatever it
+  // already was.
+  const nextExpiresAt = neverExpires ? null : expiresAt;
+  const dateChanged = !sameCalendarDay(nextExpiresAt, item.expiresAt ?? null);
+
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
-      // `location` is spread explicitly (not via `...parsed.data`) so clearing
+      // `location` is spread explicitly (not via `...rest`) so clearing
       // the field to empty actually nulls it out — Prisma drops `undefined`
       // keys from an update instead of writing them, which would otherwise
       // leave a stale location in place.
-      data: { ...parsed.data, category, location: parsed.data.location ?? null, updatedByUserId: userId },
+      data: {
+        ...rest,
+        category,
+        location: parsed.data.location ?? null,
+        updatedByUserId: userId,
+        // "Doesn't expire" clears any date and permanently opts the item
+        // out (shelfLifeDays -1); unchecking it resets shelfLifeDays back
+        // to null (the category default) rather than leaving -1 in place.
+        expiresAt: nextExpiresAt,
+        ...(dateChanged ? { expiresAtEstimated: false } : {}),
+        shelfLifeDays: neverExpires ? -1 : null,
+      },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
   } catch (error) {
@@ -256,6 +309,17 @@ export async function bulkCreateInventoryItemsAction(
           location,
           lowStockThreshold: 1,
           updatedByUserId: userId,
+          // AUTO-7: a bulk-created item is a brand-new row (no prior
+          // expiresAt to protect), so this only ever fills in an estimate
+          // when the item's category has a known shelf life — see
+          // estimatedExpiryUpdate's doc comment. This is the one deliberate
+          // exception to "never set by any bulk-add flow" in
+          // REQUIREMENTS.md, and only for an *estimated* date.
+          ...estimatedExpiryUpdate(
+            { expiresAt: null, expiresAtEstimated: false, shelfLifeDays: null, category: item.category },
+            0,
+            item.quantity,
+          ),
         })),
       });
       if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);

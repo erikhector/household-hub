@@ -259,16 +259,56 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   freeform but self-suggesting.
   - **Expiry/best-before tracking**: an optional `expiresAt` (`DateTime?`),
     set from a native date input on the single-item add/edit form
-    (`ItemFormDialog`) only — never by any bulk-add flow (scan queue,
-    paste-list, starter kit), since those are rapid multi-item entry paths
-    with no natural single date to apply. `getExpiryStatus`
-    (`src/lib/inventory/expiry.ts`, pure and unit-tested, mirroring
-    `getStockStatus`'s split for the same Server/Client Component reason)
-    classifies an item as `"soon"` (within `EXPIRY_WARNING_DAYS`, currently
-    3) or `"expired"` (past the date); `ExpiryBadge` renders that next to
-    the existing stock-status badge in the inventory table/cards, hidden
-    entirely when no expiry is set or it's further out than the window. Also
-    feeds a third notification trigger — see "Notification center" below.
+    (`ItemFormDialog`), or estimated automatically (AUTO-7, below) — never
+    typed on any bulk-add flow (scan queue, paste-list, starter kit), since
+    those are rapid multi-item entry paths with no natural single date to
+    apply. `getExpiryStatus` (`src/lib/inventory/expiry.ts`, pure and
+    unit-tested, mirroring `getStockStatus`'s split for the same Server/
+    Client Component reason) classifies an item as `"soon"` (within
+    `EXPIRY_WARNING_DAYS`, currently 3) or `"expired"` (past the date);
+    `ExpiryBadge` renders that next to the existing stock-status badge in
+    the inventory table/cards, hidden entirely when no expiry is set or
+    it's further out than the window. Also feeds a third notification
+    trigger — see "Notification center" below.
+    - **Estimated expiry from default shelf life (AUTO-7)**: almost no
+      items ever got a real `expiresAt`, since the date picker only exists
+      on the single-item form and nobody fills it in on every add. Instead,
+      when stock *arrives* — a shopping-list item checked off
+      (`togglePurchasedAction`), a receipt scan applied or a receipt
+      registered (`applyReceiptScanAction`/`registerReceiptAction`), or a
+      batch landing via the scan queue/paste-list
+      (`bulkCreateInventoryItemsAction`) — an item with a known shelf life
+      gets an *estimated* `expiresAt`, flagged by `expiresAtEstimated`
+      (`Boolean @default(false)`). `InventoryItem.shelfLifeDays` (`Int?`)
+      is `null` to use the category default, a positive number as a
+      per-item override, or `-1` (Grocy's convention) to permanently opt
+      the item out — the item form's "doesn't expire" checkbox sets that.
+      The pure resolver (`src/lib/inventory/shelf-life.ts`, unit-tested)
+      maps a category label (either locale's `inventory.autoCategories`
+      text, same source as AUTO-2's dictionary) to a default: dairy 7 days,
+      bakery 4, meat 3, produce 5; frozen/pantry/drinks/cleaning/bathroom
+      have none, since those categories span too wide a range of real
+      shelf lives to guess responsibly. `estimatedExpiryUpdate` is the
+      single gate every arrival path calls through: it only (re)writes an
+      estimate when stock crosses from 0 into positive, or the item has no
+      `expiresAt` at all yet, and — Guardrails' "corrections stick" —
+      **never overwrites a real, user-entered date** (`expiresAtEstimated:
+      false`). Per "editing the date in the item form makes it real,"
+      `updateInventoryItemAction` only flips `expiresAtEstimated` back to
+      `false` when the submitted date actually differs from what's stored
+      — compared at day granularity (`sameCalendarDay`), since the date
+      input always round-trips a `YYYY-MM-DD` value even when the estimate
+      it's showing carries a different time of day. Saving an unrelated
+      field (renaming the item, a quantity edit) leaves an existing
+      estimate exactly as it was; clearing the date also clears the
+      estimate flag. `ExpiryBadge` shows an estimate with a "≈" prefix and a softer
+      (`outline`) style than a real date's `destructive`/`attention`
+      badge. The `EXPIRING_SOON` notification includes estimated dates too
+      (a guess is still worth a heads-up) with softened "probably" wording
+      (`ExpiringSoonNotification.estimated`, `dict.notifications.expiringSoonEstimated`)
+      rather than excluding them. This supersedes the paragraph above's
+      "never... by any bulk-add flow" rule for *estimated* dates only — a
+      bulk-add flow still never lets a user type one in directly.
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already
@@ -2291,7 +2331,10 @@ Exactly three triggers exist — nothing else creates a notification:
   for the same item), not a DB unique constraint like meal-not-logged — a
   unique constraint on `inventoryItemId` would permanently block a future
   alert for an item that gets re-stocked with a new expiry date after the
-  old alert was dismissed.
+  old alert was dismissed. Includes items whose `expiresAt` is AUTO-7's
+  estimate, not just a real date — the bell and push copy soften to
+  "probably" for those (`ExpiringSoonNotification.estimated`) rather than
+  skipping them.
   - **Runs on a schedule, not on read**: both syncs above used to run
     inline inside `getActiveNotifications` on every notification-bell fetch
     — meaning opening the bell could trigger an unbounded number of

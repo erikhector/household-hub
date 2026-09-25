@@ -191,23 +191,43 @@ model EmailVerificationToken {
 // --- Inventory & shopping ---------------------------------------------------
 
 model InventoryItem {
-  id                String    @id @default(cuid())
-  householdId       String
-  name              String
-  category          String
-  quantity          Float     @default(0)
-  unit              String    @default("pcs")
-  lowStockThreshold Float     @default(1)
-  location          String?
-  lastKnownPrice    Float?
-  // Optional best-before/expiry date, set from the add/edit item form. Feeds
-  // the "expiring soon" table indicator and notification trigger (see
-  // src/lib/inventory/expiry.ts, src/lib/notifications.ts) — never set by
-  // any bulk-add flow (scan queue, paste-list, starter kit), only the
-  // single-item form.
-  expiresAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  householdId        String
+  name               String
+  category           String
+  quantity           Float     @default(0)
+  unit               String    @default("pcs")
+  lowStockThreshold  Float     @default(1)
+  location           String?
+  lastKnownPrice     Float?
+  // Optional best-before/expiry date. Historically set only from the
+  // single-item add/edit form (ItemFormDialog) — AUTO-7 supersedes that for
+  // *estimated* dates only: a stock-arrival action (togglePurchasedAction,
+  // applyReceiptScanAction/registerReceiptAction, bulkCreateInventoryItemsAction)
+  // can now fill this in from the item's shelf life, with
+  // `expiresAtEstimated` set alongside it. A date typed into the item form
+  // is always real (`expiresAtEstimated: false`) and is never overwritten by
+  // the estimator — see src/lib/inventory/shelf-life.ts's
+  // `estimatedExpiryUpdate`, the shared gate every arrival path calls
+  // through.
+  expiresAt          DateTime?
+  // True when `expiresAt` was filled in by the shelf-life estimator rather
+  // than typed by a user — ExpiryBadge shows a "≈" prefix and a softer
+  // style for these, and EXPIRING_SOON notifications soften their copy
+  // ("probably"). Saving the item form always clears this back to false,
+  // since typing/confirming a date in that form makes it real (see
+  // ItemFormDialog).
+  expiresAtEstimated Boolean   @default(false)
+  // Per-item override for the estimator's shelf life, in days from the
+  // moment stock arrives. `null` (the default) means "use the category
+  // default" (see AUTO_CATEGORY_KEYS's defaults in shelf-life.ts); `-1`
+  // means "this item never expires" (Grocy's convention) and permanently
+  // opts it out of estimation — the item form's "doesn't expire" checkbox
+  // sets this. A positive value is a per-item override the estimator uses
+  // instead of the category default.
+  shelfLifeDays      Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity
   // +/- taps, mark-empty, bulk field edits) by src/app/dashboard/inventory/
   // actions.ts, mirroring Transaction.createdByUserId's plain-string
@@ -215,7 +235,7 @@ model InventoryItem {
   // lookup in the inventory page rather than a Prisma join. Surfaced next to
   // `updatedAt` in the inventory table/detail view so a household can spot
   // items that haven't been touched (and recounted) in a while.
-  updatedByUserId   String?
+  updatedByUserId    String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]

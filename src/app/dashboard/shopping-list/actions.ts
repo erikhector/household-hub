@@ -17,6 +17,8 @@ import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
+import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
+import type { InventoryItem } from "@/generated/prisma/client";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -982,12 +984,21 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
         // (marking something purchased with no price, or un-marking it,
         // leaves the last known price untouched).
         const priceToRecord = nextPurchased ? item.estimatedPrice : null;
+        // AUTO-7: checking an item off is a stock-arrival event — only
+        // considered while marking purchased (un-marking removes stock, not
+        // adds it), and only actually writes when estimatedExpiryUpdate
+        // decides it should (see that function's doc comment for the
+        // 0→>0-or-no-expiry-yet rule and why a real date is never touched).
+        const expiryUpdate = nextPurchased
+          ? estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
+          : null;
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
-          data:
-            priceToRecord != null
-              ? { quantity: nextQuantity, lastKnownPrice: priceToRecord }
-              : { quantity: nextQuantity },
+          data: {
+            quantity: nextQuantity,
+            ...(priceToRecord != null ? { lastKnownPrice: priceToRecord } : {}),
+            ...expiryUpdate,
+          },
         });
         await recordOutOfStockTransition(
           tx,
@@ -1100,12 +1111,16 @@ export async function applyReceiptScanAction(
         });
 
         if (item.inventoryItem) {
+          const nextQuantity = item.inventoryItem.quantity + item.quantity;
+          // AUTO-7: a matched receipt line is stock arriving, same as
+          // togglePurchasedAction — see estimatedExpiryUpdate's doc comment.
+          const expiryUpdate = estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
           // AUTO-4: a scanned receipt price is as real as it gets, so it
           // becomes the item's new lastKnownPrice — folded into the same
           // quantity update rather than a second write.
           await tx.inventoryItem.update({
             where: { id: item.inventoryItem.id },
-            data: { quantity: item.inventoryItem.quantity + item.quantity, lastKnownPrice: convertedPrice },
+            data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...expiryUpdate },
           });
           await tx.priceHistory.create({
             data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
@@ -1220,7 +1235,10 @@ export async function registerReceiptAction(
     quantity: number;
     unit: string;
     convertedPrice: number;
-    inventoryItem: { id: string; quantity: number; unit: string } | null;
+    // Widened to the full row (not just id/quantity/unit) so the AUTO-7
+    // shelf-life estimate below has the category/shelfLifeDays/expiresAt it
+    // needs, without a second fetch per item.
+    inventoryItem: InventoryItem | null;
   }[] = [];
   let totalAmount = 0;
   let unresolvedCount = 0;
@@ -1231,7 +1249,7 @@ export async function registerReceiptAction(
   const aiCandidates: string[] = [];
 
   for (const line of parsed.data.items) {
-    let inventoryItem: { id: string; quantity: number; unit: string } | null = null;
+    let inventoryItem: InventoryItem | null = null;
 
     if (line.inventoryItemId) {
       inventoryItem = await prisma.inventoryItem.findFirst({
@@ -1278,13 +1296,17 @@ export async function registerReceiptAction(
   // item at different prices (a discount line, a typo'd re-entry), the last
   // one in the list wins, same as it would if they'd been two separate
   // purchases.
-  const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number; lastKnownPrice: number }>();
+  const inventoryDeltas = new Map<
+    string,
+    { currentQuantity: number; delta: number; lastKnownPrice: number; item: InventoryItem }
+  >();
   for (const item of preparedItems) {
     if (!item.inventoryItem) continue;
     const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
       currentQuantity: item.inventoryItem.quantity,
       delta: 0,
       lastKnownPrice: item.convertedPrice,
+      item: item.inventoryItem,
     };
     existing.delta += item.quantity;
     existing.lastKnownPrice = item.convertedPrice;
@@ -1323,10 +1345,14 @@ export async function registerReceiptAction(
         }
       }
 
-      for (const [inventoryItemId, { currentQuantity, delta, lastKnownPrice }] of inventoryDeltas) {
+      for (const [inventoryItemId, { currentQuantity, delta, lastKnownPrice, item }] of inventoryDeltas) {
+        const nextQuantity = currentQuantity + delta;
+        // AUTO-7: registering a receipt is a stock-arrival event too — same
+        // rule as applyReceiptScanAction/togglePurchasedAction above.
+        const expiryUpdate = estimatedExpiryUpdate(item, currentQuantity, nextQuantity);
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: currentQuantity + delta, lastKnownPrice },
+          data: { quantity: nextQuantity, lastKnownPrice, ...expiryUpdate },
         });
       }
 
