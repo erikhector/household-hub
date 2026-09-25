@@ -298,22 +298,6 @@ out to be a product-scope question rather than a scoped task should move to
       unaffected — only the OS push is suppressed, same as the card's
       existing "on top of the bell, not a replacement for it" framing.
 
-- [ ] **GAP-16. A shared household notes board** —
-      `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
-      actions.ts`, `src/components/household/household-notes.tsx`. Cozi's
-      family journal/notes is its most-cited differentiator from a pure
-      list/calendar app — a place for "the plumber's coming Thursday" or
-      "we're out of the good coffee, don't buy the other one" that doesn't
-      fit a shopping-list item or a task. A small `HouseholdNote` model
-      (`householdId`, `authorMemberId` `onDelete: SetNull` — same tradeoff
-      `HouseholdTask.completedByMemberId` makes, `body`, `createdAt`) (Phase
-      2 migration), a flat reverse-chronological list on the Household page
-      (mirroring `HouseholdTask`'s open/completed split's simplicity — add
-      + delete only, no edit, no pinning/rich text in v1), member-scoped
-      delete like `deleteShoppingListAction` (any member, not owner-gated).
-      Deliberately not a notification trigger (Guardrails: a bell badge must
-      mean something's wrong) — just a page you check.
-
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's
