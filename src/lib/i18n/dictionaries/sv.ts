@@ -361,6 +361,8 @@ export const sv = {
       quantityLabel: "Antal",
       unitLabel: "Enhet",
       unitPlaceholder: "t.ex. st",
+      noteLabel: "Anteckning (valfritt)",
+      notePlaceholder: "t.ex. ta de mogna, vilket märke som helst",
       comboboxNoMatches: "Inga träffar än — fortsätt skriva för att lägga till en ny.",
       comboboxAddNew: 'Använd "{value}"',
       linkSectionLabel: "Koppling till lagret",
@@ -1646,6 +1648,7 @@ export const sv = {
       headerUnit: "Enhet",
       headerEstimatedPrice: "Uppskattat pris",
       headerPurchased: "Köpt",
+      headerNote: "Anteckning",
     },
     budget: {
       fileNamePrefix: "budget-transaktioner",

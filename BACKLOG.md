@@ -230,15 +230,6 @@ out to be a product-scope question rather than a scoped task should move to
       through `findOrCreateInventoryItem` the same way import/paste already
       does, so it doesn't need its own linking logic.
 
-- [ ] **GAP-5. Per-item notes on shopping list rows** —
-      `prisma/schema.prisma` (`ShoppingListItem`),
-      `src/components/shopping/shopping-list-client.tsx`. AnyList lets you
-      attach a note to a line ("get the ripe ones", "any brand is fine").
-      Add `note String?` to `ShoppingListItem` (Phase 2 migration), an
-      optional field in the smart-add/edit flow, and a muted second line
-      under the item name when set. Small, low-risk, no automation/AI
-      involved — a good first pick if someone wants a quick Phase 2 win.
-
 - [ ] **GAP-7. Settle up: a Swish payment link** —
       `src/components/budget/household-balances.tsx`. Recording a repayment
       ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's

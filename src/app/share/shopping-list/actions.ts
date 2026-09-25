@@ -35,6 +35,10 @@ export type SharedShoppingListItem = {
   quantity: number;
   unit: string;
   purchased: boolean;
+  // GAP-5: shown to link holders too — "get the ripe ones" is written for
+  // exactly whoever ends up doing the shopping, which is often the person
+  // the list was shared with.
+  note: string | null;
 };
 
 export type SharedShoppingList = {
@@ -68,6 +72,7 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
       quantity: item.quantity,
       unit: item.unit,
       purchased: item.purchased,
+      note: item.note ?? null,
     })),
   };
 }
