@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.9.0",
+    "date": "2026-09-25",
+    "pr": 29,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list header is tidier: the less-used actions now live under a \"⋯\" menu. When you've checked off everything, tap \"Done shopping\" to finish the list in one go. You can undo it from the notification if you tapped by mistake.",
+      "sv": "Inköpslistans överdel är mer städad: mindre använda åtgärder finns nu under en \"⋯\"-meny. När du har bockat av allt trycker du på \"Klar med handlingen\" för att avsluta listan direkt. Du kan ångra från aviseringen om du tryckte fel."
+    }
+  },
+  {
     "version": "0.8.1",
     "date": "2026-09-25",
     "pr": 30,
