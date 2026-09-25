@@ -1,15 +1,20 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useTransition } from "react";
 import Link from "next/link";
-import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
-import { deleteMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
+import {
+  copyWeekAction,
+  deleteMealEntryAction,
+  undoCopyWeekAction,
+} from "@/app/dashboard/meal-planning/planner-actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
@@ -72,6 +77,57 @@ function JumpToTodayButton({ dict, weekStartKey }: { dict: MealPlanningDict; wee
     >
       <CalendarClock className="size-4" />
       {dict.jumpToToday}
+    </Button>
+  );
+}
+
+// GAP-23: only offered on an empty week, which is exactly when a household
+// sitting down to plan would reach for it. On a partly filled week the
+// action would still work (it skips filled slots), but a button that
+// silently copies "around" existing meals is harder to predict. The Undo
+// takes back exactly the entries this copy wrote, by id.
+function CopyLastWeekButton({
+  dict,
+  weekStartKey,
+  prevWeekKey,
+}: {
+  dict: MealPlanningDict;
+  weekStartKey: string;
+  prevWeekKey: string;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  function handleClick() {
+    startTransition(async () => {
+      const result = await copyWeekAction(prevWeekKey, weekStartKey);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      const entryIds = result.entryIds ?? [];
+      if (entryIds.length === 0) {
+        toast(dict.copyLastWeekNothingToast);
+        return;
+      }
+      toast.success(format(plural(entryIds.length, dict.copyLastWeekToast), { count: entryIds.length }), {
+        duration: 8000,
+        action: {
+          label: dict.copyLastWeekUndo,
+          onClick: () => {
+            void undoCopyWeekAction(entryIds).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(dict.copyLastWeekUndoneToast);
+            });
+          },
+        },
+      });
+    });
+  }
+
+  return (
+    <Button type="button" variant="outline" size="sm" disabled={pending} onClick={handleClick}>
+      <Copy className="size-4" />
+      {dict.copyLastWeek}
     </Button>
   );
 }
@@ -139,6 +195,9 @@ export function WeekPlanner({
             {dict.thisWeek}
           </Button>
           <JumpToTodayButton dict={dict} weekStartKey={weekStartKey} />
+          {entries.length === 0 && (
+            <CopyLastWeekButton dict={dict} weekStartKey={weekStartKey} prevWeekKey={prevWeekKey} />
+          )}
           <MissingIngredientsDialog
             dict={dict}
             weekStartKey={weekStartKey}

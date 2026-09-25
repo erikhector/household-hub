@@ -1956,6 +1956,27 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   chosen) to a date + `MealType` slot. There's no uniqueness constraint on
   `(date, mealType)` — multiple entries can stack in one slot (e.g. two
   snacks), matching the schema.
+- **Copy last week** (BACKLOG GAP-23): an empty week's planner header
+  shows a "Copy last week" button (`CopyLastWeekButton` in
+  `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
+  toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
+  Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
+  comes from `requireHousehold()` as always. The action reads the source
+  week's entries and moves each one by the whole-week day offset (Tuesday
+  stays Tuesday), keeping `mealType`, `recipeId`/`freeformName` and
+  `portions`. `consumedAt` is never copied. Recipe ids are re-checked
+  against the household in one `recipe.findMany`, and an entry that ends up
+  with neither a recipe nor a name is dropped. Any target slot
+  (date + `mealType`) that already has an entry is skipped, not overwritten.
+  The target `MealPlan` is upserted lazily, like `addMealEntryAction`
+  does, and only if there's at least one row to write. Rows are inserted
+  with one `createManyAndReturn`. The toast shows how many meals were
+  copied, with an Undo that calls `undoCopyWeekAction(entryIds)`. That
+  deletes exactly those ids, scoped to the household and to entries not
+  marked cooked since. When last week has nothing to copy, the toast says
+  so and nothing is written. The button is only offered on an empty week:
+  the action would handle a partly filled one, but a copy that silently
+  works around existing meals is harder to predict.
 - **No in-place edit for meal entries** — only add (`addMealEntryAction`)
   and delete (`deleteMealEntryAction`), consistent with the app's existing
   simplicity elsewhere (shopping list items are add/toggle/delete too, no

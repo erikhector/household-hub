@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
+import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -161,4 +162,146 @@ export async function deleteMealEntryAction(entryId: string) {
   await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
 
   revalidatePath(MEAL_PLANNING_PATH);
+}
+
+// A week key must be a real `yyyy-mm-dd` date *and* a Monday. The planner
+// only ever addresses weeks by their Monday (see getWeekStart), and a
+// non-Monday key here would re-date entries onto the wrong days and write a
+// MealPlan row whose weekStartDate no page view would ever look up.
+const weekKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week")
+  .refine((key) => {
+    const date = parseDateKey(key);
+    return !Number.isNaN(date.getTime()) && toDateKey(getWeekStart(date)) === key;
+  }, "Invalid week");
+
+const copyWeekSchema = z
+  .object({ fromWeekStart: weekKeySchema, toWeekStart: weekKeySchema })
+  .refine((v) => v.fromWeekStart !== v.toWeekStart, "Choose a different week to copy from");
+
+export type CopyWeekResult = ActionState & {
+  // How many entries were actually written (skipped slots excluded), and
+  // their ids so the client's Undo toast can take exactly those back off
+  // again via undoCopyWeekAction, never anything that was already there.
+  copied?: number;
+  entryIds?: string[];
+};
+
+// GAP-23: repeat a week's plan onto another week instead of re-picking every
+// recipe. It's a click action (called from a useTransition, not a form), so
+// both week keys arrive as plain arguments and are re-validated here rather
+// than trusted.
+//
+// Each source entry keeps its weekday offset (Tuesday stays Tuesday), meal
+// type, recipe or freeform name, and portions. `consumedAt` is deliberately
+// *not* carried over: last week's "cooked" state says nothing about this
+// week's. A target slot (date + mealType) that already has anything in it is
+// left alone rather than overwritten or stacked onto, so re-running the copy
+// after partly filling a week just fills the gaps.
+export async function copyWeekAction(fromWeekStart: string, toWeekStart: string): Promise<CopyWeekResult> {
+  const { household } = await requireHousehold();
+
+  const parsed = copyWeekSchema.safeParse({ fromWeekStart, toWeekStart });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const fromDate = parseDateKey(parsed.data.fromWeekStart);
+  const toDate = parseDateKey(parsed.data.toWeekStart);
+
+  const [sourceEntries, targetEntries] = await Promise.all([
+    prisma.mealPlanEntry.findMany({
+      where: { mealPlan: { householdId: household.id, weekStartDate: fromDate } },
+      select: { date: true, mealType: true, recipeId: true, freeformName: true, portions: true },
+      orderBy: [{ date: "asc" }, { mealType: "asc" }],
+    }),
+    prisma.mealPlanEntry.findMany({
+      where: { mealPlan: { householdId: household.id, weekStartDate: toDate } },
+      select: { date: true, mealType: true },
+    }),
+  ]);
+
+  // The source entries are already scoped to this household's own plan, so
+  // their recipes *should* be too. A recipe id is the one foreign key being
+  // copied, though, so it's re-checked against the household in one query
+  // rather than trusted, the same guard addMealEntryAction applies.
+  const sourceRecipeIds = [
+    ...new Set(sourceEntries.map((e) => e.recipeId).filter((id): id is string => id !== null)),
+  ];
+  const ownedRecipeIds = new Set(
+    sourceRecipeIds.length > 0
+      ? (
+          await prisma.recipe.findMany({
+            where: { id: { in: sourceRecipeIds }, householdId: household.id },
+            select: { id: true },
+          })
+        ).map((r) => r.id)
+      : [],
+  );
+
+  const slotKey = (date: Date, mealType: string) => `${toDateKey(date)}|${mealType}`;
+  const filledSlots = new Set(targetEntries.map((e) => slotKey(e.date, e.mealType)));
+  const dayOffset = Math.round((toDate.getTime() - fromDate.getTime()) / 86_400_000);
+
+  const rows = sourceEntries.flatMap((entry) => {
+    const date = addDays(entry.date, dayOffset);
+    if (filledSlots.has(slotKey(date, entry.mealType))) return [];
+    const recipeId = entry.recipeId && ownedRecipeIds.has(entry.recipeId) ? entry.recipeId : null;
+    // A recipe that's since been deleted (the FK is SetNull) or that failed
+    // the ownership check leaves nothing to show for the slot, so skip it
+    // rather than writing a nameless entry.
+    if (!recipeId && !entry.freeformName) return [];
+    return [
+      {
+        date,
+        mealType: entry.mealType,
+        recipeId,
+        freeformName: recipeId ? null : entry.freeformName,
+        portions: entry.portions,
+      },
+    ];
+  });
+
+  // Nothing to write means no MealPlan row either, the same "don't create a
+  // plan on a no-op" rule page views follow (see the weekly planner section
+  // in REQUIREMENTS.md).
+  if (rows.length === 0) return { copied: 0, entryIds: [] };
+
+  const plan = await prisma.mealPlan.upsert({
+    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: toDate } },
+    update: {},
+    create: { householdId: household.id, weekStartDate: toDate },
+  });
+
+  const created = await prisma.mealPlanEntry.createManyAndReturn({
+    data: rows.map((row) => ({ ...row, mealPlanId: plan.id })),
+    select: { id: true },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return { copied: created.length, entryIds: created.map((e) => e.id) };
+}
+
+// The cap is well above anything a real week produces (7 days x 4 meal
+// types, with room for stacked entries). It only stops a crafted call from
+// sending an unbounded id list.
+const undoCopyWeekSchema = z.array(z.string().min(1)).min(1).max(500);
+
+// The Undo on copyWeekAction's toast. It only deletes entries that belong to
+// this household and haven't been marked cooked since. Cooking one of the
+// copied meals while the toast is still up means it's real now, and deleting
+// it would silently drop the record of that inventory decrement.
+export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = undoCopyWeekSchema.safeParse(entryIds);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  await prisma.mealPlanEntry.deleteMany({
+    where: { id: { in: parsed.data }, consumedAt: null, mealPlan: { householdId: household.id } },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return {};
 }
