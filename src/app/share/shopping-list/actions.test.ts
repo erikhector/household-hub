@@ -25,6 +25,7 @@ const {
   transactionMock,
   recordOutOfStockTransitionMock,
   recordListClearedTransitionMock,
+  recordPriceSpikesMock,
   addToDefaultListOnLowStockMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
@@ -35,11 +36,12 @@ const {
   shoppingListItemCountMock: vi.fn(async () => 0),
   inventoryItemUpdateMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
-  priceHistoryCreateMock: vi.fn(),
+  priceHistoryCreateMock: vi.fn(async () => ({ id: "ph-1" })),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   recordOutOfStockTransitionMock: vi.fn(async () => {}),
   recordListClearedTransitionMock: vi.fn(async () => {}),
+  recordPriceSpikesMock: vi.fn(async () => {}),
   addToDefaultListOnLowStockMock: vi.fn(async () => null),
   revalidatePathMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => {
@@ -65,6 +67,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/notifications", () => ({
   recordOutOfStockTransition: recordOutOfStockTransitionMock,
   recordListClearedTransition: recordListClearedTransitionMock,
+  recordPriceSpikes: recordPriceSpikesMock,
 }));
 vi.mock("@/lib/shopping/default-list", () => ({
   addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
@@ -191,6 +194,7 @@ describe("toggleItemViaShareTokenAction", () => {
       shoppingListId: "list-1",
       purchased: false,
       quantity: 3,
+      unit: "pcs",
       estimatedPrice: 25,
       inventoryItem: { id: "inv-1", quantity: 2, lowStockThreshold: 1 },
     });
@@ -220,8 +224,13 @@ describe("toggleItemViaShareTokenAction", () => {
       5,
     );
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
-      data: { inventoryItemId: "inv-1", price: 25 },
+      data: { inventoryItemId: "inv-1", price: 25, quantity: 3, unit: "pcs" },
     });
+    // GAP-9: the list's own household again, and no acting user to exclude
+    // from the push — a share-link visitor has no account.
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith("household-1", [
+      { priceHistoryId: "ph-1", inventoryItemId: "inv-1", price: 25, quantity: 3, unit: "pcs" },
+    ]);
     // Two pending items still remain after this one — not a clearing
     // transition, but the counts are still passed through correctly.
     expect(recordListClearedTransitionMock).toHaveBeenCalledWith(
@@ -257,6 +266,7 @@ describe("toggleItemViaShareTokenAction", () => {
       data: { quantity: 0 },
     });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+    expect(recordPriceSpikesMock).not.toHaveBeenCalled();
     // Un-marking can only ever add a pending item back, never clear the
     // list — no LIST_CLEARED check needed.
     expect(recordListClearedTransitionMock).not.toHaveBeenCalled();

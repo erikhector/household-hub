@@ -117,7 +117,7 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
 - **Roles**: `OWNER` is whoever created the household (`signupAction` /
   `createHouseholdAction`); everyone who joins later is a `CONTRIBUTOR`. Both
   roles can fully operate within the household — inventory, shopping lists,
-  inviting new contributors, etc. Two actions are owner-only, enforced
+  inviting new contributors, etc. These actions are owner-only, enforced
   server-side in `src/lib/actions/household.ts` (checked against the
   session's `role`, not trusted from the client):
   - `removeMemberAction` — removes a `CONTRIBUTOR` from the household. Fails
@@ -130,6 +130,11 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     owner removing them can still leave them with none; see "Users with no
     household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
+  - Managing the calendar feed (`enableCalendarFeedAction`,
+    `regenerateCalendarFeedAction`, `disableCalendarFeedAction`, GAP-3):
+    it publishes the household's meal plan and bill names at a link that
+    needs no login. Contributors can still see and copy the link once it's
+    on. See "Calendar feed" below.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
     AUTO-8) — day-to-day shopping behaviour, not administration — and the
@@ -688,7 +693,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       (Chrome, Edge, Safari) send the recording to their vendor's servers
       for recognition, and that nothing is recorded until the button is
       tapped.
-- `PriceHistory` — feeds the (not-yet-built) cost analyzer.
+- `PriceHistory` — feeds the cost analyzer (Budget → Insights) and GAP-9's
+  price-jump alerts. `price` is what the whole purchased line cost; as of
+  GAP-9 each row also carries that line's `quantity` and `unit` so prices
+  can be compared per unit (null on older rows). See "Notification center"
+  → Price jump.
 - **Share link** (`ShoppingListShareLink`) — lets a household member hand a
   single `ShoppingList` to someone outside the household (a roommate not on
   the account, a partner picking up the shop) without inviting them as a
@@ -1456,8 +1465,51 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
   the excess just shows as a balance the other way). Below the transfers
   the card lists split bills with money still due, and the 10 most recent
   repayments, each removable (`deleteSettlementAction`) in case one was
-  entered by mistake. There's no payment integration; a Swish link is
-  GAP-7 in BACKLOG.md.
+  entered by mistake.
+- **Pay with Swish** (GAP-7): when the signed-in member owes someone who
+  has saved a Swish number on their Profile, that transfer also gets a
+  "Pay with Swish" link next to "Clear debt". It's Swish's app-switch deep
+  link, `swish://payment?data=<url-encoded JSON>` — no merchant agreement
+  or API key — with `version: 1` (a number; the string `"1.0"` breaks it),
+  `payee` as the Swish alias (`46` + the mobile number without its leading
+  0), `amount` rounded to two decimals, and a translated message
+  (`balances.swishMessage`) sanitized to the characters Swish accepts and
+  capped at 50. Every field is sent with `editable: false`: leaving any
+  field open also unlocks the payee, and the link is meant to pay exactly
+  this debt to exactly this person. The format isn't in Swish's public
+  developer docs (those only cover the merchant `paymentrequest` flow), so
+  it follows the documented-in-the-wild shape — see `src/lib/swish.ts`'s
+  header comment. All of it is pure and unit-tested in
+  `src/lib/swish.test.ts` (`normalizeSwishNumber`, `formatSwishNumber`,
+  `sanitizeSwishMessage`, `buildSwishPaymentUrl`, `swishNumbersForPayer`).
+  - Only the payer sees it: the page passes the component just the numbers
+    of members the signed-in member owes a positive amount
+    (`swishNumbersForPayer`), and `HouseholdBalances` re-checks
+    `fromMemberId === currentMemberId` before rendering a link, so nobody
+    else's number reaches the browser for no reason.
+  - Swish only moves SEK. There's no per-household currency yet (GAP-13);
+    every amount is assumed to be in `HOUSEHOLD_BASE_CURRENCY`
+    (`src/lib/currency.ts`, `"SEK"`), and the link is only offered while
+    `swishSupportsCurrency` accepts that — so it disappears by itself if
+    that constant, or a future household setting, says otherwise.
+  - Tapping it records nothing. The app can't see whether a Swish payment
+    went through, and money changes are always an explicit action
+    (BACKLOG.md's Guardrails), so a hint under the list tells the payer to
+    use "Clear debt" once the money has gone.
+  - **The number** is `User.swishNumber` (nullable, migration
+    `20260925205015_add_user_swish_number`), stored in alias form. It's on
+    `User`, not `HouseholdMember`: it's personal data the user sets once,
+    and the same person in two households gets paid on the same phone.
+    Only the user can set it, from the "Swish number" card on their Profile
+    (`SwishNumberForm`, `updateSwishNumberAction` — user id from the
+    session, blank clears it). The card says outright that the number is
+    shown to household members. `normalizeSwishNumber` accepts
+    `07XXXXXXXX`, `+467XXXXXXXX`, `00467XXXXXXXX` and `467XXXXXXXX` with
+    any spaces, hyphens, dots or parentheses (and `+46 (0)7…`), and rejects
+    landlines and foreign numbers; the form shows it back as
+    `070-123 45 67`. It's part of the Profile's "Export my data" JSON
+    (`profile.swishNumber`), goes with the `User` row when the account is
+    deleted, and is listed on the privacy page.
 - Every action that writes split transactions or repayments revalidates
   the household budget, Personal Budget and the dashboard
   (`revalidateBudgetPages`), since all three show numbers derived from
@@ -2248,10 +2300,38 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
-- **No in-place edit for meal entries** — only add (`addMealEntryAction`)
-  and delete (`deleteMealEntryAction`), consistent with the app's existing
-  simplicity elsewhere (shopping list items are add/toggle/delete too, no
-  edit). Fixing a wrong entry means deleting it and adding the right one.
+- **Editing a meal entry**: an entry that hasn't been cooked yet has a
+  pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
+  backed by `updateMealEntryAction`, which changes the entry's recipe or
+  freeform name and its portions. Date and meal type aren't editable, so
+  moving a meal still means deleting it and adding it again. Each recipe
+  entry in the planner shows its portion count next to the name
+  ("Lasagna · 2 portions").
+- **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
+  entry carries `MealPlanEntry.portions`, the number of people that slot
+  is cooking for. The meal entry dialog's "Portions" field sets it. Picking
+  a recipe pre-fills it with that recipe's own `Recipe.servings` ("one
+  full recipe"), and the user can change it to any whole number from 1 to
+  1,000. The add and update actions validate it with Zod
+  (`z.coerce.number().int().min(1).max(1_000)`), and when it's left out
+  they fall back to the recipe's `servings`. A freeform entry has no
+  recipe, so its portions are never used. Ingredient quantities are scaled
+  by `portionsMultiplier(portions, servings)` =
+  `portions / servings` (`src/app/dashboard/meal-planning/recipe-expansion.ts`,
+  tested in `recipe-expansion.test.ts`). That value is the `multiplier`
+  passed to `expandRecipeIngredients`, which carries it down through
+  every sub-recipe. A recipe for 4 planned for 2 therefore puts half of
+  every ingredient (sub-recipes included) on the shopping list. The same
+  helper feeds both the shopping-list bridge and "Mark as cooked" below,
+  so what a meal is predicted to need and what cooking it takes out of
+  inventory always agree. When the ratio can't be computed (`servings` or
+  `portions` missing, 0 or less, or not finite), the multiplier is 1 and
+  the recipe counts as written. A 0 would drop every ingredient, and an
+  Infinity would propose buying an impossible amount. "What can I cook
+  right now?" (`getCookableRecipes`) isn't tied to a plan entry, so it
+  always checks one full batch (multiplier 1). There's no separate
+  "servings override" column. An earlier proposal for one would have
+  duplicated `portions`, which already has this job.
 - Weekday header labels (Mon–Sun) come from the `mealPlanning` dictionary
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
@@ -2584,7 +2664,7 @@ actually used, once they've cooked it.
   button — a freeform entry has no ingredients to decrement.
 - **Preview**: opening the dialog calls `previewCookedIngredientsAction`
   (`src/app/dashboard/meal-planning/actions.ts`), which reuses the exact
-  same `expandRecipeIngredients` call and `portions / servings` multiplier
+  same `expandRecipeIngredients` call and `portionsMultiplier` scaling
   as the shopping-list bridge above, plus its same loose name-match
   fallback for an ingredient whose linked `InventoryItem` was since
   deleted. Unlike that bridge, an ingredient that still doesn't resolve to
@@ -2876,6 +2956,92 @@ from a pure list/calendar app; this is the minimal version of it.
   notification or push. A bell badge must mean something's wrong (see
   "Notification center"); the notes board is just a page you check.
 
+## Calendar feed
+
+GAP-3. A read-only iCalendar (`.ics`) feed of the household's meal plan and
+monthly bill due dates, so the plan shows up in the calendar app people
+already have open (Cozi's core differentiator). Calendar apps subscribe by
+URL and re-fetch on their own; nothing is ever written back.
+
+- **Opt-in, off by default.** `Household.calendarFeedToken String? @unique`
+  (migration `20260925203000_household_calendar_feed_token`); null means the
+  feed is off. Calendar apps can't send cookies, so the token in the URL is
+  the only credential and anyone holding the link can read the feed. That's
+  why it isn't on until someone chooses it.
+- **Token**: 32 bytes from `crypto.randomBytes`, base64url (43 characters),
+  generated by `generateCalendarFeedToken` (`src/lib/calendar-feed.ts`).
+  Bigger than the `randomUUID()` other links use because this one never
+  expires on its own and lives in calendar apps' settings indefinitely.
+- **Management is owner-only** (`enableCalendarFeedAction`,
+  `regenerateCalendarFeedAction`, `disableCalendarFeedAction` in
+  `src/lib/actions/household.ts`, checked against the session's `role`).
+  Unlike the per-list shopping share link, which any member manages, this
+  publishes the whole household's meal plan and bill names, so turning it on
+  is treated as administration. Enable only sets a token while the column is
+  still null (`updateMany` with `calendarFeedToken: null` in the filter), so
+  a double click can't silently rotate a link someone just subscribed to.
+  Regenerate replaces the token, which is how a leaked link is revoked: the
+  old URL 404s on its next fetch. Disable sets it back to null; turning the
+  feed on again gives a new link.
+- **UI** (`CalendarFeedSetting`, `src/components/household/calendar-feed-setting.tsx`):
+  a card on the Household page that always states, before and after turning
+  it on, that anyone with the link can see planned meals and bill names
+  without logging in and that amounts are never included. Once on, every
+  member sees the URL with a copy button and an "Open in calendar app" link
+  (the same URL with the `webcal://` scheme, which opens the subscribe
+  prompt on phones). The owner also gets "Get a new link" and "Turn off",
+  both behind a `ConfirmDialog` since both break existing subscriptions. A
+  contributor with the feed off sees that the owner can turn it on. The URL
+  is built server-side from `APP_URL` (request headers only as the local-dev
+  fallback), the same order as `absoluteAppUrl`.
+- **Route**: `src/app/api/calendar/[token]/route.ts`. Under `/api`, which
+  `src/proxy.ts`'s matcher excludes, so it never gets the login redirect.
+  A malformed token 404s before any database or rate-limit work. The rest go
+  through `checkRateLimit` (120 requests an hour per token: keyed on the
+  token, not the IP, because Google Calendar fetches every feed from a
+  shared pool of addresses) and then a `findUnique` on the unique index.
+  Unknown, malformed and turned-off tokens all get the same plain 404.
+  Responses are `Cache-Control: private, no-store` so turning the feed off
+  or regenerating takes effect on the next fetch, plus
+  `X-Robots-Tag: noindex`.
+- **Language**: the feed has no session, so the viewer's locale is put in
+  the URL (`?lang=en|sv`, `calendarFeedPath`) when the link is shown. Each
+  member's copy of the link gets event titles in their own language; an
+  unknown value falls back to English.
+- **What's in it** (`buildCalendarFeedEvents`, `src/lib/calendar-feed.ts`):
+  a window from 30 days back to 183 days ahead (`calendarFeedWindow`), as
+  all-day events.
+  - Meal-plan entries, titled "Dinner: Lasagna" (slot label from
+    `mealPlanning.mealType*`, then the recipe name, else the freeform name;
+    just the slot when a deleted recipe left neither). Ordered breakfast →
+    snack within a day. Capped at 2000 entries per response.
+  - Active `EXPENSE` recurring templates, titled "Due: Rent", one event per
+    due day. Only MONTHLY templates with a `dayOfMonth` have a real due day;
+    WEEKLY/YEARLY templates don't (the schema ignores `dayOfMonth` for them),
+    and making one up from `createdAt` would put the bill on a day nobody
+    chose, so they're left out. Due days are expanded by
+    `expandMonthlyDueDates` (`src/lib/recurring-template-calc.ts`), which
+    clamps a day past a short month's end to its last day (the 31st becomes
+    30 April, 28/29 February). Income and savings templates, and the
+    personal budget, aren't included.
+  - **No amounts**, recipes, notes or member names. The link works without
+    a login and gets pasted into third-party calendar services, so the feed
+    carries only what a calendar entry needs.
+- **UIDs** are stable across fetches so clients update events in place:
+  `meal-<entryId>@squirrel-calendar-feed` and
+  `bill-<templateId>-<YYYYMMDD>@squirrel-calendar-feed` (changing a bill's
+  due day reads as old events removed and new ones added).
+- **iCalendar writer** (`src/lib/ical.ts`, pure, no library): RFC 5545 CRLF
+  line endings (including after the last line), lines folded at 75 octets
+  (counted in UTF-8 bytes and never splitting a multi-byte character), TEXT
+  values escaped (`\`, `;`, `,`, line breaks as `\n`, other control
+  characters dropped), `DTSTAMP` in UTC, `DTSTART;VALUE=DATE` plus an
+  exclusive next-day `DTEND`, and `TRANSP:TRANSPARENT` so a planned dinner
+  doesn't mark anyone busy. Dates are read in UTC because meal dates are
+  UTC-midnight days and a DATE value has no time zone. The calendar is
+  named "<household> (Squirrel)" and hints a 6-hour refresh
+  (`REFRESH-INTERVAL` and `X-PUBLISHED-TTL`).
+
 ## Theming
 
 The app supports light, dark, and system themes via **next-themes**
@@ -2976,6 +3142,9 @@ stay that way rather than re-adding per-page redirect checks:
   the account) — see "Sharing" above. It's intentionally excluded from the
   logged-in redirect rule because it's a distinct action (accept/join a
   specific household), not the generic landing/auth flow.
+- `/api/*` isn't matched at all, which is what lets the token-only calendar
+  feed (`/api/calendar/[token]`, see "Calendar feed") answer calendar apps
+  that have no session. Anything added under `/api` must do its own auth.
 - Because middleware already redirects logged-in visitors away from `/`,
   `src/app/page.tsx` does **not** duplicate that check with its own
   `auth()` call — don't re-add one there; it'd be a second session lookup
@@ -3120,7 +3289,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly three triggers exist — nothing else creates a notification:
+Exactly five triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -3199,7 +3368,78 @@ Exactly three triggers exist — nothing else creates a notification:
     householdsFailed, failedHouseholdIds }`; only a failure to list
     households returns `500 { status: "error" }`. Error details never go in
     the response body.
-- All three triggers are intentionally narrow. The old design's "low stock" alert
+- **List cleared** (good news): a `ShoppingList`'s unpurchased item count
+  crossing from >0 to 0 — `recordListClearedTransition`, called from
+  `togglePurchasedAction`/`deleteShoppingListItemAction` and their
+  share-link equivalents. Links to that list.
+- **Price jump** (GAP-9): a price just recorded in `PriceHistory` that's
+  materially above what the household usually pays for that item. Every
+  price-competitor app surfaces this; Squirrel already had the data but
+  never looked back at it. It's a bell alert rather than an in-list chip
+  because it's a "something's actually wrong" case (a price-tag error, a
+  store quietly raising a price) worth interrupting for.
+  - **Where it fires**: `recordPriceSpikes` (`src/lib/notifications.ts`) is
+    called by every action that writes `PriceHistory` —
+    `togglePurchasedAction` (checking an item off with a price, including
+    one the user just corrected by hand), `toggleItemViaShareTokenAction`,
+    `applyReceiptScanAction` and `registerReceiptAction` — with every row
+    that action wrote, **after** its transaction commits. After, so a
+    rolled-back purchase never leaves an alert behind and the comparison
+    reads committed history; as one batch, because receipt scans write
+    their rows in parallel and a per-row check-then-create could let two
+    lines for the same item both pass the dedupe. It never throws — the
+    prices are already saved, so a failure is logged and swallowed.
+  - **What "materially above" means** — the pure, unit-tested
+    `detectPriceSpike` (`src/lib/price-spike.ts`), every constant exported
+    from there:
+    - **Per unit, like for like.** `PriceHistory.price` is a line total, so
+      buying two packs doubles it without the price moving. Every price is
+      divided by its line's `quantity`, and prior rows only count when their
+      `unit` matches the new line's (case/whitespace-insensitive) or
+      converts into it via `src/lib/units.ts` (500 g vs 1 kg). This is why
+      GAP-9 added `PriceHistory.quantity`/`unit` (migration
+      `price_spike_notifications`, all four writers fill them in). Rows from
+      before that have neither and are ignored, so an item only becomes
+      eligible after 3 comparable purchases recorded since the migration —
+      a deliberate trade for never guessing a pack size.
+    - **Baseline**: the median of the item's most recent 10 comparable
+      prior prices (`PRICE_SPIKE_TRAILING_WINDOW`) from the last 365 days
+      (`PRICE_SPIKE_MAX_AGE_DAYS`), needing at least 3
+      (`PRICE_SPIKE_MIN_PRIOR_PRICES`). The median so one past sale or
+      spike doesn't drag it; the window and age cap so a price that has
+      risen and stayed up becomes the new normal, and year-old prices don't
+      turn ordinary inflation into an alert.
+    - **Relative AND absolute**: the new unit price must be ≥ 1.25× the
+      median (`PRICE_SPIKE_MIN_RATIO`) *and* the extra cost on this
+      purchase — (unit price − median) × quantity — must be ≥ 10 in the
+      base currency (`PRICE_SPIKE_MIN_EXTRA_COST`, SEK). The ratio alone
+      would fire on a 10 kr item going to 13 kr; the floor alone on normal
+      variance of an expensive item. Measuring the floor in money on this
+      purchase rather than per unit keeps it meaningful for per-gram units.
+    - **One decision per item per action**: several lines for the same item
+      in one receipt (a duplicate line, a discount line) are pooled into one
+      purchase (total price ÷ total quantity), so they yield at most one
+      alert, and a discount pulls the effective price down the way it did
+      at the till.
+  - **Dedupe**: no new alert for an item with an undismissed `PRICE_SPIKE`,
+    or with *any* `PRICE_SPIKE` created in the last 14 days
+    (`PRICE_SPIKE_COOLDOWN_DAYS`), dismissed or not. Un-checking and
+    re-checking the same purchase writes a second `PriceHistory` row at the
+    same price; without the cooldown, dismissing the first alert would
+    just invite an identical second one.
+  - **Display**: the rounded percentage is stored on the row
+    (`Notification.priceIncreasePercent`, set only for this kind) so the
+    bell reads "Milk cost 40% more than usual" without re-deriving the
+    median on every read. It links to the cost analyzer
+    (`/dashboard/budget?tab=insights`), where the item's price trend and
+    per-store comparison give the context to judge it, and uses a
+    `TrendingUp` icon. The push (English, like every other push) says the
+    same and excludes the acting user, per the rule above; quiet hours
+    apply as for every push (`sendPushToHousehold`). A share-link visitor
+    has no account, so a jump they record pushes every member. There are
+    no per-kind notification settings to respect — none exist for any
+    kind.
+- All of these triggers are intentionally narrow. The old design's "low stock" alert
   (anything at or below its threshold, not just at zero) and "meal-plan gap"
   alert (an upcoming day with nothing planned) are gone — neither is a
   concrete, one-time event, so under the current model neither fits.
@@ -3238,7 +3478,8 @@ dismissing a second out-of-stock alert while already on
 - **Clicking an alert navigates**: an out-of-stock alert links to
   `/dashboard/inventory?status=out`; a meal-not-logged alert links to
   `/dashboard/meal-planning?week={weekStartKey}` (the week containing that
-  entry's date), reusing that page's existing `?week=` param. The inventory
+  entry's date), reusing that page's existing `?week=` param; a price-jump
+  alert links to `/dashboard/budget?tab=insights` (the cost analyzer). The inventory
   page/`InventoryClient` reads an `initialStatus` prop from the `status`
   search param (`src/app/dashboard/inventory/page.tsx`) so the status filter
   can be preset on navigation.
@@ -3311,9 +3552,12 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     out to every push subscription belonging to every member of a
     household. It's called from the same triggers as the in-app
     notification bell above (`recordOutOfStockTransition`,
-    `recordListClearedTransition`, `syncMealNotLoggedNotifications` and
+    `recordListClearedTransition`, `recordPriceSpikes`,
+    `syncMealNotLoggedNotifications` and
     `syncExpiringSoonNotifications` in `src/lib/notifications.ts`), and
-    nothing else sends a push. The two action-driven triggers fire it
+    nothing else sends a push. `recordPriceSpikes` awaits it, since it
+    runs after its caller's transaction has committed and has nothing to
+    hold open. The other two action-driven triggers fire it
     without awaiting (`void sendPushToHousehold(...)`) since some of their
     call sites run inside a Prisma `$transaction`, and holding that open for
     a network call isn't worth it — Push API delivery has no delivery
@@ -3373,6 +3617,75 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
     handler and does no caching — it exists purely to deliver push, not for
     offline support (see `INFRA-5` in BACKLOG.md).
+
+## Weekly digest email (GAP-27)
+
+An opt-in email, sent once a week, summarizing each household the recipient
+belongs to. It reuses the in-app recaps' own calculators rather than
+approximating them, so the email never disagrees with the app.
+
+- **Opt-in, per user, off by default** (`User.weeklyDigestEnabled`): email
+  is a higher-commitment channel than the bell or push. Toggled from the
+  "Weekly digest email" card on `/dashboard/profile`
+  (`WeeklyDigestSetting`, `setWeeklyDigestEnabledAction` in
+  `src/lib/actions/digest.ts`, session user only). Only **verified**
+  addresses (`emailVerifiedAt` set) are ever mailed; the card says so when
+  the toggle is on for an unverified address. A member of several
+  households gets one digest per household.
+- **Schedule**: `GET /api/cron/weekly-digest`, triggered by `vercel.json`'s
+  second cron (`0 16 * * 0`, Sunday 16:00 UTC, so the Monday-start week is
+  nearly over) and protected by the same `CRON_SECRET` bearer check as
+  `/api/cron/sync-notifications` (see DEPLOYMENT.md, "Scheduled jobs").
+  With `RESEND_API_KEY` unset the route is a successful no-op and reads
+  nothing. Households are processed `DIGEST_BATCH_SIZE` (10) at a time with
+  `Promise.allSettled`, so one failing household doesn't stop the rest, and
+  only households with at least one opted-in, verified member are loaded.
+- **Content** (`src/lib/weekly-digest-content.ts`, pure): each section appears
+  only when it has something to say, and **no email is sent at all** when
+  every section is empty.
+  - *Meals*: distinct recipes on the menu over the last 7 days, via
+    `computeMealVarietyRecap` with a 7-day window (the in-app card uses 30;
+    a weekly email shouldn't re-announce the same dinners four times).
+  - *Done this week*: `computeWeeklyTaskRecap`'s completer groups, with the
+    Tasks page's guardrail intact (names and titles, never counts or a
+    ranking). Unattributed completions show as "Someone".
+  - *Use it up*: in-stock items classified by `getExpiryStatus` (the
+    inventory badge's own thresholds) as past their date or expiring within
+    `EXPIRY_WARNING_DAYS`, estimated dates marked "(estimated)".
+  - *Household budget*: this month's household "Remaining after expenses
+    and savings" headline and its healthy/tight/over line, computed exactly
+    as the Budget page does (`computeTemplateStatuses` +
+    `computeSafeToSpend` over the same 12-month lookback). Left out when the
+    household has no categories, or nothing logged or due this month.
+  - Lists are capped at 10 entries with "…and N more". All user-entered
+    text is HTML-escaped.
+- **Language**: each recipient's stored account locale (`User.locale`, the
+  same preference the app UI follows), falling back to English for an
+  unrecognised value.
+- **Idempotency** (`WeeklyDigestSend`, unique on user + household +
+  `weekKey`, the week's Monday in UTC): the cron claims a row *before*
+  sending, so a retried or duplicated invocation in the same week hits the
+  unique constraint and skips that recipient. A failed send releases its
+  claim so the next run retries. If the process dies between claim and
+  send, that person misses one week rather than getting a duplicate. A
+  week with nothing to say records nothing. Rows older than 35 days are
+  pruned on each run.
+- **Unsubscribe without logging in**: every email carries a signed token
+  (`src/lib/digest-unsubscribe-token.ts`, HMAC-SHA256 over the user id,
+  keyed on `AUTH_SECRET` with a purpose prefix, stateless and non-expiring;
+  no new env var). It's used two ways:
+  - The `List-Unsubscribe` / `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+    headers (RFC 8058) point at `/api/digest/unsubscribe/[token]`. Its POST
+    unsubscribes immediately, which is what the mail client's own
+    Unsubscribe button sends. Its GET only redirects to the page below,
+    because mail scanners prefetch links and a mutating GET would switch
+    people off unasked.
+  - The footer link opens `/unsubscribe/[token]` (public), which
+    auto-submits a Server Action on load (`unsubscribeFromDigestAction`,
+    same pattern as `/verify-email/[token]`). One click in the email is
+    enough, and nothing changes during render.
+  The route won't send anything if `AUTH_SECRET` is missing, since every
+  email must carry a working unsubscribe link.
 
 ## Conventions
 

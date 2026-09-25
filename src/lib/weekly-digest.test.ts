@@ -1,0 +1,437 @@
+// Tests src/lib/weekly-digest.ts's who-gets-it and has-it-already-gone-out
+// logic (GAP-27). Prisma is replaced by a small in-memory fake that honours
+// exactly the filters the module relies on (opt-in, verified address, the
+// WeeklyDigestSend claim and its unique constraint), so the opt-in and
+// idempotency rules are exercised as behaviour rather than as call shapes.
+// The email transport is mocked; no database or network is touched.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
+import { verifyDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
+
+vi.mock("server-only", () => ({}));
+
+type FakeUser = {
+  id: string;
+  email: string;
+  locale: string;
+  displayName: string;
+  weeklyDigestEnabled: boolean;
+  emailVerifiedAt: Date | null;
+};
+type FakeSend = { userId: string; householdId: string; weekKey: string; sentAt: Date };
+type HouseholdData = {
+  inventoryItems?: { name: string; expiresAt: Date | null; expiresAtEstimated: boolean }[];
+  budgetCategoryCount?: number;
+  transactions?: unknown[];
+};
+
+const db = vi.hoisted(() => ({
+  users: [] as FakeUser[],
+  households: [] as { id: string; name: string }[],
+  memberships: [] as { id: string; householdId: string; userId: string }[],
+  sends: [] as FakeSend[],
+  data: new Map<string, HouseholdData>(),
+}));
+
+const { sendWeeklyDigestEmailMock, weeklyDigestSendCreateMock, inventoryItemFindManyMock } = vi.hoisted(() => ({
+  sendWeeklyDigestEmailMock: vi.fn(),
+  weeklyDigestSendCreateMock: vi.fn(),
+  inventoryItemFindManyMock: vi.fn(),
+}));
+
+type UserFilter = {
+  weeklyDigestEnabled?: boolean;
+  emailVerifiedAt?: { not: null };
+  weeklyDigestSends?: { none: { householdId: string; weekKey: string } };
+};
+
+function userMatches(user: FakeUser, filter: UserFilter): boolean {
+  if (filter.weeklyDigestEnabled !== undefined && user.weeklyDigestEnabled !== filter.weeklyDigestEnabled) return false;
+  if (filter.emailVerifiedAt && user.emailVerifiedAt === null) return false;
+  if (filter.weeklyDigestSends) {
+    const { householdId, weekKey } = filter.weeklyDigestSends.none;
+    if (db.sends.some((s) => s.userId === user.id && s.householdId === householdId && s.weekKey === weekKey)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const userById = (id: string) => db.users.find((u) => u.id === id)!;
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    household: {
+      findMany: vi.fn(async ({ where }: { where: { members: { some: { user: UserFilter } } } }) =>
+        db.households
+          .filter((h) =>
+            db.memberships.some(
+              (m) => m.householdId === h.id && userMatches(userById(m.userId), where.members.some.user),
+            ),
+          )
+          .sort((a, b) => a.id.localeCompare(b.id)),
+      ),
+    },
+    householdMember: {
+      findMany: vi.fn(async ({ where }: { where: { householdId: string; user?: UserFilter } }) => {
+        const members = db.memberships.filter((m) => m.householdId === where.householdId);
+        if (where.user) {
+          const filter = where.user;
+          return members
+            .map((m) => userById(m.userId))
+            .filter((u) => userMatches(u, filter))
+            .map((u) => ({ user: { id: u.id, email: u.email, locale: u.locale } }));
+        }
+        return members.map((m) => ({ id: m.id, user: { displayName: userById(m.userId).displayName } }));
+      }),
+    },
+    mealPlanEntry: { findMany: vi.fn(async () => []) },
+    householdTask: { findMany: vi.fn(async () => []) },
+    inventoryItem: { findMany: inventoryItemFindManyMock },
+    budgetCategory: {
+      count: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.budgetCategoryCount ?? 0),
+    },
+    transaction: {
+      findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.transactions ?? []),
+    },
+    recurringTemplate: { findMany: vi.fn(async () => []) },
+    recurringTemplateAck: { findMany: vi.fn(async () => []) },
+    weeklyDigestSend: {
+      create: weeklyDigestSendCreateMock,
+      deleteMany: vi.fn(
+        async ({ where }: { where: { userId?: string; householdId?: string; weekKey?: string; sentAt?: { lt: Date } } }) => {
+          const before = db.sends.length;
+          db.sends = db.sends.filter((s) => {
+            if (where.sentAt) return !(s.sentAt < where.sentAt.lt);
+            return !(s.userId === where.userId && s.householdId === where.householdId && s.weekKey === where.weekKey);
+          });
+          return { count: before - db.sends.length };
+        },
+      ),
+    },
+  },
+}));
+
+vi.mock("@/lib/email", () => ({
+  sendWeeklyDigestEmail: sendWeeklyDigestEmailMock,
+  emailLogoUrl: () => undefined,
+}));
+
+vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+
+const { runWeeklyDigest, sendHouseholdDigest, digestWeekKey, DIGEST_BATCH_SIZE } = await import("@/lib/weekly-digest");
+
+const DAY = 24 * 60 * 60 * 1000;
+// Sunday 2026-09-27 16:00 UTC — the scheduled run time.
+const NOW = new Date("2026-09-27T16:00:00.000Z");
+const APP_URL = "https://app.example.com";
+const SECRET = "test-auth-secret";
+
+function addUser(id: string, overrides: Partial<FakeUser> = {}) {
+  db.users.push({
+    id,
+    email: `${id}@example.com`,
+    locale: "en",
+    displayName: id,
+    weeklyDigestEnabled: true,
+    emailVerifiedAt: new Date("2026-01-01"),
+    ...overrides,
+  });
+}
+
+function addHousehold(id: string, userIds: string[], data: HouseholdData = {}) {
+  db.households.push({ id, name: `Household ${id}` });
+  userIds.forEach((userId, i) => db.memberships.push({ id: `${id}-m${i}`, householdId: id, userId }));
+  // Default: one item about to expire, so the digest has something to say.
+  db.data.set(id, {
+    inventoryItems: [{ name: "Milk", expiresAt: new Date(NOW.getTime() + DAY), expiresAtEstimated: false }],
+    ...data,
+  });
+}
+
+function run(now = NOW) {
+  return runWeeklyDigest({ now, appUrl: APP_URL, secret: SECRET });
+}
+
+const sentTo = () => sendWeeklyDigestEmailMock.mock.calls.map(([args]) => args.to as string);
+
+beforeEach(() => {
+  db.users = [];
+  db.households = [];
+  db.memberships = [];
+  db.sends = [];
+  db.data = new Map();
+  sendWeeklyDigestEmailMock.mockResolvedValue({});
+  inventoryItemFindManyMock.mockImplementation(
+    async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.inventoryItems ?? [],
+  );
+  weeklyDigestSendCreateMock.mockImplementation(async ({ data }: { data: Omit<FakeSend, "sentAt"> }) => {
+    if (db.sends.some((s) => s.userId === data.userId && s.householdId === data.householdId && s.weekKey === data.weekKey)) {
+      throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" });
+    }
+    db.sends.push({ ...data, sentAt: NOW });
+    return data;
+  });
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("digestWeekKey", () => {
+  it("is the Monday (UTC) of the week", () => {
+    expect(digestWeekKey(NOW)).toBe("2026-09-21");
+    expect(digestWeekKey(new Date("2026-09-21T00:00:00Z"))).toBe("2026-09-21");
+    expect(digestWeekKey(new Date("2026-09-28T00:00:00Z"))).toBe("2026-09-28");
+  });
+});
+
+describe("opt-in", () => {
+  it("emails only members who opted in and have a verified address", async () => {
+    addUser("in");
+    addUser("off", { weeklyDigestEnabled: false });
+    addUser("unverified", { emailVerifiedAt: null });
+    addHousehold("h1", ["in", "off", "unverified"]);
+
+    const result = await run();
+
+    expect(sentTo()).toEqual(["in@example.com"]);
+    expect(result).toEqual({ householdsProcessed: 1, emailsSent: 1, emailsFailed: 0, failedHouseholdIds: [] });
+  });
+
+  it("skips households where nobody opted in without loading their data", async () => {
+    addUser("off", { weeklyDigestEnabled: false });
+    addHousehold("h1", ["off"]);
+
+    const result = await run();
+
+    expect(sendWeeklyDigestEmailMock).not.toHaveBeenCalled();
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+    expect(result.householdsProcessed).toBe(0);
+  });
+
+  it("sends a member of two households one digest per household", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"]);
+    addHousehold("h2", ["u1"]);
+
+    await run();
+
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(2);
+    const subjects = sendWeeklyDigestEmailMock.mock.calls.map(([args]) => args.subject);
+    expect(subjects).toEqual(["Your week at Household h1", "Your week at Household h2"]);
+  });
+
+  it("renders each recipient's digest in their own stored locale", async () => {
+    addUser("en-user", { locale: "en" });
+    addUser("sv-user", { locale: "sv" });
+    addUser("odd-user", { locale: "xx" });
+    addHousehold("h1", ["en-user", "sv-user", "odd-user"]);
+
+    await run();
+
+    const byRecipient = Object.fromEntries(
+      sendWeeklyDigestEmailMock.mock.calls.map(([args]) => [args.to, args.subject]),
+    );
+    expect(byRecipient["en-user@example.com"]).toBe("Your week at Household h1");
+    expect(byRecipient["sv-user@example.com"]).toBe("Din vecka i Household h1");
+    // An unrecognised stored locale falls back to the app default.
+    expect(byRecipient["odd-user@example.com"]).toBe("Your week at Household h1");
+  });
+
+  it("gives every email a signed unsubscribe link for its own recipient", async () => {
+    addUser("u1");
+    addUser("u2");
+    addHousehold("h1", ["u1", "u2"]);
+
+    await run();
+
+    for (const [args] of sendWeeklyDigestEmailMock.mock.calls) {
+      const prefix = `${APP_URL}/api/digest/unsubscribe/`;
+      expect(args.unsubscribeUrl.startsWith(prefix)).toBe(true);
+      const token = decodeURIComponent(args.unsubscribeUrl.slice(prefix.length));
+      expect(`${verifyDigestUnsubscribeToken(token, SECRET)}@example.com`).toBe(args.to);
+      expect(args.html).toContain(args.unsubscribeUrl);
+      expect(args.text).toContain(args.unsubscribeUrl);
+    }
+  });
+});
+
+describe("empty digests", () => {
+  it("sends nothing, and records nothing, when the household has nothing to report", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], { inventoryItems: [] });
+
+    const result = await run();
+
+    expect(sendWeeklyDigestEmailMock).not.toHaveBeenCalled();
+    expect(db.sends).toEqual([]);
+    expect(result).toEqual({ householdsProcessed: 1, emailsSent: 0, emailsFailed: 0, failedHouseholdIds: [] });
+  });
+
+  it("includes the household budget headline once there is activity this month", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], {
+      inventoryItems: [],
+      budgetCategoryCount: 1,
+      transactions: [
+        {
+          categoryId: "c1",
+          category: { name: "Salary" },
+          type: "INCOME",
+          amount: 1000,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+        {
+          categoryId: "c2",
+          category: { name: "Food" },
+          type: "EXPENSE",
+          amount: 250,
+          date: new Date(NOW.getTime() - DAY),
+          isRecurring: false,
+          recurringTemplateId: null,
+        },
+      ],
+    });
+
+    await run();
+
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(1);
+    expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
+      "Remaining after expenses and savings this month: 750.00",
+    );
+  });
+});
+
+describe("idempotency", () => {
+  it("doesn't email anyone twice when the cron runs again in the same week", async () => {
+    addUser("u1");
+    addUser("u2");
+    addHousehold("h1", ["u1", "u2"]);
+
+    await run();
+    const second = await run(new Date(NOW.getTime() + 60 * 60 * 1000));
+
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(2);
+    expect(second.emailsSent).toBe(0);
+    expect(db.sends.map((s) => [s.userId, s.weekKey])).toEqual([
+      ["u1", "2026-09-21"],
+      ["u2", "2026-09-21"],
+    ]);
+  });
+
+  it("sends again the following week", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"]);
+
+    await run();
+    const nextWeek = new Date(NOW.getTime() + 7 * DAY);
+    db.data.get("h1")!.inventoryItems = [
+      { name: "Eggs", expiresAt: new Date(nextWeek.getTime() + DAY), expiresAtEstimated: false },
+    ];
+    await run(nextWeek);
+
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips a recipient another concurrent run already claimed", async () => {
+    addUser("u1");
+    addUser("u2");
+    addHousehold("h1", ["u1", "u2"]);
+    // Simulates the race: u1 wasn't claimed when recipients were listed,
+    // but a parallel invocation inserts the row before this one does.
+    weeklyDigestSendCreateMock.mockImplementationOnce(async () => {
+      throw new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" });
+    });
+
+    const result = await sendHouseholdDigest({ household: db.households[0], now: NOW, appUrl: APP_URL, secret: SECRET });
+
+    expect(sentTo()).toEqual(["u2@example.com"]);
+    expect(result).toEqual({ sent: 1, failed: 0 });
+  });
+
+  it("claims before sending", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"]);
+    sendWeeklyDigestEmailMock.mockImplementation(async () => {
+      expect(db.sends).toHaveLength(1);
+      return {};
+    });
+
+    await run();
+
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the claim when the send fails, so the next run retries", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"]);
+    sendWeeklyDigestEmailMock.mockResolvedValueOnce({ error: "Resend down" });
+
+    const first = await run();
+    expect(first).toEqual({ householdsProcessed: 1, emailsSent: 0, emailsFailed: 1, failedHouseholdIds: ["h1"] });
+    expect(db.sends).toEqual([]);
+
+    const retry = await run();
+    expect(retry.emailsSent).toBe(1);
+    expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("prunes old send records", async () => {
+    db.sends.push(
+      { userId: "old", householdId: "h", weekKey: "2026-06-01", sentAt: new Date(NOW.getTime() - 60 * DAY) },
+      { userId: "recent", householdId: "h", weekKey: "2026-09-14", sentAt: new Date(NOW.getTime() - 13 * DAY) },
+    );
+
+    await run();
+
+    expect(db.sends.map((s) => s.userId)).toEqual(["recent"]);
+  });
+});
+
+describe("batching and failure isolation", () => {
+  it(`processes households at most ${DIGEST_BATCH_SIZE} at a time`, async () => {
+    for (let i = 0; i < 25; i += 1) {
+      const id = `h${String(i).padStart(2, "0")}`;
+      addUser(`u${i}`);
+      addHousehold(id, [`u${i}`]);
+    }
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    inventoryItemFindManyMock.mockImplementation(async ({ where }: { where: { householdId: string } }) => {
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      concurrent -= 1;
+      return db.data.get(where.householdId)?.inventoryItems ?? [];
+    });
+
+    const result = await run();
+
+    expect(result.emailsSent).toBe(25);
+    expect(maxConcurrent).toBeLessThanOrEqual(DIGEST_BATCH_SIZE);
+  });
+
+  it("keeps going when one household throws", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    addUser("u1");
+    addUser("u2");
+    addUser("u3");
+    addHousehold("h1", ["u1"]);
+    addHousehold("h2", ["u2"]);
+    addHousehold("h3", ["u3"]);
+    inventoryItemFindManyMock.mockImplementation(async ({ where }: { where: { householdId: string } }) => {
+      if (where.householdId === "h2") throw new Error("boom");
+      return db.data.get(where.householdId)?.inventoryItems ?? [];
+    });
+
+    const result = await run();
+
+    expect(sentTo().sort()).toEqual(["u1@example.com", "u3@example.com"]);
+    expect(result).toEqual({ householdsProcessed: 2, emailsSent: 2, emailsFailed: 0, failedHouseholdIds: ["h2"] });
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+});

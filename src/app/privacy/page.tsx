@@ -80,9 +80,10 @@ export default async function PrivacyPage() {
           <Section title="3. What we collect">
             <p>When you create an account, we store:</p>
             <ul className="list-disc pl-5">
-              <li>Your email address (used to log in and, if you&apos;re invited to or invite others to a household, to send invite emails);</li>
+              <li>Your email address (used to log in, to send invite emails if you&apos;re invited to or invite others to a household, and to send the weekly digest if you turn it on);</li>
               <li>Your password — never in plain text. It&apos;s hashed with bcrypt before storage, so we can verify it at login but can&apos;t see or recover the original password;</li>
               <li>Your display name;</li>
+              <li>Your Swish number, only if you add one in your Profile — it&apos;s shown to the members of your households so they can pay you back with Swish, and you can remove it there at any time;</li>
               <li>Which households you belong to and your role in each (owner or contributor).</li>
             </ul>
             <p>Beyond your account, Squirrel stores the content you and your household enter to use its features:</p>
@@ -153,7 +154,12 @@ export default async function PrivacyPage() {
             <p>
               <strong>Resend</strong> receives personal data only to deliver account and
               household-invite emails (recipient email address, the inviting household&apos;s
-              name, and the link). Resend processes that data on our behalf as a data processor,
+              name, and the link) and, only if you&apos;ve turned it on in your profile, the
+              weekly household digest (your email address and that week&apos;s summary: the
+              household&apos;s name, completed task titles and who did them, item names close
+              to their date, how many recipes were planned, and this month&apos;s household
+              budget figure). The digest is off by default and every one carries an unsubscribe
+              link that works without logging in. Resend processes that data on our behalf as a data processor,
               under its own privacy policy. If email delivery isn&apos;t configured on your
               instance, invites work purely through the on-screen shareable link and no email —
               or data — is sent anywhere.

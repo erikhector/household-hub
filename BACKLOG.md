@@ -179,17 +179,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-3. Read-only calendar feed for the meal plan + recurring bills** —
-      new `src/app/api/calendar/[token]/route.ts`. Cozi's core
-      differentiator is that a household's plan shows up in the calendar app
-      everyone already has open. A per-household, token-scoped (not
-      session-scoped, since calendar apps can't send cookies) `.ics` feed
-      URL, regenerable from the Household page, listing `MealPlanEntry`
-      dates/names and `RecurringTemplate` due dates. Read-only, no write-back
-      from the calendar app. Needs a new random `Household.calendarFeedToken`
-      column (Phase 2 migration) and a decision on whether it's on by default
-      or opt-in (default off is safer — it's a shareable link with no login).
-
 - [ ] **GAP-4. Reusable named shopping list templates** —
       `src/components/shopping/shopping-list-client.tsx`,
       `src/app/dashboard/shopping-list/actions.ts`. AnyList/Out of Milk let
@@ -200,27 +189,6 @@ out to be a product-scope question rather than a scoped task should move to
       migration) — copying item names onto a new `ACTIVE` list, re-resolved
       through `findOrCreateInventoryItem` the same way import/paste already
       does, so it doesn't need its own linking logic.
-
-- [ ] **GAP-7. Settle up: a Swish payment link** —
-      `src/components/budget/household-balances.tsx`. Recording a repayment
-      ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's
-      "Household expense splitting". What's left is the payment half: a
-      Swish deep link (`swish://payment?data=...`, no API key needed, Sweden
-      being this app's primary locale alongside `sv.ts`) next to each
-      suggested transfer, pre-filled with the amount, covering something
-      Splitwise itself doesn't for Swedish households. Needs a phone number
-      per member, which the app doesn't store yet.
-
-- [ ] **GAP-9. Price-jump alerts from existing price history** —
-      `src/lib/notifications.ts`, `prisma/schema.prisma`
-      (`NotificationKind`). Every price-tracking competitor (ICA, Grocy)
-      surfaces unusual price changes; Squirrel already records every price
-      in `PriceHistory` but never looks back at it. A new `PRICE_SPIKE`
-      notification kind (Phase 2 migration, same pattern as `LIST_CLEARED`)
-      fires when a newly recorded price (receipt scan or manual correction)
-      is materially above that item's trailing median — this is squarely a
-      "something's actually wrong" bell case per the Guardrails, not a
-      dismissible in-list chip like AUTO-9/AUTO-10's suggestions.
 
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
@@ -234,24 +202,6 @@ out to be a product-scope question rather than a scoped task should move to
       on engineering effort alone.
 
 ### 2026-09-24 scan
-
-- [ ] **GAP-11. Scale a recipe's ingredients to how many it's actually
-      feeding** — `prisma/schema.prisma` (`MealPlanEntry`),
-      `src/app/dashboard/meal-planning/missing-ingredients.ts`,
-      `src/components/meal-planning/meal-entry-dialog.tsx`. Plan to Eat and
-      Mealime both scale a recipe's ingredient list to a chosen headcount
-      before it hits the shopping list; today `Recipe.servings` is captured
-      but never used as a multiplier — a recipe written for 4 always
-      contributes its as-written quantities to `computeMissingIngredients`
-      regardless of how many the household is actually cooking for that day.
-      Add an optional `servingsOverride Int?` to `MealPlanEntry` (Phase 2
-      migration), default to the recipe's own `servings` when unset, and
-      multiply each `RecipeIngredient` quantity by
-      `servingsOverride / recipe.servings` in `expandRecipeIngredients`
-      before it reaches `computeMissingIngredients`/`getCookableRecipes` —
-      both already consume that shared expansion step, so this is one change
-      that fixes the shopping-list bridge and the "what can I cook" tab
-      together.
 
 - [ ] **GAP-13. A household currency setting** —
       `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
@@ -335,23 +285,6 @@ out to be a product-scope question rather than a scoped task should move to
       infrastructure exists in this app today, `web-push` only sends
       one-shot OS notifications). Worth deciding the mechanism before
       committing, rather than treating it as a routine feature slice.
-
-- [ ] **GAP-27. Weekly household digest email** — new
-      `src/lib/actions/digest.ts` (or a scheduled route handler),
-      `src/lib/email.ts`. Cozi's daily family agenda email is a top-cited
-      reason households stick with it; this app's Resend integration
-      (`src/lib/email.ts`) is wired only for transactional auth mail
-      (invites, password reset, verification) — nothing summarizes what's
-      already computed for the in-app recaps (`MealVarietyRecap`,
-      `TasksWeeklyRecap`, expiring-soon items, the current month's
-      `SafeToSpend` headline). An opt-in (default off — email is a higher-
-      commitment channel than the bell) weekly digest reusing those same
-      pure calculators against each household's data, sent to every member
-      who's turned it on. Needs a scheduler this app doesn't have yet (a
-      cron-triggered route, e.g. Vercel Cron hitting a protected route
-      handler) — note that as a dependency before estimating, same spirit as
-      the `INFRA-` items' "needs a service" flag even though this one needs
-      no new paid provider, just a trigger.
 
 ## Needs a decision before building
 

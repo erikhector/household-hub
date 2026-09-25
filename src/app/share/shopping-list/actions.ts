@@ -3,7 +3,12 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
+import {
+  recordListClearedTransition,
+  recordOutOfStockTransition,
+  recordPriceSpikes,
+  type RecordedPrice,
+} from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
@@ -109,6 +114,11 @@ export async function toggleItemViaShareTokenAction(
   const nextPurchased = !item.purchased;
 
   let autoAdded: AutoAddedItem | null = null;
+  // GAP-9: same post-commit price-spike check as togglePurchasedAction. No
+  // acting user to exclude from the push — a share-link visitor has no
+  // account, so every household member hears about it.
+  let householdId = null as string | null;
+  const recordedPrices: RecordedPrice[] = [];
   try {
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
@@ -159,9 +169,24 @@ export async function toggleItemViaShareTokenAction(
         }
 
         if (priceToRecord != null) {
-          await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: priceToRecord },
+          const row = await tx.priceHistory.create({
+            data: {
+              inventoryItemId: item.inventoryItem.id,
+              price: priceToRecord,
+              quantity: item.quantity,
+              unit: item.unit,
+            },
           });
+          if (list) {
+            householdId = list.householdId;
+            recordedPrices.push({
+              priceHistoryId: row.id,
+              inventoryItemId: item.inventoryItem.id,
+              price: priceToRecord,
+              quantity: item.quantity,
+              unit: item.unit,
+            });
+          }
         }
       }
 
@@ -175,6 +200,7 @@ export async function toggleItemViaShareTokenAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+  if (householdId) await recordPriceSpikes(householdId, recordedPrices);
 
   revalidatePath(`/share/shopping-list/${token}`);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);

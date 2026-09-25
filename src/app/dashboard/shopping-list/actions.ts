@@ -12,7 +12,12 @@ import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { recordListClearedTransition, recordOutOfStockTransition } from "@/lib/notifications";
+import {
+  recordListClearedTransition,
+  recordOutOfStockTransition,
+  recordPriceSpikes,
+  type RecordedPrice,
+} from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
@@ -1008,6 +1013,9 @@ export async function togglePurchasedAction(
   const nextPurchased = !item.purchased;
 
   let autoAdded: AutoAddedItem | null = null;
+  // GAP-9: the PriceHistory row this toggle wrote, if any — checked for a
+  // price spike once the transaction has committed (see recordPriceSpikes).
+  const recordedPrices: RecordedPrice[] = [];
   try {
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
@@ -1072,8 +1080,22 @@ export async function togglePurchasedAction(
         );
 
         if (priceToRecord != null) {
-          await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: priceToRecord },
+          // GAP-9: the line's quantity/unit too, so the price can be
+          // compared per unit later (see detectPriceSpike).
+          const row = await tx.priceHistory.create({
+            data: {
+              inventoryItemId: item.inventoryItem.id,
+              price: priceToRecord,
+              quantity: item.quantity,
+              unit: item.unit,
+            },
+          });
+          recordedPrices.push({
+            priceHistoryId: row.id,
+            inventoryItemId: item.inventoryItem.id,
+            price: priceToRecord,
+            quantity: item.quantity,
+            unit: item.unit,
           });
         }
       }
@@ -1088,6 +1110,7 @@ export async function togglePurchasedAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+  await recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
@@ -1125,7 +1148,7 @@ export async function applyReceiptScanAction(
   matches: ReceiptScanMatch[],
   store?: string,
 ): Promise<ActionState & { itemsUpdated?: number; totalAmount?: number }> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
   const trimmedStore = store?.trim().slice(0, 120) || null;
 
   const list = await prisma.shoppingList.findFirst({
@@ -1161,6 +1184,10 @@ export async function applyReceiptScanAction(
   }
 
   let totalAmount = 0;
+  // GAP-9: every PriceHistory row written below, checked for price spikes
+  // as one batch after the transaction commits — see recordPriceSpikes for
+  // why that's after, and batched, rather than per row inside it.
+  const recordedPrices: RecordedPrice[] = [];
 
   // Per-row writes are parallelized with Promise.all rather than a
   // sequential for-await loop (SCALE-C) — each match targets its own
@@ -1196,13 +1223,27 @@ export async function applyReceiptScanAction(
             where: { id: item.inventoryItem.id },
             data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...openedReset, ...expiryUpdate },
           });
-          await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice, store: trimmedStore },
+          const row = await tx.priceHistory.create({
+            data: {
+              inventoryItemId: item.inventoryItem.id,
+              price: convertedPrice,
+              quantity: item.quantity,
+              unit: item.unit,
+              store: trimmedStore,
+            },
+          });
+          recordedPrices.push({
+            priceHistoryId: row.id,
+            inventoryItemId: item.inventoryItem.id,
+            price: convertedPrice,
+            quantity: item.quantity,
+            unit: item.unit,
           });
         }
       }),
     );
   });
+  await recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/inventory");
@@ -1392,6 +1433,8 @@ export async function registerReceiptAction(
     inventoryDeltas.set(item.inventoryItem.id, existing);
   }
 
+  // GAP-9: see applyReceiptScanAction's matching comment.
+  const recordedPrices: RecordedPrice[] = [];
   let listId: string;
   try {
     listId = await prisma.$transaction(async (tx) => {
@@ -1418,8 +1461,21 @@ export async function registerReceiptAction(
         });
 
         if (item.inventoryItem) {
-          await tx.priceHistory.create({
-            data: { inventoryItemId: item.inventoryItem.id, price: item.convertedPrice, store: trimmedStore },
+          const row = await tx.priceHistory.create({
+            data: {
+              inventoryItemId: item.inventoryItem.id,
+              price: item.convertedPrice,
+              quantity: item.quantity,
+              unit: item.unit,
+              store: trimmedStore,
+            },
+          });
+          recordedPrices.push({
+            priceHistoryId: row.id,
+            inventoryItemId: item.inventoryItem.id,
+            price: item.convertedPrice,
+            quantity: item.quantity,
+            unit: item.unit,
           });
         }
       }
@@ -1442,6 +1498,7 @@ export async function registerReceiptAction(
   } catch (error) {
     return toFriendlyError(error);
   }
+  await recordPriceSpikes(household.id, recordedPrices, userId);
 
   let expenseLoggedMessage: string | undefined;
   if (totalAmount > 0) {

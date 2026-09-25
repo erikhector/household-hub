@@ -104,6 +104,30 @@ function expandFromGraph(
   return [...own, ...nested.flat()];
 }
 
+// How much to scale a recipe's as-written ingredient quantities for one
+// MealPlanEntry: `portions` (how many that slot is actually feeding — see
+// MealPlanEntry.portions in schema.prisma) over the recipe's own `servings`
+// (how many its ingredient list makes). A recipe for 4 cooked for 2 is 0.5;
+// cooked for 6 it's 1.5. It's the `multiplier` handed to
+// expandRecipeIngredients below by both the shopping-list bridge and "Mark
+// as cooked" (cooking-actions.ts), so the two can never disagree about how
+// much a meal uses. It's pulled out here, pure, so the arithmetic has one
+// home and its own tests instead of two copies of an inline expression.
+//
+// Anything that can't give a meaningful ratio falls back to 1 ("one full
+// recipe, as written") rather than 0 or Infinity. That covers a missing
+// recipe, or `servings` of 0 or less (Recipe.servings is validated ≥ 1 on
+// save, but a row edited directly in the database could still hold one),
+// and a non-positive `portions` (validated ≥ 1 too). A 0 multiplier would
+// silently drop every ingredient from the shopping list. Infinity would
+// propose buying an impossible amount. Neither is safer than the recipe as
+// written.
+export function portionsMultiplier(portions: number, servings: number | null | undefined): number {
+  if (!Number.isFinite(portions) || portions <= 0) return 1;
+  if (servings == null || !Number.isFinite(servings) || servings <= 0) return 1;
+  return portions / servings;
+}
+
 // Fetches the household's whole recipe graph once, then walks it from
 // `recipeId`. `householdId` scopes that fetch — it isn't (and shouldn't be)
 // derivable from `recipeId` alone, so every call site must pass the

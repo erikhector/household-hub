@@ -202,6 +202,41 @@ describe("previewMissingIngredientsAction", () => {
       items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false }],
     });
   });
+
+  it("scales up for a bigger crowd, and leaves a recipe with no usable servings count unscaled", async () => {
+    // 6 portions of a 4-serving soup is 1.5 batches. The stew's servings of
+    // 0 can't come from the recipe form (it validates ≥ 1), but if a row
+    // ever holds one it must not zero out or blow up the shopping list, so
+    // the recipe counts as written (portionsMultiplier's fallback).
+    mealPlanFindFirstMock.mockResolvedValue({
+      entries: [
+        { recipeId: "soup", portions: 6, recipe: { servings: 4 } },
+        { recipeId: "stew", portions: 2, recipe: { servings: 0 } },
+      ],
+    });
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "soup",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 2 }],
+        components: [],
+      },
+      {
+        id: "stew",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Potato", unit: "kg", quantity: 1 }],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction("2026-01-05");
+
+    expect(result).toEqual({
+      items: [
+        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 3, unitMismatch: false },
+        { key: "name:potato::kg", name: "Potato", unit: "kg", missingQuantity: 1, unitMismatch: false },
+      ],
+    });
+  });
 });
 
 describe("addMissingIngredientsToShoppingListAction", () => {

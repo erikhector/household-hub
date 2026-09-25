@@ -61,6 +61,8 @@ import {
   toMonthKey,
 } from "@/lib/budget-date-utils";
 import { computeNetBalances, remainingDue, simplifyDebts } from "@/lib/settle-up-calc";
+import { swishNumbersForPayer } from "@/lib/swish";
+import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import type { BudgetTab } from "@/components/budget/budget-tabs";
 import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 
@@ -338,7 +340,10 @@ async function BudgetTabsSection({
       // one member.
       prisma.householdMember.findMany({
         where: { householdId },
-        include: { user: { select: { displayName: true } } },
+        // swishNumber: GAP-7's "Pay with Swish" link — filtered down to just
+        // the payees the signed-in member owes (swishNumbersForPayer) before
+        // anything reaches the client.
+        include: { user: { select: { displayName: true, swishNumber: true } } },
         orderBy: { createdAt: "asc" },
       }),
       // Recurring bill templates — see src/lib/recurring-template-calc.ts and the
@@ -431,6 +436,15 @@ async function BudgetTabsSection({
         ),
       )
     : [];
+  // GAP-7: Swish numbers for the transfers the signed-in member has to pay.
+  // Every amount is assumed to be in HOUSEHOLD_BASE_CURRENCY (there's no
+  // per-household currency yet, GAP-13), and Swish only moves SEK.
+  const swishNumbers = swishNumbersForPayer({
+    settlements,
+    payerMemberId: currentMemberId,
+    members: householdMembers.map((m) => ({ id: m.id, swishNumber: m.user.swishNumber })),
+    currencyCode: HOUSEHOLD_BASE_CURRENCY,
+  });
   const unpaidBills: UnpaidBillRow[] = splitTransactions
     .map((t) => ({
       id: t.id,
@@ -718,6 +732,8 @@ async function BudgetTabsSection({
           unpaidBills={unpaidBills}
           repayments={repayments}
           members={memberOptions}
+          currentMemberId={currentMemberId}
+          swishNumbers={swishNumbers}
           dict={dict.budget.balances}
           locale={locale}
           onRecordRepayment={recordSettlementAction}

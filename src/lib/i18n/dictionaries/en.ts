@@ -48,6 +48,10 @@ export const en = {
     // ExpiringSoonNotification.estimated in src/lib/notifications.ts.
     expiringSoonEstimated: "{name} is probably expiring soon",
     listCleared: "{name} is all checked off",
+    // GAP-9: PRICE_SPIKE — see detectPriceSpike (src/lib/price-spike.ts).
+    // The plain variant only shows for a row with no stored percentage.
+    priceSpike: "{name} cost {percent}% more than usual",
+    priceSpikePlain: "{name} cost more than usual",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
@@ -108,7 +112,7 @@ export const en = {
       other: "Shared with {count} other people",
     },
     roleExplanation:
-      "Owners can remove members, transfer ownership, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
+      "Owners can remove members, transfer ownership, manage the calendar feed, and delete the household. Contributors have the same access to everyday data — inventory, shopping lists, meal plans, and budget.",
     owner: "Owner",
     contributor: "Contributor",
     removeAriaLabel: "Remove {name}",
@@ -126,6 +130,50 @@ export const en = {
         'When something drops to low or out of stock, it goes straight onto "Next shop". This applies to everyone in the household.',
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
+    },
+    // GAP-3: the read-only calendar feed (CalendarFeedSetting). `feed` holds
+    // the strings written into the .ics itself; the route picks the locale
+    // from the URL's ?lang=, since calendar apps send no cookie.
+    calendarFeed: {
+      title: "Calendar feed",
+      description:
+        "Subscribe from Google Calendar, Apple Calendar or Outlook to see planned meals and the due dates of monthly bills. It updates on its own and is read-only.",
+      publicWarning:
+        "Anyone who has the link can see your planned meals and bill names, without logging in. Amounts are never included. Only share it with people you trust.",
+      offDescription: "The calendar feed is off.",
+      contributorOffDescription: "The calendar feed is off. The household owner can turn it on.",
+      enable: "Turn on calendar feed",
+      enabling: "Turning on…",
+      linkAriaLabel: "Calendar feed link",
+      copy: "Copy",
+      copiedToast: "Calendar link copied",
+      openInCalendar: "Open in calendar app",
+      regenerate: "Get a new link",
+      disable: "Turn off",
+      enabledToast: "Calendar feed turned on",
+      regeneratedToast: "New calendar link created. The old one no longer works.",
+      disabledToast: "Calendar feed turned off",
+      regenerateConfirm: {
+        title: "Get a new calendar link?",
+        description:
+          "The current link stops working right away. Anyone subscribed to it, including you, will need to subscribe again with the new link.",
+        cancel: "Cancel",
+        confirm: "Get new link",
+        confirming: "Creating…",
+      },
+      disableConfirm: {
+        title: "Turn off the calendar feed?",
+        description:
+          "The link stops working right away and subscribed calendars stop updating. Turning it on again gives you a new link.",
+        cancel: "Cancel",
+        confirm: "Turn off",
+        confirming: "Turning off…",
+      },
+      feed: {
+        calendarName: "{household} (Squirrel)",
+        mealSummary: "{meal}: {name}",
+        billSummary: "Due: {name}",
+      },
     },
     notes: {
       title: "Notes",
@@ -1456,6 +1504,11 @@ export const en = {
       unpaidBillsTitle: "Still due on bills",
       leftDue: "{amount} left due",
       repaymentsTitle: "Recent repayments",
+      swishButton: "Pay with Swish",
+      swishAriaLabel: "Pay {amount} kr to {name} with Swish ({number})",
+      swishMessage: "Settle up (Squirrel)",
+      swishHint:
+        "Swish opens on your phone with the amount filled in. Paying there doesn't update this list — tap \"Clear debt\" once the money has gone through.",
       deleteRepaymentAriaLabel: "Remove repayment",
       confirmDeleteRepayment: {
         title: "Remove this repayment?",
@@ -1869,6 +1922,17 @@ export const en = {
       saving: "Saving…",
       save: "Save changes",
     },
+    swishForm: {
+      title: "Swish number",
+      description:
+        "Add your Swish number and household members who owe you money get a \"Pay with Swish\" button with the amount filled in. Your number is shown to members of your households. Leave it blank to remove it.",
+      label: "Mobile number",
+      placeholder: "070-123 45 67",
+      invalid: "Enter a Swedish mobile number, like 070-123 45 67.",
+      saved: "Saved",
+      saving: "Saving…",
+      save: "Save",
+    },
     emailForm: {
       title: "Email address",
       description:
@@ -1935,6 +1999,15 @@ export const en = {
         cleared: "Quiet hours turned off",
         error: "Couldn't save quiet hours. Please try again.",
       },
+    },
+    weeklyDigest: {
+      title: "Weekly digest email",
+      label: "Email me a weekly summary of my household",
+      description:
+        "Every Sunday: what was on the menu, which tasks got done, food that's about to expire and how the household budget is doing. Nothing is sent in a quiet week.",
+      unverified: "Verify your email address to start receiving it.",
+      enabledToast: "You'll get the weekly digest",
+      disabledToast: "Weekly digest turned off",
     },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
@@ -2166,6 +2239,15 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  digestUnsubscribe: {
+    pageTitle: "Weekly digest",
+    working: "Unsubscribing you from the weekly digest…",
+    submit: "Unsubscribe",
+    done: "You won't get the weekly digest any more. You can turn it back on from your profile at any time.",
+    invalid: "This unsubscribe link isn't valid. You can turn the digest off from your profile instead.",
+    error: "Something went wrong. Please try again.",
+    profileLink: "Go to your profile",
+  },
   email: {
     copyLinkPrefix: "If the button doesn't work, use this link:",
     invite: {
@@ -2190,6 +2272,29 @@ export const en = {
       cta: "Verify your email",
       expiry:
         "This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.",
+    },
+    weeklyDigest: {
+      subject: "Your week at {householdName}",
+      heading: "Your week at {householdName}",
+      intro: "Here's a quick look at the past week in your household.",
+      mealsTitle: "Meals",
+      mealsBody: {
+        one: "{count} different recipe was on the menu in the last 7 days.",
+        other: "{count} different recipes were on the menu in the last 7 days.",
+      },
+      tasksTitle: "Done this week",
+      tasksSomeone: "Someone",
+      expiringTitle: "Use it up",
+      expiredLabel: "Past its date",
+      soonLabel: "Expiring in the next few days",
+      estimatedSuffix: "(estimated)",
+      moreItems: { one: "…and {count} more", other: "…and {count} more" },
+      budgetTitle: "Household budget",
+      budgetBody: "Remaining after expenses and savings this month: {amount}",
+      cta: "Open Squirrel",
+      footer: "You're getting this because you turned on the weekly digest in Squirrel.",
+      unsubscribe: "Unsubscribe",
+      manage: "Email settings",
     },
   },
 };
