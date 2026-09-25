@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.23.0",
+    "date": "2026-09-25",
+    "pr": 47,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The Cost analyzer now has a \"Went past its date\" card. It shows the food that expired this month before you used it up, and roughly what it cost.",
+      "sv": "Kostnadsanalysen har nu kortet \"Gick ut innan den användes\". Det visar mat som passerade bäst före-datum den här månaden innan den tog slut, och ungefär vad den kostade."
+    }
+  },
+  {
     "version": "0.22.0",
     "date": "2026-09-25",
     "pr": 49,
