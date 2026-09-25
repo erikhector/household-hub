@@ -134,29 +134,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ## Phase 3 — larger items, own PR each
 
-### Performance & security
-
-- [ ] **SCALE-J. Extend Suspense-isolated loading to `budget`/`personal-budget`/`meal-planning`** —
-      `src/app/dashboard/inventory/page.tsx`, `tasks/page.tsx`, `shopping-list/page.tsx`, and
-      `household/page.tsx` were refactored (2026-09-16) so the static header (title/subtitle,
-      any action that doesn't need fetched data) renders immediately and the data-dependent
-      list/table streams in behind `<Suspense>` with its own skeleton, instead of the whole
-      page sitting behind `dashboard/loading.tsx`'s generic fallback until every query
-      resolves — see those four files for the pattern (a per-request `cache()`-wrapped
-      fetcher shared by however many Suspense-isolated consumers need pieces of it).
-      `budget/page.tsx`, `personal-budget/page.tsx`, and `meal-planning/page.tsx` still have
-      the old blocking shape, and were deliberately left out of that pass: each aggregates
-      ~5 interdependent data sources into one render (safe-to-spend, settle-up, cost
-      analyzer, recurring-template status, cookable-recipes, variety recap, …), so the
-      "shared cached fetch behind a couple of Suspense boundaries" trick doesn't map on as
-      cleanly — expect to actually think about which pieces can render independently rather
-      than mechanically repeating the other four pages' diff. SCALE-F already
-      bounded `budget/page.tsx`'s transaction query to a period, so build on that shape rather
-      than reverting it. Verify with `npm run lint`,
-      `npx tsc --noEmit`, `npm run test`, `npm run build`, and a live check (the other four
-      pages were verified by seeding a household through the UI and confirming no console
-      errors and no layout regressions — do the same here).
-
 ### Shopping list & inventory automation
 
 AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.

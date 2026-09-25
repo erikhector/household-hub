@@ -42,6 +42,11 @@ export type StoreComparison = {
  * cheapest of those. Items with fewer than two distinct non-null stores on
  * record are left out entirely — there's nothing to compare yet.
  *
+ * Store names are free text typed per receipt/correction, so they're grouped
+ * case- and whitespace-insensitively — "ICA" one week and "ica " the next
+ * is one store, not a two-store comparison against itself. The name shown
+ * is whichever spelling that store's most recent row used.
+ *
  * Rows are expected in no particular order; this sorts each store's
  * candidates by date itself rather than relying on the caller's query
  * order, so it's safe to feed it the same `orderBy: { date: "asc" }` rows
@@ -49,16 +54,18 @@ export type StoreComparison = {
  * unordered fixture).
  */
 export function computeCheapestStoreComparisons(rows: PriceHistoryStoreRow[]): StoreComparison[] {
-  const lastByItemStore = new Map<string, Map<string, { price: number; date: Date }>>();
+  const lastByItemStore = new Map<string, Map<string, { store: string; price: number; date: Date }>>();
   const namesById = new Map<string, string>();
 
   for (const row of rows) {
-    if (!row.store) continue;
+    const store = row.store?.trim();
+    if (!store) continue;
     namesById.set(row.inventoryItemId, row.itemName);
     const perStore = lastByItemStore.get(row.inventoryItemId) ?? new Map();
-    const existing = perStore.get(row.store);
+    const storeKey = store.toLocaleLowerCase();
+    const existing = perStore.get(storeKey);
     if (!existing || row.date >= existing.date) {
-      perStore.set(row.store, { price: row.price, date: row.date });
+      perStore.set(storeKey, { store, price: row.price, date: row.date });
     }
     lastByItemStore.set(row.inventoryItemId, perStore);
   }
@@ -69,7 +76,7 @@ export function computeCheapestStoreComparisons(rows: PriceHistoryStoreRow[]): S
 
     let cheapestStore = "";
     let cheapestPrice = Infinity;
-    for (const [store, { price }] of perStore) {
+    for (const { store, price } of perStore.values()) {
       if (price < cheapestPrice) {
         cheapestPrice = price;
         cheapestStore = store;

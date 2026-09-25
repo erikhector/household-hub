@@ -1239,7 +1239,7 @@ export const sv = {
       trendsTitle: "Prisutveckling",
       trendsSubtitle: "Varor med tillräcklig inköpshistorik för att visa en meningsfull trend.",
       noTrendData:
-        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — att skanna ett kvitto eller en streckkod vid köp är just nu det enda sättet att registrera ett pris.",
+        "Inte tillräckligt med prishistorik än. En vara behöver minst 3 registrerade köp med pris innan dess trend visas här — priser registreras när du skannar ett kvitto eller en streckkod vid köp, eller rättar en varas pris med ett butiksnamn.",
       latestPrice: "Senaste",
       cheapestStoreTitle: "Billigast butik",
       cheapestStoreSubtitle: "Varor du köpt i mer än en butik, och vilken som var billigast senast.",

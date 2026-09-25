@@ -1272,7 +1272,7 @@ export const en = {
       trendsTitle: "Price trends",
       trendsSubtitle: "Items with enough purchase history to show a meaningful trend.",
       noTrendData:
-        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — scanning a receipt or barcode when you buy it is currently the only way to record a price.",
+        "Not enough price history yet. An item needs at least 3 recorded purchases with a price before its trend shows up here — prices are recorded when you scan a receipt or barcode as you buy it, or correct an item's price with a store name.",
       latestPrice: "Latest",
       cheapestStoreTitle: "Cheapest store",
       cheapestStoreSubtitle:

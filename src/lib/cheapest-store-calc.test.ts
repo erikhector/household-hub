@@ -87,4 +87,23 @@ describe("computeCheapestStoreComparisons", () => {
     ]);
     expect(result.map((c) => c.name)).toEqual(["Milk", "Zucchini"]);
   });
+
+  it("treats store names differing only in case or whitespace as the same store", () => {
+    const result = computeCheapestStoreComparisons([
+      row({ store: "ICA", price: 24, date: new Date(2026, 0, 1) }),
+      row({ store: "ica ", price: 21, date: new Date(2026, 0, 3) }),
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  it("shows the most recent spelling of a store once it's compared against another", () => {
+    const result = computeCheapestStoreComparisons([
+      row({ store: "ica maxi", price: 18, date: new Date(2026, 0, 1) }),
+      row({ store: "ICA Maxi", price: 17, date: new Date(2026, 0, 4) }),
+      row({ store: "Coop", price: 19, date: new Date(2026, 0, 2) }),
+    ]);
+    expect(result).toEqual([
+      { id: "item-1", name: "Milk", cheapestStore: "ICA Maxi", cheapestPrice: 17, storeCount: 2 },
+    ]);
+  });
 });

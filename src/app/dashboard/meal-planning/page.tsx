@@ -1,7 +1,12 @@
+import { Suspense, cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, type Dictionary } from "@/lib/i18n/get-dictionary";
 import { MealPlanningView } from "@/components/meal-planning/meal-planning-view";
+import { WeekPlanner } from "@/components/meal-planning/week-planner";
+import { RecipeManager } from "@/components/meal-planning/recipe-manager";
+import { CookNowList } from "@/components/meal-planning/cook-now-list";
+import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
@@ -9,23 +14,27 @@ import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 
-export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
-  const [{ household }, dict, searchParams] = await Promise.all([
-    requireHousehold(),
-    getDictionary(),
-    props.searchParams,
-  ]);
+type MealPlanningDict = Dictionary["mealPlanning"];
 
-  const weekParam = searchParams.week;
-  const weekParamValue = Array.isArray(weekParam) ? weekParam[0] : weekParam;
-  const weekStart = isDateKey(weekParamValue) ? parseDateKey(weekParamValue) : getWeekStart(new Date());
+// SCALE-J: `recipes` is the one dataset every tab needs — Planner for the
+// day-slot pickers, Recipes for the recipe list/ingredient autocomplete,
+// and Cook for both its own listing and (via getCookableRecipes, called
+// separately below since it needs its own extra per-recipe expansion
+// queries) what to check against inventory. `mealPlan` (Planner's other
+// need) and `inventoryItems` (Recipes'/Cook's other need) are cheap to
+// batch in alongside it, so all three Suspense-isolated tab sections below
+// share one `cache()`-wrapped fetcher instead of one query each — the same
+// convention as getInventoryData on the inventory page. `weekStartKey`
+// (not a `Date`) is the cache key, matching every other cached fetcher in
+// this app that takes more than a bare id — React's `cache()` matches
+// arguments by identity, and two `Date` instances for the same day aren't
+// the same reference.
+const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: string) => {
+  const weekStart = parseDateKey(weekStartKey);
 
-  const now = new Date();
-  const varietyWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-  const [recipes, mealPlan, activeShoppingLists, varietyEntries, inventoryItems] = await Promise.all([
+  const [recipes, mealPlan, activeShoppingLists, inventoryItems] = await Promise.all([
     prisma.recipe.findMany({
-      where: { householdId: household.id },
+      where: { householdId },
       include: {
         ingredients: true,
         components: { include: { componentRecipe: { select: { id: true, name: true } } } },
@@ -33,30 +42,129 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       orderBy: { name: "asc" },
     }),
     prisma.mealPlan.findFirst({
-      where: { householdId: household.id, weekStartDate: weekStart },
+      where: { householdId, weekStartDate: weekStart },
       include: { entries: { include: { recipe: true }, orderBy: { date: "asc" } } },
     }),
     prisma.shoppingList.findMany({
-      where: { householdId: household.id, status: "ACTIVE" },
+      where: { householdId, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
       select: { id: true, name: true },
-    }),
-    // Feeds the "variety recap" (see docs/archive/JOY_GAP_BACKLOG.md item 5) — a
-    // trailing-30-day window across all weeks, independent of whichever
-    // week is currently displayed above.
-    prisma.mealPlanEntry.findMany({
-      where: { mealPlan: { householdId: household.id }, date: { gte: varietyWindowStart, lte: now } },
-      select: { date: true, recipeId: true },
     }),
     // Feeds the ingredient-name autocomplete in RecipeFormDialog (name, unit)
     // and the "use it up" suggestion chips below (id, quantity,
     // lowStockThreshold, expiresAt) — one query covers both rather than
     // fetching the household's inventory twice.
     prisma.inventoryItem.findMany({
-      where: { householdId: household.id },
+      where: { householdId },
       select: { id: true, name: true, unit: true, quantity: true, lowStockThreshold: true, expiresAt: true },
     }),
   ]);
+
+  // Display shape shared by all three tabs — computed once here rather than
+  // in each Suspense-isolated section below.
+  const recipeRows = recipes.map((recipe) => ({
+    id: recipe.id,
+    name: recipe.name,
+    instructions: recipe.instructions,
+    servings: recipe.servings,
+    caloriesPerServing: recipe.caloriesPerServing,
+    proteinGramsPerServing: recipe.proteinGramsPerServing,
+    carbsGramsPerServing: recipe.carbsGramsPerServing,
+    fatGramsPerServing: recipe.fatGramsPerServing,
+    ingredients: recipe.ingredients.map((ingredient) => ({
+      id: ingredient.id,
+      name: ingredient.name,
+      quantity: ingredient.quantity,
+      unit: ingredient.unit,
+    })),
+    components: recipe.components.map((component) => ({
+      id: component.id,
+      componentRecipeId: component.componentRecipeId,
+      componentRecipeName: component.componentRecipe.name,
+      quantity: component.quantity,
+    })),
+  }));
+
+  const entries = (mealPlan?.entries ?? []).map((entry) => ({
+    id: entry.id,
+    date: toDateKey(entry.date),
+    mealType: entry.mealType,
+    recipeId: entry.recipeId,
+    recipeName: entry.recipe?.name ?? null,
+    freeformName: entry.freeformName,
+    portions: entry.portions,
+    consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
+  }));
+
+  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems };
+});
+
+// SCALE-J: a trailing-30-day window across all weeks, independent of
+// whichever week is currently displayed (and of every other query on this
+// page) — see docs/archive/JOY_GAP_BACKLOG.md item 5. Its own Suspense
+// boundary with a `null` fallback, same convention as
+// InventoryWellStockedNote/SharedWithNote (inventory/household pages): a
+// footnote-weight note that either appears once ready or never appears at
+// all, never a layout-shifting skeleton.
+async function MealVarietyRecapSection({
+  householdId,
+  dict,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+}) {
+  const now = new Date();
+  const varietyWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const varietyEntries = await prisma.mealPlanEntry.findMany({
+    where: { mealPlan: { householdId }, date: { gte: varietyWindowStart, lte: now } },
+    select: { date: true, recipeId: true },
+  });
+  const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
+  if (distinctRecipeCount === 0) return null;
+  return <MealVarietyRecap count={distinctRecipeCount} dict={dict} />;
+}
+
+async function PlannerTabSection({
+  householdId,
+  dict,
+  weekStartKey,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+  weekStartKey: string;
+}) {
+  const { recipeRows, entries, activeShoppingLists } = await getMealPlanningCoreData(householdId, weekStartKey);
+  return (
+    <WeekPlanner
+      dict={dict}
+      weekStartKey={weekStartKey}
+      recipes={recipeRows}
+      entries={entries}
+      activeShoppingLists={activeShoppingLists}
+    />
+  );
+}
+
+function PlannerTabSkeleton() {
+  return (
+    <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label="Loading">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="h-48 rounded-lg border bg-muted/40" />
+      ))}
+    </div>
+  );
+}
+
+async function RecipesTabSection({
+  householdId,
+  dict,
+  weekStartKey,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+  weekStartKey: string;
+}) {
+  const { recipes, recipeRows, inventoryItems } = await getMealPlanningCoreData(householdId, weekStartKey);
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
   // Lets the ingredient row preselect a unit once the name matches a known
@@ -68,28 +176,20 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
     if (!(key in ingredientUnits)) ingredientUnits[key] = item.unit;
   }
 
-  const { distinctRecipeCount } = computeMealVarietyRecap({ entries: varietyEntries, now });
-
-  // Depends on `recipes` above, so it can't join the Promise.all batch —
-  // runs after, one expansion per recipe plus (at most) one inventory query.
-  const cookableRecipes = await getCookableRecipes(
-    household.id,
-    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
-  );
-
   // "Use it up" suggestions (BACKLOG GAP-1) — a read-only nudge distinct from
-  // cookableRecipes above: this ranks by overlap with what's expiring/low
-  // rather than by "almost everything on hand," so a recipe can appear here
-  // while still missing plenty of other ingredients. Reuses the same
-  // `inventoryItems` fetch already loaded for the ingredient autocomplete
-  // instead of a separate query. `quantity` is passed through (not folded
-  // into the pre-filter below) so computeUseItUpSuggestions' reasonFor can
-  // gate out zero-quantity items — see its comment for why that gate matters
-  // (an ingredient auto-created at quantity 0 is always "out," which is
-  // backwards for a "use it up" suggestion). The pre-filter drops them too:
-  // item names aren't unique, so a zero-quantity "Milk" left in the list
-  // could win the by-name match for an unlinked ingredient and hide an
+  // the Cook tab's cookable-recipe list: this ranks by overlap with what's
+  // expiring/low rather than by "almost everything on hand," so a recipe can
+  // appear here while still missing plenty of other ingredients. Reuses the
+  // same `inventoryItems` fetch already loaded above (via getMealPlanningCoreData's
+  // cache()) instead of a separate query. `quantity` is passed through (not
+  // folded into the pre-filter below) so computeUseItUpSuggestions' reasonFor
+  // can gate out zero-quantity items — see its comment for why that gate
+  // matters (an ingredient auto-created at quantity 0 is always "out," which
+  // is backwards for a "use it up" suggestion). The pre-filter drops them
+  // too: item names aren't unique, so a zero-quantity "Milk" left in the
+  // list could win the by-name match for an unlinked ingredient and hide an
   // on-hand, expiring "Milk" with the same name.
+  const now = new Date();
   const flaggedInventoryItems: FlaggedInventoryItem[] = inventoryItems
     .map((item) => ({
       id: item.id,
@@ -116,47 +216,109 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   );
 
   return (
-    <MealPlanningView
-      dict={dict.mealPlanning}
-      weekStartKey={toDateKey(weekStart)}
-      recipes={recipes.map((recipe) => ({
-        id: recipe.id,
-        name: recipe.name,
-        instructions: recipe.instructions,
-        servings: recipe.servings,
-        caloriesPerServing: recipe.caloriesPerServing,
-        proteinGramsPerServing: recipe.proteinGramsPerServing,
-        carbsGramsPerServing: recipe.carbsGramsPerServing,
-        fatGramsPerServing: recipe.fatGramsPerServing,
-        ingredients: recipe.ingredients.map((ingredient) => ({
-          id: ingredient.id,
-          name: ingredient.name,
-          quantity: ingredient.quantity,
-          unit: ingredient.unit,
-        })),
-        components: recipe.components.map((component) => ({
-          id: component.id,
-          componentRecipeId: component.componentRecipeId,
-          componentRecipeName: component.componentRecipe.name,
-          quantity: component.quantity,
-        })),
-      }))}
-      entries={(mealPlan?.entries ?? []).map((entry) => ({
-        id: entry.id,
-        date: toDateKey(entry.date),
-        mealType: entry.mealType,
-        recipeId: entry.recipeId,
-        recipeName: entry.recipe?.name ?? null,
-        freeformName: entry.freeformName,
-        portions: entry.portions,
-        consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
-      }))}
-      activeShoppingLists={activeShoppingLists}
-      varietyCount={distinctRecipeCount}
-      cookableRecipes={cookableRecipes}
+    <RecipeManager
+      dict={dict}
+      recipes={recipeRows}
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
     />
+  );
+}
+
+function RecipesTabSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="h-14 rounded-md border bg-muted/40" />
+      ))}
+    </div>
+  );
+}
+
+// SCALE-J: getCookableRecipes depends on `recipes` (from the shared core
+// fetch above) and then runs its own extra per-recipe expansion against
+// inventory (one query per recipe, plus a loose-name fallback lookup — see
+// its doc comment in cookable-recipes.ts), which can't join the core
+// Promise.all above since it needs `recipes` already resolved. Isolating it
+// in its own Suspense boundary keeps that extra round trip from delaying
+// the Planner/Recipes tabs, which have no such dependency.
+async function CookTabSection({
+  householdId,
+  dict,
+  weekStartKey,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+  weekStartKey: string;
+}) {
+  const { recipes, recipeRows } = await getMealPlanningCoreData(householdId, weekStartKey);
+  const cookableRecipes = await getCookableRecipes(
+    householdId,
+    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
+  );
+  return (
+    <CookNowList
+      dict={dict}
+      cookableRecipes={cookableRecipes}
+      recipes={recipeRows}
+      plannerWeekStartKey={weekStartKey}
+    />
+  );
+}
+
+function CookTabSkeleton() {
+  return (
+    <div className="flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label="Loading">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-16 bg-muted/40" />
+      ))}
+    </div>
+  );
+}
+
+export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
+  const [{ household }, dict, searchParams] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    props.searchParams,
+  ]);
+
+  const weekParam = searchParams.week;
+  const weekParamValue = Array.isArray(weekParam) ? weekParam[0] : weekParam;
+  const weekStart = isDateKey(weekParamValue) ? parseDateKey(weekParamValue) : getWeekStart(new Date());
+  const weekStartKey = toDateKey(weekStart);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.mealPlanning.title}</h1>
+        <p className="text-sm text-muted-foreground">{dict.mealPlanning.subtitle}</p>
+      </div>
+
+      <MealPlanningView
+        dict={dict.mealPlanning}
+        varietyRecap={
+          <Suspense key="variety-recap" fallback={null}>
+            <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />
+          </Suspense>
+        }
+        plannerTab={
+          <Suspense key="planner-tab" fallback={<PlannerTabSkeleton />}>
+            <PlannerTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+          </Suspense>
+        }
+        recipesTab={
+          <Suspense key="recipes-tab" fallback={<RecipesTabSkeleton />}>
+            <RecipesTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+          </Suspense>
+        }
+        cookTab={
+          <Suspense key="cook-tab" fallback={<CookTabSkeleton />}>
+            <CookTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+          </Suspense>
+        }
+      />
+    </div>
   );
 }
