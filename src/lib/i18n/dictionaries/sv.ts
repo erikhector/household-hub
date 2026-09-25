@@ -315,6 +315,17 @@ export const sv = {
     lowStockBadge: "Lågt lager",
     expenseLogged: "Loggade {amount} i din budget för Livsmedel",
     expenseDescription: 'Från "{name}"',
+    categoryChip: {
+      ariaLabel: "Kategori för {name}: {category}. Byt kategori",
+      movedToast: "Flyttade {name} till {category}",
+      undo: "Ångra",
+      newCategory: "Ny kategori…",
+      newCategoryTitle: "Ny kategori för {name}",
+      newCategoryLabel: "Kategorinamn",
+      newCategoryPlaceholder: "t.ex. Snacks",
+      cancel: "Avbryt",
+      save: "Spara",
+    },
     needsMappingBadge: "Behöver kopplas",
     needsMappingHint: "Ny i ditt skafferi — koppla den eller lägg till den som en ny vara så uppdateras lagret när du köper den.",
     needsMappingToast: "{name} är ny i ditt skafferi — koppla den eller lägg till den som en ny vara för att hålla lagret synkat.",
@@ -1688,6 +1699,20 @@ export const sv = {
         "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
       resend: "Skicka verifieringslänk igen",
       resending: "Skickar…",
+    },
+    noHousehold: {
+      pageTitle: "Du är inte med i något hushåll",
+      description:
+        "Ditt konto är inte längre medlem i något hushåll, till exempel för att du togs bort från det. Ditt konto och din privata budget finns kvar.",
+      createHeading: "Skapa ett nytt hushåll",
+      householdName: "Hushållets namn",
+      householdNamePlaceholder: "t.ex. Familjen Andersson",
+      creating: "Skapar…",
+      create: "Skapa hushåll",
+      joinHeading: "Gå med i ett befintligt hushåll",
+      joinDescription:
+        "Be någon i hushållet skicka en inbjudningslänk till dig och öppna den medan du är inloggad.",
+      logOut: "Logga ut",
     },
   },
   landing: {

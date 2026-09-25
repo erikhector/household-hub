@@ -18,6 +18,7 @@ const {
   inventoryItemFindManyMock,
   inventoryItemCreateMock,
   inventoryItemUpdateMock,
+  inventoryItemUpdateManyMock,
   shoppingListItemFindFirstMock,
   shoppingListItemFindManyMock,
   shoppingListItemCreateMock,
@@ -48,6 +49,7 @@ const {
   inventoryItemFindManyMock: vi.fn(),
   inventoryItemCreateMock: vi.fn(),
   inventoryItemUpdateMock: vi.fn(),
+  inventoryItemUpdateManyMock: vi.fn(),
   shoppingListItemFindFirstMock: vi.fn(),
   shoppingListItemFindManyMock: vi.fn(),
   shoppingListItemCreateMock: vi.fn(),
@@ -109,6 +111,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: inventoryItemFindManyMock,
       create: inventoryItemCreateMock,
       update: inventoryItemUpdateMock,
+      updateMany: inventoryItemUpdateManyMock,
     },
     shoppingListItem: {
       findFirst: shoppingListItemFindFirstMock,
@@ -126,7 +129,9 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("@/lib/i18n/get-dictionary", async () => ({
   getDictionary: vi.fn(async () => ({
-    inventory: { autoCategories: (await import("@/lib/i18n/dictionaries/en")).en.inventory.autoCategories },
+    inventory: {
+      uncategorized: "Uncategorized",
+      autoCategories: (await import("@/lib/i18n/dictionaries/en")).en.inventory.autoCategories },
     shoppingList: {
       defaultNamePrefix: "Shopping list",
       expenseDescription: "Groceries: {name}",
@@ -168,6 +173,7 @@ const {
   updateShoppingListItemAction,
   updateShoppingListItemPriceAction,
   unlinkShoppingListItemAction,
+  setShoppingListItemCategoryAction,
   resolveShoppingListMappingsAction,
   togglePurchasedAction,
   applyReceiptScanAction,
@@ -871,6 +877,66 @@ describe("unlinkShoppingListItemAction", () => {
       where: { id: "item-1" },
       data: { inventoryItemId: null },
     });
+  });
+});
+
+describe("setShoppingListItemCategoryAction", () => {
+  it("returns 'Item not found' for an item outside the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await setShoppingListItemCategoryAction("someone-elses-item", "Dairy");
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "someone-elses-item", shoppingList: { householdId: "household-1" } },
+      }),
+    );
+    expect(inventoryItemUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unlinked row, which has no category to change yet", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ shoppingListId: "list-1", inventoryItemId: null });
+
+    const result = await setShoppingListItemCategoryAction("item-1", "Dairy");
+
+    expect(result.error).toBeDefined();
+    expect(inventoryItemUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("re-files the linked inventory item, scoped to the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ shoppingListId: "list-1", inventoryItemId: "inv-1" });
+    inventoryItemUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await setShoppingListItemCategoryAction("item-1", "  Dairy  ");
+
+    expect(result).toEqual({});
+    expect(inventoryItemUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "inv-1", householdId: "household-1" },
+      data: { category: "Dairy", updatedByUserId: "user-1" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/list-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/inventory");
+  });
+
+  it("clears a blank category back to the locale's Uncategorized bucket", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ shoppingListId: "list-1", inventoryItemId: "inv-1" });
+    inventoryItemUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    await setShoppingListItemCategoryAction("item-1", "   ");
+
+    expect(inventoryItemUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ category: "Uncategorized" }) }),
+    );
+  });
+
+  it("rejects a category over 60 characters", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({ shoppingListId: "list-1", inventoryItemId: "inv-1" });
+
+    const result = await setShoppingListItemCategoryAction("item-1", "x".repeat(61));
+
+    expect(result.error).toBe("Category must be 60 characters or fewer");
+    expect(inventoryItemUpdateManyMock).not.toHaveBeenCalled();
   });
 });
 
