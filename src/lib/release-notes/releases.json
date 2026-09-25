@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.20.0",
+    "date": "2026-09-25",
+    "pr": 44,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add a note to any item on a shopping list, like \"get the ripe ones\" or \"any brand is fine\". Open the item's edit dialog to add one. The note shows under the item name, including on shared lists.",
+      "sv": "Nu kan du lägga till en anteckning på varje vara i inköpslistan, till exempel \"ta de mogna\" eller \"vilket märke som helst\". Öppna varans redigeringsdialog för att lägga till en. Anteckningen visas under varans namn, även på delade listor."
+    }
+  },
+  {
     "version": "0.19.0",
     "date": "2026-09-25",
     "pr": 42,
