@@ -1905,8 +1905,8 @@ describe("completeShoppingListAction", () => {
     shoppingListUpdateMock.mockResolvedValue({});
     getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
     const txShoppingListUpdate = vi.fn();
-    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
-      cb({ shoppingList: { update: txShoppingListUpdate } }),
+    transactionMock.mockImplementationOnce(async (arg: unknown) =>
+      (arg as (tx: unknown) => unknown)({ shoppingList: { update: txShoppingListUpdate } }),
     );
 
     const result = await completeShoppingListAction("list-1");
