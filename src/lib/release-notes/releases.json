@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.13.1",
+    "date": "2026-09-25",
+    "pr": 40,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Budget, Personal Budget and Meal Planning now load a bit faster — the page appears right away while its data streams in.",
+      "sv": "Budget, Personlig budget och Måltidsplanering laddas nu lite snabbare — sidan visas direkt medan datan strömmas in."
+    }
+  },
+  {
     "version": "0.13.0",
     "date": "2026-09-25",
     "pr": 36,
