@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-09-25",
+    "pr": 42,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now give an expense category a monthly spending limit. The month's summary shows how much of each limit you've used and turns red when you go over.",
+      "sv": "Du kan nu sätta en månadsgräns på en utgiftskategori. Månadens sammanställning visar hur mycket av gränsen du har använt och blir röd när du går över."
+    }
+  },
+  {
     "version": "0.18.0",
     "date": "2026-09-25",
     "pr": 45,
