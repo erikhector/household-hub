@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.11.0",
+    "date": "2026-09-25",
+    "pr": 31,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Barcodes are now remembered. Tap \"Scan\" on the inventory page and scan items as you put them away or use them up, and the count updates right away with an Undo. A new barcode can be added as a new item or linked to one you already have. You can also scan a barcode on a shopping list to add the item.",
+      "sv": "Streckkoder sparas nu. Tryck på \"Skanna\" på lagersidan och skanna varor när du ställer in dem eller gör slut på dem, så uppdateras antalet direkt och kan ångras. En ny streckkod kan läggas till som en ny vara eller kopplas till en vara du redan har. Du kan också skanna en streckkod på en inköpslista för att lägga till varan."
+    }
+  },
+  {
     "version": "0.10.0",
     "date": "2026-09-25",
     "pr": 32,
