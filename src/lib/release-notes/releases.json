@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.26.0",
+    "date": "2026-09-25",
+    "pr": 51,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "A shared notes board on the Household page, quiet hours to keep a phone silent overnight, and leftovers you log when you mark a meal cooked (they show up in your inventory before they go off). Budget categories with a limit can now roll unspent money over to next month, and you can mark items as opened to bring their expiry date forward.",
+      "sv": "En gemensam anslagstavla på sidan Hushåll, tysta timmar så att telefonen är tyst på natten, och rester som du anger när du markerar en måltid som lagad (de dyker upp i lagret innan de blir dåliga). Budgetkategorier med en gräns kan nu föra över det som inte används till nästa månad, och du kan markera varor som öppnade så att bäst före-datumet blir tidigare."
+    }
+  },
+  {
     "version": "0.25.0",
     "date": "2026-09-25",
     "pr": 48,
