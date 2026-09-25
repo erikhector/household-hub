@@ -113,7 +113,8 @@ export function PeriodSummary({
           numberFormat={numberFormat}
           // GAP-12: expense rows carrying a `limit` (attached by the page
           // via withCategoryLimits) draw against it. Income and savings
-          // categories never have one.
+          // categories never have one. GAP-21: a rollover row's `carried`
+          // balance is added to that limit and shown under the bar.
           limitDict={dict}
         />
         <CategoryBreakdown

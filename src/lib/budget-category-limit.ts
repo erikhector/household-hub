@@ -42,6 +42,27 @@ export function limitForType(
   return type === "EXPENSE" ? limit : null;
 }
 
+/**
+ * GAP-21's "Roll unspent budget over" checkbox (see budget-rollover-calc.ts).
+ * A native checkbox posts "on" when ticked and nothing at all when not, so
+ * anything but "on" (or an explicit "true") is off — including the field
+ * being absent because the dialog didn't render it (income/savings).
+ */
+export const rolloverEnabledField = z.preprocess(
+  (value) => value === "on" || value === "true",
+  z.boolean(),
+);
+
+/**
+ * Rollover carries forward what's left of a limit, so without one there's
+ * nothing to carry. Stored false whenever the (already type-filtered)
+ * limit is null, so clearing a limit also clears the flag instead of
+ * leaving it to silently come back the next time a limit is set.
+ */
+export function rolloverForLimit(limit: number | null, enabled: boolean): boolean {
+  return limit != null && enabled;
+}
+
 export type LimitProgress = {
   /** spent / limit as a percentage, unclamped (150 = 50% over). */
   percent: number;

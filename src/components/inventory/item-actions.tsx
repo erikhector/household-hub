@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Pencil, Trash2 } from "lucide-react";
+import { Ban, PackageOpen, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +29,7 @@ export function ItemActions({
   barcodeDict,
   isPending,
   onMarkEmpty,
+  onMarkOpened,
   onDelete,
   size = "size-7",
 }: {
@@ -42,11 +43,29 @@ export function ItemActions({
   barcodeDict: Dictionary["barcodeScanner"];
   isPending: boolean;
   onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
+  onMarkOpened: (item: InventoryItemRow) => void;
   onDelete: (itemId: string) => void;
   size?: string;
 }) {
+  // GAP-28: hidden (not disabled) unless there's an opened window to apply
+  // and the pack isn't already open — a button that would only ever no-op
+  // is noise on every other row.
+  const canMarkOpened = item.useWithinDaysOpened != null && item.useWithinDaysOpened > 0 && !item.openedAt;
   return (
     <div className="flex items-center gap-1">
+      {canMarkOpened && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(size, "text-muted-foreground hover:text-primary")}
+          disabled={isPending}
+          aria-label={format(dict.markOpenedAriaLabel, { name: item.name })}
+          title={dict.markOpened}
+          onClick={() => onMarkOpened(item)}
+        >
+          <PackageOpen className="size-3.5" />
+        </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

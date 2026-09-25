@@ -67,12 +67,26 @@ model User {
 // requireHousehold). sendPushToHousehold (src/lib/push.ts) fans out to every
 // member's subscriptions when a notification fires.
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  endpoint        String   @unique
+  p256dh          String
+  auth            String
+  createdAt       DateTime @default(now())
+  // GAP-14: per-browser quiet hours. sendPushToHousehold (src/lib/push.ts)
+  // skips this subscription while the local hour in `timeZone` falls inside
+  // [quietHoursStart, quietHoursEnd) — a window may wrap midnight (22 → 7).
+  // Both hours null (or equal) means no quiet hours. Lives here rather than
+  // on User because it's a per-device choice: silence the phone overnight
+  // without silencing the laptop. Only the OS push is suppressed — the
+  // Notification row and the in-app bell are unaffected.
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  // IANA zone name from the browser's
+  // Intl.DateTimeFormat().resolvedOptions().timeZone, refreshed on every
+  // subscribe and quiet-hours save. The server runs in UTC, so without it
+  // "22-7" would mean 22-7 UTC. Null/unrecognised = never treated as quiet.
+  timeZone        String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -108,6 +122,7 @@ model Household {
   memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
+  notes              HouseholdNote[]
 }
 
 model HouseholdMember {
@@ -125,6 +140,7 @@ model HouseholdMember {
   recurringTemplateSplits RecurringTemplateSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
+  authoredNotes           HouseholdNote[]
   settlementsPaid         MemberSettlement[]       @relation("SettlementFrom")
   settlementsReceived     MemberSettlement[]       @relation("SettlementTo")
 
@@ -235,6 +251,18 @@ model InventoryItem {
   // sets this. A positive value is a per-item override the estimator uses
   // instead of the category default.
   shelfLifeDays      Int?
+  // GAP-28 — Grocy's separate "use within N days once opened" clock (milk
+  // keeps ~14 days sealed but only ~3 once opened). `useWithinDaysOpened` is
+  // an optional positive per-item setting from the item form; the inventory
+  // row only offers "Mark opened" when it's set, since without it there's
+  // nothing to recompute. `openedAt` is when that click happened — it pulls
+  // `expiresAt` in to min(expiresAt, openedAt + useWithinDaysOpened) (see
+  // openedExpiryUpdate in src/lib/inventory/expiry.ts for the rule and why
+  // a winning opened date is flagged `expiresAtEstimated`), and is cleared
+  // again when the item is restocked from zero, since a fresh pack is sealed
+  // (see openedResetOnArrival, same file).
+  openedAt           DateTime?
+  useWithinDaysOpened Int?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity
@@ -607,18 +635,25 @@ enum RecurrenceFrequency {
 }
 
 model BudgetCategory {
-  id           String          @id @default(cuid())
-  householdId  String
-  name         String
-  type         TransactionType
+  id              String          @id @default(cuid())
+  householdId     String
+  name            String
+  type            TransactionType
   // Optional monthly spending cap (GAP-12). Only meaningful on EXPENSE
   // categories (the category actions clear it for INCOME/SAVINGS) and purely
   // advisory: PeriodSummary draws the category's bar against it and turns it
   // red past 100%, but nothing blocks a transaction or sends a notification.
   // Float like every other money column (Transaction.amount etc.). Null =
   // no cap.
-  monthlyLimit Float?
-  createdAt    DateTime        @default(now())
+  monthlyLimit    Float?
+  // Envelope-style carryover (GAP-21): when on, each earlier month's unspent
+  // (limit − spent) is added to this month's available amount — see
+  // src/lib/budget-rollover-calc.ts for where the accumulation starts and
+  // why it never goes negative. Only meaningful alongside monthlyLimit; the
+  // category actions store false whenever there's no limit, so a stale flag
+  // can't linger on an uncapped category.
+  rolloverEnabled Boolean         @default(false)
+  createdAt       DateTime        @default(now())
 
   household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
@@ -837,14 +872,16 @@ model RecurringTemplateAck {
 // reused as-is.
 
 model PersonalBudgetCategory {
-  id           String          @id @default(cuid())
-  userId       String
-  name         String
-  type         TransactionType
+  id              String          @id @default(cuid())
+  userId          String
+  name            String
+  type            TransactionType
   // Mirrors BudgetCategory.monthlyLimit (GAP-12): CategoryManager and
   // PeriodSummary serve both budgets, so the cap exists on both.
-  monthlyLimit Float?
-  createdAt    DateTime        @default(now())
+  monthlyLimit    Float?
+  // Mirrors BudgetCategory.rolloverEnabled (GAP-21), for the same reason.
+  rolloverEnabled Boolean         @default(false)
+  createdAt       DateTime        @default(now())
 
   user               User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions       PersonalTransaction[]
@@ -948,4 +985,27 @@ model HouseholdTask {
 
   @@index([householdId])
   @@index([assignedToMemberId])
+}
+
+// GAP-16: a shared household notes board — free-text notes ("the plumber's
+// coming Thursday", "don't buy the other coffee") that don't fit a shopping
+// item or a task. Deliberately minimal: add + delete only, no edit, pinning
+// or rich text, and never a notification trigger (a bell badge must mean
+// something's wrong; a note is just something you check). See
+// src/app/dashboard/household/notes-actions.ts.
+// `authorMemberId` uses onDelete: SetNull (never Cascade), the same tradeoff
+// HouseholdTask.completedByMemberId makes: removing a member keeps the notes
+// they wrote (still useful to everyone else) and the UI falls back to a
+// "former member" label instead of the notes silently disappearing.
+model HouseholdNote {
+  id             String   @id @default(cuid())
+  householdId    String
+  authorMemberId String?
+  body           String
+  createdAt      DateTime @default(now())
+
+  household    Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  authorMember HouseholdMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
 }

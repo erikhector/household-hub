@@ -2,12 +2,13 @@ import { Suspense, cache } from "react";
 import { Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary, type Dictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { InviteButton } from "@/components/household/invite-button";
 import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
+import { HouseholdNotes } from "@/components/household/household-notes";
 
 // Wrapped in `cache()` so the "shared with" note and the member list below
 // (both Suspense-isolated, see HouseholdPage) share one query instead of one
@@ -72,10 +73,49 @@ async function HouseholdMemberList({
   return <MemberList isOwner={isOwner} currentUserId={userId} dict={dict} members={members} />;
 }
 
+// GAP-16. Newest first — the board is for what's current, so the latest note
+// belongs at the top. The author's name is resolved through the (nullable)
+// authorMember relation rather than getHouseholdMembers: a note whose author
+// has left has authorMemberId null (onDelete: SetNull) and renders as
+// "former member", which is exactly what a join that finds nothing gives us.
+async function HouseholdNotesSection({
+  householdId,
+  locale,
+  dict,
+}: {
+  householdId: string;
+  locale: Locale;
+  dict: Dictionary["household"]["notes"];
+}) {
+  const notes = await prisma.householdNote.findMany({
+    where: { householdId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      body: true,
+      createdAt: true,
+      authorMember: { select: { user: { select: { displayName: true } } } },
+    },
+  });
+  return (
+    <HouseholdNotes
+      locale={locale}
+      dict={dict}
+      notes={notes.map((n) => ({
+        id: n.id,
+        body: n.body,
+        createdAt: n.createdAt,
+        authorName: n.authorMember?.user.displayName ?? null,
+      }))}
+    />
+  );
+}
+
 export default async function HouseholdPage() {
-  const [{ household, userId, role }, dict] = await Promise.all([
+  const [{ household, userId, role }, dict, locale] = await Promise.all([
     requireHousehold(),
     getDictionary(),
+    getLocale(),
   ]);
   const isOwner = role === "OWNER";
 
@@ -97,6 +137,11 @@ export default async function HouseholdPage() {
       </div>
       <Suspense fallback={<MemberListSkeleton />}>
         <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
+      </Suspense>
+      {/* Its own Suspense boundary so a slow notes query never holds up
+          the member list above (same reasoning as HouseholdMemberList). */}
+      <Suspense fallback={<MemberListSkeleton />}>
+        <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       </Suspense>
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
           shopping behaviour every member already fully operates. */}

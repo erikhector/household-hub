@@ -15,7 +15,15 @@ import { CURRENT_VERSION } from "@/lib/release-notes";
 
 export default async function ProfilePage() {
   const [{ userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const [user, pushSubscriptions] = await Promise.all([
+    prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+    // Only what PushNotificationsCard needs to show this browser's quiet
+    // hours (GAP-14) — never the subscription keys.
+    prisma.pushSubscription.findMany({
+      where: { userId },
+      select: { endpoint: true, quietHoursStart: true, quietHoursEnd: true },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,7 +49,7 @@ export default async function ProfilePage() {
           <PasswordForm dict={dict.profile.passwordForm} />
         </div>
         <InstallAppCard dict={dict.profile.installApp} />
-        <PushNotificationsCard dict={dict.profile.pushNotifications} />
+        <PushNotificationsCard subscriptions={pushSubscriptions} dict={dict.profile.pushNotifications} />
         <div className="flex flex-col gap-2 rounded-md border p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.profile.dataExport.title}</h2>

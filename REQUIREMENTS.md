@@ -132,7 +132,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     `active_household` cookie to another of their households.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
-    AUTO-8) — day-to-day shopping behaviour, not administration.
+    AUTO-8) — day-to-day shopping behaviour, not administration — and the
+    shared notes board (GAP-16, see "Household notes board" below), where
+    any member can add or delete any note.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
     (`DeleteHouseholdDialog`, which requires typing the household's name to
@@ -312,6 +314,49 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       rather than excluding them. This supersedes the paragraph above's
       "never... by any bulk-add flow" rule for *estimated* dates only — a
       bulk-add flow still never lets a user type one in directly.
+    - **"Mark opened" shelf-life reset (GAP-28)**: Grocy-style separate
+      "use within N days once opened" clock (milk keeps ~14 days sealed but
+      ~3 once opened). `InventoryItem.useWithinDaysOpened` (`Int?`, an
+      optional positive whole number on the item form, saved as null for a
+      "doesn't expire" item) and `openedAt` (`DateTime?`). The inventory row
+      shows a "Mark opened" button only when `useWithinDaysOpened` is set and
+      the item isn't already opened — hidden, not disabled, since it would
+      otherwise be a no-op on almost every row. `markItemOpenedAction`
+      (household-scoped like every inventory action, and refusing an
+      already-opened item so a double tap can't restart the clock) sets
+      `openedAt = now` and `expiresAt = min(existing expiresAt, now +
+      useWithinDaysOpened days)` via the pure `openedExpiryUpdate`
+      (`src/lib/inventory/expiry.ts`, unit-tested) — opening can only pull a
+      deadline closer, never push a printed date out; no existing date means
+      the opened date is used. **`expiresAtEstimated`**: an earlier existing
+      date wins untouched, flag included; when the opened date wins it's
+      flagged as an estimate, since "use within N days" is a rule of thumb
+      about the product rather than a date printed on this pack (so it gets
+      the softer "≈"/"probably" treatment in ExpiryBadge, `EXPIRING_SOON` and
+      the expired-waste recap) and so AUTO-7's arrival gate can replace it
+      with a fresh estimate when the next, sealed pack arrives, instead of
+      it being pinned as a "real" date the estimator must never touch.
+      Guardrails' "undo over confirm": applied immediately with a toast
+      whose Undo calls `undoMarkItemOpenedAction(itemId, markedOpenedAt,
+      previous)`, restoring the previous `openedAt`/`expiresAt`/
+      `expiresAtEstimated` — and only while the item still carries the
+      `openedAt` that click wrote, so a stale Undo after a restock is a
+      no-op. `ExpiryBadge` shows an outline "Opened" tag next to the
+      expiry badge whenever `openedAt` is set, even outside the warning
+      window. **Restock**: the same three AUTO-7 arrival paths
+      (`togglePurchasedAction`, `applyReceiptScanAction`,
+      `registerReceiptAction`) merge in `openedResetOnArrival` before the
+      estimator's patch — a 0 → positive crossing is a fresh, sealed pack,
+      so `openedAt` clears, and an estimated `expiresAt` (which includes
+      every winning opened date) clears with it unless the estimator
+      writes a new one; a real typed-in date is left alone. Topping up
+      while stock remains keeps the item opened (the open pack is still the
+      one to use first). The +/- buttons and the form's quantity field
+      don't reset it, matching AUTO-7's choice of which events count as
+      "stock arrived". Clearing `useWithinDaysOpened` in the form leaves an
+      existing `openedAt` alone. One `openedAt` per row: with several packs
+      counted on one item, opening one moves the whole row's date — the
+      same one-`expiresAt`-per-item simplification as everywhere else.
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
@@ -749,6 +794,43 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   and no notification fires. A read-only view of another household's budget
   (PR #27) shows that household's limits the same way, with the edit
   controls disabled like the rest of the Manage tab.
+- **Budget category rollover (GAP-21)**: envelope-style carryover on top of
+  a monthly limit. `rolloverEnabled Boolean @default(false)` sits on both
+  `BudgetCategory` and `PersonalBudgetCategory` (migration
+  `20260925140300_budget_category_rollover`), set by a "Roll unspent budget
+  over" checkbox under the limit field in `CategoryManager`'s add and edit
+  dialogs. The checkbox is disabled (with a "set a monthly limit" hint) while
+  the limit field is empty, and the category actions store it through
+  `rolloverEnabledField`/`rolloverForLimit` (`src/lib/budget-category-limit.ts`),
+  which force it off whenever the stored limit is null, so clearing a limit
+  or picking an income/savings type also clears rollover. The maths lives in
+  the dependency-free `src/lib/budget-rollover-calc.ts`:
+  `computeCategoryRollover` walks the months before the viewed one, adding
+  each month's (limit − spent) to a running balance that's clamped at 0
+  after every month (`carryForward`). Overspending eats into what was saved
+  up but never creates a debt the next month has to dig out of, which is the
+  forgiving half of YNAB-style envelopes, in keeping with "suggest, don't
+  gate". A month with no spending carries its whole limit. **Where it
+  starts** (`rolloverStartMonth`): the later of the category's `createdAt`
+  month (no envelope existed before it, so backdated spending in a new
+  category can't pad or eat into a phantom allowance) and **January of the
+  viewed month's year** (the envelope starts fresh each calendar year). The
+  yearly reset keeps it cheap and consistent: the carry needs at most the 11
+  months before the viewed one, which the household page already has in its
+  12-month `recurringLookbackTransactions` window and the personal page in
+  its loader's full transaction list, so rollover adds no query. Within a
+  year carried(M+1) = max(0, carried(M) + limit − spent(M)) always holds,
+  which a rolling 12-month window wouldn't guarantee. There's no limit
+  history and no record of when rollover was switched on, so the *current*
+  limit is applied to every month in the window. Changing the limit, or
+  turning rollover on mid-year, re-evaluates the year so far, but never
+  reaches into the previous year. Each page wraps its expense rows in
+  `withCategoryRollover(withCategoryLimits(…))`, which attaches `carried` to
+  rollover-enabled rows only (the personal page's `shared:` mirror rows never
+  match). `CategoryBreakdown` then draws the bar, the "spent / X" figure and
+  the "X over" note against limit + carried and adds an "incl. X carried over"
+  line under the bar when anything was carried. Like the limit itself it's
+  purely visual: safe to spend and every total ignore it.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
@@ -2551,6 +2633,61 @@ actually used, once they've cooked it.
   it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
+- **Leftovers (GAP-8)**: the dialog has an optional "Servings left over"
+  number input, blank by default. Blank or 0 means no leftovers, and
+  nothing is ever inferred from `servings` vs `portions` (Guardrails:
+  suggest, don't silently mutate). The value is validated by
+  `leftoverServingsSchema` (`src/app/dashboard/meal-planning/leftovers.ts`,
+  colocated `leftovers.test.ts`): a whole number from 0 to 100, where 100 is
+  a typo guard rather than a real limit. An invalid value rejects the whole
+  cook before anything is written. When it's above 0,
+  `markMealEntryCookedAction` records the leftovers **in the same
+  `$transaction`** as the decrement, so a cook that rolls back never leaves
+  a stray leftovers row behind:
+  - The item is named `"<prefix>: <recipe name>"`, e.g. "Leftovers:
+    Lasagna" / "Rester: Lasagne". The prefix, category ("Leftovers" /
+    "Rester") and unit ("servings" / "portioner") come from the cooking
+    household member's locale dictionary (`mealPlanning.leftovers*`).
+    `leftoversItemName` truncates the recipe name so the whole name stays
+    within the inventory form's 120-character limit.
+  - **Merge, don't duplicate**: if the household already has an item with
+    that exact name (case-insensitive, household-scoped, the same identity
+    rule as the other find-or-create paths), the servings are added to its
+    quantity and its expiry is reset to the fresh batch's estimate. A
+    merged row can only carry one date, and the badge is there so the
+    *new* food isn't forgotten; the older portion is nearly always eaten
+    first. Two exceptions follow AUTO-7's rule in `shelf-life.ts`: a real,
+    user-typed date (`expiresAtEstimated: false`) is never overwritten, and
+    `shelfLifeDays: -1` ("never expires") is left alone. A positive
+    `shelfLifeDays` the household set on the item replaces the 3-day
+    default. Leftovers of *different* recipes stay separate rows.
+  - **Otherwise a new `InventoryItem` is created** with `quantity` equal to
+    the servings, `lowStockThreshold: 0` (running out of leftovers is the
+    goal, so the row never shows as "low" or gets auto-added to "Next
+    shop") and an estimated `expiresAt` of now + 3 days with
+    `expiresAtEstimated: true`, so `ExpiryBadge` shows it with the "≈"
+    prefix and the expiring-soon sync picks it up. Three days is the
+    conservative end of the usual 3–4 day guidance for cooked food, and the
+    same value `SHELF_LIFE_CATEGORY_DEFAULTS` uses for meat. The value is
+    also stored as the item's own `shelfLifeDays` override, because the
+    "Leftovers" category doesn't map to any estimator category default.
+    With the override, a later AUTO-7 stock-arrival path re-estimates the
+    item instead of skipping it.
+  - **Undo**: the action returns a `LeftoversChange`, either `{ itemId,
+    created: true }` or the merged row's previous quantity and
+    expiry/estimated flag. `MarkCookedDialog` passes it to
+    `undoMarkMealEntryCookedAction`, which validates it with
+    `leftoversChangeSchema` and then either deletes the created row or
+    restores the previous values, inside the undo's own transaction and
+    behind the same `consumedAt` idempotency guard. Both writes use
+    `deleteMany`/`updateMany` with `householdId` in the filter, so an
+    `itemId` from another household matches nothing. A malformed payload
+    skips only the leftovers part; the ingredients are still credited back.
+  - No schema change was needed, because `InventoryItem`'s existing
+    `expiresAt`/`expiresAtEstimated`/`shelfLifeDays` fields (AUTO-7)
+    already cover it. When both happen, the confirmation toast shows the
+    AUTO-8 "added to Next shop" message instead of the leftovers one (only
+    one toast). A single Undo still reverses both.
 
 ### "Use it up" recipe suggestions
 
@@ -2701,6 +2838,43 @@ rewards.
   "positive notifications become noise" failure the bell's other good-news
   kinds guard against, for a domain with no usage data yet. Revisit once
   6a-6c have real usage to judge against.
+
+## Household notes board
+
+GAP-16. A "Notes" card on the Household page (`/dashboard/household`) for
+things everyone should know that don't fit a shopping-list item or a task —
+"the plumber's coming Thursday", "we're out of the good coffee, don't buy
+the other one". Cozi's family journal/notes is its most-cited differentiator
+from a pure list/calendar app; this is the minimal version of it.
+
+- **Model**: `HouseholdNote` (`householdId` with `onDelete: Cascade`,
+  nullable `authorMemberId`, `body`, `createdAt`), indexed on `householdId`.
+  `authorMemberId` uses `onDelete: SetNull`, the same tradeoff
+  `HouseholdTask.completedByMemberId` makes: a member leaving keeps the
+  notes they wrote (still useful to everyone else) and the UI shows
+  "Former member" as the author instead of the note disappearing.
+- **Actions** (`src/app/dashboard/household/notes-actions.ts`):
+  `createNoteAction` is a form action (`useActionState`); the body is
+  trimmed and must be 1–`NOTE_BODY_MAX_LENGTH` (1000, in
+  `src/lib/household-notes.ts`, shared with the textarea's `maxLength`)
+  characters. The author is always the caller's own household-member id,
+  resolved from the session, never a client-supplied one.
+  `deleteNoteAction` is a click action behind the shared `ConfirmDialog`.
+  Both scope every query by the session household from
+  `requireHousehold()`; delete is a `deleteMany` on `{ id, householdId }`,
+  so another household's note id is a silent no-op.
+- **Permissions**: any member may delete any note, not just its author or
+  the owner — same as `deleteShoppingListAction`. The board is shared
+  scratch space, a note is usually cleared by whoever dealt with it, and
+  gating it would strand notes from members who've left.
+- **UI** (`src/components/household/household-notes.tsx`): an add form
+  above a flat, newest-first list. Each note shows its body (line breaks
+  kept), the author's display name (or "Former member") and the date, with
+  the year only when it isn't the current one. Add and delete only — no
+  edit, pinning or rich text in v1.
+- **Not a notification trigger**: adding a note creates no bell
+  notification or push. A bell badge must mean something's wrong (see
+  "Notification center"); the notes board is just a page you check.
 
 ## Theming
 
@@ -3150,6 +3324,48 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
     retrying it; any other error is just logged.
+  - **Quiet hours** (GAP-14): each `PushSubscription` row carries optional
+    `quietHoursStart`/`quietHoursEnd` (0-23, local hour) and `timeZone`
+    (the browser's IANA zone from
+    `Intl.DateTimeFormat().resolvedOptions().timeZone`). They live on the
+    subscription rather than on `User` because they're per device: a phone
+    can be silenced overnight while a laptop keeps notifying.
+    `sendPushToHousehold` drops any subscription for which
+    `isWithinQuietHours` (`src/lib/quiet-hours.ts`, pure and unit-tested)
+    is true at send time. The window is half-open `[start, end)` evaluated
+    in the stored zone, and may wrap midnight (22 → 7 silences 22:00-06:59).
+    It fails *open*, so the push is sent: either hour null, start equal to
+    end, an out-of-range hour, or a missing or unrecognised zone all mean
+    "not quiet". A subscription created before quiet hours existed has no
+    zone and keeps working exactly as before. Only the OS push is
+    suppressed. The `Notification` row is already written and the bell
+    shows it as usual, and a suppressed push isn't queued for later, since
+    a stale "out of stock" push at 07:00 is noise.
+    - **Capturing the zone**: `subscribeToPushAction` stores the zone sent
+      by the card (an unrecognised one is stored as null rather than
+      failing the subscribe), and every quiet-hours save re-captures it, so
+      an older subscription gains one and a device that changed zones
+      follows along.
+    - **UI**: once this browser is subscribed, `PushNotificationsCard`
+      shows `PushQuietHoursForm`
+      (`src/components/profile/push-quiet-hours-form.tsx`): two hour
+      selects ("From"/"Until", 24-hour `HH:00` labels, defaulting to
+      22:00-07:00), a save button, and a "Turn off quiet hours" button when
+      a window is set. Only the browser knows its own endpoint, so the
+      profile page passes the user's own subscriptions (endpoint plus the
+      two hours, never the keys) and the card matches on the endpoint from
+      `pushManager.getSubscription()`. Equal hours are blocked in the form
+      with a hint.
+    - **Actions** (`src/lib/actions/push.ts`): `setPushQuietHoursAction`
+      (form action) and `clearPushQuietHoursAction` (click action) both
+      scope by `requireUserId()` and write with `updateMany({ where: {
+      endpoint, userId } })`. The endpoint is the only client-supplied
+      identifier, so an endpoint belonging to another user matches zero
+      rows and nothing is written; the save reports that as an error. The
+      save validates both hours as integers 0-23 (a missing field is
+      rejected, not coerced to midnight), rejects equal hours, and rejects
+      an unrecognised zone, since saving a window that would silently never
+      apply is worse than an error.
   - **Showing it**: `src/lib/service-worker.js` only implements two
     listeners — `push` (shows the notification via
     `registration.showNotification`, with `{ title, body, url }` as sent)

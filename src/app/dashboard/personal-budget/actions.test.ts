@@ -128,7 +128,7 @@ describe("createPersonalCategoryAction", () => {
     await createPersonalCategoryAction({}, formData({ name: "Fun money", type: "EXPENSE" }));
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { userId, name: "Fun money", type: "EXPENSE", monthlyLimit: null },
+      data: { userId, name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false },
     });
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ userId }) }),
@@ -169,7 +169,7 @@ describe("updatePersonalCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money", monthlyLimit: null },
+      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false },
     });
   });
 
@@ -188,7 +188,50 @@ describe("updatePersonalCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Hobbies", monthlyLimit: 750.5 },
+      data: { name: "Hobbies", monthlyLimit: 750.5, rolloverEnabled: false },
+    });
+  });
+
+  // GAP-21: same rollover handling as the household budget's actions.
+  it("stores rollover alongside a limit and drops it without one", async () => {
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+
+    await updatePersonalCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Hobbies", monthlyLimit: "750", rolloverEnabled: "on" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Hobbies", monthlyLimit: 750, rolloverEnabled: true },
+    });
+
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    await updatePersonalCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Hobbies", rolloverEnabled: "on" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: { name: "Hobbies", monthlyLimit: null, rolloverEnabled: false },
+    });
+  });
+
+  it("creates a rollover category scoped to the caller's own userId", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createPersonalCategoryAction(
+      {},
+      formData({ name: "Clothes", type: "EXPENSE", monthlyLimit: "400", rolloverEnabled: "on" }),
+    );
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      data: { userId, name: "Clothes", type: "EXPENSE", monthlyLimit: 400, rolloverEnabled: true },
     });
   });
 

@@ -211,17 +211,6 @@ out to be a product-scope question rather than a scoped task should move to
       Splitwise itself doesn't for Swedish households. Needs a phone number
       per member, which the app doesn't store yet.
 
-- [ ] **GAP-8. Leftover tracking from "mark meal as cooked"** —
-      `src/app/dashboard/meal-planning/cooking-actions.ts`. Today marking a
-      meal cooked only decrements ingredient quantities (REQUIREMENTS.md,
-      "Mark meal as cooked → inventory decrement"); the extra portions a
-      recipe with `servings` > the household's headcount produces just
-      evaporate. An optional "servings left over" input on the mark-cooked
-      dialog that creates a small `InventoryItem` (or reuses an existing
-      "Leftovers" one) with an estimated 3-4 day expiry, so it shows up in
-      `ExpiryBadge`/expiring-soon before it's forgotten in the fridge — a
-      real food-waste gap none of the meal planners above actually close.
-
 - [ ] **GAP-9. Price-jump alerts from existing price history** —
       `src/lib/notifications.ts`, `prisma/schema.prisma`
       (`NotificationKind`). Every price-tracking competitor (ICA, Grocy)
@@ -282,38 +271,6 @@ out to be a product-scope question rather than a scoped task should move to
       "Data export (CSV)"'s locale-collision reasoning) — this only touches
       on-screen formatting.
 
-- [ ] **GAP-14. Quiet hours for push notifications** —
-      `prisma/schema.prisma` (`PushSubscription`),
-      `src/lib/push.ts` (`sendPushToHousehold`),
-      `src/components/profile/push-notifications-card.tsx`. Bring! and
-      AnyList both let a user silence phone push overnight without touching
-      the in-app bell. Add `quietHoursStart Int?`/`quietHoursEnd Int?`
-      (0-23, local hour) and `timeZone String?` (captured from
-      `Intl.DateTimeFormat().resolvedOptions().timeZone` at subscribe time)
-      to `PushSubscription` (Phase 2 migration — it's already the
-      per-browser, per-user scoped row, so quiet hours naturally live here
-      rather than on `User`). `sendPushToHousehold` skips a subscription
-      whose owner's current local hour (via the stored `timeZone`) falls in
-      its quiet window; the `Notification` row and in-app bell badge are
-      unaffected — only the OS push is suppressed, same as the card's
-      existing "on top of the bell, not a replacement for it" framing.
-
-- [ ] **GAP-16. A shared household notes board** —
-      `prisma/schema.prisma`, new `src/app/dashboard/household/notes-
-      actions.ts`, `src/components/household/household-notes.tsx`. Cozi's
-      family journal/notes is its most-cited differentiator from a pure
-      list/calendar app — a place for "the plumber's coming Thursday" or
-      "we're out of the good coffee, don't buy the other one" that doesn't
-      fit a shopping-list item or a task. A small `HouseholdNote` model
-      (`householdId`, `authorMemberId` `onDelete: SetNull` — same tradeoff
-      `HouseholdTask.completedByMemberId` makes, `body`, `createdAt`) (Phase
-      2 migration), a flat reverse-chronological list on the Household page
-      (mirroring `HouseholdTask`'s open/completed split's simplicity — add
-      + delete only, no edit, no pinning/rich text in v1), member-scoped
-      delete like `deleteShoppingListAction` (any member, not owner-gated).
-      Deliberately not a notification trigger (Guardrails: a bell badge must
-      mean something's wrong) — just a page you check.
-
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's
@@ -344,29 +301,6 @@ out to be a product-scope question rather than a scoped task should move to
 ---
 
 ### 2026-09-25 scan
-
-- [ ] **GAP-21. Budget category rollover (envelope carryover)** —
-      `prisma/schema.prisma` (`BudgetCategory`), `src/lib/safe-to-spend-calc.ts`,
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. GAP-12 (done — see
-      REQUIREMENTS.md, "Monthly spending limits") added a per-category
-      spending *cap* (`monthlyLimit` on both category models); this is the
-      other half of Goodbudget/YNAB-style envelope budgeting that GAP-12 left
-      out — unspent budget in a category simply resets to zero "progress
-      toward the limit" each month instead of accumulating the way
-      an envelope's leftover cash would. Add an optional
-      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (and
-      `PersonalBudgetCategory`, matching how GAP-12's `monthlyLimit` landed
-      on both) in its own migration. A pure `computeCategoryRollover` helper
-      (new `src/lib/budget-rollover-calc.ts` + test, dependency-free like
-      `safe-to-spend-calc.ts`) sums each prior month's (limit − spent) for a
-      rollover-enabled category and folds it into that category's *available*
-      amount for the selected month; `PeriodSummary`'s bar then renders
-      against limit + carried-over balance, not just the raw limit. Carried
-      balance never goes below zero (overspending a month doesn't create
-      debt the next one has to dig out of) — the simpler, more forgiving half
-      of true envelope budgeting, matching this app's "suggest, don't gate"
-      stance.
 
 - [ ] **GAP-22. Savings goals on a budget category** —
       `prisma/schema.prisma` (`BudgetCategory`),
@@ -418,24 +352,6 @@ out to be a product-scope question rather than a scoped task should move to
       handler) — note that as a dependency before estimating, same spirit as
       the `INFRA-` items' "needs a service" flag even though this one needs
       no new paid provider, just a trigger.
-
-- [ ] **GAP-28. "Mark as opened" shelf-life reset** —
-      `prisma/schema.prisma` (`InventoryItem`), `src/lib/inventory/expiry.ts`.
-      Distinct from AUTO-7 (Phase 2, estimated expiry from default shelf
-      life on *arrival*): Grocy also tracks a shorter "use within N days once
-      opened" clock separately from the unopened best-before date (milk
-      might keep 14 days sealed but only 3 once opened) — today this app has
-      exactly one `expiresAt` per item and no concept of "opened" at all. Add
-      `openedAt DateTime?` and `useWithinDaysOpened Int?` to `InventoryItem`
-      (Phase 2 migration, layers naturally on top of AUTO-7's
-      `shelfLifeDays`/`expiresAtEstimated` fields once those land — build
-      this after AUTO-7, not instead of it). A "Mark opened" action on the
-      inventory row sets `openedAt` and recomputes `expiresAt` to
-      `min(existing expiresAt, openedAt + useWithinDaysOpened)` when the
-      latter is set; `ExpiryBadge` shows an "opened" tag alongside the
-      existing "≈" estimate styling. Only meaningful for items with
-      `useWithinDaysOpened` set, so the action is hidden otherwise rather
-      than always showing a no-op button.
 
 ## Needs a decision before building
 

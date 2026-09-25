@@ -15,6 +15,14 @@ import type { MissingIngredientData, CookedIngredientData } from "@/components/m
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
+import {
+  LEFTOVERS_SHELF_LIFE_DAYS,
+  leftoverServingsSchema,
+  leftoversChangeSchema,
+  leftoversExpiryUpdate,
+  leftoversItemName,
+  type LeftoversChange,
+} from "@/app/dashboard/meal-planning/leftovers";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -303,7 +311,7 @@ async function loadCookableEntry(entryId: string, householdId: string) {
       recipeId: true,
       portions: true,
       consumedAt: true,
-      recipe: { select: { servings: true } },
+      recipe: { select: { servings: true, name: true } },
     },
   });
 }
@@ -377,7 +385,7 @@ export async function previewCookedIngredientsAction(
 export async function markMealEntryCookedAction(
   _prevState: ActionState,
   formData: FormData,
-): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
+): Promise<ActionState & { autoAdded?: AutoAddedItem[]; leftovers?: LeftoversChange }> {
   const { household, userId } = await requireHousehold();
 
   const entryId = String(formData.get("entryId") ?? "");
@@ -387,6 +395,16 @@ export async function markMealEntryCookedAction(
   // decrement inventory twice, mirroring RecurringTemplateAck's
   // repeat-click idempotency elsewhere in this app.
   if (entry.consumedAt) return {};
+
+  // GAP-8: optional "servings left over". Validated up front, before
+  // anything is written — a bad value rejects the whole cook rather than
+  // decrementing ingredients and silently dropping the leftovers.
+  const parsedLeftovers = leftoverServingsSchema.safeParse(formData.get("leftoverServings"));
+  const dict = await getDictionary();
+  if (!parsedLeftovers.success) {
+    return { error: dict.mealPlanning.leftoverServingsInvalid };
+  }
+  const leftoverServings = parsedLeftovers.data;
 
   const itemIds = formData.getAll("itemId").map((v) => String(v).trim());
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
@@ -405,6 +423,9 @@ export async function markMealEntryCookedAction(
   // off "Next shop" along with crediting inventory — one Undo for the whole
   // cook, rather than a second toast competing with it.
   const autoAdded: AutoAddedItem[] = [];
+  // Set inside the transaction when leftovers were recorded — returned so
+  // the same toast Undo can reverse them (see LeftoversChange).
+  let leftovers: LeftoversChange | undefined;
   try {
     await prisma.$transaction(async (tx) => {
       if (rows.length > 0) {
@@ -427,6 +448,58 @@ export async function markMealEntryCookedAction(
         }
       }
 
+      // GAP-8: leftovers, in the same transaction as the cook so the two
+      // can never disagree (a cook that rolls back never leaves a stray
+      // leftovers row behind). Only when the household typed a number —
+      // never inferred from servings vs portions, per the Guardrails.
+      if (leftoverServings > 0 && entry.recipe) {
+        const name = leftoversItemName(dict.mealPlanning.leftoversNamePrefix, entry.recipe.name);
+        // Same case-insensitive name identity the find-or-create paths
+        // elsewhere in this app use, scoped to the household. A second
+        // batch of the same dish tops up the existing row instead of
+        // creating "Leftovers: Lasagna" twice — two identical rows with
+        // different counts would just be confusing to use up.
+        const existing = await tx.inventoryItem.findFirst({
+          where: { householdId: household.id, name: { equals: name, mode: "insensitive" } },
+        });
+        if (existing) {
+          await tx.inventoryItem.update({
+            where: { id: existing.id },
+            data: {
+              quantity: round2(existing.quantity + leftoverServings),
+              ...leftoversExpiryUpdate(existing),
+              updatedByUserId: userId,
+            },
+          });
+          leftovers = {
+            itemId: existing.id,
+            created: false,
+            previousQuantity: existing.quantity,
+            previousExpiresAt: existing.expiresAt ? existing.expiresAt.toISOString() : null,
+            previousExpiresAtEstimated: existing.expiresAtEstimated,
+          };
+        } else {
+          const created = await tx.inventoryItem.create({
+            data: {
+              householdId: household.id,
+              name,
+              category: dict.mealPlanning.leftoversCategory,
+              quantity: leftoverServings,
+              unit: dict.mealPlanning.leftoversUnit,
+              // 0, not the schema's default of 1 — running out of leftovers
+              // is the goal, not something to restock, so the row should
+              // never show as "low" or be auto-added to "Next shop" (AUTO-8)
+              // once it's eaten.
+              lowStockThreshold: 0,
+              shelfLifeDays: LEFTOVERS_SHELF_LIFE_DAYS,
+              ...leftoversExpiryUpdate({ expiresAt: null, expiresAtEstimated: false, shelfLifeDays: null }),
+              updatedByUserId: userId,
+            },
+          });
+          leftovers = { itemId: created.id, created: true };
+        }
+      }
+
       await tx.mealPlanEntry.update({
         where: { id: entry.id },
         data: { consumedAt: new Date() },
@@ -440,7 +513,10 @@ export async function markMealEntryCookedAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
   revalidateAutoAdded(autoAdded);
-  return autoAdded.length > 0 ? { autoAdded } : {};
+  return {
+    ...(autoAdded.length > 0 ? { autoAdded } : {}),
+    ...(leftovers ? { leftovers } : {}),
+  };
 }
 
 // --- Undo mark-as-cooked (short-lived toast action) --------------------------
@@ -455,8 +531,15 @@ export async function markMealEntryCookedAction(
 export async function undoMarkMealEntryCookedAction(
   entryId: string,
   rows: { itemId: string; quantity: number }[],
+  leftoversChange?: LeftoversChange,
 ): Promise<ActionState> {
   const { household, userId } = await requireHousehold();
+
+  // A malformed payload just skips the leftovers part of the undo rather
+  // than failing the whole thing — crediting the ingredients back is still
+  // the more important half of the fat-finger fix.
+  const parsedLeftovers = leftoversChange === undefined ? null : leftoversChangeSchema.safeParse(leftoversChange);
+  const leftovers = parsedLeftovers?.success ? parsedLeftovers.data : null;
 
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, mealPlan: { householdId: household.id } },
@@ -494,6 +577,26 @@ export async function undoMarkMealEntryCookedAction(
             data: { quantity: nextQuantity, updatedByUserId: userId },
           });
         }
+      }
+
+      // GAP-8: reverse the leftovers change too — undoing the cook should
+      // undo everything it caused, same as the AUTO-8 auto-add rows. The
+      // `*Many` variants carry householdId in the filter so a tampered
+      // itemId from another household simply matches nothing.
+      if (leftovers?.created) {
+        await tx.inventoryItem.deleteMany({
+          where: { id: leftovers.itemId, householdId: household.id },
+        });
+      } else if (leftovers) {
+        await tx.inventoryItem.updateMany({
+          where: { id: leftovers.itemId, householdId: household.id },
+          data: {
+            quantity: round2(leftovers.previousQuantity),
+            expiresAt: leftovers.previousExpiresAt ? new Date(leftovers.previousExpiresAt) : null,
+            expiresAtEstimated: leftovers.previousExpiresAtEstimated,
+            updatedByUserId: userId,
+          },
+        });
       }
 
       await tx.mealPlanEntry.update({

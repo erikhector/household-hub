@@ -21,6 +21,7 @@ import {
 } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
 import { withCategoryLimits } from "@/lib/budget-category-limit";
+import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
   RecurringTemplatesPanel,
   type PausedRecurringTemplateRow,
@@ -86,6 +87,9 @@ const TABS: BudgetTab[] = ["overview", "manage", "transactions", "insights"];
 // *later* in the same calendar year than the month being viewed is the one
 // edge case this trades away, the same trade-off MAX_FIXED_TREND_MONTHS's
 // trailing window already makes for the fixed-cost trend chart below.
+// GAP-21's category rollover reads the same window: its carry never reaches
+// further back than January of the viewed month's year (at most 11 months;
+// see src/lib/budget-rollover-calc.ts), so it needs no query of its own.
 const RECURRING_LOOKBACK_MONTHS = 12;
 
 // SCALE-J: the cost analyzer (PriceHistory, below) is the one section of
@@ -377,6 +381,7 @@ async function BudgetTabsSection({
     name: c.name,
     type: c.type,
     monthlyLimit: c.monthlyLimit,
+    rolloverEnabled: c.rolloverEnabled,
   }));
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
@@ -673,8 +678,15 @@ async function BudgetTabsSection({
       // GAP-12: attach each category's monthly limit (and add capped
       // categories with nothing spent yet) for the capped-bar rendering.
       // Kept out of expenseByCategory itself, which also feeds the
-      // expense total above.
-      expenseByCategory={withCategoryLimits(expenseByCategory, categories)}
+      // expense total above. GAP-21: rollover-enabled rows then get their
+      // carried balance from earlier months, read from the lookback window
+      // (see RECURRING_LOOKBACK_MONTHS) rather than monthTransactions.
+      expenseByCategory={withCategoryRollover(
+        withCategoryLimits(expenseByCategory, categories),
+        categories,
+        recurringLookbackTransactions,
+        monthStart,
+      )}
       savingsByCategory={savingsByCategory}
       dict={dict.budget.summary}
       locale={locale}

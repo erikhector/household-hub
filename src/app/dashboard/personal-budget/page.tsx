@@ -16,6 +16,7 @@ import { TransactionList } from "@/components/budget/transaction-list";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { withCategoryLimits } from "@/lib/budget-category-limit";
+import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
   acknowledgePersonalTemplatePeriodAction,
   createPersonalRecurringTemplateAction,
@@ -121,6 +122,7 @@ async function PersonalBudgetTabsSection({
     name: c.name,
     type: c.type,
     monthlyLimit: c.monthlyLimit,
+    rolloverEnabled: c.rolloverEnabled,
   }));
 
   // Households the user can log a shared expense into directly from this
@@ -299,7 +301,15 @@ async function PersonalBudgetTabsSection({
       // GAP-12 — see the household page's identical comment. The
       // shared-household mirror rows (`shared:` ids) never match a
       // personal category, so they keep their plain proportional bar.
-      expenseByCategory={withCategoryLimits(expenseByCategory, categories)}
+      // GAP-21: the loader's `transactions` is the user's whole history, so
+      // the carried balance (at most back to January — see
+      // src/lib/budget-rollover-calc.ts) needs no extra query either.
+      expenseByCategory={withCategoryRollover(
+        withCategoryLimits(expenseByCategory, categories),
+        categories,
+        transactions,
+        monthStart,
+      )}
       savingsByCategory={savingsByCategory}
       dict={dict.personalBudget.summary}
       locale={locale}
