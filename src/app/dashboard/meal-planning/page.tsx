@@ -1,7 +1,7 @@
 import { Suspense, cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary, type Dictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
 import { MealPlanningView } from "@/components/meal-planning/meal-planning-view";
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
@@ -12,6 +12,7 @@ import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboar
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
+import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
@@ -54,11 +55,20 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     }),
     // Feeds the ingredient-name autocomplete in RecipeFormDialog (name, unit)
     // and the "use it up" suggestion chips below (id, quantity,
-    // lowStockThreshold, expiresAt) — one query covers both rather than
-    // fetching the household's inventory twice.
+    // lowStockThreshold, expiresAt) and each recipe's estimated cost
+    // (lastKnownPrice, GAP-15) — one query covers all three rather than
+    // fetching the household's inventory again for each.
     prisma.inventoryItem.findMany({
       where: { householdId },
-      select: { id: true, name: true, unit: true, quantity: true, lowStockThreshold: true, expiresAt: true },
+      select: {
+        id: true,
+        name: true,
+        unit: true,
+        quantity: true,
+        lowStockThreshold: true,
+        expiresAt: true,
+        lastKnownPrice: true,
+      },
     }),
   ]);
 
@@ -73,6 +83,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     proteinGramsPerServing: recipe.proteinGramsPerServing,
     carbsGramsPerServing: recipe.carbsGramsPerServing,
     fatGramsPerServing: recipe.fatGramsPerServing,
+    isFavorite: recipe.isFavorite,
     ingredients: recipe.ingredients.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,
@@ -200,7 +211,10 @@ async function RecipesTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const { recipes, recipeRows, inventoryItems } = await getMealPlanningCoreData(householdId, weekStartKey);
+  const [{ recipes, recipeRows, inventoryItems }, locale] = await Promise.all([
+    getMealPlanningCoreData(householdId, weekStartKey),
+    getLocale(),
+  ]);
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
   // Lets the ingredient row preselect a unit once the name matches a known
@@ -243,6 +257,7 @@ async function RecipesTabSection({
     recipes.map((recipe) => ({
       recipeId: recipe.id,
       recipeName: recipe.name,
+      isFavorite: recipe.isFavorite,
       ingredients: recipe.ingredients.map((ingredient) => ({
         name: ingredient.name,
         inventoryItemId: ingredient.inventoryItemId,
@@ -251,10 +266,80 @@ async function RecipesTabSection({
     flaggedInventoryItems,
   );
 
+  // GAP-15: an estimated cost per recipe from each linked ingredient's
+  // lastKnownPrice, joined in memory against the same cached inventory fetch
+  // rather than a nested include on the recipe query (which the Planner and
+  // Cook tabs would pay for too). lastKnownPrice is the price of one
+  // purchased shopping-list line, not of one unit, so computeRecipeCost
+  // also needs the purchased lines themselves to divide it by the quantity
+  // it bought — see its doc comment. That's the one extra query here, only
+  // run on this tab, and narrowed to the inventory items some recipe
+  // actually links to (and that have a price at all) so it doesn't pull
+  // the household's whole purchase history. Newest-first so
+  // unitPriceFromLastPurchase picks the most recent matching line.
+  // Keyed by recipe id and only holding recipes where at least one
+  // ingredient could be priced, so RecipeManager simply shows nothing for
+  // the rest. Only a recipe's own ingredients count, not its sub-recipes',
+  // same as the nutrition line it sits under.
+  const inventoryById = new Map(inventoryItems.map((item) => [item.id, item]));
+  const pricedLinkedItemIds = [
+    ...new Set(
+      recipes.flatMap((recipe) =>
+        recipe.ingredients
+          .map((ingredient) => ingredient.inventoryItemId)
+          .filter((id): id is string => id !== null && inventoryById.get(id)?.lastKnownPrice != null),
+      ),
+    ),
+  ];
+  const purchasedLines =
+    pricedLinkedItemIds.length > 0
+      ? await prisma.shoppingListItem.findMany({
+          where: {
+            shoppingList: { householdId },
+            inventoryItemId: { in: pricedLinkedItemIds },
+            purchased: true,
+            estimatedPrice: { not: null },
+          },
+          select: { inventoryItemId: true, quantity: true, unit: true, estimatedPrice: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
+  const purchasesByItemId = new Map<string, RecipeCostPurchase[]>();
+  for (const line of purchasedLines) {
+    if (line.inventoryItemId === null || line.estimatedPrice === null) continue;
+    const list = purchasesByItemId.get(line.inventoryItemId) ?? [];
+    list.push({ quantity: line.quantity, unit: line.unit, price: line.estimatedPrice });
+    purchasesByItemId.set(line.inventoryItemId, list);
+  }
+
+  const recipeCosts: Record<string, RecipeCost> = {};
+  for (const recipe of recipes) {
+    const cost = computeRecipeCost(
+      recipe.ingredients.map((ingredient) => {
+        const item = ingredient.inventoryItemId ? inventoryById.get(ingredient.inventoryItemId) : undefined;
+        return {
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          inventoryItem: item
+            ? {
+                unit: item.unit,
+                lastKnownPrice: item.lastKnownPrice,
+                purchases: purchasesByItemId.get(item.id) ?? [],
+              }
+            : null,
+        };
+      }),
+      recipe.servings,
+    );
+    if (cost) recipeCosts[recipe.id] = cost;
+  }
+
   return (
     <RecipeManager
       dict={dict}
+      locale={locale}
       recipes={recipeRows}
+      recipeCosts={recipeCosts}
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
@@ -291,7 +376,7 @@ async function CookTabSection({
   const { recipes, recipeRows } = await getMealPlanningCoreData(householdId, weekStartKey);
   const cookableRecipes = await getCookableRecipes(
     householdId,
-    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name })),
+    recipes.map((recipe) => ({ id: recipe.id, name: recipe.name, isFavorite: recipe.isFavorite })),
   );
   return (
     <CookNowList

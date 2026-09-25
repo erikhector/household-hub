@@ -92,7 +92,7 @@ export function BottomNav({
     // https://developer.apple.com/forums/thread/744327. Capping avoids
     // that launch-time inflated value pushing the bar up with an
     // oversized gap beneath it.
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[min(2.125rem,env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[min(2.125rem,env(safe-area-inset-bottom))] sm:hidden print:hidden">
       <div className="relative flex items-stretch justify-around">
         <span
           aria-hidden

@@ -17,6 +17,9 @@ export type CookableRecipeData = {
   recipeId: string;
   recipeName: string;
   missingIngredientNames: string[];
+  // Recipe.isFavorite (GAP-18) — carried through only because it's the sort
+  // tiebreaker below; see that comment.
+  isFavorite: boolean;
 };
 
 // Beyond this many distinct missing ingredients, a recipe isn't "almost
@@ -29,7 +32,7 @@ const MAX_MISSING_TO_SURFACE = 2;
 // cookable-recipes.test.ts), mirrors computeMissingIngredients' own split
 // for the same reason.
 export function computeCookableRecipes(
-  recipes: { recipeId: string; recipeName: string; needs: IngredientNeed[] }[],
+  recipes: { recipeId: string; recipeName: string; isFavorite: boolean; needs: IngredientNeed[] }[],
 ): CookableRecipeData[] {
   return recipes
     // A recipe with no ingredients at all has nothing to be "missing" —
@@ -39,11 +42,20 @@ export function computeCookableRecipes(
       recipeId: recipe.recipeId,
       recipeName: recipe.recipeName,
       missingIngredientNames: computeMissingIngredients(recipe.needs).map((item) => item.name),
+      isFavorite: recipe.isFavorite,
     }))
     .filter((recipe) => recipe.missingIngredientNames.length <= MAX_MISSING_TO_SURFACE)
+    // Favorites (GAP-18) are a tiebreaker, never a filter or the primary
+    // key: a starred recipe missing two things still sorts below an
+    // un-starred one missing nothing, because "can I cook it tonight" is
+    // what this tab is for. Among recipes equally close to ready, though,
+    // the ones the household has said it likes come first — that's the
+    // whole point of starring one. Name stays the last key so the order is
+    // stable.
     .sort(
       (a, b) =>
         a.missingIngredientNames.length - b.missingIngredientNames.length ||
+        Number(b.isFavorite) - Number(a.isFavorite) ||
         a.recipeName.localeCompare(b.recipeName),
     );
 }
@@ -53,7 +65,7 @@ export function computeCookableRecipes(
 // computeCookableRecipes above.
 export async function getCookableRecipes(
   householdId: string,
-  recipes: { id: string; name: string }[],
+  recipes: { id: string; name: string; isFavorite: boolean }[],
 ): Promise<CookableRecipeData[]> {
   const expandedByRecipe = await Promise.all(
     recipes.map((recipe) => expandRecipeIngredients(householdId, recipe.id, 1, new Set())),
@@ -84,6 +96,7 @@ export async function getCookableRecipes(
   const perRecipe = recipes.map((recipe, i) => ({
     recipeId: recipe.id,
     recipeName: recipe.name,
+    isFavorite: recipe.isFavorite,
     needs: expandedByRecipe[i].map((ingredient): IngredientNeed => {
       if (ingredient.inventoryItemId) {
         return {

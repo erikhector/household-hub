@@ -339,6 +339,31 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
   return {};
 }
 
+// Stars/un-stars a recipe (GAP-18). A click action (see AGENTS.md's action
+// shapes), called from RecipeRow inside useTransition. The flip is computed
+// here from the stored value rather than trusting a desired state from the
+// client — same as toggleTaskCompletedAction — and the lookup is scoped to
+// the caller's household so a foreign recipe id is a silent no-op, the same
+// IDOR guard deleteRecipeAction uses. isFavorite is a household-wide flag,
+// not a per-member one, so any member's star is everyone's star.
+export async function toggleRecipeFavoriteAction(recipeId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const recipe = await prisma.recipe.findFirst({
+    where: { id: recipeId, householdId: household.id },
+    select: { id: true, isFavorite: true },
+  });
+  if (!recipe) return {};
+
+  await prisma.recipe.update({
+    where: { id: recipe.id },
+    data: { isFavorite: !recipe.isFavorite },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return {};
+}
+
 export type ImportedRecipeIngredient = { name: string; quantity: number; unit: string };
 export type ImportRecipeState = ActionState & {
   recipe?: {
