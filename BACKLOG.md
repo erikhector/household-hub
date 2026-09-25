@@ -417,23 +417,6 @@ out to be a product-scope question rather than a scoped task should move to
       informational only, never a notification (Guardrails: no
       streaks/loss-aversion on money) and never blocks a transaction.
 
-- [ ] **GAP-23. Copy last week's meal plan forward** —
-      `src/app/dashboard/meal-planning/planner-actions.ts`,
-      `src/components/meal-planning/week-planner.tsx`. Plan to Eat and
-      Mealime both let a household repeat a week instead of re-picking every
-      recipe; today `week-planner.tsx` only supports adding one
-      `MealPlanEntry` at a time per day/slot (`addMealEntryAction`), so a
-      household that eats similar rotations has to re-enter the whole grid
-      every Monday. A `copyWeekAction(fromWeekStart, toWeekStart)` that reads
-      the source week's `MealPlanEntry` rows (`recipeId`/`freeformName` +
-      `mealType`, re-dated onto the target week via the existing
-      `date-utils.ts` normalization) and bulk-inserts them onto the target
-      week's `MealPlan` (created lazily via the same `upsert` pattern
-      `addMealEntryAction` already uses), skipping any slot the target week
-      already has an entry in rather than overwriting. Exposed as a "Copy
-      last week" button on an empty week's planner view — the lowest-friction
-      entry point, since that's exactly when a household would reach for it.
-
 - [ ] **GAP-25. Substitution hints for missing ingredients** —
       `src/app/dashboard/meal-planning/missing-ingredients.ts`,
       `src/components/meal-planning/missing-ingredients-dialog.tsx`.

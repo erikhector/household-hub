@@ -894,6 +894,17 @@ export const en = {
     nextWeek: "Next week",
     thisWeek: "This week",
     jumpToToday: "Jump to today",
+    // "Copy last week" on an empty week (BACKLOG GAP-23) — see copyWeekAction
+    // in planner-actions.ts. Slots already filled are skipped, so {count} is
+    // what was actually written, not last week's total.
+    copyLastWeek: "Copy last week",
+    copyLastWeekToast: {
+      one: "Copied {count} meal from last week",
+      other: "Copied {count} meals from last week",
+    },
+    copyLastWeekNothingToast: "Last week has no meals to copy",
+    copyLastWeekUndo: "Undo",
+    copyLastWeekUndoneToast: "Copied meals removed",
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",
