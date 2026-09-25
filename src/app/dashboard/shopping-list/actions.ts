@@ -17,6 +17,8 @@ import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
+import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
+import type { InventoryItem } from "@/generated/prisma/client";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -547,6 +549,58 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
   return {};
 }
 
+const setItemCategorySchema = z
+  .string()
+  .trim()
+  .max(60, "Category must be 60 characters or fewer");
+
+/**
+ * Re-files a shopping-list row's linked InventoryItem under a different
+ * category — the tappable category chip on each row (AUTO-2b), so a wrong
+ * auto-category guess (AUTO-2's createCategoryResolver) can be fixed right
+ * where it's noticed instead of a trip to the inventory page. It writes the
+ * InventoryItem, not the list row (the row has no category of its own), and
+ * that's also what makes the correction stick: the resolver's first tier is
+ * household memory, so the next add of the same name follows this choice
+ * rather than being re-guessed. An unlinked row has no category to change
+ * yet — it goes through the mapping dialog first. Blank clears back to the
+ * locale's "Uncategorized" bucket, same as bulkUpdateFieldAction.
+ */
+export async function setShoppingListItemCategoryAction(
+  itemId: string,
+  category: string,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const item = await prisma.shoppingListItem.findFirst({
+    where: { id: itemId, shoppingList: { householdId: household.id } },
+    select: { shoppingListId: true, inventoryItemId: true },
+  });
+  if (!item) return { error: "Item not found" };
+  if (!item.inventoryItemId) return { error: "Link this item to your pantry first" };
+
+  const parsed = setItemCategorySchema.safeParse(category);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
+  }
+
+  try {
+    await prisma.inventoryItem.updateMany({
+      where: { id: item.inventoryItemId, householdId: household.id },
+      data: {
+        category: parsed.data || (await getDictionary()).inventory.uncategorized,
+        updatedByUserId: userId,
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
+  revalidatePath("/dashboard/inventory");
+  return {};
+}
+
 const importItemsSchema = z.object({
   listId: z.string().min(1),
   items: z
@@ -930,12 +984,21 @@ export async function togglePurchasedAction(itemId: string): Promise<ActionState
         // (marking something purchased with no price, or un-marking it,
         // leaves the last known price untouched).
         const priceToRecord = nextPurchased ? item.estimatedPrice : null;
+        // AUTO-7: checking an item off is a stock-arrival event — only
+        // considered while marking purchased (un-marking removes stock, not
+        // adds it), and only actually writes when estimatedExpiryUpdate
+        // decides it should (see that function's doc comment for the
+        // 0→>0-or-no-expiry-yet rule and why a real date is never touched).
+        const expiryUpdate = nextPurchased
+          ? estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
+          : null;
         await tx.inventoryItem.update({
           where: { id: item.inventoryItem.id },
-          data:
-            priceToRecord != null
-              ? { quantity: nextQuantity, lastKnownPrice: priceToRecord }
-              : { quantity: nextQuantity },
+          data: {
+            quantity: nextQuantity,
+            ...(priceToRecord != null ? { lastKnownPrice: priceToRecord } : {}),
+            ...expiryUpdate,
+          },
         });
         await recordOutOfStockTransition(
           tx,
@@ -1048,12 +1111,16 @@ export async function applyReceiptScanAction(
         });
 
         if (item.inventoryItem) {
+          const nextQuantity = item.inventoryItem.quantity + item.quantity;
+          // AUTO-7: a matched receipt line is stock arriving, same as
+          // togglePurchasedAction — see estimatedExpiryUpdate's doc comment.
+          const expiryUpdate = estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
           // AUTO-4: a scanned receipt price is as real as it gets, so it
           // becomes the item's new lastKnownPrice — folded into the same
           // quantity update rather than a second write.
           await tx.inventoryItem.update({
             where: { id: item.inventoryItem.id },
-            data: { quantity: item.inventoryItem.quantity + item.quantity, lastKnownPrice: convertedPrice },
+            data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...expiryUpdate },
           });
           await tx.priceHistory.create({
             data: { inventoryItemId: item.inventoryItem.id, price: convertedPrice },
@@ -1168,7 +1235,10 @@ export async function registerReceiptAction(
     quantity: number;
     unit: string;
     convertedPrice: number;
-    inventoryItem: { id: string; quantity: number; unit: string } | null;
+    // Widened to the full row (not just id/quantity/unit) so the AUTO-7
+    // shelf-life estimate below has the category/shelfLifeDays/expiresAt it
+    // needs, without a second fetch per item.
+    inventoryItem: InventoryItem | null;
   }[] = [];
   let totalAmount = 0;
   let unresolvedCount = 0;
@@ -1179,7 +1249,7 @@ export async function registerReceiptAction(
   const aiCandidates: string[] = [];
 
   for (const line of parsed.data.items) {
-    let inventoryItem: { id: string; quantity: number; unit: string } | null = null;
+    let inventoryItem: InventoryItem | null = null;
 
     if (line.inventoryItemId) {
       inventoryItem = await prisma.inventoryItem.findFirst({
@@ -1226,13 +1296,17 @@ export async function registerReceiptAction(
   // item at different prices (a discount line, a typo'd re-entry), the last
   // one in the list wins, same as it would if they'd been two separate
   // purchases.
-  const inventoryDeltas = new Map<string, { currentQuantity: number; delta: number; lastKnownPrice: number }>();
+  const inventoryDeltas = new Map<
+    string,
+    { currentQuantity: number; delta: number; lastKnownPrice: number; item: InventoryItem }
+  >();
   for (const item of preparedItems) {
     if (!item.inventoryItem) continue;
     const existing = inventoryDeltas.get(item.inventoryItem.id) ?? {
       currentQuantity: item.inventoryItem.quantity,
       delta: 0,
       lastKnownPrice: item.convertedPrice,
+      item: item.inventoryItem,
     };
     existing.delta += item.quantity;
     existing.lastKnownPrice = item.convertedPrice;
@@ -1271,10 +1345,14 @@ export async function registerReceiptAction(
         }
       }
 
-      for (const [inventoryItemId, { currentQuantity, delta, lastKnownPrice }] of inventoryDeltas) {
+      for (const [inventoryItemId, { currentQuantity, delta, lastKnownPrice, item }] of inventoryDeltas) {
+        const nextQuantity = currentQuantity + delta;
+        // AUTO-7: registering a receipt is a stock-arrival event too — same
+        // rule as applyReceiptScanAction/togglePurchasedAction above.
+        const expiryUpdate = estimatedExpiryUpdate(item, currentQuantity, nextQuantity);
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: currentQuantity + delta, lastKnownPrice },
+          data: { quantity: nextQuantity, lastKnownPrice, ...expiryUpdate },
         });
       }
 
@@ -1360,7 +1438,15 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
 
 export async function completeShoppingListAction(
   listId: string,
-): Promise<{ expenseLoggedMessage?: string; unresolvedNotice?: string; error?: string }> {
+): Promise<{
+  expenseLoggedMessage?: string;
+  unresolvedNotice?: string;
+  /** The Groceries expense this completion logged, if any — handed back to
+   * uncompleteShoppingListAction by the toast's "Undo" (AUTO-5) so it
+   * removes exactly that row and nothing else. */
+  transactionId?: string;
+  error?: string;
+}> {
   const { household, userId } = await requireHousehold();
 
   const list = await prisma.shoppingList.findFirst({
@@ -1401,10 +1487,11 @@ export async function completeShoppingListAction(
   }
 
   let expenseLoggedMessage: string | undefined;
+  let transactionId: string | undefined;
 
   if (groceriesTotal > 0) {
     const category = await findOrCreateGroceriesCategory(household.id);
-    await prisma.transaction.create({
+    const transaction = await prisma.transaction.create({
       data: {
         householdId: household.id,
         categoryId: category.id,
@@ -1414,7 +1501,9 @@ export async function completeShoppingListAction(
         date: new Date(),
         createdByUserId: userId,
       },
+      select: { id: true },
     });
+    transactionId = transaction.id;
 
     const locale = await getLocale();
     const amountLabel = new Intl.NumberFormat(locale, {
@@ -1434,5 +1523,53 @@ export async function completeShoppingListAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard/budget");
 
-  return { expenseLoggedMessage, unresolvedNotice };
+  return { expenseLoggedMessage, unresolvedNotice, transactionId };
+}
+
+/**
+ * The "Undo" on the "Done shopping" toast (AUTO-5): puts a just-completed
+ * list back to ACTIVE and removes the Groceries expense that completion
+ * logged, identified by the id completeShoppingListAction returned — never
+ * "the latest Groceries expense", which could be someone else's. Same
+ * short-lived, fat-finger-only shape as undoMarkMealEntryCookedAction, not
+ * a permanent "reopen list" control. Idempotent: a list that's no longer
+ * COMPLETED (a double-tapped Undo, or it was archived meanwhile) is left
+ * alone, and the expense delete is a household-scoped deleteMany, so a
+ * stale or foreign id removes nothing. Inventory needs no reversal —
+ * completing never touched it (purchases already moved stock as each item
+ * was checked off, and they stay checked off).
+ */
+export async function uncompleteShoppingListAction(
+  listId: string,
+  transactionId?: string,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, householdId: household.id },
+    select: { id: true, status: true },
+  });
+  if (!list) return { error: "List not found" };
+  if (list.status !== "COMPLETED") return {};
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingList.update({
+        where: { id: list.id },
+        data: { status: "ACTIVE", completedAt: null },
+      });
+      if (transactionId) {
+        await tx.transaction.deleteMany({
+          where: { id: transactionId, householdId: household.id },
+        });
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath("/dashboard/budget");
+  return {};
 }

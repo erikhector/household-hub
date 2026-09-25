@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -59,6 +60,11 @@ export function ItemFormDialog({
   const [category, setCategory] = useState(item?.category ?? "");
   const [location, setLocation] = useState(item?.location ?? "");
   const [unit, setUnit] = useState(item?.unit ?? "pcs");
+  // AUTO-7: -1 is Grocy's "never expires" convention (see
+  // shelf-life.ts) — checking this hides/disables the date field and
+  // permanently opts the item out of both manual and estimated expiry
+  // tracking, for things like salt or rice that never meaningfully expire.
+  const [neverExpires, setNeverExpires] = useState(item?.shelfLifeDays === -1);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
   // Tracks which of the two submit buttons was pressed, and how many items
   // have gone in via "save & add another" so far this time the dialog is
@@ -73,6 +79,7 @@ export function ItemFormDialog({
       setCategory(item?.category ?? "");
       setLocation(item?.location ?? "");
       setUnit(item?.unit ?? "pcs");
+      setNeverExpires(item?.shelfLifeDays === -1);
       setScannedBarcode(null);
       setSessionAddedCount(0);
     }
@@ -244,8 +251,20 @@ export function ItemFormDialog({
               id="expiresAt"
               name="expiresAt"
               type="date"
+              disabled={neverExpires}
+              // Left in place (not cleared) while disabled — unchecking
+              // "doesn't expire" shouldn't lose whatever date was there, and
+              // a disabled input's value isn't submitted anyway.
               defaultValue={item?.expiresAt ? item.expiresAt.toISOString().slice(0, 10) : ""}
             />
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                name="neverExpires"
+                checked={neverExpires}
+                onChange={(e) => setNeverExpires(e.target.checked)}
+              />
+              {dict.neverExpiresLabel}
+            </label>
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           {sessionAddedCount > 0 && (

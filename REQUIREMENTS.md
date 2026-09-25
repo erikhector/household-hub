@@ -126,8 +126,9 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   - `deleteHouseholdAction` — deletes the household and everything in it
     (cascades through every domain table via `onDelete: Cascade`). Fails if
     the caller isn't the owner, or if it's the only household they belong to
-    (a user must always have at least one household — see `requireHousehold`'s
-    zero-membership redirect). On success it falls back the caller's
+    (a user can't give up their last household on their own — though an
+    owner removing them can still leave them with none; see "Users with no
+    household" below). On success it falls back the caller's
     `active_household` cookie to another of their households.
   - `src/app/dashboard/household/page.tsx` renders remove-member controls
     (`MemberList`) and the delete-household danger zone
@@ -169,6 +170,34 @@ ownership hand-off are two separate actions in
   `DeleteHouseholdDialog`'s confirm-before-destructive-action pattern
   without requiring the household name to be typed (lower stakes than
   deleting the household outright, but still not a bare click).
+
+### Users with no household
+
+`leaveHouseholdAction` and `deleteHouseholdAction` both refuse to take away
+a user's last household, but `removeMemberAction` doesn't check whether the
+removed contributor has any other household (the owner can't see that, and
+it shouldn't stop them removing someone). So a signed-in user with zero
+`HouseholdMember` rows is a normal state, not a corrupt one.
+
+- `requireHousehold()` redirects such a user to `/no-household`
+  (`NO_HOUSEHOLD_PATH` in `src/lib/session.ts`). It used to redirect to
+  `/login`, but `src/proxy.ts` sends any request that has a session away from
+  `/login` to `/dashboard`, so that looped forever. Signing the user out
+  instead was rejected: their account (and user-scoped data like the personal
+  budget) is still valid, and they would just log back in to the same dead
+  end.
+- `src/app/no-household/page.tsx` sits outside `/dashboard` so the dashboard
+  layout's `requireHousehold()` never runs for it. Its guard,
+  `requireUserWithoutHousehold()`, sends signed-out visitors to `/login` and
+  anyone who does have a household to `/dashboard`. The page offers the same
+  two ways into a household as everyone else has: create one (the user
+  becomes its `OWNER`), or open an invite link from a member while signed in
+  (`/join/[token]`). It also has a log-out button in case this is the wrong
+  account.
+- `createHouseholdAction` and `acceptInviteAction` only need the caller's
+  user id, so they use `requireUserId()` rather than `requireHousehold()`.
+  With `requireHousehold()` they would redirect a zero-household user away
+  before doing anything, leaving no way out of the page.
 
 ### Invite email delivery
 
@@ -230,16 +259,56 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   freeform but self-suggesting.
   - **Expiry/best-before tracking**: an optional `expiresAt` (`DateTime?`),
     set from a native date input on the single-item add/edit form
-    (`ItemFormDialog`) only — never by any bulk-add flow (scan queue,
-    paste-list, starter kit), since those are rapid multi-item entry paths
-    with no natural single date to apply. `getExpiryStatus`
-    (`src/lib/inventory/expiry.ts`, pure and unit-tested, mirroring
-    `getStockStatus`'s split for the same Server/Client Component reason)
-    classifies an item as `"soon"` (within `EXPIRY_WARNING_DAYS`, currently
-    3) or `"expired"` (past the date); `ExpiryBadge` renders that next to
-    the existing stock-status badge in the inventory table/cards, hidden
-    entirely when no expiry is set or it's further out than the window. Also
-    feeds a third notification trigger — see "Notification center" below.
+    (`ItemFormDialog`), or estimated automatically (AUTO-7, below) — never
+    typed on any bulk-add flow (scan queue, paste-list, starter kit), since
+    those are rapid multi-item entry paths with no natural single date to
+    apply. `getExpiryStatus` (`src/lib/inventory/expiry.ts`, pure and
+    unit-tested, mirroring `getStockStatus`'s split for the same Server/
+    Client Component reason) classifies an item as `"soon"` (within
+    `EXPIRY_WARNING_DAYS`, currently 3) or `"expired"` (past the date);
+    `ExpiryBadge` renders that next to the existing stock-status badge in
+    the inventory table/cards, hidden entirely when no expiry is set or
+    it's further out than the window. Also feeds a third notification
+    trigger — see "Notification center" below.
+    - **Estimated expiry from default shelf life (AUTO-7)**: almost no
+      items ever got a real `expiresAt`, since the date picker only exists
+      on the single-item form and nobody fills it in on every add. Instead,
+      when stock *arrives* — a shopping-list item checked off
+      (`togglePurchasedAction`), a receipt scan applied or a receipt
+      registered (`applyReceiptScanAction`/`registerReceiptAction`), or a
+      batch landing via the scan queue/paste-list
+      (`bulkCreateInventoryItemsAction`) — an item with a known shelf life
+      gets an *estimated* `expiresAt`, flagged by `expiresAtEstimated`
+      (`Boolean @default(false)`). `InventoryItem.shelfLifeDays` (`Int?`)
+      is `null` to use the category default, a positive number as a
+      per-item override, or `-1` (Grocy's convention) to permanently opt
+      the item out — the item form's "doesn't expire" checkbox sets that.
+      The pure resolver (`src/lib/inventory/shelf-life.ts`, unit-tested)
+      maps a category label (either locale's `inventory.autoCategories`
+      text, same source as AUTO-2's dictionary) to a default: dairy 7 days,
+      bakery 4, meat 3, produce 5; frozen/pantry/drinks/cleaning/bathroom
+      have none, since those categories span too wide a range of real
+      shelf lives to guess responsibly. `estimatedExpiryUpdate` is the
+      single gate every arrival path calls through: it only (re)writes an
+      estimate when stock crosses from 0 into positive, or the item has no
+      `expiresAt` at all yet, and — Guardrails' "corrections stick" —
+      **never overwrites a real, user-entered date** (`expiresAtEstimated:
+      false`). Per "editing the date in the item form makes it real,"
+      `updateInventoryItemAction` only flips `expiresAtEstimated` back to
+      `false` when the submitted date actually differs from what's stored
+      — compared at day granularity (`sameCalendarDay`), since the date
+      input always round-trips a `YYYY-MM-DD` value even when the estimate
+      it's showing carries a different time of day. Saving an unrelated
+      field (renaming the item, a quantity edit) leaves an existing
+      estimate exactly as it was; clearing the date also clears the
+      estimate flag. `ExpiryBadge` shows an estimate with a "≈" prefix and a softer
+      (`outline`) style than a real date's `destructive`/`attention`
+      badge. The `EXPIRING_SOON` notification includes estimated dates too
+      (a guess is still worth a heads-up) with softened "probably" wording
+      (`ExpiringSoonNotification.estimated`, `dict.notifications.expiringSoonEstimated`)
+      rather than excluding them. This supersedes the paragraph above's
+      "never... by any bulk-add flow" rule for *estimated* dates only — a
+      bulk-add flow still never lets a user type one in directly.
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
@@ -317,12 +386,28 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     recognizes the name — the resolver's own lazy,
     memoized load means this costs one extra query for the whole batch, not
     one per ingredient, matching SCALE-B/SCALE-D's existing batching there.
-    The only piece still open is a tappable chip to correct a guess in
-    place on the shopping list (see BACKLOG.md AUTO-2b).
+    **Correcting a guess in place (AUTO-2b)**: every editable, linked
+    shopping-list row shows its `InventoryItem`'s category as a small chip
+    (`CategoryChip`, `src/components/shopping/category-chip.tsx`, outside
+    the row's `<label>` so tapping it doesn't toggle purchased). Tapping it
+    opens a menu of the household's existing categories plus "New
+    category…" — a one-field dialog rather than an input inside the menu,
+    whose typeahead would swallow keystrokes. The change applies at once
+    with an "Undo" on the toast, no confirm step, and the row moves to its
+    new shopping-mode group. It goes through
+    `setShoppingListItemCategoryAction`, which writes the linked
+    `InventoryItem` (a list row has no category of its own),
+    household-scoped; blank clears to the locale's "Uncategorized". Because
+    the resolver's household-memory tier reads that same item, the
+    correction sticks for every later add of the name — it's never
+    re-guessed. Unlinked rows show no chip (the mapping flow picks a
+    category), and read-only lists don't need one (the group header already
+    shows it).
 - `ShoppingList` / `ShoppingListItem` — a household can have any number of
   shopping lists at once (e.g. a weekly list and a separate big-trip list);
   there's no longer a "one active list" constraint. Each list has a status:
-  `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`, one-way) or
+  `ACTIVE` → `COMPLETED` (via `completeShoppingListAction`; one-way apart
+  from the short-lived toast "Undo" below) or
   `ACTIVE`/`COMPLETED` → `ARCHIVED` (via `archiveShoppingListAction`,
   reversible with `unarchiveShoppingListAction`, which always returns to
   `ACTIVE`). Any list can be permanently removed with
@@ -768,7 +853,39 @@ itself is a pure, unit-tested helper
   inside its existing `useTransition` click handler and shows a `sonner`
   toast when a message comes back; nothing is shown when the total was 0.
   No new settings/toggle to disable this — it's the intended default
-  behavior, not optional.
+  behavior, not optional. It also returns `transactionId`, the id of the
+  expense it logged (if any), for the Undo below.
+
+#### Finishing the trip in one gesture (AUTO-5)
+
+The detail page's header keeps only what's used on every trip visible:
+"Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
+smart add line below. The menu holds add item, import, add low-stock
+items, resolve mappings (when there are enough unlinked items), share,
+export, then — after a separator — "Complete list", archive/unarchive, and
+a destructive-styled delete. The dialogs those items open are rendered
+outside the menu, since its popup unmounts as it closes, and are opened
+through Base UI dialog handles (`createDialogHandle` in
+`src/components/ui/dialog.tsx`; `ConfirmDialog`, `ImportListDialog`,
+`ShareListButton`, `ResolveMappingsDialog` and `ShoppingItemFormDialog`'s
+create mode take an optional `handle` in place of their own trigger). Opening
+through a handle still runs each dialog's `onOpenChange`, so their
+reset-on-open logic is unchanged.
+
+When the last pending item is checked off, the "All done" cleared state
+gains a primary **"Done shopping"** button that completes the list right
+away — no confirm dialog, since everything is already checked off. The
+toast ("List completed", with the expense message as its description)
+carries an **Undo** that calls `uncompleteShoppingListAction(listId,
+transactionId)`: it puts the list back to `ACTIVE` and deletes exactly the
+Groceries expense that completion logged, in one `$transaction`. It's
+household-scoped (the expense delete is a `deleteMany` on id +
+`householdId`, so a stale or foreign id removes nothing) and idempotent (a
+list that's no longer `COMPLETED` is left alone). Inventory needs no
+reversal, because completing never touches it. The menu's "Complete list" is
+still confirm-gated, since it can complete a list with items still pending.
+Its toast carries the same Undo. Like "Undo mark cooked", this is a
+fat-finger undo on the toast, not a permanent "reopen list" control.
 
 ### Safe to spend
 
@@ -959,7 +1076,10 @@ unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
     `src/lib/actions/auth.ts` — not a different scheme. On success the
     action calls `signOut({ redirectTo: "/login" })`, forcing
     re-authentication with the new password, since rotating a credential
-    should invalidate the session that changed it.
+    should invalidate the session that changed it. It also sets
+    `User.passwordChangedAt`, which revokes every *other* session for the
+    account too — see "Session revocation on password change" under
+    "Access control".
 
 ### Budget component unification
 
@@ -2118,6 +2238,47 @@ stay that way rather than re-adding per-page redirect checks:
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
 
+### Session revocation on password change (SCALE-H)
+
+Sessions are stateless JWTs, so there's no session row to delete when a
+password changes. Without extra work a stolen session cookie would survive
+a password reset — exactly the moment someone is trying to lock an
+intruder out. The fix is a password "version" stamped into the token:
+
+- `User.passwordChangedAt` (nullable) is set to `now()` by both
+  `resetPasswordAction` (forgot-password link) and `updatePasswordAction`
+  (profile page), in the same `update` that writes the new `passwordHash`.
+- At sign-in, `authorize()` (`src/lib/auth.ts`) returns it and the `jwt`
+  callback (`src/lib/auth.config.ts`) stores it as `token.pwdChangedAt`
+  (epoch ms, or null); the `session` callback exposes it as
+  `session.user.pwdChangedAt`. The callbacks only read what `authorize()`
+  handed them, so `auth.config.ts` stays Edge-safe.
+- `requireHousehold()` and `requireUserId()` (`src/lib/session.ts`) compare
+  it with the database on every request. `requireHousehold` gets
+  `passwordChangedAt` in the same `user.findUnique` that loads the
+  memberships, so it costs no extra round trip; `requireUserId` adds one
+  small `select`. The rule lives in `isSessionRevoked()`
+  (`src/lib/session-revocation.ts`): DB null → never changed, every token
+  valid (deploying this logged nobody out); otherwise the token is revoked
+  if its claim is missing/null or older than the DB value. A token for a
+  user row that no longer exists is revoked too.
+- `proxy.ts` can't do this check (Edge runtime, no Prisma), so it still
+  sees a revoked cookie as "logged in". That's why a revoked session is
+  **not** sent to `/login`: `proxy.ts` would bounce it to `/dashboard`, which
+  would bounce it back, forever. It's sent to `/session-expired`
+  (`src/app/session-expired/route.ts`), a Route Handler (Server Component
+  renders can't write cookies) that re-runs `isSessionRevoked()` itself and
+  only then calls `signOut({ redirectTo: "/login?expired=password" })`. A
+  still-valid session hitting that URL is just redirected to `/dashboard`,
+  so it can't be abused as a cross-site GET logout link. `/login` shows
+  "You were signed out because your password was changed" for
+  `?expired=password`.
+- Code that calls `auth()` directly without either guard (`/join/[token]`,
+  `/verify-email/[token]`, the locale/theme preference sync) isn't
+  covered — none of it exposes account or household data. Everything under
+  `/dashboard` and every data-touching Server Action goes through one of
+  the two guards.
+
 ## Navigation & responsive layout
 
 Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,
@@ -2255,7 +2416,10 @@ Exactly three triggers exist — nothing else creates a notification:
   for the same item), not a DB unique constraint like meal-not-logged — a
   unique constraint on `inventoryItemId` would permanently block a future
   alert for an item that gets re-stocked with a new expiry date after the
-  old alert was dismissed.
+  old alert was dismissed. Includes items whose `expiresAt` is AUTO-7's
+  estimate, not just a real date — the bell and push copy soften to
+  "probably" for those (`ExpiringSoonNotification.estimated`) rather than
+  skipping them.
   - **Runs on a schedule, not on read**: both syncs above used to run
     inline inside `getActiveNotifications` on every notification-bell fetch
     — meaning opening the bell could trigger an unbounded number of
@@ -2477,7 +2641,10 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   - `src/lib/session.ts` — `requireHousehold()`'s cookie-fallback logic
     (resolve the active household from the `active_household` cookie,
     falling back to the caller's first membership when the cookie is
-    missing or stale, plus the zero-session/zero-membership redirects).
+    missing or stale, plus the zero-session/zero-membership redirects),
+    `requireUserWithoutHousehold()`, the `/no-household` page's guard, and
+    both guards' password-change revocation (SCALE-H), with
+    `src/app/session-expired/route.test.ts` covering the sign-out handler.
   - `src/lib/actions/auth.ts` and `src/lib/actions/household.ts` — the Zod
     schemas in these files (`signupSchema`, `joinSignupSchema`,
     `createHouseholdSchema`) are module-private, so they're exercised

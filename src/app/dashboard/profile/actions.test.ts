@@ -297,7 +297,8 @@ describe("updatePasswordAction (re-authentication gate + forced sign-out)", () =
     expect(bcryptHashMock).toHaveBeenCalledWith("new-password-123", 12);
     expect(userUpdateMock).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { passwordHash: "hashed" },
+      // passwordChangedAt revokes the user's other sessions (SCALE-H).
+      data: { passwordHash: "hashed", passwordChangedAt: expect.any(Date) },
     });
     expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
   });

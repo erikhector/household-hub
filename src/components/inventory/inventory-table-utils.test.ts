@@ -14,6 +14,8 @@ function item(overrides: Partial<InventoryItemRow>): InventoryItemRow {
     lowStockThreshold: 1,
     location: "Fridge",
     expiresAt: null,
+    expiresAtEstimated: false,
+    shelfLifeDays: null,
     updatedAt: new Date(2026, 8, 1),
     updatedByUserId: null,
     ...overrides,

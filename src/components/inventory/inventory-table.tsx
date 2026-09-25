@@ -407,7 +407,7 @@ export function InventoryTable({
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <ExpiryBadge expiresAt={item.expiresAt} dict={dict} />
+                    <ExpiryBadge expiresAt={item.expiresAt} expiresAtEstimated={item.expiresAtEstimated} dict={dict} />
                   </div>
                 </TableCell>
                 <TableCell>
@@ -473,7 +473,7 @@ export function InventoryTable({
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <ExpiryBadge expiresAt={item.expiresAt} dict={dict} />
+                    <ExpiryBadge expiresAt={item.expiresAt} expiresAtEstimated={item.expiresAtEstimated} dict={dict} />
                   </div>
                 </div>
                 <div className="flex min-w-0 items-center justify-between gap-2">

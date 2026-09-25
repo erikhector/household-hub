@@ -200,7 +200,10 @@ export async function updatePasswordAction(
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash },
+    // Revokes every other session for this user (another device, or a
+    // stolen cookie) on its next request — SCALE-H, see src/lib/session.ts.
+    // This one is signed out just below anyway.
+    data: { passwordHash, passwordChangedAt: new Date() },
   });
 
   // Rotating the password credential should invalidate the current session
