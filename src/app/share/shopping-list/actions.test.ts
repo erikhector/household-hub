@@ -113,7 +113,8 @@ describe("getShoppingListByShareToken", () => {
       id: "list-1",
       name: "Weekly shop",
       items: [
-        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false },
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null },
+        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones" },
       ],
     });
 
@@ -122,7 +123,11 @@ describe("getShoppingListByShareToken", () => {
     expect(result).toEqual({
       id: "list-1",
       name: "Weekly shop",
-      items: [{ id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false }],
+      items: [
+        { id: "item-1", name: "Milk", quantity: 2, unit: "l", purchased: false, note: null },
+        // GAP-5: the note reaches link holders too.
+        { id: "item-2", name: "Avocado", quantity: 3, unit: "pcs", purchased: false, note: "Ripe ones" },
+      ],
     });
   });
 });
