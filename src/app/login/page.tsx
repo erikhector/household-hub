@@ -16,6 +16,13 @@ export default async function LoginPage(props: PageProps<"/login">) {
   const showAccountDeletedSuccess =
     (Array.isArray(deletedParam) ? deletedParam[0] : deletedParam) === "success";
 
+  // Set by src/app/session-expired/route.ts after it clears a session that
+  // a password change revoked (SCALE-H), so the user isn't left guessing
+  // why they suddenly had to log in again.
+  const expiredParam = searchParams.expired;
+  const showSessionExpired =
+    (Array.isArray(expiredParam) ? expiredParam[0] : expiredParam) === "password";
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
@@ -35,6 +42,11 @@ export default async function LoginPage(props: PageProps<"/login">) {
           )}
           {showAccountDeletedSuccess && (
             <p className="mb-4 text-sm text-chart-5">{dict.auth.login.accountDeletedSuccess}</p>
+          )}
+          {showSessionExpired && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              {dict.auth.login.sessionExpiredPasswordChanged}
+            </p>
           )}
           <LoginForm dict={dict.auth.login} />
         </CardContent>

@@ -127,51 +127,6 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-### Performance & security
-
-- [ ] **SCALE-H. Invalidate JWT sessions on password change** — currently, `resetPasswordAction`
-      (`src/lib/actions/auth.ts:318`) and `updatePasswordAction`
-      (`src/app/dashboard/profile/actions.ts:124`) both update `passwordHash` but do nothing
-      to the JWT session model (`src/lib/auth.config.ts` — `session: { strategy: "jwt" }`),
-      so a stolen session cookie survives a password reset/change. This is a known,
-      previously-documented gap (see `docs/archive/PRODUCTION_READINESS.md`'s task K note) — this task
-      closes it. Concrete design (already worked out, follow it rather than redesigning):
-      1. Add `passwordChangedAt DateTime?` to `User` in `prisma/schema.prisma` +
-         migration.
-      2. In `resetPasswordAction` and `updatePasswordAction`, set
-         `passwordChangedAt: new Date()` in the same `prisma.user.update` call that sets
-         `passwordHash` (both already do exactly one such update — find it and add the
-         field).
-      3. In `src/lib/auth.ts`'s `authorize()` callback, the `user` row is
-         already fetched in full from Prisma — include `passwordChangedAt` in the object
-         returned to NextAuth (currently just `{ id, email, name }`) so it's available to
-         the `jwt` callback at sign-in.
-      4. In `src/lib/auth.config.ts`'s `jwt` callback, stash it:
-         `if (user) token.pwdChangedAt = user.passwordChangedAt?.getTime() ?? null;`
-         alongside the existing `token.id = user.id`. This config is shared by both the
-         Edge-safe `proxy.ts` and the full `auth.ts` — this is fine since it only *reads*
-         the `user` object NextAuth already gives it, no new Prisma call in the Edge path.
-      5. In `src/lib/session.ts`'s `requireHousehold` and `requireUserId` (both already run
-         Node-side with Prisma access — `requireHousehold` already queries the DB, so this
-         adds no *new* query there; `requireUserId` currently does zero DB queries, so this
-         does add one there), after `auth()` returns a session, fetch the user's current
-         `passwordChangedAt` and compare it against `token.pwdChangedAt` from the session
-         (`session.user` needs `pwdChangedAt` piped through the `session` callback in
-         `auth.config.ts` the same way `id` already is). If the DB value is
-         newer than what's embedded in the token, treat it as an invalid session — call
-         `redirect("/login")` exactly like the existing "no session" branches do.
-      6. Existing users have `passwordChangedAt: null` — treat `null` as "never
-         changed, any token is valid" (no forced logout for the entire existing user base
-         on deploy).
-      Add tests covering: a session issued before a password change is rejected by
-      `requireHousehold`, a session issued after is accepted, and a user who has never
-      changed their password (`passwordChangedAt: null`) is unaffected — matching this
-      repo's existing mocked-Prisma vitest style (see `src/lib/session.test.ts` if it
-      exists, otherwise create one). Verify with `npm run lint`, `npx tsc --noEmit`,
-      `npm run test`, `npm run build`, and a manual live check: log in, reset the password
-      from another tab/session, confirm the original session is now rejected on its next
-      request.
-
 ### Shopping list & inventory automation
 
 - [ ] **AUTO-6. Remember barcodes: scan = one-tap stock change**

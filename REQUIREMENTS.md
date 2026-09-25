@@ -1000,7 +1000,10 @@ unit-tested in the colocated `src/app/dashboard/budget/settle-up-calc.ts`:
     `src/lib/actions/auth.ts` — not a different scheme. On success the
     action calls `signOut({ redirectTo: "/login" })`, forcing
     re-authentication with the new password, since rotating a credential
-    should invalidate the session that changed it.
+    should invalidate the session that changed it. It also sets
+    `User.passwordChangedAt`, which revokes every *other* session for the
+    account too — see "Session revocation on password change" under
+    "Access control".
 
 ### Budget component unification
 
@@ -2077,6 +2080,47 @@ stay that way rather than re-adding per-page redirect checks:
   `auth()` call — don't re-add one there; it'd be a second session lookup
   for a redirect that can never fire.
 
+### Session revocation on password change (SCALE-H)
+
+Sessions are stateless JWTs, so there's no session row to delete when a
+password changes. Without extra work a stolen session cookie would survive
+a password reset — exactly the moment someone is trying to lock an
+intruder out. The fix is a password "version" stamped into the token:
+
+- `User.passwordChangedAt` (nullable) is set to `now()` by both
+  `resetPasswordAction` (forgot-password link) and `updatePasswordAction`
+  (profile page), in the same `update` that writes the new `passwordHash`.
+- At sign-in, `authorize()` (`src/lib/auth.ts`) returns it and the `jwt`
+  callback (`src/lib/auth.config.ts`) stores it as `token.pwdChangedAt`
+  (epoch ms, or null); the `session` callback exposes it as
+  `session.user.pwdChangedAt`. The callbacks only read what `authorize()`
+  handed them, so `auth.config.ts` stays Edge-safe.
+- `requireHousehold()` and `requireUserId()` (`src/lib/session.ts`) compare
+  it with the database on every request. `requireHousehold` gets
+  `passwordChangedAt` in the same `user.findUnique` that loads the
+  memberships, so it costs no extra round trip; `requireUserId` adds one
+  small `select`. The rule lives in `isSessionRevoked()`
+  (`src/lib/session-revocation.ts`): DB null → never changed, every token
+  valid (deploying this logged nobody out); otherwise the token is revoked
+  if its claim is missing/null or older than the DB value. A token for a
+  user row that no longer exists is revoked too.
+- `proxy.ts` can't do this check (Edge runtime, no Prisma), so it still
+  sees a revoked cookie as "logged in". That's why a revoked session is
+  **not** sent to `/login`: `proxy.ts` would bounce it to `/dashboard`, which
+  would bounce it back, forever. It's sent to `/session-expired`
+  (`src/app/session-expired/route.ts`), a Route Handler (Server Component
+  renders can't write cookies) that re-runs `isSessionRevoked()` itself and
+  only then calls `signOut({ redirectTo: "/login?expired=password" })`. A
+  still-valid session hitting that URL is just redirected to `/dashboard`,
+  so it can't be abused as a cross-site GET logout link. `/login` shows
+  "You were signed out because your password was changed" for
+  `?expired=password`.
+- Code that calls `auth()` directly without either guard (`/join/[token]`,
+  `/verify-email/[token]`, the locale/theme preference sync) isn't
+  covered — none of it exposes account or household data. Everything under
+  `/dashboard` and every data-touching Server Action goes through one of
+  the two guards.
+
 ## Navigation & responsive layout
 
 Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,
@@ -2437,7 +2481,9 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     (resolve the active household from the `active_household` cookie,
     falling back to the caller's first membership when the cookie is
     missing or stale, plus the zero-session/zero-membership redirects),
-    and `requireUserWithoutHousehold()`, the `/no-household` page's guard.
+    `requireUserWithoutHousehold()`, the `/no-household` page's guard, and
+    both guards' password-change revocation (SCALE-H), with
+    `src/app/session-expired/route.test.ts` covering the sign-out handler.
   - `src/lib/actions/auth.ts` and `src/lib/actions/household.ts` — the Zod
     schemas in these files (`signupSchema`, `joinSignupSchema`,
     `createHouseholdSchema`) are module-private, so they're exercised
