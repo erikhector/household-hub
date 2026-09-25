@@ -51,6 +51,7 @@ import {
   updateShoppingListItemPriceAction,
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
+import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory } from "@/lib/shopping/shopping-mode-grouping";
@@ -105,6 +106,7 @@ export function ShoppingListClient({
   categories,
   units,
   dict,
+  autoAddDict,
   barcodeDict,
   exportLabel,
   locale,
@@ -115,6 +117,9 @@ export function ShoppingListClient({
   categories: string[];
   units: string[];
   dict: ShoppingListDict;
+  /** AUTO-8: un-checking a row can drop its item back into low stock and
+   * onto "Next shop" — see showAutoAddedToast. */
+  autoAddDict: Dictionary["inventory"]["autoAdd"];
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
   locale: Locale;
@@ -449,6 +454,7 @@ export function ShoppingListClient({
                     units={units}
                     dict={dict}
                     numberFormat={numberFormat}
+                    autoAddDict={autoAddDict}
                   />
                 ))}
               </Fragment>
@@ -470,6 +476,7 @@ export function ShoppingListClient({
                 units={units}
                 dict={dict}
                 numberFormat={numberFormat}
+                autoAddDict={autoAddDict}
               />
             ))}
           </>
@@ -525,6 +532,7 @@ function ShoppingRow({
   units,
   dict,
   numberFormat,
+  autoAddDict,
 }: {
   item: ShoppingListItemRow;
   highlighted?: boolean;
@@ -536,6 +544,7 @@ function ShoppingRow({
   units: string[];
   dict: ShoppingListDict;
   numberFormat: Intl.NumberFormat;
+  autoAddDict: Dictionary["inventory"]["autoAdd"];
 }) {
   const needsMapping = item.inventoryItemId === null;
 
@@ -581,6 +590,7 @@ function ShoppingRow({
               startTransition(async () => {
                 const result = await togglePurchasedAction(item.id);
                 if (result.error) toast.error(result.error);
+                else showAutoAddedToast(result.autoAdded, autoAddDict);
               })
             }
           />

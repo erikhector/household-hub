@@ -15,6 +15,10 @@
 //   quickAddInventoryItemAction, addStarterKitItemsAction,
 //   findOrCreateInventoryItem, createInventoryItemFromShoppingListItemAction)
 //   — those items often start at quantity 0, which is not a depletion event.
+//   Every one of those call sites also runs AUTO-8's sibling
+//   `addToDefaultListOnLowStock` (src/lib/shopping/default-list.ts), which
+//   fires one step earlier — on the crossing into *low* — and puts the item
+//   on the household's default list instead of raising an alert.
 // - Meal not logged: a past MealPlanEntry whose `consumedAt` is still null —
 //   synced by `syncMealNotLoggedNotifications` below, run for every
 //   household by the `/api/cron/sync-notifications` route (see that route's

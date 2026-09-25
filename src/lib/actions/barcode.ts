@@ -11,6 +11,7 @@ import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/invent
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { toFriendlyError } from "@/lib/actions/errors";
 
 // Two halves live here:
@@ -152,17 +153,23 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
   }
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, parsedDelta.data);
+  // AUTO-8: a scan that drops an item into low stock puts it on "Next
+  // shop" like any other decrease. No toast/Undo in the scan dialog —
+  // the row is flagged addedAutomatically on the list.
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return { kind: "error", error: toFriendlyError(error).error ?? "Something went wrong" };
   }
 
   revalidateInventory();
+  revalidateAutoAdded([autoAdded]);
   return {
     kind: "applied",
     item: toScannedItem(item, nextQuantity),
@@ -193,17 +200,21 @@ export async function undoScanStockChangeAction(
   if (parsedDelta.data === 0) return { item: toScannedItem(item, item.quantity) };
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, -parsedDelta.data);
+  // AUTO-8 low-stock auto-add — see scanStockChangeAction.
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidateInventory();
+  revalidateAutoAdded([autoAdded]);
   return { item: toScannedItem(item, nextQuantity) };
 }
 
@@ -231,6 +242,8 @@ export async function linkBarcodeAction(
   if (!item) return { kind: "error", error: "Item not found" };
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, parsedDelta.data);
+  // AUTO-8 low-stock auto-add — see scanStockChangeAction.
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       await releaseBarcode(tx, household.id, code, item.id);
@@ -239,12 +252,14 @@ export async function linkBarcodeAction(
         data: { barcode: code, quantity: nextQuantity, updatedByUserId: userId },
       });
       await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
+      autoAdded = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
     });
   } catch (error) {
     return { kind: "error", error: toFriendlyError(error).error ?? "Something went wrong" };
   }
 
   revalidateInventory();
+  revalidateAutoAdded([autoAdded]);
   return {
     kind: "applied",
     item: toScannedItem(item, nextQuantity),

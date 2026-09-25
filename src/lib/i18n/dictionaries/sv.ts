@@ -108,6 +108,14 @@ export const sv = {
       confirm: "Ta bort",
       confirming: "Tar bort…",
     },
+    shoppingSettings: {
+      title: "Handla",
+      autoAddLabel: "Lägg till varor med lågt lager i inköpslistan automatiskt",
+      autoAddDescription:
+        'När något börjar ta slut eller är slut hamnar det direkt på "Att handla". Inställningen gäller alla i hushållet.',
+      enabledToast: "Varor med lågt lager läggs till automatiskt",
+      disabledToast: "Varor med lågt lager läggs inte till automatiskt",
+    },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
       "Om hushållet tas bort försvinner det, och allt i det, för alla medlemmar. Det går inte att ångra.",
@@ -217,6 +225,9 @@ export const sv = {
     newList: "Ny lista",
     newListDialogTitle: "Ny inköpslista",
     defaultNamePrefix: "Inköpslista",
+    defaultListName: "Att handla",
+    defaultListBadge: "Fylls på själv",
+    defaultListHint: "Varor med lågt lager läggs till här automatiskt",
     nameLabel: "Namn",
     creating: "Skapar…",
     create: "Skapa lista",
@@ -524,6 +535,18 @@ export const sv = {
     },
   },
   inventory: {
+    // AUTO-8: the low-stock auto-add toast (showAutoAddedToast). Lives here
+    // because nearly every caller is an inventory component; the shopping
+    // list and meal planning pass `dict.inventory.autoAdd` along explicitly.
+    autoAdd: {
+      addedToast: 'La till {name} i "{list}"',
+      addedManyToast: {
+        one: 'La till {count} vara i "{list}"',
+        other: 'La till {count} varor i "{list}"',
+      },
+      undo: "Ångra",
+      undoneToast: 'Borttagen från "{list}"',
+    },
     title: "Lager",
     subtitle: "Vad som finns hemma just nu.",
     addItem: "Lägg till vara",
@@ -964,6 +987,10 @@ export const sv = {
     mealMarkedCookedToast: "Markerad som lagad — lagret uppdaterat",
     undoMarkCooked: "Ångra",
     mealCookedUndoneToast: "Ångrat — lagret återställt",
+    mealMarkedCookedAutoAddedToast: {
+      one: 'Markerad som lagad — {count} vara tillagd i "{list}"',
+      other: 'Markerad som lagad — {count} varor tillagda i "{list}"',
+    },
     cookNowTitle: "Laga nu",
     cookNowSubtitle: "Recept du redan har allt (eller nästan allt) till.",
     emptyCookNow: "Inga recept är nära att vara klara än — fyll på några ingredienser eller lägg till fler recept.",

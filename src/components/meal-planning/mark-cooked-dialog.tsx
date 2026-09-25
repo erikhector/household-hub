@@ -18,7 +18,8 @@ import {
   previewCookedIngredientsAction,
   undoMarkMealEntryCookedAction,
 } from "@/app/dashboard/meal-planning/cooking-actions";
-import { format } from "@/lib/i18n/format";
+import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { format, plural } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -50,13 +51,32 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
       const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
       const rows = itemIds.map((itemId, i) => ({ itemId, quantity: quantities[i] }));
 
-      toast.success(dict.mealMarkedCookedToast, {
+      // AUTO-8: anything this cook pushed into low stock was auto-added to
+      // "Next shop". Rather than a second toast competing with this one,
+      // the message says so and the same Undo takes those rows back off the
+      // list too — undoing the cook should undo everything it caused.
+      const autoAdded = result.autoAdded ?? [];
+      const message =
+        autoAdded.length > 0
+          ? format(plural(autoAdded.length, dict.mealMarkedCookedAutoAddedToast), {
+              count: autoAdded.length,
+              list: autoAdded[0].listName,
+            })
+          : dict.mealMarkedCookedToast;
+
+      toast.success(message, {
         duration: 8000,
         action: {
           label: dict.undoMarkCooked,
           onClick: () => {
-            void undoMarkMealEntryCookedAction(entry.id, rows).then((undoResult) => {
-              if (undoResult.error) toast.error(undoResult.error);
+            void Promise.all([
+              undoMarkMealEntryCookedAction(entry.id, rows),
+              autoAdded.length > 0
+                ? undoAutoAddedItemsAction(autoAdded.map((added) => added.shoppingListItemId))
+                : Promise.resolve<ActionState>({}),
+            ]).then(([undoResult, undoAutoAddResult]) => {
+              const error = undoResult.error ?? undoAutoAddResult.error;
+              if (error) toast.error(error);
               else toast.success(dict.mealCookedUndoneToast);
             });
           },

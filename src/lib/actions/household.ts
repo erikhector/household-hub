@@ -529,3 +529,28 @@ export async function transferOwnershipAction(newOwnerMemberId: string): Promise
   revalidatePath("/dashboard/household");
   return {};
 }
+
+// AUTO-8's household-wide switch for the low-stock auto-add (see
+// addToDefaultListOnLowStock in src/lib/shopping/default-list.ts). Open to
+// every member, not owner-gated: REQUIREMENTS.md's "Roles" keeps owner-only
+// to removing members and deleting the household, and this is day-to-day
+// shopping behaviour that both roles already fully operate. A click action
+// (a switch), so it takes the value directly rather than FormData; the
+// household comes from the session, never the client.
+export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  if (typeof enabled !== "boolean") return { error: "Invalid input" };
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { autoAddLowStockToList: enabled },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}

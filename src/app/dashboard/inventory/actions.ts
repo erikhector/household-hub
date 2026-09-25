@@ -9,6 +9,12 @@ import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition } from "@/lib/notifications";
+import {
+  addItemToDefaultList,
+  addToDefaultListOnLowStock,
+  revalidateAutoAdded,
+  type AutoAddedItem,
+} from "@/lib/shopping/default-list";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { normalizeBarcode } from "@/lib/barcode";
@@ -126,7 +132,7 @@ export async function createInventoryItemAction(
 export async function updateInventoryItemAction(
   _prevState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const itemId = String(formData.get("itemId") ?? "");
@@ -164,6 +170,8 @@ export async function updateInventoryItemAction(
   const nextExpiresAt = neverExpires ? null : expiresAt;
   const dateChanged = !sameCalendarDay(nextExpiresAt, item.expiresAt ?? null);
 
+
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
@@ -185,13 +193,15 @@ export async function updateInventoryItemAction(
       },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
+    autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return {};
+  revalidateAutoAdded([autoAdded]);
+  return autoAdded ? { autoAdded: [autoAdded] } : {};
 }
 
 // Rapid-entry path for the quick-add bar/grid: no dialog round trip, so a
@@ -394,7 +404,7 @@ const bulkSetQuantitySchema = z.object({
 // household's items rather than erroring the whole batch over it.
 export async function bulkSetInventoryQuantitiesAction(
   updates: { itemId: string; quantity: number }[],
-): Promise<{ error?: string; updated?: number }> {
+): Promise<{ error?: string; updated?: number; autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const parsed = bulkSetQuantitySchema.safeParse({ updates });
@@ -403,6 +413,7 @@ export async function bulkSetInventoryQuantitiesAction(
   }
 
   let updated = 0;
+  const autoAdded: AutoAddedItem[] = [];
   try {
     const items = await prisma.inventoryItem.findMany({
       where: { householdId: household.id, id: { in: parsed.data.updates.map((u) => u.itemId) } },
@@ -417,6 +428,8 @@ export async function bulkSetInventoryQuantitiesAction(
         data: { quantity: update.quantity, updatedByUserId: userId },
       });
       await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, update.quantity, userId);
+      const added = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, update.quantity);
+      if (added) autoAdded.push(added);
       updated += 1;
     }
   } catch (error) {
@@ -425,7 +438,8 @@ export async function bulkSetInventoryQuantitiesAction(
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return { updated };
+  revalidateAutoAdded(autoAdded);
+  return { updated, autoAdded };
 }
 
 // Bulk-inserts a starter kit's selected items in one round trip. `category`
@@ -480,7 +494,7 @@ export async function addStarterKitItemsAction(
 export async function adjustQuantityAction(
   itemId: string,
   delta: number,
-): Promise<ActionState> {
+): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
@@ -489,31 +503,43 @@ export async function adjustQuantityAction(
   if (!item) return { error: "Item not found" };
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, delta);
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: nextQuantity, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
+    autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
     return toFriendlyError(error);
   }
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return {};
+  revalidateAutoAdded([autoAdded]);
+  return autoAdded ? { autoAdded: [autoAdded] } : {};
 }
 
-// Zeroes an item's quantity in one click and, optionally, drops it onto a
-// shopping list — the household's most recently created active list, or a
-// freshly created default-named one if there isn't one yet (mirrors
-// createShoppingListAction's naming). Dedupes against an already-pending
-// entry for the same inventory item like generateFromLowStockAction does,
-// so repeated "mark empty" clicks don't pile up duplicate rows.
+// Zeroes an item's quantity in one click and, optionally, drops it onto the
+// household's default "Next shop" list (AUTO-8) — which replaced the old
+// guess of "the most recently created ACTIVE list", so a mark-empty always
+// lands on the same list the low-stock auto-add fills. Dedupes against an
+// already-pending entry for the same inventory item like
+// generateFromLowStockAction does, so repeated "mark empty" clicks don't
+// pile up duplicate rows.
+//
+// The two menu entries differ only when auto-add wouldn't cover it:
+// "Mark as empty & add to shopping list" is an explicit request, so it adds
+// regardless of the household's auto-add setting or whether the item was
+// already low, and the row isn't flagged `addedAutomatically` (a person
+// asked for it). Plain "Mark as empty" behaves like any other decrease — an
+// in-stock item crossing to 0 is auto-added (with Undo) when the setting is
+// on, and nothing is added otherwise.
 export async function markItemEmptyAction(
   itemId: string,
   addToShoppingList: boolean,
-): Promise<{ listName?: string; error?: string }> {
+): Promise<{ listName?: string; autoAdded?: AutoAddedItem[]; error?: string }> {
   const { household, userId } = await requireHousehold();
 
   const item = await prisma.inventoryItem.findFirst({
@@ -521,12 +547,16 @@ export async function markItemEmptyAction(
   });
   if (!item) return { error: "Item not found" };
 
+  let autoAdded: AutoAddedItem | null = null;
   try {
     await prisma.inventoryItem.update({
       where: { id: item.id },
       data: { quantity: 0, updatedByUserId: userId },
     });
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, 0, userId);
+    if (!addToShoppingList) {
+      autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, 0);
+    }
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -534,37 +564,13 @@ export async function markItemEmptyAction(
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
 
-  if (!addToShoppingList) return {};
+  if (!addToShoppingList) {
+    revalidateAutoAdded([autoAdded]);
+    return autoAdded ? { autoAdded: [autoAdded] } : {};
+  }
 
   try {
-    let list = await prisma.shoppingList.findFirst({
-      where: { householdId: household.id, status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!list) {
-      const dict = await getDictionary();
-      list = await prisma.shoppingList.create({
-        data: {
-          householdId: household.id,
-          name: `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
-        },
-      });
-    }
-
-    const alreadyOnList = await prisma.shoppingListItem.findFirst({
-      where: { shoppingListId: list.id, purchased: false, inventoryItemId: item.id },
-    });
-    if (!alreadyOnList) {
-      await prisma.shoppingListItem.create({
-        data: {
-          shoppingListId: list.id,
-          inventoryItemId: item.id,
-          name: item.name,
-          quantity: Math.max(1, item.lowStockThreshold),
-        },
-      });
-    }
+    const { list } = await addItemToDefaultList(prisma, household.id, { ...item, quantity: 0 }, false);
 
     revalidatePath(`/dashboard/shopping-list/${list.id}`);
     revalidatePath("/dashboard/shopping-list");
@@ -593,7 +599,7 @@ export async function bulkUpdateFieldAction(
   itemIds: string[],
   field: BulkEditableField,
   rawValue: string,
-): Promise<ActionState & { updated?: number }> {
+): Promise<ActionState & { updated?: number; autoAdded?: AutoAddedItem[] }> {
   const { household, userId } = await requireHousehold();
 
   const ids = [...new Set(itemIds)].filter(Boolean);
@@ -632,8 +638,9 @@ export async function bulkUpdateFieldAction(
   }
 
   let updated = 0;
+  const autoAdded: AutoAddedItem[] = [];
   try {
-    // Only needed to detect an out-of-stock transition below — skipped for
+    // Only needed to detect an out-of-stock/low-stock transition below — skipped for
     // every other field.
     const previousQuantities =
       field === "quantity"
@@ -656,6 +663,13 @@ export async function bulkUpdateFieldAction(
           recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId),
         ),
       );
+      // Sequential, unlike the notifications above: the first crossing may
+      // have to create the default list, and running the rest in parallel
+      // would only make them race to read it back.
+      for (const item of previousQuantities) {
+        const added = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
+        if (added) autoAdded.push(added);
+      }
     }
   } catch (error) {
     return toFriendlyError(error);
@@ -663,7 +677,8 @@ export async function bulkUpdateFieldAction(
 
   revalidatePath("/dashboard/inventory");
   revalidatePath("/dashboard");
-  return { updated };
+  revalidateAutoAdded(autoAdded);
+  return { updated, autoAdded };
 }
 
 export async function deleteInventoryItemAction(itemId: string): Promise<ActionState> {

@@ -38,6 +38,9 @@ const {
   fetchExchangeRateMock,
   redirectMock,
   revalidatePathMock,
+  shoppingListItemDeleteManyMock,
+  getOrCreateDefaultShoppingListMock,
+  addToDefaultListOnLowStockMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
@@ -95,6 +98,9 @@ const {
     throw new Error(`REDIRECT:${path}`);
   }),
   revalidatePathMock: vi.fn(),
+  shoppingListItemDeleteManyMock: vi.fn(),
+  getOrCreateDefaultShoppingListMock: vi.fn(),
+  addToDefaultListOnLowStockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -120,6 +126,7 @@ vi.mock("@/lib/prisma", () => ({
       createMany: shoppingListItemCreateManyMock,
       update: shoppingListItemUpdateMock,
       delete: shoppingListItemDeleteMock,
+      deleteMany: shoppingListItemDeleteManyMock,
     },
     priceHistory: { create: priceHistoryCreateMock },
     transaction: { create: transactionCreateMock },
@@ -158,6 +165,13 @@ vi.mock("@/app/dashboard/budget/actions", () => ({
 vi.mock("@/lib/exchange-rate", () => ({ fetchExchangeRate: fetchExchangeRateMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// AUTO-8's helpers have their own unit (src/lib/shopping/default-list.test.ts);
+// here we only check the actions call them at the right moments.
+vi.mock("@/lib/shopping/default-list", () => ({
+  getOrCreateDefaultShoppingList: getOrCreateDefaultShoppingListMock,
+  addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  revalidateAutoAdded: vi.fn(),
+}));
 
 const {
   createShoppingListAction,
@@ -181,6 +195,7 @@ const {
   completeShoppingListAction,
   uncompleteShoppingListAction,
   registerReceiptAction,
+  undoAutoAddedItemsAction,
 } = await import("@/app/dashboard/shopping-list/actions");
 
 function formData(fields: Record<string, string>) {
@@ -235,6 +250,16 @@ describe("household-scoping (IDOR) guards on id-targeted actions", () => {
       expect.objectContaining({
         where: { id: "someone-elses-list", householdId: "household-1" },
       }),
+    );
+  });
+
+  it("archiveShoppingListAction un-defaults the list so un-archiving can't create a second default (AUTO-8)", async () => {
+    shoppingListUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    await archiveShoppingListAction("list-1");
+
+    expect(shoppingListUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "ARCHIVED", isDefault: false }) }),
     );
   });
 
@@ -1234,6 +1259,60 @@ describe("togglePurchasedAction", () => {
     const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
     expect(data.expiresAt).toBeUndefined();
   });
+
+  it("un-marking runs the low-stock auto-add inside the transaction and returns what it added (AUTO-8)", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      quantity: 10,
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 4 },
+    });
+    const autoAdded = { shoppingListItemId: "row-9", listId: "default", listName: "Next shop", itemName: "Milk" };
+    addToDefaultListOnLowStockMock.mockResolvedValueOnce(autoAdded);
+
+    const result = await togglePurchasedAction("item-1");
+
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 4, 0);
+    expect(result).toEqual({ autoAdded: [autoAdded] });
+  });
+});
+
+describe("undoAutoAddedItemsAction (AUTO-8)", () => {
+  it("deletes only this household's still-pending, auto-added rows among the given ids (IDOR guard)", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([{ shoppingListId: "default" }]);
+    shoppingListItemDeleteManyMock.mockResolvedValue({ count: 1 });
+
+    const result = await undoAutoAddedItemsAction(["row-1", "someone-elses-row"]);
+
+    const where = {
+      id: { in: ["row-1", "someone-elses-row"] },
+      addedAutomatically: true,
+      purchased: false,
+      shoppingList: { householdId: "household-1" },
+    };
+    expect(shoppingListItemDeleteManyMock).toHaveBeenCalledWith({ where });
+    expect(result).toEqual({ removed: 1 });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/shopping-list/default");
+  });
+
+  it("is idempotent — a second Undo on already-removed rows is a quiet no-op", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemDeleteManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await undoAutoAddedItemsAction(["row-1"]);
+
+    expect(result).toEqual({ removed: 0 });
+    expect(result.error).toBeUndefined();
+  });
+
+  it("rejects an empty id list without touching the database", async () => {
+    const result = await undoAutoAddedItemsAction([]);
+
+    expect(result.error).toBeDefined();
+    expect(shoppingListItemDeleteManyMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("applyReceiptScanAction", () => {
@@ -1703,6 +1782,37 @@ describe("completeShoppingListAction", () => {
 
     expect(transactionCreateMock).not.toHaveBeenCalled();
     expect(result.expenseLoggedMessage).toBeUndefined();
+  });
+
+  it("completing the default list un-defaults it and starts a fresh default in the same transaction (AUTO-8)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", name: "Next shop", isDefault: true, items: [] });
+    shoppingListUpdateMock.mockResolvedValue({});
+    getOrCreateDefaultShoppingListMock.mockResolvedValue({ id: "list-2", name: "Next shop" });
+    const txShoppingListUpdate = vi.fn();
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({ shoppingList: { update: txShoppingListUpdate } }),
+    );
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.error).toBeUndefined();
+    expect(txShoppingListUpdate).toHaveBeenCalledWith({
+      where: { id: "list-1" },
+      data: expect.objectContaining({ status: "COMPLETED", isDefault: false }),
+    });
+    expect(getOrCreateDefaultShoppingListMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shoppingList: { update: txShoppingListUpdate } }),
+      "household-1",
+    );
+  });
+
+  it("completing an ordinary named list doesn't create a default list", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", name: "Big trip", isDefault: false, items: [] });
+    shoppingListUpdateMock.mockResolvedValue({});
+
+    await completeShoppingListAction("list-1");
+
+    expect(getOrCreateDefaultShoppingListMock).not.toHaveBeenCalled();
   });
 });
 

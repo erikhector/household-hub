@@ -7,6 +7,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { InviteButton } from "@/components/household/invite-button";
 import { MemberList } from "@/components/household/member-list";
 import { DeleteHouseholdDialog } from "@/components/household/delete-household-dialog";
+import { AutoAddSetting } from "@/components/household/auto-add-setting";
 
 // Wrapped in `cache()` so the "shared with" note and the member list below
 // (both Suspense-isolated, see HouseholdPage) share one query instead of one
@@ -97,6 +98,9 @@ export default async function HouseholdPage() {
       <Suspense fallback={<MemberListSkeleton />}>
         <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
       </Suspense>
+      {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
+          shopping behaviour every member already fully operates. */}
+      <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
       {isOwner && (
         <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
           <div>
