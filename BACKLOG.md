@@ -302,29 +302,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-25 scan
 
-- [ ] **GAP-21. Budget category rollover (envelope carryover)** —
-      `prisma/schema.prisma` (`BudgetCategory`), `src/lib/safe-to-spend-calc.ts`,
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/period-summary.tsx`. GAP-12 (done — see
-      REQUIREMENTS.md, "Monthly spending limits") added a per-category
-      spending *cap* (`monthlyLimit` on both category models); this is the
-      other half of Goodbudget/YNAB-style envelope budgeting that GAP-12 left
-      out — unspent budget in a category simply resets to zero "progress
-      toward the limit" each month instead of accumulating the way
-      an envelope's leftover cash would. Add an optional
-      `rolloverEnabled Boolean @default(false)` to `BudgetCategory` (and
-      `PersonalBudgetCategory`, matching how GAP-12's `monthlyLimit` landed
-      on both) in its own migration. A pure `computeCategoryRollover` helper
-      (new `src/lib/budget-rollover-calc.ts` + test, dependency-free like
-      `safe-to-spend-calc.ts`) sums each prior month's (limit − spent) for a
-      rollover-enabled category and folds it into that category's *available*
-      amount for the selected month; `PeriodSummary`'s bar then renders
-      against limit + carried-over balance, not just the raw limit. Carried
-      balance never goes below zero (overspending a month doesn't create
-      debt the next one has to dig out of) — the simpler, more forgiving half
-      of true envelope budgeting, matching this app's "suggest, don't gate"
-      stance.
-
 - [ ] **GAP-22. Savings goals on a budget category** —
       `prisma/schema.prisma` (`BudgetCategory`),
       `src/components/budget/category-manager.tsx`,
