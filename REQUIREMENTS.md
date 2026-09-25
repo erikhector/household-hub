@@ -2553,6 +2553,61 @@ actually used, once they've cooked it.
   it caused.
   Deleting the meal-plan entry afterward doesn't reverse the decrement
   either, for the same reason.
+- **Leftovers (GAP-8)**: the dialog has an optional "Servings left over"
+  number input, blank by default. Blank or 0 means no leftovers, and
+  nothing is ever inferred from `servings` vs `portions` (Guardrails:
+  suggest, don't silently mutate). The value is validated by
+  `leftoverServingsSchema` (`src/app/dashboard/meal-planning/leftovers.ts`,
+  colocated `leftovers.test.ts`): a whole number from 0 to 100, where 100 is
+  a typo guard rather than a real limit. An invalid value rejects the whole
+  cook before anything is written. When it's above 0,
+  `markMealEntryCookedAction` records the leftovers **in the same
+  `$transaction`** as the decrement, so a cook that rolls back never leaves
+  a stray leftovers row behind:
+  - The item is named `"<prefix>: <recipe name>"`, e.g. "Leftovers:
+    Lasagna" / "Rester: Lasagne". The prefix, category ("Leftovers" /
+    "Rester") and unit ("servings" / "portioner") come from the cooking
+    household member's locale dictionary (`mealPlanning.leftovers*`).
+    `leftoversItemName` truncates the recipe name so the whole name stays
+    within the inventory form's 120-character limit.
+  - **Merge, don't duplicate**: if the household already has an item with
+    that exact name (case-insensitive, household-scoped, the same identity
+    rule as the other find-or-create paths), the servings are added to its
+    quantity and its expiry is reset to the fresh batch's estimate. A
+    merged row can only carry one date, and the badge is there so the
+    *new* food isn't forgotten; the older portion is nearly always eaten
+    first. Two exceptions follow AUTO-7's rule in `shelf-life.ts`: a real,
+    user-typed date (`expiresAtEstimated: false`) is never overwritten, and
+    `shelfLifeDays: -1` ("never expires") is left alone. A positive
+    `shelfLifeDays` the household set on the item replaces the 3-day
+    default. Leftovers of *different* recipes stay separate rows.
+  - **Otherwise a new `InventoryItem` is created** with `quantity` equal to
+    the servings, `lowStockThreshold: 0` (running out of leftovers is the
+    goal, so the row never shows as "low" or gets auto-added to "Next
+    shop") and an estimated `expiresAt` of now + 3 days with
+    `expiresAtEstimated: true`, so `ExpiryBadge` shows it with the "≈"
+    prefix and the expiring-soon sync picks it up. Three days is the
+    conservative end of the usual 3–4 day guidance for cooked food, and the
+    same value `SHELF_LIFE_CATEGORY_DEFAULTS` uses for meat. The value is
+    also stored as the item's own `shelfLifeDays` override, because the
+    "Leftovers" category doesn't map to any estimator category default.
+    With the override, a later AUTO-7 stock-arrival path re-estimates the
+    item instead of skipping it.
+  - **Undo**: the action returns a `LeftoversChange`, either `{ itemId,
+    created: true }` or the merged row's previous quantity and
+    expiry/estimated flag. `MarkCookedDialog` passes it to
+    `undoMarkMealEntryCookedAction`, which validates it with
+    `leftoversChangeSchema` and then either deletes the created row or
+    restores the previous values, inside the undo's own transaction and
+    behind the same `consumedAt` idempotency guard. Both writes use
+    `deleteMany`/`updateMany` with `householdId` in the filter, so an
+    `itemId` from another household matches nothing. A malformed payload
+    skips only the leftovers part; the ingredients are still credited back.
+  - No schema change was needed, because `InventoryItem`'s existing
+    `expiresAt`/`expiresAtEstimated`/`shelfLifeDays` fields (AUTO-7)
+    already cover it. When both happen, the confirmation toast shows the
+    AUTO-8 "added to Next shop" message instead of the leftovers one (only
+    one toast). A single Undo still reverses both.
 
 ### "Use it up" recipe suggestions
 
