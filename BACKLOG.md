@@ -190,16 +190,6 @@ out to be a product-scope question rather than a scoped task should move to
       through `findOrCreateInventoryItem` the same way import/paste already
       does, so it doesn't need its own linking logic.
 
-- [ ] **GAP-7. Settle up: a Swish payment link** —
-      `src/components/budget/household-balances.tsx`. Recording a repayment
-      ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's
-      "Household expense splitting". What's left is the payment half: a
-      Swish deep link (`swish://payment?data=...`, no API key needed, Sweden
-      being this app's primary locale alongside `sv.ts`) next to each
-      suggested transfer, pre-filled with the amount, covering something
-      Splitwise itself doesn't for Swedish households. Needs a phone number
-      per member, which the app doesn't store yet.
-
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
       both support hands-free "add milk to my shopping list" via Alexa/Google
