@@ -1940,6 +1940,15 @@ export const en = {
         error: "Couldn't save quiet hours. Please try again.",
       },
     },
+    weeklyDigest: {
+      title: "Weekly digest email",
+      label: "Email me a weekly summary of my household",
+      description:
+        "Every Sunday: what was on the menu, which tasks got done, food that's about to expire and how the household budget is doing. Nothing is sent in a quiet week.",
+      unverified: "Verify your email address to start receiving it.",
+      enabledToast: "You'll get the weekly digest",
+      disabledToast: "Weekly digest turned off",
+    },
     dangerZoneTitle: "Danger zone",
     dangerZoneDescription:
       "Deleting your account is permanent and can't be undone. Your personal data is removed; any household you solely own is deleted along with it.",
@@ -2170,6 +2179,15 @@ export const en = {
   // sendPasswordResetEmail / sendVerificationEmail's `locale` param), never
   // read client-side, so these strings live here purely for translation
   // reuse rather than for a live language switch.
+  digestUnsubscribe: {
+    pageTitle: "Weekly digest",
+    working: "Unsubscribing you from the weekly digest…",
+    submit: "Unsubscribe",
+    done: "You won't get the weekly digest any more. You can turn it back on from your profile at any time.",
+    invalid: "This unsubscribe link isn't valid. You can turn the digest off from your profile instead.",
+    error: "Something went wrong. Please try again.",
+    profileLink: "Go to your profile",
+  },
   email: {
     copyLinkPrefix: "If the button doesn't work, use this link:",
     invite: {
@@ -2194,6 +2212,29 @@ export const en = {
       cta: "Verify your email",
       expiry:
         "This link expires in 36 hours. If you didn't create this account, you can safely ignore this email.",
+    },
+    weeklyDigest: {
+      subject: "Your week at {householdName}",
+      heading: "Your week at {householdName}",
+      intro: "Here's a quick look at the past week in your household.",
+      mealsTitle: "Meals",
+      mealsBody: {
+        one: "{count} different recipe was on the menu in the last 7 days.",
+        other: "{count} different recipes were on the menu in the last 7 days.",
+      },
+      tasksTitle: "Done this week",
+      tasksSomeone: "Someone",
+      expiringTitle: "Use it up",
+      expiredLabel: "Past its date",
+      soonLabel: "Expiring in the next few days",
+      estimatedSuffix: "(estimated)",
+      moreItems: { one: "…and {count} more", other: "…and {count} more" },
+      budgetTitle: "Household budget",
+      budgetBody: "Remaining after expenses and savings this month: {amount}",
+      cta: "Open Squirrel",
+      footer: "You're getting this because you turned on the weekly digest in Squirrel.",
+      unsubscribe: "Unsubscribe",
+      manage: "Email settings",
     },
   },
 };

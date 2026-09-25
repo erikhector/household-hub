@@ -365,3 +365,51 @@ describe("when RESEND_API_KEY is not configured", () => {
 // src/lib/actions/auth.ts / household.ts) validate the address with Zod
 // before calling into this module. So there's no in-module "malformed
 // recipient" behavior to test here.
+
+describe("sendWeeklyDigestEmail", () => {
+  const digest = {
+    to: "member@example.com",
+    subject: "Your week at The Smiths",
+    html: "<p>hi</p>",
+    text: "hi",
+    unsubscribeUrl: "https://app.example.com/api/digest/unsubscribe/user-1.sig",
+  };
+
+  it("sends the pre-rendered digest with RFC 8058 one-click unsubscribe headers", async () => {
+    process.env.RESEND_API_KEY = "test-api-key";
+    delete process.env.EMAIL_FROM;
+    sendMock.mockResolvedValue({ data: { id: "email-1" }, error: null });
+    const { sendWeeklyDigestEmail, isEmailConfigured } = await loadEmail();
+
+    expect(isEmailConfigured()).toBe(true);
+    expect(await sendWeeklyDigestEmail(digest)).toEqual({});
+    expect(sendMock).toHaveBeenCalledWith({
+      from: "Squirrel <onboarding@resend.dev>",
+      to: "member@example.com",
+      subject: "Your week at The Smiths",
+      html: "<p>hi</p>",
+      text: "hi",
+      headers: {
+        "List-Unsubscribe": "<https://app.example.com/api/digest/unsubscribe/user-1.sig>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
+  });
+
+  it("returns the provider's error", async () => {
+    process.env.RESEND_API_KEY = "test-api-key";
+    sendMock.mockResolvedValue({ data: null, error: { message: "rate limited" } });
+    const { sendWeeklyDigestEmail } = await loadEmail();
+
+    expect(await sendWeeklyDigestEmail(digest)).toEqual({ error: "rate limited" });
+  });
+
+  it("is a no-op without RESEND_API_KEY", async () => {
+    delete process.env.RESEND_API_KEY;
+    const { sendWeeklyDigestEmail, isEmailConfigured } = await loadEmail();
+
+    expect(isEmailConfigured()).toBe(false);
+    expect(await sendWeeklyDigestEmail(digest)).toEqual({ error: "Email delivery isn't configured" });
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+});

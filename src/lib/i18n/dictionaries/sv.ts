@@ -1884,6 +1884,15 @@ export const sv = {
         error: "Det gick inte att spara tysta timmar. Försök igen.",
       },
     },
+    weeklyDigest: {
+      title: "Veckosammanfattning via e-post",
+      label: "Mejla mig en veckosammanfattning av hushållet",
+      description:
+        "Varje söndag: vad som stod på menyn, vilka sysslor som blev gjorda, mat som snart går ut och hur hushållsbudgeten ser ut. Inget skickas en lugn vecka.",
+      unverified: "Verifiera din e-postadress för att börja få den.",
+      enabledToast: "Du får veckosammanfattningen",
+      disabledToast: "Veckosammanfattningen är avstängd",
+    },
     dangerZoneTitle: "Farozon",
     dangerZoneDescription:
       "Att radera ditt konto är permanent och kan inte ångras. Dina personliga uppgifter tas bort. Om du äger ett hushåll där du är enda medlem raderas det hushållet också.",
@@ -2097,6 +2106,15 @@ export const sv = {
     privacyLink: "integritetspolicy",
     consentSuffix: ".",
   },
+  digestUnsubscribe: {
+    pageTitle: "Veckosammanfattning",
+    working: "Avslutar din prenumeration på veckosammanfattningen…",
+    submit: "Avsluta prenumeration",
+    done: "Du får inte veckosammanfattningen längre. Du kan slå på den igen från din profil när du vill.",
+    invalid: "Den här avprenumerationslänken är inte giltig. Du kan stänga av sammanfattningen från din profil i stället.",
+    error: "Något gick fel. Försök igen.",
+    profileLink: "Gå till din profil",
+  },
   email: {
     copyLinkPrefix: "Om knappen inte fungerar, använd den här länken:",
     invite: {
@@ -2121,6 +2139,29 @@ export const sv = {
       cta: "Verifiera din e-post",
       expiry:
         "Den här länken slutar gälla om 36 timmar. Om du inte har skapat det här kontot kan du bortse från det här mejlet.",
+    },
+    weeklyDigest: {
+      subject: "Din vecka i {householdName}",
+      heading: "Din vecka i {householdName}",
+      intro: "Här är en snabb överblick över veckan som gått i ditt hushåll.",
+      mealsTitle: "Måltider",
+      mealsBody: {
+        one: "{count} olika recept stod på menyn de senaste 7 dagarna.",
+        other: "{count} olika recept stod på menyn de senaste 7 dagarna.",
+      },
+      tasksTitle: "Klart den här veckan",
+      tasksSomeone: "Någon",
+      expiringTitle: "Använd snart",
+      expiredLabel: "Datumet har passerat",
+      soonLabel: "Går ut de närmaste dagarna",
+      estimatedSuffix: "(uppskattat)",
+      moreItems: { one: "…och {count} till", other: "…och {count} till" },
+      budgetTitle: "Hushållsbudget",
+      budgetBody: "Kvar efter utgifter och sparande den här månaden: {amount}",
+      cta: "Öppna Squirrel",
+      footer: "Du får det här mejlet eftersom du har slagit på veckosammanfattningen i Squirrel.",
+      unsubscribe: "Avsluta prenumeration",
+      manage: "E-postinställningar",
     },
   },
 } satisfies Dictionary;
