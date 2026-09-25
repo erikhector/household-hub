@@ -161,22 +161,6 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       `lowStockThreshold` and usual purchase quantity (AUTO-8) — as a
       suggestion on the item, not a silent change.
 
-- [ ] **AUTO-11. Receipt scan: auto-accept confident matches**
-      — `src/components/shopping/receipt-scan-dialog.tsx`,
-      `src/components/shopping/register-receipt-dialog.tsx`
-      **Problem:** every scanned line is shown for review even when the
-      match is obvious.
-      **Design brief:** lines above a high confidence threshold are
-      pre-accepted and collapsed into a "12 items matched" summary
-      (expandable); only uncertain lines are shown open for review. One
-      "Apply" button. Nothing is written before Apply — review still
-      exists, it's just shorter.
-      **Dev notes:** a second, stricter threshold alongside the current
-      pre-select threshold for `findInventoryMatches`; tune against real
-      receipts before shipping. Receipts with EANs (rare in Swedish receipts,
-      but some chains print them) can also match by barcode exactly, now
-      that AUTO-6 stores `InventoryItem.barcode`.
-
 ---
 
 ## Competitive gap scan
@@ -330,22 +314,6 @@ out to be a product-scope question rather than a scoped task should move to
       Deliberately not a notification trigger (Guardrails: a bell badge must
       mean something's wrong) — just a page you check.
 
-- [ ] **GAP-17. Surface the cost of food that expired unused** —
-      `src/app/dashboard/inventory/`, `src/lib/inventory/expiry.ts`. Grocy's
-      stats screen tracks consumed-vs-wasted value; this app tracks expiry
-      (`ExpiryBadge`) and price (`lastKnownPrice`) but never connects "this
-      expired" to "this cost money." When an expired item's quantity is
-      zeroed out (mark-empty, edited to 0, or a low-stock crossing while
-      still past its `expiresAt`), record it as waste rather than silently
-      losing the signal: either a lightweight `wastedAt`/`wastedValue` pair
-      on `InventoryItem` set the moment quantity hits 0 while expired (Phase
-      2 migration), or — cheaper, no migration — a derived monthly figure
-      computed from existing `PriceHistory`/expiry data if a precise
-      per-write hook turns out not to be needed. Either way, surface it as a
-      quiet monthly figure (Cost analyzer or the inventory page), not a
-      notification — this is a "here's what happened" recap, the same
-      register as `MealVarietyRecap`, not an alert.
-
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's
@@ -416,23 +384,6 @@ out to be a product-scope question rather than a scoped task should move to
       "save ~X/month to reach this by {date}" line and a progress bar —
       informational only, never a notification (Guardrails: no
       streaks/loss-aversion on money) and never blocks a transaction.
-
-- [ ] **GAP-23. Copy last week's meal plan forward** —
-      `src/app/dashboard/meal-planning/planner-actions.ts`,
-      `src/components/meal-planning/week-planner.tsx`. Plan to Eat and
-      Mealime both let a household repeat a week instead of re-picking every
-      recipe; today `week-planner.tsx` only supports adding one
-      `MealPlanEntry` at a time per day/slot (`addMealEntryAction`), so a
-      household that eats similar rotations has to re-enter the whole grid
-      every Monday. A `copyWeekAction(fromWeekStart, toWeekStart)` that reads
-      the source week's `MealPlanEntry` rows (`recipeId`/`freeformName` +
-      `mealType`, re-dated onto the target week via the existing
-      `date-utils.ts` normalization) and bulk-inserts them onto the target
-      week's `MealPlan` (created lazily via the same `upsert` pattern
-      `addMealEntryAction` already uses), skipping any slot the target week
-      already has an entry in rather than overwriting. Exposed as a "Copy
-      last week" button on an empty week's planner view — the lowest-friction
-      entry point, since that's exactly when a household would reach for it.
 
 - [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
       needs an infrastructure decision before scoping. Bring! and AnyList
@@ -508,7 +459,7 @@ out to be a product-scope question rather than a scoped task should move to
         researched; no known public API. Investigate before promising
         anything.
       Either way, the output lands in the same review → apply flow
-      (AUTO-11), never applied unseen.
+      (with AUTO-11's auto-accepted matches), never applied unseen.
 
 - [ ] **PRICE-1. Should manual purchase-checking ever collect a price?** `[!]`
       The cheap version has shipped (an honest empty-state hint in Cost

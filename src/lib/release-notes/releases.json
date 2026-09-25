@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.24.0",
+    "date": "2026-09-25",
+    "pr": 50,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Scanning a receipt is quicker: lines that clearly match are accepted automatically and grouped under \"N items matched\", so you only review the ones that are unclear. You can still open the group and change anything before applying.",
+      "sv": "Det går snabbare att skanna kvitton: rader som tydligt matchar godkänns automatiskt och samlas under \"N varor matchade\", så du behöver bara granska de osäkra. Du kan fortfarande öppna gruppen och ändra vad som helst innan du lägger till."
+    }
+  },
+  {
+    "version": "0.23.0",
+    "date": "2026-09-25",
+    "pr": 47,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The Cost analyzer now has a \"Went past its date\" card. It shows the food that expired this month before you used it up, and roughly what it cost.",
+      "sv": "Kostnadsanalysen har nu kortet \"Gick ut innan den användes\". Det visar mat som passerade bäst före-datum den här månaden innan den tog slut, och ungefär vad den kostade."
+    }
+  },
+  {
+    "version": "0.22.0",
+    "date": "2026-09-25",
+    "pr": 49,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Planning a new week? On an empty week, tap \"Copy last week\" to bring over last week's meals in one go. Undo is right there if you change your mind.",
+      "sv": "Ska du planera en ny vecka? Tryck på \"Kopiera förra veckan\" på en tom vecka för att ta med förra veckans måltider på en gång. Du kan ångra direkt om du ångrar dig."
+    }
+  },
+  {
     "version": "0.21.0",
     "date": "2026-09-25",
     "pr": 41,

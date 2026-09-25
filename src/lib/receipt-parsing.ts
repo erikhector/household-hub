@@ -20,6 +20,8 @@
 // (leading or trailing) are stripped before the name is extracted — we only
 // want the product name and price, not the store's internal item code.
 
+import { receiptLineBarcode } from "@/lib/barcode";
+
 export type ParsedReceiptLine = {
   rawLine: string;
   name: string;
@@ -29,6 +31,11 @@ export type ParsedReceiptLine = {
    * inventory, same as togglePurchasedAction always has. */
   quantity: number;
   price: number;
+  /** AUTO-11: a leading/trailing digit run that turned out to be a real
+   * GTIN (valid check digit, see receiptLineBarcode) — the strongest signal
+   * for matching the line to an item. Only present when one was found; an
+   * article/PLU number is still stripped from the name but not kept here. */
+  barcode?: string;
 };
 
 // Line-level boilerplate that should never be treated as a purchased item,
@@ -127,8 +134,14 @@ function parseLine(rawLine: string): ParsedReceiptLine | null {
   if (price === null || price <= 0) return null;
 
   let rest = trimmed.slice(0, priceMatch.index).trim();
+  const trailingDigits = rest.match(TRAILING_BARCODE_RE)?.[0];
   rest = rest.replace(TRAILING_BARCODE_RE, "").trim();
+  const leadingDigits = rest.match(LEADING_ARTICLE_NUMBER_RE)?.[0];
   rest = rest.replace(LEADING_ARTICLE_NUMBER_RE, "").trim();
+  // Either end can hold the EAN depending on the chain's layout; most of
+  // these runs are store-internal article numbers, which the check-digit
+  // test in receiptLineBarcode weeds out.
+  const barcode = receiptLineBarcode(trailingDigits) ?? receiptLineBarcode(leadingDigits);
 
   let quantity = 1;
   const qtyMatch = rest.match(LEADING_QUANTITY_RE);
@@ -141,7 +154,7 @@ function parseLine(rawLine: string): ParsedReceiptLine | null {
   const name = rest.replace(/\s{2,}/g, " ").trim();
   if (name.length < 2) return null;
 
-  return { rawLine: trimmed, name, quantity, price };
+  return { rawLine: trimmed, name, quantity, price, ...(barcode ? { barcode } : {}) };
 }
 
 /** Every line in OCR'd receipt text that looks like a purchased item with a

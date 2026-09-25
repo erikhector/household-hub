@@ -474,6 +474,12 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       rateError: "Couldn't convert {currency} right now — try again in a moment.",
       noMatchesError: "Match at least one line to a list item before applying.",
+      // AUTO-11: the collapsed block of lines matched with enough
+      // confidence (exact name or barcode) that they don't need a look.
+      autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
+      showMatched: "Show",
+      hideMatched: "Hide",
+      matchedByBarcode: "Matched by barcode",
       addItemError: "Couldn't add that item — try again.",
     },
     registerReceipt: {
@@ -518,6 +524,12 @@ export const en = {
       ocrError: "Couldn't read this image. Try a clearer photo of the receipt.",
       noItemsError: "Add at least one item before registering.",
       existingSelectionRequired: 'Choose an item, or switch to "Create new".',
+      // AUTO-11: the collapsed block of lines matched with enough
+      // confidence (exact name or barcode) that they don't need a look.
+      autoMatchedSummary: { one: "{count} item matched", other: "{count} items matched" },
+      showMatched: "Show",
+      hideMatched: "Hide",
+      matchedByBarcode: "Matched by barcode",
     },
     shareLink: {
       button: "Share",
@@ -894,6 +906,17 @@ export const en = {
     nextWeek: "Next week",
     thisWeek: "This week",
     jumpToToday: "Jump to today",
+    // "Copy last week" on an empty week (BACKLOG GAP-23) — see copyWeekAction
+    // in planner-actions.ts. Slots already filled are skipped, so {count} is
+    // what was actually written, not last week's total.
+    copyLastWeek: "Copy last week",
+    copyLastWeekToast: {
+      one: "Copied {count} meal from last week",
+      other: "Copied {count} meals from last week",
+    },
+    copyLastWeekNothingToast: "Last week has no meals to copy",
+    copyLastWeekUndo: "Undo",
+    copyLastWeekUndoneToast: "Copied meals removed",
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",
@@ -1339,6 +1362,26 @@ export const en = {
       noCheapestStoreData:
         "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
+      expiredTitle: "Went past its date",
+      expiredSubtitle:
+        "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",
+      noExpiredData: "Nothing has gone past its date this month.",
+      expiredCount: {
+        one: "{count} item went past its date",
+        other: "{count} items went past their date",
+      },
+      expiredEstimatedValue:
+        "Maybe ≈ {amount} more from estimated dates — those are a guess, and a lot of it is probably still fine.",
+      expiredUnpriced: {
+        one: "{count} of them has no known price yet.",
+        other: "{count} of them have no known price yet.",
+      },
+      expiredEstimatedBadge: "≈ estimated date",
+      expiredMore: "+{count} more",
+      expiredLastMonth: {
+        one: "Last month: {count} item",
+        other: "Last month: {count} items",
+      },
     },
     split: {
       toggleLabel: "Split this expense",

@@ -59,7 +59,9 @@ export default async function ShoppingListPage() {
 
   const inventoryItems = await prisma.inventoryItem.findMany({
     where: { householdId: household.id },
-    select: { id: true, name: true, category: true, unit: true },
+    // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
+    // prints an EAN exactly — see matchReceiptLines.
+    select: { id: true, name: true, category: true, unit: true, barcode: true },
     orderBy: { name: "asc" },
   });
 

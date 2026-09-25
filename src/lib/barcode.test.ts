@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { acceptScan, isValidBarcodeFormat, normalizeBarcode, SAME_CODE_REPEAT_MS, type RepeatGuardState } from "@/lib/barcode";
+import {
+  acceptScan,
+  isValidBarcodeFormat,
+  normalizeBarcode,
+  receiptLineBarcode,
+  SAME_CODE_REPEAT_MS,
+  type RepeatGuardState,
+} from "@/lib/barcode";
 
 describe("isValidBarcodeFormat", () => {
   it("accepts EAN-13", () => {
@@ -85,5 +92,35 @@ describe("acceptScan", () => {
   it("accepts a different code straight away", () => {
     const state = acceptScan(empty, "7311041052452", 1000).next;
     expect(acceptScan(state, "96385074", 1001).accept).toBe(true);
+  });
+});
+
+describe("receiptLineBarcode", () => {
+  it("accepts an EAN-13 with a valid check digit", () => {
+    expect(receiptLineBarcode("4006381333931")).toBe("4006381333931");
+  });
+
+  it("accepts an EAN-8 with a valid check digit", () => {
+    expect(receiptLineBarcode(" 96385074 ")).toBe("96385074");
+  });
+
+  it("normalizes a valid UPC-A to GTIN-13, same as normalizeBarcode", () => {
+    expect(receiptLineBarcode("036000291452")).toBe("0036000291452");
+  });
+
+  it("rejects a GTIN-shaped run with a wrong check digit", () => {
+    expect(receiptLineBarcode("4006381333932")).toBeNull();
+  });
+
+  it("rejects lengths that aren't GTIN-8/12/13/14, including UPC-E", () => {
+    expect(receiptLineBarcode("425261")).toBeNull();
+    expect(receiptLineBarcode("1234567")).toBeNull();
+    expect(receiptLineBarcode("1234567890")).toBeNull();
+  });
+
+  it("returns null for missing input", () => {
+    expect(receiptLineBarcode(undefined)).toBeNull();
+    expect(receiptLineBarcode(null)).toBeNull();
+    expect(receiptLineBarcode("")).toBeNull();
   });
 });

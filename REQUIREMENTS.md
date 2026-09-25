@@ -926,6 +926,48 @@ item is marked purchased with an estimated price
   (GAP-6)" below for the full write-up (it's grouped there with the receipt
   scan/register changes that feed it `PriceHistory.store`
   in the first place).
+- **Went past its date (GAP-17)**: a fourth, last section — a quiet monthly
+  recap of food that expired unused, valued at what it cost last time.
+  It's a "here's what happened" card in the same register as
+  `MealVarietyRecap`, never a notification. Built as a **derived** figure
+  with no migration (no `wastedAt`/`wastedValue` columns, no per-write
+  hook), computed by the pure `computeExpiredWaste`
+  (`src/lib/inventory/expired-waste.ts`, unit-tested) from one extra
+  `InventoryItem` read in `CostAnalyzerSection` (items whose `expiresAt`
+  fell in this or last month and has passed, same household scope as the
+  `PriceHistory` read).
+  - **Which items count.** There's no stock-movement log, so the amount
+    thrown out is lost when a quantity is zeroed, and the figure is read
+    from a snapshot. An item counts for a month when its `expiresAt` is in
+    that month, the date has already passed, and either it **still has
+    stock** (nobody used it up in time) or it's **empty and was last
+    written on or after its date** (`updatedAt >= expiresAt`: emptied after
+    it expired, the mark-empty/edit-to-0 case). An empty item last written
+    *before* its date was used up in time and never counts. The second rule
+    is an inference: `updatedAt` moves on any write, so an item emptied
+    before its date and renamed afterwards would be miscounted. That was
+    judged better than dropping emptied items, which would make throwing
+    something out erase it from the recap.
+  - **Value.** One `lastKnownPrice` per item, never `lastKnownPrice ×
+    quantity`: `lastKnownPrice` is the price of one shopping-list line
+    (AUTO-4's per-line convention), not a price per inventory unit, so
+    multiplying it by a quantity in grams or millilitres would be nonsense.
+    The figure is shown with "≈". Items with no known price are listed and
+    counted ("N of them have no known price yet") but add nothing to the
+    sum.
+  - **Estimated dates (AUTO-7).** An estimated `expiresAt` is a
+    category-default guess, and plenty of it is still fine and gets eaten.
+    So the headline figure sums **real (user-entered) dates only**; items
+    with an estimated date are still listed (with an outline
+    "≈ estimated date" badge) and their value is shown separately on a
+    softer "Maybe ≈ X more from estimated dates" line instead of being
+    folded into money lost.
+  - **Range.** This calendar month is the recap (up to 5 items named, real
+    dates first then by value, "+N more" after that); last month gets one
+    muted line of context. Nothing further back, since the snapshot decays:
+    a restock re-estimates an estimated date, and later edits move
+    `updatedAt`. An empty month shows a plain "Nothing has gone past its
+    date this month" rather than a zero.
 
 ### Shopping-list → budget expense link
 
@@ -1785,9 +1827,10 @@ scanning it again is a one-step stock change instead of a name to type.
   same dedupe ("already on the list") and price default as a typed name —
   in one scan. An unknown code puts Open Food Facts' name (if any) into the
   input for the user to check and press Enter, or asks them to type it.
-- **Out of scope**: codes on `ShoppingListItem`, matching receipts by EAN
-  (BACKLOG.md AUTO-11), and a place to view or clear an item's code in the
-  edit form — re-linking it from the scan mode is the correction path.
+- **Out of scope**: codes on `ShoppingListItem` and a place to view or
+  clear an item's code in the edit form — re-linking it from the scan mode
+  is the correction path. Receipt lines that print an EAN match against the
+  stored code (AUTO-11, see "Receipt scanning" below).
 
 ## Receipt scanning
 
@@ -1874,6 +1917,41 @@ below.
   not just inventory items) when its similarity score clears a threshold,
   else defaulting to "— Skip —" rather than guessing wrong. The user can
   fix any price, change any match, or skip any line before confirming.
+- **Confident matches start accepted (AUTO-11)**: reviewing every line of
+  a long receipt when most matches are obvious was the slow part, so both
+  dialogs sort lines by confidence with `matchReceiptLines`
+  (`src/lib/shopping/receipt-match.ts`, pure and unit-tested). There are
+  two thresholds: `RECEIPT_PRESELECT_MIN_SCORE` (0.35, the old single
+  threshold) pre-selects a best guess on a line that stays open for
+  review, and the much stricter `RECEIPT_AUTO_ACCEPT_MIN_SCORE` (0.9, in
+  practice "the same name after normalization") *plus* a
+  `RECEIPT_AUTO_ACCEPT_MIN_MARGIN` (0.15) lead over the runner-up
+  pre-accepts it. Pre-accepted lines are collapsed into an expandable
+  "N items matched" summary (`AutoMatchedSection`) above the lines that
+  still need a look; expanding shows the same editable rows, so any
+  auto-accepted match or price can still be corrected. There's still one
+  Apply button and nothing is written before it — review is shorter, not
+  gone, which is what keeps this inside the Guardrails' "suggest, don't
+  silently mutate". A row never moves between the two sections while it's
+  being edited. Two more rules keep auto-accept conservative:
+  - **Barcode**: when a receipt line prints an EAN/UPC that equals exactly
+    one candidate's `InventoryItem.barcode` (AUTO-6), that's an exact match
+    whatever the receipt's abbreviated name says. The vision model reports
+    a per-line `barcode` when one is printed, and the OCR parser keeps a
+    leading/trailing digit run as `barcode` instead of only stripping it.
+    Both go through `receiptLineBarcode` (`src/lib/barcode.ts`), which
+    only accepts GTIN-8/12/13/14 with a valid GS1 check digit — receipt
+    lines are full of article/PLU numbers, and an auto-accept can't afford
+    to trust one. Codes are normalized the same way as stored ones (12-digit
+    UPC-A → GTIN-13). For `ReceiptScanDialog`, a list row's code is its
+    linked inventory item's. Two candidates sharing a code (the same item on
+    a list twice) leaves the line open.
+  - **Exclusive on a list**: in `ReceiptScanDialog` each pending row is
+    bought once per receipt, so if two lines would both auto-accept the
+    same row, both stay open instead. `RegisterReceiptDialog` doesn't apply
+    this, since the same product twice on one receipt is normal there.
+  The thresholds were set conservatively without a corpus of real
+  receipts; loosen them only after checking against some.
 - **Applying a scan** (`applyReceiptScanAction`): for every confirmed line,
   sets the shopping-list item's `estimatedPrice` (converted) and marks it
   `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
@@ -1891,8 +1969,8 @@ below.
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
   this flow has no existing shopping list to match against, each reviewed
   line instead gets matched against the household's *inventory* catalog —
-  same `findInventoryMatches` call, same fuzzy-match-or-not default as
-  `ReceiptScanDialog` above, but a two-mode "Use existing"/"Create new"
+  same `matchReceiptLines` call (non-exclusive), same pre-select and
+  auto-accept thresholds as `ReceiptScanDialog` above, but a two-mode "Use existing"/"Create new"
   toggle (mirroring `ResolveMappingsDialog`'s row UI) instead of a
   skippable dropdown, since every line here always becomes a shopping-list
   item regardless of whether its inventory link resolves. A confident
@@ -2067,6 +2145,27 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   chosen) to a date + `MealType` slot. There's no uniqueness constraint on
   `(date, mealType)` — multiple entries can stack in one slot (e.g. two
   snacks), matching the schema.
+- **Copy last week** (BACKLOG GAP-23): an empty week's planner header
+  shows a "Copy last week" button (`CopyLastWeekButton` in
+  `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
+  toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
+  Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
+  comes from `requireHousehold()` as always. The action reads the source
+  week's entries and moves each one by the whole-week day offset (Tuesday
+  stays Tuesday), keeping `mealType`, `recipeId`/`freeformName` and
+  `portions`. `consumedAt` is never copied. Recipe ids are re-checked
+  against the household in one `recipe.findMany`, and an entry that ends up
+  with neither a recipe nor a name is dropped. Any target slot
+  (date + `mealType`) that already has an entry is skipped, not overwritten.
+  The target `MealPlan` is upserted lazily, like `addMealEntryAction`
+  does, and only if there's at least one row to write. Rows are inserted
+  with one `createManyAndReturn`. The toast shows how many meals were
+  copied, with an Undo that calls `undoCopyWeekAction(entryIds)`. That
+  deletes exactly those ids, scoped to the household and to entries not
+  marked cooked since. When last week has nothing to copy, the toast says
+  so and nothing is written. The button is only offered on an empty week:
+  the action would handle a partly filled one, but a copy that silently
+  works around existing meals is harder to predict.
 - **No in-place edit for meal entries** — only add (`addMealEntryAction`)
   and delete (`deleteMealEntryAction`), consistent with the app's existing
   simplicity elsewhere (shopping list items are add/toggle/delete too, no
