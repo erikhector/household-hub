@@ -2190,6 +2190,27 @@ Paprika, Plan to Eat, Whisk) uses:
   existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
   success the dialog closes and a `sonner` toast confirms which list the
   items were added to.
+- **Substitution hints (GAP-25)**: a missing ingredient with a common,
+  reliable swap gets a muted "Try instead: …" line under it in the review
+  list ("no buttermilk? milk with 1 tbsp lemon juice per cup…"), the next
+  step Paprika and Plan to Eat offer besides "buy it". The table is
+  `src/lib/inventory/substitutions.ts` (colocated
+  `substitutions.test.ts`): a static list of about two dozen staples
+  (dairy, eggs, leaveners, starches, sugars, wine, vinegar, alliums), each
+  listed under its English and Swedish names, stored normalized with the
+  shared `normalizeItemName` and mapped to a stable key, the same approach
+  as AUTO-2's category dictionary. The hint text is per locale in
+  `mealPlanning.substitutions.<key>` (en.ts/sv.ts), so Swedish users get
+  Swedish products and measures (filmjölk, msk, dl) rather than a
+  translated US tip. A test checks that both dictionaries cover exactly the
+  table's keys. Matching is deliberately stricter than auto-categorization:
+  the whole ingredient name must be a listed name, allowing only case,
+  punctuation and an English plural `-s` on the last word. "Chocolate
+  milk" or "egg noodles" therefore get no hint, because a wrong cooking
+  instruction is worse than none. The lookup runs in the client dialog
+  (the table is static and dependency-free), and the hint is advisory
+  only: it never changes what gets added to the shopping list. No AI, no
+  schema change.
 
 ### Mark meal as cooked → inventory decrement
 

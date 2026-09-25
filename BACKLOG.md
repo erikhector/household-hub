@@ -519,23 +519,6 @@ out to be a product-scope question rather than a scoped task should move to
       dialog (`window.print()` behind a small "Print" affordance in the
       `⋯` menu, same menu AUTO-5 is consolidating actions into).
 
-- [ ] **GAP-25. Substitution hints for missing ingredients** —
-      `src/app/dashboard/meal-planning/missing-ingredients.ts`,
-      `src/components/meal-planning/missing-ingredients-dialog.tsx`.
-      Paprika and Plan to Eat both suggest a common swap ("no buttermilk? use
-      milk + lemon juice") instead of just flagging a shortfall; today
-      `computeMissingIngredients` only ever reports "need 2, have 0.5" with
-      no next step besides adding it to the shopping list. A small static
-      bilingual substitution table (`src/lib/inventory/substitutions.ts`,
-      keyed by normalized ingredient name — same `normalizeUnit`-style
-      lowercase/trim keying `missing-ingredients.ts` already uses for
-      grouping, mirroring AUTO-2's category dictionary approach rather than
-      an AI call) surfaces a muted "try: X instead" line under a missing
-      ingredient in the dialog when a match exists. No schema change,
-      deterministic and keyless per the Guardrails' AI-is-the-long-tail rule
-      — a good candidate to *not* need AI at all, unlike most of the
-      `AUTO-` items.
-
 - [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
       needs an infrastructure decision before scoping. Bring! and AnyList
       show a live indicator when another household member has the same list

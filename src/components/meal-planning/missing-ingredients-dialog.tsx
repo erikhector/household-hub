@@ -27,13 +27,17 @@ import {
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { format, plural } from "@/lib/i18n/format";
+import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/substitutions";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
-type ReviewItem = MissingIngredientData & { included: boolean };
+type ReviewItem = MissingIngredientData & {
+  included: boolean;
+  substitutionKey: SubstitutionKey | null;
+};
 
 const initialState: ActionState = {};
 
@@ -84,7 +88,16 @@ export function MissingIngredientsDialog({
       if ("error" in result) {
         setPreviewError(result.error);
       } else {
-        setItems(result.items.map((item) => ({ ...item, included: true })));
+        // Substitution hints (GAP-25) are looked up here rather than in the
+        // preview action: the table is static and client-safe, and the hint
+        // is purely advisory — it never changes what gets added to the list.
+        setItems(
+          result.items.map((item) => ({
+            ...item,
+            included: true,
+            substitutionKey: findSubstitutionKey(item.name),
+          })),
+        );
       }
     });
   }
@@ -155,6 +168,13 @@ export function MissingIngredientsDialog({
                   </label>
                   {item.unitMismatch && (
                     <p className="pl-6 text-xs text-warning">{dict.missingIngredientUnitMismatchNote}</p>
+                  )}
+                  {item.substitutionKey && (
+                    <p className="pl-6 text-xs text-muted-foreground">
+                      {format(dict.missingIngredientSubstitutionHint, {
+                        substitute: dict.substitutions[item.substitutionKey],
+                      })}
+                    </p>
                   )}
                 </div>
               ))}
