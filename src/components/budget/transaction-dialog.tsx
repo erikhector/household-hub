@@ -30,7 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
+import { SplitEditor } from "@/components/budget/split-editor";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -51,7 +52,14 @@ export type TransactionFormAction = (
 
 export type MemberOption = { id: string; displayName: string };
 
-export type TransactionSplitRow = { householdMemberId: string; amountOwed: number };
+export type TransactionSplitRow = {
+  householdMemberId: string;
+  amountOwed: number;
+  /** What this member has paid towards the bill (TransactionSplit.amountPaid).
+   * Optional because a recurring template's saved split (the other user of
+   * this type, via TransactionTemplatePrefill) has shares but no payments. */
+  amountPaid?: number;
+};
 
 export type TransactionRow = {
   id: string;
@@ -61,7 +69,6 @@ export type TransactionRow = {
   date: Date;
   isRecurring: boolean;
   recurrenceFrequency: RecurrenceFrequency | null;
-  paidByMemberId: string | null;
   splits: TransactionSplitRow[];
 };
 
@@ -82,6 +89,25 @@ function buildInitialSplitAmounts(
   }
   const even = evenSplitAmounts(transaction?.amount ?? prefillFromTemplate?.amount ?? 0, members.length);
   return Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)]));
+}
+
+/** Who has paid what so far. Editing keeps the saved payments; a new split
+ * defaults to the signed-in member paying the whole amount — the same
+ * default the old single "Paid by" select had — and the user lowers it (or
+ * adds another member's payment) when the bill was paid partly. */
+function buildInitialPaidAmounts(
+  transaction: TransactionRow | undefined,
+  amount: string,
+  members: MemberOption[],
+  currentMemberId: string,
+): Record<string, string> {
+  if (transaction && transaction.splits.length > 0) {
+    const byMember = new Map(transaction.splits.map((s) => [s.householdMemberId, s.amountPaid ?? 0]));
+    return Object.fromEntries(members.map((m) => [m.id, (byMember.get(m.id) ?? 0).toFixed(2)]));
+  }
+  return Object.fromEntries(
+    members.map((m) => [m.id, m.id === currentMemberId ? amount || "0" : "0"]),
+  );
 }
 
 function hasSplit(
@@ -146,8 +172,8 @@ export function TransactionDialog({
    * always passes `[]` (BUDGET-2), which suppresses the split section the
    * same way a genuinely single-member household would. */
   members: MemberOption[];
-  /** The signed-in user's own household member id, used to default "paid
-   * by" to themselves. The personal budget page passes `""` — never read,
+  /** The signed-in user's own household member id, used to default a new
+   * split's payment to themselves. The personal budget page passes `""` — never read,
    * since `members` is always empty there too. */
   currentMemberId: string;
   /** "YYYY-MM" of the month currently being browsed (page.tsx's `?month=`) —
@@ -185,12 +211,16 @@ export function TransactionDialog({
     toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)),
   );
   const [splitEnabled, setSplitEnabled] = useState(canSplit && hasSplit(transaction, prefillFromTemplate));
-  const [paidByMemberId, setPaidByMemberId] = useState(
-    transaction?.paidByMemberId ?? currentMemberId,
-  );
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>(() =>
     buildInitialSplitAmounts(transaction, prefillFromTemplate, members),
   );
+  const [paidAmounts, setPaidAmounts] = useState<Record<string, string>>(() =>
+    buildInitialPaidAmounts(transaction, amount, members, currentMemberId),
+  );
+  // Until the user edits a payment, a new split's "paid" column follows the
+  // amount field (see buildInitialPaidAmounts), so typing the amount after
+  // ticking "Split this expense" doesn't leave a stale 0 behind.
+  const [paidTouched, setPaidTouched] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -212,8 +242,16 @@ export function TransactionDialog({
       transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
     );
     setSplitEnabled(canSplit && hasSplit(transaction, prefillFromTemplate));
-    setPaidByMemberId(transaction?.paidByMemberId ?? currentMemberId);
     setSplitAmounts(buildInitialSplitAmounts(transaction, prefillFromTemplate, members));
+    setPaidAmounts(
+      buildInitialPaidAmounts(
+        transaction,
+        transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
+        members,
+        currentMemberId,
+      ),
+    );
+    setPaidTouched(false);
     setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
   }
 
@@ -222,9 +260,15 @@ export function TransactionDialog({
     setSplitAmounts(Object.fromEntries(members.map((m, i) => [m.id, (even[i] ?? 0).toFixed(2)])));
   }
 
-  const splitTotal = Object.values(splitAmounts).reduce((sum, v) => sum + (Number(v) || 0), 0);
-  const splitMismatch =
-    splitEnabled && Math.abs(splitTotal - (Number(amount) || 0)) > 0.01;
+  const splitCheck = checkSplitForm(amount, splitAmounts, paidAmounts);
+  const splitInvalid = splitEnabled && (splitCheck.shareMismatch || splitCheck.overpaid);
+
+  function handleAmountChange(next: string) {
+    setAmount(next);
+    if (!isEdit && !paidTouched) {
+      setPaidAmounts(buildInitialPaidAmounts(undefined, next, members, currentMemberId));
+    }
+  }
 
   return (
     <Dialog
@@ -276,7 +320,7 @@ export function TransactionDialog({
                 min={0.01}
                 step="any"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 required
               />
             </div>
@@ -350,75 +394,26 @@ export function TransactionDialog({
                 />
                 {dict.split?.toggleLabel}
               </label>
-              {splitEnabled && (
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="tx-paid-by">{dict.split?.paidByLabel}</Label>
-                    <Select
-                      name="paidByMemberId"
-                      value={paidByMemberId}
-                      onValueChange={(v) => setPaidByMemberId(String(v))}
-                    >
-                      <SelectTrigger id="tx-paid-by" className="w-full">
-                        <SelectValue>
-                          {(v: string) => members.find((m) => m.id === v)?.displayName ?? v}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {members.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label>{dict.split?.sharesLabel}</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => resetToEvenSplit(amount)}
-                    >
-                      {dict.split?.splitEvenlyButton}
-                    </Button>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {members.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2">
-                        <input type="hidden" name="splitMemberId" value={m.id} />
-                        <span className="min-w-0 flex-1 truncate text-sm">{m.displayName}</span>
-                        <Input
-                          name="splitAmount"
-                          type="number"
-                          min={0}
-                          step="any"
-                          className="w-24 shrink-0"
-                          value={splitAmounts[m.id] ?? "0"}
-                          onChange={(e) =>
-                            setSplitAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
-                          }
-                          aria-label={format(dict.split?.amountAriaLabel ?? "", { name: m.displayName })}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {splitMismatch && (
-                    <p className="text-xs text-destructive">
-                      {format(dict.split?.mismatchWarning ?? "", {
-                        total: splitTotal.toFixed(2),
-                        amount: (Number(amount) || 0).toFixed(2),
-                      })}
-                    </p>
-                  )}
-                </div>
+              {splitEnabled && dict.split && (
+                <SplitEditor
+                  members={members}
+                  amount={amount}
+                  shares={splitAmounts}
+                  paid={paidAmounts}
+                  onSharesChange={setSplitAmounts}
+                  onPaidChange={(next) => {
+                    setPaidAmounts(next);
+                    setPaidTouched(true);
+                  }}
+                  onSplitEvenly={() => resetToEvenSplit(amount)}
+                  dict={dict.split}
+                />
               )}
             </div>
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
-            <Button type="submit" disabled={pending || splitMismatch}>
+            <Button type="submit" disabled={pending || splitInvalid}>
               {pending ? dict.saving : isEdit ? dict.save : dict.add}
             </Button>
           </DialogFooter>

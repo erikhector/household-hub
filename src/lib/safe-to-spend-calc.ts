@@ -1,9 +1,9 @@
-// Pure aggregation logic for the "safe to spend" hero stat — see
-// REQUIREMENTS.md's "Safe to spend" subsection under Budgeting. Kept
-// dependency-free (no Prisma import) so it's unit-testable with plain
-// fixtures; src/app/dashboard/budget/page.tsx is the only caller, feeding it
-// data from the same `transactions` query it already runs for the rest of
-// the page.
+// Pure aggregation logic for the "safe to spend" hero stat — "Remaining
+// after expenses and savings" in the UI — see REQUIREMENTS.md's "Safe to
+// spend" subsection under Budgeting. Kept dependency-free (no Prisma import)
+// so it's unit-testable with plain fixtures. Callers: the household budget
+// page directly, and Personal Budget + the dashboard through
+// src/lib/personal-budget-position.ts.
 
 export type SafeToSpendTransaction = {
   categoryId: string;
@@ -22,9 +22,20 @@ export type SafeToSpendTransaction = {
 };
 
 export type ExpectedRecurringExpense = {
+  /** A stable key for the row — a category id for the transaction-based
+   * estimate, a template or transaction id otherwise. */
   categoryId: string;
+  /** The row's label (category, template or bill name). */
   categoryName: string;
   amount: number;
+  /** "SAVINGS" for a recurring saving that hasn't been put aside yet ("due
+   * savings"); anything else is a due payment. Unset means "EXPENSE", which
+   * is all the transaction-based estimate below ever produces. */
+  type?: "EXPENSE" | "SAVINGS";
+  /** The unpaid part of the user's share of a shared bill that's already
+   * logged — see settle-up-calc.ts's computeBillPositions — rather than a
+   * recurring item that hasn't been logged at all. Display only. */
+  leftDue?: boolean;
   // Purely additive, display-layer tags — computeSafeToSpend itself never
   // sets these (every row it produces is implicitly "personal"); a caller
   // that wants to show shared-household rows alongside them (see
@@ -38,17 +49,43 @@ export type ExpectedRecurringExpense = {
   householdName?: string;
 };
 
+/** Personal budget only: the user's standing with the other members of one
+ * household, as of the end of the month being viewed — shown under the
+ * headline number (see src/lib/personal-budget-position.ts). */
+export type HouseholdDebt = {
+  householdId: string;
+  householdName: string;
+  /** Positive: the user owes the other members this much. Negative: they
+   * owe the user. Never includes unpaid bills (see `owedToBills`). */
+  owedToMembers: number;
+  /** The user's unpaid share of this household's bills. */
+  owedToBills: number;
+};
+
 // Ratio of income-so-far below which a still-positive `safeToSpend` counts
 // as "tight" rather than "healthy" — see the "status" doc comment below.
 const TIGHT_THRESHOLD_RATIO = 0.1;
 
 export type SafeToSpendStatus = "over" | "tight" | "healthy";
 
+/** Each term of the headline number, for the breakdown under it. All
+ * non-negative; `safeToSpend = income - expense - savings - owedFromEarlier
+ * - duePayments - dueSavings`. */
+export type SafeToSpendBreakdown = {
+  income: number;
+  expense: number;
+  savings: number;
+  owedFromEarlier: number;
+  duePayments: number;
+  dueSavings: number;
+};
+
 export type SafeToSpendResult = {
   /** Income so far this month, minus expenses so far this month, minus
-   * savings so far this month, minus the sum of `expectedRecurring` amounts
-   * below. */
+   * savings so far this month, minus anything still owed from earlier
+   * months, minus the sum of `expectedRecurring` amounts below. */
   safeToSpend: number;
+  breakdown: SafeToSpendBreakdown;
   /** Recurring expense categories estimated as "expected but not yet
    * logged" this month, sorted largest-first for the breakdown UI. */
   expectedRecurring: ExpectedRecurringExpense[];
@@ -79,15 +116,26 @@ export function deriveSafeToSpend({
   incomeSoFar,
   expenseSoFar,
   savingsSoFar,
+  owedFromEarlier = 0,
   expectedRecurring,
 }: {
   incomeSoFar: number;
   expenseSoFar: number;
   savingsSoFar: number;
+  /** Personal budget only: what the user still owed household members, or
+   * still owed on shared bills, when the month started — debts carry over
+   * until they're cleared (see src/lib/personal-budget-position.ts). */
+  owedFromEarlier?: number;
   expectedRecurring: ExpectedRecurringExpense[];
-}): { safeToSpend: number; status: SafeToSpendStatus } {
-  const expectedTotal = expectedRecurring.reduce((sum, e) => sum + e.amount, 0);
-  const safeToSpend = incomeSoFar - expenseSoFar - savingsSoFar - expectedTotal;
+}): { safeToSpend: number; status: SafeToSpendStatus; breakdown: SafeToSpendBreakdown } {
+  let duePayments = 0;
+  let dueSavings = 0;
+  for (const e of expectedRecurring) {
+    if (e.type === "SAVINGS") dueSavings += e.amount;
+    else duePayments += e.amount;
+  }
+  const safeToSpend =
+    incomeSoFar - expenseSoFar - savingsSoFar - owedFromEarlier - duePayments - dueSavings;
 
   const status: SafeToSpendStatus =
     safeToSpend < 0
@@ -96,13 +144,47 @@ export function deriveSafeToSpend({
         ? "tight"
         : "healthy";
 
-  return { safeToSpend, status };
+  return {
+    safeToSpend,
+    status,
+    breakdown: {
+      income: incomeSoFar,
+      expense: expenseSoFar,
+      savings: savingsSoFar,
+      owedFromEarlier,
+      duePayments,
+      dueSavings,
+    },
+  };
 }
 
+/** A recurring item (RecurringTemplate/PersonalRecurringTemplate) with its
+ * status for the month being viewed — see computeTemplateStatuses in
+ * src/lib/recurring-template-calc.ts. */
+export type SafeToSpendTemplate = {
+  id: string;
+  name: string;
+  categoryId: string;
+  type: "INCOME" | "EXPENSE" | "SAVINGS";
+  amount: number;
+  status: "posted" | "acknowledged" | "due";
+};
+
 /**
- * Estimates recurring EXPENSE categories that haven't posted a transaction
- * yet this month, and derives the headline "safe to spend" number from
- * them.
+ * Works out what's still due this month and derives the headline "safe to
+ * spend" number from it.
+ *
+ * Recurring items (`templates`) come first: every active one still "due"
+ * this month is subtracted at its full amount, payments and savings alike.
+ * One that's "posted" (a transaction was logged from it) counts only through
+ * that transaction, even when it was logged for less than the item says — a
+ * 5000 saving logged as 3000 means 3000 was saved, not that 2000 is still
+ * owed. "Acknowledged" counts as handled.
+ *
+ * Categories without a recurring item fall back to the older estimate below,
+ * so households that only ever ticked "this repeats" on a transaction keep
+ * getting one. A category that has an active recurring item is skipped
+ * there, so the two never count the same bill twice.
  *
  * Algorithm (see AGENT_TASKS_PHASE2.md task 5): for every EXPENSE category
  * with at least one `isRecurring` transaction dated before this month,
@@ -120,6 +202,8 @@ export function computeSafeToSpend({
   incomeSoFar,
   expenseSoFar,
   savingsSoFar,
+  templates = [],
+  owedFromEarlier = 0,
 }: {
   transactions: SafeToSpendTransaction[];
   monthStart: Date;
@@ -127,7 +211,11 @@ export function computeSafeToSpend({
   incomeSoFar: number;
   expenseSoFar: number;
   savingsSoFar: number;
+  /** Active recurring items with their status this month. */
+  templates?: SafeToSpendTemplate[];
+  owedFromEarlier?: number;
 }): SafeToSpendResult {
+  const templateCategoryIds = new Set(templates.map((t) => t.categoryId));
   const expenseTxByCategory = new Map<string, SafeToSpendTransaction[]>();
   for (const t of transactions) {
     if (t.type !== "EXPENSE") continue;
@@ -141,7 +229,9 @@ export function computeSafeToSpend({
 
   const expectedRecurring: ExpectedRecurringExpense[] = [];
 
-  for (const categoryTransactions of expenseTxByCategory.values()) {
+  for (const [categoryId, categoryTransactions] of expenseTxByCategory) {
+    if (templateCategoryIds.has(categoryId)) continue;
+
     const priorRecurring = categoryTransactions.filter(
       (t) => t.isRecurring && t.date < monthStart,
     );
@@ -162,17 +252,29 @@ export function computeSafeToSpend({
     });
   }
 
+  for (const t of templates) {
+    if (t.status !== "due" || t.type === "INCOME") continue;
+    expectedRecurring.push({
+      categoryId: t.id,
+      categoryName: t.name,
+      amount: t.amount,
+      type: t.type,
+    });
+  }
+
   expectedRecurring.sort((a, b) => b.amount - a.amount);
 
-  const { safeToSpend, status } = deriveSafeToSpend({
+  const { safeToSpend, status, breakdown } = deriveSafeToSpend({
     incomeSoFar,
     expenseSoFar,
     savingsSoFar,
+    owedFromEarlier,
     expectedRecurring,
   });
 
   return {
     safeToSpend,
+    breakdown,
     expectedRecurring,
     status,
   };

@@ -271,18 +271,15 @@ out to be a product-scope question rather than a scoped task should move to
       per item with ≥2 distinct stores on record, which was cheapest last
       time — the ICA-app-style comparison this data already supports.
 
-- [ ] **GAP-7. Settle up: record a settlement + a Swish payment link** —
-      `src/app/dashboard/budget/settle-up-calc.ts`,
-      `src/components/budget/household-balances.tsx`. REQUIREMENTS.md's
-      "Household expense splitting" section already flags this as
-      deliberately deferred ("no 'mark as settled' persistence... a note or
-      a zeroing transaction... no payment integration of any kind"). Splitwise
-      covers the first half (settlement records); a Swish deep link
-      (`swish://payment?data=...`, no API key needed, Sweden being this
-      app's primary locale alongside `sv.ts`) covers something Splitwise
-      itself doesn't for Swedish households. Do the settlement-record half
-      first (small, self-contained); treat the Swish link as a follow-on
-      once that's shipped and confirmed useful.
+- [ ] **GAP-7. Settle up: a Swish payment link** —
+      `src/components/budget/household-balances.tsx`. Recording a repayment
+      ("Clear debt", `MemberSettlement`) has shipped — see REQUIREMENTS.md's
+      "Household expense splitting". What's left is the payment half: a
+      Swish deep link (`swish://payment?data=...`, no API key needed, Sweden
+      being this app's primary locale alongside `sv.ts`) next to each
+      suggested transfer, pre-filled with the amount, covering something
+      Splitwise itself doesn't for Swedish households. Needs a phone number
+      per member, which the app doesn't store yet.
 
 - [ ] **GAP-8. Leftover tracking from "mark meal as cooked"** —
       `src/app/dashboard/meal-planning/cooking-actions.ts`. Today marking a
