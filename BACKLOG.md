@@ -286,23 +286,6 @@ out to be a product-scope question rather than a scoped task should move to
       one-shot OS notifications). Worth deciding the mechanism before
       committing, rather than treating it as a routine feature slice.
 
-- [ ] **GAP-27. Weekly household digest email** — new
-      `src/lib/actions/digest.ts` (or a scheduled route handler),
-      `src/lib/email.ts`. Cozi's daily family agenda email is a top-cited
-      reason households stick with it; this app's Resend integration
-      (`src/lib/email.ts`) is wired only for transactional auth mail
-      (invites, password reset, verification) — nothing summarizes what's
-      already computed for the in-app recaps (`MealVarietyRecap`,
-      `TasksWeeklyRecap`, expiring-soon items, the current month's
-      `SafeToSpend` headline). An opt-in (default off — email is a higher-
-      commitment channel than the bell) weekly digest reusing those same
-      pure calculators against each household's data, sent to every member
-      who's turned it on. Needs a scheduler this app doesn't have yet (a
-      cron-triggered route, e.g. Vercel Cron hitting a protected route
-      handler) — note that as a dependency before estimating, same spirit as
-      the `INFRA-` items' "needs a service" flag even though this one needs
-      no new paid provider, just a trigger.
-
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —

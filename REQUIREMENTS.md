@@ -3618,6 +3618,75 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     handler and does no caching — it exists purely to deliver push, not for
     offline support (see `INFRA-5` in BACKLOG.md).
 
+## Weekly digest email (GAP-27)
+
+An opt-in email, sent once a week, summarizing each household the recipient
+belongs to. It reuses the in-app recaps' own calculators rather than
+approximating them, so the email never disagrees with the app.
+
+- **Opt-in, per user, off by default** (`User.weeklyDigestEnabled`): email
+  is a higher-commitment channel than the bell or push. Toggled from the
+  "Weekly digest email" card on `/dashboard/profile`
+  (`WeeklyDigestSetting`, `setWeeklyDigestEnabledAction` in
+  `src/lib/actions/digest.ts`, session user only). Only **verified**
+  addresses (`emailVerifiedAt` set) are ever mailed; the card says so when
+  the toggle is on for an unverified address. A member of several
+  households gets one digest per household.
+- **Schedule**: `GET /api/cron/weekly-digest`, triggered by `vercel.json`'s
+  second cron (`0 16 * * 0`, Sunday 16:00 UTC, so the Monday-start week is
+  nearly over) and protected by the same `CRON_SECRET` bearer check as
+  `/api/cron/sync-notifications` (see DEPLOYMENT.md, "Scheduled jobs").
+  With `RESEND_API_KEY` unset the route is a successful no-op and reads
+  nothing. Households are processed `DIGEST_BATCH_SIZE` (10) at a time with
+  `Promise.allSettled`, so one failing household doesn't stop the rest, and
+  only households with at least one opted-in, verified member are loaded.
+- **Content** (`src/lib/weekly-digest-content.ts`, pure): each section appears
+  only when it has something to say, and **no email is sent at all** when
+  every section is empty.
+  - *Meals*: distinct recipes on the menu over the last 7 days, via
+    `computeMealVarietyRecap` with a 7-day window (the in-app card uses 30;
+    a weekly email shouldn't re-announce the same dinners four times).
+  - *Done this week*: `computeWeeklyTaskRecap`'s completer groups, with the
+    Tasks page's guardrail intact (names and titles, never counts or a
+    ranking). Unattributed completions show as "Someone".
+  - *Use it up*: in-stock items classified by `getExpiryStatus` (the
+    inventory badge's own thresholds) as past their date or expiring within
+    `EXPIRY_WARNING_DAYS`, estimated dates marked "(estimated)".
+  - *Household budget*: this month's household "Remaining after expenses
+    and savings" headline and its healthy/tight/over line, computed exactly
+    as the Budget page does (`computeTemplateStatuses` +
+    `computeSafeToSpend` over the same 12-month lookback). Left out when the
+    household has no categories, or nothing logged or due this month.
+  - Lists are capped at 10 entries with "…and N more". All user-entered
+    text is HTML-escaped.
+- **Language**: each recipient's stored account locale (`User.locale`, the
+  same preference the app UI follows), falling back to English for an
+  unrecognised value.
+- **Idempotency** (`WeeklyDigestSend`, unique on user + household +
+  `weekKey`, the week's Monday in UTC): the cron claims a row *before*
+  sending, so a retried or duplicated invocation in the same week hits the
+  unique constraint and skips that recipient. A failed send releases its
+  claim so the next run retries. If the process dies between claim and
+  send, that person misses one week rather than getting a duplicate. A
+  week with nothing to say records nothing. Rows older than 35 days are
+  pruned on each run.
+- **Unsubscribe without logging in**: every email carries a signed token
+  (`src/lib/digest-unsubscribe-token.ts`, HMAC-SHA256 over the user id,
+  keyed on `AUTH_SECRET` with a purpose prefix, stateless and non-expiring;
+  no new env var). It's used two ways:
+  - The `List-Unsubscribe` / `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+    headers (RFC 8058) point at `/api/digest/unsubscribe/[token]`. Its POST
+    unsubscribes immediately, which is what the mail client's own
+    Unsubscribe button sends. Its GET only redirects to the page below,
+    because mail scanners prefetch links and a mutating GET would switch
+    people off unasked.
+  - The footer link opens `/unsubscribe/[token]` (public), which
+    auto-submits a Server Action on load (`unsubscribeFromDigestAction`,
+    same pattern as `/verify-email/[token]`). One click in the email is
+    enough, and nothing changes during render.
+  The route won't send anything if `AUTH_SECRET` is missing, since every
+  email must carry a working unsubscribe link.
+
 ## Conventions
 
 - Server Actions live next to the routes that use them

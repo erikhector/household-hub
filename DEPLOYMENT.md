@@ -320,7 +320,7 @@ limiter fails over to the in-memory bucket for that single attempt rather
 than throwing — a transient Redis error should never turn into a 500 on
 login/signup — and logs the failure via `console.error`.
 
-## 7. Scheduled jobs (notification background sync)
+## 7. Scheduled jobs (notification background sync, weekly digest)
 
 `src/lib/notifications.ts`'s two lazy triggers — **meal-not-logged and
 expiring-soon only** (out-of-stock and list-cleared are unaffected: those
@@ -376,10 +376,17 @@ A `vercel.json` at the repo root already configures this:
     {
       "path": "/api/cron/sync-notifications",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 16 * * 0"
     }
   ]
 }
 ```
+
+(The second entry is the weekly digest email, covered in its own
+subsection below.)
 
 **Once daily by default because of a real platform limit, not a design
 choice:** Vercel's Hobby plan only runs Cron Jobs once per day — a
@@ -419,6 +426,37 @@ Either way, `-f` (`--fail`) makes `curl` exit non-zero on a non-2xx response
 (including the 401 you'd get from a missing/wrong secret), so the
 platform's own job-failure alerting catches a misconfigured secret instead
 of silently no-op'ing every run.
+
+### Weekly digest email (GAP-27)
+
+`GET /api/cron/weekly-digest` sends the opt-in weekly household digest (see
+REQUIREMENTS.md, "Weekly digest email"). It uses the **same `CRON_SECRET`
+bearer check** as the notification sync, so there's nothing new to set up
+beyond the schedule, and **no new environment variables**:
+
+- **`RESEND_API_KEY`**: without it the route returns `200`
+  `{"status":"skipped","reason":"email_not_configured"}` and does nothing.
+- **`AUTH_SECRET`** (already required) also signs each email's
+  unsubscribe link. Rotating it invalidates links in digests already sent.
+  That's harmless, because the next digest carries a fresh link and the
+  Profile toggle always works.
+- **`APP_URL`**: used for the links in the email when set. Otherwise
+  they're built from the origin the cron request arrived on, which on
+  Vercel is the production deployment's own URL. Set `APP_URL` if that
+  isn't your public domain.
+- **`EMAIL_FROM`**: should be a verified sending domain in production, as
+  for the other emails. Resend's shared `onboarding@resend.dev` sender only
+  delivers to the account owner's own address.
+
+**Schedule**: once a week. `vercel.json` uses `0 16 * * 0` (Sunday 16:00
+UTC, early evening in Europe), which is Hobby-safe. On Railway/Render, add
+a second cron job with the same `curl -f` command pointed at
+`/api/cron/weekly-digest` and a weekly schedule. Running it more often is
+safe: a `WeeklyDigestSend` row per recipient, household and week stops
+anyone getting the same week's digest twice. That also covers a retried or
+duplicated invocation. Watch the response body's `emailsFailed` and
+`failedHouseholdIds`. A failed send releases its claim, so re-triggering
+the route retries only the people who didn't get it.
 
 ## 8. Pull requests and releases (one-time GitHub setup)
 

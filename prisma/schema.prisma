@@ -51,6 +51,12 @@ model User {
   // parseInventoryViewPrefs (src/components/inventory/inventory-table-utils.ts)
   // since this is user-controlled JSON, not schema-checked.
   inventoryViewPrefs Json?
+  // GAP-27: opt-in weekly digest email (src/lib/weekly-digest.ts), toggled
+  // from the Profile page and switched off again by the email's own
+  // unsubscribe link. Off by default: email is a higher-commitment channel
+  // than the in-app bell or push, so nobody starts receiving it without
+  // asking for it.
+  weeklyDigestEnabled Boolean @default(false)
 
   // GAP-7: the user's own Swish number, so household members who owe them
   // money get a "Pay with Swish" link on the Budget page's "Who owes whom"
@@ -70,6 +76,7 @@ model User {
   passwordResetTokens        PasswordResetToken[]
   emailVerificationTokens    EmailVerificationToken[]
   pushSubscriptions          PushSubscription[]
+  weeklyDigestSends          WeeklyDigestSend[]
 }
 
 // One row per subscribed browser/device (src/lib/actions/push.ts). Per-user
@@ -144,6 +151,7 @@ model Household {
   notifications      Notification[]
   tasks              HouseholdTask[]
   notes              HouseholdNote[]
+  weeklyDigestSends  WeeklyDigestSend[]
 }
 
 model HouseholdMember {
@@ -1053,4 +1061,28 @@ model HouseholdNote {
   authorMember HouseholdMember? @relation(fields: [authorMemberId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
+}
+
+// GAP-27: one row per weekly digest email actually handed to Resend, keyed by
+// recipient, household and the Monday (UTC, yyyy-mm-dd) of the week it
+// covers. The unique constraint is the idempotency guard: the cron route
+// claims a row *before* sending (see src/lib/weekly-digest.ts), so a retried
+// or duplicated invocation in the same week — Vercel can deliver a cron
+// twice — hits the constraint instead of emailing the same person again.
+// Per household rather than per user alone because a member of two
+// households gets one digest for each. Old rows are pruned by the same cron
+// run; they're only ever needed for the current week.
+model WeeklyDigestSend {
+  id          String   @id @default(cuid())
+  userId      String
+  householdId String
+  weekKey     String
+  sentAt      DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, householdId, weekKey])
+  @@index([householdId])
+  @@index([sentAt])
 }
