@@ -30,6 +30,9 @@ type TaskRow = {
   completed: boolean;
   recurrenceIntervalDays: number | null;
   completedAt: Date | null;
+  rotationMemberIds: string[];
+  /** GAP-38: who's up after the current turn; null unless the task rotates. */
+  nextInRotationMemberId: string | null;
 };
 
 type TasksDict = Dictionary["tasks"];
@@ -119,6 +122,9 @@ function TaskItemRow({
 }) {
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
+  const nextInRotationName = task.nextInRotationMemberId
+    ? memberNameById.get(task.nextInRotationMemberId)
+    : undefined;
   const recurrenceLabel = task.recurrenceIntervalDays
     ? format(plural(task.recurrenceIntervalDays, dict.recurrenceBadge), { count: task.recurrenceIntervalDays })
     : null;
@@ -173,6 +179,13 @@ function TaskItemRow({
           </Badge>
         )}
         {nextDueLabel && <span className="shrink-0 text-xs text-muted-foreground">{nextDueLabel}</span>}
+        {/* Just whose turn is next — never a count or tally of who's done
+            it how often (see REQUIREMENTS.md, "Household tasks"). */}
+        {nextInRotationName && (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {format(dict.rotationNextLabel, { name: nextInRotationName })}
+          </span>
+        )}
         {!task.completed && (
           <Badge variant={assigneeName ? "secondary" : "outline"} className="shrink-0">
             {assigneeName ?? dict.unassignedBadge}

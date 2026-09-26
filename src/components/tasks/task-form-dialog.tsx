@@ -13,8 +13,16 @@
 // updateTaskAction (edit) takes a plain object rather than FormData, so the
 // `action` below adapts this same <form>'s FormData into that call for edit
 // mode — updateTaskAction's own validation/mutation is untouched.
+//
+// GAP-38: once a task repeats, "Take turns" lets you line up two or more
+// people; completing it passes it to the next one (see
+// src/lib/task-rotation.ts). The order is the order of the hidden
+// `rotationMemberIds` inputs, which FormData.getAll preserves. While a
+// rotation is set, "Assign to" becomes "whose turn it is now" and only
+// offers the people taking turns, matching what the server enforces.
 
 import { useActionState, useState, type ReactElement } from "react";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +47,7 @@ type EditableTask = {
   title: string;
   assignedToMemberId: string | null;
   recurrenceIntervalDays: number | null;
+  rotationMemberIds: string[];
 };
 
 type TasksDict = Dictionary["tasks"];
@@ -49,6 +58,10 @@ const initialState: ActionState = {};
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
+// Mirrors MIN_ROTATION_MEMBERS in src/lib/task-rotation.ts — not imported so
+// this Client Component doesn't pull in server-side modules by accident; the
+// server re-checks it anyway.
+const MIN_ROTATION_MEMBERS = 2;
 
 export function TaskFormDialog({
   mode,
@@ -72,6 +85,7 @@ export function TaskFormDialog({
   const [recurrence, setRecurrence] = useState(
     mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
   );
+  const [rotation, setRotation] = useState<string[]>(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -81,8 +95,30 @@ export function TaskFormDialog({
       setRecurrence(
         mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
       );
+      setRotation(mode === "edit" ? (task?.rotationMemberIds ?? []) : []);
     }
   };
+
+  const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? id;
+  const repeats = recurrence !== NO_REPEAT_VALUE;
+  // Taking turns only makes sense on a repeating task with at least two
+  // people in the household to take them.
+  const canRotate = repeats && members.length >= MIN_ROTATION_MEMBERS;
+  const rotating = canRotate && rotation.length >= MIN_ROTATION_MEMBERS;
+  // While rotating, the assignee is whose turn it is now, so it has to be
+  // one of the people in the rotation — fall back to the first of them
+  // rather than submitting a choice the server would reject.
+  const effectiveAssignee =
+    rotating && !rotation.includes(assignedToMemberId) ? rotation[0] : assignedToMemberId;
+  const assigneeOptions = rotating ? members.filter((m) => rotation.includes(m.id)) : members;
+  const membersNotInRotation = members.filter((m) => !rotation.includes(m.id));
+
+  const moveRotationMember = (index: number, delta: -1 | 1) =>
+    setRotation((current) => {
+      const next = [...current];
+      [next[index], next[index + delta]] = [next[index + delta], next[index]];
+      return next;
+    });
 
   // create: hand FormData straight to the real server action. edit: adapt
   // this same form's FormData into updateTaskAction's (taskId, input) shape
@@ -98,6 +134,7 @@ export function TaskFormDialog({
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
               : null,
+            rotationMemberIds: formData.getAll("rotationMemberIds").map(String),
           });
         };
 
@@ -135,15 +172,19 @@ export function TaskFormDialog({
           {(mode === "edit" || members.length > 0) && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-assignee">
-                {mode === "edit" ? dict.editTask.assigneeLabel : dict.assigneeLabel}
+                {rotating
+                  ? dict.rotationCurrentLabel
+                  : mode === "edit"
+                    ? dict.editTask.assigneeLabel
+                    : dict.assigneeLabel}
               </Label>
-              <Select value={assignedToMemberId} onValueChange={(v) => setAssignedToMemberId(String(v))}>
+              <Select value={effectiveAssignee} onValueChange={(v) => setAssignedToMemberId(String(v))}>
                 {/* Only submitted when an actual member is picked — the
                     "unassigned" sentinel is a client-only value the server
                     schema doesn't know about (assignedToMemberId is simply
                     omitted, same as any other optional field). */}
-                {assignedToMemberId !== UNASSIGNED_VALUE && (
-                  <input type="hidden" name="assignedToMemberId" value={assignedToMemberId} />
+                {effectiveAssignee !== UNASSIGNED_VALUE && (
+                  <input type="hidden" name="assignedToMemberId" value={effectiveAssignee} />
                 )}
                 <SelectTrigger id="task-assignee">
                   <SelectValue>
@@ -151,8 +192,8 @@ export function TaskFormDialog({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNASSIGNED_VALUE}>{dict.unassignedOption}</SelectItem>
-                  {members.map((m) => (
+                  {!rotating && <SelectItem value={UNASSIGNED_VALUE}>{dict.unassignedOption}</SelectItem>}
+                  {assigneeOptions.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.displayName}
                     </SelectItem>
@@ -190,6 +231,80 @@ export function TaskFormDialog({
               </SelectContent>
             </Select>
           </div>
+          {canRotate && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="task-rotation-add">{dict.rotationLabel}</Label>
+              <p className="text-xs text-muted-foreground">{dict.rotationHint}</p>
+              {rotation.length > 0 && (
+                <ol className="flex flex-col gap-1">
+                  {rotation.map((id, index) => (
+                    <li key={id} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+                      {/* Only submitted while the task repeats (this whole
+                          block is hidden otherwise), so switching to
+                          "doesn't repeat" clears the rotation on save. */}
+                      <input type="hidden" name="rotationMemberIds" value={id} />
+                      <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
+                      <span className="flex-1 truncate text-sm">{memberName(id)}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={index === 0}
+                        aria-label={format(dict.rotationMoveUpAriaLabel, { name: memberName(id) })}
+                        onClick={() => moveRotationMember(index, -1)}
+                      >
+                        <ArrowUp />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={index === rotation.length - 1}
+                        aria-label={format(dict.rotationMoveDownAriaLabel, { name: memberName(id) })}
+                        onClick={() => moveRotationMember(index, 1)}
+                      >
+                        <ArrowDown />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={format(dict.rotationRemoveAriaLabel, { name: memberName(id) })}
+                        onClick={() => setRotation((current) => current.filter((m) => m !== id))}
+                      >
+                        <X />
+                      </Button>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {membersNotInRotation.length > 0 && (
+                // Picking a name appends it and the select goes straight back
+                // to its placeholder, so it works as an "add" button rather
+                // than holding a value of its own.
+                <Select
+                  value={null}
+                  onValueChange={(v) => {
+                    if (v) setRotation((current) => [...current, String(v)]);
+                  }}
+                >
+                  <SelectTrigger id="task-rotation-add">
+                    <SelectValue placeholder={dict.rotationAddPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {membersNotInRotation.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.displayName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {rotation.length === 1 && (
+                <p className="text-xs text-muted-foreground">{dict.rotationNeedsTwo}</p>
+              )}
+            </div>
+          )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             {mode === "edit" && (
