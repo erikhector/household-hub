@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
+import { MoveMealDialog } from "@/components/meal-planning/move-meal-dialog";
 import {
   copyWeekAction,
   deleteMealEntryAction,
@@ -273,7 +274,13 @@ function MealTypeSlot({
       ) : (
         <div className="flex flex-col gap-1">
           {entries.map((entry) => (
-            <MealEntryRow key={entry.id} dict={dict} entry={entry} recipes={recipes} />
+            <MealEntryRow
+              key={entry.id}
+              dict={dict}
+              entry={entry}
+              recipes={recipes}
+              weekStartKey={weekStartKey}
+            />
           ))}
         </div>
       )}
@@ -281,8 +288,8 @@ function MealTypeSlot({
   );
 }
 
-// Every row reserves the same three fixed-width slots after the label (edit,
-// cooked-status, delete) — even when a slot has nothing to show — so the
+// Every row reserves the same four fixed-width slots after the label (edit,
+// move, cooked-status, delete) — even when a slot has nothing to show — so the
 // icon column lines up across rows instead of shifting with each entry's
 // state (freeform vs. recipe-linked, cooked vs. not).
 function IconSlot({ children }: { children?: ReactNode }) {
@@ -293,10 +300,12 @@ function MealEntryRow({
   dict,
   entry,
   recipes,
+  weekStartKey,
 }: {
   dict: MealPlanningDict;
   entry: MealPlanEntryData;
   recipes: RecipeData[];
+  weekStartKey: string;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
   // Portions only mean something next to a linked recipe — a freeform entry
@@ -331,6 +340,15 @@ function MealEntryRow({
               </Button>
             }
           />
+        )}
+      </IconSlot>
+
+      {/* GAP-30: hidden once cooked, same as the pencil. A cooked entry's
+          day and slot record when it was actually eaten, so
+          moveMealEntryAction refuses to move it (see its doc comment). */}
+      <IconSlot>
+        {!entry.consumedAt && (
+          <MoveMealDialog dict={dict} entry={entry} label={label} plannerWeekStartKey={weekStartKey} />
         )}
       </IconSlot>
 

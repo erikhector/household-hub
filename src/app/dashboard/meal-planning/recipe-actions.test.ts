@@ -628,10 +628,10 @@ describe("importRecipeFromUrlAction", () => {
 
   it("returns the parsed recipe on success", async () => {
     fetchRecipeHtmlMock.mockResolvedValue({ ok: true, html: "<html/>" });
-    parseRecipeFromHtmlMock.mockReturnValue({ name: "Soup", instructions: "", ingredients: [] });
+    parseRecipeFromHtmlMock.mockReturnValue({ name: "Soup", instructions: "", ingredients: [], source: "microdata" });
 
     const result = await importRecipeFromUrlAction({}, formData({ url: "https://example.com/recipe" }));
 
-    expect(result.recipe).toEqual({ name: "Soup", instructions: "", ingredients: [] });
+    expect(result.recipe).toEqual({ name: "Soup", instructions: "", ingredients: [], source: "microdata" });
   });
 });

@@ -8,7 +8,12 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { toFriendlyError } from "@/lib/actions/errors";
 import type { ActionState } from "@/lib/actions/auth";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
-import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/meal-planning/missing-ingredients";
+import {
+  computeMissingIngredients,
+  parseMissingIngredientsRange,
+  type IngredientNeed,
+  type MissingIngredientsRange,
+} from "@/app/dashboard/meal-planning/missing-ingredients";
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
@@ -25,7 +30,6 @@ import {
 } from "@/app/dashboard/meal-planning/leftovers";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
-const WEEK_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Mirrors recipe-actions.ts's identical bound on ingredient rows — kept as
 // its own copy here (rather than imported) to keep this feature's action
@@ -41,39 +45,50 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // --- Meal-plan → shopping-list bridge ---------------------------------------
 //
-// Diffs a planned week's recipe ingredients against current inventory and
-// lets the user push the shortfall onto a shopping list. Scoped to the whole
-// visible week (not a single day) — the simplest option per the task spec,
-// and it matches the competitor pattern (Mealime/Paprika/Plan to
-// Eat/Whisk all diff a full week at once). Freeform meal entries have no
-// `recipeId` and therefore no ingredients, so they're naturally excluded by
-// the `recipeId: { not: null }` filter below.
+// Diffs the planned recipe ingredients in a date range against current
+// inventory and lets the user push the shortfall onto a shopping list.
+// Defaults to the whole visible week (not a single day) — the competitor
+// pattern (Mealime/Paprika/Plan to Eat/Whisk all diff a full week at once) —
+// but since GAP-32 it takes any `[from, to)` range of up to
+// MAX_MISSING_INGREDIENTS_RANGE_DAYS days, e.g. "this week and next" before a
+// big trip. Freeform meal entries have no `recipeId` and therefore no
+// ingredients, so they're naturally excluded by the `recipeId: { not: null }`
+// filter below.
 //
 // This is a read-only preview — no rows are written — so the user can review
 // suggested quantities before anything is committed via
 // addMissingIngredientsToShoppingListAction below.
 export async function previewMissingIngredientsAction(
-  weekStartKey: string,
+  range: MissingIngredientsRange,
 ): Promise<{ items: MissingIngredientData[] } | { error: string }> {
   const { household } = await requireHousehold();
 
-  if (!WEEK_KEY_RE.test(weekStartKey)) {
-    return { error: "Invalid week" };
+  // Zod-validated and capped server-side (see missing-ingredients.ts) — the
+  // dialog checks the same thing, but a Server Action is callable directly.
+  const parsed = parseMissingIngredientsRange(range);
+  if (!parsed) {
+    return { error: "Invalid date range" };
   }
 
-  const weekStartDate = new Date(`${weekStartKey}T00:00:00.000Z`);
-
-  const plan = await prisma.mealPlan.findFirst({
-    where: { householdId: household.id, weekStartDate },
-    include: {
-      entries: {
-        where: { recipeId: { not: null } },
-        select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
-      },
+  // Filters on each entry's own `date` rather than looking up one MealPlan
+  // by weekStartDate, so a range can span several weeks' MealPlan rows (or
+  // start mid-week) — the same shape the meal-variety recap's query in
+  // page.tsx already uses. The household scope goes through the entry's
+  // MealPlan, the same `mealPlan: { householdId }` guard loadCookableEntry
+  // uses. For the default "this week" range this selects the same entries
+  // as the old single-MealPlan lookup: the planner only ever dates an entry
+  // on one of its own plan's seven days (the week grid's day cells, and
+  // copyWeekAction's day-offset shift in planner-actions.ts).
+  const entries = await prisma.mealPlanEntry.findMany({
+    where: {
+      mealPlan: { householdId: household.id },
+      date: { gte: parsed.from, lt: parsed.to },
+      recipeId: { not: null },
     },
+    select: { recipeId: true, portions: true, recipe: { select: { servings: true } } },
   });
 
-  if (!plan || plan.entries.length === 0) {
+  if (entries.length === 0) {
     return { items: [] };
   }
 
@@ -90,7 +105,7 @@ export async function previewMissingIngredientsAction(
   // recipe-expansion.ts.
   const expanded = (
     await Promise.all(
-      plan.entries.map((entry) =>
+      entries.map((entry) =>
         expandRecipeIngredients(
           household.id,
           entry.recipeId!,
@@ -149,6 +164,10 @@ export async function previewMissingIngredientsAction(
   return { items: computeMissingIngredients(needs) };
 }
 
+// Takes no date range of its own (GAP-32): it commits exactly the rows the
+// user reviewed and left checked in the preview above, so whatever range the
+// preview used is, by construction, the range that gets applied — there's
+// no second meal-plan read here that could drift from it.
 const addMissingIngredientsSchema = z.object({
   targetListId: z.string().min(1, "Choose a shopping list"),
   newListName: z.string().trim().max(120).optional(),

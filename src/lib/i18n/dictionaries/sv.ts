@@ -1014,6 +1014,12 @@ export const sv = {
     addMealDialogTitle: "Lägg till en måltid",
     editMealAriaLabel: "Redigera måltid",
     editMealDialogTitle: "Redigera måltid",
+    moveMealAriaLabel: "Flytta måltid",
+    moveMealDialogTitle: "Flytta {meal}",
+    moveMealSubmit: "Flytta",
+    moving: "Flyttar…",
+    mealMovedToast: "{meal} flyttad",
+    mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
     customMealNameLabel: "Måltidens namn",
@@ -1042,6 +1048,8 @@ export const sv = {
     importButton: "Importera",
     importing: "Importerar…",
     importSuccess: "Importerat — granska fälten nedan och spara sedan.",
+    importLowConfidence:
+      "Granska innan du sparar: sidan saknar standardiserad receptdata, så fälten nedan är gissade utifrån sidans layout och kan vara ofullständiga eller fel.",
     importErrorInvalidUrl: "Ange en giltig webbadress (som börjar med http:// eller https://).",
     importErrorBlockedHost: "Den adressen kan inte hämtas.",
     importErrorFetchFailed: "Kunde inte läsa in sidan. Kontrollera länken och försök igen.",
@@ -1121,6 +1129,15 @@ export const sv = {
     missingIngredientsDialogTitle: "Lägg till saknade ingredienser",
     loadingMissingIngredients: "Kontrollerar vad du redan har…",
     noMissingIngredients: "Du har redan allt du behöver för veckans planerade måltider.",
+    noMissingIngredientsInRange: "Du har redan allt du behöver för de planerade måltiderna under perioden.",
+    missingIngredientsRangeLabel: "Period",
+    missingIngredientsRangeThisWeek: "Den här veckan",
+    missingIngredientsRangeTwoWeeks: "Den här och nästa vecka",
+    missingIngredientsRangeCustom: "Egna datum…",
+    missingIngredientsRangeFrom: "Från",
+    missingIngredientsRangeThrough: "Till och med",
+    missingIngredientsRangeInvalid:
+      "Välj ett slutdatum som är samma dag som startdatumet eller senare, högst {max} dagar totalt.",
     missingIngredientCount: {
       one: "{count} ingrediens saknas",
       other: "{count} ingredienser saknas",
@@ -1463,6 +1480,28 @@ export const sv = {
       noCheapestStoreData:
         "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
+      stockValueTitle: "Hemma just nu",
+      stockValueSubtitle:
+        "Ungefär vad allt du har hemma kostade, till priset du betalade senast du köpte varje vara.",
+      noStockData: "Det finns inget i lager just nu.",
+      stockValueBasis: {
+        one: "Baserat på {priced} av {count} vara med känt pris.",
+        other: "Baserat på {priced} av {count} varor med känt pris.",
+      },
+      stockValueNoPrices: {
+        one: "{count} vara finns i lager, men den har inget känt pris än.",
+        other: "{count} varor finns i lager, men ingen av dem har något känt pris än.",
+      },
+      basketTitle: "Din lista, butik för butik",
+      basketSubtitle:
+        "Vad de oavbockade varorna på dina inköpslistor kostade senast i varje butik. Bara varor du köpt i 2+ butiker räknas.",
+      noBasketData:
+        "Inte tillräckligt att jämföra än. När minst 2 varor på dina inköpslistor har priser från 2+ butiker ser du här vad listan skulle kosta i varje butik.",
+      basketCoverage: "{count} av {total} varor prissatta",
+      basketAllPriced: "Alla {total} varor prissatta",
+      basketCheapestBadge: "Billigast",
+      basketPartialNote:
+        "Butiker som saknar pris på vissa varor visar summan för de prissatta varorna och rangordnas efter butiker med fler priser.",
       expiredTitle: "Gick ut innan den användes",
       expiredSubtitle:
         "Mat som nådde sitt bäst före-datum den här månaden innan den tog slut, ungefär till vad den kostade senast du köpte den.",

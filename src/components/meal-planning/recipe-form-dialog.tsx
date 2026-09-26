@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState, type ReactElement } from "react";
-import { Link2, Plus, Trash2 } from "lucide-react";
+import { Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -270,8 +270,21 @@ export function RecipeFormDialog({
             </Button>
           </div>
           {importState.error && <p className="text-sm text-destructive">{importState.error}</p>}
-          {!importState.error && importState.recipe && (
+          {/* Only a JSON-LD import is the site's own structured data; the
+              Microdata and heading-heuristic fallbacks (GAP-31) are guesses,
+              so they get a louder, explicit "review before saving" notice
+              instead of the plain success line. */}
+          {!importState.error && importState.recipe && importState.recipe.source === "jsonld" && (
             <p className="text-sm text-chart-5">{dict.importSuccess}</p>
+          )}
+          {!importState.error && importState.recipe && importState.recipe.source !== "jsonld" && (
+            <p
+              role="status"
+              className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/5 p-2 text-sm text-warning"
+            >
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              {dict.importLowConfidence}
+            </p>
           )}
         </form>
 

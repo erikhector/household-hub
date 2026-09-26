@@ -11,8 +11,12 @@ import {
   type ItemPriceTrend,
   type MonthlySpendPoint,
 } from "@/components/budget/cost-analyzer";
-import { computeCheapestStoreComparisons } from "@/lib/cheapest-store-calc";
+import {
+  computeBasketStoreComparison,
+  computeCheapestStoreComparisons,
+} from "@/lib/cheapest-store-calc";
 import { computeExpiredWaste } from "@/lib/inventory/expired-waste";
+import { computeStockValue } from "@/lib/inventory/stock-value";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import {
   HouseholdBalances,
@@ -126,10 +130,17 @@ async function CostAnalyzerSection({
   // month and has already passed — the only rows computeExpiredWaste can
   // ever count. Same Suspense boundary and household scope rather than its
   // own section, since it's one small read on InventoryItem.
+  //
+  // GAP-33: and every item currently in stock, for the "on hand now" value
+  // shown next to it — two columns per row, same scope again.
+  //
+  // GAP-34: and the inventory ids of every unchecked row on the household's
+  // ACTIVE lists — the "basket" the whole-list store comparison prices.
+  // Only the ids: the prices come from priceHistoryRows, already fetched.
   const now = new Date();
   const thisMonthStart = getMonthStart(now);
   const lastMonthStart = addMonths(thisMonthStart, -1);
-  const [priceHistoryRows, expiredCandidates] = await Promise.all([
+  const [priceHistoryRows, expiredCandidates, inStockItems, pendingListItems] = await Promise.all([
     prisma.priceHistory.findMany({
       where: { inventoryItem: { householdId } },
       include: { inventoryItem: { select: { id: true, name: true } } },
@@ -147,12 +158,25 @@ async function CostAnalyzerSection({
         updatedAt: true,
       },
     }),
+    prisma.inventoryItem.findMany({
+      where: { householdId, quantity: { gt: 0 } },
+      select: { quantity: true, lastKnownPrice: true },
+    }),
+    prisma.shoppingListItem.findMany({
+      where: {
+        purchased: false,
+        inventoryItemId: { not: null },
+        shoppingList: { householdId, status: "ACTIVE" },
+      },
+      select: { inventoryItemId: true },
+    }),
   ]);
   // This month is the recap itself, last month one line of context — no
   // further back, since the snapshot it's derived from decays (a restock
   // re-estimates the date; see expired-waste.ts's doc comment).
   const expiredThisMonth = computeExpiredWaste(expiredCandidates, thisMonthStart, getMonthEnd(now), now);
   const expiredLastMonth = computeExpiredWaste(expiredCandidates, lastMonthStart, thisMonthStart, now);
+  const stockValue = computeStockValue(inStockItems);
 
   const monthlyTotals = new Map<string, number>();
   for (const row of priceHistoryRows) {
@@ -185,14 +209,19 @@ async function CostAnalyzerSection({
   // even if it isn't (yet) enough purchase history for a trend line. See
   // computeCheapestStoreComparisons's doc comment for the "last recorded
   // price per store, not lowest ever" rule this follows.
-  const storeComparisons = computeCheapestStoreComparisons(
-    priceHistoryRows.map((row) => ({
-      inventoryItemId: row.inventoryItemId,
-      itemName: row.inventoryItem.name,
-      price: row.price,
-      store: row.store,
-      date: row.date,
-    })),
+  const storeRows = priceHistoryRows.map((row) => ({
+    inventoryItemId: row.inventoryItemId,
+    itemName: row.inventoryItem.name,
+    price: row.price,
+    store: row.store,
+    date: row.date,
+  }));
+  const storeComparisons = computeCheapestStoreComparisons(storeRows);
+  // GAP-34: the same rows, summed per store over what's on the list right
+  // now. null (→ empty state) under MIN_BASKET_ITEMS qualifying items.
+  const basketComparison = computeBasketStoreComparison(
+    storeRows,
+    pendingListItems.flatMap((item) => (item.inventoryItemId ? [item.inventoryItemId] : [])),
   );
 
   const itemTrends: ItemPriceTrend[] = [...pointsByItem.values()]
@@ -210,8 +239,10 @@ async function CostAnalyzerSection({
       monthlySpending={monthlySpending}
       itemTrends={itemTrends}
       storeComparisons={storeComparisons}
+      basketComparison={basketComparison}
       expiredThisMonth={expiredThisMonth}
       expiredLastMonth={expiredLastMonth}
+      stockValue={stockValue}
       dict={dict}
       locale={locale}
       currencyCode={currencyCode}

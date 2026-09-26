@@ -1068,6 +1068,12 @@ export const en = {
     addMealDialogTitle: "Add a meal",
     editMealAriaLabel: "Edit meal",
     editMealDialogTitle: "Edit meal",
+    moveMealAriaLabel: "Move meal",
+    moveMealDialogTitle: "Move {meal}",
+    moveMealSubmit: "Move",
+    moving: "Moving…",
+    mealMovedToast: "Moved {meal}",
+    mealMovedDifferentWeekToast: "Moved {meal} to a different week than you're viewing",
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
     customMealNameLabel: "Meal name",
@@ -1096,6 +1102,8 @@ export const en = {
     importButton: "Import",
     importing: "Importing…",
     importSuccess: "Imported — review the fields below, then save.",
+    importLowConfidence:
+      "Review before saving: this page has no standard recipe data, so the fields below were guessed from its layout and may be incomplete or wrong.",
     importErrorInvalidUrl: "Enter a valid web address (starting with http:// or https://).",
     importErrorBlockedHost: "That address can't be fetched.",
     importErrorFetchFailed: "Couldn't load that page. Check the link and try again.",
@@ -1177,6 +1185,18 @@ export const en = {
     missingIngredientsDialogTitle: "Add missing ingredients",
     loadingMissingIngredients: "Checking what you already have…",
     noMissingIngredients: "You already have everything you need for this week's planned meals.",
+    // Date-range picker in the missing-ingredients dialog (GAP-32) — see
+    // previewMissingIngredientsAction in cooking-actions.ts. "This week" is
+    // the visible planner week; "this week and next" adds the week after it.
+    noMissingIngredientsInRange: "You already have everything you need for the planned meals in this period.",
+    missingIngredientsRangeLabel: "Plan period",
+    missingIngredientsRangeThisWeek: "This week",
+    missingIngredientsRangeTwoWeeks: "This week and next",
+    missingIngredientsRangeCustom: "Custom dates…",
+    missingIngredientsRangeFrom: "From",
+    missingIngredientsRangeThrough: "Through",
+    missingIngredientsRangeInvalid:
+      "Pick an end date on or after the start date, at most {max} days in total.",
     missingIngredientCount: {
       one: "{count} ingredient needed",
       other: "{count} ingredients needed",
@@ -1525,6 +1545,29 @@ export const en = {
       noCheapestStoreData:
         "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
+      stockValueTitle: "On hand now",
+      stockValueSubtitle:
+        "Roughly what everything you have in stock cost, at the price you paid last time you bought each item.",
+      noStockData: "Nothing is in stock right now.",
+      stockValueBasis: {
+        one: "Based on {priced} of {count} item with a known price.",
+        other: "Based on {priced} of {count} items with a known price.",
+      },
+      stockValueNoPrices: {
+        one: "{count} item is in stock, but it has no known price yet.",
+        other: "{count} items are in stock, but none of them has a known price yet.",
+      },
+      basketTitle: "Your list, store by store",
+      basketSubtitle:
+        "What the unchecked items on your shopping lists cost last time at each store. Only items you've bought at 2+ stores are counted.",
+      noBasketData:
+        "Not enough to compare yet. Once at least 2 items on your shopping lists have prices from 2+ stores, you'll see what the list would cost at each one here.",
+      // {total} is always ≥ 2 (MIN_BASKET_ITEMS), so no singular form needed.
+      basketCoverage: "{count} of {total} items priced",
+      basketAllPriced: "All {total} items priced",
+      basketCheapestBadge: "Cheapest",
+      basketPartialNote:
+        "Stores missing a price for some items show the total for the priced items only, and are ranked after stores with more prices.",
       expiredTitle: "Went past its date",
       expiredSubtitle:
         "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",

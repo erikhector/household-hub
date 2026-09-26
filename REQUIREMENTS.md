@@ -1226,7 +1226,7 @@ item is marked purchased with an estimated price
   (GAP-6)" below for the full write-up (it's grouped there with the receipt
   scan/register changes that feed it `PriceHistory.store`
   in the first place).
-- **Went past its date (GAP-17)**: a fourth, last section — a quiet monthly
+- **Went past its date (GAP-17)**: the last section — a quiet monthly
   recap of food that expired unused, valued at what it cost last time.
   It's a "here's what happened" card in the same register as
   `MealVarietyRecap`, never a notification. Built as a **derived** figure
@@ -1268,6 +1268,28 @@ item is marked purchased with an estimated price
     a restock re-estimates an estimated date, and later edits move
     `updatedAt`. An empty month shows a plain "Nothing has gone past its
     date this month" rather than a zero.
+- **On hand now (GAP-33)**: a small card just before GAP-17's, showing
+  roughly what everything currently in stock is worth — Grocy's headline
+  pantry stat, the counterpart to "what went to waste". Derived with no
+  migration by the pure `computeStockValue`
+  (`src/lib/inventory/stock-value.ts`, unit-tested) from one more
+  `InventoryItem` read in `CostAnalyzerSection` (items with
+  `quantity > 0`, selecting only `quantity` and `lastKnownPrice`; same
+  household scope and Suspense boundary as the GAP-17 read).
+  - **Which items count.** Only items the household actually has
+    (`quantity > 0`); a zero-quantity row is a "we usually keep this"
+    placeholder, not stock. Items past their date but still on the shelf
+    are counted — they're physically there, and whether they were wasted
+    is GAP-17's question.
+  - **Value.** Same rule as GAP-17: one `lastKnownPrice` per item, never
+    `lastKnownPrice × quantity` (it's a per-shopping-line price, not a
+    per-unit one), so a half-used bag counts at its full last price and the
+    figure is shown with "≈". Items with no known price (null or 0) add
+    nothing but are counted, and the card always says what the figure is
+    built from: "Based on N of M items with a known price."
+  - **Empty states.** Nothing in stock shows "Nothing is in stock right
+    now"; stock with no priced items shows "M items are in stock, but none
+    of them has a known price yet" instead of a misleading "≈ 0".
 
 ### Shopping-list → budget expense link
 
@@ -1405,6 +1427,32 @@ top of it. No migration was needed.
   `MIN_PRICE_POINTS_FOR_TREND`: an item only needs 2 rows from 2 different
   stores to appear here, even if that's not (yet) enough total history for
   a trend card.
+- **Whole-basket comparison (GAP-34)**: a "Your list, store by store" card
+  right below "Cheapest store" answers the Listonic/Out of Milk question —
+  what would the list I'm about to shop cost at each store? The basket is
+  every unchecked (`purchased: false`) row with a linked inventory item on
+  the household's `ACTIVE` lists, de-duplicated by inventory item (an item
+  on two lists is bought once). Only items that meet GAP-6's bar — priced
+  at ≥2 distinct stores — count; with fewer than 2 such items the card
+  shows an empty state instead. `computeBasketStoreComparison` (same
+  module, sharing GAP-6's "last recorded price per store, store names
+  folded case/whitespace-insensitively" helper so the two can't drift)
+  sums each store's last recorded price over the items it has one for.
+  - **Coverage is always shown, never hidden**: not every store has a price
+    for every item. Rather than rank on only the items *every* store has in
+    common — an intersection that one rarely visited store can collapse to
+    nothing — each store gets its own total with "N of M items priced"
+    (or "All M items priced") beside it. Stores are ranked by coverage
+    first and total second, so a partial total can never outrank a more
+    complete one just because it's missing the expensive items; a note
+    under the list says so whenever any store is partial. The "Cheapest"
+    badge only appears when at least two stores price the *whole* basket,
+    and goes to the cheaper of those.
+  - Prices are summed as recorded (whole-line prices, not rescaled to the
+    list row's quantity — units differ too often between receipts and list
+    rows for rescaling to be honest). It reads the same `priceHistoryRows`
+    as the rest of the analyzer plus one small `ShoppingListItem` id query
+    in the same `Promise.all`. No schema change.
 
 #### Finishing the trip in one gesture (AUTO-5)
 
@@ -2516,10 +2564,38 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 - **Editing a meal entry**: an entry that hasn't been cooked yet has a
   pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
   backed by `updateMealEntryAction`, which changes the entry's recipe or
-  freeform name and its portions. Date and meal type aren't editable, so
-  moving a meal still means deleting it and adding it again. Each recipe
-  entry in the planner shows its portion count next to the name
-  ("Lasagna · 2 portions").
+  freeform name and its portions. Each recipe entry in the planner shows
+  its portion count next to the name ("Lasagna · 2 portions").
+- **Moving a meal entry (GAP-30)**: next to the pencil, an uncooked entry
+  has a move button (`MoveMealDialog`,
+  `src/components/meal-planning/move-meal-dialog.tsx`) with a date picker
+  and a meal-type select, the same picker "Add to plan" uses. No
+  drag-and-drop: the picker works the same on a phone, where the planner
+  stacks into one column, and can reach any week. It's backed by
+  `moveMealEntryAction`, a sibling of `updateMealEntryAction` that only
+  changes `date`, `mealType` and `mealPlanId`, so the recipe, freeform name
+  and portions carry over untouched.
+  - The target week is derived on the server from the picked date
+    (`getWeekStart`). The client sends no week key, so an entry can't be
+    filed under a `MealPlan` whose week doesn't contain its date. A date in
+    another week find-or-creates that week's `MealPlan` the way
+    `addMealEntryAction` does. The source week's plan row stays even if the
+    move empties it.
+  - Slots stack like they do for add: moving into a slot that already has a
+    meal puts both there. There's no uniqueness constraint on
+    (date, meal type).
+  - **Cooked meals can't be moved.** The button is hidden once an entry has
+    `consumedAt` (like the pencil), and the action refuses with "A cooked
+    meal can't be moved". A cooked entry's day and slot record when the meal
+    was eaten and its ingredients left inventory, so moving it would rewrite
+    history rather than change a plan.
+  - Moving an entry dismisses any open "Meal not logged" reminder for it in
+    the same transaction. Rescheduling a meal answers that nudge. The
+    reminder is dismissed, not deleted, so the "at most once per entry,
+    ever" rule still holds.
+  - The success toast names the meal. When the new date is in a different
+    week than the one on screen, the meal disappears from view, so the toast
+    says so and offers "View that week", the same as "Add to plan".
 - **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
   entry carries `MealPlanEntry.portions`, the number of people that slot
   is cooking for. The meal entry dialog's "Portions" field sets it. Picking
@@ -2726,12 +2802,45 @@ imported recipe" requirement.
     `{quantity: 2, unit: "pcs", name: "eggs"}` (no recognized unit word, but
     a confident leading number), `"a pinch of salt"` → `{quantity: 1, unit:
     "pcs", name: "a pinch of salt"}` (no leading number at all).
-  - If no Recipe JSON-LD is found, or the node found has no usable
-    name/ingredients/instructions, `parseRecipeFromHtml` returns `null` and
-    the action surfaces `dict.mealPlanning.importErrorNoRecipeFound` — this
-    is expected to happen on plenty of real-world pages (Microdata-only
-    sites, or sites with no structured recipe data at all), not treated as a
-    bug.
+  - **Fallbacks for non-JSON-LD pages (GAP-31)**: if no usable Recipe
+    JSON-LD is found, `parseRecipeFromHtml` tries two best-effort tiers, in
+    order, stopping at the first that yields something. JSON-LD always wins
+    when present, and its output is unchanged apart from the new `source`
+    field. Both fallbacks first strip `<script>`/`<style>`/`<noscript>`/
+    `<template>`/`<svg>` and HTML comments so markup inside them can't be
+    mistaken for content, and both stay regex/string-based (a small
+    same-tag depth counter, `sliceElement`, finds an element's matching
+    close tag, with a 200k-char scan cap so malformed markup can't make it
+    quadratic on a 3MB page).
+    1. **schema.org Microdata** (`parseMicrodataRecipe`): the first element
+       with `itemscope` and an `itemtype` of `http(s)://schema.org/Recipe`.
+       Only the Recipe's *own* `itemprop`s count — one inside a nested
+       `itemscope` (the author's `Person`, a review) is skipped, so the
+       author's `name` never becomes the recipe name, while a nested
+       `HowToStep` that is itself `itemprop="recipeInstructions"` still
+       counts, as its full text. Reads `name` (falling back to the page's
+       `<h1>`/`<title>`), `recipeIngredient` (or legacy `ingredients`, each
+       run through `parseIngredientString`), and `recipeInstructions` (one
+       line per block element). A `content` attribute overrides visible
+       text, on `<meta>` and elsewhere. `recipeYield` isn't mapped, same as
+       the JSON-LD tier, which doesn't map it to servings either.
+    2. **Heading heuristic** (`parseHeuristicRecipe`): name from the first
+       `<h1>`, else `<title>` minus a ` | Site name`/` - Site name` suffix;
+       ingredients from the `<ul>`/`<ol>` items after an `<h1>`–`<h6>`
+       whose whole text is "Ingredients"/"Ingredienser" (plus a few other
+       languages, an optional trailing colon, and "… till 4 portioner"/"…
+       for 4 servings"), continuing past sub-headings ("For the glaze")
+       until a heading at the same or a higher level or a method heading;
+       instructions the same way after "Instructions"/"Method"/"Gör så
+       här"/…. A section with no list falls back to its `<p>`s (where an
+       unclosed `<p>` ends at the next block element). No ingredients means
+       no result — a page title alone would "succeed" on every blog post.
+  - The result carries `source: "jsonld" | "microdata" | "heuristic"`
+    (`ImportedRecipe`), passed through `ImportRecipeState.recipe.source` to
+    the form. If all three tiers find nothing, `parseRecipeFromHtml`
+    returns `null` and the action surfaces
+    `dict.mealPlanning.importErrorNoRecipeFound`. That's still expected on
+    some real-world pages and isn't treated as a bug.
 - **SSRF guard**: this is a server-side fetch of a user-supplied URL, so
   `validateRecipeUrl` (pure) rejects anything that isn't `http:`/`https:`,
   `localhost`/`*.localhost`, and an IP-literal hostname in a
@@ -2756,21 +2865,49 @@ imported recipe" requirement.
   string on failure or the parsed `recipe` on success; `RecipeFormDialog`
   shows a translated success line ("Imported — review the fields below,
   then save.") rather than closing the dialog, since the point is manual
-  review before saving.
+  review before saving. For a `microdata` or `heuristic` result it shows a
+  warning-styled "Review before saving" notice (`importLowConfidence`, in
+  both dictionaries) instead, saying the fields were guessed from the
+  page's layout and may be incomplete or wrong.
 
 ### Meal-plan → shopping-list bridge
 
 An "Add missing ingredients to shopping list" button
 (`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
 sits next to the "This week" control in the weekly planner
-(`WeekPlanner`), scoped to the whole visible week — the simplest option per
-the task spec, and the pattern every competitor researched (Mealime,
-Paprika, Plan to Eat, Whisk) uses:
+(`WeekPlanner`). By default it's scoped to the whole visible week — the
+pattern every competitor researched (Mealime, Paprika, Plan to Eat, Whisk)
+uses — but it can cover any date range up to 31 days (GAP-32):
 
+- **Date range (GAP-32)**: a "Plan period" `<Select>` at the top of the
+  dialog offers "This week" (the visible planner week, `[Monday, next
+  Monday)`; always selected when the dialog opens, so the default is
+  unchanged), "This week and next" (the visible week plus the following one,
+  anchored on the planner's week rather than today, same as "This week"),
+  and "Custom dates…", which shows From/Through date inputs (Through is
+  inclusive in the UI and shifted one day to an exclusive end before
+  calling). Changing the period re-runs the preview; a stale response from a
+  slower earlier request is ignored. The action takes a half-open
+  `{ from, to }` pair of `yyyy-mm-dd` keys, validated with Zod by
+  `parseMissingIngredientsRange` in `missing-ingredients.ts` — both must be
+  real calendar days, `to` after `from`, and the span at most
+  `MAX_MISSING_INGREDIENTS_RANGE_DAYS` (31), enough for "the next two weeks
+  before a big trip" or a whole month without letting one preview fan out
+  into hundreds of recipe expansions. The dialog runs the same check and
+  shows an inline error instead of calling; the server rejects anything
+  else with "Invalid date range" without querying. No schema change: the
+  range filters `MealPlanEntry.date` directly (scoped through
+  `mealPlan: { householdId }` from the session), so it spans however many
+  weekly `MealPlan` rows fall inside it, or starts mid-week. For "This week"
+  that selects the same entries the old single-`weekStartDate` lookup did,
+  since the planner only dates an entry on its own plan's seven days.
+  `addMissingIngredientsToShoppingListAction` takes no range: it commits
+  exactly the reviewed rows the preview returned, so preview and apply can't
+  disagree about which days were included.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
-  (`src/app/dashboard/meal-planning/actions.ts`), a read-only preview — no
+  (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
-  `MealPlanEntry` with a `recipeId` in that week's `MealPlan` (freeform
+  `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
   entries have no ingredients and are skipped via `recipeId: { not: null }`),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
   linked `InventoryItem`. `RecipeIngredient.inventoryItemId` is normally

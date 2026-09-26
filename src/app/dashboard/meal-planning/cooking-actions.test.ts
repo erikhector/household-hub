@@ -16,7 +16,7 @@ const {
   inventoryItemUpdateManyMock,
   inventoryItemDeleteManyMock,
   recipeFindManyMock,
-  mealPlanFindFirstMock,
+  mealPlanEntryFindManyMock,
   mealPlanEntryFindFirstMock,
   mealPlanEntryUpdateMock,
   shoppingListCreateMock,
@@ -36,7 +36,7 @@ const {
   inventoryItemUpdateManyMock: vi.fn(),
   inventoryItemDeleteManyMock: vi.fn(),
   recipeFindManyMock: vi.fn(),
-  mealPlanFindFirstMock: vi.fn(),
+  mealPlanEntryFindManyMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
   mealPlanEntryUpdateMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
@@ -68,8 +68,7 @@ vi.mock("@/lib/prisma", () => ({
       createManyAndReturn: inventoryItemCreateManyAndReturnMock,
     },
     recipe: { findMany: recipeFindManyMock },
-    mealPlan: { findFirst: mealPlanFindFirstMock },
-    mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock },
+    mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock, findMany: mealPlanEntryFindManyMock },
     shoppingList: { create: shoppingListCreateMock, findFirst: shoppingListFindFirstMock },
     shoppingListItem: { findMany: shoppingListItemFindManyMock, createMany: shoppingListItemCreateManyMock },
     $transaction: transactionMock,
@@ -108,6 +107,7 @@ const {
   markMealEntryCookedAction,
 } = await import("@/app/dashboard/meal-planning/cooking-actions");
 const { NEW_SHOPPING_LIST_SENTINEL } = await import("@/app/dashboard/meal-planning/meal-types");
+const { weekRange } = await import("@/app/dashboard/meal-planning/missing-ingredients");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -124,26 +124,100 @@ afterEach(() => {
 requireHouseholdMock.mockResolvedValue({ household });
 
 describe("previewMissingIngredientsAction", () => {
-  it("rejects a malformed week key", async () => {
-    const result = await previewMissingIngredientsAction("not-a-week");
-    expect(result).toEqual({ error: "Invalid week" });
+  it("rejects a malformed or over-long range without querying anything (GAP-32)", async () => {
+    for (const range of [
+      { from: "not-a-day", to: "2026-01-12" },
+      { from: "2026-01-12", to: "2026-01-05" },
+      { from: "2026-01-05", to: "2026-01-05" },
+      // 32 days — one past MAX_MISSING_INGREDIENTS_RANGE_DAYS.
+      { from: "2026-01-01", to: "2026-02-02" },
+    ]) {
+      expect(await previewMissingIngredientsAction(range)).toEqual({ error: "Invalid date range" });
+    }
+    // A bare week key (the pre-GAP-32 signature) from a stale client too.
+    expect(
+      await previewMissingIngredientsAction("2026-01-05" as unknown as { from: string; to: string }),
+    ).toEqual({ error: "Invalid date range" });
+    expect(mealPlanEntryFindManyMock).not.toHaveBeenCalled();
   });
 
-  it("returns an empty list when there's no meal plan for that week (never leaks another household's plan)", async () => {
-    mealPlanFindFirstMock.mockResolvedValue(null);
+  it("returns an empty list when nothing is planned in the range (never leaks another household's plan)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
 
-    const result = await previewMissingIngredientsAction("2026-01-05");
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({ items: [] });
-    expect(mealPlanFindFirstMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ householdId: "household-1" }) }),
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ mealPlan: { householdId: "household-1" } }),
+      }),
     );
   });
 
-  it("includes a sub-recipe's ingredients when diffing a planned recipe that uses one", async () => {
-    mealPlanFindFirstMock.mockResolvedValue({
-      entries: [{ recipeId: "lasagna", portions: 4, recipe: { servings: 4 } }],
+  it("scopes the default week to exactly that week's seven days, recipe entries only", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+
+    await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          mealPlan: { householdId: "household-1" },
+          date: {
+            gte: new Date("2026-01-05T00:00:00.000Z"),
+            lt: new Date("2026-01-12T00:00:00.000Z"),
+          },
+          recipeId: { not: null },
+        },
+      }),
+    );
+  });
+
+  it("spans several weeks' meal plans for a multi-week range and totals across them (GAP-32)", async () => {
+    // Two weeks, one soup entry in each — the MealPlan rows differ, but the
+    // date filter picks both up and the shortfall is summed once.
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: "soup", portions: 4, recipe: { servings: 4 } },
+      { recipeId: "soup", portions: 4, recipe: { servings: 4 } },
+    ]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "soup",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 1 }],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction({ from: "2026-01-05", to: "2026-01-19" });
+
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          mealPlan: { householdId: "household-1" },
+          date: {
+            gte: new Date("2026-01-05T00:00:00.000Z"),
+            lt: new Date("2026-01-19T00:00:00.000Z"),
+          },
+        }),
+      }),
+    );
+    expect(result).toEqual({
+      items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false }],
     });
+  });
+
+  it("accepts a range of exactly the 31-day cap", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction({ from: "2026-01-01", to: "2026-02-01" });
+
+    expect(result).toEqual({ items: [] });
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes a sub-recipe's ingredients when diffing a planned recipe that uses one", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([{ recipeId: "lasagna", portions: 4, recipe: { servings: 4 } }]);
     recipeFindManyMock.mockResolvedValue([
       {
         id: "lasagna",
@@ -166,7 +240,7 @@ describe("previewMissingIngredientsAction", () => {
     ]);
     inventoryItemFindManyMock.mockResolvedValue([]);
 
-    const result = await previewMissingIngredientsAction("2026-01-05");
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({
       items: [
@@ -179,12 +253,10 @@ describe("previewMissingIngredientsAction", () => {
     // A 4-serving soup recipe planned twice in the week (e.g. dinner Thursday
     // and lunch Friday), 2 portions each — together that's exactly one batch
     // of the recipe, not two.
-    mealPlanFindFirstMock.mockResolvedValue({
-      entries: [
-        { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
-        { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
-      ],
-    });
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
+      { recipeId: "soup", portions: 2, recipe: { servings: 4 } },
+    ]);
     recipeFindManyMock.mockResolvedValue([
       {
         id: "soup",
@@ -196,7 +268,7 @@ describe("previewMissingIngredientsAction", () => {
     ]);
     inventoryItemFindManyMock.mockResolvedValue([]);
 
-    const result = await previewMissingIngredientsAction("2026-01-05");
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({
       items: [{ key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false }],
@@ -208,12 +280,10 @@ describe("previewMissingIngredientsAction", () => {
     // 0 can't come from the recipe form (it validates ≥ 1), but if a row
     // ever holds one it must not zero out or blow up the shopping list, so
     // the recipe counts as written (portionsMultiplier's fallback).
-    mealPlanFindFirstMock.mockResolvedValue({
-      entries: [
-        { recipeId: "soup", portions: 6, recipe: { servings: 4 } },
-        { recipeId: "stew", portions: 2, recipe: { servings: 0 } },
-      ],
-    });
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: "soup", portions: 6, recipe: { servings: 4 } },
+      { recipeId: "stew", portions: 2, recipe: { servings: 0 } },
+    ]);
     recipeFindManyMock.mockResolvedValue([
       {
         id: "soup",
@@ -228,7 +298,7 @@ describe("previewMissingIngredientsAction", () => {
     ]);
     inventoryItemFindManyMock.mockResolvedValue([]);
 
-    const result = await previewMissingIngredientsAction("2026-01-05");
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
 
     expect(result).toEqual({
       items: [
