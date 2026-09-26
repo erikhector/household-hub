@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.37.0",
+    "date": "2026-09-26",
+    "pr": 67,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now tag recipes as vegan, vegetarian, gluten-free, dairy-free, nut-free, low-carb or quick, and filter your recipe list by tag. Recipes imported from a link pick up their diet tags automatically when the site lists them.",
+      "sv": "Nu kan du tagga recept som veganska, vegetariska, glutenfria, mjölkfria, nötfria, lågkolhydrat eller snabba, och filtrera receptlistan på tagg. Recept som importeras från en länk får sina kosttaggar automatiskt när sidan anger dem."
+    }
+  },
+  {
     "version": "0.36.0",
     "date": "2026-09-26",
     "pr": 65,
