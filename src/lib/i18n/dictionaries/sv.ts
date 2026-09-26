@@ -632,6 +632,37 @@ export const sv = {
       },
       nameRequiredError: "Ge varje vara ett namn innan du importerar.",
     },
+    saveAsTemplate: {
+      menuItem: "Spara som mall",
+      dialogTitle: "Spara som mall",
+      description: "Spara listans varor som en återanvändbar mall du kan starta en ny lista från senare.",
+      nameLabel: "Mallens namn",
+      namePlaceholder: "t.ex. Grillkväll, Storhandling",
+      save: "Spara mall",
+      saving: "Sparar…",
+      savedToast: 'Sparad som "{name}"',
+      emptyError: "Lägg till varor på listan innan du sparar den som en mall.",
+    },
+    templates: {
+      triggerLabel: "Starta från mall",
+      dialogTitle: "Starta från en mall",
+      empty: "Inga sparade mallar än — spara en inköpslistas varor som en mall för att återanvända den senare.",
+      itemCount: {
+        one: "{count} vara",
+        other: "{count} varor",
+      },
+      useButton: "Använd",
+      using: "Startar…",
+      deleteAriaLabel: "Ta bort mallen {name}",
+      confirmDelete: {
+        title: 'Ta bort mallen "{name}"?',
+        description: "Det går inte att ångra.",
+        cancel: "Avbryt",
+        confirm: "Ta bort",
+        confirming: "Tar bort…",
+      },
+      deletedToast: "Mallen har tagits bort",
+    },
   },
   inventory: {
     // AUTO-8: the low-stock auto-add toast (showAutoAddedToast). Lives here

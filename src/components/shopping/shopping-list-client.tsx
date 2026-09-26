@@ -8,6 +8,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowUpDown,
+  BookmarkPlus,
   Check,
   CheckCheck,
   ClipboardPaste,
@@ -39,6 +40,7 @@ import { ShoppingItemFormDialog } from "@/components/shopping/shopping-item-form
 import { ReceiptScanDialog } from "@/components/shopping/receipt-scan-dialog";
 import { ResolveMappingsDialog } from "@/components/shopping/resolve-mappings-dialog";
 import { ImportListDialog } from "@/components/shopping/import-list-dialog";
+import { SaveAsTemplateDialog } from "@/components/shopping/save-as-template-dialog";
 import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
@@ -186,6 +188,7 @@ export function ShoppingListClient({
     completeList: createDialogHandle(),
     deleteList: createDialogHandle(),
     reorderSections: createDialogHandle(),
+    saveAsTemplate: createDialogHandle(),
   }));
 
   const addLowStock = () =>
@@ -382,6 +385,16 @@ export function ShoppingListClient({
                       {dict.reorderSections.resetMenuItem}
                     </DropdownMenuItem>
                   )}
+                  {/* GAP-4: only worth offering once there's actually
+                      something pending to capture — a template made from an
+                      empty (or all-purchased) list would just be a name with
+                      nothing in it. */}
+                  {pendingItems.length > 0 && (
+                    <DropdownMenuItem onClick={() => dialogs.saveAsTemplate.open(null)}>
+                      <BookmarkPlus />
+                      {dict.saveAsTemplate.menuItem}
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
               <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
@@ -453,6 +466,7 @@ export function ShoppingListClient({
             dict={dict.reorderSections}
             handle={dialogs.reorderSections}
           />
+          <SaveAsTemplateDialog listId={list.id} dict={dict.saveAsTemplate} handle={dialogs.saveAsTemplate} />
           {showResolveMappings && (
             <ResolveMappingsDialog
               items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}

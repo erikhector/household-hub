@@ -14,6 +14,9 @@ const {
   shoppingListUpdateManyMock,
   shoppingListUpdateMock,
   shoppingListDeleteManyMock,
+  shoppingListTemplateCreateMock,
+  shoppingListTemplateFindFirstMock,
+  shoppingListTemplateDeleteManyMock,
   inventoryItemFindFirstMock,
   inventoryItemFindManyMock,
   inventoryItemCreateMock,
@@ -50,6 +53,9 @@ const {
   shoppingListUpdateManyMock: vi.fn(),
   shoppingListUpdateMock: vi.fn(),
   shoppingListDeleteManyMock: vi.fn(),
+  shoppingListTemplateCreateMock: vi.fn(),
+  shoppingListTemplateFindFirstMock: vi.fn(),
+  shoppingListTemplateDeleteManyMock: vi.fn(),
   inventoryItemFindFirstMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
   inventoryItemCreateMock: vi.fn(),
@@ -77,6 +83,7 @@ const {
     const tx = {
       shoppingListItem: {
         create: shoppingListItemCreateMock,
+        createMany: shoppingListItemCreateManyMock,
         update: shoppingListItemUpdateMock,
         delete: shoppingListItemDeleteMock,
         count: shoppingListItemCountMock,
@@ -118,6 +125,11 @@ vi.mock("@/lib/prisma", () => ({
       updateMany: shoppingListUpdateManyMock,
       update: shoppingListUpdateMock,
       deleteMany: shoppingListDeleteManyMock,
+    },
+    shoppingListTemplate: {
+      create: shoppingListTemplateCreateMock,
+      findFirst: shoppingListTemplateFindFirstMock,
+      deleteMany: shoppingListTemplateDeleteManyMock,
     },
     inventoryItem: {
       findFirst: inventoryItemFindFirstMock,
@@ -197,6 +209,9 @@ const {
   addAdHocItemAction,
   quickAddShoppingListItemAction,
   importShoppingListItemsAction,
+  saveAsTemplateAction,
+  createListFromTemplateAction,
+  deleteShoppingListTemplateAction,
   smartAddShoppingListItemsAction,
   linkShoppingListItemAction,
   createInventoryItemFromShoppingListItemAction,
@@ -574,6 +589,140 @@ describe("importShoppingListItemsAction", () => {
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [expect.objectContaining({ inventoryItemId: "inv-1", estimatedPrice: 19.9 })],
     });
+  });
+});
+
+// GAP-4
+describe("saveAsTemplateAction", () => {
+  it("rejects a blank template name", async () => {
+    const result = await saveAsTemplateAction({}, formData({ listId: "list-1", name: "" }));
+
+    expect(result.error).toBe("Template name is required");
+    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a list from another household", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+
+    const result = await saveAsTemplateAction({}, formData({ listId: "someone-elses-list", name: "BBQ" }));
+
+    expect(result.error).toBe("List not found");
+    expect(shoppingListTemplateCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to save a template with nothing pending to capture", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", items: [] });
+
+    const result = await saveAsTemplateAction({}, formData({ listId: "list-1", name: "BBQ" }));
+
+    expect(result.error).toBe("Add some items to this list before saving it as a template");
+    expect(shoppingListTemplateCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("only ever fetches the list's still-pending items, not already-purchased ones", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1", items: [{ name: "Milk" }] });
+    shoppingListTemplateCreateMock.mockResolvedValue({ id: "template-1" });
+
+    await saveAsTemplateAction({}, formData({ listId: "list-1", name: "BBQ" }));
+
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "list-1", householdId: "household-1" },
+      include: { items: { where: { purchased: false }, orderBy: { createdAt: "asc" } } },
+    });
+  });
+
+  it("saves the list's pending item names, in order, as a new template", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [{ name: "Milk" }, { name: "Bread" }],
+    });
+    shoppingListTemplateCreateMock.mockResolvedValue({ id: "template-1" });
+
+    const result = await saveAsTemplateAction({}, formData({ listId: "list-1", name: "BBQ" }));
+
+    expect(shoppingListTemplateCreateMock).toHaveBeenCalledWith({
+      data: {
+        householdId: "household-1",
+        name: "BBQ",
+        items: {
+          create: [
+            { name: "Milk", ordering: 0 },
+            { name: "Bread", ordering: 1 },
+          ],
+        },
+      },
+    });
+    expect(result).toEqual({});
+  });
+});
+
+describe("createListFromTemplateAction", () => {
+  it("refuses a template from another household", async () => {
+    shoppingListTemplateFindFirstMock.mockResolvedValue(null);
+
+    const result = await createListFromTemplateAction("someone-elses-template");
+
+    expect(result.error).toBe("Template not found");
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes the template lookup to the caller's household", async () => {
+    shoppingListTemplateFindFirstMock.mockResolvedValue(null);
+
+    await createListFromTemplateAction("template-1");
+
+    expect(shoppingListTemplateFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "template-1", householdId: "household-1" } }),
+    );
+  });
+
+  it("creates a new list named after the template, re-resolves each item against inventory the same way import does, and redirects to it", async () => {
+    shoppingListTemplateFindFirstMock.mockResolvedValue({
+      id: "template-1",
+      name: "BBQ",
+      items: [{ name: "Milk" }, { name: "Mystery item" }],
+    });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", name: "Milk", unit: "l", lastKnownPrice: 19.9 }]);
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 2 });
+
+    await expect(createListFromTemplateAction("template-1")).rejects.toThrow(
+      "REDIRECT:/dashboard/shopping-list/list-1",
+    );
+
+    expect(shoppingListCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", name: "BBQ" },
+    });
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { shoppingListId: "list-1", inventoryItemId: "inv-1", name: "Milk", unit: "l", estimatedPrice: 19.9 },
+        { shoppingListId: "list-1", inventoryItemId: null, name: "Mystery item", unit: "pcs" },
+      ],
+    });
+  });
+
+  it("creates an (empty) list even when the template has no items", async () => {
+    shoppingListTemplateFindFirstMock.mockResolvedValue({ id: "template-1", name: "Empty", items: [] });
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListCreateMock.mockResolvedValue({ id: "list-2" });
+
+    await expect(createListFromTemplateAction("template-1")).rejects.toThrow(
+      "REDIRECT:/dashboard/shopping-list/list-2",
+    );
+    expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteShoppingListTemplateAction", () => {
+  it("scopes the delete to the caller's household", async () => {
+    shoppingListTemplateDeleteManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await deleteShoppingListTemplateAction("someone-elses-template");
+
+    expect(shoppingListTemplateDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-template", householdId: "household-1" },
+    });
+    expect(result).toEqual({});
   });
 });
 

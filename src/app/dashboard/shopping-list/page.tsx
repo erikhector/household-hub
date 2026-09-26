@@ -4,6 +4,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
+import { StartFromTemplateDialog } from "@/components/shopping/start-from-template-dialog";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
 // can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
@@ -68,6 +69,15 @@ export default async function ShoppingListPage() {
   const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
 
+  // GAP-4: fetched here (not inside the Suspense-streamed lists section
+  // below) since it's small and gates a header button, not the page's main
+  // content.
+  const templates = await prisma.shoppingListTemplate.findMany({
+    where: { householdId: household.id },
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { items: true } } },
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -81,6 +91,10 @@ export default async function ShoppingListPage() {
             units={units}
             categories={categories}
             dict={dict.shoppingList.registerReceipt}
+          />
+          <StartFromTemplateDialog
+            templates={templates.map((t) => ({ id: t.id, name: t.name, itemCount: t._count.items }))}
+            dict={dict.shoppingList.templates}
           />
           <NewListDialog dict={dict.shoppingList} />
         </div>

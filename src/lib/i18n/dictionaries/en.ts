@@ -665,6 +665,41 @@ export const en = {
       },
       nameRequiredError: "Give every item a name before importing.",
     },
+    // GAP-4: the ⋯ menu's "Save as template" dialog, and the index page's
+    // "Start from template" trigger + list (ShoppingListsOverview) — a named,
+    // reusable set of item names ("BBQ", "Costco run") distinct from AUTO-8's
+    // auto-populated default list.
+    saveAsTemplate: {
+      menuItem: "Save as template",
+      dialogTitle: "Save as template",
+      description: "Save this list's items as a reusable template you can start a new list from later.",
+      nameLabel: "Template name",
+      namePlaceholder: "e.g. BBQ, Costco run",
+      save: "Save template",
+      saving: "Saving…",
+      savedToast: 'Saved as "{name}"',
+      emptyError: "Add some items to this list before saving it as a template.",
+    },
+    templates: {
+      triggerLabel: "Start from template",
+      dialogTitle: "Start from a template",
+      empty: "No saved templates yet — save a shopping list's items as a template to reuse it later.",
+      itemCount: {
+        one: "{count} item",
+        other: "{count} items",
+      },
+      useButton: "Use",
+      using: "Starting…",
+      deleteAriaLabel: "Delete template {name}",
+      confirmDelete: {
+        title: 'Delete template "{name}"?',
+        description: "This can't be undone.",
+        cancel: "Cancel",
+        confirm: "Delete",
+        confirming: "Deleting…",
+      },
+      deletedToast: "Template deleted",
+    },
   },
   inventory: {
     // AUTO-8: the low-stock auto-add toast (showAutoAddedToast). Lives here

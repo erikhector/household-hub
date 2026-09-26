@@ -158,17 +158,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-23 scan
 
-- [ ] **GAP-4. Reusable named shopping list templates** —
-      `src/components/shopping/shopping-list-client.tsx`,
-      `src/app/dashboard/shopping-list/actions.ts`. AnyList/Out of Milk let
-      you save a list of items as a reusable template ("BBQ", "Costco run")
-      distinct from AUTO-8's auto-populated default list. A
-      `saveAsTemplateAction`/`createListFromTemplateAction` pair and a small
-      `ShoppingListTemplate`/`ShoppingListTemplateItem` model pair (Phase 2
-      migration) — copying item names onto a new `ACTIVE` list, re-resolved
-      through `findOrCreateInventoryItem` the same way import/paste already
-      does, so it doesn't need its own linking logic.
-
 - [ ] **GAP-10. Voice-assistant shopping list integration (Alexa/Google Assistant)** `[!]` —
       needs a product decision, not just an estimate. AnyList and Bring!
       both support hands-free "add milk to my shopping list" via Alexa/Google

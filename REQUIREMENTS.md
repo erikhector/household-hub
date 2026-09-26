@@ -646,6 +646,38 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `src/lib/actions/household.ts`). Not owner-gated — see "Roles". Off
     means no crossing ever adds anything; "Add low-stock items" and "Mark
     as empty & add" still work by hand.
+- **Reusable list templates (GAP-4)** — a named, hand-curated set of item
+  names ("BBQ", "Costco run") a household saves once and starts a fresh list
+  from over and over, distinct from AUTO-8's default list above: that one
+  fills itself from low stock, this one is a snapshot of a recurring trip
+  someone chose to keep. Two small models
+  (migration `20260926062510_shopping_list_templates`):
+  `ShoppingListTemplate` (`householdId`, `name`, `createdAt`) and
+  `ShoppingListTemplateItem` (`templateId`, `name`, `ordering`) — deliberately
+  just names, since a template item is a seed, not a fully specified
+  `ShoppingListItem`; quantity, unit and inventory link are decided fresh
+  every time it's used.
+  - **Saving one.** "Save as template" in the detail page's `⋯` menu (only
+    offered once the list has at least one pending item) opens
+    `SaveAsTemplateDialog`, a one-field name prompt. `saveAsTemplateAction`
+    copies the list's still-**pending** item names, in their current order,
+    into a new `ShoppingListTemplate` — an already-purchased row is shopping
+    history, not part of "what to buy next time", so it's left out.
+  - **Starting from one.** "Start from template" on `/dashboard/shopping-list`
+    opens `StartFromTemplateDialog`, listing every saved template with its
+    item count, a "Use" button and a delete (confirm-gated, since it can't be
+    undone). `createListFromTemplateAction` creates a brand-new `ACTIVE` list
+    named after the template and one `ShoppingListItem` per template item,
+    then redirects straight to it. Every item is **re-resolved against
+    inventory**, never trusted from whenever it was saved: exact
+    (case-insensitive) name match, else a single confident fuzzy match, else
+    left "needs mapping" — exactly `importShoppingListItemsAction`'s pasted-list
+    decision, factored out as `resolveInventoryLinksForNames` and shared by
+    both, so a template can never silently spawn a duplicate `InventoryItem`
+    or drift from how a pasted list resolves the same names.
+  - **Deleting a template** (`deleteShoppingListTemplateAction`, household-
+    scoped) only removes the template and its items; any list already
+    created from it is untouched.
 - **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the

@@ -13,11 +13,11 @@ datasource db {
 // --- Accounts & households -------------------------------------------------
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  passwordHash    String
-  displayName     String
-  createdAt       DateTime  @default(now())
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String
+  displayName       String
+  createdAt         DateTime  @default(now())
   // Null = unverified. Set once by verifyEmailAction (src/lib/actions/auth.ts)
   // when a valid EmailVerificationToken is redeemed. A user's first-ever
   // successful sign-in is hard-gated on this being set — see
@@ -28,7 +28,7 @@ model User {
   // (src/components/dashboard/email-verification-banner.tsx) remains as a
   // soft nudge for any account that reached a session before this gate
   // existed — see EmailVerificationToken's doc comment below.
-  emailVerifiedAt DateTime?
+  emailVerifiedAt   DateTime?
   // Set whenever the password changes (resetPasswordAction,
   // updatePasswordAction) and copied into the JWT at sign-in as
   // `pwdChangedAt` (src/lib/auth.config.ts). requireHousehold/requireUserId
@@ -44,13 +44,13 @@ model User {
   // defaultLocale) so existing users see no change until they pick otherwise.
   // Anonymous/pre-auth pages still fall back to the theme/locale cookies —
   // see getLocale() and RootLayout.
-  theme              String @default("dark")
-  locale             String @default("en")
+  theme               String  @default("dark")
+  locale              String  @default("en")
   // { groupBy, category, location, status, updatedFilter } from
   // src/components/inventory/inventory-client.tsx — validated on read via
   // parseInventoryViewPrefs (src/components/inventory/inventory-table-utils.ts)
   // since this is user-controlled JSON, not schema-checked.
-  inventoryViewPrefs Json?
+  inventoryViewPrefs  Json?
   // GAP-27: opt-in weekly digest email (src/lib/weekly-digest.ts), toggled
   // from the Profile page and switched off again by the email's own
   // unsubscribe link. Off by default: email is a higher-commitment channel
@@ -117,16 +117,16 @@ enum HouseholdRole {
 }
 
 model Household {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id                    String   @id @default(cuid())
+  name                  String
+  createdAt             DateTime @default(now())
   // AUTO-8: when an item crosses from in-stock into low/out of stock, drop
   // it onto the household's default shopping list automatically (see
   // addToDefaultListOnLowStock in src/lib/shopping/default-list.ts). On by
   // default — the whole point is that restocking stops depending on someone
   // remembering to press "Add low-stock items" — but a household-wide switch
   // on the Household page turns it off for anyone who'd rather curate by hand.
-  autoAddLowStockToList Boolean @default(true)
+  autoAddLowStockToList Boolean  @default(true)
   // AUTO-9: the order shopping mode walks category groups in. Two separate
   // columns rather than one table or one JSON blob: the learned map is
   // always read and rewritten whole (an EMA over every category a trip
@@ -152,22 +152,23 @@ model Household {
   // replaces it, which is what makes an old leaked URL stop working. @unique
   // gives the route an indexed lookup, and Postgres allows many NULLs under a
   // unique index, so every household with the feed off can share the null.
-  calendarFeedToken     String? @unique
+  calendarFeedToken String? @unique
 
-  members            HouseholdMember[]
-  invitations        Invitation[]
-  inventoryItems     InventoryItem[]
-  shoppingLists      ShoppingList[]
-  recipes            Recipe[]
-  mealPlans          MealPlan[]
-  budgetCategories   BudgetCategory[]
-  transactions       Transaction[]
-  recurringTemplates RecurringTemplate[]
-  memberSettlements  MemberSettlement[]
-  notifications      Notification[]
-  tasks              HouseholdTask[]
-  notes              HouseholdNote[]
-  weeklyDigestSends  WeeklyDigestSend[]
+  members               HouseholdMember[]
+  invitations           Invitation[]
+  inventoryItems        InventoryItem[]
+  shoppingLists         ShoppingList[]
+  shoppingListTemplates ShoppingListTemplate[]
+  recipes               Recipe[]
+  mealPlans             MealPlan[]
+  budgetCategories      BudgetCategory[]
+  transactions          Transaction[]
+  recurringTemplates    RecurringTemplate[]
+  memberSettlements     MemberSettlement[]
+  notifications         Notification[]
+  tasks                 HouseholdTask[]
+  notes                 HouseholdNote[]
+  weeklyDigestSends     WeeklyDigestSend[]
 }
 
 model HouseholdMember {
@@ -261,15 +262,15 @@ model EmailVerificationToken {
 // --- Inventory & shopping ---------------------------------------------------
 
 model InventoryItem {
-  id                 String    @id @default(cuid())
-  householdId        String
-  name               String
-  category           String
-  quantity           Float     @default(0)
-  unit               String    @default("pcs")
-  lowStockThreshold  Float     @default(1)
-  location           String?
-  lastKnownPrice     Float?
+  id                  String    @id @default(cuid())
+  householdId         String
+  name                String
+  category            String
+  quantity            Float     @default(0)
+  unit                String    @default("pcs")
+  lowStockThreshold   Float     @default(1)
+  location            String?
+  lastKnownPrice      Float?
   // Optional best-before/expiry date. Historically set only from the
   // single-item add/edit form (ItemFormDialog) — AUTO-7 supersedes that for
   // *estimated* dates only: a stock-arrival action (togglePurchasedAction,
@@ -280,14 +281,14 @@ model InventoryItem {
   // the estimator — see src/lib/inventory/shelf-life.ts's
   // `estimatedExpiryUpdate`, the shared gate every arrival path calls
   // through.
-  expiresAt          DateTime?
+  expiresAt           DateTime?
   // True when `expiresAt` was filled in by the shelf-life estimator rather
   // than typed by a user — ExpiryBadge shows a "≈" prefix and a softer
   // style for these, and EXPIRING_SOON notifications soften their copy
   // ("probably"). Saving the item form always clears this back to false,
   // since typing/confirming a date in that form makes it real (see
   // ItemFormDialog).
-  expiresAtEstimated Boolean   @default(false)
+  expiresAtEstimated  Boolean   @default(false)
   // Per-item override for the estimator's shelf life, in days from the
   // moment stock arrives. `null` (the default) means "use the category
   // default" (see AUTO_CATEGORY_KEYS's defaults in shelf-life.ts); `-1`
@@ -295,7 +296,7 @@ model InventoryItem {
   // opts it out of estimation — the item form's "doesn't expire" checkbox
   // sets this. A positive value is a per-item override the estimator uses
   // instead of the category default.
-  shelfLifeDays      Int?
+  shelfLifeDays       Int?
   // GAP-28 — Grocy's separate "use within N days once opened" clock (milk
   // keeps ~14 days sealed but only ~3 once opened). `useWithinDaysOpened` is
   // an optional positive per-item setting from the item form; the inventory
@@ -306,10 +307,10 @@ model InventoryItem {
   // a winning opened date is flagged `expiresAtEstimated`), and is cleared
   // again when the item is restocked from zero, since a fresh pack is sealed
   // (see openedResetOnArrival, same file).
-  openedAt           DateTime?
+  openedAt            DateTime?
   useWithinDaysOpened Int?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity
   // +/- taps, mark-empty, bulk field edits) by src/app/dashboard/inventory/
   // actions.ts, mirroring Transaction.createdByUserId's plain-string
@@ -317,7 +318,7 @@ model InventoryItem {
   // lookup in the inventory page rather than a Prisma join. Surfaced next to
   // `updatedAt` in the inventory table/detail view so a household can spot
   // items that haven't been touched (and recounted) in a while.
-  updatedByUserId    String?
+  updatedByUserId     String?
   // The retail barcode (EAN/UPC digits, normalized by normalizeBarcode in
   // src/lib/barcode.ts) this household links to the item — set by a stock
   // scan's "Add as new item"/"This is…" (AUTO-6), the add-item form's scan
@@ -326,7 +327,7 @@ model InventoryItem {
   // below): one product per code, and linking a code to a second item
   // moves it rather than sharing it. Never sent anywhere — only the scanned
   // digits of an *unknown* code go to Open Food Facts.
-  barcode            String?
+  barcode             String?
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]
@@ -334,15 +335,15 @@ model InventoryItem {
   recipeIngredients RecipeIngredient[]
   notifications     Notification[]
 
+  // Also the lookup index for scanStockChangeAction's household-scoped
+  // barcode resolve. Postgres treats NULLs as distinct, so any number of
+  // items can have no barcode.
+  @@unique([householdId, barcode])
   @@index([householdId])
   // The "expiring soon" notification sync (syncExpiringSoonNotifications in
   // src/lib/notifications.ts) filters by householdId and expiresAt — this
   // composite index serves that access pattern directly.
   @@index([householdId, expiresAt])
-  // Also the lookup index for scanStockChangeAction's household-scoped
-  // barcode resolve. Postgres treats NULLs as distinct, so any number of
-  // items can have no barcode.
-  @@unique([householdId, barcode])
 }
 
 enum NotificationKind {
@@ -413,17 +414,17 @@ enum NotificationKind {
 // src/lib/push.ts. The person who just did the thing doesn't need to be
 // told they did it; their other household members still get pushed.
 model Notification {
-  id              String           @id @default(cuid())
-  householdId     String
-  kind            NotificationKind
-  inventoryItemId String?
-  mealPlanEntryId String?
-  shoppingListId  String?
+  id                   String           @id @default(cuid())
+  householdId          String
+  kind                 NotificationKind
+  inventoryItemId      String?
+  mealPlanEntryId      String?
+  shoppingListId       String?
   // PRICE_SPIKE only (GAP-9): how far above the trailing median the new
   // price was, as a rounded percentage. Null on every other kind.
   priceIncreasePercent Int?
-  createdAt       DateTime         @default(now())
-  dismissedAt     DateTime?
+  createdAt            DateTime         @default(now())
+  dismissedAt          DateTime?
 
   household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
@@ -493,19 +494,19 @@ model ShoppingListShareLink {
 }
 
 model ShoppingListItem {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   shoppingListId     String
   inventoryItemId    String?
   name               String
-  quantity           Float    @default(1)
-  unit               String   @default("pcs")
+  quantity           Float     @default(1)
+  unit               String    @default("pcs")
   estimatedPrice     Float?
   // GAP-5: optional free-text note on a line ("get the ripe ones", "any
   // brand is fine"). Set from the row's edit dialog after the item is
   // added, never asked for at add time, so the smart add line stays one
   // quick type-and-enter. null (never "") when there's no note.
   note               String?
-  purchased          Boolean  @default(false)
+  purchased          Boolean   @default(false)
   // AUTO-9: when someone ticked this row off by hand (togglePurchasedAction
   // or the share-link toggle), cleared again when it's un-ticked. It's the
   // only record of a trip's check-off sequence: completing the list reads
@@ -515,14 +516,51 @@ model ShoppingListItem {
   // order anyone walked the aisles in. null on every row checked off before
   // this column existed.
   checkedOffAt       DateTime?
-  addedAutomatically Boolean  @default(false)
-  createdAt          DateTime @default(now())
+  addedAutomatically Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 
   shoppingList  ShoppingList   @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([shoppingListId])
   @@index([inventoryItemId])
+}
+
+// GAP-4: a named, reusable set of item names ("BBQ", "Costco run") saved from
+// an existing list's pending items (saveAsTemplateAction) and later spun back
+// into a brand-new ACTIVE list (createListFromTemplateAction) — distinct from
+// AUTO-8's always-on default list, which fills itself from low stock rather
+// than being hand-curated and reused for the same recurring trip.
+model ShoppingListTemplate {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  createdAt   DateTime @default(now())
+
+  household Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingListTemplateItem[]
+
+  @@index([householdId])
+}
+
+// Deliberately just a name — a template item is a seed, not a fully
+// specified ShoppingListItem. It carries no quantity/unit/inventory link of
+// its own; those are decided fresh (and re-resolved against inventory, see
+// createListFromTemplateAction's resolveInventoryLinksForNames call) every
+// time the template is used, the same way importShoppingListItemsAction
+// resolves a pasted list rather than trusting whatever it was linked to last.
+model ShoppingListTemplateItem {
+  id         String @id @default(cuid())
+  templateId String
+  name       String
+  // Preserves the order items were in on the list they were saved from —
+  // createMany has no defined row order otherwise, and a template reads
+  // better walked back in the order it was written down.
+  ordering   Int    @default(0)
+
+  template ShoppingListTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
 }
 
 model PriceHistory {

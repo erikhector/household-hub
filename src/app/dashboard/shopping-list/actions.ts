@@ -72,6 +72,28 @@ async function findFuzzyInventoryItem(householdId: string, name: string) {
   return matches.length === 1 ? matches[0] : null;
 }
 
+/**
+ * Resolves a batch of plain item names against household inventory — an
+ * exact (case-insensitive) name match, or, failing that, a single confident
+ * fuzzy match (see findFuzzyInventoryItem's threshold above) — against one
+ * household-wide inventory fetch instead of a query per name. Never
+ * auto-creates a new InventoryItem: a name that matches nothing comes back
+ * null and is left "needs mapping", resolvable afterward the same way any
+ * other unlinked item is. Shared by importShoppingListItemsAction (a pasted
+ * list) and createListFromTemplateAction (GAP-4, a saved template) — both
+ * start from a flat list of names and want the identical link decision, so
+ * this is the one place that decision is made.
+ */
+function resolveInventoryLinksForNames(inventoryItems: InventoryItem[], names: string[]): (InventoryItem | null)[] {
+  const byExactName = new Map(inventoryItems.map((item) => [item.name.trim().toLowerCase(), item]));
+  return names.map((name) => {
+    const exact = byExactName.get(name.trim().toLowerCase());
+    if (exact) return exact;
+    const matches = findInventoryMatches(name, inventoryItems, { minScore: AUTO_FUZZY_MATCH_MIN_SCORE, limit: 2 });
+    return matches.length === 1 ? matches[0] : null;
+  });
+}
+
 const createListSchema = z.object({
   name: z.string().trim().max(120, "List name must be 120 characters or fewer").optional(),
 });
@@ -689,17 +711,10 @@ export async function importShoppingListItemsAction(
   let added = 0;
   try {
     const inventoryItems = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
-    const byExactName = new Map(inventoryItems.map((item) => [item.name.trim().toLowerCase(), item]));
+    const matched = resolveInventoryLinksForNames(inventoryItems, parsed.data.items.map((item) => item.name));
 
-    const rows = parsed.data.items.map((item) => {
-      let inventoryItem = byExactName.get(item.name.trim().toLowerCase()) ?? null;
-      if (!inventoryItem) {
-        const matches = findInventoryMatches(item.name, inventoryItems, {
-          minScore: AUTO_FUZZY_MATCH_MIN_SCORE,
-          limit: 2,
-        });
-        inventoryItem = matches.length === 1 ? matches[0] : null;
-      }
+    const rows = parsed.data.items.map((item, i) => {
+      const inventoryItem = matched[i];
       return {
         shoppingListId: list.id,
         inventoryItemId: inventoryItem?.id ?? null,
@@ -719,6 +734,145 @@ export async function importShoppingListItemsAction(
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   return { added };
+}
+
+const saveAsTemplateSchema = z.object({
+  listId: z.string().min(1),
+  name: z.string().trim().min(1, "Template name is required").max(120, "Template name must be 120 characters or fewer"),
+});
+
+/**
+ * GAP-4: saves a list's still-pending item names as a new, named,
+ * reusable ShoppingListTemplate ("BBQ", "Costco run") — distinct from
+ * AUTO-8's always-on default list, which fills itself from low stock rather
+ * than being hand-curated and reused for the same recurring trip. Only
+ * pending items are captured: a template is "what to buy next time", and an
+ * already-purchased row on the source list is shopping history, not part of
+ * that. Deliberately just names (see ShoppingListTemplateItem's doc
+ * comment) — quantity/unit/inventory link are decided fresh, and
+ * re-resolved against inventory, every time the template is used (see
+ * createListFromTemplateAction below).
+ */
+export async function saveAsTemplateAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = saveAsTemplateSchema.safeParse({
+    listId: formData.get("listId"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: parsed.data.listId, householdId: household.id },
+    include: { items: { where: { purchased: false }, orderBy: { createdAt: "asc" } } },
+  });
+  if (!list) return { error: "List not found" };
+  if (list.items.length === 0) {
+    return { error: "Add some items to this list before saving it as a template" };
+  }
+
+  try {
+    await prisma.shoppingListTemplate.create({
+      data: {
+        householdId: household.id,
+        name: parsed.data.name,
+        items: {
+          create: list.items.map((item, index) => ({ name: item.name, ordering: index })),
+        },
+      },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list");
+  return {};
+}
+
+/**
+ * GAP-4's other half: spins a saved template back into a brand-new ACTIVE
+ * list, one ShoppingListItem per template item, named after the template.
+ * Every item is re-resolved against inventory exactly the way
+ * importShoppingListItemsAction resolves a pasted list — an exact or single
+ * confident fuzzy match, else left "needs mapping" — by reusing
+ * resolveInventoryLinksForNames rather than growing its own copy of that
+ * decision. A click action (not a form), so the caller just needs a
+ * template id; redirects straight to the new list on success, same as
+ * createShoppingListAction.
+ */
+export async function createListFromTemplateAction(templateId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const template = await prisma.shoppingListTemplate.findFirst({
+    where: { id: templateId, householdId: household.id },
+    include: { items: { orderBy: { ordering: "asc" } } },
+  });
+  if (!template) return { error: "Template not found" };
+
+  let listId: string;
+  try {
+    const inventoryItems = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
+    const matched = resolveInventoryLinksForNames(
+      inventoryItems,
+      template.items.map((item) => item.name),
+    );
+
+    listId = await prisma.$transaction(async (tx) => {
+      const list = await tx.shoppingList.create({
+        data: { householdId: household.id, name: template.name },
+      });
+
+      if (template.items.length > 0) {
+        await tx.shoppingListItem.createMany({
+          data: template.items.map((item, i) => {
+            const inventoryItem = matched[i];
+            return {
+              shoppingListId: list.id,
+              inventoryItemId: inventoryItem?.id ?? null,
+              name: item.name,
+              unit: inventoryItem?.unit || "pcs",
+              // AUTO-4: same last-known-price default as every other create
+              // path.
+              estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
+            };
+          }),
+        });
+      }
+
+      return list.id;
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list");
+  redirect(`/dashboard/shopping-list/${listId}`);
+}
+
+/**
+ * Deletes a saved template — a household should be able to remove one it no
+ * longer wants. Doesn't touch any list a previous createListFromTemplateAction
+ * call already created from it; ShoppingListTemplateItem rows cascade with
+ * the template (see the schema).
+ */
+export async function deleteShoppingListTemplateAction(templateId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  try {
+    await prisma.shoppingListTemplate.deleteMany({
+      where: { id: templateId, householdId: household.id },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list");
+  return {};
 }
 
 const smartAddSchema = z.object({
