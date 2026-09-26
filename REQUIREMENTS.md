@@ -3282,14 +3282,17 @@ everywhere.
 [`docs/archive/JOY_GAP_BACKLOG.md`](./docs/archive/JOY_GAP_BACKLOG.md) item 6, the one Joy Gap ticket
 that closes an actual product gap (a shared task list) rather than a tone
 change. One flat, shared `HouseholdTask` list per household — deliberately
-**not** a chore-chart/points/rewards system like Tody or OurHome: no due
-dates, no recurrence, no per-person scoring or leaderboard, in v1 or planned.
-Squirrel's audience is adult household co-managers, not kids earning
-rewards.
+**not** a chore-chart/points/rewards system like Tody or OurHome: no fixed
+due dates or calendar schedule, no per-person scoring, counts, streaks or
+leaderboard, in v1 or planned. Tasks can repeat on a simple interval and a
+repeating task can rotate between people (both below), but that's only ever
+"whose turn is it", never a tally. Squirrel's audience is adult household
+co-managers, not kids earning rewards.
 
 - **Model**: `HouseholdTask` (`householdId`, `title`, nullable
   `assignedToMemberId`, nullable `completedAt`, nullable
-  `completedByMemberId`). `completedAt` is a nullable-timestamp-as-status
+  `completedByMemberId`, nullable `recurrenceIntervalDays`,
+  `rotationMemberIds String[]`, nullable `rotationPreviousAssigneeId`). `completedAt` is a nullable-timestamp-as-status
   (not a boolean/enum), mirroring `MealPlanEntry.consumedAt`.
   `assignedToMemberId`/`completedByMemberId` are two independent, both-
   nullable fields — a task can be completed by someone other than whoever
@@ -3297,16 +3300,70 @@ rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
-- **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`,
-  `toggleTaskCompletedAction` (flips `completedAt` between `null` and
-  `new Date()`, always attributing completion to the *caller's own*
-  household-member id — never a client-supplied one), `deleteTaskAction`.
-  No dedicated edit/re-assign action in v1 — delete and re-add instead.
-- **UI**: one add-task form (title + optional assignee picker) and a flat
-  list split into open/completed sections, matching
+- **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
+  1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
+  weekday schedule, just "reopen N days after it was last completed".
+  Nothing is written when a task reopens: `isTaskOpen`
+  (`src/app/dashboard/tasks/recurrence.ts`) derives open/completed from
+  `completedAt + recurrenceIntervalDays` at read time, and page.tsx, the
+  dashboard's "my tasks" card and the toggle action all call it with the
+  same `now`. Completing again overwrites `completedAt`, so there's no
+  completion-history table (the earlier `completedAt` still counts for the
+  week it happened in, e.g. in the weekly recap). While a recurring task is
+  shown completed the row reads "Next due <date>" (`getNextDueDate`).
+- **Taking turns (GAP-38)**: an opt-in round-robin on a *repeating* task,
+  like Grocy's chores or OurHome. `rotationMemberIds` is the ordered list of
+  people taking turns; empty = no rotation. Valid only with a recurrence and
+  at least two people, no duplicates, at most 20, and every id must belong
+  to the session household (checked server-side in `createTaskAction`/
+  `updateTaskAction`; a forged id is "Member not found"). While rotating,
+  the assignee is "whose turn it is now" and must be one of those people
+  (defaults to the first). A `String[]` rather than a join table, same
+  call as `Household.categoryOrderManual`: always read and written whole,
+  in order, never queried by member. No FK, so a member who leaves stays
+  in the array until the task is next saved (the edit dialog only offers
+  current members).
+  - **Who's next** is `nextAssigneeInRotation` (`src/lib/task-rotation.ts`,
+    pure and unit-tested): walk forward from the current assignee's slot,
+    wrapping around, to the next person still in the household. A departed
+    member's slot still counts as a position but they're skipped; an
+    assignee not in the list (or unassigned) starts from the first active
+    person; one active person keeps it; nobody active leaves the assignee
+    as it is (or null if they've left too).
+  - **Advancing** happens in `toggleTaskCompletedAction` when the task is
+    completed, not when it reopens (reopening never writes, see above), so
+    the next person sees it in their dashboard's "my tasks" straight away.
+    It advances from the *assignee*, not the completer: helping out on
+    someone else's turn doesn't reorder the rotation. The write (and the
+    undo below) is an `updateMany` guarded on the `completedAt` it read, so
+    a double-tap or two members ticking at once advances only once; the
+    losing request is a no-op success.
+  - **Undo**: completion also stores who had the turn in
+    `rotationPreviousAssigneeId`. Un-completing a rotating task restores
+    that person instead of advancing again (if they've left, it goes back
+    to unassigned, like `onDelete: SetNull` would). An explicit edit resets
+    `rotationPreviousAssigneeId` to whoever the edit assigned, so undo never
+    reverts a human's choice.
+  - Deliberately no counts, streaks, "done most" or member-vs-member
+    comparison anywhere — the row only says "Next: <name>".
+- **Actions** (`src/app/dashboard/tasks/actions.ts`): `createTaskAction`
+  (form action), `updateTaskAction` (assignee, recurrence and rotation;
+  title isn't editable), `toggleTaskCompletedAction` (flips `completedAt`
+  between `null` and `new Date()` — or, for a recurring task past its
+  interval, completes it again — always attributing completion to the
+  *caller's own* household-member id, never a client-supplied one; on
+  un-complete, `completedByMemberId` is kept as "Last done by" history),
+  `deleteTaskAction`.
+- **UI**: one shared `TaskFormDialog` for create and edit (title on
+  create, assignee, repeat; once a task repeats and the household has two
+  or more members, a "Take turns" list with add, remove and up/down) and a
+  flat list split into open/completed sections, matching
   `ShoppingListClient`'s shape. An unassigned task shows a neutral
   "Unassigned" badge; a completed task credits its completer by name, never
-  a count.
+  a count. A repeating task shows a "Repeats every N days" badge, and a
+  rotating one "Next: <name>" — for an open task the person after the
+  current assignee, for a completed one the person it has already passed
+  to.
 - **Weekly recap**: `src/app/dashboard/tasks/weekly-recap-calc.ts`
   (`computeWeeklyTaskRecap`) groups the current Monday-start week's
   completed tasks by completer, in first-appearance order — **never** sorted

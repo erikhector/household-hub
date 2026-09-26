@@ -1118,8 +1118,8 @@ model PersonalRecurringTemplateAck {
 // --- Household tasks ---------------------------------------------------------
 // Shared task list for adult household co-managers (see docs/archive/JOY_GAP_BACKLOG.md
 // item 6, "Household Tasks v1") — explicitly not a chore-chart/points/rewards
-// system like Tody or OurHome (see that item's Scope note): no due date, no
-// per-person scoring. `completedAt` nullable-timestamp-as-status (not a
+// system like Tody or OurHome (see that item's Scope note): no fixed due
+// date, no per-person scoring. `completedAt` nullable-timestamp-as-status (not a
 // boolean/enum) mirrors MealPlanEntry.consumedAt. `assignedToMemberId`/
 // `completedByMemberId` are two distinct, independently nullable fields — a
 // task can be completed by someone other than whoever it was assigned to,
@@ -1133,6 +1133,22 @@ model PersonalRecurringTemplateAck {
 // open/completed state is derived lazily from `completedAt` + this interval
 // at read time — completing it again simply overwrites `completedAt`, so no
 // separate completion-history table is needed.
+// GAP-38: `rotationMemberIds` is an opt-in round-robin ("take turns") on a
+// recurring task — an ordered list of HouseholdMember ids; empty means no
+// rotation. Only valid alongside `recurrenceIntervalDays` and with ≥2
+// members (enforced in src/app/dashboard/tasks/actions.ts). A String[]
+// rather than a join table, same call Household.categoryOrderManual makes:
+// the list is only ever read and written whole, in order, and never queried
+// by member, so a join table would add a position column and a reorder
+// dance for nothing. The cost is no FK — a member who leaves stays in the
+// array — which nextAssigneeInRotation (src/lib/task-rotation.ts) handles by
+// skipping anyone no longer in the household (while still using their slot
+// to find "who's after them"), and the next save of the task drops them.
+// `rotationPreviousAssigneeId` is who the task was assigned to just before
+// the last completion advanced it, so un-completing (undo) puts the turn
+// back instead of advancing again. Also a plain id without an FK: undo
+// checks it's still a member before restoring it. An explicit edit resets it
+// to whoever the edit assigned, so undo never reverts a human's choice.
 model HouseholdTask {
   id                     String    @id @default(cuid())
   householdId            String
@@ -1141,6 +1157,8 @@ model HouseholdTask {
   completedAt            DateTime?
   completedByMemberId    String?
   recurrenceIntervalDays Int?
+  rotationMemberIds          String[]  @default([])
+  rotationPreviousAssigneeId String?
   createdAt              DateTime  @default(now())
 
   household         Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)

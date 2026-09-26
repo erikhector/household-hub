@@ -8,6 +8,7 @@ import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
+import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
 
 // The task list (and the member roster the "Add task"/edit dialogs need) is
 // the one per-request DB round trip on this page — see getInventoryData in
@@ -29,6 +30,7 @@ const getTasksData = cache(async (householdId: string) => {
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
   const memberNameById = new Map(memberOptions.map((m) => [m.id, m.displayName]));
+  const activeMemberIds = memberOptions.map((m) => m.id);
 
   const now = new Date();
   const completedThisWeek = tasks
@@ -42,15 +44,35 @@ const getTasksData = cache(async (householdId: string) => {
 
   return {
     memberOptions,
-    tasks: tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      assignedToMemberId: t.assignedToMemberId,
-      completedByMemberId: t.completedByMemberId,
-      completed: !isTaskOpen(t, now),
-      recurrenceIntervalDays: t.recurrenceIntervalDays,
-      completedAt: t.completedAt,
-    })),
+    tasks: tasks.map((t) => {
+      const completed = !isTaskOpen(t, now);
+      // GAP-38: who's up after the current turn. A completed rotating task
+      // has already been passed on (toggleTaskCompletedAction advances on
+      // completion), so its assignee *is* who's next; an open one is still
+      // on its assignee's turn, so "next" is whoever follows them.
+      const nextInRotationMemberId = isRotating(t)
+        ? completed
+          ? t.assignedToMemberId
+          : nextAssigneeInRotation({
+              rotation: t.rotationMemberIds,
+              currentAssigneeId: t.assignedToMemberId,
+              activeMemberIds,
+            })
+        : null;
+      return {
+        id: t.id,
+        title: t.title,
+        assignedToMemberId: t.assignedToMemberId,
+        completedByMemberId: t.completedByMemberId,
+        completed,
+        recurrenceIntervalDays: t.recurrenceIntervalDays,
+        completedAt: t.completedAt,
+        // Current members only, so the edit dialog never offers (or
+        // re-saves) someone who has left the household.
+        rotationMemberIds: activeRotationMembers(t.rotationMemberIds, activeMemberIds),
+        nextInRotationMemberId,
+      };
+    }),
     recapGroups,
   };
 });
