@@ -25,11 +25,11 @@
 // an explicit user action (BACKLOG.md's Guardrails), so the payer still
 // uses "Clear debt" once the Swish payment has gone through.
 
-// Swish only moves Swedish kronor. The app has no per-household currency
-// setting (GAP-13) — every amount is assumed to be in HOUSEHOLD_BASE_CURRENCY
-// (src/lib/currency.ts) — so callers check swishSupportsCurrency against that
-// constant, which keeps the link hidden automatically if it's ever changed
-// or replaced with a real per-household setting.
+// Swish only moves Swedish kronor. Callers check swishSupportsCurrency
+// against the household's display currency (GAP-13's
+// Household.currencyCode), falling back to HOUSEHOLD_BASE_CURRENCY
+// (src/lib/currency.ts) when it's unset, so the link shows only for a SEK
+// or unset household.
 export const SWISH_CURRENCY = "SEK";
 
 export function swishSupportsCurrency(currencyCode: string): boolean {

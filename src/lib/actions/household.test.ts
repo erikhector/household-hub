@@ -148,6 +148,7 @@ const {
   enableCalendarFeedAction,
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
+  setHouseholdCurrencyAction,
 } = await import("@/lib/actions/household");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -1001,6 +1002,61 @@ describe("calendar feed actions (GAP-3)", () => {
     householdUpdateMock.mockRejectedValue(new Error("db down"));
 
     const result = await disableCalendarFeedAction();
+
+    expect(result.error).toBeTruthy();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setHouseholdCurrencyAction (GAP-13)", () => {
+  it("is owner-only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await setHouseholdCurrencyAction("EUR");
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("stores the normalized code on the session's household and revalidates the dashboard", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setHouseholdCurrencyAction(" eur ");
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { currencyCode: "EUR" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it.each([[null], [""]])("clears the setting for %j", async (value) => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setHouseholdCurrencyAction(value);
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith(expect.objectContaining({ data: { currencyCode: null } }));
+  });
+
+  it("rejects a code off the allow-list without writing", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setHouseholdCurrencyAction("JPY");
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await setHouseholdCurrencyAction("SEK");
 
     expect(result.error).toBeTruthy();
     expect(revalidatePathMock).not.toHaveBeenCalled();

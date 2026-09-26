@@ -44,6 +44,7 @@ import { buildSwishPaymentUrl, formatSwishNumber } from "@/lib/swish";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type MemberLabel = { id: string; displayName: string };
 
@@ -156,6 +157,7 @@ export function HouseholdBalances({
   swishNumbers,
   dict,
   locale,
+  currencyCode,
   onRecordRepayment,
   onDeleteRepayment,
 }: {
@@ -172,15 +174,18 @@ export function HouseholdBalances({
   swishNumbers: Record<string, string>;
   dict: BalancesDict;
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   /** recordSettlementAction — injected like the other budget components'
    * actions (BUDGET-2). */
   onRecordRepayment: (prevState: ActionState, formData: FormData) => Promise<ActionState>;
   onDeleteRepayment: (id: string) => Promise<ActionState>;
 }) {
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
+  // The Swish aria label already says "kr" itself (Swish only moves SEK,
+  // and the link only shows when the household is SEK or unset), so it
+  // takes the plain number rather than a second currency symbol.
+  const swishAmountFormat = createMoneyFormat(locale, null);
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? "?";
   // Re-checks the payer here too rather than trusting swishNumbers alone,
@@ -229,7 +234,7 @@ export function HouseholdBalances({
                         href={swishUrl}
                         className={buttonVariants({ size: "xs" })}
                         aria-label={format(dict.swishAriaLabel, {
-                          amount: numberFormat.format(s.amount),
+                          amount: swishAmountFormat.format(s.amount),
                           name: memberName(s.toMemberId),
                           number: formatSwishNumber(swishNumbers[s.toMemberId]),
                         })}

@@ -108,6 +108,7 @@ export type BudgetTabsDict = BudgetDict & {
 export function BudgetTabs({
   dict,
   locale,
+  currencyCode = null,
   monthKey,
   basePath,
   householdParam,
@@ -140,6 +141,11 @@ export function BudgetTabs({
 }: {
   dict: BudgetTabsDict;
   locale: Locale;
+  /** GAP-13: the viewed household's display currency, for the amounts this
+   * component renders itself (Safe to spend, the due widget). Left unset by
+   * the personal budget page, which spans every household the user is in
+   * and so has no single currency to show — its amounts stay symbol-free. */
+  currencyCode?: string | null;
   /** "YYYY-MM" — the month currently selected via the page's `?month=`
    * search param (see src/app/dashboard/budget/page.tsx). */
   monthKey: string;
@@ -274,6 +280,7 @@ export function BudgetTabs({
                 dict={dict}
                 logSharedDialogDict={logSharedDialogDict}
                 locale={locale}
+                currencyCode={currencyCode}
                 onManageClick={() => setTab("manage")}
                 onAcknowledge={onAcknowledgeTemplate}
                 onLogAsIs={onLogTemplateAsIs}
@@ -289,6 +296,7 @@ export function BudgetTabs({
                 showHouseholdName={showHouseholdName}
                 dict={dict.safeToSpend}
                 locale={locale}
+                currencyCode={currencyCode}
               />
               {savingsGoals}
               {periodSummary}

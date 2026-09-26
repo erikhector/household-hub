@@ -5,6 +5,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type { CategoryTotal };
 
@@ -18,6 +19,7 @@ export function PeriodSummary({
   savingsByCategory,
   dict,
   locale,
+  currencyCode,
 }: {
   income: number;
   expense: number;
@@ -38,11 +40,10 @@ export function PeriodSummary({
   // personal budget too — see personal-budget/page.tsx.
   dict: Dictionary["budget"]["summary"];
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
 }) {
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
 
   return (
     <div className="flex flex-col gap-4">

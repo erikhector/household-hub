@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { BudgetBalanceStatus } from "@/lib/recurring-template-calc";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type FixedMonthlyTotals = { month: string; income: number; expense: number; savings: number };
 
@@ -38,6 +39,7 @@ export function FixedBudgetSummary({
   expenseBreakdown,
   dict,
   locale,
+  currencyCode,
 }: {
   monthlyIncome: number;
   monthlyExpense: number;
@@ -48,11 +50,10 @@ export function FixedBudgetSummary({
   expenseBreakdown: CategoryTotal[];
   dict: Dictionary["budget"]["fixedSummary"];
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
 }) {
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const netFixed = monthlyIncome - monthlyExpense;
   const hasTrendData = monthlyTotals.some((m) => m.income > 0 || m.expense > 0 || m.savings > 0);

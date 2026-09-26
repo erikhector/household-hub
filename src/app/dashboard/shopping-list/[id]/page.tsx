@@ -124,6 +124,7 @@ export default async function ShoppingListDetailPage(
           dict={dict.repurchase}
         />
       }
+      currencyCode={household.currencyCode}
     />
   );
 }

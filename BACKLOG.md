@@ -157,24 +157,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-24 scan
 
-- [ ] **GAP-13. A household currency setting** —
-      `prisma/schema.prisma` (`Household`), `src/app/dashboard/household/
-      page.tsx`, every `Intl.NumberFormat` call site in
-      `src/components/budget/`, `src/components/shopping/`, and
-      `src/lib/csv.ts`'s money columns. REQUIREMENTS.md's Budgeting section
-      already notes "no household-level currency setting, so a symbol would
-      be a guess" — Splitwise and YNAB both show a real currency symbol.
-      Add an optional `currencyCode String?` (ISO 4217, e.g. `"SEK"`,
-      `"USD"`) to `Household` (Phase 2 migration), a select on the Household
-      page defaulting to unset (today's symbol-free behavior, so existing
-      households see no change until they opt in), and a small shared
-      formatter (`src/lib/currency.ts`) that passes
-      `{ style: "currency", currency }` to `Intl.NumberFormat` when set,
-      falling back to the current plain-decimal formatting otherwise. CSV
-      exports keep the existing plain-`.`-decimal numbers regardless (per
-      "Data export (CSV)"'s locale-collision reasoning) — this only touches
-      on-screen formatting.
-
 - [ ] **GAP-19. Geofenced "you're near the store" reminder** `[!]` — needs
       a product decision before scoping. Bring! prompts a push notification
       when it detects you're near a saved store, using the phone's
