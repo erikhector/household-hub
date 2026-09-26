@@ -441,7 +441,68 @@ describe("createRecipeAction", () => {
   });
 });
 
+describe("createRecipeAction tags (GAP-29)", () => {
+  it("persists only known tags, deduped and in canonical order", async () => {
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Salad" });
+    for (const tag of ["quick", "vegan", "keto", "quick", "<script>", "glutenFree"]) fd.append("tags", tag);
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ householdId: "household-1", tags: ["vegan", "glutenFree", "quick"] }),
+    });
+  });
+
+  it("saves an empty tag list when none are posted", async () => {
+    recipeCreateMock.mockResolvedValue({});
+
+    await createRecipeAction({}, formData({ name: "Salad" }));
+
+    expect(recipeCreateMock).toHaveBeenCalledWith({ data: expect.objectContaining({ tags: [] }) });
+  });
+});
+
 describe("updateRecipeAction", () => {
+  it("replaces tags with the validated posted set (GAP-29)", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "lasagna" });
+    recipeUpdateMock.mockResolvedValue({});
+    const fd = formData({ recipeId: "lasagna", name: "Lasagna" });
+    fd.append("tags", "vegetarian");
+    fd.append("tags", "notATag");
+
+    await updateRecipeAction({}, fd);
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith({
+      where: { id: "lasagna" },
+      data: expect.objectContaining({ tags: ["vegetarian"] }),
+    });
+  });
+
+  it("clears every tag when an edit posts none (GAP-29)", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "lasagna" });
+    recipeUpdateMock.mockResolvedValue({});
+
+    await updateRecipeAction({}, formData({ recipeId: "lasagna", name: "Lasagna" }));
+
+    expect(recipeUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tags: [] }) }),
+    );
+  });
+
+  it("doesn't write tags for a recipe outside the caller's household (GAP-29, IDOR guard)", async () => {
+    recipeFindFirstMock.mockResolvedValue(null);
+    const fd = formData({ recipeId: "foreign", name: "Lasagna" });
+    fd.append("tags", "vegan");
+
+    const result = await updateRecipeAction({}, fd);
+
+    expect(result.error).toBe("Recipe not found");
+    expect(recipeFindFirstMock).toHaveBeenCalledWith({ where: { id: "foreign", householdId: "household-1" } });
+    expect(recipeUpdateMock).not.toHaveBeenCalled();
+  });
+
   it("returns 'Recipe not found' for a recipe outside the caller's household (IDOR guard)", async () => {
     recipeFindFirstMock.mockResolvedValue(null);
 
@@ -628,10 +689,22 @@ describe("importRecipeFromUrlAction", () => {
 
   it("returns the parsed recipe on success", async () => {
     fetchRecipeHtmlMock.mockResolvedValue({ ok: true, html: "<html/>" });
-    parseRecipeFromHtmlMock.mockReturnValue({ name: "Soup", instructions: "", ingredients: [], source: "microdata" });
+    parseRecipeFromHtmlMock.mockReturnValue({
+      name: "Soup",
+      instructions: "",
+      ingredients: [],
+      source: "jsonld",
+      tags: ["vegan"],
+    });
 
     const result = await importRecipeFromUrlAction({}, formData({ url: "https://example.com/recipe" }));
 
-    expect(result.recipe).toEqual({ name: "Soup", instructions: "", ingredients: [], source: "microdata" });
+    expect(result.recipe).toEqual({
+      name: "Soup",
+      instructions: "",
+      ingredients: [],
+      source: "jsonld",
+      tags: ["vegan"],
+    });
   });
 });

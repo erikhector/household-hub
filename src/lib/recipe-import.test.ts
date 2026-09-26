@@ -290,6 +290,7 @@ describe("parseRecipeFromHtml", () => {
         { name: "eggs", quantity: 2, unit: "pcs" },
       ],
       source: "jsonld",
+      tags: [],
     });
   });
 
@@ -351,6 +352,7 @@ describe("parseRecipeFromHtml", () => {
         { name: "salt", quantity: 1, unit: "krm" },
       ],
       source: "jsonld",
+      tags: [],
     });
   });
 });
@@ -517,6 +519,7 @@ describe("parseRecipeFromHtml fallback order", () => {
       instructions: "",
       ingredients: [{ name: "leek", quantity: 1, unit: "pcs" }],
       source: "jsonld",
+      tags: [],
     });
   });
 
@@ -526,7 +529,19 @@ describe("parseRecipeFromHtml fallback order", () => {
       ${microdata}
       ${heuristic}
     `;
-    expect(parseRecipeFromHtml(html)).toMatchObject({ name: "Microdata Soup", source: "microdata" });
+    expect(parseRecipeFromHtml(html)).toMatchObject({ name: "Microdata Soup", source: "microdata", tags: [] });
+  });
+
+  // GAP-29: only the JSON-LD tier's own `suitableForDiet` claim becomes
+  // tags — see ImportedRecipe's doc comment.
+  it("maps JSON-LD suitableForDiet to recipe tags, ignoring diets with no tag", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","name":"Lentil Soup","recipeIngredient":["1 cup lentils"],
+         "suitableForDiet":["https://schema.org/VeganDiet","https://schema.org/LowFatDiet","GlutenFreeDiet"]}
+      </script>
+    `;
+    expect(parseRecipeFromHtml(html)).toMatchObject({ source: "jsonld", tags: ["vegan", "glutenFree"] });
   });
 
   it("falls back to the heuristic when there's no structured data at all", () => {

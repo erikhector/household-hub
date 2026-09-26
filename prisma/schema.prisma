@@ -644,6 +644,15 @@ model Recipe {
   // computeCookableRecipes / computeUseItUpSuggestions), never a filter, so
   // starring a recipe can't hide an un-starred one that's a better match.
   isFavorite             Boolean  @default(false)
+  // Dietary/"quick" tags (GAP-29) — keys from the CLOSED set in
+  // src/lib/recipe-tags.ts (RECIPE_TAGS), labelled per locale from
+  // `mealPlanning.recipeTags`. A plain text[] rather than a Postgres enum or
+  // a join table: the set is tiny, only ever filtered client-side over the
+  // household's already-loaded recipe list, and growing it shouldn't need a
+  // migration. The closed set is enforced in application code instead —
+  // every write goes through parseRecipeTags, and so does every read, so a
+  // key later removed from the set is silently ignored rather than shown.
+  tags                   String[] @default([])
 
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]

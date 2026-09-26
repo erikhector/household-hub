@@ -1,4 +1,5 @@
 import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
+import type { RecipeTag } from "@/lib/recipe-tags";
 
 export type RecipeIngredientData = {
   id: string;
@@ -34,6 +35,9 @@ export type RecipeData = {
   // Recipe.isFavorite (GAP-18) — the star on each RecipeManager row. Only a
   // ranking tiebreaker elsewhere, never a filter.
   isFavorite: boolean;
+  // Recipe.tags (GAP-29), already run through parseRecipeTags in page.tsx
+  // so only known keys in canonical order ever reach the client.
+  tags: RecipeTag[];
   ingredients: RecipeIngredientData[];
   components: RecipeComponentData[];
 };

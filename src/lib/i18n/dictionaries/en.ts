@@ -1165,6 +1165,21 @@ export const en = {
     searchRecipesPlaceholder: "Search recipes…",
     clearSearch: "Clear search",
     noRecipeSearchResults: "No recipes match your search.",
+    // GAP-29: labels for the closed recipe-tag set in src/lib/recipe-tags.ts
+    // — the keys are what's stored on Recipe.tags, these are display text.
+    recipeTags: {
+      vegan: "Vegan",
+      vegetarian: "Vegetarian",
+      glutenFree: "Gluten-free",
+      dairyFree: "Dairy-free",
+      nutFree: "Nut-free",
+      lowCarb: "Low-carb",
+      quick: "Quick",
+    },
+    recipeTagsLabel: "Tags",
+    recipeTagsHint: "Used to filter your recipe list.",
+    tagFilterLabel: "Filter by tag",
+    allTags: "All tags",
     ingredientCount: {
       one: "{count} ingredient",
       other: "{count} ingredients",
