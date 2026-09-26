@@ -563,6 +563,58 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     costs no extra query. Household-wide, never per member; per-store
     orders are a non-goal (`PriceHistory.store` is too sparse to key off).
     Migration: `store_order_learning`.
+- **"You usually buy this about now" (AUTO-10)** — inventory counts drift
+  (nobody updates them after every breakfast), so low-stock detection alone
+  misses things. An ACTIVE list's detail page also shows up to five
+  dismissible chips under the smart add line, one per item the household
+  buys on a rhythm and is due to buy again ("Coffee · usually every 12
+  days"). Tapping a chip adds the item to that list; nothing is ever added
+  by itself, and nothing reaches the bell or a push notification (the
+  Guardrails' "suggest, don't silently mutate").
+  - *Purchase dates, derived rather than stored*: a purchase is a
+    `purchased` `ShoppingListItem` linked to an inventory item, dated by
+    `purchaseTimestamp()` — its AUTO-9 `checkedOffAt` when it was ticked by
+    hand, otherwise its list's `completedAt`. The fallback covers exactly
+    the rows `checkedOffAt` deliberately leaves blank (AUTO-9's semantics
+    are unchanged): receipt apply marks lines purchased without a tick and
+    the list's "Done shopping" is when that trip happened, and "Register
+    receipt" creates its list already completed at the moment of purchase.
+    A separate `purchasedAt` column was rejected because it would only
+    ever hold one of those two values again, would need writing on every
+    purchase path, and would start empty — deriving means every list
+    completed before AUTO-10 shipped already counts as history. The one
+    gap is a receipt-applied row on a list that's still ACTIVE: it has no
+    date until the list is completed, so until then its item is treated as
+    already on a list (below) rather than looking overdue.
+  - *Calc*: `src/lib/inventory/repurchase-calc.ts` (pure, unit-tested).
+    Purchases on the same calendar day (UTC — there's no stored household
+    time zone) collapse into one, so two lines of the same thing in one
+    shop aren't a 0-day interval. At least three purchase days are needed
+    before anything is suggested. The rhythm is the **median** gap in
+    whole days between purchase days (one forgotten fortnight doesn't
+    skew a weekly habit). An item is due when `now − lastPurchase ≥ 0.85 ×
+    median`, so it's on the list a little before the last pack runs out.
+    It's never suggested while it's pending on any ACTIVE list (or ticked
+    there by a receipt but not yet dated), nor while snoozed. Most overdue
+    relative to the item's own rhythm comes first, capped at five. Only
+    the last 365 days of history are loaded
+    (`src/lib/inventory/repurchase-suggestions.ts`, two queries per page
+    view, only for ACTIVE lists).
+  - *Adding* (`addRepurchaseSuggestionAction`,
+    `src/app/dashboard/shopping-list/repurchase-actions.ts`): adds the
+    item to the list being viewed with last time's quantity and unit (1 of
+    the item's unit without one) and the AUTO-4 last-known-price default,
+    not flagged `addedAutomatically`. A no-op if it's already pending on
+    that list.
+  - *Dismissing* snoozes the item for one usual interval from the moment
+    of dismissal ("ask me next cycle"): `InventoryItem.repurchaseSnoozedUntil`
+    (`DateTime?`, null = never dismissed, a past value = expired). Stored
+    server-side so a dismissal holds on every member's device, and
+    household-scoped through the item — nothing is kept in the browser.
+    The rhythm is recomputed on the server, never taken from the client.
+    The toast's Undo clears the snooze. A purchase meanwhile moves the due
+    date on by itself; an item still unbought when the snooze ends comes
+    straight back. Migration: `repurchase_snooze`.
 - **Per-item notes (GAP-5)** — `ShoppingListItem.note` (`String?`,
   migration `20260925124224_shopping_item_note`) holds an optional
   free-text hint for whoever does the shopping ("get the ripe ones", "any

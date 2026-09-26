@@ -1926,6 +1926,18 @@ export const sv = {
     cameraError: "Kunde inte starta kameran. Du kan fortfarande fylla i varan manuellt.",
     cancel: "Avbryt",
   },
+  repurchase: {
+    label: "Det här brukar ni köpa ungefär nu",
+    chip: {
+      one: "{name} · brukar köpas varje dag",
+      other: "{name} · brukar köpas med {count} dagars mellanrum",
+    },
+    addAriaLabel: "Lägg till {name} på listan",
+    dismissAriaLabel: "Inte nu: {name}",
+    added: "{name} lades till på listan",
+    dismissed: "Okej, {name} föreslås igen nästa gång det är dags",
+    undo: "Ångra",
+  },
   profile: {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
