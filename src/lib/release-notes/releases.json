@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.3",
+    "date": "2026-09-26",
+    "pr": 74,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Too many wrong current-password attempts when changing your email or password, or deleting your account, now pause further attempts for 15 minutes.",
+      "sv": "För många felaktiga försök med ditt nuvarande lösenord när du byter e-post eller lösenord, eller raderar ditt konto, pausar nu nya försök i 15 minuter."
+    }
+  },
+  {
     "version": "0.39.2",
     "date": "2026-09-26",
     "pr": 72,
