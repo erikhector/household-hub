@@ -22,7 +22,11 @@ export type StorageKind = "cookie" | "localStorage";
 export type StorageCategory = "necessary" | "preference";
 
 export type StorageEntry = {
-  /** Exact name, or the un-prefixed name for entries with a production prefix. */
+  /**
+   * Exact name, or the un-prefixed name for entries with a production
+   * prefix (Auth.js's `__Secure-`/`__Host-`) or a per-id prefix (a cookie
+   * suffixed with e.g. a household id at set time).
+   */
   name: string;
   kind: StorageKind;
   category: StorageCategory;
@@ -97,6 +101,16 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "1 year",
   },
   {
+    // Suffixed with the household's id at set time (household_step_skipped_<id>) —
+    // see src/lib/actions/household.ts.
+    name: "household_step_skipped_",
+    kind: "cookie",
+    category: "preference",
+    purpose:
+      "Remembers that you dismissed the “invite your household” getting-started step for a given household.",
+    duration: "1 year",
+  },
+  {
     name: "theme",
     kind: "localStorage",
     category: "preference",
@@ -115,6 +129,20 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     kind: "localStorage",
     category: "preference",
     purpose: "Remembers that you've dismissed the weekly nutrition recap for a given week on the Planner tab.",
+    duration: "Until you clear site data",
+  },
+  {
+    name: "mealPlanning.varietyRecapDismissedCount",
+    kind: "localStorage",
+    category: "preference",
+    purpose: "Remembers that you've dismissed the recipe variety recap for a given count on the Planner tab.",
+    duration: "Until you clear site data",
+  },
+  {
+    name: "tasks.weeklyRecap.dismissedWeek",
+    kind: "localStorage",
+    category: "preference",
+    purpose: "Remembers that you've dismissed the weekly task recap for a given week on the Tasks tab.",
     duration: "Until you clear site data",
   },
 ];
