@@ -646,6 +646,47 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `src/lib/actions/household.ts`). Not owner-gated — see "Roles". Off
     means no crossing ever adds anything; "Add low-stock items" and "Mark
     as empty & add" still work by hand.
+- **List templates (GAP-4)** — a household can save any list's items as a
+  reusable, named template ("BBQ", "Costco run") and stamp it out as a new
+  list later. Deliberately separate from AUTO-8's default list: that one
+  fills itself from low stock, while a template never changes on its own.
+  - *Schema*: `ShoppingListTemplate` (`householdId`, `name`, `createdAt`;
+    `@@unique([householdId, name])`, cascades with the household) and
+    `ShoppingListTemplateItem` (`name`, `quantity`, `unit`, `position`, and
+    an optional `inventoryItemId` with `onDelete: SetNull`). Prices and notes
+    aren't stored: a price goes stale between uses and a note is usually
+    about one trip.
+  - *Saving*: "Save as template" in the list's `⋯` menu (any status with at
+    least one item, since saving a finished trip is the common case) opens
+    `SaveTemplateDialog`, prefilled with the list's name.
+    `saveAsTemplateAction` snapshots every item, checked off or not,
+    through `buildTemplateItems` (`src/lib/shopping/list-templates.ts`),
+    which merges duplicate name + unit lines by summing quantities. A name
+    already in use (case-insensitively) is refused rather than overwritten.
+    The cap is `MAX_TEMPLATE_ITEMS` (300, the same as import/paste) and
+    names are 1–120 characters, the same as a list name.
+  - *Using*: the overview page lists templates alphabetically under
+    "Templates" with an item count. "New list" calls
+    `createListFromTemplateAction`, which creates a new `ACTIVE` list named
+    after the template (never the default list) with all its items in one
+    nested write, then opens it. `resolveTemplateRows` keeps a saved
+    inventory link while that item still exists in the household. Any other
+    row is re-linked by name through `createInventoryLinker`
+    (`src/lib/shopping/inventory-link.ts`), the same exact-then-single-fuzzy
+    resolver `importShoppingListItemsAction` uses, so a template behaves
+    like re-pasting the list and needs no linking logic of its own. Like
+    import, it never creates inventory items: an unmatched row stays
+    unlinked for "Resolve mappings", and `completeShoppingListAction`'s
+    find-or-create still covers it at the end. Estimated prices come from
+    the linked item's `lastKnownPrice` (AUTO-4).
+  - *Deleting*: undo over confirm. `deleteShoppingListTemplateAction`
+    deletes immediately and returns a snapshot. The toast's Undo passes it
+    to `restoreShoppingListTemplateAction`, which validates it with Zod
+    like any client input and drops any `inventoryItemId` that isn't in the
+    caller's household to `null`.
+  - *Tenancy*: all four actions (`src/app/dashboard/shopping-list/template-actions.ts`,
+    tested in `template-actions.test.ts`) take the household from
+    `requireHousehold()` and look up every list or template id scoped to it.
 - **Smart add line (AUTO-1)** — the primary way to add to an `ACTIVE`
   list: one always-visible input (`SmartAddBar`,
   `src/components/shopping/smart-add-bar.tsx`) between the header and the

@@ -18,6 +18,7 @@ import {
   Plus,
   Printer,
   RotateCcw,
+  ScrollText,
   Share2,
   Trash2,
   X,
@@ -43,6 +44,7 @@ import { ShareListButton } from "@/components/shopping/share-list-button";
 import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
 import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
+import { SaveTemplateDialog } from "@/components/shopping/list-templates";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
@@ -186,6 +188,7 @@ export function ShoppingListClient({
     completeList: createDialogHandle(),
     deleteList: createDialogHandle(),
     reorderSections: createDialogHandle(),
+    saveTemplate: createDialogHandle(),
   }));
 
   const addLowStock = () =>
@@ -384,6 +387,14 @@ export function ShoppingListClient({
                   )}
                 </>
               )}
+              {/* GAP-4: offered on any status — saving a finished trip as a
+                  template is the common case. */}
+              {list.items.length > 0 && (
+                <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
+                  <ScrollText />
+                  {dict.templates.menuItem}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
                 <Download />
                 {exportLabel}
@@ -434,6 +445,10 @@ export function ShoppingListClient({
           </DropdownMenu>
         </div>
       </div>
+
+      {list.items.length > 0 && (
+        <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
+      )}
 
       {isActive && (
         <>

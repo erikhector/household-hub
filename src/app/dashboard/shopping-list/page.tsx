@@ -4,6 +4,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
+import { ListTemplatesSection } from "@/components/shopping/list-templates";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
 // can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
@@ -28,13 +29,21 @@ async function ShoppingListsSection({
   householdId: string;
   dict: Awaited<ReturnType<typeof getDictionary>>["shoppingList"];
 }) {
-  const lists = await prisma.shoppingList.findMany({
-    where: { householdId },
-    // The default "Next shop" list (AUTO-8) always leads the Active section
-    // — it's the one the household is actually filling — then newest first.
-    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-    include: { _count: { select: { items: { where: { purchased: false } } } } },
-  });
+  const [lists, templates] = await Promise.all([
+    prisma.shoppingList.findMany({
+      where: { householdId },
+      // The default "Next shop" list (AUTO-8) always leads the Active section
+      // — it's the one the household is actually filling — then newest first.
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+      include: { _count: { select: { items: { where: { purchased: false } } } } },
+    }),
+    // GAP-4: saved templates, alphabetical — they're picked by name.
+    prisma.shoppingListTemplate.findMany({
+      where: { householdId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, _count: { select: { items: true } } },
+    }),
+  ]);
 
   const toSummary = (list: (typeof lists)[number]) => ({
     id: list.id,
@@ -45,12 +54,18 @@ async function ShoppingListsSection({
   });
 
   return (
-    <ShoppingListsOverview
-      dict={dict}
-      active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
-      completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
-      archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
-    />
+    <div className="flex flex-col gap-6">
+      <ShoppingListsOverview
+        dict={dict}
+        active={lists.filter((l) => l.status === "ACTIVE").map(toSummary)}
+        completed={lists.filter((l) => l.status === "COMPLETED").map(toSummary)}
+        archived={lists.filter((l) => l.status === "ARCHIVED").map(toSummary)}
+      />
+      <ListTemplatesSection
+        dict={dict.templates}
+        templates={templates.map((t) => ({ id: t.id, name: t.name, itemCount: t._count.items }))}
+      />
+    </div>
   );
 }
 
