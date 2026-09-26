@@ -269,6 +269,135 @@ out to be a product-scope question rather than a scoped task should move to
       one-shot OS notifications). Worth deciding the mechanism before
       committing, rather than treating it as a routine feature slice.
 
+### 2026-09-26 scan
+
+- [ ] **GAP-29. Recipe dietary tags and filtering** —
+      `prisma/schema.prisma` (`Recipe`), `src/components/meal-planning/
+      recipe-manager.tsx`. Mealime and Plan to Eat let a household mark a
+      recipe vegetarian/gluten-free/dairy-free/etc. and filter the recipe
+      list by it; `Recipe` has no such field today and `RecipeManager` only
+      supports a free-text name search. Add a small fixed `tags String[]`
+      (a closed set, labelled via a dictionary namespace the same way
+      AUTO-2's `inventory.autoCategories` keys are, not freeform text) set
+      from a multi-select in `RecipeFormDialog`, and a filter row above the
+      recipe list mirroring the inventory page's category/location filter
+      pattern.
+
+- [ ] **GAP-30. Move a meal-plan entry to a different day/slot** —
+      `src/app/dashboard/meal-planning/planner-actions.ts`,
+      `src/components/meal-planning/week-planner.tsx`. Mealime and Plan to
+      Eat let you drag a planned meal to another day. REQUIREMENTS.md's
+      "Editing a meal entry" section states plainly that "date and meal
+      type aren't editable, so moving a meal still means deleting it and
+      adding it again" — `updateMealEntryAction` only ever patches
+      `recipeId`/`freeformName`/`portions`, never `date`/`mealType`.
+      Extend it to accept an optional new date + `MealType`, reusing
+      `addMealEntryAction`'s existing "slots can stack, no uniqueness
+      constraint" behavior, and add a "Move" affordance (or drag-and-drop)
+      to `WeekPlanner` alongside the existing edit pencil.
+
+- [ ] **GAP-31. Recipe import beyond JSON-LD-only pages** —
+      `src/lib/recipe-import.ts`. Plan to Eat's browser clipper imports
+      from almost any recipe blog; Squirrel's importer only extracts
+      `<script type="application/ld+json">` `Recipe` blocks and returns
+      `importErrorNoRecipeFound` for anything Microdata-only or
+      unstructured (see the file's own header comment on why only
+      JSON-LD is handled today). A best-effort HTML fallback (heading +
+      list-heuristic extraction, clearly labelled "review before saving"
+      since it'll be less reliable than JSON-LD) would cover the sites
+      that fall through today, without promising a full clipper.
+
+- [ ] **GAP-32. Shopping list from more than "this visible week"** —
+      `src/app/dashboard/meal-planning/cooking-actions.ts`
+      (`previewMissingIngredientsAction`), `.../missing-ingredients.ts`.
+      Plan to Eat and Mealime can build one shopping list from any date
+      range (e.g. "the next two weeks" before a big trip). Squirrel's
+      missing-ingredients bridge is hard-scoped to a single
+      `MealPlan.weekStartDate` — `previewMissingIngredientsAction` looks up
+      exactly one week's plan. Parameterizing it by a `[from, to)` date
+      range instead (spanning `MealPlanEntry.date` across however many
+      `MealPlan` rows fall in it) would let `MissingIngredientsDialog` offer
+      "This week" (today's default) or a custom range.
+
+- [ ] **GAP-33. Total value of what's currently on hand** —
+      new `src/lib/inventory/stock-value.ts` (pure, unit-tested, alongside
+      `expired-waste.ts`), surfaced on the Inventory page or Cost analyzer.
+      Grocy's headline stat is the pantry's total monetary value. Squirrel
+      already computes what expired *unused* (`computeExpiredWaste`,
+      GAP-17) but nothing sums `InventoryItem.lastKnownPrice` across
+      current stock the same way — same "one `lastKnownPrice` per item,
+      never × quantity for a per-line price" caveat GAP-17's write-up
+      already spells out for exactly this reason.
+
+- [ ] **GAP-34. Whole-basket "cheapest store" comparison** —
+      `src/lib/cheapest-store-calc.ts`, `src/components/budget/
+      cost-analyzer.tsx`. Listonic/Out of Milk compare a *list's* total
+      cost across stores, not just one item at a time. GAP-6 (shipped)
+      already built `computeCheapestStoreComparisons`, but it's
+      strictly per-item — "which store had item X cheapest last time,"
+      never "which store would this whole pending list cost least at."
+      Extending the same calculator to sum each pending shopping-list
+      item's cheapest-known price per store (skipping items with no
+      cross-store history, the same ≥2-distinct-stores bar GAP-6 already
+      uses) would need only a small addition, not a new data source.
+
+- [ ] **GAP-35. Household-wide calendar for events, not just meals and bills** `[!]` —
+      needs a product decision. Cozi's core differentiator is a shared
+      family calendar for appointments, birthdays and school events —
+      Squirrel's `.ics` feed (`src/lib/calendar-feed.ts`,
+      `src/app/api/calendar/[token]/route.ts`) only ever publishes
+      meal-plan entries and recurring-bill due dates; there's no
+      `HouseholdEvent` model or in-app view for a one-off or recurring
+      appointment. The delivery mechanism (the existing opt-in `.ics`
+      feed, `buildCalendarFeedEvents`) is already built and could carry
+      a third event source cheaply, but the feature itself needs
+      decisions the meal/bill feed didn't: does an event need its own
+      reminder/push, per-member visibility, or in-app recurrence — none
+      of which this app's calendar surface has had to answer before.
+
+- [ ] **GAP-36. "Give every dollar a job" zero-based budgeting** `[!]` —
+      needs a product decision. YNAB's defining feature is requiring the
+      month's income to be fully assigned across categories (a
+      "To be budgeted" figure that must reach zero), a materially
+      different philosophy from the envelope-style `monthlyLimit`/
+      `rolloverEnabled` system already built (GAP-12/GAP-21,
+      `BudgetCategory`/`PersonalBudgetCategory`) — that system caps
+      category spending, but nothing requires or tracks whether *all*
+      income has a category. Adopting it would mean reconciling a new
+      "unassigned" figure against `computeSafeToSpend`
+      (`src/lib/safe-to-spend-calc.ts`), which already answers a similar
+      but distinct question ("what's left to spend"); worth deciding
+      whether the app wants two budgeting philosophies side by side
+      before scoping either the schema or the math.
+
+- [ ] **GAP-37. Splitting an expense with someone outside the household** `[!]` —
+      needs a product decision. Splitwise's core model is splitting a bill
+      with any "friend," not just people who share your account.
+      `TransactionSplit` (`prisma/schema.prisma`) is keyed to
+      `HouseholdMember`, so every split participant must already be a full
+      household member — there's no way to record "the trip to Ikea, split
+      three ways with a friend who isn't on Squirrel." Supporting it breaks
+      the tenancy assumption every domain row here relies on (a split
+      party scoped by `householdId` via its member), and would need a real
+      design for a non-member participant's identity (a name-only row with
+      no login, most likely) before it's a scoped task rather than an
+      open-ended one.
+
+- [ ] **GAP-38. Chore rotation among household members** `[!]` —
+      needs a product decision. `HouseholdTask` already grew a
+      `recurrenceIntervalDays` (an undocumented addition — REQUIREMENTS.md's
+      "Household tasks" section still says v1 has "no due dates, no
+      recurrence" and should be corrected to match `prisma/schema.prisma`
+      and `src/app/dashboard/tasks/actions.ts`, which already have it), but
+      there's no rotation: Grocy's Chores module and OurHome auto-assign a
+      recurring chore to the next person in line each time it's completed.
+      Squirrel's own Guardrails explicitly rule out "member-vs-member
+      leaderboards," and an auto-rotating assignee is adjacent to that
+      concern without being the same thing — worth deciding whether
+      round-robin assignment (no scoring, just whose turn it is) crosses
+      that line before building `nextAssigneeInRotation`-style logic onto
+      `toggleTaskCompletedAction`.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
