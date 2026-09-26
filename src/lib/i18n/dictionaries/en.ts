@@ -1177,6 +1177,18 @@ export const en = {
     missingIngredientsDialogTitle: "Add missing ingredients",
     loadingMissingIngredients: "Checking what you already have…",
     noMissingIngredients: "You already have everything you need for this week's planned meals.",
+    // Date-range picker in the missing-ingredients dialog (GAP-32) — see
+    // previewMissingIngredientsAction in cooking-actions.ts. "This week" is
+    // the visible planner week; "this week and next" adds the week after it.
+    noMissingIngredientsInRange: "You already have everything you need for the planned meals in this period.",
+    missingIngredientsRangeLabel: "Plan period",
+    missingIngredientsRangeThisWeek: "This week",
+    missingIngredientsRangeTwoWeeks: "This week and next",
+    missingIngredientsRangeCustom: "Custom dates…",
+    missingIngredientsRangeFrom: "From",
+    missingIngredientsRangeThrough: "Through",
+    missingIngredientsRangeInvalid:
+      "Pick an end date on or after the start date, at most {max} days in total.",
     missingIngredientCount: {
       one: "{count} ingredient needed",
       other: "{count} ingredients needed",

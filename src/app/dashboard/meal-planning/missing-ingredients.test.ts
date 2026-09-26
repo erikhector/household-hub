@@ -1,5 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { computeMissingIngredients, type IngredientNeed } from "./missing-ingredients";
+import {
+  computeMissingIngredients,
+  MAX_MISSING_INGREDIENTS_RANGE_DAYS,
+  parseMissingIngredientsRange,
+  weekRange,
+  type IngredientNeed,
+} from "./missing-ingredients";
+
+describe("weekRange", () => {
+  it("is the visible week as a half-open [Monday, next Monday) range — the pre-GAP-32 default", () => {
+    expect(weekRange("2026-01-05")).toEqual({ from: "2026-01-05", to: "2026-01-12" });
+  });
+
+  it("crosses month and year boundaries", () => {
+    expect(weekRange("2025-12-29")).toEqual({ from: "2025-12-29", to: "2026-01-05" });
+  });
+});
+
+describe("parseMissingIngredientsRange", () => {
+  it("parses a valid range into UTC-midnight Dates", () => {
+    expect(parseMissingIngredientsRange({ from: "2026-01-05", to: "2026-01-19" })).toEqual({
+      from: new Date("2026-01-05T00:00:00.000Z"),
+      to: new Date("2026-01-19T00:00:00.000Z"),
+    });
+  });
+
+  it("accepts a single day and exactly the cap, and rejects one day past it", () => {
+    expect(MAX_MISSING_INGREDIENTS_RANGE_DAYS).toBe(31);
+    expect(parseMissingIngredientsRange({ from: "2026-01-05", to: "2026-01-06" })).not.toBeNull();
+    expect(parseMissingIngredientsRange({ from: "2026-01-01", to: "2026-02-01" })).not.toBeNull();
+    expect(parseMissingIngredientsRange({ from: "2026-01-01", to: "2026-02-02" })).toBeNull();
+  });
+
+  it("rejects an empty or backwards range", () => {
+    expect(parseMissingIngredientsRange({ from: "2026-01-05", to: "2026-01-05" })).toBeNull();
+    expect(parseMissingIngredientsRange({ from: "2026-01-12", to: "2026-01-05" })).toBeNull();
+  });
+
+  it("rejects malformed input, including dates that only look valid", () => {
+    expect(parseMissingIngredientsRange({ from: "2026-02-31", to: "2026-03-05" })).toBeNull();
+    expect(parseMissingIngredientsRange({ from: "2026-1-5", to: "2026-01-12" })).toBeNull();
+    expect(parseMissingIngredientsRange({ from: "2026-01-05" })).toBeNull();
+    expect(parseMissingIngredientsRange("2026-01-05")).toBeNull();
+    expect(parseMissingIngredientsRange(null)).toBeNull();
+  });
+});
 
 describe("computeMissingIngredients", () => {
   it("proposes an ingredient whose required quantity exceeds what's on hand", () => {

@@ -1121,6 +1121,15 @@ export const sv = {
     missingIngredientsDialogTitle: "Lägg till saknade ingredienser",
     loadingMissingIngredients: "Kontrollerar vad du redan har…",
     noMissingIngredients: "Du har redan allt du behöver för veckans planerade måltider.",
+    noMissingIngredientsInRange: "Du har redan allt du behöver för de planerade måltiderna under perioden.",
+    missingIngredientsRangeLabel: "Period",
+    missingIngredientsRangeThisWeek: "Den här veckan",
+    missingIngredientsRangeTwoWeeks: "Den här och nästa vecka",
+    missingIngredientsRangeCustom: "Egna datum…",
+    missingIngredientsRangeFrom: "Från",
+    missingIngredientsRangeThrough: "Till och med",
+    missingIngredientsRangeInvalid:
+      "Välj ett slutdatum som är samma dag som startdatumet eller senare, högst {max} dagar totalt.",
     missingIngredientCount: {
       one: "{count} ingrediens saknas",
       other: "{count} ingredienser saknas",
