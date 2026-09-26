@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.34.0",
+    "date": "2026-09-26",
+    "pr": 61,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping lists now suggest things you usually buy about now, like \"Coffee · usually every 12 days\". Tap a suggestion to add it, or dismiss it until next time.",
+      "sv": "Inköpslistor föreslår nu varor ni brukar köpa ungefär nu, till exempel \"Kaffe · brukar köpas med 12 dagars mellanrum\". Tryck för att lägga till, eller avfärda förslaget till nästa gång."
+    }
+  },
+  {
     "version": "0.33.0",
     "date": "2026-09-26",
     "pr": 60,
