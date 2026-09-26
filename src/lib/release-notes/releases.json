@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.32.0",
+    "date": "2026-09-26",
+    "pr": 58,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping mode now learns the order you walk your store in from the order you check things off, and sorts sections to match. You can also set the order yourself with \"Reorder sections\" in the list's ⋯ menu.",
+      "sv": "Handlingsläget lär sig nu i vilken ordning du går genom butiken utifrån hur du bockar av varor, och sorterar avsnitten därefter. Du kan också bestämma ordningen själv med \"Ändra ordning på avsnitt\" i listans ⋯-meny."
+    }
+  },
+  {
     "version": "0.31.0",
     "date": "2026-09-25",
     "pr": 57,
