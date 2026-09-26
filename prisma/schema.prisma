@@ -142,6 +142,7 @@ model Household {
   invitations        Invitation[]
   inventoryItems     InventoryItem[]
   shoppingLists      ShoppingList[]
+  listTemplates      ShoppingListTemplate[]
   recipes            Recipe[]
   mealPlans          MealPlan[]
   budgetCategories   BudgetCategory[]
@@ -314,6 +315,7 @@ model InventoryItem {
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   shoppingListItems ShoppingListItem[]
+  listTemplateItems ShoppingListTemplateItem[]
   priceHistory      PriceHistory[]
   recipeIngredients RecipeIngredient[]
   notifications     Notification[]
@@ -497,6 +499,52 @@ model ShoppingListItem {
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([shoppingListId])
+  @@index([inventoryItemId])
+}
+
+// GAP-4: a reusable, named snapshot of a list's items ("BBQ", "Costco
+// run") that a household can stamp out as a fresh ACTIVE list whenever it
+// needs one. Deliberately separate from AUTO-8's isDefault list, which fills
+// itself from low stock — a template never changes on its own. Saved from a
+// list's ⋯ menu (saveAsTemplateAction) and used from the overview page
+// (createListFromTemplateAction), both in
+// src/app/dashboard/shopping-list/template-actions.ts. Names are unique per
+// household so the picker never shows two identical rows, and saving under
+// an existing name is refused rather than silently overwriting.
+model ShoppingListTemplate {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  createdAt   DateTime @default(now())
+
+  household Household                  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  items     ShoppingListTemplateItem[]
+
+  @@unique([householdId, name])
+}
+
+// One line of a ShoppingListTemplate. Only what a new list needs to
+// recreate the line — name, quantity, unit — plus the inventory link it had
+// when saved. The link is a hint, not a promise: it's SetNull when that
+// InventoryItem is deleted, and createListFromTemplateAction re-resolves any
+// unlinked line by name exactly the way importShoppingListItemsAction does.
+// Prices and notes are intentionally not copied: a price goes stale between
+// uses (the new list picks up lastKnownPrice instead) and a note is usually
+// about that one trip.
+model ShoppingListTemplateItem {
+  id              String  @id @default(cuid())
+  templateId      String
+  inventoryItemId String?
+  name            String
+  quantity        Float   @default(1)
+  unit            String  @default("pcs")
+  // Keeps the list's order when the template is expanded again.
+  position        Int     @default(0)
+
+  template      ShoppingListTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem?       @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@index([templateId])
   @@index([inventoryItemId])
 }
 

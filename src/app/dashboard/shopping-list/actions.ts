@@ -22,6 +22,7 @@ import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
+import { AUTO_FUZZY_MATCH_MIN_SCORE, createInventoryLinker } from "@/lib/shopping/inventory-link";
 import {
   addToDefaultListOnLowStock,
   getOrCreateDefaultShoppingList,
@@ -45,11 +46,6 @@ async function findExactInventoryItem(householdId: string, name: string) {
     where: { householdId, name: { equals: name, mode: "insensitive" } },
   });
 }
-
-// Only auto-link on a fuzzy match this confident — a typo or a trailing
-// size/brand ("Milk 1L" vs "Milk") should still resolve automatically, but
-// anything softer is safer left for the user to confirm via the edit dialog.
-const AUTO_FUZZY_MATCH_MIN_SCORE = 0.6;
 
 /**
  * Fuzzy fallback for findExactInventoryItem, used only when there's no exact
@@ -681,17 +677,10 @@ export async function importShoppingListItemsAction(
   let added = 0;
   try {
     const inventoryItems = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
-    const byExactName = new Map(inventoryItems.map((item) => [item.name.trim().toLowerCase(), item]));
+    const linkInventoryItem = createInventoryLinker(inventoryItems);
 
     const rows = parsed.data.items.map((item) => {
-      let inventoryItem = byExactName.get(item.name.trim().toLowerCase()) ?? null;
-      if (!inventoryItem) {
-        const matches = findInventoryMatches(item.name, inventoryItems, {
-          minScore: AUTO_FUZZY_MATCH_MIN_SCORE,
-          limit: 2,
-        });
-        inventoryItem = matches.length === 1 ? matches[0] : null;
-      }
+      const inventoryItem = linkInventoryItem(item.name);
       return {
         shoppingListId: list.id,
         inventoryItemId: inventoryItem?.id ?? null,
