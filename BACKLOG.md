@@ -168,13 +168,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       ~7.6 KB of it; it's inlined into every dashboard document and
       layout-re-rendering action response. Pass `Pick<Dictionary, …>`
       sub-objects (AGENTS.md already asks for this).
-- [ ] **PERF-6. Shopping list client bundles both dictionaries** (medium, S) —
-      `src/lib/shopping/shopping-mode-grouping.ts:18-19` imports `en` and
-      `sv` for category labels and is imported by the client
-      `shopping-list-client.tsx`: a 68 KB gz chunk on the page people open
-      in a store on mobile data. Move `autoCategories`/`uncategorized` to a
-      small module both dictionaries import, or build the map server-side
-      and pass it as a prop. Expect ~−60 KB gz on `/shopping-list/[id]`.
 - [ ] **PERF-7. Keep zod out of the meal-planning client bundle** (medium, S) —
       `src/lib/recipe-tags.ts:20,43` imports `zod` for one `z.enum`, pulling a
       99 KB gz chunk into `recipe-manager.tsx`/`recipe-form-dialog.tsx`.

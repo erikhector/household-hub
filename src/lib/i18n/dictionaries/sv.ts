@@ -1,4 +1,5 @@
 import type { Dictionary } from "./en";
+import { categoryLabels } from "@/lib/inventory/category-labels";
 
 export const sv = {
   nav: {
@@ -761,18 +762,10 @@ export const sv = {
     categoryPlaceholder: "t.ex. Mejeri",
     categoryHint: "Valfritt — lämna tomt så väljer vi en utifrån namnet.",
     categoryHintAi: "Hittar vi ingen träff där heller kan AI föreslå en kategori i efterhand — bara varans namn skickas, inget annat.",
-    uncategorized: "Okategoriserat",
-    autoCategories: {
-      produce: "Frukt & grönt",
-      bakery: "Bröd",
-      dairy: "Mejeri & ägg",
-      meat: "Kött & fisk",
-      pantry: "Basvaror skafferi",
-      frozen: "Fryst",
-      drinks: "Dryck",
-      cleaning: "Städartiklar",
-      bathroom: "Badrumsartiklar",
-    },
+    uncategorized: categoryLabels.sv.uncategorized,
+    // See category-labels.ts (PERF-6) for why this comes from a shared
+    // module instead of being written inline.
+    autoCategories: categoryLabels.sv.autoCategories,
     locationLabel: "Plats",
     locationPlaceholder: "t.ex. Kylskåp",
     onTheWay: "+{amount} på väg",
