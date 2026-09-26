@@ -179,3 +179,30 @@ describe("sendPushToHousehold", () => {
     });
   });
 });
+
+describe("sendPushToHouseholdMembers", () => {
+  it("sends only to the named users, and only while they're still members of the household", async () => {
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "pub";
+    process.env.VAPID_PRIVATE_KEY = "priv";
+    findManyMock.mockResolvedValue([{ id: "sub-1", endpoint: "https://push.example/1", p256dh: "p1", auth: "a1" }]);
+    sendNotificationMock.mockResolvedValue(undefined);
+    const { sendPushToHouseholdMembers } = await loadPush();
+
+    await sendPushToHouseholdMembers("household-1", ["user-2"], { title: "t", body: "b", url: "/dashboard" });
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: { userId: { in: ["user-2"] }, user: { memberships: { some: { householdId: "household-1" } } } },
+    });
+    expect(sendNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does nothing for an empty recipient list", async () => {
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "pub";
+    process.env.VAPID_PRIVATE_KEY = "priv";
+    const { sendPushToHouseholdMembers } = await loadPush();
+
+    await sendPushToHouseholdMembers("household-1", [], { title: "t", body: "b", url: "/dashboard" });
+
+    expect(findManyMock).not.toHaveBeenCalled();
+  });
+});

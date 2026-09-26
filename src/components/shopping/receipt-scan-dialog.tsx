@@ -90,13 +90,20 @@ export function ReceiptScanDialog({
   categories,
   units,
   dict,
+  onApplied,
 }: {
   listId: string;
+  /** Rows a receipt line may be matched to — unticked ones, plus (in
+   * put-away mode) ticked ones no receipt has priced yet; see
+   * awaitsReceiptPrice. */
   pendingItems: PendingItem[];
   inventoryItems: InventoryItemOption[];
   categories: string[];
   units: string[];
   dict: Dictionary["shoppingList"]["receiptScan"];
+  /** Runs after a successful apply — the list page uses it to offer the
+   * put-away dialog when the receipt only priced the rows. */
+  onApplied?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -305,6 +312,7 @@ export function ReceiptScanDialog({
         }),
       );
       setOpen(false);
+      onApplied?.();
     })();
   }
 

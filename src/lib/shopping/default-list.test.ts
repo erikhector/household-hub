@@ -22,7 +22,7 @@ const defaultList = { id: "default-list", name: "Next shop" };
 function makeDb() {
   return {
     shoppingList: { findFirst: vi.fn(), createMany: vi.fn() },
-    shoppingListItem: { findFirst: vi.fn(), create: vi.fn() },
+    shoppingListItem: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     inventoryItem: { findFirst: vi.fn() },
     household: { findUnique: vi.fn() },
   };
@@ -38,6 +38,8 @@ beforeEach(() => {
   db.shoppingList.findFirst.mockResolvedValue(defaultList);
   db.shoppingListItem.findFirst.mockResolvedValue(null);
   db.shoppingListItem.create.mockResolvedValue({ id: "new-row" });
+  // Nothing ticked off and waiting to be put away (src/lib/incoming-stock.ts).
+  db.shoppingListItem.findMany.mockResolvedValue([]);
   db.household.findUnique.mockResolvedValue({ autoAddLowStockToList: true });
 });
 
@@ -198,6 +200,53 @@ describe("addToDefaultListOnLowStock", () => {
 
     expect(await addToDefaultListOnLowStock(asDb(), "household-1", "inv-1", 3, 2)).toBeNull();
     expect(db.shoppingListItem.create).not.toHaveBeenCalled();
+  });
+
+  // Put-away flow: milk in the cart (ticked, not put away) counts as covered.
+  it("does nothing when stock on its way home keeps the item in stock", async () => {
+    itemAt(2);
+    db.shoppingListItem.findMany.mockResolvedValue([
+      {
+        inventoryItemId: "inv-1",
+        quantity: 2,
+        purchased: true,
+        putAwayAt: null,
+        checkedOffAt: new Date(),
+        shoppingList: { status: "ACTIVE", completedAt: null },
+      },
+    ]);
+
+    expect(await addToDefaultListOnLowStock(asDb(), "household-1", "inv-1", 3, 2)).toBeNull();
+    expect(db.shoppingListItem.create).not.toHaveBeenCalled();
+    // Only this household's incoming rows, for this item.
+    expect(db.shoppingListItem.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          inventoryItemId: { in: ["inv-1"] },
+          purchased: true,
+          putAwayAt: null,
+          shoppingList: { householdId: "household-1", status: { in: ["ACTIVE", "COMPLETED"] } },
+        }),
+      }),
+    );
+  });
+
+  it("still adds when the incoming stock isn't enough to cover the drop", async () => {
+    itemAt(0);
+    db.shoppingListItem.findMany.mockResolvedValue([
+      {
+        inventoryItemId: "inv-1",
+        quantity: 1,
+        purchased: true,
+        putAwayAt: null,
+        checkedOffAt: new Date(),
+        shoppingList: { status: "ACTIVE", completedAt: null },
+      },
+    ]);
+
+    // 5 + 1 = in stock → 0 + 1 = low (threshold 3).
+    const result = await addToDefaultListOnLowStock(asDb(), "household-1", "inv-1", 5, 0);
+    expect(result?.shoppingListItemId).toBe("new-row");
   });
 
   it("does nothing for an item that isn't this household's", async () => {

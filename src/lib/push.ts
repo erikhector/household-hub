@@ -6,6 +6,7 @@
 
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { isWithinQuietHours } from "@/lib/quiet-hours";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -66,14 +67,40 @@ export async function sendPushToHousehold(
   payload: PushPayload,
   excludeUserId?: string,
 ): Promise<void> {
-  if (!configured) return;
-
-  const found = await prisma.pushSubscription.findMany({
-    where: {
+  await deliver(
+    {
       user: { memberships: { some: { householdId } } },
       ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
     },
-  });
+    payload,
+  );
+}
+
+// The narrower sibling for a notification meant for particular people rather
+// than everyone — the put-away reminder goes to whoever ticked the rows
+// (syncPutAwayReminders in src/lib/notifications.ts). Still scoped through
+// the household's memberships, so a member who has since left never gets a
+// push about a list that's no longer theirs, and still subject to every
+// subscription's quiet hours via deliver(). Never throws.
+export async function sendPushToHouseholdMembers(
+  householdId: string,
+  userIds: readonly string[],
+  payload: PushPayload,
+): Promise<void> {
+  if (userIds.length === 0) return;
+  await deliver(
+    {
+      userId: { in: [...userIds] },
+      user: { memberships: { some: { householdId } } },
+    },
+    payload,
+  );
+}
+
+async function deliver(where: Prisma.PushSubscriptionWhereInput, payload: PushPayload): Promise<void> {
+  if (!configured) return;
+
+  const found = await prisma.pushSubscription.findMany({ where });
   const now = new Date();
   const subscriptions = found.filter(
     (sub) => !isWithinQuietHours(sub.quietHoursStart, sub.quietHoursEnd, sub.timeZone, now),

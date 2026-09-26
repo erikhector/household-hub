@@ -16,6 +16,7 @@ import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { getUserPreferences } from "@/lib/preferences";
 import { isAiCategoryFallbackConfigured } from "@/lib/inventory/ai-category-fallback";
+import { loadIncomingByItem } from "@/lib/incoming-stock";
 
 // Vercel caps a Server Action's own runtime well below a Route Handler's
 // (15s by default, regardless of function region/plan) — too tight for
@@ -42,7 +43,7 @@ const LINKABLE_STATUSES: StockStatus[] = ["low", "out"];
 // `cache()` so the three Suspense-bound consumers below (well-stocked note,
 // action buttons, table) share a single Prisma query instead of one each.
 const getInventoryData = cache(async (householdId: string) => {
-  const [items, householdMembers] = await Promise.all([
+  const [rawItems, householdMembers, incoming] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId },
       orderBy: { name: "asc" },
@@ -53,7 +54,11 @@ const getInventoryData = cache(async (householdId: string) => {
       where: { householdId },
       include: { user: { select: { displayName: true } } },
     }),
+    // Put-away flow: what's ticked off a shopping list but not home yet, for
+    // each row's "+N on the way" hint (src/lib/incoming-stock.ts).
+    loadIncomingByItem(prisma, householdId, new Date()),
   ]);
+  const items = rawItems.map((item) => ({ ...item, incoming: incoming.get(item.id) ?? 0 }));
 
   const members = householdMembers.map((m) => ({ userId: m.userId, displayName: m.user.displayName }));
   const categories = [...new Set(items.map((item) => item.category))].sort();

@@ -52,6 +52,8 @@ export const en = {
     // The plain variant only shows for a row with no stored percentage.
     priceSpike: "{name} cost {percent}% more than usual",
     priceSpikePlain: "{name} cost more than usual",
+    // PUT_AWAY_REMINDER — see syncPutAwayReminders in src/lib/notifications.ts.
+    putAwayReminder: "Put away your shopping from {name}?",
     mealNotLogged: "Did you forget to log a meal?",
     mealNotLoggedNamed: "Did you forget to log {name}?",
     viewAll: "View all notifications",
@@ -130,6 +132,19 @@ export const en = {
         'When something drops to low or out of stock, it goes straight onto "Next shop". This applies to everyone in the household.',
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
+    },
+    // InventorySyncSetting — Household.inventorySyncMode.
+    inventorySync: {
+      title: "Updating inventory",
+      label: "Update inventory",
+      description: "When items checked off a shopping list are added to your inventory.",
+      onCheck: "When an item is checked off",
+      onPutAway: "When the shopping is put away",
+      onCheckHint: "Stock goes up the moment someone ticks an item, even while it's still in the cart.",
+      onPutAwayHint:
+        "Ticked items count as on the way. Stock goes up when someone confirms them with \"Put away\" at home, where quantities and best-before dates can be corrected too.",
+      ownerOnlyHint: "Only the household owner can change this.",
+      savedToast: "Saved",
     },
     // GAP-13: the display currency (CurrencySetting). Currency names come
     // from Intl.DisplayNames in the viewer's locale, so only the "none"
@@ -431,6 +446,51 @@ export const en = {
     clearedDescription: "Everything on this list is checked off or gone.",
     clearedDismissAriaLabel: "Dismiss",
     purchased: "Purchased",
+    // The two-phase "in the cart, then put away" flow (PutAwayDialog,
+    // putAwayItemsAction). "Put away" is the same phrase barcode Scan mode
+    // uses for adding stock, so both read as the same act.
+    putAway: {
+      button: "Put away ({count})",
+      awaitingBadge: "Not put away",
+      title: "Put away your shopping",
+      description:
+        "Check what actually came home. It's added to your inventory when you confirm, and anything you leave for later stays here.",
+      finishTitle: "Put away before you finish?",
+      finishDescription:
+        "These items are checked off but not in your inventory yet. Put them away now, or finish the list and do it later.",
+      optionAriaLabel: "What to do with {name}",
+      options: {
+        putAway: "Put away",
+        later: "Later",
+        notBought: "Didn't get it",
+      },
+      quantityLabel: "Quantity ({unit})",
+      quantityAriaLabel: "Quantity of {name}",
+      quantityInvalid: "Enter a quantity for {name}",
+      expiresLabel: "Best before",
+      expiresAriaLabel: "Best-before date for {name}",
+      locationLabel: "Location",
+      locationPlaceholder: "Unchanged",
+      notLinkedHint: "Not linked to your inventory, so there's no stock to add.",
+      confirmAll: "Put away all",
+      confirm: {
+        one: "Put away {count} item",
+        other: "Put away {count} items",
+      },
+      save: "Save",
+      confirming: "Putting away…",
+      cancel: "Cancel",
+      finishConfirm: "Put away & finish",
+      finishLater: "Finish, put away later",
+      doneToast: {
+        one: "{count} item put away",
+        other: "{count} items put away",
+      },
+      notBoughtToast: {
+        one: "{count} item went back on the list",
+        other: "{count} items went back on the list",
+      },
+    },
     // Shopping mode (AUTO-3): the header for pending items whose linked
     // inventory item has no category, or is still sitting in the
     // "Uncategorized" placeholder — see groupPendingItemsByCategory.
@@ -765,6 +825,9 @@ export const en = {
     },
     locationLabel: "Location",
     locationPlaceholder: "e.g. Fridge",
+    // Stock ticked off a shopping list but not put away yet
+    // (src/lib/incoming-stock.ts), next to the item's quantity.
+    onTheWay: "+{amount} on the way",
     quantityLabel: "Quantity",
     unitLabel: "Unit",
     unitPlaceholder: "e.g. pcs",

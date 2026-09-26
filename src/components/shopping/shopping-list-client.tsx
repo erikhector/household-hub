@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -14,6 +15,7 @@ import {
   Download,
   Ellipsis,
   Link2,
+  PackageCheck,
   PackagePlus,
   Plus,
   Printer,
@@ -45,6 +47,7 @@ import { SmartAddBar } from "@/components/shopping/smart-add-bar";
 import { CategoryChip } from "@/components/shopping/category-chip";
 import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
 import { SaveTemplateDialog } from "@/components/shopping/list-templates";
+import { PutAwayDialog } from "@/components/shopping/put-away-dialog";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
@@ -68,6 +71,7 @@ import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -103,6 +107,14 @@ type ShoppingListItemRow = {
   // stored code. Only ReceiptScanDialog reads it, to match a receipt line
   // that prints an EAN exactly (AUTO-11).
   barcode: string | null;
+  // The put-away flow's state (see ShoppingListItem.putAwayAt): a ticked
+  // row with no putAwayAt is still on its way home and waits in the
+  // PutAwayDialog; priceRecordedAt says a receipt already priced it.
+  putAwayAt: Date | null;
+  priceRecordedAt: Date | null;
+  // The linked InventoryItem's current location, the put-away dialog's
+  // "stays where it is" placeholder.
+  location: string | null;
 };
 
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
@@ -130,6 +142,8 @@ export function ShoppingListClient({
   currencyCode,
   storeOrder,
   repurchaseSuggestions,
+  defersToPutAway = false,
+  locations = [],
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -150,6 +164,12 @@ export function ShoppingListClient({
   /** AUTO-10: the "You usually buy this about now" chips, rendered by the
    * page (RepurchaseSuggestions) and shown under the smart add line. */
   repurchaseSuggestions?: ReactNode;
+  /** The household ticks "into the cart" and puts away later
+   * (inventorySyncMode ON_PUT_AWAY) — a receipt applied here then offers the
+   * put-away dialog straight after. */
+  defersToPutAway?: boolean;
+  /** The household's inventory locations, for the put-away dialog. */
+  locations?: string[];
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -159,6 +179,14 @@ export function ShoppingListClient({
 
   const pendingItems = list.items.filter((item) => !item.purchased);
   const purchasedItems = list.items.filter((item) => item.purchased);
+  // Ticked but not yet in inventory — the put-away dialog's rows. Offered on
+  // a completed list too (finishing the trip is exactly when there's
+  // something to unpack), never an archived one.
+  const awaitingPutAway = list.status === "ARCHIVED" ? [] : list.items.filter(isAwaitingPutAway);
+  // Rows a receipt line may still match: everything unticked, plus rows
+  // ticked in the store that no receipt has priced and that haven't been put
+  // away (see awaitsReceiptPrice).
+  const receiptMatchable = list.items.filter(awaitsReceiptPrice);
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
@@ -196,6 +224,29 @@ export function ShoppingListClient({
     saveTemplate: createDialogHandle(),
   }));
 
+  // null = closed; "finish" = opened from "Done shopping"/"Complete list"
+  // while rows are still waiting, so confirming also completes the list.
+  const [putAwayMode, setPutAwayMode] = useState<"putAway" | "finish" | null>(null);
+
+  // The put-away reminder (push and bell) links here with `?putAway=1`.
+  // Watched as it changes, not just read on mount: tapping the bell while
+  // this list is already open is a client-side navigation that only
+  // changes the search params. Adjust-state-during-render, like the
+  // cleared-state tracking below, so it opens in the same render. Closing
+  // the dialog strips the param again, so the next tap is a change too.
+  const router = useRouter();
+  const pathname = usePathname();
+  const putAwayParam = useSearchParams().get("putAway");
+  const [seenPutAwayParam, setSeenPutAwayParam] = useState<string | null>(null);
+  if (putAwayParam !== seenPutAwayParam) {
+    setSeenPutAwayParam(putAwayParam);
+    if (putAwayParam === "1" && awaitingPutAway.length > 0) setPutAwayMode("putAway");
+  }
+  const closePutAway = () => {
+    setPutAwayMode(null);
+    if (putAwayParam !== null) router.replace(pathname, { scroll: false });
+  };
+
   const addLowStock = () =>
     startTransition(async () => {
       const result = await generateFromLowStockAction(list.id);
@@ -213,9 +264,12 @@ export function ShoppingListClient({
 
   // Shared by "Done shopping" (no confirm — every item is already checked
   // off, so there's nothing to lose) and the menu's confirm-gated "Complete
-  // list" (items still pending). Either way the toast carries an "Undo"
-  // (BACKLOG.md's "undo over confirm") that reopens the list and removes
-  // exactly the Groceries expense this completion logged, if any.
+  // list" (items still pending). Both go through finishTrip below first, so
+  // ticked rows that haven't been put away are offered for put-away before
+  // the list closes rather than finishing around them unnoticed. Either way
+  // the toast carries an "Undo" (BACKLOG.md's "undo over confirm") that
+  // reopens the list and removes exactly the Groceries expense this
+  // completion logged, if any.
   const completeList = () =>
     startTransition(async () => {
       const result = await completeShoppingListAction(list.id);
@@ -237,6 +291,12 @@ export function ShoppingListClient({
       });
       if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
     });
+
+  const finishTrip = (confirmFirst: boolean) => {
+    if (awaitingPutAway.length > 0) setPutAwayMode("finish");
+    else if (confirmFirst) dialogs.completeList.open(null);
+    else completeList();
+  };
 
   // AUTO-9: back to the learned order, undoable rather than confirm-gated
   // (the dropped order comes back from the action for exactly that).
@@ -335,14 +395,24 @@ export function ShoppingListClient({
             outside it (see the handles above) because the menu's popup
             unmounts as it closes. */}
         <div className="flex flex-wrap items-center gap-2">
+          {awaitingPutAway.length > 0 && (
+            <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
+              <PackageCheck className="size-4" />
+              {format(dict.putAway.button, { count: awaitingPutAway.length })}
+            </Button>
+          )}
           {isActive && (
             <ReceiptScanDialog
               listId={list.id}
-              pendingItems={pendingItems.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode }))}
+              pendingItems={receiptMatchable.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode }))}
               inventoryItems={inventoryItems}
               categories={categories}
               units={units}
               dict={dict.receiptScan}
+              // In put-away mode the receipt only priced the rows; the
+              // stock still has to be confirmed, and now is when the bags
+              // are on the counter.
+              onApplied={defersToPutAway ? () => setPutAwayMode("putAway") : undefined}
             />
           )}
           <DropdownMenu>
@@ -412,7 +482,7 @@ export function ShoppingListClient({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {isActive && list.items.length > 0 && (
-                <DropdownMenuItem onClick={() => dialogs.completeList.open(null)}>
+                <DropdownMenuItem onClick={() => finishTrip(true)}>
                   <CheckCheck />
                   {dict.completeList}
                 </DropdownMenuItem>
@@ -450,6 +520,36 @@ export function ShoppingListClient({
           </DropdownMenu>
         </div>
       </div>
+
+      {list.status !== "ARCHIVED" && (
+        <PutAwayDialog
+          open={putAwayMode !== null}
+          onOpenChange={(next) => {
+            if (!next) closePutAway();
+          }}
+          listId={list.id}
+          items={awaitingPutAway.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            inventoryItemId: item.inventoryItemId,
+            estimatedPrice: item.estimatedPrice,
+            location: item.location,
+          }))}
+          finishing={putAwayMode === "finish" && isActive}
+          // Finishing from the dialog still respects the "complete with items
+          // pending" confirmation whenever unticked rows remain — including
+          // ones the dialog itself just sent back as "didn't get it".
+          onFinish={(newlyPending) =>
+            pendingItems.length + newlyPending > 0 ? dialogs.completeList.open(null) : completeList()
+          }
+          numberFormat={numberFormat}
+          locations={locations}
+          dict={dict}
+          autoAddDict={autoAddDict}
+        />
+      )}
 
       {list.items.length > 0 && (
         <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
@@ -530,7 +630,7 @@ export function ShoppingListClient({
             onDismiss={() => setClearedDismissed(true)}
             // Only once something was actually bought — a list that was
             // simply emptied out has no trip to finish.
-            onDone={isActive && purchasedItems.length > 0 ? completeList : undefined}
+            onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
             isPending={isPending}
           />
         ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
@@ -583,6 +683,7 @@ export function ShoppingListClient({
                 dict={dict}
                 numberFormat={numberFormat}
                 autoAddDict={autoAddDict}
+                awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
               />
             ))}
           </>
@@ -686,8 +787,11 @@ function ShoppingRow({
   dict,
   numberFormat,
   autoAddDict,
+  awaitingPutAway = false,
 }: {
   item: ShoppingListItemRow;
+  /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
+  awaitingPutAway?: boolean;
   highlighted?: boolean;
   editable: boolean;
   isPending: boolean;
@@ -762,6 +866,11 @@ function ShoppingRow({
           {item.addedAutomatically && (
             <Badge variant="secondary" className="shrink-0">
               {dict.lowStockBadge}
+            </Badge>
+          )}
+          {awaitingPutAway && (
+            <Badge variant="outline" className="shrink-0">
+              {dict.putAway.awaitingBadge}
             </Badge>
           )}
           {!editable && needsMapping && (

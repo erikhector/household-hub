@@ -442,6 +442,7 @@ export function InventoryTable({
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <OnTheWayHint item={item} dict={dict} />
                     <ExpiryBadge
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
@@ -514,6 +515,7 @@ export function InventoryTable({
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <OnTheWayHint item={item} dict={dict} />
                     <ExpiryBadge
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
@@ -579,5 +581,17 @@ export function InventoryTable({
         ))}
       </div>
     </div>
+  );
+}
+
+// The inventory side of the put-away flow: stock ticked off a shopping list
+// that hasn't been put away yet. Muted text rather than a badge, since it's
+// context for the stock badge beside it, not a status of its own.
+function OnTheWayHint({ item, dict }: { item: InventoryItemRow; dict: Dictionary["inventory"] }) {
+  if (!item.incoming || item.incoming <= 0) return null;
+  return (
+    <span className="text-xs text-muted-foreground tabular-nums">
+      {format(dict.onTheWay, { amount: `${formatQuantity(item.incoming)} ${item.unit}` })}
+    </span>
   );
 }

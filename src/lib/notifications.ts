@@ -5,7 +5,7 @@
 // condition happens, and stick around until a user dismisses them (see
 // dismissNotificationAction in src/lib/actions/notifications.ts).
 //
-// Five triggers exist:
+// Six triggers exist:
 // - Out-of-stock: an existing InventoryItem's quantity crossing from > 0
 //   into <= 0 — see `recordOutOfStockTransition`, called from every action
 //   that can *decrease* an existing item's quantity (adjustQuantityAction,
@@ -44,6 +44,11 @@
 //   toggleItemViaShareTokenAction, applyReceiptScanAction,
 //   registerReceiptAction). The decision itself is the pure
 //   `detectPriceSpike` (src/lib/price-spike.ts).
+// - Put away your shopping: ticked shopping-list rows that were never put
+//   away (the two-phase ON_PUT_AWAY flow — see putAwayItemsAction), a few
+//   hours after the trip — synced by `syncPutAwayReminders` below, on the
+//   same cron schedule as meal-not-logged. Pushed to whoever ticked the rows
+//   rather than the whole household where that's known.
 //
 // There used to be another, good-news "restocked" trigger (the inverse of
 // out-of-stock, firing when an item crossed back above its low-stock
@@ -67,8 +72,11 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { sendPushToHousehold } from "@/lib/push";
+import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
+import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
+import { selectPutAwayReminders } from "@/lib/shopping/put-away-calc";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
+import { loadIncomingQuantity } from "@/lib/incoming-stock";
 import { logger } from "@/lib/logger";
 import {
   PRICE_SPIKE_COOLDOWN_DAYS,
@@ -122,12 +130,20 @@ export type PriceSpikeNotification = {
   increasePercent: number | null;
 };
 
+export type PutAwayReminderNotification = {
+  id: string;
+  kind: "putAwayReminder";
+  shoppingListId: string;
+  name: string;
+};
+
 export type NotificationItem =
   | OutOfStockNotification
   | MealNotLoggedNotification
   | ExpiringSoonNotification
   | ListClearedNotification
-  | PriceSpikeNotification;
+  | PriceSpikeNotification
+  | PutAwayReminderNotification;
 
 // A history-list entry: the same shape as the bell's NotificationItem, plus
 // the timestamps the notification center page needs to show "when" and
@@ -192,6 +208,11 @@ function toNotificationItem(row: NotificationRow): NotificationItem[] {
     return [{ id: row.id, kind: "listCleared", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
   }
 
+  if (row.kind === "PUT_AWAY_REMINDER") {
+    if (!row.shoppingList) return [];
+    return [{ id: row.id, kind: "putAwayReminder", shoppingListId: row.shoppingListId!, name: row.shoppingList.name }];
+  }
+
   if (!row.mealPlanEntry) return [];
   const entryDate = row.mealPlanEntry.date;
   return [
@@ -240,6 +261,9 @@ export async function getNotificationHistory(householdId: string): Promise<Notif
 // continued decrease while already at 0, or a decrease that doesn't reach 0,
 // is a no-op. Deduped against any already-active (undismissed) alert for the
 // same item so repeated small decrements past zero don't pile up duplicates.
+// Stock ticked off on a shopping list but not yet put away
+// (src/lib/incoming-stock.ts) counts as not out: the last carton running out
+// at home while two more are in the car is not news.
 export async function recordOutOfStockTransition(
   db: DbClient,
   householdId: string,
@@ -249,6 +273,7 @@ export async function recordOutOfStockTransition(
   actingUserId?: string,
 ): Promise<void> {
   if (previousQuantity <= 0 || nextQuantity > 0) return;
+  if ((await loadIncomingQuantity(db, householdId, itemId)) > 0) return;
 
   const existing = await db.notification.findFirst({
     where: { inventoryItemId: itemId, kind: "OUT_OF_STOCK", dismissedAt: null },
@@ -569,6 +594,92 @@ export async function syncExpiringSoonNotifications(householdId: string): Promis
         body: item.expiresAtEstimated ? `${item.name} is probably expiring soon` : `${item.name} is expiring soon`,
         url: "/dashboard/inventory",
       });
+    }),
+  );
+}
+
+// "Put away your shopping?" — see this file's top doc comment, and
+// selectPutAwayReminders (src/lib/shopping/put-away-calc.ts) for which lists
+// qualify and why "after the list's last reminder" is what makes it once per
+// trip. Only lists still in play (ACTIVE or COMPLETED) are considered, and
+// only rows young enough to still count as incoming — the same window as
+// src/lib/incoming-stock.ts, so the reminder never nags about something the
+// low-stock logic has already stopped treating as on its way.
+//
+// Each list's reminder is claimed before anything is sent: an updateMany
+// that only matches while `putAwayRemindedAt` still holds the value this run
+// read, so two overlapping cron runs can't both remind for the same trip.
+// The bell row is deduped like recordOutOfStockTransition (an undismissed
+// one for the list is enough), and putAwayItemsAction dismisses it once the
+// list has nothing left to unpack.
+//
+// Pushed to whoever ticked the rows (sendPushToHouseholdMembers), or to the
+// whole household when any of them was ticked from a share link or before
+// ticks were attributed. Quiet hours apply as for every push. Awaited, for
+// the same reason as syncMealNotLoggedNotifications's push.
+//
+// Exported for `/api/cron/sync-notifications` (the only caller).
+export async function syncPutAwayReminders(householdId: string, now: Date = new Date()): Promise<void> {
+  const since = new Date(now.getTime() - INCOMING_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+
+  const lists = await prisma.shoppingList.findMany({
+    where: {
+      householdId,
+      status: { in: ["ACTIVE", "COMPLETED"] },
+      items: {
+        some: {
+          purchased: true,
+          putAwayAt: null,
+          OR: [{ checkedOffAt: { gte: since } }, { checkedOffAt: null, priceRecordedAt: { gte: since } }],
+        },
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      putAwayRemindedAt: true,
+      items: {
+        where: { purchased: true, putAwayAt: null },
+        select: { checkedOffAt: true, priceRecordedAt: true, checkedOffByUserId: true },
+      },
+    },
+  });
+  if (lists.length === 0) return;
+
+  const reminders = selectPutAwayReminders(
+    lists.map((list) => ({ id: list.id, name: list.name, putAwayRemindedAt: list.putAwayRemindedAt, awaiting: list.items })),
+    now,
+  );
+  const previousById = new Map(lists.map((list) => [list.id, list.putAwayRemindedAt]));
+
+  await Promise.all(
+    reminders.map(async (reminder) => {
+      const claimed = await prisma.shoppingList.updateMany({
+        where: { id: reminder.listId, householdId, putAwayRemindedAt: previousById.get(reminder.listId) ?? null },
+        data: { putAwayRemindedAt: now },
+      });
+      if (claimed.count === 0) return;
+
+      const existing = await prisma.notification.findFirst({
+        where: { shoppingListId: reminder.listId, kind: "PUT_AWAY_REMINDER", dismissedAt: null },
+        select: { id: true },
+      });
+      if (!existing) {
+        await prisma.notification.create({
+          data: { householdId, kind: "PUT_AWAY_REMINDER", shoppingListId: reminder.listId },
+        });
+      }
+
+      const payload = {
+        title: "Put away your shopping?",
+        body: `${reminder.count} ${reminder.count === 1 ? "item" : "items"} from ${reminder.listName}`,
+        url: `/dashboard/shopping-list/${reminder.listId}?putAway=1`,
+      };
+      if (reminder.recipientUserIds) {
+        await sendPushToHouseholdMembers(householdId, reminder.recipientUserIds, payload);
+      } else {
+        await sendPushToHousehold(householdId, payload);
+      }
     }),
   );
 }

@@ -4,13 +4,17 @@
 // sync functions' own behavior is covered by src/lib/notifications.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { householdFindManyMock, syncMealNotLoggedNotificationsMock, syncExpiringSoonNotificationsMock } = vi.hoisted(
-  () => ({
-    householdFindManyMock: vi.fn(),
-    syncMealNotLoggedNotificationsMock: vi.fn(),
-    syncExpiringSoonNotificationsMock: vi.fn(),
-  }),
-);
+const {
+  householdFindManyMock,
+  syncMealNotLoggedNotificationsMock,
+  syncExpiringSoonNotificationsMock,
+  syncPutAwayRemindersMock,
+} = vi.hoisted(() => ({
+  householdFindManyMock: vi.fn(),
+  syncMealNotLoggedNotificationsMock: vi.fn(),
+  syncExpiringSoonNotificationsMock: vi.fn(),
+  syncPutAwayRemindersMock: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: { household: { findMany: householdFindManyMock } },
@@ -19,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/notifications", () => ({
   syncMealNotLoggedNotifications: syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotifications: syncExpiringSoonNotificationsMock,
+  syncPutAwayReminders: syncPutAwayRemindersMock,
 }));
 
 const { GET } = await import("@/app/api/cron/sync-notifications/route");
@@ -40,6 +45,7 @@ beforeEach(() => {
   householdFindManyMock.mockResolvedValue(households(2));
   syncMealNotLoggedNotificationsMock.mockResolvedValue(undefined);
   syncExpiringSoonNotificationsMock.mockResolvedValue(undefined);
+  syncPutAwayRemindersMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -81,7 +87,7 @@ describe("GET /api/cron/sync-notifications", () => {
     expect(householdFindManyMock).not.toHaveBeenCalled();
   });
 
-  it("runs both sync functions for every household when the bearer token matches", async () => {
+  it("runs every sync function for every household when the bearer token matches", async () => {
     const response = await GET(request("Bearer test-secret"));
     const body = await response.json();
 
@@ -93,6 +99,28 @@ describe("GET /api/cron/sync-notifications", () => {
     expect(syncExpiringSoonNotificationsMock).toHaveBeenCalledWith("household-2");
     expect(syncMealNotLoggedNotificationsMock).toHaveBeenCalledTimes(2);
     expect(syncExpiringSoonNotificationsMock).toHaveBeenCalledTimes(2);
+    expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-1");
+    expect(syncPutAwayRemindersMock).toHaveBeenCalledWith("household-2");
+  });
+
+  it("counts a household as failed when only its put-away reminder sync fails", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    syncPutAwayRemindersMock.mockImplementation(async (id: string) => {
+      if (id === "household-2") throw new Error("boom");
+    });
+
+    const response = await GET(request("Bearer test-secret"));
+    const body = await response.json();
+
+    expect(body).toEqual({
+      status: "partial_failure",
+      householdsSynced: 1,
+      householdsFailed: 1,
+      failedHouseholdIds: ["household-2"],
+    });
+    // The other two syncs still ran for the failing household.
+    expect(syncExpiringSoonNotificationsMock).toHaveBeenCalledWith("household-2");
+    consoleErrorSpy.mockRestore();
   });
 
   it("processes households in batches capped at 10 concurrent", async () => {

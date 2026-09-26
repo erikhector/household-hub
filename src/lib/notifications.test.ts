@@ -23,8 +23,12 @@ const {
   inventoryItemFindUniqueMock,
   inventoryItemFindManyMock,
   shoppingListFindUniqueMock,
+  shoppingListFindManyMock,
+  shoppingListUpdateManyMock,
+  shoppingListItemFindManyMock,
   priceHistoryFindManyMock,
   sendPushToHouseholdMock,
+  sendPushToHouseholdMembersMock,
 } = vi.hoisted(() => ({
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
@@ -33,8 +37,12 @@ const {
   inventoryItemFindUniqueMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
   shoppingListFindUniqueMock: vi.fn(),
+  shoppingListFindManyMock: vi.fn(),
+  shoppingListUpdateManyMock: vi.fn(),
+  shoppingListItemFindManyMock: vi.fn(),
   priceHistoryFindManyMock: vi.fn(),
   sendPushToHouseholdMock: vi.fn(),
+  sendPushToHouseholdMembersMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -46,7 +54,12 @@ vi.mock("@/lib/prisma", () => ({
     },
     mealPlanEntry: { findMany: mealPlanEntryFindManyMock },
     inventoryItem: { findUnique: inventoryItemFindUniqueMock, findMany: inventoryItemFindManyMock },
-    shoppingList: { findUnique: shoppingListFindUniqueMock },
+    shoppingList: {
+      findUnique: shoppingListFindUniqueMock,
+      findMany: shoppingListFindManyMock,
+      updateMany: shoppingListUpdateManyMock,
+    },
+    shoppingListItem: { findMany: shoppingListItemFindManyMock },
     priceHistory: { findMany: priceHistoryFindManyMock },
   },
 }));
@@ -57,6 +70,7 @@ vi.mock("@/lib/prisma", () => ({
 // the "waits for" tests below).
 vi.mock("@/lib/push", () => ({
   sendPushToHousehold: sendPushToHouseholdMock,
+  sendPushToHouseholdMembers: sendPushToHouseholdMembersMock,
 }));
 
 // Lets pending promise callbacks run without advancing (fake) timers — used
@@ -81,6 +95,7 @@ const {
   recordPriceSpikes,
   syncMealNotLoggedNotifications,
   syncExpiringSoonNotifications,
+  syncPutAwayReminders,
   getActiveNotifications,
 } = await import("@/lib/notifications");
 const { prisma } = await import("@/lib/prisma");
@@ -97,7 +112,11 @@ beforeEach(() => {
   inventoryItemFindManyMock.mockResolvedValue([]);
   shoppingListFindUniqueMock.mockResolvedValue({ name: "Weekly shop" });
   priceHistoryFindManyMock.mockResolvedValue([]);
+  shoppingListFindManyMock.mockResolvedValue([]);
+  shoppingListUpdateManyMock.mockResolvedValue({ count: 1 });
+  shoppingListItemFindManyMock.mockResolvedValue([]);
   sendPushToHouseholdMock.mockResolvedValue(undefined);
+  sendPushToHouseholdMembersMock.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -163,6 +182,43 @@ describe("recordOutOfStockTransition", () => {
     });
     expect(notificationCreateMock).not.toHaveBeenCalled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("recordOutOfStockTransition — incoming stock (put-away flow)", () => {
+  it("stays quiet while the item is ticked off a list but not put away yet", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      {
+        inventoryItemId: "item-1",
+        quantity: 2,
+        purchased: true,
+        putAwayAt: null,
+        checkedOffAt: new Date("2026-09-05T11:00:00.000Z"),
+        shoppingList: { status: "ACTIVE", completedAt: null },
+      },
+    ]);
+
+    await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("alerts as usual once the ticked row is too old to count as on its way", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      {
+        inventoryItemId: "item-1",
+        quantity: 2,
+        purchased: true,
+        putAwayAt: null,
+        checkedOffAt: new Date("2026-08-01T11:00:00.000Z"),
+        shoppingList: { status: "ACTIVE", completedAt: null },
+      },
+    ]);
+
+    await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
+
+    expect(notificationCreateMock).toHaveBeenCalled();
   });
 });
 
@@ -706,5 +762,138 @@ describe("getActiveNotifications", () => {
     ]);
 
     expect(await getActiveNotifications("household-1")).toEqual([]);
+  });
+});
+
+describe("syncPutAwayReminders", () => {
+  // System time is 2026-09-05T12:00Z (see beforeEach).
+  const fourHoursAgo = new Date("2026-09-05T08:00:00.000Z");
+  const oneHourAgo = new Date("2026-09-05T11:00:00.000Z");
+
+  function listWith(items: { checkedOffAt: Date | null; checkedOffByUserId: string | null }[], remindedAt: Date | null = null) {
+    return { id: "list-1", name: "Weekly shop", putAwayRemindedAt: remindedAt, items };
+  }
+
+  it("claims the trip, files a bell row and pushes only the member who ticked the rows", async () => {
+    shoppingListFindManyMock.mockResolvedValue([
+      listWith([
+        { checkedOffAt: fourHoursAgo, checkedOffByUserId: "user-2" },
+        { checkedOffAt: oneHourAgo, checkedOffByUserId: "user-2" },
+      ]),
+    ]);
+
+    await syncPutAwayReminders("household-1");
+
+    // Household-scoped query for lists still in play.
+    expect(shoppingListFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ householdId: "household-1", status: { in: ["ACTIVE", "COMPLETED"] } }),
+      }),
+    );
+    // Claimed against the value this run read, so an overlapping run can't
+    // remind for the same trip twice.
+    expect(shoppingListUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "list-1", householdId: "household-1", putAwayRemindedAt: null },
+      data: { putAwayRemindedAt: new Date("2026-09-05T12:00:00.000Z") },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "PUT_AWAY_REMINDER", shoppingListId: "list-1" },
+    });
+    expect(sendPushToHouseholdMembersMock).toHaveBeenCalledWith("household-1", ["user-2"], {
+      title: "Put away your shopping?",
+      body: "2 items from Weekly shop",
+      url: "/dashboard/shopping-list/list-1?putAway=1",
+    });
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("reminds about rows a receipt priced without a tick, and queries for them", async () => {
+    shoppingListFindManyMock.mockResolvedValue([
+      {
+        id: "list-1",
+        name: "Weekly shop",
+        putAwayRemindedAt: null,
+        items: [{ checkedOffAt: null, priceRecordedAt: fourHoursAgo, checkedOffByUserId: "user-3" }],
+      },
+    ]);
+
+    await syncPutAwayReminders("household-1");
+
+    expect(shoppingListFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          items: {
+            some: expect.objectContaining({
+              OR: [{ checkedOffAt: { gte: expect.any(Date) } }, { checkedOffAt: null, priceRecordedAt: { gte: expect.any(Date) } }],
+            }),
+          },
+        }),
+      }),
+    );
+    expect(sendPushToHouseholdMembersMock).toHaveBeenCalledWith("household-1", ["user-3"], expect.anything());
+  });
+
+  it("reminds the whole household when a row was ticked from a share link", async () => {
+    shoppingListFindManyMock.mockResolvedValue([listWith([{ checkedOffAt: fourHoursAgo, checkedOffByUserId: null }])]);
+
+    await syncPutAwayReminders("household-1");
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      expect.objectContaining({ body: "1 item from Weekly shop" }),
+    );
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet for a trip that's too recent or was already reminded", async () => {
+    shoppingListFindManyMock.mockResolvedValue([
+      listWith([{ checkedOffAt: oneHourAgo, checkedOffByUserId: "user-2" }]),
+      { ...listWith([{ checkedOffAt: fourHoursAgo, checkedOffByUserId: "user-2" }], oneHourAgo), id: "list-2" },
+    ]);
+
+    await syncPutAwayReminders("household-1");
+
+    expect(shoppingListUpdateManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing when another run already claimed the trip", async () => {
+    shoppingListFindManyMock.mockResolvedValue([listWith([{ checkedOffAt: fourHoursAgo, checkedOffByUserId: "user-2" }])]);
+    shoppingListUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    await syncPutAwayReminders("household-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMembersMock).not.toHaveBeenCalled();
+  });
+
+  it("pushes again but doesn't stack a second bell row while one is still undismissed", async () => {
+    shoppingListFindManyMock.mockResolvedValue([listWith([{ checkedOffAt: fourHoursAgo, checkedOffByUserId: "user-2" }])]);
+    notificationFindFirstMock.mockResolvedValue({ id: "existing" });
+
+    await syncPutAwayReminders("household-1");
+
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMembersMock).toHaveBeenCalled();
+  });
+});
+
+describe("getActiveNotifications — put-away reminder", () => {
+  it("maps a PUT_AWAY_REMINDER row to its list", async () => {
+    notificationFindManyMock.mockResolvedValue([
+      {
+        id: "notif-7",
+        kind: "PUT_AWAY_REMINDER",
+        shoppingListId: "list-1",
+        inventoryItem: null,
+        mealPlanEntry: null,
+        shoppingList: { name: "Weekly shop" },
+      },
+    ]);
+
+    expect(await getActiveNotifications("household-1")).toEqual([
+      { id: "notif-7", kind: "putAwayReminder", shoppingListId: "list-1", name: "Weekly shop" },
+    ]);
   });
 });

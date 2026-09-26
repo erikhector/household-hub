@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { syncExpiringSoonNotifications, syncMealNotLoggedNotifications } from "@/lib/notifications";
+import {
+  syncExpiringSoonNotifications,
+  syncMealNotLoggedNotifications,
+  syncPutAwayReminders,
+} from "@/lib/notifications";
 
-// Scheduled background sync for the two lazy notification triggers (meal not
-// logged, expiring soon) — see src/lib/notifications.ts's top doc comment for
-// the full picture. These used to run inline inside getActiveNotifications on
+// Scheduled background sync for the lazy notification triggers (meal not
+// logged, expiring soon, and the put-away reminder) — see
+// src/lib/notifications.ts's top doc comment for the full picture. These used to run inline inside getActiveNotifications on
 // every bell fetch; that meant opening the bell could trigger an unbounded
 // number of Notification writes and push sends on what should've been a pure
 // read. This route is the replacement: something external (a Vercel cron, a
@@ -82,6 +86,7 @@ export async function GET(request: Request) {
           Promise.allSettled([
             syncMealNotLoggedNotifications(household.id),
             syncExpiringSoonNotifications(household.id),
+            syncPutAwayReminders(household.id),
           ]),
         ),
       );

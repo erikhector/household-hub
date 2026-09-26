@@ -62,6 +62,28 @@ newer schema. Two concrete mechanisms:
 Either way, the goal is the same: `migrate deploy` runs exactly once per
 release, before the new code paths that depend on the new schema go live.
 
+### Put-away deploy window (one-time, by hand)
+
+The release that adds the shopping put-away step (migrations
+`shopping_put_away` and `put_away_deploy_window_backfill`) needs one manual
+step **after it's live**. `migrate deploy` runs before `next build`, so the
+previous app version keeps serving while the build runs. Any item it ticks
+off in that window updates inventory the old way but gets no `putAwayAt`,
+so the app shows it as waiting to be put away, and putting it away would
+count it twice. Both migrations ship in the same deploy and run before
+that window, so they can't catch those rows. Once the new version is serving
+traffic, run the second migration's statement once more against production
+(idempotent, and it only touches `ON_CHECK` households' rows that no
+signed-in tick or receipt of the new code could have produced):
+
+```bash
+psql "$DIRECT_URL" -f prisma/migrations/20260926140000_put_away_deploy_window_backfill/migration.sql
+```
+
+(Use `DATABASE_URL` if you have no pooler.) Skipping it only affects items
+ticked during that build. Those show a "Put away" button in the app that
+shouldn't be used.
+
 ### Sanity checks
 
 - Never run `migrate dev` against a production `DATABASE_URL`, even by
@@ -335,6 +357,13 @@ and syncs both. **This route does nothing on its own — something external
 has to call it on a schedule**, and it must never be called without the
 `CRON_SECRET` bearer token (see `.env.example`), since unlike `/api/health`
 it both writes data and sends push notifications.
+
+The same run also sends the "Put away your shopping?" reminder
+(`syncPutAwayReminders`, see REQUIREMENTS.md's "Notification center") for
+shopping trips ticked off at least three hours earlier and never put away.
+The schedule below therefore also decides when that reminder can arrive: on
+Vercel Hobby's once-a-day run it lands the morning after, while a tighter
+schedule gets it out the same evening. Nothing new to configure.
 
 **User-facing effect:** a new expiring-soon or meal-not-logged notification
 now appears with a delay of up to the cron interval, rather than instantly

@@ -161,6 +161,15 @@ model Household {
   // Null (the default) keeps the original symbol-free two-decimal display,
   // so existing households see no change until the owner picks one.
   currencyCode          String?
+  // When ticking a shopping-list row updates inventory. ON_PUT_AWAY (the
+  // default for new households) treats a tick as "in the cart" only — stock
+  // moves when the row is confirmed via the list's "Put away" step
+  // (putAwayItemsAction), so the pantry never claims milk that's still in
+  // the trolley. ON_CHECK is the original behaviour, where the tick itself
+  // is the arrival; the migration that added this column gave every
+  // household that already existed ON_CHECK so nobody's habit changed under
+  // them. Owner-editable from the Household page (setInventorySyncModeAction).
+  inventorySyncMode     InventorySyncMode @default(ON_PUT_AWAY)
 
   members            HouseholdMember[]
   invitations        Invitation[]
@@ -177,6 +186,12 @@ model Household {
   tasks              HouseholdTask[]
   notes              HouseholdNote[]
   weeklyDigestSends  WeeklyDigestSend[]
+}
+
+// See Household.inventorySyncMode.
+enum InventorySyncMode {
+  ON_CHECK
+  ON_PUT_AWAY
 }
 
 model HouseholdMember {
@@ -378,6 +393,9 @@ enum NotificationKind {
   // GAP-9: a newly recorded PriceHistory price materially above that item's
   // trailing median — see recordPriceSpikes in src/lib/notifications.ts.
   PRICE_SPIKE
+  // Ticked shopping-list rows that were never put away, a few hours after
+  // the trip — see syncPutAwayReminders in src/lib/notifications.ts.
+  PUT_AWAY_REMINDER
 }
 
 // Persisted household alerts (see src/lib/notifications.ts) — replaces an
@@ -477,6 +495,13 @@ model ShoppingList {
   // ACTIVE (complete/archive) so un-archiving an old default can never
   // produce a second one.
   isDefault   Boolean            @default(false)
+  // When the "Put away your shopping?" reminder last went out for this list
+  // (syncPutAwayReminders in src/lib/notifications.ts). A ticked row that
+  // was checked off after this moment belongs to a newer trip and can earn
+  // a new reminder; one checked off before it already had its nudge. Kept
+  // on the list rather than per row because the reminder is per trip, and
+  // the default list lives across many trips.
+  putAwayRemindedAt DateTime?
 
   household     Household               @relation(fields: [householdId], references: [id], onDelete: Cascade)
   items         ShoppingListItem[]
@@ -533,6 +558,28 @@ model ShoppingListItem {
   // order anyone walked the aisles in. null on every row checked off before
   // this column existed.
   checkedOffAt       DateTime?
+  // Who ticked the row (togglePurchasedAction), so the put-away reminder
+  // goes to the person carrying the bags rather than the whole household.
+  // Plain string (no @relation), mirroring Transaction.createdByUserId: a
+  // member leaving mustn't take list history with them. null for share-link
+  // ticks (no account) and rows ticked before this column existed — the
+  // reminder then goes to the whole household.
+  checkedOffByUserId String?
+  // When this row's stock actually landed in inventory: the put-away step
+  // (putAwayItemsAction), or the tick itself for an ON_CHECK household, or
+  // "Register receipt" (already home). A row that's `purchased` with this
+  // still null is *incoming* — in the cart or the bags, not yet in the
+  // pantry (see src/lib/incoming-stock.ts). Cleared again whenever the row
+  // is un-ticked, since that reverses the arrival too. The migration that
+  // added it backfilled every already-purchased row, since those had
+  // already been counted into inventory by the old tick.
+  putAwayAt          DateTime?
+  // When this line's price was written to PriceHistory, if it has been.
+  // Only the put-away step reads it: a receipt applied while the row is
+  // still in the cart records the real price (and the store, GAP-6) at that
+  // moment, and the later put-away must not record the same purchase a
+  // second time.
+  priceRecordedAt    DateTime?
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
 

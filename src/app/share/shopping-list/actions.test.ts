@@ -206,8 +206,16 @@ describe("toggleItemViaShareTokenAction", () => {
     expect(result).toEqual({});
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      // AUTO-9: share-link ticks teach the store order too.
-      data: { purchased: true, checkedOffAt: expect.any(Date) },
+      // AUTO-9: share-link ticks teach the store order too. ON_CHECK (the
+      // list's household has no inventorySyncMode set here): the tick is the
+      // arrival, so the row is put away in the same write. No
+      // checkedOffByUserId — a link holder has no account.
+      data: {
+        purchased: true,
+        checkedOffAt: expect.any(Date),
+        putAwayAt: expect.any(Date),
+        priceRecordedAt: expect.any(Date),
+      },
     });
     // AUTO-8: same call site as the out-of-stock check, scoped to the
     // list's own household (never anything from the visitor).
@@ -217,12 +225,14 @@ describe("toggleItemViaShareTokenAction", () => {
       where: { id: "inv-1" },
       data: { quantity: 5, lastKnownPrice: 25 },
     });
+    // No acting user to exclude from the push — no account behind a link.
     expect(recordOutOfStockTransitionMock).toHaveBeenCalledWith(
       expect.anything(),
       "household-1",
       "inv-1",
       2,
       5,
+      undefined,
     );
     expect(priceHistoryCreateMock).toHaveBeenCalledWith({
       data: { inventoryItemId: "inv-1", price: 25, quantity: 3, unit: "pcs" },
@@ -266,6 +276,10 @@ describe("toggleItemViaShareTokenAction", () => {
       where: { id: "inv-1" },
       data: { quantity: 0 },
     });
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
+    });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
     expect(recordPriceSpikesMock).not.toHaveBeenCalled();
     // Un-marking can only ever add a pending item back, never clear the
@@ -284,5 +298,62 @@ describe("toggleItemViaShareTokenAction", () => {
     const result = await toggleItemViaShareTokenAction("valid-token-for-list-1", "does-not-exist");
 
     expect(result.error).toBe("Item not found");
+  });
+
+  describe("put-away mode (ON_PUT_AWAY)", () => {
+    function setUp(item: Record<string, unknown>) {
+      shareLinkFindUniqueMock.mockResolvedValue({ id: "link-1", shoppingListId: "list-1", revokedAt: null });
+      shoppingListItemFindFirstMock.mockResolvedValue({
+        id: "item-1",
+        shoppingListId: "list-1",
+        quantity: 3,
+        unit: "pcs",
+        estimatedPrice: 25,
+        inventoryItem: { id: "inv-1", quantity: 0 },
+        ...item,
+      });
+      shoppingListFindUniqueMock.mockResolvedValue({
+        householdId: "household-1",
+        household: { inventorySyncMode: "ON_PUT_AWAY" },
+      });
+    }
+
+    it("ticking leaves inventory alone until the household puts it away", async () => {
+      setUp({ purchased: false, putAwayAt: null });
+
+      const result = await toggleItemViaShareTokenAction("valid-token-for-list-1", "item-1");
+
+      expect(result).toEqual({});
+      expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+        where: { id: "item-1" },
+        data: { purchased: true, checkedOffAt: expect.any(Date), putAwayAt: null },
+      });
+      expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+      expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+      expect(recordOutOfStockTransitionMock).not.toHaveBeenCalled();
+      expect(addToDefaultListOnLowStockMock).not.toHaveBeenCalled();
+      expect(recordListClearedTransitionMock).toHaveBeenCalled();
+    });
+
+    it("un-ticking a row nobody put away yet has nothing to reverse", async () => {
+      setUp({ purchased: true, putAwayAt: null });
+
+      await toggleItemViaShareTokenAction("valid-token-for-list-1", "item-1");
+
+      expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+      expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+        where: { id: "item-1" },
+        data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
+      });
+    });
+
+    it("un-ticking a row already put away gives its stock back, for the token's own household", async () => {
+      setUp({ purchased: true, putAwayAt: new Date("2026-09-01"), inventoryItem: { id: "inv-1", quantity: 5 } });
+
+      await toggleItemViaShareTokenAction("valid-token-for-list-1", "item-1");
+
+      expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { quantity: 2 } });
+      expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 5, 2);
+    });
   });
 });

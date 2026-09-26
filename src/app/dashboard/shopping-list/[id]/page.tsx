@@ -9,6 +9,7 @@ import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { parseLearnedOrder } from "@/lib/shopping/store-order";
 import { loadRepurchaseSuggestions } from "@/lib/inventory/repurchase-suggestions";
 import { RepurchaseSuggestions } from "@/components/shopping/repurchase-suggestions";
+import { defersToPutAway } from "@/lib/shopping/put-away-calc";
 
 // Same reasoning as inventory/page.tsx's maxDuration: ReceiptScanDialog can
 // call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which has
@@ -97,6 +98,7 @@ export default async function ShoppingListDetailPage(
         name: true,
         category: true,
         unit: true,
+        location: true,
         quantity: true,
         lowStockThreshold: true,
         barcode: true,
@@ -130,6 +132,9 @@ export default async function ShoppingListDetailPage(
 
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
   const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+  const locations = [
+    ...new Set(inventoryItems.flatMap((item) => (item.location?.trim() ? [item.location.trim()] : []))),
+  ].sort();
 
   return (
     <ShoppingListClient
@@ -137,7 +142,14 @@ export default async function ShoppingListDetailPage(
         ...list,
         items: items.map((item) => {
           const inventoryItem = item.inventoryItemId ? inventoryById.get(item.inventoryItemId) : undefined;
-          return { ...item, category: inventoryItem?.category ?? null, barcode: inventoryItem?.barcode ?? null };
+          return {
+            ...item,
+            category: inventoryItem?.category ?? null,
+            barcode: inventoryItem?.barcode ?? null,
+            // Its location too, as the put-away dialog's "stays where it
+            // is" placeholder.
+            location: inventoryItem?.location ?? null,
+          };
         }),
       }}
       inventoryItems={inventoryItems.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
@@ -165,6 +177,8 @@ export default async function ShoppingListDetailPage(
         ) : null
       }
       currencyCode={household.currencyCode}
+      defersToPutAway={defersToPutAway(household)}
+      locations={locations}
     />
   );
 }
