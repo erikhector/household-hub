@@ -1,8 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { categoryKey, groupPendingItemsByCategory } from "@/lib/shopping/shopping-mode-grouping";
 
 type Item = { id: string; category: string | null };
 const item = (id: string, category: string | null): Item => ({ id, category });
+
+// PERF-6 regression guard: this module is reachable from the client
+// component shopping-list-client.tsx, so importing the full `en`/`sv`
+// dictionaries here (instead of the tiny category-labels.ts) would put
+// both complete dictionaries — tens of KB gzipped of text this file never
+// renders — back into the shopping-list route's client bundle.
+describe("shopping-mode-grouping.ts's imports", () => {
+  it("doesn't import the full locale dictionaries", () => {
+    const source = readFileSync(path.resolve(__dirname, "shopping-mode-grouping.ts"), "utf8");
+    expect(source).not.toMatch(/dictionaries\/(en|sv)/);
+  });
+});
 
 describe("groupPendingItemsByCategory", () => {
   it("groups known categories in the fixed produce → … → household order, regardless of input order", () => {

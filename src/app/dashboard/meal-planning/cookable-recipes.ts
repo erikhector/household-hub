@@ -10,7 +10,7 @@
 // from a client component, so it doesn't need the client/server RPC
 // boundary — same reasoning as recipe-expansion.ts staying a plain module.
 import { prisma } from "@/lib/prisma";
-import { expandRecipeIngredients } from "@/app/dashboard/meal-planning/recipe-expansion";
+import { loadRecipeGraph, expandFromGraph } from "@/app/dashboard/meal-planning/recipe-expansion";
 import { computeMissingIngredients, type IngredientNeed } from "@/app/dashboard/meal-planning/missing-ingredients";
 
 export type CookableRecipeData = {
@@ -67,9 +67,15 @@ export async function getCookableRecipes(
   householdId: string,
   recipes: { id: string; name: string; isFavorite: boolean }[],
 ): Promise<CookableRecipeData[]> {
-  const expandedByRecipe = await Promise.all(
-    recipes.map((recipe) => expandRecipeIngredients(householdId, recipe.id, 1, new Set())),
-  );
+  // PERF-1: this used to call expandRecipeIngredients (one loadRecipeGraph
+  // query each) once per recipe, so the Cook tab issued one query per
+  // recipe in the household on every meal-planning page load — O(R²) rows
+  // and R parallel queries saturating the pg pool. Fetching the graph once
+  // for the whole batch and walking it per recipe with the pure
+  // expandFromGraph keeps the exact same expansion (cycle handling,
+  // scaling, component recipes) at one query total.
+  const recipesById = await loadRecipeGraph(householdId);
+  const expandedByRecipe = recipes.map((recipe) => expandFromGraph(recipesById, recipe.id, 1, new Set(), 0));
 
   // Same loose-match fallback as previewMissingIngredientsAction /
   // previewCookedIngredientsAction in cooking-actions.ts (duplicated rather

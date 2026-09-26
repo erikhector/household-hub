@@ -48,7 +48,16 @@ type RecipeGraphNode = {
 // pulling in sub-recipes could issue dozens of round trips for one preview.
 // Fetching it all up front turns that into exactly one query per call into
 // this module, however deep or wide the component tree turns out to be.
-async function loadRecipeGraph(householdId: string): Promise<Map<string, RecipeGraphNode>> {
+//
+// Exported (PERF-1) so a caller that needs to expand *several* recipes from
+// the same household — the Cook tab's getCookableRecipes, and the
+// meal-plan → shopping-list bridge's previewMissingIngredientsAction, both
+// of which used to call expandRecipeIngredients once per recipe/entry and
+// therefore re-ran this query once per recipe/entry too — can fetch the
+// graph exactly once for the whole batch and walk it with expandFromGraph
+// per recipe instead. expandRecipeIngredients below remains the one-shot
+// convenience for a caller expanding a single recipe.
+export async function loadRecipeGraph(householdId: string): Promise<Map<string, RecipeGraphNode>> {
   const recipes = await prisma.recipe.findMany({
     where: { householdId },
     include: {
@@ -68,7 +77,11 @@ async function loadRecipeGraph(householdId: string): Promise<Map<string, RecipeG
 // id that isn't in the map (a stale id, or one from another household)
 // resolves the same way a `findUnique` miss used to: nothing is added for
 // that branch.
-function expandFromGraph(
+//
+// Exported (PERF-1) alongside loadRecipeGraph — see that function's comment
+// — so a caller batching several recipes can fetch the graph once and call
+// this pure, non-DB-touching walk once per recipe.
+export function expandFromGraph(
   recipesById: ReadonlyMap<string, RecipeGraphNode>,
   recipeId: string,
   multiplier: number,
@@ -131,12 +144,16 @@ export function portionsMultiplier(portions: number, servings: number | null | u
 // Fetches the household's whole recipe graph once, then walks it from
 // `recipeId`. `householdId` scopes that fetch — it isn't (and shouldn't be)
 // derivable from `recipeId` alone, so every call site must pass the
-// household already in scope from its own `requireHousehold()` call. A
-// caller that needs to expand several recipes from the same household in
-// one go (e.g. cookable-recipes.ts, checking every recipe against current
-// inventory) calls this once per recipe, same as before — each call is now
-// a single batched query rather than one-per-node, so that's still a large
-// reduction in round trips without needing to restructure those call sites.
+// household already in scope from its own `requireHousehold()` call.
+//
+// This is the one-shot convenience for a caller expanding a *single*
+// recipe (previewCookedIngredientsAction, markMealEntryCookedAction). A
+// caller expanding several recipes from the same household in one request
+// (getCookableRecipes, previewMissingIngredientsAction) must NOT call this
+// in a loop — that re-fetches the whole graph once per recipe, right back
+// to the O(R²) row count and R parallel queries this was meant to fix
+// (PERF-1). Those callers instead call loadRecipeGraph once and then
+// expandFromGraph per recipe against the shared result.
 export async function expandRecipeIngredients(
   householdId: string,
   recipeId: string,

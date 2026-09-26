@@ -3,6 +3,8 @@
 // strings (optionally `{one, other}` plural pairs, see lib/i18n/format.ts)
 // so this data can be passed straight into Client Component props.
 
+import { categoryLabels } from "@/lib/inventory/category-labels";
+
 export const en = {
   nav: {
     overview: "Overview",
@@ -807,22 +809,16 @@ export const en = {
     // subtitle below, scaled down to match how much smaller this call is
     // (a name, not a photo).
     categoryHintAi: "If that doesn't find a match either, AI may suggest one afterward — only the item's name is sent, nothing else.",
-    uncategorized: "Uncategorized",
+    uncategorized: categoryLabels.en.uncategorized,
     // Canonical categories new items are auto-filed under when added without
     // one (src/lib/inventory/auto-category.ts). Pantry/cleaning/bathroom
     // deliberately reuse the starter kits' labels below so a starter-kit
     // household and an auto-filed one end up with the same groups.
-    autoCategories: {
-      produce: "Produce",
-      bakery: "Bakery",
-      dairy: "Dairy & eggs",
-      meat: "Meat & fish",
-      pantry: "Pantry basics",
-      frozen: "Frozen",
-      drinks: "Drinks",
-      cleaning: "Cleaning supplies",
-      bathroom: "Bathroom essentials",
-    },
+    // Sourced from category-labels.ts (PERF-6) rather than written inline
+    // here, so shopping-mode-grouping.ts — reachable from the client
+    // shopping-list-client.tsx — can import just these labels instead of
+    // this whole dictionary.
+    autoCategories: categoryLabels.en.autoCategories,
     locationLabel: "Location",
     locationPlaceholder: "e.g. Fridge",
     // Stock ticked off a shopping list but not put away yet
@@ -2137,6 +2133,11 @@ export const en = {
   profile: {
     title: "Profile",
     subtitle: "Your account details.",
+    // SEC-6: shown by updateEmailAction/updatePasswordAction/
+    // deleteAccountAction (src/app/dashboard/profile/actions.ts) when the
+    // current-password re-auth check is throttled. One string shared by
+    // all three since they share one rate-limit bucket.
+    reauthRateLimited: "Too many attempts. Please wait 15 minutes and try again.",
     about: {
       title: "About Squirrel",
       version: "Version {version}",

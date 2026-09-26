@@ -275,6 +275,47 @@ describe("previewMissingIngredientsAction", () => {
     });
   });
 
+  it("fetches the household's recipe graph once for the whole range, not once per entry (PERF-1)", async () => {
+    // Three entries across three different recipes — before PERF-1 each one
+    // called expandRecipeIngredients, and so re-ran recipe.findMany, on its
+    // own. Loading the graph once and walking it per entry with
+    // expandFromGraph must produce the identical totals at one query.
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { recipeId: "soup", portions: 4, recipe: { servings: 4 } },
+      { recipeId: "lasagna", portions: 4, recipe: { servings: 4 } },
+      { recipeId: "soup", portions: 4, recipe: { servings: 4 } },
+    ]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "soup",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Carrot", unit: "kg", quantity: 1 }],
+        components: [],
+      },
+      {
+        id: "lasagna",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Pasta sheets", unit: "pcs", quantity: 12 }],
+        components: [{ componentRecipeId: "bolognese", quantity: 1 }],
+      },
+      {
+        id: "bolognese",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, name: "Ground beef", unit: "kg", quantity: 0.5 }],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      items: [
+        { key: "name:carrot::kg", name: "Carrot", unit: "kg", missingQuantity: 2, unitMismatch: false },
+        { key: "name:ground beef::kg", name: "Ground beef", unit: "kg", missingQuantity: 0.5, unitMismatch: false },
+        { key: "name:pasta sheets::pcs", name: "Pasta sheets", unit: "pcs", missingQuantity: 12, unitMismatch: false },
+      ],
+    });
+  });
+
   it("scales up for a bigger crowd, and leaves a recipe with no usable servings count unscaled", async () => {
     // 6 portions of a 4-serving soup is 1.5 batches. The stew's servings of
     // 0 can't come from the recipe form (it validates ≥ 1), but if a row

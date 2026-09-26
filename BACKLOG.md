@@ -96,35 +96,12 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-1. Rate-limit logins inside `authorize()`, not just `loginAction`** (high) —
-      the per-email throttle only runs in `loginAction`
-      (`src/lib/actions/auth.ts:263`), but Auth.js also accepts
-      `POST /api/auth/callback/credentials` (CSRF token from
-      `GET /api/auth/csrf`) and calls `authorize()` in `src/lib/auth.ts:25`
-      directly — unlimited password guessing. Move
-      `checkRateLimit("login:<email>")` into `authorize()`, normalising the
-      email (trim + lowercase) there too. Test: the 11th `authorize` call is
-      refused and `bcrypt.compare` isn't called.
-- [ ] **SEC-3. Validate push subscription endpoints** (medium) —
-      `subscribeToPushAction` (`src/lib/actions/push.ts:30-40`) stores any
-      `endpoint`/keys, and `sendNotification` (`src/lib/push.ts:115`) later
-      POSTs to it: blind SSRF into internal hosts, plus unbounded rows per
-      user slowing every fan-out. Zod: `https:` URL ≤1024 chars on an
-      allowlist of push services (FCM, Mozilla, WNS, Apple), base64url keys
-      of the right length, ≤10 subscriptions per user; pass
-      `{ timeout: 10_000 }` to `sendNotification`.
 - [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
       SCALE-H's session revocation doesn't cover `PushSubscription`, so
       someone who briefly had the account keeps receiving household pushes.
       `deleteMany({ where: { userId } })` inside the reset
       (`auth.ts:425-446`) and change-password (`profile/actions.ts:238-249`)
       transactions; unsubscribe the current endpoint in `logoutAction`.
-- [ ] **SEC-6. Throttle current-password re-auth** (low) —
-      `updateEmailAction`, `updatePasswordAction` and `deleteAccountAction`
-      (`src/app/dashboard/profile/actions.ts`) compare the current password
-      with no limit, so a hijacked session can brute-force it and lock the
-      owner out. `checkRateLimit("reauth:<userId>", 5, 15 min)` before
-      `bcrypt.compare`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
       and several schemas have no caps: recipe ingredient rows
@@ -143,10 +120,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `count === 0`. Store reset/verification tokens as `sha256(token)` so a
       read-only DB leak isn't an account takeover (invalidates tokens in
       flight — fine, they live an hour).
-- [ ] **SEC-9. Constant-time cron secret check** (low) —
-      `api/cron/sync-notifications/route.ts:57` and
-      `api/cron/weekly-digest/route.ts:23` compare with `!==`. Share a
-      `timingSafeEqual` helper with `digest-unsubscribe-token.ts`.
 - [ ] **SEC-10. Complete the personal data export** (low) —
       `src/app/dashboard/profile/export-data/route.ts` omits push
       subscriptions, `locale`/`theme`/`weeklyDigestEnabled`, notes, task
@@ -171,29 +144,12 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-1. Cook tab loads the recipe graph once per recipe** (high, S) —
-      `getCookableRecipes` (`meal-planning/cookable-recipes.ts:70-72`) calls
-      `expandRecipeIngredients` per recipe, and each call runs
-      `loadRecipeGraph` (`recipe-expansion.ts:51-59,146`) which fetches the
-      *whole* household recipe graph: O(R²) rows, R parallel queries that
-      saturate the pg pool, on every meal-planning load (the Cook tab is
-      server-rendered even when hidden, `page.tsx:447`).
-      `cooking-actions.ts:107-118` does the same per meal-plan entry. Load
-      the graph once and call `expandFromGraph` per recipe. Verify with
-      Prisma query logging on a 50-recipe household: 1 graph query, not 50.
 - [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
       `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
       the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use
       ~7.6 KB of it; it's inlined into every dashboard document and
       layout-re-rendering action response. Pass `Pick<Dictionary, …>`
       sub-objects (AGENTS.md already asks for this).
-- [ ] **PERF-6. Shopping list client bundles both dictionaries** (medium, S) —
-      `src/lib/shopping/shopping-mode-grouping.ts:18-19` imports `en` and
-      `sv` for category labels and is imported by the client
-      `shopping-list-client.tsx`: a 68 KB gz chunk on the page people open
-      in a store on mobile data. Move `autoCategories`/`uncategorized` to a
-      small module both dictionaries import, or build the map server-side
-      and pass it as a prop. Expect ~−60 KB gz on `/shopping-list/[id]`.
 - [ ] **PERF-7. Keep zod out of the meal-planning client bundle** (medium, S) —
       `src/lib/recipe-tags.ts:20,43` imports `zod` for one `z.enum`, pulling a
       99 KB gz chunk into `recipe-manager.tsx`/`recipe-form-dialog.tsx`.
@@ -214,12 +170,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       (`shopping-list/actions.ts:1095,1286,1480,1742`,
       `share/shopping-list/actions.ts:196`). Use `after()` from
       `next/server` for both, as `category-resolver.ts:79` already does.
-- [ ] **PERF-10. Configure the pg pool for serverless** (medium, S) —
-      `src/lib/prisma.ts:8` uses pg defaults (`max` 10, no idle handling)
-      while the budget page alone fires 14 parallel queries. Set `max` and a
-      short `idleTimeoutMillis`, add `attachDatabasePool(pool)` from
-      `@vercel/functions` on Fluid compute, and confirm `DATABASE_URL`
-      points at the pooler (DEPLOYMENT.md §3).
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
@@ -249,17 +199,6 @@ tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
 touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
-- [ ] **MAINT-1. Cookie inventory is missing three keys, and its drift guard can't see them** (high, S) —
-      not in `src/lib/cookie-inventory.ts`: the `household_step_skipped_<id>`
-      cookie (`src/lib/actions/household.ts:300,311`) and the localStorage
-      keys `mealPlanning.varietyRecapDismissedCount`
-      (`components/meal-planning/meal-variety-recap.tsx:24`) and
-      `tasks.weeklyRecap.dismissedWeek`
-      (`components/tasks/tasks-weekly-recap.tsx:28`). The privacy page is
-      therefore incomplete. The test regex
-      (`cookie-inventory.test.ts:23`) only matches `*_COOKIE = "…"`; widen it
-      to `_COOKIE_PREFIX` / `_STORAGE_KEY` with prefix matching, then add
-      the entries.
 - [ ] **MAINT-2. No `householdId`-taking exports from `"use server"` files** (high, S) —
       `findOrCreateGroceriesCategory(householdId)`
       (`dashboard/budget/actions.ts:39`) and
@@ -356,12 +295,6 @@ then MAINT-7 per feature, to avoid churn.
       `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
       cite a `findOrCreateInventoryItem` that no longer exists. Delete the
       stray committed `src/components/budget/cost-analyzer.tsx.orig`.
-- [ ] **MAINT-14. Unit tests for untested domain modules** (low, S–M) —
-      `lib/shopping/put-away.ts` (newest feature), `lib/settle-departing-member.ts`
-      (money), `lib/session-revocation.ts` (security),
-      `lib/budget-date-utils.ts`, `meal-planning/date-utils.ts`,
-      `lib/digest-unsubscribe.ts`, and the inventory and shopping-list CSV
-      `export/route.ts` handlers.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,

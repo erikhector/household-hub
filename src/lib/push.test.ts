@@ -71,6 +71,7 @@ describe("sendPushToHousehold", () => {
     expect(sendNotificationMock).toHaveBeenCalledWith(
       { endpoint: "https://push.example/1", keys: { p256dh: "p1", auth: "a1" } },
       JSON.stringify({ title: "Out of stock", body: "Eggs is out of stock", url: "/dashboard/inventory?status=out" }),
+      { timeout: 10_000 },
     );
   });
 

@@ -203,6 +203,34 @@ invocations are hitting it:
     string plus an Accelerate extension on the client) for not having to run
     or configure PgBouncer yourself.
 
+### Pool sizing and Fluid compute (this app)
+
+`src/lib/prisma.ts` opens its own `pg.Pool` (rather than letting
+`PrismaPg`'s default config path do it) so it can tune two things pg's own
+defaults get wrong for a serverless deploy:
+
+- `max` defaults to 20, not pg's default of 10. The budget page alone
+  fires ~14 queries in parallel in one request; a pool capped at 10 would
+  serialize part of that `Promise.all` on every visit. Override it with
+  `DATABASE_POOL_MAX` (see `.env.example`) if the pooler in front of
+  `DATABASE_URL` can't absorb 20 connections per concurrent invocation —
+  size it down for a small managed pooler, or up if profiling shows
+  queuing under real concurrent load.
+- `idleTimeoutMillis` is set to 10s instead of pg's default of never
+  timing out an idle client, since a serverless invocation is short-lived
+  and gains nothing from holding connections open past it.
+
+The pool is also passed to `attachDatabasePool()` from `@vercel/functions`.
+On Vercel's Fluid compute, an instance can be suspended between
+invocations instead of torn down; without this, a client checked back into
+the pool idle can leak past that suspension instead of being closed,
+slowly exhausting the pooler's connection slots. It's a documented no-op
+off Vercel (plain Node, local dev, CI), so it's safe to call unconditionally.
+
+None of this replaces the pooler above — `DATABASE_URL` must still point
+at the pooled endpoint in production, since this pool's connections are
+themselves what the pooler is protecting Postgres from.
+
 ### `DATABASE_URL` vs `DIRECT_URL`
 
 This is Prisma's standard pattern once a pooler is in the picture, and it

@@ -1,5 +1,82 @@
 [
   {
+    "version": "0.39.7",
+    "date": "2026-09-26",
+    "pr": 80,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Security hardening for push notifications. Each account now keeps up to 10 devices, and the oldest is dropped when you add another.",
+      "sv": "Säkerhetsförbättring för pushnotiser. Varje konto sparar nu upp till 10 enheter, och den äldsta tas bort när du lägger till en ny."
+    }
+  },
+  {
+    "version": "0.39.6",
+    "date": "2026-09-26",
+    "pr": 75,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning and the Cook tab load faster, especially if you have many recipes.",
+      "sv": "Måltidsplaneringen och fliken Laga laddas snabbare, särskilt om du har många recept."
+    }
+  },
+  {
+    "version": "0.39.5",
+    "date": "2026-09-26",
+    "pr": 79,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list loads faster, especially on mobile data.",
+      "sv": "Inköpslistan laddas snabbare, särskilt på mobildata."
+    }
+  },
+  {
+    "version": "0.39.4",
+    "date": "2026-09-26",
+    "pr": 77,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Closed a gap that let automated sign-in attempts skip the limit on password guesses.",
+      "sv": "Täppte till en lucka som lät automatiska inloggningsförsök kringgå gränsen för lösenordsgissningar."
+    }
+  },
+  {
+    "version": "0.39.3",
+    "date": "2026-09-26",
+    "pr": 74,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Too many wrong current-password attempts when changing your email or password, or deleting your account, now pause further attempts for 15 minutes.",
+      "sv": "För många felaktiga försök med ditt nuvarande lösenord när du byter e-post eller lösenord, eller raderar ditt konto, pausar nu nya försök i 15 minuter."
+    }
+  },
+  {
+    "version": "0.39.2",
+    "date": "2026-09-26",
+    "pr": 72,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Security hardening for the scheduled background jobs. Nothing changes for you.",
+      "sv": "Säkerhetsförbättring för de schemalagda bakgrundsjobben. Ingen synlig förändring."
+    }
+  },
+  {
+    "version": "0.39.1",
+    "date": "2026-09-26",
+    "pr": 73,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The privacy page now lists every preference Squirrel stores in your browser.",
+      "sv": "Integritetssidan visar nu alla inställningar som Squirrel sparar i din webbläsare."
+    }
+  },
+  {
     "version": "0.39.0",
     "date": "2026-09-26",
     "pr": 70,

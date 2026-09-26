@@ -41,6 +41,14 @@ easy for AI coding agents to work in correctly:
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
+  `src/lib/prisma.ts` builds its own `pg.Pool` (rather than letting
+  `PrismaPg` construct one) so it can set `max` (20 by default, overridable
+  with `DATABASE_POOL_MAX` — the budget page alone fires ~14 queries in
+  parallel) and a 10s `idleTimeoutMillis`, and registers that pool with
+  `attachDatabasePool()` from `@vercel/functions` so an idle client doesn't
+  leak past a suspended Fluid compute instance (a documented no-op off
+  Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
+  interacts with the pooler `DATABASE_URL` must point at in production.
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and
@@ -525,6 +533,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+  - *Bundle size (PERF-6)*: matching a category label in either locale
+    (above) used to mean `shopping-mode-grouping.ts` imported the full
+    `en`/`sv` dictionaries, which — since that module is reachable from the
+    client `shopping-list-client.tsx` — put both complete dictionaries
+    (~68 KB gz) into every `/dashboard/shopping-list/[id]` page load. The
+    `uncategorized`/`autoCategories` labels now live in
+    `src/lib/inventory/category-labels.ts`, a tiny dependency-free module
+    that `en.ts`/`sv.ts` still re-export (so translators keep finding them
+    under `inventory.*`) but that `shopping-mode-grouping.ts` imports
+    directly instead of the whole dictionaries.
 - **Learned store order (AUTO-9)** — shopping mode's groups gradually
   reorder to match the order this household actually ticks things off in,
   with no setup. Pure logic lives in `src/lib/shopping/store-order.ts`
@@ -1969,6 +1987,18 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
     `User.passwordChangedAt`, which revokes every *other* session for the
     account too — see "Session revocation on password change" under
     "Access control".
+  - **Re-auth throttling (SEC-6)**: `updateEmailAction`, `updatePasswordAction`
+    and `deleteAccountAction` all re-prove account ownership with the
+    current password before doing anything security-sensitive (see the two
+    bullets above), but that `bcrypt.compare` was previously uncapped — a
+    hijacked or left-open session could brute-force the hash without ever
+    touching login's own rate limit. Each of the three now calls
+    `checkRateLimit("reauth:<userId>", 5, 15 minutes)`
+    (`src/lib/rate-limit.ts`) before comparing, keyed by `userId` only so
+    attempts against any of the three actions share one budget — switching
+    which action you try doesn't reset the clock. A throttled attempt
+    returns the translated `profile.reauthRateLimited` string (`en.ts`/
+    `sv.ts`) without ever calling `bcrypt.compare`.
 
 ### Budget component unification
 
@@ -2786,6 +2816,26 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   always checks one full batch (multiplier 1). There's no separate
   "servings override" column. An earlier proposal for one would have
   duplicated `portions`, which already has this job.
+  - **One graph fetch per request, not per recipe (PERF-1)**: expanding a
+    recipe (including its sub-recipes) walks an in-memory
+    `Map<recipeId, RecipeGraphNode>` built by `loadRecipeGraph`
+    (`recipe-expansion.ts`) — one `recipe.findMany` for the whole
+    household. `expandRecipeIngredients` is the one-shot convenience for a
+    caller expanding a single recipe (`previewCookedIngredientsAction`,
+    `markMealEntryCookedAction`): it loads the graph itself, then walks it.
+    A caller expanding *several* recipes in one request —
+    `getCookableRecipes` (every recipe in the Cook tab, against full
+    household inventory) and `previewMissingIngredientsAction` (every
+    planned entry in the chosen date range) — instead calls
+    `loadRecipeGraph` once and calls the pure, non-DB-touching
+    `expandFromGraph` per recipe/entry against that shared result. Before
+    this, both call sites called `expandRecipeIngredients` in a loop, so
+    each recipe/entry re-ran the whole-household query on its own: a
+    50-recipe household loading the Cook tab (server-rendered even when
+    that tab is hidden) issued 50 queries fetching O(R²) rows total, each
+    competing for a pg pool connection. Cycle handling, scaling and
+    component-recipe resolution are unchanged — only how many times the
+    graph is fetched.
 - Weekday header labels (Mon–Sun) come from the `mealPlanning` dictionary
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
@@ -3851,6 +3901,41 @@ intruder out. The fix is a password "version" stamped into the token:
   `/dashboard` and every data-touching Server Action goes through one of
   the two guards.
 
+### Login rate limiting (SEC-1)
+
+The per-email login throttle (`checkRateLimit("login:<email>")`,
+`LOGIN_RATE_LIMIT` = 10 attempts / 10 minutes — see its doc comment for why
+this throttles instead of locking accounts out) lives inside the
+Credentials provider's `authorize` callback in `src/lib/auth.ts`, not in
+`loginAction` (`src/lib/actions/auth.ts`). It used to be the other way
+round, which left it bypassable: Auth.js also serves
+`POST /api/auth/callback/credentials` directly (paired with
+`GET /api/auth/csrf`), and that route calls `authorize` without ever going
+through `loginAction`, so a script hitting it directly got unlimited
+password guesses against any known email.
+
+- `authorize` trims and lowercases the submitted email itself before using
+  it as both the rate-limit key and the `prisma.user.findUnique` lookup —
+  `loginAction`'s Zod schema already does this, but `authorize` is also
+  reachable from that credentials callback route, which never runs through
+  `loginSchema`.
+- The check runs before the `user.findUnique` call and before
+  `bcrypt.compare`, and regardless of whether the account exists, so a
+  throttled attempt never pays either cost and an unknown email doesn't
+  skip the bucket.
+- On the limit tripping, `authorize` throws `RateLimitedSignin` — a
+  `CredentialsSignin` subclass with `code = "rate-limited"`, the same
+  pattern `EmailNotVerifiedSignin` already used for the "verify your email"
+  case. `loginAction` catches it (checked before the generic `AuthError`
+  branch, same as `EmailNotVerifiedSignin`) and returns its existing "Too
+  many attempts. Please wait a few minutes and try again." message, so the
+  user-facing behavior is unchanged from before the fix.
+- `loginAction` no longer has a rate-limit check of its own: a pre-check
+  there would consume a second attempt from the same bucket `authorize`
+  already checks for that same sign-in, silently halving the effective
+  limit. `signIn("credentials", ...)` always calls `authorize` internally,
+  so one call to `loginAction` still means exactly one throttle check.
+
 ## Navigation & responsive layout
 
 Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,
@@ -4011,7 +4096,11 @@ Exactly six triggers exist — nothing else creates a notification:
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
     an unset `CRON_SECRET` fails closed (every run is a logged `401`), so it
-    must be configured in production before the route is deployed.
+    must be configured in production before the route is deployed. The
+    check compares in constant time
+    (`src/lib/timing-safe-equal.ts`'s `timingSafeStringEqual`, shared with
+    `/api/cron/weekly-digest` and `digest-unsubscribe-token.ts`) rather than
+    `!==`, so a wrong guess can't be narrowed down from response timing.
     `getActiveNotifications` itself is now a pure read (`prisma.notification.findMany`
     only) with no side effects. **User-facing effect:** a new
     meal-not-logged or expiring-soon notification now appears with a delay
@@ -4239,6 +4328,41 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `VAPID_PRIVATE_KEY` set (see `.env.example`), the card just reports the
   feature unavailable and every server-side send is a silent no-op — same
   fails-gracefully pattern as `RESEND_API_KEY` in `src/lib/email.ts`.
+  - **Input validation (SEC-3)**: `subscribeToPushAction` is the only place
+    an `endpoint`/keys pair enters the database, and `sendPushToHousehold`
+    later POSTs to that endpoint verbatim, so a Zod schema in
+    `src/lib/actions/push.ts` rejects anything that isn't a real browser's
+    Push API response before it's stored — a client-supplied endpoint that
+    isn't validated is a blind SSRF vector into this server's own network.
+    The endpoint must be an `https:` URL, ≤1024 characters, whose host
+    matches (by suffix, never by substring) one of the actual push
+    services' delivery hosts: a subdomain of `googleapis.com`
+    (`fcm.googleapis.com`, Chrome/Edge) or of `google.com` — Chrome has been
+    observed handing out endpoints on `jmtNN.google.com` too, and since
+    Google doesn't publish that host as fixed the way the others below do,
+    the whole of `google.com` is allowlisted rather than a regex on one
+    seen-in-the-wild shape; it's Google's own public multi-tenant edge, so
+    this is broader than the other entries without reopening the
+    internal-network SSRF this list exists to block — a subdomain of
+    `push.services.mozilla.com` (Firefox), a subdomain of
+    `notify.windows.com` (legacy Edge/WNS), or a subdomain of
+    `push.apple.com` (Safari, including `web.push.apple.com`). `keys.p256dh`
+    and `keys.auth` must each decode (as base64url, padding tolerated) to
+    exactly 65 and 16 bytes — the fixed sizes the Web Push protocol defines
+    for the ECDH public key and auth secret. A subscription that fails
+    validation throws, which the card's existing subscribe try/catch
+    already surfaces as a generic error.
+  - **Per-user cap (SEC-3)**: `subscribeToPushAction` caps a user at 10
+    stored subscriptions. The cap is only checked when the endpoint is
+    brand new (an update to an already-stored endpoint never grows the
+    count); at the cap, the **oldest** row is evicted rather than the
+    subscribe being rejected — someone hitting the cap is almost always a
+    PWA reinstalled often (each install is a new endpoint), and the oldest
+    row is the one most likely already dead, so evicting it is friendlier
+    than leaving the device in front of them unable to get push. Both the
+    existence check and the eviction run inside the same `$transaction` as
+    the upsert, so concurrent subscribes from the same user can't both
+    slip past the count.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
     household. It's called from the same triggers as the in-app
@@ -4258,7 +4382,10 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     responds as soon as they resolve, at which point a serverless platform
     may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
-    retrying it; any other error is just logged.
+    retrying it; any other error is just logged. Each send passes
+    `{ timeout: 10_000 }` (SEC-3) so one slow or unreachable push service
+    can't hang its socket indefinitely and, since every subscription's send
+    runs under the same `Promise.all`, hold up the rest of the fan-out.
   - **Quiet hours** (GAP-14): each `PushSubscription` row carries optional
     `quietHoursStart`/`quietHoursEnd` (0-23, local hour) and `timeZone`
     (the browser's IANA zone from
@@ -4444,6 +4571,21 @@ approximating them, so the email never disagrees with the app.
     (`signupAction`, `loginAction`, `createHouseholdAction`,
     `joinViaInviteSignupAction`): each schema's validation-error paths, plus
     one success path per action.
+  - MAINT-14 filled in the remaining untested domain modules:
+    `src/lib/shopping/put-away.ts` (the quantity math, conditional
+    price/expiry/location fields, and PriceHistory recording behind stock
+    arriving and being reversed, with its collaborators mocked out),
+    `src/lib/settle-departing-member.ts` (money — every other member's
+    split marked paid, unconditionally, including a zero-amount split),
+    `src/lib/session-revocation.ts` (every branch of `isSessionRevoked`),
+    `src/lib/budget-date-utils.ts` and
+    `src/app/dashboard/meal-planning/date-utils.ts` (month/week navigation
+    across year boundaries, leap days, and the DST transition date, plus
+    `isMonthKey`/`isDateKey`'s rejection cases), `src/lib/digest-unsubscribe.ts`
+    (token verification failure vs. success, and idempotency), and the
+    inventory and shopping-list CSV `export/route.ts` handlers (household
+    tenancy scoping, filename generation, column rendering, and formula-
+    injection guarding end to end).
   - Not covered yet: meal planning, budgeting, profile — out of scope for
     this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
     don't exist in a stable form on this branch). Add their tests alongside
@@ -4461,6 +4603,15 @@ approximating them, so the email never disagrees with the app.
   behind a separate `DATABASE_URL` (e.g. a second `docker-compose` service)
   or wrap each test in a rolled-back transaction — don't run them against
   the shared dev database by default.
+- **Cookie/localStorage drift guard** (`src/lib/cookie-inventory.test.ts`):
+  scans `src/` for any `*_COOKIE`, `*_COOKIE_PREFIX` (a cookie keyed per id,
+  e.g. `household_step_skipped_<householdId>` in
+  `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
+  its value isn't listed in `STORAGE_INVENTORY`
+  (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
+  cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  key must follow one of those three naming patterns and get a
+  `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 
 ## Not yet built / roadmap
 

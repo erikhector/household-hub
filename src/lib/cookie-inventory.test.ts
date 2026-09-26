@@ -1,6 +1,8 @@
 // Guards against the privacy policy's cookie list drifting from the code:
-// every `*_COOKIE = "name"` constant under src/ must have an entry in
-// STORAGE_INVENTORY (src/lib/cookie-inventory.ts).
+// every `*_COOKIE = "name"`, `*_COOKIE_PREFIX = "prefix"` (a cookie keyed per
+// id, e.g. per household) and `*_STORAGE_KEY = "name"` (localStorage)
+// constant under src/ must have an entry in STORAGE_INVENTORY
+// (src/lib/cookie-inventory.ts).
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -20,7 +22,9 @@ function declaredCookieNames(): string[] {
   const names = new Set<string>();
   for (const file of sourceFiles(SRC)) {
     const text = readFileSync(file, "utf8");
-    for (const match of text.matchAll(/\b[A-Z_]+_COOKIE\s*=\s*"([^"]+)"/g)) {
+    for (const match of text.matchAll(
+      /\b[A-Z_]+_(?:COOKIE|COOKIE_PREFIX|STORAGE_KEY)\s*=\s*"([^"]+)"/g,
+    )) {
       names.add(match[1]);
     }
   }
