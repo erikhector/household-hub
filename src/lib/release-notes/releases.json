@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.7",
+    "date": "2026-09-26",
+    "pr": 80,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Security hardening for push notifications. Each account now keeps up to 10 devices, and the oldest is dropped when you add another.",
+      "sv": "Säkerhetsförbättring för pushnotiser. Varje konto sparar nu upp till 10 enheter, och den äldsta tas bort när du lägger till en ny."
+    }
+  },
+  {
     "version": "0.39.6",
     "date": "2026-09-26",
     "pr": 75,
