@@ -7,7 +7,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { signIn, signOut, EmailNotVerifiedSignin } from "@/lib/auth";
+import { signIn, signOut, EmailNotVerifiedSignin, RateLimitedSignin } from "@/lib/auth";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -25,8 +25,9 @@ const PASSWORD_MAX_LENGTH = 72;
 
 // Throttles automated account-creation / email-enumeration probing (this
 // action's "An account with that email already exists" response confirms
-// whether an email is registered) — same reasoning as LOGIN_RATE_LIMIT
-// above, just a wider window since a real user only ever needs this once.
+// whether an email is registered) — same reasoning as LOGIN_RATE_LIMIT in
+// src/lib/auth.ts, just a wider window since a real user only ever needs
+// this once.
 const SIGNUP_RATE_LIMIT = 5;
 const SIGNUP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
@@ -55,14 +56,16 @@ const loginSchema = z.object({
   password: z.string().max(PASSWORD_MAX_LENGTH, "Invalid email or password"),
 });
 
-// No account lockout (that would let anyone lock a stranger out just by
-// typing their email + wrong passwords) — instead this throttles how many
-// credential guesses any single email address can absorb per window,
-// regardless of source IP. Bcrypt's own cost factor already slows a single
-// guess down; this bounds how many guesses get that far at all. See
-// src/lib/rate-limit.ts for why this is a speed bump, not a hard guarantee.
-const LOGIN_RATE_LIMIT = 10;
-const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+// The login throttle itself (LOGIN_RATE_LIMIT) lives in src/lib/auth.ts's
+// `authorize`, not here — see the "Login rate limiting" section of
+// REQUIREMENTS.md (SEC-1) for why: Auth.js also accepts
+// `POST /api/auth/callback/credentials` directly, which calls `authorize`
+// without ever going through loginAction below, so checking only here left
+// that endpoint unthrottled. loginAction has no pre-check of its own
+// (that would double-count a single sign-in attempt against the same
+// bucket `authorize` already consumes) — it just maps the RateLimitedSignin
+// that `authorize` throws to this action's own "too many attempts" copy,
+// same pattern as EmailNotVerifiedSignin below.
 
 // A reset link grants full account takeover to whoever holds it — a much
 // higher-value target than a household invite (Invitation's 7-day expiry),
@@ -94,8 +97,9 @@ const REQUEST_RESET_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 // Throttles guessing at another user's reset token (128-bit UUIDs make
 // brute force infeasible either way, but this keeps consistent with the
 // rest of this file's "never rely on one layer alone" posture — see
-// LOGIN_RATE_LIMIT's comment). Keyed per-token rather than per-email since
-// the caller isn't known to be the token's rightful owner yet.
+// LOGIN_RATE_LIMIT's comment in src/lib/auth.ts). Keyed per-token rather
+// than per-email since the caller isn't known to be the token's rightful
+// owner yet.
 const RESET_PASSWORD_RATE_LIMIT = 10;
 const RESET_PASSWORD_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -260,10 +264,6 @@ export async function loginAction(
     return { error: "Invalid email or password" };
   }
 
-  if (!(await checkRateLimit(`login:${parsed.data.email}`, LOGIN_RATE_LIMIT, LOGIN_RATE_LIMIT_WINDOW_MS))) {
-    return { error: "Too many attempts. Please wait a few minutes and try again." };
-  }
-
   const redirectTo = sanitizeNextPath(formData.get("next"));
 
   try {
@@ -273,9 +273,12 @@ export async function loginAction(
       redirectTo,
     });
   } catch (error) {
-    // Checked before the generic AuthError branch below: EmailNotVerifiedSignin
-    // is itself an AuthError subclass (see src/lib/auth.ts), so the order
-    // matters here.
+    // Checked before the generic AuthError branch below: RateLimitedSignin
+    // and EmailNotVerifiedSignin are themselves AuthError subclasses (see
+    // src/lib/auth.ts), so the order matters here.
+    if (error instanceof RateLimitedSignin) {
+      return { error: "Too many attempts. Please wait a few minutes and try again." };
+    }
     if (error instanceof EmailNotVerifiedSignin) {
       return { error: UNVERIFIED_LOGIN_MESSAGE, unverifiedEmail: parsed.data.email };
     }

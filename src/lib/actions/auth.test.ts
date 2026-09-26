@@ -20,6 +20,15 @@ vi.mock("next-auth", () => ({ AuthError }));
 // still works against the same mocked class this test constructs.
 class EmailNotVerifiedSignin extends AuthError {}
 
+// Same reasoning as EmailNotVerifiedSignin above, for src/lib/auth.ts's
+// RateLimitedSignin (thrown by `authorize` when the per-email login
+// throttle trips — see SEC-1). The throttle itself now lives inside
+// `authorize`, which this file mocks away entirely (signInMock stands in
+// for the whole sign-in flow), so the actual rate-limiting is exercised in
+// src/lib/auth.test.ts, not here — this file only checks that loginAction
+// maps the error to its own "too many attempts" message.
+class RateLimitedSignin extends AuthError {}
+
 const {
   findUniqueMock,
   transactionMock,
@@ -96,6 +105,7 @@ vi.mock("@/lib/auth", () => ({
   signIn: signInMock,
   signOut: signOutMock,
   EmailNotVerifiedSignin,
+  RateLimitedSignin,
 }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build (same class of issue as the
@@ -302,16 +312,15 @@ describe("loginAction", () => {
     );
   });
 
-  // Regression coverage for the brute-force fix: unlimited login attempts
-  // used to be possible against a single account (see LOGIN_RATE_LIMIT in
-  // src/lib/actions/auth.ts).
-  it("rate-limits repeated attempts against the same email without ever calling signIn again", async () => {
-    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
-
-    for (let i = 0; i < 10; i++) {
-      await loginAction({}, formData({ email: "victim@example.com", password: `guess${i}` }));
-    }
-    signInMock.mockClear();
+  // Regression coverage for SEC-1: the per-email login throttle moved into
+  // `authorize` itself (src/lib/auth.ts), so it fires on every call to
+  // signIn — including the /api/auth/callback/credentials route that never
+  // goes through loginAction at all — not just here. loginAction's own job
+  // is now just to translate the RateLimitedSignin that `authorize` throws
+  // into this friendly copy; the throttle's actual counting is covered in
+  // src/lib/auth.test.ts.
+  it("shows the rate-limit message when signIn reports the account is throttled", async () => {
+    signInMock.mockRejectedValue(new RateLimitedSignin());
 
     const result = await loginAction(
       {},
@@ -319,22 +328,7 @@ describe("loginAction", () => {
     );
 
     expect(result.error).toBe("Too many attempts. Please wait a few minutes and try again.");
-    expect(signInMock).not.toHaveBeenCalled();
-  });
-
-  it("does not rate-limit a different email after another account is throttled", async () => {
-    signInMock.mockRejectedValue(new AuthError("CredentialsSignin"));
-    for (let i = 0; i < 10; i++) {
-      await loginAction({}, formData({ email: "victim@example.com", password: `guess${i}` }));
-    }
-
-    signInMock.mockResolvedValue(undefined);
-    const result = await loginAction(
-      {},
-      formData({ email: "someone-else@example.com", password: "supersecret" }),
-    );
-
-    expect(result).toEqual({});
+    expect(result.unverifiedEmail).toBeUndefined();
   });
 });
 

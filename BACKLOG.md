@@ -96,15 +96,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-1. Rate-limit logins inside `authorize()`, not just `loginAction`** (high) —
-      the per-email throttle only runs in `loginAction`
-      (`src/lib/actions/auth.ts:263`), but Auth.js also accepts
-      `POST /api/auth/callback/credentials` (CSRF token from
-      `GET /api/auth/csrf`) and calls `authorize()` in `src/lib/auth.ts:25`
-      directly — unlimited password guessing. Move
-      `checkRateLimit("login:<email>")` into `authorize()`, normalising the
-      email (trim + lowercase) there too. Test: the 11th `authorize` call is
-      refused and `bcrypt.compare` isn't called.
 - [ ] **SEC-2. Close the DNS-rebinding hole in recipe import** (medium) —
       `assertResolvesToPublicAddress` (`src/lib/recipe-import.ts:798-812`)
       resolves the host, then `fetch` (`:873`) resolves it again, so a TTL-0
