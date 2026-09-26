@@ -194,6 +194,50 @@ out to be a product-scope question rather than a scoped task should move to
       one-shot OS notifications). Worth deciding the mechanism before
       committing, rather than treating it as a routine feature slice.
 
+### 2026-09-26 scan
+
+- [ ] **GAP-35. Household-wide calendar for events, not just meals and bills** `[!]` —
+      needs a product decision. Cozi's core differentiator is a shared
+      family calendar for appointments, birthdays and school events —
+      Squirrel's `.ics` feed (`src/lib/calendar-feed.ts`,
+      `src/app/api/calendar/[token]/route.ts`) only ever publishes
+      meal-plan entries and recurring-bill due dates; there's no
+      `HouseholdEvent` model or in-app view for a one-off or recurring
+      appointment. The delivery mechanism (the existing opt-in `.ics`
+      feed, `buildCalendarFeedEvents`) is already built and could carry
+      a third event source cheaply, but the feature itself needs
+      decisions the meal/bill feed didn't: does an event need its own
+      reminder/push, per-member visibility, or in-app recurrence — none
+      of which this app's calendar surface has had to answer before.
+
+- [ ] **GAP-36. "Give every dollar a job" zero-based budgeting** `[!]` —
+      needs a product decision. YNAB's defining feature is requiring the
+      month's income to be fully assigned across categories (a
+      "To be budgeted" figure that must reach zero), a materially
+      different philosophy from the envelope-style `monthlyLimit`/
+      `rolloverEnabled` system already built (GAP-12/GAP-21,
+      `BudgetCategory`/`PersonalBudgetCategory`) — that system caps
+      category spending, but nothing requires or tracks whether *all*
+      income has a category. Adopting it would mean reconciling a new
+      "unassigned" figure against `computeSafeToSpend`
+      (`src/lib/safe-to-spend-calc.ts`), which already answers a similar
+      but distinct question ("what's left to spend"); worth deciding
+      whether the app wants two budgeting philosophies side by side
+      before scoping either the schema or the math.
+
+- [ ] **GAP-37. Splitting an expense with someone outside the household** `[!]` —
+      needs a product decision. Splitwise's core model is splitting a bill
+      with any "friend," not just people who share your account.
+      `TransactionSplit` (`prisma/schema.prisma`) is keyed to
+      `HouseholdMember`, so every split participant must already be a full
+      household member — there's no way to record "the trip to Ikea, split
+      three ways with a friend who isn't on Squirrel." Supporting it breaks
+      the tenancy assumption every domain row here relies on (a split
+      party scoped by `householdId` via its member), and would need a real
+      design for a non-member participant's identity (a name-only row with
+      no login, most likely) before it's a scoped task rather than an
+      open-ended one.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
