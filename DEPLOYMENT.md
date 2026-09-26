@@ -336,6 +336,13 @@ has to call it on a schedule**, and it must never be called without the
 `CRON_SECRET` bearer token (see `.env.example`), since unlike `/api/health`
 it both writes data and sends push notifications.
 
+The same run also sends the "Put away your shopping?" reminder
+(`syncPutAwayReminders`, see REQUIREMENTS.md's "Notification center") for
+shopping trips ticked off at least three hours earlier and never put away.
+The schedule below therefore also decides when that reminder can arrive: on
+Vercel Hobby's once-a-day run it lands the morning after, while a tighter
+schedule gets it out the same evening. Nothing new to configure.
+
 **User-facing effect:** a new expiring-soon or meal-not-logged notification
 now appears with a delay of up to the cron interval, rather than instantly
 the next time someone opens the bell. **How long that delay actually is

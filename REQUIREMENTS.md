@@ -283,8 +283,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     - **Estimated expiry from default shelf life (AUTO-7)**: almost no
       items ever got a real `expiresAt`, since the date picker only exists
       on the single-item form and nobody fills it in on every add. Instead,
-      when stock *arrives* — a shopping-list item checked off
-      (`togglePurchasedAction`), a receipt scan applied or a receipt
+      when stock *arrives* — a shopping-list item put away
+      (`putAwayItemsAction`, or the tick itself in an `ON_CHECK` household:
+      `togglePurchasedAction` and the share-link toggle; see "Put away"
+      below), a receipt scan applied in `ON_CHECK` mode or a receipt
       registered (`applyReceiptScanAction`/`registerReceiptAction`), or a
       batch landing via the scan queue/paste-list
       (`bulkCreateInventoryItemsAction`) — an item with a known shelf life
@@ -293,6 +295,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       is `null` to use the category default, a positive number as a
       per-item override, or `-1` (Grocy's convention) to permanently opt
       the item out — the item form's "doesn't expire" checkbox sets that.
+      A best-before date typed into the put-away dialog is real, not an
+      estimate: it's stored with `expiresAtEstimated: false` in place of
+      the estimate.
       The pure resolver (`src/lib/inventory/shelf-life.ts`, unit-tested)
       maps a category label (either locale's `inventory.autoCategories`
       text, same source as AUTO-2's dictionary) to a default: dairy 7 days,
@@ -348,8 +353,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       `openedAt` that click wrote, so a stale Undo after a restock is a
       no-op. `ExpiryBadge` shows an outline "Opened" tag next to the
       expiry badge whenever `openedAt` is set, even outside the warning
-      window. **Restock**: the same three AUTO-7 arrival paths
-      (`togglePurchasedAction`, `applyReceiptScanAction`,
+      window. **Restock**: the same AUTO-7 shopping arrival paths (put-away
+      or an `ON_CHECK` tick, both through `applyStockArrival` in
+      `src/lib/shopping/put-away.ts`; `applyReceiptScanAction`;
       `registerReceiptAction`) merge in `openedResetOnArrival` before the
       estimator's patch — a 0 → positive crossing is a fresh, sealed pack,
       so `openedAt` clears, and an estimated `expiresAt` (which includes
@@ -484,11 +490,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   quantity 0) and links it — there is no such thing as an unlinked shopping
   list item going forward. `completeShoppingListAction` re-runs that
   find-or-create for any item that still lacks a link, as a defensive
-  guarantee at the point the user considers the list "done". Marking an item
-  purchased **increments** the linked inventory item's quantity by the
-  purchased amount (and records a `PriceHistory` row if an estimated price
-  was given); un-marking it reverses the increment. The dashboard overview
-  card sums pending items across every `ACTIVE` list, not just one.
+  guarantee at the point the user considers the list "done". A purchase
+  **increments** the linked inventory item's quantity by the purchased
+  amount (and records a `PriceHistory` row if an estimated price was
+  given) — but *when* depends on the household's `inventorySyncMode` (see
+  "Put away" below): at the tick itself in `ON_CHECK` mode, or when the
+  row is put away in `ON_PUT_AWAY` mode, where a tick only means "in the
+  cart". Un-ticking a row whose stock was already counted (`putAwayAt`
+  set) reverses the increment; un-ticking one that was never put away has
+  nothing to reverse. The dashboard overview card sums pending items across
+  every `ACTIVE` list, not just one.
 - **Shopping mode (AUTO-3)** — the detail page groups pending items by their
   linked `InventoryItem`'s category instead of insertion order, so a shop
   doesn't mean zig-zagging the store. `groupPendingItemsByCategory`
@@ -661,14 +672,20 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `adjustQuantityAction`, `markItemEmptyAction`,
     `updateInventoryItemAction`, `bulkUpdateFieldAction`,
     `bulkSetInventoryQuantitiesAction` (AI shelf scan restock),
-    `markMealEntryCookedAction`, `togglePurchasedAction` and the share-link
-    `toggleItemViaShareTokenAction`) — once per path, in the actions layer,
+    `markMealEntryCookedAction`, and every shopping arrival/reversal via
+    `applyStockArrival`/`reverseStockArrival` in
+    `src/lib/shopping/put-away.ts`: `togglePurchasedAction`, the share-link
+    `toggleItemViaShareTokenAction`, `putAwayItemsAction` and
+    `applyReceiptScanAction`) — once per path, in the actions layer,
     never per UI; the in-transaction callers pass their `tx`. It fires only
     when `getStockStatus` goes from `in` to `low`/`out` (judged against the
     item's threshold after the write, so raising a threshold alone never
     adds anything); an item that was already low dropping further is a
     no-op, so the list isn't refilled over a row someone removed on
-    purpose. The row is deduped against a pending row for the same item
+    purpose. Stock that's ticked off but not yet put away counts as
+    covered on both sides of the change (`coveredQuantity`, see "Incoming
+    stock" under "Put away" below), so the last carton at home running out
+    while two more are in the cart adds nothing. The row is deduped against a pending row for the same item
     exactly like `generateFromLowStockAction`, sized
     `max(1, threshold − quantity)`, carries the item's `lastKnownPrice`
     (AUTO-4) and is flagged `addedAutomatically` (the existing "Low stock"
@@ -698,6 +715,102 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `src/lib/actions/household.ts`). Not owner-gated — see "Roles". Off
     means no crossing ever adds anything; "Add low-stock items" and "Mark
     as empty & add" still work by hand.
+- **Put away: "in the cart", then "in the cupboard"** — people tick items
+  off in the store, so a tick that updated inventory straight away claimed
+  stock that was still in the trolley (and made the pantry look full while
+  the bags sat in the car). A purchase is now two steps, and a household
+  chooses when inventory moves.
+  - *Household setting*: `Household.inventorySyncMode` (`InventorySyncMode`
+    enum): `ON_CHECK` (the tick is the arrival, the original behaviour) or
+    `ON_PUT_AWAY` (the tick means "in the cart"; stock moves when the row
+    is put away). Migration `shopping_put_away` gave every existing
+    household `ON_CHECK`, so nobody's habit changed under them, and made
+    `ON_PUT_AWAY` the column default for households created afterwards.
+    "Updating inventory" on the Household page (`InventorySyncSetting`, a
+    select that saves on change) calls `setInventorySyncModeAction` in
+    `src/lib/actions/household.ts` — owner-only like the currency, since it
+    changes what every member's tick does to shared stock; contributors see
+    the current value read-only.
+  - *Row state*: `ShoppingListItem.putAwayAt` (`DateTime?`) is when the
+    row's stock actually landed in inventory. A row that's `purchased`
+    with `putAwayAt` null is *awaiting put-away*. `checkedOffByUserId`
+    (plain string, like `Transaction.createdByUserId`) records who ticked
+    it, for the reminder below; `priceRecordedAt` records that the line's
+    price is already in `PriceHistory` (a receipt applied while the row was
+    still in the cart), so the put-away doesn't record it again. The
+    migration backfilled `putAwayAt = COALESCE(checkedOffAt, list
+    completedAt, now())` on every already-purchased row, since the old tick
+    had already counted those — without it, each would read as incoming
+    and a put-away would count it twice.
+  - *The tick* (`togglePurchasedAction`, `toggleItemViaShareTokenAction`):
+    always flips `purchased` and sets/clears AUTO-9's `checkedOffAt` exactly
+    as before (store-order learning and AUTO-10's purchase dating are
+    unchanged). In `ON_PUT_AWAY` mode that's all it does. In `ON_CHECK`
+    mode it also runs the arrival (below) and stamps `putAwayAt` in the
+    same write, so the data model reads the same either way. Un-ticking is
+    decided by the *row*, never the mode: a row with `putAwayAt` gives its
+    stock back (`reverseStockArrival`: decrement floored at zero, then the
+    out-of-stock and AUTO-8 hooks) and clears `putAwayAt`; a row without
+    one has nothing to reverse. So a household can switch modes mid-trip
+    without double-counting or losing anything. LIST_CLEARED still fires on
+    the tick — it's about the list, not the pantry.
+  - *The arrival* (`applyStockArrival`, `src/lib/shopping/put-away.ts`) is
+    the one place a shopping purchase moves stock in: the increment, AUTO-4's
+    `lastKnownPrice` and GAP-9's `PriceHistory` row (when a price is to be
+    recorded), GAP-28's opened-reset, AUTO-7's estimate (or a typed date,
+    stored as real), an optional location, and the out-of-stock/AUTO-8
+    hooks with the caller's `tx`. Before this, the dashboard and share-link
+    toggles each carried their own copy; the share-link one never applied
+    AUTO-7/GAP-28, and now does in `ON_CHECK` mode like every other path.
+  - *Putting away* (`putAwayItemsAction(listId, entries)`, a click action):
+    each entry is an item id plus the quantity that actually came home
+    (default: the row's), an optional best-before date (`YYYY-MM-DD`), an
+    optional location, or `notBought`. Validated with Zod (at most 300
+    entries). The list must be this household's and `ACTIVE` or
+    `COMPLETED`, and every entry must be a row on that list — one foreign
+    id fails the whole call. Rows already put away or no longer ticked are
+    skipped, which makes a double tap harmless. In one transaction, rows
+    are processed one at a time, carrying each inventory item's updated
+    state forward so two rows for the same item add up: the row gets
+    `putAwayAt` (and its confirmed quantity, so a later un-tick gives back
+    the right amount), then `applyStockArrival` runs, recording the price
+    only if `priceRecordedAt` is still null. "Not bought" un-ticks the row
+    instead (it goes back on the list). Any subset can be put away; the rest
+    stay waiting, and the list isn't completed by this. Once nothing on
+    the list is waiting, its undismissed reminder is dismissed.
+  - *UI*: a "Put away (N)" button beside "Scan receipt" whenever N rows are
+    waiting on a list that isn't archived (completed lists included — the
+    end of a trip is when there's unpacking to do), and a "Not put away"
+    tag on those rows. It opens `PutAwayDialog`
+    (`src/components/shopping/put-away-dialog.tsx`): one row per waiting
+    item, pre-filled with the list quantity, each with Put away / Later /
+    Didn't get it, and — for linked items — quantity, best-before and
+    location (the item's current location as placeholder, blank = leave
+    it). "Put away all" confirms. `?putAway=1` on the list URL opens it
+    straight away (the reminder links there).
+  - *Finishing a trip*: `completeShoppingListAction` never touches
+    inventory, including rows still waiting — booking stock nobody
+    confirmed at the list's quantities is exactly what this feature exists
+    to avoid. Instead "Done shopping" and the ⋯ menu's "Complete list" open
+    the dialog in finishing mode whenever rows are waiting: "Put away &
+    finish" or "Finish, put away later". Finishing later doesn't lose
+    anything: the rows stay ticked on the completed list, still count as
+    incoming, and the button and reminder still find them there.
+  - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
+    a ticked, linked, not-put-away row on an `ACTIVE` or `COMPLETED` list
+    is stock on its way home. Everything that reacts to a low count treats
+    home + incoming as covered: AUTO-8's auto-add, "Add low-stock items"
+    (`generateFromLowStockAction`) and the OUT_OF_STOCK alert
+    (`recordOutOfStockTransition`) — so milk in the cart isn't re-listed or
+    alerted on. The stock badge, status filter and dashboard counts stay on
+    the real count (it isn't home yet); the inventory page shows a muted
+    "+N on the way" hint beside the badge instead. A row stops counting
+    `INCOMING_MAX_AGE_DAYS` (7) after its tick (or its list's completion,
+    for receipt-applied rows): a trip nobody put away within a week was put
+    away without telling the app, and counting it forever would silently
+    stop that item from ever being auto-added again. It can still be put
+    away from the dialog.
+  - *Reminder*: see "Notification center" → Put away your shopping.
 - **List templates (GAP-4)** — a household can save any list's items as a
   reusable, named template ("BBQ", "Costco run") and stamp it out as a new
   list later. Deliberately separate from AUTO-8's default list: that one
@@ -2349,10 +2462,21 @@ below.
   receipts; loosen them only after checking against some.
 - **Applying a scan** (`applyReceiptScanAction`): for every confirmed line,
   sets the shopping-list item's `estimatedPrice` (converted) and marks it
-  `purchased`, then mirrors `togglePurchasedAction`'s existing side effects
-  — bumping the linked inventory item's quantity and recording a
-  `PriceHistory` row — just batched across every scanned line in one
-  transaction instead of one checkbox at a time, with the per-line writes
+  `purchased`, then follows the household's `inventorySyncMode` (see "Put
+  away" under the data model). In `ON_CHECK` mode it's the arrival, as
+  before — `applyStockArrival` bumps the linked item's quantity, applies
+  AUTO-7/GAP-28 and records `PriceHistory` — and the row is put away. In
+  `ON_PUT_AWAY` mode the receipt only proves what was paid: `PriceHistory`
+  (with the store) and `lastKnownPrice` are written now and the row is
+  stamped `priceRecordedAt`, but the stock waits for the put-away step,
+  which then doesn't record the price a second time; the list page opens
+  the put-away dialog straight after. A line can match any unticked row,
+  or a ticked row with neither `putAwayAt` nor `priceRecordedAt`
+  (`awaitsReceiptPrice` — the usual order in put-away mode is tick in the
+  store, scan at home); a row whose stock or price is already recorded
+  never matches, so nothing is counted twice. It's all batched across
+  every scanned line in one transaction instead of one checkbox at a
+  time, with the per-line writes
   themselves run concurrently via `Promise.all` inside that transaction
   rather than sequentially — the same change applied to
   `resolveShoppingListMappingsAction`'s batch resolution
@@ -2376,7 +2500,10 @@ below.
   (`inventoryItemId` or `newItemCategory` per line) instead of the action
   re-guessing server-side — it only falls back to the old silent
   exact-name-then-fuzzy auto-match when neither is sent, kept for backward
-  compatibility rather than as the primary path.
+  compatibility rather than as the primary path. A registered receipt is
+  after the shop by definition, so it updates inventory immediately in
+  either `inventorySyncMode` and stamps every row `putAwayAt` (and
+  `priceRecordedAt` when linked) — there's nothing left to put away.
 - **Privacy**: when a vision provider is configured, the photo is uploaded
   to it for analysis — same tradeoff as AI shelf scan below, disclosed in
   this feature's comments the same way. In the OCR fallback path only
@@ -3752,7 +3879,7 @@ now" from "this item just ran out," and had no way to dismiss anything.
 The current model fires an alert once, at the moment a specific trigger
 happens, and it stays until a user dismisses it.
 
-Exactly five triggers exist — nothing else creates a notification:
+Exactly six triggers exist — nothing else creates a notification:
 
 - **Out of stock**: an existing `InventoryItem`'s quantity crossing from
   `> 0` to `<= 0`. `recordOutOfStockTransition` (`src/lib/notifications.ts`)
@@ -3761,11 +3888,15 @@ Exactly five triggers exist — nothing else creates a notification:
   `adjustQuantityAction`, `markItemEmptyAction`, `updateInventoryItemAction`,
   `bulkUpdateFieldAction` (when editing the `quantity` field),
   `markMealEntryCookedAction` (per ingredient, inside its `$transaction`),
-  and `togglePurchasedAction` (un-marking a shopping-list item as purchased
-  puts its quantity back down). It only fires on the crossing itself — a
+  and `togglePurchasedAction`/`toggleItemViaShareTokenAction` (un-marking a
+  shopping-list item that was already put away puts its quantity back
+  down). It only fires on the crossing itself — a
   further decrease while already at zero, or a decrease that doesn't reach
   zero, is a no-op — and it's deduped against any already-active
-  (undismissed) alert for the same item. Every one of these call sites
+  (undismissed) alert for the same item. Nor does it fire while the item
+  is ticked off a shopping list but not put away yet (incoming stock, see
+  "Put away" under the data model): the last carton running out at home
+  while two more are in the car isn't news. Every one of these call sites
   also runs AUTO-8's `addToDefaultListOnLowStock`, which fires one step
   earlier (into *low*) and adds to the default list rather than alerting —
   see "Always-on default list (AUTO-8)".
@@ -3831,6 +3962,32 @@ Exactly five triggers exist — nothing else creates a notification:
     householdsFailed, failedHouseholdIds }`; only a failure to list
     households returns `500 { status: "error" }`. Error details never go in
     the response body.
+- **Put away your shopping**: ticked shopping-list rows that were never put
+  away (`ON_PUT_AWAY` mode), a few hours after the trip. Synced by
+  `syncPutAwayReminders` from the same `/api/cron/sync-notifications` run
+  as the two syncs above (a third `allSettled` entry per household), so the
+  same delay applies: `PUT_AWAY_REMINDER_DELAY_HOURS` (3) is the earliest
+  it can go out, and on Vercel Hobby's daily 06:00 UTC run it lands the
+  next morning. Which lists qualify is the pure, unit-tested
+  `selectPutAwayReminders` (`src/lib/shopping/put-away-calc.ts`): a
+  waiting row ticked at least 3 hours ago, within `INCOMING_MAX_AGE_DAYS`,
+  and *after* the list's `ShoppingList.putAwayRemindedAt`. That last rule
+  is what makes it at most once per list per trip — the default list lives
+  across many trips, so a flag that stayed set would silence every later
+  one, while no flag would nag on every run. Rows without a tick time
+  (receipt-applied) never trigger one, since whoever applied the receipt
+  was just shown the put-away dialog. The trip is claimed with an
+  `updateMany` that only matches while `putAwayRemindedAt` still holds the
+  value the run read, so overlapping runs can't both send. A
+  `PUT_AWAY_REMINDER` bell row (linked to the list, deduped against an
+  undismissed one) is filed, and the push ("Put away your shopping? N
+  items from Next shop") goes to whoever ticked the triggering rows
+  (`ShoppingListItem.checkedOffByUserId`, via
+  `sendPushToHouseholdMembers` in `src/lib/push.ts`, still scoped to
+  current members and quiet hours) — or the whole household when any was
+  ticked from a share link. Both link to the list with `?putAway=1`, which
+  opens the put-away dialog. `putAwayItemsAction` dismisses the bell row
+  once nothing on the list is waiting.
 - **List cleared** (good news): a `ShoppingList`'s unpurchased item count
   crossing from >0 to 0 — `recordListClearedTransition`, called from
   `togglePurchasedAction`/`deleteShoppingListItemAction` and their
@@ -3843,8 +4000,9 @@ Exactly five triggers exist — nothing else creates a notification:
   store quietly raising a price) worth interrupting for.
   - **Where it fires**: `recordPriceSpikes` (`src/lib/notifications.ts`) is
     called by every action that writes `PriceHistory` —
-    `togglePurchasedAction` (checking an item off with a price, including
-    one the user just corrected by hand), `toggleItemViaShareTokenAction`,
+    `togglePurchasedAction` (checking an item off with a price in
+    `ON_CHECK` mode, including one the user just corrected by hand),
+    `toggleItemViaShareTokenAction`, `putAwayItemsAction`,
     `applyReceiptScanAction` and `registerReceiptAction` — with every row
     that action wrote, **after** its transaction commits. After, so a
     rolled-back purchase never leaves an alert behind and the comparison
