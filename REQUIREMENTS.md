@@ -4612,6 +4612,79 @@ approximating them, so the email never disagrees with the app.
   cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
+- **End-to-end tests** (`e2e/`, `playwright.config.ts`): Playwright drives
+  a production build (`npm run build`, then `npm run test:e2e` starts
+  `next start` itself) against a real Postgres, because the unit suite
+  mocks every I/O boundary and so can't tell whether a page actually
+  renders or a form actually saves. `e2e/global-setup.ts` seeds a fixed,
+  already-verified user with one household (`e2e/seed.ts`; login is gated
+  on email verification, which a test can't click through) and refuses to
+  run against a non-local `DATABASE_URL` unless `E2E_ALLOW_REMOTE_DB=true`.
+  `e2e/auth.setup.ts` logs in once through the real form and shares the
+  session with every spec. `smoke.spec.ts` loads every top-level dashboard
+  route and fails on an HTTP error, the error boundary, or any browser
+  console error; `flows.spec.ts` covers core write paths (add and complete
+  a task, create a shopping list and add items). Specs run serially
+  (`workers: 1`) since they share the seeded household, and name the rows
+  they create uniquely so reruns don't collide. `next start` gets
+  `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
+  login callback. CI runs this as a separate `e2e` job with a Postgres
+  service container and uploads the report and traces on failure. In
+  Claude Code on the web, `.claude/hooks/session-start.sh` starts the
+  image's Postgres 16 and migrates it, so agents can run the suite too.
+  Any user-visible change should add or extend a spec here.
+
+## Autonomous improvement loop
+
+Scheduled Claude Code sessions ("routines") improve the app continuously,
+under human control. Three roles, each a skill in `.claude/skills/`:
+
+- **Scouts** (`autopilot-scout <lens>`) find work through one lens:
+  `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
+  weekly), `ux` (`UX-`, from screenshots of every route on phone and
+  desktop in both languages), `production` (`BUG-`, from Sentry, only when
+  a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
+  few scoped items with acceptance criteria to BACKLOG.md, via a
+  `docs(backlog)` PR, and never touch app code.
+- **Builder** (`autopilot-build`) takes one eligible item per run,
+  implements it per AGENTS.md's workflow with unit and e2e tests, opens a
+  PR (ID in the title, label `autopilot`, release note in both languages)
+  and drives it to green. Before starting anything new it finishes its own
+  red or reviewed PRs, and it stops when `max_open_autopilot_prs` are open.
+- **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
+  turns any mistake seen twice in autopilot PRs into a lint rule, test or
+  checklist line, trims instructions nobody needed, and only *proposes*
+  loosening limits.
+
+`AUTOPILOT.md` is the control file every session reads first: on/off
+switches per role, limits, which backlog prefixes the builder may pick,
+human-only areas (schema, auth, money logic, data deletion, workflows)
+and the merge policy. It starts with `auto_merge: false`, so a human
+merges every autopilot PR. Items marked `[!]` or under "Needs a decision
+before building" are never built autonomously: product direction stays
+with the owner.
+
+### Routine prompts
+
+Each routine starts a fresh session on `master` in the household-hub
+environment (create with "new session on each run"). The prompts are
+deliberately short: the procedure lives in the skills, so it's versioned
+with the code and every run starts with a small context. Suggested
+schedules are in Stockholm time; minutes are offset from the hour so the
+runs don't queue behind everyone else's.
+
+| Routine | Schedule (cron) | Prompt |
+|---|---|---|
+| Scout: competitors | `CRON_TZ=Europe/Stockholm 52 6 * * *` | Run the autopilot-scout skill with lens `competitors`. Follow AUTOPILOT.md; stop if it disables you. |
+| Scout: code | `CRON_TZ=Europe/Stockholm 48 7 * * 1` | Run the autopilot-scout skill with lens `code`. Follow AUTOPILOT.md; stop if it disables you. |
+| Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
+| Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
+| Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
+| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * 1-5` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
+
+The existing daily competitive-scan routine is replaced by "Scout:
+competitors", which writes the same dated `GAP-` entries.
 
 ## Not yet built / roadmap
 

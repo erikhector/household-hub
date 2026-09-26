@@ -1,0 +1,58 @@
+---
+name: autopilot-build
+description: Autonomous builder for household-hub. Picks one eligible BACKLOG.md item, implements it end to end (code, unit + e2e tests, docs), opens a PR and drives it to green. Use when a routine says "run autopilot-build".
+---
+
+# Autopilot builder
+
+One item, done properly, per run. Quality bar is the same as for a human
+PR; the difference is nobody is watching, so verify everything.
+
+## 0. Gate
+
+1. Read `AUTOPILOT.md`. Stop if `enabled` or `builder_enabled` is false.
+2. Count open PRs labelled `autopilot` (excluding `docs(backlog)` scans).
+   If ≥ `max_open_autopilot_prs`, stop: finishing beats starting.
+3. If an open `autopilot` PR is red or has unanswered review comments, work
+   on **that** instead, per the `steward` skill, and stop after.
+
+## 1. Pick
+
+List candidates in one call:
+`grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
+Apply AUTOPILOT.md's allowed prefixes and exclusions, lowest phase first,
+then best impact/effort. Confirm no open PR mentions the ID. Read only that
+item's text and the REQUIREMENTS.md section it touches.
+
+If the item turns out to be ambiguous or bigger than one PR, don't guess:
+open a `docs(backlog)` PR that splits it or marks it `[!]` with the
+question, and stop.
+
+## 2. Build
+
+Follow AGENTS.md's Development workflow exactly (orient → implement → test
+→ verify → self-review → document), plus:
+
+- **Tests**: unit tests for logic (`*.test.ts`). For any user-visible
+  change, add or extend a spec in `e2e/` that asserts the item's
+  Acceptance line through the UI. A bug fix gets a test that fails first.
+- **Verify**: `npm run check`, `npm run build`, `npm run test:e2e`. All
+  green, no skipped tests.
+- **Self-review**: run the `self-review` skill, then re-read the diff once
+  more asking "what would a careful reviewer reject?". Fix it.
+
+## 3. Ship
+
+- Branch `autopilot/<id-lowercase>-<slug>`.
+- PR title: Conventional Commit ending in the ID, e.g.
+  `fix: stop the budget chart overflowing on phones (UX-4)`.
+- Body: fill in the PR template. Release note in English **and** Swedish,
+  written for users. If AUTOPILOT.md's human-only areas are touched, add
+  "⚠️ Needs careful review" listing them.
+- Label `autopilot`. Subscribe to the PR and drive it to green with the
+  `steward` skill. Never merge it yourself unless AUTOPILOT.md's merge
+  policy explicitly allows this PR's type and it touches no human-only area.
+
+## 4. Report
+
+Final message: item ID, PR link, what was tested. Nothing else.
