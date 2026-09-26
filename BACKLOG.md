@@ -105,30 +105,7 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-### Shopping list & inventory automation
-
-- [ ] **AUTO-9. Learn the household's store order**
-      — `prisma/schema.prisma`, `src/components/shopping/
-      shopping-list-client.tsx`, `src/app/dashboard/shopping-list/actions.ts`
-      **Problem:** AUTO-3's fixed category order won't match any real
-      store. AnyList and ICA let you sort by store; asking users to
-      configure it is exactly the manual work we're trying to remove.
-      **Design brief:** no settings screen by default — the category
-      groups gradually reorder to match the order this household actually
-      checks things off in. A small "Reorder sections" affordance (drag
-      handles, in the `⋯` menu) exists for anyone who wants to fix it by
-      hand, and a manual order always beats the learned one.
-      **Dev notes:** a small `HouseholdCategoryOrder` table
-      (`householdId`, `category`, `position Float`, `manual Boolean`) or a
-      JSON column on `Household` — pick whichever is simpler to migrate.
-      On each `togglePurchasedAction` → purchased, record the check-off
-      sequence per list session; on list completion, nudge each category's
-      position toward its observed average rank (exponential moving
-      average, pure helper with tests). Per-store orders are a non-goal for
-      v1 — `PriceHistory.store` is populated when a household names one on
-      a receipt scan/register (GAP-6), but it's
-      optional and still null on most rows, nowhere near reliable enough
-      yet to key a learned order off of.
+Nothing queued right now.
 
 ---
 
@@ -152,7 +129,9 @@ AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
       (Guardrails), never in the bell.
       **Dev notes:** needs a reliable purchase timestamp —
       `purchasedAt DateTime?` on `ShoppingListItem`, set/cleared by the
-      toggle actions and receipt apply. `PriceHistory` alone isn't enough
+      toggle actions and receipt apply. (AUTO-9's `checkedOffAt` is close
+      but deliberately *not* set by receipt apply, so it isn't a purchase
+      date on its own.) `PriceHistory` alone isn't enough
       because it's only written when a price is known. Pure calc: per
       inventory item, median interval between purchases (≥ 3 purchases
       required before suggesting anything), suggest when
@@ -251,23 +230,6 @@ out to be a product-scope question rather than a scoped task should move to
 ---
 
 ### 2026-09-25 scan
-
-- [ ] **GAP-22. Savings goals on a budget category** —
-      `prisma/schema.prisma` (`BudgetCategory`),
-      `src/components/budget/category-manager.tsx`,
-      `src/components/budget/safe-to-spend.tsx`. Distinct from GAP-12's
-      spending cap: a `SAVINGS`-type category (the type already exists per
-      "Safe to spend"'s "money moved into a `SAVINGS` category") has no way
-      to target an amount by a date the way YNAB's/Qapital's goals do — today
-      it's just a running total with no destination. Add optional
-      `goalAmount Float?` and `goalDate DateTime?` to `BudgetCategory` (Phase
-      2 migration), settable only when `type === "SAVINGS"` in
-      `CategoryManager`. A small pure helper (`computeSavingsGoalProgress`,
-      colocated with `safe-to-spend-calc.ts` or its own file) turns
-      (amount saved so far, goal, months remaining until `goalDate`) into a
-      "save ~X/month to reach this by {date}" line and a progress bar —
-      informational only, never a notification (Guardrails: no
-      streaks/loss-aversion on money) and never blocks a transaction.
 
 - [ ] **GAP-26. "Someone's shopping now" presence on a shared list** `[!]` —
       needs an infrastructure decision before scoping. Bring! and AnyList

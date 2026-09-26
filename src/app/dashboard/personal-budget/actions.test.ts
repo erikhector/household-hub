@@ -128,7 +128,7 @@ describe("createPersonalCategoryAction", () => {
     await createPersonalCategoryAction({}, formData({ name: "Fun money", type: "EXPENSE" }));
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { userId, name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false },
+      data: { userId, name: "Fun money", type: "EXPENSE", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
     expect(categoryFindFirstMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ userId }) }),
@@ -169,7 +169,7 @@ describe("updatePersonalCategoryAction", () => {
     expect(result).toEqual({});
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false },
+      data: { name: "Fun money", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -188,7 +188,7 @@ describe("updatePersonalCategoryAction", () => {
 
     expect(categoryUpdateMock).toHaveBeenCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Hobbies", monthlyLimit: 750.5, rolloverEnabled: false },
+      data: { name: "Hobbies", monthlyLimit: 750.5, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -205,7 +205,7 @@ describe("updatePersonalCategoryAction", () => {
     );
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Hobbies", monthlyLimit: 750, rolloverEnabled: true },
+      data: { name: "Hobbies", monthlyLimit: 750, rolloverEnabled: true, goalAmount: null, goalDate: null },
     });
 
     categoryFindFirstMock
@@ -217,7 +217,7 @@ describe("updatePersonalCategoryAction", () => {
     );
     expect(categoryUpdateMock).toHaveBeenLastCalledWith({
       where: { id: "cat-1" },
-      data: { name: "Hobbies", monthlyLimit: null, rolloverEnabled: false },
+      data: { name: "Hobbies", monthlyLimit: null, rolloverEnabled: false, goalAmount: null, goalDate: null },
     });
   });
 
@@ -231,7 +231,7 @@ describe("updatePersonalCategoryAction", () => {
     );
 
     expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { userId, name: "Clothes", type: "EXPENSE", monthlyLimit: 400, rolloverEnabled: true },
+      data: { userId, name: "Clothes", type: "EXPENSE", monthlyLimit: 400, rolloverEnabled: true, goalAmount: null, goalDate: null },
     });
   });
 
@@ -243,6 +243,38 @@ describe("updatePersonalCategoryAction", () => {
 
     expect(result.error).toBe("Monthly limit must be a number");
     expect(categoryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  // GAP-22: same savings-goal handling as the household budget's actions.
+  it("stores a savings goal on a savings category and drops it on any other", async () => {
+    categoryFindFirstMock.mockResolvedValue(null);
+    categoryCreateMock.mockResolvedValue({});
+
+    await createPersonalCategoryAction(
+      {},
+      formData({ name: "New bike", type: "SAVINGS", goalAmount: "8000", goalDate: "2027-03-15" }),
+    );
+    expect(categoryCreateMock).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({
+        userId,
+        type: "SAVINGS",
+        goalAmount: 8000,
+        goalDate: new Date(Date.UTC(2027, 2, 15)),
+      }),
+    });
+
+    categoryFindFirstMock
+      .mockResolvedValueOnce({ id: "cat-1", type: "EXPENSE" })
+      .mockResolvedValueOnce(null);
+    categoryUpdateMock.mockResolvedValue({});
+    await updatePersonalCategoryAction(
+      {},
+      formData({ id: "cat-1", name: "Hobbies", goalAmount: "8000", goalDate: "2027-03-15" }),
+    );
+    expect(categoryUpdateMock).toHaveBeenLastCalledWith({
+      where: { id: "cat-1" },
+      data: expect.objectContaining({ goalAmount: null, goalDate: null }),
+    });
   });
 });
 
