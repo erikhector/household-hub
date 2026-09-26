@@ -31,6 +31,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `BUDGET-` | Collapse `personal-budget/` components into the household ones | `docs/archive/PERSONAL_BUDGET_UNIFICATION.md` (design spike) |
 | `PRICE-`, `TASKS-`, `INFRA-` | Open product decisions | `docs/archive/UX_FRICTION_BACKLOG.md`, `docs/archive/JOY_GAP_BACKLOG.md`, REQUIREMENTS.md |
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
+| `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -90,6 +91,296 @@ enough to trust.
 
 Parallel-safe except where noted.
 
+### Security hardening (2026-09-26 audit)
+
+Tenancy held up everywhere the audit traced it (every client id is scoped by
+`householdId`/`userId`); these are the gaps around it, highest severity first.
+
+- [ ] **SEC-1. Rate-limit logins inside `authorize()`, not just `loginAction`** (high) —
+      the per-email throttle only runs in `loginAction`
+      (`src/lib/actions/auth.ts:263`), but Auth.js also accepts
+      `POST /api/auth/callback/credentials` (CSRF token from
+      `GET /api/auth/csrf`) and calls `authorize()` in `src/lib/auth.ts:25`
+      directly — unlimited password guessing. Move
+      `checkRateLimit("login:<email>")` into `authorize()`, normalising the
+      email (trim + lowercase) there too. Test: the 11th `authorize` call is
+      refused and `bcrypt.compare` isn't called.
+- [ ] **SEC-2. Close the DNS-rebinding hole in recipe import** (medium) —
+      `assertResolvesToPublicAddress` (`src/lib/recipe-import.ts:798-812`)
+      resolves the host, then `fetch` (`:873`) resolves it again, so a TTL-0
+      record can point the real request at `127.0.0.1`/`169.254.169.254`.
+      Pin the connection with an undici `Agent` whose `connect.lookup`
+      re-validates every resolved address; keep the abort timer running
+      through `readBodyWithLimit` (it's cleared before the body is read);
+      add `checkRateLimit("recipe-import:<householdId>")` (~20/h) to the
+      action in `meal-planning/recipe-actions.ts:420`. Test: mocked
+      `dns.lookup` returning public-then-private never connects.
+- [ ] **SEC-3. Validate push subscription endpoints** (medium) —
+      `subscribeToPushAction` (`src/lib/actions/push.ts:30-40`) stores any
+      `endpoint`/keys, and `sendNotification` (`src/lib/push.ts:115`) later
+      POSTs to it: blind SSRF into internal hosts, plus unbounded rows per
+      user slowing every fan-out. Zod: `https:` URL ≤1024 chars on an
+      allowlist of push services (FCM, Mozilla, WNS, Apple), base64url keys
+      of the right length, ≤10 subscriptions per user; pass
+      `{ timeout: 10_000 }` to `sendNotification`.
+- [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
+      SCALE-H's session revocation doesn't cover `PushSubscription`, so
+      someone who briefly had the account keeps receiving household pushes.
+      `deleteMany({ where: { userId } })` inside the reset
+      (`auth.ts:425-446`) and change-password (`profile/actions.ts:238-249`)
+      transactions; unsubscribe the current endpoint in `logoutAction`.
+- [ ] **SEC-6. Throttle current-password re-auth** (low) —
+      `updateEmailAction`, `updatePasswordAction` and `deleteAccountAction`
+      (`src/app/dashboard/profile/actions.ts`) compare the current password
+      with no limit, so a hijacked session can brute-force it and lock the
+      owner out. `checkRateLimit("reauth:<userId>", 5, 15 min)` before
+      `bcrypt.compare`.
+- [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
+      (`next.config.ts:122`) applies to every action, not only photo scans,
+      and several schemas have no caps: recipe ingredient rows
+      (`recipe-actions.ts:42-44`, each find-or-creates an inventory item),
+      `registerReceipt` items/quantity/price
+      (`shopping-list/actions.ts:1505-1520`), cooked-ingredient name/unit/
+      quantity (`cooking-actions.ts:190-196`), `bulkUpdateFieldAction` ids
+      (`inventory/actions.ts:723`), `componentRecipeId` rows. Add `.max()`
+      and count caps mirroring existing constants (`MAX_TEMPLATE_ITEMS`).
+      Test: 1,001 ingredient rows are rejected.
+- [ ] **SEC-8. Single-use tokens that are actually single-use, and hashed** (low) —
+      invite accept (`household.ts:169,245`) and password reset
+      (`auth.ts:435`) check the token, then update by `id`, so two
+      concurrent requests can both redeem it. Use
+      `updateMany({ where: { id, usedAt: null } })` and abort on
+      `count === 0`. Store reset/verification tokens as `sha256(token)` so a
+      read-only DB leak isn't an account takeover (invalidates tokens in
+      flight — fine, they live an hour).
+- [ ] **SEC-9. Constant-time cron secret check** (low) —
+      `api/cron/sync-notifications/route.ts:57` and
+      `api/cron/weekly-digest/route.ts:23` compare with `!==`. Share a
+      `timingSafeEqual` helper with `digest-unsubscribe-token.ts`.
+- [ ] **SEC-10. Complete the personal data export** (low) —
+      `src/app/dashboard/profile/export-data/route.ts` omits push
+      subscriptions, `locale`/`theme`/`weeklyDigestEnabled`, notes, task
+      history, splits and settlements; exports `categoryId` without the
+      categories; and sends no `Cache-Control: private, no-store`.
+      Snapshot-test the export's keys.
+- [ ] **SEC-11. Don't log raw AI output** (low) — on a JSON parse failure
+      `receipt-scan.ts:211` and `inventory-scan.ts:291` log the whole model
+      response, which for receipts can include card/loyalty details. Log
+      length + first ~200 chars. (Lands naturally with MAINT-8.)
+- [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
+      high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
+      through `@prisma/config`), not reachable at runtime. Move `prisma` to
+      devDependencies if `scripts/vercel-build.mjs` can still run
+      `migrate deploy` (check Vercel installs devDeps at build), else wait
+      for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
+      advisories. Pairs with MAINT-12's Dependabot config.
+
+### Performance (2026-09-26 audit)
+
+Bundle numbers are First Load JS gzipped, measured from a production build:
+shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
+395 KB; budget 390 KB; home 335 KB; login 260 KB.
+
+- [ ] **PERF-1. Cook tab loads the recipe graph once per recipe** (high, S) —
+      `getCookableRecipes` (`meal-planning/cookable-recipes.ts:70-72`) calls
+      `expandRecipeIngredients` per recipe, and each call runs
+      `loadRecipeGraph` (`recipe-expansion.ts:51-59,146`) which fetches the
+      *whole* household recipe graph: O(R²) rows, R parallel queries that
+      saturate the pg pool, on every meal-planning load (the Cook tab is
+      server-rendered even when hidden, `page.tsx:447`).
+      `cooking-actions.ts:107-118` does the same per meal-plan entry. Load
+      the graph once and call `expandFromGraph` per recipe. Verify with
+      Prisma query logging on a 50-recipe household: 1 graph query, not 50.
+- [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
+      `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
+      the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use
+      ~7.6 KB of it; it's inlined into every dashboard document and
+      layout-re-rendering action response. Pass `Pick<Dictionary, …>`
+      sub-objects (AGENTS.md already asks for this).
+- [ ] **PERF-6. Shopping list client bundles both dictionaries** (medium, S) —
+      `src/lib/shopping/shopping-mode-grouping.ts:18-19` imports `en` and
+      `sv` for category labels and is imported by the client
+      `shopping-list-client.tsx`: a 68 KB gz chunk on the page people open
+      in a store on mobile data. Move `autoCategories`/`uncategorized` to a
+      small module both dictionaries import, or build the map server-side
+      and pass it as a prop. Expect ~−60 KB gz on `/shopping-list/[id]`.
+- [ ] **PERF-7. Keep zod out of the meal-planning client bundle** (medium, S) —
+      `src/lib/recipe-tags.ts:20,43` imports `zod` for one `z.enum`, pulling a
+      99 KB gz chunk into `recipe-manager.tsx`/`recipe-form-dialog.tsx`.
+      Split the zod-free helpers (`RECIPE_TAGS`, `isRecipeTag`,
+      `recipeMatchesTag`) from the server-side schema. Expect meal-planning
+      ~472 → ~375 KB gz.
+- [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
+      import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
+      page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
+      (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
+      and the replay excludes) to `withSentryConfig`, or `import()` it
+      behind the DSN check.
+- [ ] **PERF-9. Move pushes and price-spike checks into `after()`** (medium, S) —
+      `void sendPushToHousehold(...)` (`notifications.ts:293,336`) can be
+      dropped when Vercel freezes the function after the response (the
+      comment in `push.ts:35-48` admits it), while `recordPriceSpikes`
+      (3 queries + awaited push) is *awaited* on the check-off path
+      (`shopping-list/actions.ts:1095,1286,1480,1742`,
+      `share/shopping-list/actions.ts:196`). Use `after()` from
+      `next/server` for both, as `category-resolver.ts:79` already does.
+- [ ] **PERF-10. Configure the pg pool for serverless** (medium, S) —
+      `src/lib/prisma.ts:8` uses pg defaults (`max` 10, no idle handling)
+      while the budget page alone fires 14 parallel queries. Set `max` and a
+      short `idleTimeoutMillis`, add `attachDatabasePool(pool)` from
+      `@vercel/functions` on Fluid compute, and confirm `DATABASE_URL`
+      points at the pooler (DEPLOYMENT.md §3).
+- [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
+      `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
+      `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
+      `splitTransactions` and `memberSettlement.findMany` (`:406-418`) are
+      all-time too, and the Insights tab renders on every visit. Window
+      PriceHistory (or SQL `groupBy` per month), compute settle-up balances
+      with `transactionSplit.groupBy({ by: householdMemberId, _sum })`, and
+      optionally render Insights only when it's the active tab. Conflicts
+      with MAINT-10 (`budget/page.tsx`).
+- [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
+      `api/cron/sync-notifications/route.ts:41-65` walks every household in
+      sequential batches of 10, with no `maxDuration`. Pre-select only
+      households with candidates (one query per trigger), export
+      `maxDuration`, and log run duration.
+- [ ] **PERF-14. Small sequential-await and over-fetch fixes** (low, S) —
+      `dashboard/page.tsx:72-77` (`myTasks` waits on the `Promise.all`; filter
+      by `assignedTo.userId` and run it in parallel); `dashboard/page.tsx:52`
+      (full inventory rows just to count them — `select`);
+      `personal-budget/page.tsx:138-158` (two queries per membership — batch
+      with `householdId: { in }`); `meal-planning/page.tsx:57`
+      (`include: { recipe: true }` pulls instructions — `select`).
+
+### Maintainability (2026-09-26 audit)
+
+Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
+tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
+then MAINT-7 per feature, to avoid churn.
+
+- [ ] **MAINT-1. Cookie inventory is missing three keys, and its drift guard can't see them** (high, S) —
+      not in `src/lib/cookie-inventory.ts`: the `household_step_skipped_<id>`
+      cookie (`src/lib/actions/household.ts:300,311`) and the localStorage
+      keys `mealPlanning.varietyRecapDismissedCount`
+      (`components/meal-planning/meal-variety-recap.tsx:24`) and
+      `tasks.weeklyRecap.dismissedWeek`
+      (`components/tasks/tasks-weekly-recap.tsx:28`). The privacy page is
+      therefore incomplete. The test regex
+      (`cookie-inventory.test.ts:23`) only matches `*_COOKIE = "…"`; widen it
+      to `_COOKIE_PREFIX` / `_STORAGE_KEY` with prefix matching, then add
+      the entries.
+- [ ] **MAINT-2. No `householdId`-taking exports from `"use server"` files** (high, S) —
+      `findOrCreateGroceriesCategory(householdId)`
+      (`dashboard/budget/actions.ts:39`) and
+      `isHouseholdStepSkipped(householdId)` (`lib/actions/household.ts:303`)
+      are exported from `"use server"` modules, so they're potential
+      client-callable endpoints that take a household id — the one thing
+      AGENTS.md says never to accept from the client. Move them to plain
+      server modules, and add a test that every `"use server"` export ends
+      in `Action` or is on a small allowlist (the token-gated
+      `getShoppingListByShareToken`, `getInvitationForDisplay`).
+- [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
+      lines / 29 exports, test file 2,850 lines. Follow the meal-planning
+      precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
+      put-away), `receipt-` and `store-order-actions.ts`, tests split the
+      same way. Do after MAINT-2/5/6.
+- [ ] **MAINT-4. Deduplicate small server helpers** (medium, S) —
+      `absoluteAppUrl` ×4 (`lib/actions/auth.ts:304`,
+      `lib/actions/household.ts:62`, `profile/actions.ts:112`,
+      `shopping-list/share-actions.ts:24`; `lib/email.ts:40` re-derives it)
+      → `src/lib/app-url.ts`; the P2002 unique-violation check ×4 →
+      `src/lib/prisma-errors.ts`; `roundMoney`, `median`, `escapeHtml` and
+      three `normalizeUnit` copies in `meal-planning/` → one each; rename
+      `normalizeItemName` in `inventory-scan.ts:141`, which shadows the
+      different one in `lib/item-matching.ts:9`.
+- [ ] **MAINT-5. Log the groceries expense in one place, inside the transaction** (medium, S) —
+      two copy-pasted blocks (`shopping-list/actions.ts:1744-1763` and
+      `2029-2053`) run `prisma.transaction.create` *after* the stock
+      transaction and outside any try/catch, so a DB error surfaces as a
+      crash after stock already moved, and a retry double-applies. Extract
+      `logGroceriesExpense(...)`, run it via `tx` inside the same
+      `$transaction`, wrap with `toFriendlyError`.
+- [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
+      ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
+      error hits the error boundary: `planner-actions.ts` (add/update/move/
+      delete entry, copy/undo-copy week — e.g. `:65-88`), `recipe-actions.ts`
+      (create/update/delete/favorite), `lib/actions/push.ts` (all 4),
+      `notifications.ts` dismiss/dismiss-all, `updatePasswordAction`,
+      shopping link/unlink/apply-receipt/complete,
+      `addMissingIngredientsToShoppingListAction`. Consider a
+      `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
+- [ ] **MAINT-7. Translate server-returned error messages** (medium, L, one PR per feature) —
+      ~150 hardcoded English `error: "…"` strings and Zod messages reach
+      Swedish users (budget 34, household 23, shopping 22, personal budget
+      18, auth 13, planner 8, tasks 7), and `toFriendlyError` itself returns
+      English (`errors.ts:24`). Copy the `getDictionary()` + `dict.errors.*`
+      pattern from `template-actions.ts`/`recipe-actions.ts`. Also
+      `"Task not found"` in `components/tasks/task-form-dialog.tsx:128` and
+      12 hardcoded `aria-label="Loading"` in `page.tsx`/`loading.tsx` files.
+      Start with `errors.ts`, tasks, meal-planning; leave budget until
+      BUDGET-6 is decided.
+- [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
+      `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
+      is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
+      `lib/actions/receipt-scan.ts:164-390` and
+      `lib/inventory/ai-category-fallback.ts:107-228`, and none of it has
+      tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
+      and response schema; unit-test fallback, busy and deadline paths with
+      mocked `fetch`.
+- [ ] **MAINT-9. One `useDismissedLocalStorage(key)` hook** (low, S) — the
+      same `useSyncExternalStore` + localStorage code is in
+      `meal-nutrition-recap.tsx`, `meal-variety-recap.tsx`,
+      `use-it-up-suggestions.tsx` and `tasks-weekly-recap.tsx`. Put it in
+      `src/components/shared/`, taking keys from `cookie-inventory.ts` so
+      MAINT-1 can't regress. After MAINT-1.
+- [ ] **MAINT-10. Split oversized UI files** (low, M) —
+      `components/shopping/shopping-list-client.tsx` (1,095 lines: move
+      `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
+      state into hooks); `dashboard/budget/page.tsx` (967 lines:
+      `BudgetTabsSection` runs 10+ queries inline — extract a
+      `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
+      with PERF-12 and BUDGET-5/6.
+- [ ] **MAINT-11. Route cron/API errors through `logger` + Sentry** (medium, S) —
+      12 `console.error`/`warn` calls bypass redaction and Sentry, so caught
+      cron failures are invisible: `api/cron/sync-notifications/route.ts`,
+      `api/cron/weekly-digest/route.ts`, `api/digest/unsubscribe/[token]`,
+      `api/health`, `lib/weekly-digest.ts:328`, `lib/push.ts:124`,
+      `lib/rate-limit.ts:78,129`. Use `logger.error` + `Sentry.captureException`
+      tagged with `householdId`.
+- [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
+      add a migration drift check to `.github/workflows/ci.yml` (Postgres
+      service → `prisma validate` → `migrate deploy` → `prisma migrate diff
+      --from-migrations prisma/migrations --to-schema-datamodel
+      prisma/schema.prisma --exit-code`; a dropped-column migration already
+      caused the PR #36 outage); add Dependabot/Renovate config; pin Node
+      via `engines` + `.nvmrc` and `node-version-file` in the 3 workflows;
+      optionally `npm audit` and `knip`. ESLint 9 is flagged unsupported by
+      `npm ci` — bump to ESLint 10 + matching `eslint-config-next` in a
+      separate PR.
+- [ ] **MAINT-13. Fix documentation drift** (low, S) — REQUIREMENTS.md
+      says react-hook-form is installed (it isn't, `:37-39`); its "Testing →
+      What's covered so far" section cites a missing `AGENT_TASKS.md` and
+      calls meal planning/budget/profile untested (they're well tested);
+      comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
+      `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
+      cite a `findOrCreateInventoryItem` that no longer exists. Delete the
+      stray committed `src/components/budget/cost-analyzer.tsx.orig`.
+- [ ] **MAINT-14. Unit tests for untested domain modules** (low, S–M) —
+      `lib/shopping/put-away.ts` (newest feature), `lib/settle-departing-member.ts`
+      (money), `lib/session-revocation.ts` (security),
+      `lib/budget-date-utils.ts`, `meal-planning/date-utils.ts`,
+      `lib/digest-unsubscribe.ts`, and the inventory and shopping-list CSV
+      `export/route.ts` handlers.
+- [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
+      exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
+      `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
+      `CALENDAR_FEED_*_DAYS`, `MAX_LEFTOVER_SERVINGS`, `SWISH_*`); non-null
+      assertions in `lib/rate-limit.ts:97,100`, `tasks/page.tsx:38`,
+      `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
+      `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
+      with a typed `isOneOf(values)` guard.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -105,7 +396,43 @@ Each item adds a migration (`npx prisma migrate dev --name <name>`, local
 only — production only ever runs `migrate deploy`). Land sequentially; the
 order below is a suggestion, not a dependency, unless noted.
 
-Nothing queued right now.
+- [ ] **PERF-3. Add missing indexes** (medium, S) — one migration:
+      - `HouseholdMember @@index([userId])`: `requireHousehold`
+        (`src/lib/session.ts:69-78`) looks memberships up by `userId` on
+        every dashboard request and Server Action, but the only index is
+        `@@unique([householdId, userId])` with `userId` second → full scan
+        that grows with total users.
+      - `Transaction @@index([recurringTemplateId])`:
+        `personal-budget-position.ts:227-230` filters by it without
+        `householdId` (cross-household scan), and the template's
+        `onDelete: SetNull` scans again on every delete.
+      - `PersonalTransaction @@index([userId, date])`: needed by PERF-2.
+      - Optionally `PriceHistory @@index([inventoryItemId, date])` for PERF-12.
+      Verify with `EXPLAIN` before/after.
+- [ ] **PERF-2. Month-scope the personal budget loader** (high, M; after PERF-3) —
+      `src/lib/personal-budget-position.ts:62-66` reads *every*
+      `personalTransaction` (with `category`), and `:106-118` every split
+      household transaction before month end with nested member→user
+      includes; it runs on every `/dashboard` home load
+      (`dashboard/page.tsx:57`) and on `/dashboard/personal-budget`. Apply
+      SCALE-F's household-budget pattern: month-scoped list/totals, a
+      12-month lookback for rollover and the fixed trend
+      (`personal-budget/page.tsx:217,330`), `groupBy` + `_sum` for all-time
+      savings, and a SQL aggregate (`groupBy` on `TransactionSplit`) for
+      "owed from earlier months". Verify with 3 years × 100/month seeded.
+      No schema change of its own beyond PERF-3's index.
+- [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
+      any role can create 7-day invites (`household.ts:32-50`) and nothing
+      revokes them; `removeMemberAction` (`:383-410`) leaves pending
+      invites, never-expiring shopping-list share tokens and the calendar
+      feed token intact. A contributor expecting removal can mint an invite
+      and rejoin, or keep reading/ticking a shared list and the meal/bill
+      feed. Add `Invitation.createdByUserId` (migration), delete that
+      member's pending invites on remove/leave, add list/revoke pending
+      invites to the Household page, and prompt the owner to rotate share
+      links and the calendar feed after a removal (or rotate
+      automatically). Test: `invitation.deleteMany` with that user's id
+      after `removeMemberAction`.
 
 ---
 
@@ -299,6 +626,15 @@ out to be a product-scope question rather than a scoped task should move to
       against merging the underlying Prisma models, but left this smaller
       question open. Revisit only after BUDGET-2 → BUDGET-5 land and the
       real prop surface each merged component needs is known.
+
+- [ ] **PERF-11. Pin the Vercel function region next to the database** `[!]` —
+      `vercel.json` sets no `regions` and DEPLOYMENT.md doesn't mention
+      one. A typical action does 3–6 sequential DB round trips; if
+      functions run in the default `iad1` while Postgres is in the EU
+      (Swedish users), each costs ~90 ms. Needs the product owner to check
+      both regions in the dashboards; if they differ, set
+      `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
+      Potentially the single largest latency win.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
