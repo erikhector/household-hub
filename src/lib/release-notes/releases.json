@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.33.0",
+    "date": "2026-09-26",
+    "pr": 60,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Household owners can now pick a currency on the Household page, and amounts in the budget, shopping lists and recipe costs show its symbol. It only changes the label, so no amounts are converted.",
+      "sv": "Hushållets ägare kan nu välja en valuta på hushållssidan, och belopp i budgeten, inköpslistor och receptkostnader visas med valutans symbol. Det ändrar bara hur beloppen visas, så inget räknas om."
+    }
+  },
+  {
     "version": "0.32.0",
     "date": "2026-09-26",
     "pr": 58,
