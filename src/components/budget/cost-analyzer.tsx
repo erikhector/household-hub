@@ -20,6 +20,14 @@
 // computeCheapestStoreComparisons (src/lib/cheapest-store-calc.ts) for the
 // aggregation and its "≥2 distinct stores" bar for appearing here at all.
 //
+// "Your list, store by store" (GAP-34) sits right under it: the same
+// last-recorded-price data summed over the household's unchecked list items
+// per store (computeBasketStoreComparison). Every store row carries its
+// "N of M items priced" coverage next to the total, and the "Cheapest"
+// badge only goes to a fully priced store that beat at least one *other*
+// fully priced store — a partial total is never crowned, since it may only
+// look cheap because it's missing items.
+//
 // "Went past its date" (GAP-17) is the last section: a quiet monthly recap
 // of food that expired unused, valued at what it cost last time. Same
 // register as MealVarietyRecap — "here's what happened", never an alert
@@ -29,7 +37,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { StoreComparison } from "@/lib/cheapest-store-calc";
+import type { BasketComparison, StoreComparison } from "@/lib/cheapest-store-calc";
 import type { ExpiredWasteSummary } from "@/lib/inventory/expired-waste";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -49,6 +57,7 @@ export function CostAnalyzer({
   monthlySpending,
   itemTrends,
   storeComparisons,
+  basketComparison,
   expiredThisMonth,
   expiredLastMonth,
   dict,
@@ -58,6 +67,7 @@ export function CostAnalyzer({
   monthlySpending: MonthlySpendPoint[];
   itemTrends: ItemPriceTrend[];
   storeComparisons: StoreComparison[];
+  basketComparison: BasketComparison | null;
   expiredThisMonth: ExpiredWasteSummary;
   expiredLastMonth: ExpiredWasteSummary;
   dict: Dictionary["budget"]["costAnalyzer"];
@@ -161,6 +171,12 @@ export function CostAnalyzer({
         </CardContent>
       </Card>
 
+      <BasketComparisonCard
+        comparison={basketComparison}
+        dict={dict}
+        numberFormat={numberFormat}
+      />
+
       <ExpiredWasteCard
         thisMonth={expiredThisMonth}
         lastMonth={expiredLastMonth}
@@ -169,6 +185,73 @@ export function CostAnalyzer({
         dateFormat={dateFormat}
       />
     </div>
+  );
+}
+
+function BasketComparisonCard({
+  comparison,
+  dict,
+  numberFormat,
+}: {
+  comparison: BasketComparison | null;
+  dict: Dictionary["budget"]["costAnalyzer"];
+  numberFormat: Intl.NumberFormat;
+}) {
+  const itemCount = comparison?.itemCount ?? 0;
+  const stores = comparison?.stores ?? [];
+  const fullyPriced = stores.filter((s) => s.pricedCount === itemCount);
+  // Stores are ranked coverage-first, so if anything is fully priced it's
+  // at the top — and only then, against another fully priced store, is
+  // "cheapest" an honest claim about the whole list.
+  const showCheapestBadge = fullyPriced.length >= 2;
+  const hasPartial = fullyPriced.length < stores.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{dict.basketTitle}</CardTitle>
+        <CardDescription>{dict.basketSubtitle}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {!comparison ? (
+          <p className="text-sm text-muted-foreground">{dict.noBasketData}</p>
+        ) : (
+          <>
+            <div className="flex flex-col divide-y divide-border">
+              {stores.map((s, i) => {
+                const complete = s.pricedCount === itemCount;
+                return (
+                  <div key={s.store} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="truncate font-medium">{s.store}</span>
+                      {showCheapestBadge && i === 0 && (
+                        <Badge variant="outline" className="shrink-0">
+                          {dict.basketCheapestBadge}
+                        </Badge>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {complete
+                        ? format(dict.basketAllPriced, { total: itemCount })
+                        : format(dict.basketCoverage, { count: s.pricedCount, total: itemCount })}
+                      {" · "}
+                      <span
+                        className={`tabular-nums ${
+                          showCheapestBadge && i === 0 ? "text-chart-5" : "text-foreground"
+                        }`}
+                      >
+                        {numberFormat.format(s.total)}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {hasPartial && <p className="text-xs text-muted-foreground">{dict.basketPartialNote}</p>}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

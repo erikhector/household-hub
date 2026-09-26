@@ -1405,6 +1405,32 @@ top of it. No migration was needed.
   `MIN_PRICE_POINTS_FOR_TREND`: an item only needs 2 rows from 2 different
   stores to appear here, even if that's not (yet) enough total history for
   a trend card.
+- **Whole-basket comparison (GAP-34)**: a "Your list, store by store" card
+  right below "Cheapest store" answers the Listonic/Out of Milk question —
+  what would the list I'm about to shop cost at each store? The basket is
+  every unchecked (`purchased: false`) row with a linked inventory item on
+  the household's `ACTIVE` lists, de-duplicated by inventory item (an item
+  on two lists is bought once). Only items that meet GAP-6's bar — priced
+  at ≥2 distinct stores — count; with fewer than 2 such items the card
+  shows an empty state instead. `computeBasketStoreComparison` (same
+  module, sharing GAP-6's "last recorded price per store, store names
+  folded case/whitespace-insensitively" helper so the two can't drift)
+  sums each store's last recorded price over the items it has one for.
+  - **Coverage is always shown, never hidden**: not every store has a price
+    for every item. Rather than rank on only the items *every* store has in
+    common — an intersection that one rarely visited store can collapse to
+    nothing — each store gets its own total with "N of M items priced"
+    (or "All M items priced") beside it. Stores are ranked by coverage
+    first and total second, so a partial total can never outrank a more
+    complete one just because it's missing the expensive items; a note
+    under the list says so whenever any store is partial. The "Cheapest"
+    badge only appears when at least two stores price the *whole* basket,
+    and goes to the cheaper of those.
+  - Prices are summed as recorded (whole-line prices, not rescaled to the
+    list row's quantity — units differ too often between receipts and list
+    rows for rescaling to be honest). It reads the same `priceHistoryRows`
+    as the rest of the analyzer plus one small `ShoppingListItem` id query
+    in the same `Promise.all`. No schema change.
 
 #### Finishing the trip in one gesture (AUTO-5)
 
