@@ -30,6 +30,11 @@ export type StockArrivalOptions = {
   /** Per-line price to record as PriceHistory + lastKnownPrice (AUTO-4,
    * GAP-9), or null to leave prices alone. */
   price: number | null;
+  /** The quantity `price` was paid for, when that differs from what's
+   * arriving — the put-away dialog's corrected quantity must not change the
+   * unit price GAP-9 compares (price ÷ quantity), or a smaller-than-listed
+   * delivery would look like a price jump. Defaults to `quantity`. */
+  priceQuantity?: number;
   /** GAP-6: stamped on the PriceHistory row. */
   store?: string | null;
   /** A date the person typed in the put-away dialog. Real, so it's stored
@@ -86,18 +91,25 @@ export async function applyStockArrival(
 
   let recordedPrice: RecordedPrice | null = null;
   if (price != null) {
+    const priceQuantity = options.priceQuantity ?? quantity;
     // GAP-9: the line's quantity/unit too, so the price can be compared per
     // unit later (see detectPriceSpike).
     const row = await tx.priceHistory.create({
       data: {
         inventoryItemId: current.id,
         price,
-        quantity,
+        quantity: priceQuantity,
         unit: options.unit,
         ...(options.store !== undefined ? { store: options.store } : {}),
       },
     });
-    recordedPrice = { priceHistoryId: row.id, inventoryItemId: current.id, price, quantity, unit: options.unit };
+    recordedPrice = {
+      priceHistoryId: row.id,
+      inventoryItemId: current.id,
+      price,
+      quantity: priceQuantity,
+      unit: options.unit,
+    };
   }
 
   return {

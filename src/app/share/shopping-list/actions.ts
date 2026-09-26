@@ -141,9 +141,21 @@ export async function toggleItemViaShareTokenAction(
           ? {
               purchased: true,
               checkedOffAt: now,
-              ...(arrivesNow ? { putAwayAt: now, ...(item.estimatedPrice != null ? { priceRecordedAt: now } : {}) } : {}),
+              // ON_CHECK: arrived and counted now; `priceRecordedAt` only
+              // when applyStockArrival below really writes a PriceHistory
+              // row (linked and priced). Put-away mode: an explicit null
+              // putAwayAt, so a row can never enter the cart already
+              // looking "put away" whatever state it was left in.
+              ...(arrivesNow
+                ? {
+                    putAwayAt: now,
+                    ...(item.inventoryItem && item.estimatedPrice != null ? { priceRecordedAt: now } : {}),
+                  }
+                : { putAwayAt: null }),
             }
-          : { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
+          : // The purchase is undone, and with it the record that its price
+            // was taken: a re-tick is a new purchase.
+            { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
       });
 
       if (list && item.inventoryItem && arrivesNow) {

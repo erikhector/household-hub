@@ -278,7 +278,7 @@ describe("toggleItemViaShareTokenAction", () => {
     });
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
+      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
     });
     expect(priceHistoryCreateMock).not.toHaveBeenCalled();
     expect(recordPriceSpikesMock).not.toHaveBeenCalled();
@@ -326,7 +326,7 @@ describe("toggleItemViaShareTokenAction", () => {
       expect(result).toEqual({});
       expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
         where: { id: "item-1" },
-        data: { purchased: true, checkedOffAt: expect.any(Date) },
+        data: { purchased: true, checkedOffAt: expect.any(Date), putAwayAt: null },
       });
       expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
       expect(priceHistoryCreateMock).not.toHaveBeenCalled();
@@ -343,7 +343,7 @@ describe("toggleItemViaShareTokenAction", () => {
       expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
       expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
         where: { id: "item-1" },
-        data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
+        data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
       });
     });
 

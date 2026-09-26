@@ -1038,9 +1038,21 @@ export async function togglePurchasedAction(
               purchased: true,
               checkedOffAt: now,
               checkedOffByUserId: userId,
-              ...(arrivesNow ? { putAwayAt: now, ...(item.estimatedPrice != null ? { priceRecordedAt: now } : {}) } : {}),
+              // ON_CHECK: arrived and counted now; `priceRecordedAt` only
+              // when applyStockArrival below really writes a PriceHistory
+              // row (linked and priced). Put-away mode: an explicit null
+              // putAwayAt, so a row can never enter the cart already
+              // looking "put away" whatever state it was left in.
+              ...(arrivesNow
+                ? {
+                    putAwayAt: now,
+                    ...(item.inventoryItem && item.estimatedPrice != null ? { priceRecordedAt: now } : {}),
+                  }
+                : { putAwayAt: null }),
             }
-          : { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
+          : // The purchase is undone, and with it the record that its price
+            // was taken: a re-tick is a new purchase.
+            { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null, priceRecordedAt: null },
       });
 
       if (item.inventoryItem && arrivesNow) {
@@ -1132,8 +1144,11 @@ const putAwaySchema = z.object({
  * and lastKnownPrice unless a receipt already recorded them
  * (`priceRecordedAt`), AUTO-7's estimate or the person's own date, GAP-28's
  * opened-reset, the location, and the stock-change hooks — then stamps
- * `putAwayAt`. A "not bought" entry un-ticks the row instead, so it goes
- * back to pending rather than counting as bought.
+ * `putAwayAt`. The price is recorded against the row's listed quantity (what
+ * it was paid for), not the corrected one, so the unit price GAP-9 compares
+ * stays right. A "not bought" entry un-ticks the row instead (clearing
+ * `priceRecordedAt` too), so it goes back to pending rather than counting as
+ * bought.
  *
  * Partial on purpose: any subset of the ticked rows can be put away, the
  * rest stay incoming, and the list isn't completed by this. Works on ACTIVE
@@ -1143,12 +1158,21 @@ const putAwaySchema = z.object({
  * Tenancy: the list must be this household's, and every entry must be a row
  * on that list — a single foreign id fails the whole call rather than being
  * silently dropped, so a forged request can't learn which of its ids were
- * real. Rows already put away (a double tap, or two members unpacking the
- * same bags at once) and rows no longer ticked are skipped, which is what
- * makes a repeat harmless. Rows are processed one at a time inside one
- * transaction, carrying each inventory item's updated state forward, so two
- * rows for the same item add up instead of both starting from the same
- * stale quantity.
+ * real.
+ *
+ * Concurrency — what's actually guaranteed: each row is claimed with a
+ * conditional write (`purchased AND putAwayAt IS NULL`) inside the
+ * transaction, so a row's stock is counted at most once however many
+ * members tap "Put away" at the same moment, and a row un-ticked meanwhile
+ * is skipped rather than counted. The claim also holds the row's lock until
+ * commit, and receipt apply claims its rows the same way, so a receipt and a
+ * put-away can't both record the same line's price. Rows are processed one
+ * at a time, re-reading the row and its inventory item after the claim, so
+ * two rows for the same item add up. What isn't guaranteed: the inventory
+ * item itself is re-read and then written with an absolute quantity, like
+ * every other stock change in the app, so an unrelated edit of the same
+ * item committing in between (someone tapping − at that exact moment) can
+ * still be overwritten.
  */
 export async function putAwayItemsAction(
   listId: string,
@@ -1168,12 +1192,12 @@ export async function putAwayItemsAction(
   if (!list) return { error: "This list can't be edited right now" };
 
   const ids = [...new Set(parsed.data.entries.map((entry) => entry.itemId))];
+  // Tenancy only — the transaction below re-reads each row after claiming it.
   const rows = await prisma.shoppingListItem.findMany({
     where: { id: { in: ids }, shoppingListId: list.id },
-    include: { inventoryItem: true },
+    select: { id: true },
   });
   if (rows.length !== ids.length) return { error: "Item not found" };
-  const rowsById = new Map(rows.map((row) => [row.id, row]));
 
   // Last entry per row wins, in the order the dialog sent them.
   const entryById = new Map(parsed.data.entries.map((entry) => [entry.itemId, entry]));
@@ -1185,47 +1209,61 @@ export async function putAwayItemsAction(
   try {
     await prisma.$transaction(async (tx) => {
       const now = new Date();
-      // Each inventory item's state after the arrivals already applied in
-      // this batch — see the doc comment on two rows for one item.
-      const current = new Map<string, InventoryItem>();
 
       for (const [itemId, entry] of entryById) {
-        const row = rowsById.get(itemId)!;
-        if (!row.purchased || row.putAwayAt !== null) continue;
-
+        // Claim the row: only a write that still finds it ticked and not
+        // put away wins, so of two concurrent put-aways (or a put-away racing
+        // an un-tick) exactly one moves its stock. The pre-transaction read
+        // above is only for tenancy; everything below re-reads.
+        const claimed = await tx.shoppingListItem.updateMany({
+          where: { id: itemId, shoppingListId: list.id, purchased: true, putAwayAt: null },
+          data: entry.notBought
+            ? { purchased: false, checkedOffAt: null, checkedOffByUserId: null, priceRecordedAt: null }
+            : { putAwayAt: now },
+        });
+        if (claimed.count === 0) continue;
         if (entry.notBought) {
-          await tx.shoppingListItem.update({
-            where: { id: row.id },
-            data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null },
-          });
           notBought++;
           continue;
         }
+        putAway++;
+
+        // Fresh inside the transaction, after the claim: the row's own price
+        // state, and the inventory item as it stands after any earlier row
+        // in this batch (or anyone else's committed change) touched it.
+        const row = await tx.shoppingListItem.findUnique({
+          where: { id: itemId },
+          include: { inventoryItem: true },
+        });
+        if (!row) continue;
 
         const quantity = entry.quantity ?? row.quantity;
         const recordPrice = row.inventoryItem !== null && row.estimatedPrice != null && row.priceRecordedAt === null;
-        await tx.shoppingListItem.update({
-          where: { id: row.id },
-          data: {
-            putAwayAt: now,
-            ...(quantity !== row.quantity ? { quantity } : {}),
-            ...(recordPrice ? { priceRecordedAt: now } : {}),
-          },
-        });
-        putAway++;
+        if (quantity !== row.quantity || recordPrice) {
+          await tx.shoppingListItem.update({
+            where: { id: row.id },
+            data: {
+              ...(quantity !== row.quantity ? { quantity } : {}),
+              ...(recordPrice ? { priceRecordedAt: now } : {}),
+            },
+          });
+        }
 
         if (!row.inventoryItem) continue;
         const arrival = await applyStockArrival(tx, {
           householdId: household.id,
           actingUserId: userId,
-          inventoryItem: current.get(row.inventoryItem.id) ?? row.inventoryItem,
+          inventoryItem: row.inventoryItem,
           quantity,
           unit: row.unit,
           price: recordPrice ? row.estimatedPrice : null,
+          // The price was paid for the listed quantity, so that's what its
+          // unit price is worked out against — a corrected quantity mustn't
+          // look like a price jump (GAP-9).
+          priceQuantity: row.quantity,
           expiresAt: entry.expiresAt,
           location: entry.location || null,
         });
-        current.set(row.inventoryItem.id, arrival.inventoryItem);
         if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
         if (arrival.autoAdded) autoAdded.push(arrival.autoAdded);
       }
@@ -1334,86 +1372,110 @@ export async function applyReceiptScanAction(
   // and left for the put-away step to move the stock. The price itself is a
   // fact right now, so PriceHistory (with the store) and lastKnownPrice are
   // written here and `priceRecordedAt` tells the put-away not to write them
-  // again.
+  // again. `priceRecordedAt` means exactly "a PriceHistory row was written
+  // for this line", so an unlinked row (no PriceHistory possible) never gets
+  // it — instead it's put away on the spot, since there's no stock to wait
+  // for either, which is also what stops it staying matchable forever.
   const deferStock = defersToPutAway(household);
 
   let totalAmount = 0;
+  let itemsUpdated = 0;
   // GAP-9: every PriceHistory row written below, checked for price spikes
   // as one batch after the transaction commits — see recordPriceSpikes for
   // why that's after, and batched, rather than per row inside it.
   const recordedPrices: RecordedPrice[] = [];
 
-  // Per-row writes are parallelized with Promise.all rather than a
-  // sequential for-await loop (SCALE-C) — each match targets its own
-  // shoppingListItem/inventoryItem, so this only cuts wall-clock
-  // transaction hold time. totalAmount's accumulation stays deterministic:
-  // every map callback runs its synchronous prefix (computing
-  // convertedPrice and adding it to totalAmount) before its first await,
-  // so the additions happen in validMatches order exactly as the old loop
-  // did, before any of the awaited writes resolve.
+  // Sequential, not Promise.all (SCALE-C used to run these in parallel):
+  // two lines can land on the same inventory item (the same product on the
+  // list twice), and parallel writes from one stale snapshot would lose one
+  // line's stock. Each line re-reads its row and item inside the
+  // transaction after claiming the row, so the second line builds on the
+  // first. A receipt is a few dozen lines, so the extra hold time is small.
   await prisma.$transaction(async (tx) => {
     const now = new Date();
-    await Promise.all(
-      validMatches.map(async (match) => {
-        const item = itemsById.get(match.shoppingListItemId)!;
-        const convertedPrice = Math.round(match.price * rate * 100) / 100;
-        totalAmount += convertedPrice;
+    for (const match of validMatches) {
+      const item = itemsById.get(match.shoppingListItemId)!;
+      const convertedPrice = Math.round(match.price * rate * 100) / 100;
 
-        await tx.shoppingListItem.update({
-          where: { id: item.id },
+      // Claimed only while it's still waiting for a price (the
+      // transactional twin of awaitsReceiptPrice), so a put-away or a
+      // second receipt that got there first wins and this line is skipped
+      // instead of counting the stock or the price again.
+      const claimed = await tx.shoppingListItem.updateMany({
+        where: {
+          id: item.id,
+          shoppingListId: list.id,
+          OR: [{ purchased: false }, { putAwayAt: null, priceRecordedAt: null }],
+        },
+        data: {
+          estimatedPrice: convertedPrice,
+          purchased: true,
+          // Whoever applied the receipt gets the put-away reminder for rows
+          // nobody ticked by hand.
+          ...(deferStock && !item.purchased ? { checkedOffByUserId: userId } : {}),
+        },
+      });
+      if (claimed.count === 0) continue;
+      itemsUpdated++;
+      totalAmount += convertedPrice;
+
+      const row = await tx.shoppingListItem.findUnique({
+        where: { id: item.id },
+        include: { inventoryItem: true },
+      });
+      if (!row) continue;
+      const linked = row.inventoryItem !== null;
+      await tx.shoppingListItem.update({
+        where: { id: row.id },
+        data: {
+          ...(linked ? { priceRecordedAt: now } : {}),
+          ...(!deferStock || !linked ? { putAwayAt: now } : {}),
+        },
+      });
+      if (!row.inventoryItem) continue;
+
+      if (deferStock) {
+        // AUTO-4: a scanned receipt price is as real as it gets, so it
+        // becomes the item's new lastKnownPrice even before the stock
+        // itself is put away.
+        await tx.inventoryItem.update({
+          where: { id: row.inventoryItem.id },
+          data: { lastKnownPrice: convertedPrice },
+        });
+        const history = await tx.priceHistory.create({
           data: {
-            estimatedPrice: convertedPrice,
-            purchased: true,
-            ...(item.inventoryItem ? { priceRecordedAt: now } : {}),
-            ...(deferStock ? {} : { putAwayAt: now }),
+            inventoryItemId: row.inventoryItem.id,
+            price: convertedPrice,
+            quantity: row.quantity,
+            unit: row.unit,
+            store: trimmedStore,
           },
         });
-
-        if (!item.inventoryItem) return;
-
-        if (deferStock) {
-          // AUTO-4: a scanned receipt price is as real as it gets, so it
-          // becomes the item's new lastKnownPrice even before the stock
-          // itself is put away.
-          await tx.inventoryItem.update({
-            where: { id: item.inventoryItem.id },
-            data: { lastKnownPrice: convertedPrice },
-          });
-          const row = await tx.priceHistory.create({
-            data: {
-              inventoryItemId: item.inventoryItem.id,
-              price: convertedPrice,
-              quantity: item.quantity,
-              unit: item.unit,
-              store: trimmedStore,
-            },
-          });
-          recordedPrices.push({
-            priceHistoryId: row.id,
-            inventoryItemId: item.inventoryItem.id,
-            price: convertedPrice,
-            quantity: item.quantity,
-            unit: item.unit,
-          });
-          return;
-        }
-
-        // A matched receipt line is stock arriving, same as a tick in
-        // ON_CHECK mode: AUTO-7's estimate, GAP-28's fresh-pack reset,
-        // AUTO-4's lastKnownPrice and GAP-9's PriceHistory all come from
-        // applyStockArrival.
-        const arrival = await applyStockArrival(tx, {
-          householdId: household.id,
-          actingUserId: userId,
-          inventoryItem: item.inventoryItem,
-          quantity: item.quantity,
-          unit: item.unit,
+        recordedPrices.push({
+          priceHistoryId: history.id,
+          inventoryItemId: row.inventoryItem.id,
           price: convertedPrice,
-          store: trimmedStore,
+          quantity: row.quantity,
+          unit: row.unit,
         });
-        if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
-      }),
-    );
+        continue;
+      }
+
+      // A matched receipt line is stock arriving, same as a tick in
+      // ON_CHECK mode: AUTO-7's estimate, GAP-28's fresh-pack reset,
+      // AUTO-4's lastKnownPrice and GAP-9's PriceHistory all come from
+      // applyStockArrival.
+      const arrival = await applyStockArrival(tx, {
+        householdId: household.id,
+        actingUserId: userId,
+        inventoryItem: row.inventoryItem,
+        quantity: row.quantity,
+        unit: row.unit,
+        price: convertedPrice,
+        store: trimmedStore,
+      });
+      if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
+    }
   });
   await recordPriceSpikes(household.id, recordedPrices, userId);
 
@@ -1422,7 +1484,7 @@ export async function applyReceiptScanAction(
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/budget");
 
-  return { itemsUpdated: validMatches.length, totalAmount };
+  return { itemsUpdated, totalAmount };
 }
 
 export type ReceiptRegistrationItem = {
