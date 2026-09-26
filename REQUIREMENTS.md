@@ -2786,6 +2786,26 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   always checks one full batch (multiplier 1). There's no separate
   "servings override" column. An earlier proposal for one would have
   duplicated `portions`, which already has this job.
+  - **One graph fetch per request, not per recipe (PERF-1)**: expanding a
+    recipe (including its sub-recipes) walks an in-memory
+    `Map<recipeId, RecipeGraphNode>` built by `loadRecipeGraph`
+    (`recipe-expansion.ts`) — one `recipe.findMany` for the whole
+    household. `expandRecipeIngredients` is the one-shot convenience for a
+    caller expanding a single recipe (`previewCookedIngredientsAction`,
+    `markMealEntryCookedAction`): it loads the graph itself, then walks it.
+    A caller expanding *several* recipes in one request —
+    `getCookableRecipes` (every recipe in the Cook tab, against full
+    household inventory) and `previewMissingIngredientsAction` (every
+    planned entry in the chosen date range) — instead calls
+    `loadRecipeGraph` once and calls the pure, non-DB-touching
+    `expandFromGraph` per recipe/entry against that shared result. Before
+    this, both call sites called `expandRecipeIngredients` in a loop, so
+    each recipe/entry re-ran the whole-household query on its own: a
+    50-recipe household loading the Cook tab (server-rendered even when
+    that tab is hidden) issued 50 queries fetching O(R²) rows total, each
+    competing for a pg pool connection. Cycle handling, scaling and
+    component-recipe resolution are unchanged — only how many times the
+    graph is fetched.
 - Weekday header labels (Mon–Sun) come from the `mealPlanning` dictionary
   namespace rather than `Intl`/the browser's locale, so they follow the
   app's own language toggle instead of the visitor's OS/browser language.
