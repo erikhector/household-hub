@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.8",
+    "date": "2026-09-26",
+    "pr": 78,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Pages that load a lot of data at once, like Budget, respond more smoothly under load.",
+      "sv": "Sidor som hämtar mycket data samtidigt, som Budget, svarar jämnare vid hög belastning."
+    }
+  },
+  {
     "version": "0.39.7",
     "date": "2026-09-26",
     "pr": 80,
