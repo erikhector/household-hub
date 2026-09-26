@@ -26,6 +26,7 @@
 // tier has always worked.
 import { promises as dns } from "node:dns";
 import net from "node:net";
+import { tagsFromSchemaOrgDiet, type RecipeTag } from "@/lib/recipe-tags";
 
 export type ParsedIngredient = { name: string; quantity: number; unit: string };
 export type ParsedRecipe = {
@@ -39,7 +40,12 @@ export type ParsedRecipe = {
  * best-effort and shown with a "review before saving" notice.
  */
 export type RecipeImportSource = "jsonld" | "microdata" | "heuristic";
-export type ImportedRecipe = ParsedRecipe & { source: RecipeImportSource };
+// `tags` (GAP-29) only ever comes from the JSON-LD tier's
+// `suitableForDiet` — it's the site's own structured claim, mapped through
+// the closed set in recipe-tags.ts. The Microdata and heading-heuristic
+// tiers are already guesses, so they never guess a diet on top and always
+// return [].
+export type ImportedRecipe = ParsedRecipe & { source: RecipeImportSource; tags: RecipeTag[] };
 
 // ---------------------------------------------------------------------------
 // JSON-LD extraction
@@ -317,11 +323,11 @@ function hasAnyContent(recipe: ParsedRecipe): boolean {
   return Boolean(recipe.name || recipe.ingredients.length > 0 || recipe.instructions);
 }
 
-function parseJsonLdRecipe(html: string): ParsedRecipe | null {
+function parseJsonLdRecipe(html: string): (ParsedRecipe & { tags: RecipeTag[] }) | null {
   const node = findRecipeNode(extractJsonLdBlocks(html));
   if (!node) return null;
   const recipe = mapJsonLdToRecipe(node);
-  return hasAnyContent(recipe) ? recipe : null;
+  return hasAnyContent(recipe) ? { ...recipe, tags: tagsFromSchemaOrgDiet(node.suitableForDiet) } : null;
 }
 
 /**
@@ -340,10 +346,10 @@ export function parseRecipeFromHtml(html: string): ImportedRecipe | null {
   const content = stripNonContent(html);
 
   const microdata = parseMicrodataRecipe(content);
-  if (microdata) return { ...microdata, source: "microdata" };
+  if (microdata) return { ...microdata, source: "microdata", tags: [] };
 
   const heuristic = parseHeuristicRecipe(content);
-  if (heuristic) return { ...heuristic, source: "heuristic" };
+  if (heuristic) return { ...heuristic, source: "heuristic", tags: [] };
 
   return null;
 }

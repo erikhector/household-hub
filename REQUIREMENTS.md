@@ -3220,6 +3220,62 @@ any member's star is everyone's star.
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
 
+### Recipe dietary tags (GAP-29)
+
+From the competitive gap scan: Mealime and Plan to Eat let a household mark
+a recipe vegetarian, gluten-free and so on and filter the recipe list by it.
+`Recipe.tags String[] @default([])` (migration `recipe_tags`) holds keys
+from a **closed** set defined once in `src/lib/recipe-tags.ts`
+(`RECIPE_TAGS`): `vegan`, `vegetarian`, `glutenFree`, `dairyFree`,
+`nutFree`, `lowCarb`, `quick`. The array order is the display order
+everywhere.
+
+- **Keys stored, labels from the dictionary**: the same split as AUTO-2's
+  `inventory.autoCategories`. Labels live in `mealPlanning.recipeTags` in
+  both `en.ts` and `sv.ts` (a test asserts every key has both), so
+  switching language relabels every recipe and the filter compares exact
+  keys, not free text. Not free-form on purpose: "veg", "veggie" and
+  "vegetarian" typed on three recipes would split one filter three ways.
+- **Validation**: `parseRecipeTags` (Zod `z.enum(RECIPE_TAGS)`) dedupes,
+  sorts into canonical order and **drops** unknown values rather than
+  rejecting the save, so a stale tab offering a since-removed tag can't make
+  a recipe unsaveable. `createRecipeAction`/`updateRecipeAction` run the
+  posted `tags` values (`FormData.getAll("tags")`) through it and never
+  store anything else. An update replaces the whole set, like ingredients
+  and components, so posting none clears them. `page.tsx` parses the stored
+  column again on read, so a key later removed from the set just
+  disappears instead of rendering raw. It's a plain `text[]`, not a Postgres
+  enum or join table: the set is tiny, filtering happens client-side over
+  the already-loaded list, and growing it needs only a key plus two labels,
+  no migration.
+- **Form**: `RecipeFormDialog` (create and edit) shows every tag as a
+  toggle chip (`aria-pressed`, the starter-picker look) under
+  instructions, posted as one hidden `tags` input per selected tag.
+- **Import**: the JSON-LD tier maps schema.org `suitableForDiet`
+  (`tagsFromSchemaOrgDiet`, bare `VeganDiet` or full
+  `https://schema.org/VeganDiet` URLs, string or array) for the unambiguous
+  diets only: `VeganDiet` → vegan, `VegetarianDiet` → vegetarian,
+  `GlutenFreeDiet` → glutenFree. `LowLactoseDiet` isn't dairy-free, and the
+  other `RestrictedDiet` values have no tag, so they're ignored. The
+  Microdata and heading-heuristic tiers are already guesses and always
+  return `tags: []`. Imported tags are only *added* to the chips for review
+  (never un-ticking one the user chose) and, like everything else imported,
+  are only saved on submit.
+- **Filter**: a tag `Select` ("All tags" or one tag) sits beside the name
+  search above the `RecipeManager` list, the same all-or-one pattern as the
+  inventory page's category and location filters. Both must match. It's a
+  single row, so there's no folded mobile "Filters" dialog. The filter
+  isn't persisted, and neither is the search. `recipeMatchesTag` treats
+  `vegan` as implying `vegetarian` and `dairyFree` at filter time (a vegan
+  recipe shows under either without ticking three chips, and an import that
+  only says `VeganDiet` isn't hidden under "Vegetarian"). The implication is
+  never written into the column, so un-ticking vegan later leaves nothing
+  stale behind.
+- **Cards**: each recipe row shows its tags as small secondary `Badge`s
+  under the name. Rows without tags look as before.
+- **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
+  and using tags in the Cook tab or "use it up" ranking.
+
 ## Household tasks
 
 `/dashboard/tasks` (`TasksClient`) — "Household Tasks v1", built from

@@ -29,6 +29,8 @@ import {
   type ImportRecipeState,
 } from "@/app/dashboard/meal-planning/recipe-actions";
 import type { RecipeData } from "@/components/meal-planning/types";
+import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
+import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -95,6 +97,16 @@ export function RecipeFormDialog({
   const [instructions, setInstructions] = useState(recipe?.instructions ?? "");
   const [ingredients, setIngredients] = useState<IngredientRow[]>(() => rowsFromRecipe(recipe));
   const [components, setComponents] = useState<ComponentRow[]>(() => componentRowsFromRecipe(recipe));
+  // GAP-29: a Set for the toggle logic; rendered in RECIPE_TAGS order below
+  // regardless of click order, and posted as one hidden `tags` input each.
+  const [tags, setTags] = useState<Set<RecipeTag>>(() => new Set(recipe?.tags ?? []));
+  const toggleTag = (tag: RecipeTag) =>
+    setTags((current) => {
+      const next = new Set(current);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
   const [importUrl, setImportUrl] = useState("");
   const hasNutrition = (r: RecipeData | undefined) =>
     r != null &&
@@ -136,6 +148,7 @@ export function RecipeFormDialog({
         setInstructions("");
         setIngredients([blankRow()]);
         setComponents([]);
+        setTags(new Set());
         setImportUrl("");
         setShowNutrition(false);
         setCaloriesPerServing("");
@@ -171,6 +184,12 @@ export function RecipeFormDialog({
           })),
         );
       }
+      // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips
+      // for review, but never un-ticks one the user already chose.
+      if (result.recipe.tags.length > 0) {
+        const imported = result.recipe.tags;
+        setTags((current) => new Set([...current, ...imported]));
+      }
     }
     return result;
   }, initialImportState);
@@ -183,6 +202,7 @@ export function RecipeFormDialog({
       setInstructions(recipe?.instructions ?? "");
       setIngredients(rowsFromRecipe(recipe));
       setComponents(componentRowsFromRecipe(recipe));
+      setTags(new Set(recipe?.tags ?? []));
       setImportUrl("");
       setShowNutrition(hasNutrition(recipe));
       setCaloriesPerServing(recipe?.caloriesPerServing != null ? String(recipe.caloriesPerServing) : "");
@@ -334,6 +354,39 @@ export function RecipeFormDialog({
               maxLength={4000}
               rows={4}
             />
+          </div>
+
+          {/* GAP-29: toggle chips (same look as the starter pickers) rather
+              than checkboxes — the set is small enough to show whole. The
+              hidden inputs are what's actually posted; the server re-parses
+              them against RECIPE_TAGS, so these buttons are just UI. */}
+          <div className="flex flex-col gap-2">
+            <Label id="recipe-tags-label">{dict.recipeTagsLabel}</Label>
+            <div role="group" aria-labelledby="recipe-tags-label" className="flex flex-wrap gap-1.5">
+              {RECIPE_TAGS.map((tag) => {
+                const isSelected = tags.has(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => toggleTag(tag)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {dict.recipeTags[tag]}
+                  </button>
+                );
+              })}
+            </div>
+            {RECIPE_TAGS.filter((tag) => tags.has(tag)).map((tag) => (
+              <input key={tag} type="hidden" name="tags" value={tag} />
+            ))}
+            <p className="text-xs text-muted-foreground">{dict.recipeTagsHint}</p>
           </div>
 
           <div className="flex flex-col gap-2">

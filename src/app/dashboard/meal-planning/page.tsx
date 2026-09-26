@@ -15,6 +15,7 @@ import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recip
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
+import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -84,6 +85,9 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     carbsGramsPerServing: recipe.carbsGramsPerServing,
     fatGramsPerServing: recipe.fatGramsPerServing,
     isFavorite: recipe.isFavorite,
+    // GAP-29: re-parsed on read too, so a key since removed from
+    // RECIPE_TAGS is dropped here instead of rendering as a raw key.
+    tags: parseRecipeTags(recipe.tags),
     ingredients: recipe.ingredients.map((ingredient) => ({
       id: ingredient.id,
       name: ingredient.name,
