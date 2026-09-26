@@ -2060,6 +2060,7 @@ export const sv = {
   profile: {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
+    reauthRateLimited: "För många försök. Vänta 15 minuter och försök igen.",
     about: {
       title: "Om Squirrel",
       version: "Version {version}",

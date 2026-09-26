@@ -129,12 +129,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `deleteMany({ where: { userId } })` inside the reset
       (`auth.ts:425-446`) and change-password (`profile/actions.ts:238-249`)
       transactions; unsubscribe the current endpoint in `logoutAction`.
-- [ ] **SEC-6. Throttle current-password re-auth** (low) —
-      `updateEmailAction`, `updatePasswordAction` and `deleteAccountAction`
-      (`src/app/dashboard/profile/actions.ts`) compare the current password
-      with no limit, so a hijacked session can brute-force it and lock the
-      owner out. `checkRateLimit("reauth:<userId>", 5, 15 min)` before
-      `bcrypt.compare`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
       and several schemas have no caps: recipe ingredient rows

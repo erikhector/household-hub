@@ -1969,6 +1969,18 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
     `User.passwordChangedAt`, which revokes every *other* session for the
     account too — see "Session revocation on password change" under
     "Access control".
+  - **Re-auth throttling (SEC-6)**: `updateEmailAction`, `updatePasswordAction`
+    and `deleteAccountAction` all re-prove account ownership with the
+    current password before doing anything security-sensitive (see the two
+    bullets above), but that `bcrypt.compare` was previously uncapped — a
+    hijacked or left-open session could brute-force the hash without ever
+    touching login's own rate limit. Each of the three now calls
+    `checkRateLimit("reauth:<userId>", 5, 15 minutes)`
+    (`src/lib/rate-limit.ts`) before comparing, keyed by `userId` only so
+    attempts against any of the three actions share one budget — switching
+    which action you try doesn't reset the clock. A throttled attempt
+    returns the translated `profile.reauthRateLimited` string (`en.ts`/
+    `sv.ts`) without ever calling `bcrypt.compare`.
 
 ### Budget component unification
 

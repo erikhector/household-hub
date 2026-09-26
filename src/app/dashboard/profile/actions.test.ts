@@ -5,7 +5,7 @@
 // updateEmailSchema in the source) and updatePasswordAction's forced
 // sign-out afterward. All I/O (Prisma, bcrypt, requireHousehold, signOut,
 // next/cache) is mocked — no database is touched.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   requireHouseholdMock,
@@ -101,6 +101,15 @@ vi.mock("@/lib/actions/errors", () => ({ toFriendlyError: toFriendlyErrorMock })
 // src/lib/actions/auth.test.ts does.
 vi.mock("@/lib/email", () => ({ sendVerificationEmail: sendVerificationEmailMock }));
 vi.mock("next/headers", () => ({ headers: headersMock }));
+// src/lib/i18n/get-dictionary.ts imports "server-only" (see the src/lib/email
+// comment above) and reads cookies() — stub it, same as
+// src/app/dashboard/inventory/actions.test.ts, returning the real English
+// string so the SEC-6 rate-limit tests below assert against the actual
+// dictionary text rather than a hand-typed duplicate.
+vi.mock("@/lib/i18n/get-dictionary", async () => {
+  const { en } = await import("@/lib/i18n/dictionaries/en");
+  return { getDictionary: vi.fn(async () => ({ profile: { reauthRateLimited: en.profile.reauthRateLimited } })) };
+});
 
 const {
   updateProfileAction,
@@ -110,6 +119,14 @@ const {
   deleteAccountAction,
 } = await import("@/app/dashboard/profile/actions");
 const { Prisma } = await import("@/generated/prisma/client");
+// SEC-6's rate limiter is exercised for real below (not mocked, same as
+// src/lib/actions/auth.test.ts) so its own dedicated describe block can
+// assert the real fixed-window behavior. Every other test in this file
+// reuses the same "user-1" reauth:<userId> bucket, so it must be cleared
+// after every test — otherwise unrelated "wrong password" tests earlier in
+// the file would themselves use up the budget and start tripping the
+// limiter here instead of returning their expected error.
+const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -121,6 +138,7 @@ afterEach(() => {
   vi.clearAllMocks();
   requireHouseholdMock.mockResolvedValue({ userId: "user-1" });
   requireUserIdMock.mockResolvedValue("user-1");
+  _resetRateLimitsForTests();
 });
 requireHouseholdMock.mockResolvedValue({ userId: "user-1" });
 requireUserIdMock.mockResolvedValue("user-1");
@@ -445,5 +463,77 @@ describe("deleteAccountAction (re-authentication gate + per-membership rules)", 
     expect(householdMemberDeleteMock).not.toHaveBeenCalled();
     expect(userDeleteMock).not.toHaveBeenCalled();
     expect(signOutMock).not.toHaveBeenCalled();
+  });
+});
+
+// SEC-6: a hijacked/left-open session could otherwise brute-force the
+// current-password re-auth check on any of these three actions with no
+// limit. checkRateLimit is exercised for real here (not mocked), keyed
+// only by userId, so the budget is shared *across* the three actions —
+// each `it` below drives it right up to the limit with one action before
+// checking that the 6th attempt, even against a *different* action, is
+// refused without ever reaching bcrypt.compare.
+describe("re-authentication rate limiting (SEC-6)", () => {
+  const emailBase = { newEmail: "new@example.com", currentPassword: "wrong-password" };
+  const passwordBase = {
+    currentPassword: "wrong-password",
+    newPassword: "new-password-123",
+    confirmPassword: "new-password-123",
+  };
+  const deleteBase = { currentPassword: "wrong-password" };
+
+  beforeEach(() => {
+    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", email: "old@example.com", passwordHash: "hash" });
+    bcryptCompareMock.mockResolvedValue(false);
+  });
+
+  it("refuses updateEmailAction's 6th attempt without calling bcrypt.compare", async () => {
+    for (let i = 0; i < 5; i++) {
+      await updateEmailAction({}, formData(emailBase));
+    }
+    bcryptCompareMock.mockClear();
+
+    const result = await updateEmailAction({}, formData(emailBase));
+
+    expect(result.error).toBe("Too many attempts. Please wait 15 minutes and try again.");
+    expect(bcryptCompareMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses updatePasswordAction's 6th attempt without calling bcrypt.compare", async () => {
+    for (let i = 0; i < 5; i++) {
+      await updatePasswordAction({}, formData(passwordBase));
+    }
+    bcryptCompareMock.mockClear();
+
+    const result = await updatePasswordAction({}, formData(passwordBase));
+
+    expect(result.error).toBe("Too many attempts. Please wait 15 minutes and try again.");
+    expect(bcryptCompareMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses deleteAccountAction's 6th attempt without calling bcrypt.compare", async () => {
+    for (let i = 0; i < 5; i++) {
+      await deleteAccountAction({}, formData(deleteBase));
+    }
+    bcryptCompareMock.mockClear();
+
+    const result = await deleteAccountAction({}, formData(deleteBase));
+
+    expect(result.error).toBe("Too many attempts. Please wait 15 minutes and try again.");
+    expect(bcryptCompareMock).not.toHaveBeenCalled();
+  });
+
+  it("shares one budget across all three actions, so mixing them still trips the limit on the 6th attempt", async () => {
+    await updateEmailAction({}, formData(emailBase));
+    await updatePasswordAction({}, formData(passwordBase));
+    await deleteAccountAction({}, formData(deleteBase));
+    await updateEmailAction({}, formData(emailBase));
+    await updatePasswordAction({}, formData(passwordBase));
+    bcryptCompareMock.mockClear();
+
+    const result = await deleteAccountAction({}, formData(deleteBase));
+
+    expect(result.error).toBe("Too many attempts. Please wait 15 minutes and try again.");
+    expect(bcryptCompareMock).not.toHaveBeenCalled();
   });
 });
