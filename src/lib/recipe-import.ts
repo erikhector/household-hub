@@ -5,6 +5,25 @@
 // take no network dependency and are unit-tested with inline HTML/JSON
 // fixtures in recipe-import.test.ts; fetchRecipeHtml is the only part that
 // touches the network and isn't exercised by tests.
+//
+// Extraction runs in three tiers, most trustworthy first (GAP-31):
+//   1. schema.org `Recipe` JSON-LD — the site's own machine-readable data,
+//      and what the large majority of recipe blogs emit (Yoast, WP Recipe
+//      Maker, Tasty Recipes, ICA, …). When one is found it always wins and
+//      the other tiers never run, so JSON-LD results are byte-for-byte what
+//      they were before the fallbacks existed.
+//   2. schema.org `Recipe` Microdata (`itemscope itemtype=".../Recipe"` with
+//      `itemprop="name"/"recipeIngredient"/"recipeInstructions"`) — older
+//      templates that predate JSON-LD. Still structured, but read out of
+//      arbitrary markup, so less exact.
+//   3. An HTML heuristic — the page's `<h1>`/`<title>` plus the list(s)
+//      following a heading like "Ingredients"/"Ingredienser". Pure guesswork
+//      for pages with no structured data at all.
+// Tiers 2 and 3 are flagged via `source` so the form can tell the user to
+// review before saving (the import already never auto-saves; the flag just
+// makes that review explicit when we were guessing). All three stay
+// regex/string-based — no DOM parser dependency, matching how the JSON-LD
+// tier has always worked.
 import { promises as dns } from "node:dns";
 import net from "node:net";
 
@@ -14,6 +33,13 @@ export type ParsedRecipe = {
   instructions: string;
   ingredients: ParsedIngredient[];
 };
+
+/**
+ * Which extraction tier produced an import. Anything other than "jsonld" is
+ * best-effort and shown with a "review before saving" notice.
+ */
+export type RecipeImportSource = "jsonld" | "microdata" | "heuristic";
+export type ImportedRecipe = ParsedRecipe & { source: RecipeImportSource };
 
 // ---------------------------------------------------------------------------
 // JSON-LD extraction
@@ -287,18 +313,338 @@ export function mapJsonLdToRecipe(node: JsonLdNode): ParsedRecipe {
   return { name, instructions, ingredients };
 }
 
-/**
- * End-to-end pure parse: raw page HTML -> a ParsedRecipe, or null if no
- * schema.org Recipe JSON-LD could be found/parsed.
- */
-export function parseRecipeFromHtml(html: string): ParsedRecipe | null {
-  const blocks = extractJsonLdBlocks(html);
-  const node = findRecipeNode(blocks);
-  if (!node) return null;
+function hasAnyContent(recipe: ParsedRecipe): boolean {
+  return Boolean(recipe.name || recipe.ingredients.length > 0 || recipe.instructions);
+}
 
+function parseJsonLdRecipe(html: string): ParsedRecipe | null {
+  const node = findRecipeNode(extractJsonLdBlocks(html));
+  if (!node) return null;
   const recipe = mapJsonLdToRecipe(node);
-  if (!recipe.name && recipe.ingredients.length === 0 && !recipe.instructions) return null;
-  return recipe;
+  return hasAnyContent(recipe) ? recipe : null;
+}
+
+/**
+ * End-to-end pure parse: raw page HTML -> an ImportedRecipe, or null if
+ * nothing recipe-shaped could be found. Tries JSON-LD, then Microdata, then
+ * the heading heuristic (see the header comment), stopping at the first
+ * tier that yields something usable.
+ */
+export function parseRecipeFromHtml(html: string): ImportedRecipe | null {
+  const jsonLd = parseJsonLdRecipe(html);
+  if (jsonLd) return { ...jsonLd, source: "jsonld" };
+
+  // Everything below reads visible markup, so drop scripts/styles/comments
+  // first — otherwise a `<ul>` inside an inline template string or a
+  // commented-out block could be mistaken for the ingredient list.
+  const content = stripNonContent(html);
+
+  const microdata = parseMicrodataRecipe(content);
+  if (microdata) return { ...microdata, source: "microdata" };
+
+  const heuristic = parseHeuristicRecipe(content);
+  if (heuristic) return { ...heuristic, source: "heuristic" };
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Fallback tiers: shared HTML-string helpers
+// ---------------------------------------------------------------------------
+
+function stripNonContent(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
+}
+
+// A separate decoder from decodeHtmlEntities above on purpose: that one only
+// un-escapes what a site might have done to its own JSON-LD and is part of
+// the unchanged JSON-LD path, while visible text also needs &nbsp; and
+// numeric references (&#8217;, &#xE5;, …). &amp; goes last so "&amp;lt;"
+// decodes to the literal "&lt;" rather than "<".
+function decodeTextEntities(text: string): string {
+  return text
+    .replace(/&#(\d+);/g, (_, dec: string) => safeFromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => safeFromCodePoint(parseInt(hex, 16)))
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function safeFromCodePoint(codePoint: number): string {
+  try {
+    return String.fromCodePoint(codePoint);
+  } catch {
+    return "";
+  }
+}
+
+/** Visible text of an HTML fragment, collapsed to a single line. */
+function htmlToText(fragment: string): string {
+  return decodeTextEntities(fragment.replace(/<[^>]*>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Visible text of an HTML fragment, one line per block-level element (list
+ * item, paragraph, `<br>`, …) — how instructions and `<br>`-separated
+ * ingredient blocks keep their step boundaries.
+ */
+function htmlToLines(fragment: string): string[] {
+  const withBreaks = fragment.replace(
+    /<\/?(?:li|p|br|div|h[1-6]|tr|ol|ul|section|article)\b[^>]*>/gi,
+    "\n",
+  );
+  return withBreaks
+    .split("\n")
+    .map((line) => htmlToText(line))
+    .filter(Boolean);
+}
+
+function getAttr(attrs: string, name: string): string | null {
+  const re = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i");
+  const match = attrs.match(re);
+  if (!match) return null;
+  return match[1] ?? match[2] ?? match[3] ?? "";
+}
+
+function hasBooleanAttr(attrs: string, name: string): boolean {
+  return new RegExp(`(?:^|\\s)${name}(?:\\s*=|\\s|/|$)`, "i").test(attrs);
+}
+
+const VOID_ELEMENTS = new Set(["meta", "link", "img", "br", "hr", "input", "source", "wbr", "area"]);
+const OPEN_TAG_RE = /<([a-zA-Z][\w-]*)\b([^>]*)>/g;
+// How far past an element's opening tag we'll scan for its matching close
+// before giving up and treating the rest of that window as its content.
+// Bounds the work on malformed markup (an unclosed `<div>` would otherwise
+// make every lookup scan to the end of a multi-megabyte page).
+const ELEMENT_SCAN_LIMIT = 200_000;
+
+type ElementSlice = { tag: string; attrs: string; start: number; end: number; inner: string };
+
+/**
+ * Given the index of an opening tag, find its matching close tag by counting
+ * nested opens/closes of the same tag name — the one bit of structure a flat
+ * regex can't give us. Void and self-closing elements have no content.
+ */
+function sliceElement(html: string, start: number, scanLimit = ELEMENT_SCAN_LIMIT): ElementSlice | null {
+  const openRe = /<([a-zA-Z][\w-]*)\b([^>]*)>/y;
+  openRe.lastIndex = start;
+  const open = openRe.exec(html);
+  if (!open) return null;
+  const tag = open[1].toLowerCase();
+  const attrs = open[2];
+  const contentStart = start + open[0].length;
+  if (VOID_ELEMENTS.has(tag) || attrs.trimEnd().endsWith("/")) {
+    return { tag, attrs, start, end: contentStart, inner: "" };
+  }
+
+  const windowEnd = Math.min(html.length, contentStart + scanLimit);
+  const tagRe = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
+  tagRe.lastIndex = contentStart;
+  let depth = 1;
+  for (let m = tagRe.exec(html); m && m.index < windowEnd; m = tagRe.exec(html)) {
+    depth += m[1] ? -1 : 1;
+    if (depth === 0) {
+      return { tag, attrs, start, end: m.index + m[0].length, inner: html.slice(contentStart, m.index) };
+    }
+  }
+  return { tag, attrs, start, end: windowEnd, inner: html.slice(contentStart, windowEnd) };
+}
+
+// ---------------------------------------------------------------------------
+// Tier 2: schema.org Microdata
+// ---------------------------------------------------------------------------
+
+function isRecipeItemtype(attrs: string): boolean {
+  const itemtype = getAttr(attrs, "itemtype");
+  if (!itemtype) return false;
+  return itemtype
+    .split(/\s+/)
+    .some((token) => /^https?:\/\/(?:www\.)?schema\.org\/Recipe\/?$/i.test(token));
+}
+
+/**
+ * Reads a schema.org `Recipe` Microdata item out of the page. Only the
+ * Recipe's *own* properties count: an `itemprop="name"` inside a nested
+ * `itemscope` (the author's Person, a review, the publisher) belongs to that
+ * nested item, so any property whose tag sits strictly inside a nested
+ * item's element is skipped. The nested element's own opening tag is still
+ * the Recipe's — that's how `<li itemprop="recipeInstructions" itemscope
+ * itemtype=".../HowToStep">` is picked up, with its full text as the step.
+ */
+export function parseMicrodataRecipe(html: string): ParsedRecipe | null {
+  let root: ElementSlice | null = null;
+  for (const match of html.matchAll(OPEN_TAG_RE)) {
+    if (hasBooleanAttr(match[2], "itemscope") && isRecipeItemtype(match[2])) {
+      root = sliceElement(html, match.index, html.length);
+      break;
+    }
+  }
+  if (!root) return null;
+
+  const scope = root.inner;
+  const nestedRanges: Array<[number, number]> = [];
+  const props: Array<{ names: string[]; index: number; attrs: string }> = [];
+  for (const match of scope.matchAll(OPEN_TAG_RE)) {
+    const attrs = match[2];
+    if (hasBooleanAttr(attrs, "itemscope")) {
+      const nested = sliceElement(scope, match.index);
+      if (nested) nestedRanges.push([nested.start, nested.end]);
+    }
+    const itemprop = getAttr(attrs, "itemprop");
+    if (itemprop) props.push({ names: itemprop.split(/\s+/), index: match.index, attrs });
+  }
+
+  const ownProps = props.filter(
+    (prop) => !nestedRanges.some(([start, end]) => prop.index > start && prop.index < end),
+  );
+  // `content` is the Microdata value for <meta>, and plenty of templates put
+  // it on visible elements too (`<span itemprop="name" content="…">`) as an
+  // override for display text — honor it wherever it appears.
+  const propValues = (name: string, lines: boolean): string[] =>
+    ownProps
+      .filter((prop) => prop.names.includes(name))
+      .flatMap((prop) => {
+        const content = getAttr(prop.attrs, "content");
+        if (content !== null) return [htmlToText(content)];
+        const element = sliceElement(scope, prop.index);
+        if (!element) return [];
+        return lines ? htmlToLines(element.inner) : [htmlToText(element.inner)];
+      })
+      .filter(Boolean);
+
+  const name = propValues("name", false)[0] ?? pageTitle(html);
+  const rawIngredients = propValues("recipeIngredient", false);
+  const ingredients = (rawIngredients.length > 0 ? rawIngredients : propValues("ingredients", false)).map(
+    parseIngredientString,
+  );
+  const instructions = propValues("recipeInstructions", true).join("\n");
+
+  const recipe = { name, instructions, ingredients };
+  return hasAnyContent(recipe) ? recipe : null;
+}
+
+// ---------------------------------------------------------------------------
+// Tier 3: heading heuristic
+// ---------------------------------------------------------------------------
+
+// Heading text (after trimming a trailing colon) that introduces the
+// ingredient list / the method. English + Swedish (the app's two locales)
+// plus the handful of other languages Squirrel users are likeliest to paste
+// links in. Anchored so "Ingredients" / "Ingredienser till 4 portioner"
+// match but a blog paragraph heading like "Why these ingredients matter"
+// doesn't.
+const INGREDIENTS_HEADING_RE =
+  /^(?:the\s+)?(?:ingredients?|ingredienser|zutaten|ingrédients|ingrediënten|ingredienten|ingredientes|ingredienti|ainekset|du behöver|det här behöver du)(?:\s*\(.*\)|\s+(?:for|för|till|für|pour|voor|para|per)\s.*)?$/i;
+const INSTRUCTIONS_HEADING_RE =
+  /^(?:instructions?|directions?|method|preparation|steps|how to make it|gör så här|så här gör du|så gör du|instruktioner|tillagning|tillvägagångssätt|zubereitung|préparation|bereiding|preparación|preparazione|valmistus)$/i;
+
+const HEADING_OR_LIST_RE = /<(h[1-6]|ul|ol|p)\b[^>]*>/gi;
+// Past this many characters after the heading we stop looking — a list that
+// far away is almost certainly not the one the heading introduced.
+const HEURISTIC_SECTION_LIMIT = 20_000;
+
+function pageTitle(html: string): string {
+  const h1 = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/i);
+  const h1Text = h1 ? htmlToText(h1[1]) : "";
+  if (h1Text) return h1Text;
+  const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i);
+  if (!title) return "";
+  // "Chocolate Cake | My Food Blog" → "Chocolate Cake": the site-name suffix
+  // after a pipe/dash separator is near-universal and never part of the dish.
+  return htmlToText(title[1]).split(/\s+[|–—-]\s+/)[0]?.trim() ?? "";
+}
+
+type Heading = { level: number; text: string; start: number; end: number };
+
+function findHeadings(html: string): Heading[] {
+  const headings: Heading[] = [];
+  for (const match of html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)) {
+    headings.push({
+      level: Number(match[1]),
+      text: htmlToText(match[2]).replace(/\s*:$/, ""),
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+  return headings;
+}
+
+/**
+ * Lines of the section a heading introduces: the items of every `<ul>`/`<ol>`
+ * up to the next heading at the same or a higher level (so a sub-heading
+ * like "For the sauce" under "Ingredients" keeps going), or up to the other
+ * section's heading. If the section has no list at all, its paragraphs are
+ * used instead — some blogs write the method as plain `<p>` steps, or the
+ * ingredients as one `<p>` with `<br>`s.
+ */
+function collectSection(html: string, heading: Heading, stopRe: RegExp): string[] {
+  const windowEnd = Math.min(html.length, heading.end + HEURISTIC_SECTION_LIMIT);
+  const listLines: string[] = [];
+  const paragraphLines: string[] = [];
+  const re = new RegExp(HEADING_OR_LIST_RE.source, "gi");
+  re.lastIndex = heading.end;
+  for (let m = re.exec(html); m && m.index < windowEnd; m = re.exec(html)) {
+    const tag = m[1].toLowerCase();
+    if (tag === "p") {
+      // `</p>` is optional in HTML, so a paragraph ends at its close tag *or*
+      // the next block-level element — never let an unclosed `<p>` swallow
+      // the heading that should stop this section.
+      const contentStart = m.index + m[0].length;
+      const rest = html.slice(contentStart, windowEnd);
+      const stop = rest.search(/<\/p\s*>|<(?:p|h[1-6]|ul|ol|div)\b/i);
+      const inner = stop === -1 ? rest : rest.slice(0, stop);
+      paragraphLines.push(...htmlToLines(inner));
+      re.lastIndex = contentStart + inner.length;
+      continue;
+    }
+    const element = sliceElement(html, m.index, windowEnd - m.index);
+    if (!element) break;
+    if (tag.startsWith("h")) {
+      const text = htmlToText(element.inner).replace(/\s*:$/, "");
+      if (Number(tag[1]) <= heading.level || stopRe.test(text)) break;
+      continue;
+    }
+    // A list: one line per `<li>`, where an item runs to the next `<li` or
+    // list close (`</li>` is optional too). A nested sub-list's items come
+    // out as their own lines after the parent item's text.
+    for (const li of element.inner.matchAll(/<li\b[^>]*>([\s\S]*?)(?=<li\b|<\/[ou]l\s*>|$)/gi)) {
+      const text = htmlToText(li[1]);
+      if (text) listLines.push(text);
+    }
+    re.lastIndex = element.end;
+  }
+  return listLines.length > 0 ? listLines : paragraphLines;
+}
+
+/**
+ * Last-resort extraction for pages with no structured data: the page title
+ * plus whatever follows an "Ingredients" heading (and, if present, a
+ * "Method"/"Gör så här" heading). Requires at least one ingredient — a page
+ * title alone would "succeed" on every blog post and just pre-fill junk.
+ */
+export function parseHeuristicRecipe(html: string): ParsedRecipe | null {
+  const headings = findHeadings(html);
+  const ingredientsHeading = headings.find((h) => INGREDIENTS_HEADING_RE.test(h.text));
+  if (!ingredientsHeading) return null;
+
+  const ingredients = collectSection(html, ingredientsHeading, INSTRUCTIONS_HEADING_RE)
+    .map(parseIngredientString)
+    .filter((ingredient) => ingredient.name);
+  if (ingredients.length === 0) return null;
+
+  const instructionsHeading = headings.find((h) => INSTRUCTIONS_HEADING_RE.test(h.text));
+  const instructions = instructionsHeading
+    ? collectSection(html, instructionsHeading, INGREDIENTS_HEADING_RE).join("\n")
+    : "";
+
+  return { name: pageTitle(html), instructions, ingredients };
 }
 
 // ---------------------------------------------------------------------------

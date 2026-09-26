@@ -6,7 +6,9 @@ import {
   isPrivateOrReservedIPv4,
   isPrivateOrReservedIPv6,
   mapJsonLdToRecipe,
+  parseHeuristicRecipe,
   parseIngredientString,
+  parseMicrodataRecipe,
   parseRecipeFromHtml,
   validateRecipeUrl,
 } from "@/lib/recipe-import";
@@ -287,6 +289,7 @@ describe("parseRecipeFromHtml", () => {
         { name: "milk", quantity: 1, unit: "cup" },
         { name: "eggs", quantity: 2, unit: "pcs" },
       ],
+      source: "jsonld",
     });
   });
 
@@ -347,7 +350,200 @@ describe("parseRecipeFromHtml", () => {
         { name: "vetemjöl", quantity: 1.5, unit: "dl" },
         { name: "salt", quantity: 1, unit: "krm" },
       ],
+      source: "jsonld",
     });
+  });
+});
+
+describe("parseMicrodataRecipe", () => {
+  const microdataPage = `
+    <html>
+      <head><title>Grandma's Meatballs | Old Blog</title></head>
+      <body>
+        <nav><h1>Old Blog</h1></nav>
+        <div itemscope itemtype="http://schema.org/Recipe">
+          <h2 itemprop="name">Grandma&#8217;s Meatballs</h2>
+          <div itemprop="author" itemscope itemtype="http://schema.org/Person">
+            By <span itemprop="name">Grandma</span>
+          </div>
+          <span itemprop="recipeYield">4</span>
+          <ul>
+            <li itemprop="recipeIngredient">500 g ground beef</li>
+            <li itemprop="recipeIngredient">1 <b>egg</b></li>
+            <li itemprop="recipeIngredient">salt &amp; pepper</li>
+          </ul>
+          <ol>
+            <li itemprop="recipeInstructions" itemscope itemtype="http://schema.org/HowToStep">
+              <span itemprop="text">Mix everything.</span>
+            </li>
+            <li itemprop="recipeInstructions" itemscope itemtype="http://schema.org/HowToStep">
+              <span itemprop="text">Roll and fry.</span>
+            </li>
+          </ol>
+        </div>
+      </body>
+    </html>
+  `;
+
+  it("reads the Recipe item's own properties, ignoring nested items' `name`", () => {
+    expect(parseMicrodataRecipe(microdataPage)).toEqual({
+      name: "Grandma’s Meatballs",
+      instructions: "Mix everything.\nRoll and fry.",
+      ingredients: [
+        { name: "ground beef", quantity: 500, unit: "g" },
+        { name: "egg", quantity: 1, unit: "pcs" },
+        { name: "salt & pepper", quantity: 1, unit: "pcs" },
+      ],
+    });
+  });
+
+  it("honors `content` attributes, the legacy `ingredients` prop, and https itemtypes", () => {
+    const html = `
+      <article itemscope itemtype="https://schema.org/Recipe">
+        <meta itemprop="name" content="Toast">
+        <p itemprop="ingredients">2 slices bread</p>
+        <div itemprop="recipeInstructions"><p>Toast the bread.</p><p>Butter it.</p></div>
+      </article>
+    `;
+    expect(parseMicrodataRecipe(html)).toEqual({
+      name: "Toast",
+      instructions: "Toast the bread.\nButter it.",
+      ingredients: [{ name: "bread", quantity: 2, unit: "slices" }],
+    });
+  });
+
+  it("falls back to the page's <h1> when the item has no name", () => {
+    const html = `
+      <h1>Plain Rice</h1>
+      <div itemscope itemtype="http://schema.org/Recipe">
+        <span itemprop="recipeIngredient">2 dl ris</span>
+      </div>
+    `;
+    expect(parseMicrodataRecipe(html)?.name).toBe("Plain Rice");
+  });
+
+  it("returns null without a Recipe itemscope", () => {
+    const html = `<div itemscope itemtype="http://schema.org/Person"><span itemprop="name">X</span></div>`;
+    expect(parseMicrodataRecipe(html)).toBeNull();
+  });
+});
+
+describe("parseHeuristicRecipe", () => {
+  it("reads the title plus the lists under Ingredients/Instructions headings", () => {
+    const html = `
+      <html>
+        <head><title>Lemon Cake - Some Blog</title></head>
+        <body>
+          <h1>Lemon Cake</h1>
+          <p>My kids love this cake. Here are some ingredients I considered…</p>
+          <ul><li>Not an ingredient, a nav link</li></ul>
+          <h2>Ingredients:</h2>
+          <h3>For the cake</h3>
+          <ul>
+            <li>2 cups flour</li>
+            <li>1 cup sugar
+          </ul>
+          <h3>For the glaze</h3>
+          <ul><li>1 lemon</li></ul>
+          <h2>Instructions</h2>
+          <ol><li>Bake the cake.</li><li>Glaze it.</li></ol>
+          <h2>Comments</h2>
+          <ul><li>Great recipe!</li></ul>
+        </body>
+      </html>
+    `;
+    expect(parseHeuristicRecipe(html)).toEqual({
+      name: "Lemon Cake",
+      instructions: "Bake the cake.\nGlaze it.",
+      ingredients: [
+        { name: "flour", quantity: 2, unit: "cups" },
+        { name: "sugar", quantity: 1, unit: "cup" },
+        { name: "lemon", quantity: 1, unit: "pcs" },
+      ],
+    });
+  });
+
+  it("handles Swedish headings, a <title>-only name, and paragraph steps", () => {
+    const html = `
+      <head><title>Pannkakor | Matbloggen</title></head>
+      <h3>Ingredienser till 4 portioner</h3>
+      <ul><li>3 dl vetemjöl</li><li>6 dl mjölk</li><li>3 st ägg</li></ul>
+      <h3>Gör så här</h3>
+      <p>Vispa ihop allt.</p>
+      <p>Stek tunna pannkakor.
+      <h3>Fler recept</h3>
+      <p>Prova även våfflor!</p>
+    `;
+    expect(parseHeuristicRecipe(html)).toEqual({
+      name: "Pannkakor",
+      instructions: "Vispa ihop allt.\nStek tunna pannkakor.",
+      ingredients: [
+        { name: "vetemjöl", quantity: 3, unit: "dl" },
+        { name: "mjölk", quantity: 6, unit: "dl" },
+        { name: "ägg", quantity: 3, unit: "st" },
+      ],
+    });
+  });
+
+  it("returns null when there's no ingredients heading (a title alone isn't a recipe)", () => {
+    const html = `<h1>Why these ingredients matter</h1><ul><li>2 cups flour</li></ul>`;
+    expect(parseHeuristicRecipe(html)).toBeNull();
+  });
+
+  it("returns null when the ingredients heading has nothing under it", () => {
+    expect(parseHeuristicRecipe(`<h1>Cake</h1><h2>Ingredients</h2><h2>Method</h2>`)).toBeNull();
+  });
+});
+
+describe("parseRecipeFromHtml fallback order", () => {
+  const microdata = `
+    <div itemscope itemtype="http://schema.org/Recipe">
+      <span itemprop="name">Microdata Soup</span>
+      <span itemprop="recipeIngredient">1 onion</span>
+    </div>
+  `;
+  const heuristic = `<h1>Heuristic Soup</h1><h2>Ingredients</h2><ul><li>2 carrots</li></ul>`;
+
+  it("prefers JSON-LD over Microdata and the heuristic, unchanged", () => {
+    const html = `
+      <script type="application/ld+json">
+        {"@type":"Recipe","name":"JSON-LD Soup","recipeIngredient":["1 leek"]}
+      </script>
+      ${microdata}
+      ${heuristic}
+    `;
+    expect(parseRecipeFromHtml(html)).toEqual({
+      name: "JSON-LD Soup",
+      instructions: "",
+      ingredients: [{ name: "leek", quantity: 1, unit: "pcs" }],
+      source: "jsonld",
+    });
+  });
+
+  it("falls back to Microdata before the heuristic when there's no Recipe JSON-LD", () => {
+    const html = `
+      <script type="application/ld+json">{"@type":"BlogPosting","headline":"Hi"}</script>
+      ${microdata}
+      ${heuristic}
+    `;
+    expect(parseRecipeFromHtml(html)).toMatchObject({ name: "Microdata Soup", source: "microdata" });
+  });
+
+  it("falls back to the heuristic when there's no structured data at all", () => {
+    expect(parseRecipeFromHtml(heuristic)).toMatchObject({
+      name: "Heuristic Soup",
+      ingredients: [{ name: "carrots", quantity: 2, unit: "pcs" }],
+      source: "heuristic",
+    });
+  });
+
+  it("ignores lists inside scripts and comments when guessing", () => {
+    const html = `
+      <h1>Ghost</h1>
+      <!-- <h2>Ingredients</h2><ul><li>1 cup commented</li></ul> -->
+      <script>const tpl = "<h2>Ingredients</h2><ul><li>1 cup scripted</li></ul>";</script>
+    `;
+    expect(parseRecipeFromHtml(html)).toBeNull();
   });
 });
 

@@ -1042,6 +1042,8 @@ export const sv = {
     importButton: "Importera",
     importing: "Importerar…",
     importSuccess: "Importerat — granska fälten nedan och spara sedan.",
+    importLowConfidence:
+      "Granska innan du sparar: sidan saknar standardiserad receptdata, så fälten nedan är gissade utifrån sidans layout och kan vara ofullständiga eller fel.",
     importErrorInvalidUrl: "Ange en giltig webbadress (som börjar med http:// eller https://).",
     importErrorBlockedHost: "Den adressen kan inte hämtas.",
     importErrorFetchFailed: "Kunde inte läsa in sidan. Kontrollera länken och försök igen.",

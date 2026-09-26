@@ -2726,12 +2726,45 @@ imported recipe" requirement.
     `{quantity: 2, unit: "pcs", name: "eggs"}` (no recognized unit word, but
     a confident leading number), `"a pinch of salt"` → `{quantity: 1, unit:
     "pcs", name: "a pinch of salt"}` (no leading number at all).
-  - If no Recipe JSON-LD is found, or the node found has no usable
-    name/ingredients/instructions, `parseRecipeFromHtml` returns `null` and
-    the action surfaces `dict.mealPlanning.importErrorNoRecipeFound` — this
-    is expected to happen on plenty of real-world pages (Microdata-only
-    sites, or sites with no structured recipe data at all), not treated as a
-    bug.
+  - **Fallbacks for non-JSON-LD pages (GAP-31)**: if no usable Recipe
+    JSON-LD is found, `parseRecipeFromHtml` tries two best-effort tiers, in
+    order, stopping at the first that yields something. JSON-LD always wins
+    when present, and its output is unchanged apart from the new `source`
+    field. Both fallbacks first strip `<script>`/`<style>`/`<noscript>`/
+    `<template>`/`<svg>` and HTML comments so markup inside them can't be
+    mistaken for content, and both stay regex/string-based (a small
+    same-tag depth counter, `sliceElement`, finds an element's matching
+    close tag, with a 200k-char scan cap so malformed markup can't make it
+    quadratic on a 3MB page).
+    1. **schema.org Microdata** (`parseMicrodataRecipe`): the first element
+       with `itemscope` and an `itemtype` of `http(s)://schema.org/Recipe`.
+       Only the Recipe's *own* `itemprop`s count — one inside a nested
+       `itemscope` (the author's `Person`, a review) is skipped, so the
+       author's `name` never becomes the recipe name, while a nested
+       `HowToStep` that is itself `itemprop="recipeInstructions"` still
+       counts, as its full text. Reads `name` (falling back to the page's
+       `<h1>`/`<title>`), `recipeIngredient` (or legacy `ingredients`, each
+       run through `parseIngredientString`), and `recipeInstructions` (one
+       line per block element). A `content` attribute overrides visible
+       text, on `<meta>` and elsewhere. `recipeYield` isn't mapped, same as
+       the JSON-LD tier, which doesn't map it to servings either.
+    2. **Heading heuristic** (`parseHeuristicRecipe`): name from the first
+       `<h1>`, else `<title>` minus a ` | Site name`/` - Site name` suffix;
+       ingredients from the `<ul>`/`<ol>` items after an `<h1>`–`<h6>`
+       whose whole text is "Ingredients"/"Ingredienser" (plus a few other
+       languages, an optional trailing colon, and "… till 4 portioner"/"…
+       for 4 servings"), continuing past sub-headings ("For the glaze")
+       until a heading at the same or a higher level or a method heading;
+       instructions the same way after "Instructions"/"Method"/"Gör så
+       här"/…. A section with no list falls back to its `<p>`s (where an
+       unclosed `<p>` ends at the next block element). No ingredients means
+       no result — a page title alone would "succeed" on every blog post.
+  - The result carries `source: "jsonld" | "microdata" | "heuristic"`
+    (`ImportedRecipe`), passed through `ImportRecipeState.recipe.source` to
+    the form. If all three tiers find nothing, `parseRecipeFromHtml`
+    returns `null` and the action surfaces
+    `dict.mealPlanning.importErrorNoRecipeFound`. That's still expected on
+    some real-world pages and isn't treated as a bug.
 - **SSRF guard**: this is a server-side fetch of a user-supplied URL, so
   `validateRecipeUrl` (pure) rejects anything that isn't `http:`/`https:`,
   `localhost`/`*.localhost`, and an IP-literal hostname in a
@@ -2756,7 +2789,10 @@ imported recipe" requirement.
   string on failure or the parsed `recipe` on success; `RecipeFormDialog`
   shows a translated success line ("Imported — review the fields below,
   then save.") rather than closing the dialog, since the point is manual
-  review before saving.
+  review before saving. For a `microdata` or `heuristic` result it shows a
+  warning-styled "Review before saving" notice (`importLowConfidence`, in
+  both dictionaries) instead, saying the fields were guessed from the
+  page's layout and may be incomplete or wrong.
 
 ### Meal-plan → shopping-list bridge
 
