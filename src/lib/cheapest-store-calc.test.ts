@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeCheapestStoreComparisons, type PriceHistoryStoreRow } from "@/lib/cheapest-store-calc";
+import {
+  computeBasketStoreComparison,
+  computeCheapestStoreComparisons,
+  type PriceHistoryStoreRow,
+} from "@/lib/cheapest-store-calc";
 
 function row(overrides: Partial<PriceHistoryStoreRow>): PriceHistoryStoreRow {
   return {
@@ -105,5 +109,123 @@ describe("computeCheapestStoreComparisons", () => {
     expect(result).toEqual([
       { id: "item-1", name: "Milk", cheapestStore: "ICA Maxi", cheapestPrice: 17, storeCount: 2 },
     ]);
+  });
+});
+
+describe("computeBasketStoreComparison", () => {
+  const milk = (store: string, price: number, date = new Date(2026, 0, 1)) =>
+    row({ inventoryItemId: "milk", itemName: "Milk", store, price, date });
+  const bread = (store: string, price: number, date = new Date(2026, 0, 1)) =>
+    row({ inventoryItemId: "bread", itemName: "Bread", store, price, date });
+  const coffee = (store: string, price: number, date = new Date(2026, 0, 1)) =>
+    row({ inventoryItemId: "coffee", itemName: "Coffee", store, price, date });
+
+  it("returns null when fewer than 2 pending items have prices from ≥2 stores", () => {
+    // Bread has only one store, so milk is the only qualifying item.
+    const rows = [milk("ICA", 20), milk("Coop", 18), bread("ICA", 30)];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread"])).toBeNull();
+    expect(computeBasketStoreComparison([], [])).toBeNull();
+  });
+
+  it("only counts items that are pending on a list", () => {
+    // Bread has cross-store history but isn't on the list.
+    const rows = [milk("ICA", 20), milk("Coop", 18), bread("ICA", 30), bread("Coop", 25)];
+    expect(computeBasketStoreComparison(rows, ["milk"])).toBeNull();
+  });
+
+  it("sums each store's basket and ranks the cheaper one first at equal coverage", () => {
+    const rows = [milk("ICA", 20), milk("Coop", 18), bread("ICA", 30), bread("Coop", 35)];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread"])).toEqual({
+      itemCount: 2,
+      stores: [
+        { store: "ICA", total: 50, pricedCount: 2 },
+        { store: "Coop", total: 53, pricedCount: 2 },
+      ],
+    });
+  });
+
+  it("uses each store's most recent price, not its lowest", () => {
+    const rows = [
+      milk("ICA", 10, new Date(2026, 0, 1)),
+      milk("ICA", 25, new Date(2026, 0, 9)),
+      milk("Coop", 18),
+      bread("ICA", 30),
+      bread("Coop", 30),
+    ];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread"])?.stores).toEqual([
+      { store: "Coop", total: 48, pricedCount: 2 },
+      { store: "ICA", total: 55, pricedCount: 2 },
+    ]);
+  });
+
+  it("never ranks a partial total above a complete one, however cheap it looks", () => {
+    const rows = [
+      milk("ICA", 20),
+      milk("Coop", 18),
+      // Lidl has only a milk price — its 15 is a one-item total.
+      milk("Lidl", 15),
+      bread("ICA", 30),
+      bread("Coop", 32),
+      coffee("ICA", 60),
+      coffee("Coop", 55),
+    ];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread", "coffee"])).toEqual({
+      itemCount: 3,
+      stores: [
+        { store: "Coop", total: 105, pricedCount: 3 },
+        { store: "ICA", total: 110, pricedCount: 3 },
+        { store: "Lidl", total: 15, pricedCount: 1 },
+      ],
+    });
+  });
+
+  it("orders partially priced stores by coverage before total", () => {
+    const rows = [
+      milk("ICA", 20),
+      milk("Coop", 18),
+      milk("Lidl", 5),
+      bread("ICA", 30),
+      bread("Coop", 32),
+      coffee("ICA", 60),
+      coffee("Willys", 50),
+    ];
+    const result = computeBasketStoreComparison(rows, ["milk", "bread", "coffee"]);
+    expect(result?.stores.map((s) => [s.store, s.pricedCount])).toEqual([
+      ["ICA", 3],
+      ["Coop", 2],
+      ["Lidl", 1],
+      ["Willys", 1],
+    ]);
+  });
+
+  it("counts an item that's on two lists once", () => {
+    const rows = [milk("ICA", 20), milk("Coop", 18), bread("ICA", 30), bread("Coop", 35)];
+    const result = computeBasketStoreComparison(rows, ["milk", "milk", "bread"]);
+    expect(result?.itemCount).toBe(2);
+    expect(result?.stores[0]).toEqual({ store: "ICA", total: 50, pricedCount: 2 });
+  });
+
+  it("groups store spellings case-insensitively and shows the most recent spelling", () => {
+    const rows = [
+      milk("ica", 20, new Date(2026, 0, 1)),
+      milk("Coop", 18),
+      bread("ICA ", 30, new Date(2026, 0, 5)),
+      bread("Coop", 35),
+    ];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread"])?.stores).toEqual([
+      { store: "ICA", total: 50, pricedCount: 2 },
+      { store: "Coop", total: 53, pricedCount: 2 },
+    ]);
+  });
+
+  it("ignores rows with no store recorded", () => {
+    const rows = [
+      milk("ICA", 20),
+      milk("Coop", 18),
+      row({ inventoryItemId: "milk", store: null, price: 1 }),
+      bread("ICA", 30),
+      bread("Coop", 35),
+    ];
+    expect(computeBasketStoreComparison(rows, ["milk", "bread"])?.stores[0].total).toBe(50);
   });
 });

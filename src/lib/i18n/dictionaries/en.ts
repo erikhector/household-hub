@@ -1543,6 +1543,17 @@ export const en = {
         one: "{count} item is in stock, but it has no known price yet.",
         other: "{count} items are in stock, but none of them has a known price yet.",
       },
+      basketTitle: "Your list, store by store",
+      basketSubtitle:
+        "What the unchecked items on your shopping lists cost last time at each store. Only items you've bought at 2+ stores are counted.",
+      noBasketData:
+        "Not enough to compare yet. Once at least 2 items on your shopping lists have prices from 2+ stores, you'll see what the list would cost at each one here.",
+      // {total} is always ≥ 2 (MIN_BASKET_ITEMS), so no singular form needed.
+      basketCoverage: "{count} of {total} items priced",
+      basketAllPriced: "All {total} items priced",
+      basketCheapestBadge: "Cheapest",
+      basketPartialNote:
+        "Stores missing a price for some items show the total for the priced items only, and are ranked after stores with more prices.",
       expiredTitle: "Went past its date",
       expiredSubtitle:
         "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",

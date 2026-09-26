@@ -1481,6 +1481,16 @@ export const sv = {
         one: "{count} vara finns i lager, men den har inget känt pris än.",
         other: "{count} varor finns i lager, men ingen av dem har något känt pris än.",
       },
+      basketTitle: "Din lista, butik för butik",
+      basketSubtitle:
+        "Vad de oavbockade varorna på dina inköpslistor kostade senast i varje butik. Bara varor du köpt i 2+ butiker räknas.",
+      noBasketData:
+        "Inte tillräckligt att jämföra än. När minst 2 varor på dina inköpslistor har priser från 2+ butiker ser du här vad listan skulle kosta i varje butik.",
+      basketCoverage: "{count} av {total} varor prissatta",
+      basketAllPriced: "Alla {total} varor prissatta",
+      basketCheapestBadge: "Billigast",
+      basketPartialNote:
+        "Butiker som saknar pris på vissa varor visar summan för de prissatta varorna och rangordnas efter butiker med fler priser.",
       expiredTitle: "Gick ut innan den användes",
       expiredSubtitle:
         "Mat som nådde sitt bäst före-datum den här månaden innan den tog slut, ungefär till vad den kostade senast du köpte den.",
