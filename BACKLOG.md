@@ -113,32 +113,7 @@ Nothing queued right now.
 
 ### Shopping list & inventory automation
 
-AUTO-10 includes a small migration — coordinate it with the Phase 2 queue.
-
-- [ ] **AUTO-10. "You usually buy this about now" suggestions**
-      — `prisma/schema.prisma` (`ShoppingListItem`), new
-      `src/lib/inventory/repurchase-calc.ts` (+ test),
-      `src/components/shopping/shopping-list-client.tsx`
-      **Problem:** inventory counts drift because nobody updates them after
-      every breakfast, so low-stock detection alone misses things.
-      NourishMate/FoodStock-style apps predict run-outs from purchase
-      rhythm instead.
-      **Design brief:** a row of dismissible suggestion chips above the
-      list ("Coffee · usually every 12 days", "Oat milk"); one tap adds.
-      Dismissing snoozes that item until its next cycle. Never auto-added
-      (Guardrails), never in the bell.
-      **Dev notes:** needs a reliable purchase timestamp —
-      `purchasedAt DateTime?` on `ShoppingListItem`, set/cleared by the
-      toggle actions and receipt apply. (AUTO-9's `checkedOffAt` is close
-      but deliberately *not* set by receipt apply, so it isn't a purchase
-      date on its own.) `PriceHistory` alone isn't enough
-      because it's only written when a price is known. Pure calc: per
-      inventory item, median interval between purchases (≥ 3 purchases
-      required before suggesting anything), suggest when
-      `now − lastPurchase ≥ 0.85 × median` and the item isn't already
-      pending. The same data can later propose a learned
-      `lowStockThreshold` and usual purchase quantity (AUTO-8) — as a
-      suggestion on the item, not a silent change.
+Nothing queued right now.
 
 ---
 
@@ -216,13 +191,13 @@ out to be a product-scope question rather than a scoped task should move to
 - [ ] **GAP-20. A "we're away" pause on automation** `[!]` — needs a
       product decision. Several of this app's automations assume normal
       household rhythm — expiring-soon alerts, meal-not-logged nudges, and
-      AUTO-8's auto-add-to-list and (once shipped) AUTO-10's repurchase
-      suggestions all fire on a schedule that doesn't know the household is
+      AUTO-8's auto-add-to-list and AUTO-10's repurchase suggestions
+      all fire on a schedule that doesn't know the household is
       on vacation. Cozi-style family organizers don't solve this either, so
       there's no single pattern to copy. Options range from a single
       `Household.pausedUntil` date that every sync function
       (`getActiveNotifications`, the low-stock crossing helpers) checks and
-      no-ops against, to doing nothing until AUTO-8/AUTO-10 actually ship
+      no-ops against, to doing nothing until AUTO-8/AUTO-10 have seen real use
       and it's clear which automations are annoying enough while away to be
       worth the added state. Recommend deferring the decision until at
       least one of those Phase 2 items has real usage.
