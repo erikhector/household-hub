@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.4",
+    "date": "2026-09-26",
+    "pr": 77,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Closed a gap that let automated sign-in attempts skip the limit on password guesses.",
+      "sv": "Täppte till en lucka som lät automatiska inloggningsförsök kringgå gränsen för lösenordsgissningar."
+    }
+  },
+  {
     "version": "0.39.3",
     "date": "2026-09-26",
     "pr": 74,
