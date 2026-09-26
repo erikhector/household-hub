@@ -1042,11 +1042,43 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   with a `returnTo` (only in-app `/dashboard` paths are honoured, never an
   open redirect), which re-checks membership, makes that household active
   and lands back on the same month, now writable.
-- **No currency symbol**: amounts are formatted with `Intl.NumberFormat`
-  (locale-aware decimal separator, always 2 decimals) but no currency
-  symbol or code, same as `InventoryItem.lastKnownPrice`/
-  `ShoppingListItem.estimatedPrice` elsewhere in the app — there's no
-  household-level currency setting, so a symbol would be a guess.
+- **Display currency (GAP-13)**: every on-screen amount goes through one
+  formatter, `createMoneyFormat(locale, currencyCode)` in
+  `src/lib/currency.ts` (locale-aware decimal separator, always 2
+  decimals). `Household.currencyCode` (`String?`, default null) picks the
+  label:
+  - **Unset (the default)**: the plain symbol-free number every amount used
+    before GAP-13, so existing households see no change until the owner
+    opts in.
+  - **Set**: `Intl.NumberFormat`'s `{ style: "currency", currency }`, so the
+    locale places the symbol ("1 234,50 kr" in Swedish, "SEK 1,234.50" in
+    English). An unrecognised stored code falls back to the plain format
+    rather than throwing mid-render.
+  - **Display only, never converted.** Amounts are plain `Float`s with no
+    currency of their own; switching the setting relabels them and rewrites
+    nothing. Receipt conversion keeps targeting `HOUSEHOLD_BASE_CURRENCY`
+    (see "Currency conversion" under Receipt scanning), and GAP-9's
+    price-spike thresholds stay in SEK. The Household page says so in an
+    always-visible hint, since "switching to EUR converts my kronor" is
+    the one misreading the setting must not invite.
+  - **Where it's set**: `CurrencySetting`
+    (`src/components/household/currency-setting.tsx`) on the Household
+    page, a select of "No currency symbol" plus `SUPPORTED_CURRENCIES` (the
+    receipt scanner's list, all two-decimal currencies), with names from
+    `Intl.DisplayNames` in the viewer's language. It saves on change with
+    `useOptimistic`. **Owner-only**, like the calendar feed: it relabels
+    every amount every member sees. `setHouseholdCurrencyAction`
+    (`src/lib/actions/household.ts`) re-checks the role, normalises and
+    allow-lists the code (`parseHouseholdCurrency`), and revalidates the
+    whole `/dashboard` layout. Contributors see the value read-only.
+  - **Where it shows**: the household budget (Overview, Transactions,
+    Manage, Fixed budget, Cost analyzer, balances, savings goals), shopping
+    lists (row prices, the "left to spend" total and the completion toast)
+    and recipe cost lines. In F1's read-only view the budget uses the
+    *viewed* household's currency, not the active one's. The personal
+    budget spans every household the user is in, so it has no single
+    currency and stays symbol-free. CSV exports and the weekly digest email
+    stay plain numbers (see "Data export (CSV)").
 
 ### Cost analyzer
 
@@ -1204,7 +1236,8 @@ only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
-the budget page (locale-aware decimals, no currency symbol). The summation
+the budget page (`createMoneyFormat`: locale-aware decimals, plus the
+household's currency symbol once GAP-13's setting is chosen). The summation
 itself is a pure, unit-tested helper
 (`sumEstimatedPendingTotal`, `src/lib/shopping/estimated-total.ts`).
 - **Category lookup**: reuses `findOrCreateGroceriesCategory` (see
@@ -1226,8 +1259,8 @@ itself is a pure, unit-tested helper
 - **Feedback**: `completeShoppingListAction` returns
   `{ expenseLoggedMessage?: string }` (a change from its previous `void`
   return) built server-side from the `shoppingList` dictionary
-  (`expenseLogged`, interpolating a locale-formatted, currency-symbol-free
-  amount via `Intl.NumberFormat` — same convention as the rest of
+  (`expenseLogged`, interpolating a locale-formatted amount via
+  `createMoneyFormat` with the household's display currency — same convention as the rest of
   Budgeting) so the client stays dumb. `ShoppingListClient`
   (`src/components/shopping/shopping-list-client.tsx`) awaits the action
   inside its existing `useTransition` click handler and shows a `sonner`
@@ -1426,8 +1459,8 @@ Component page function can't itself be unit-tested.
   "Saving" badge, payments `text-destructive`, shared items badged
   "Shared") — so the number is never a black box. The list is hidden when
   nothing is due.
-- Same no-currency-symbol `Intl.NumberFormat` convention as the rest of
-  Budgeting; the headline number is colored `text-chart-5` (safe/positive)
+- Same `createMoneyFormat` display-currency convention as the rest of
+  Budgeting (GAP-13); the headline number is colored `text-chart-5` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
 
@@ -1571,11 +1604,13 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
     (`swishNumbersForPayer`), and `HouseholdBalances` re-checks
     `fromMemberId === currentMemberId` before rendering a link, so nobody
     else's number reaches the browser for no reason.
-  - Swish only moves SEK. There's no per-household currency yet (GAP-13);
-    every amount is assumed to be in `HOUSEHOLD_BASE_CURRENCY`
-    (`src/lib/currency.ts`, `"SEK"`), and the link is only offered while
-    `swishSupportsCurrency` accepts that — so it disappears by itself if
-    that constant, or a future household setting, says otherwise.
+  - Swish only moves SEK. The page passes `swishSupportsCurrency` the
+    household's display currency (GAP-13), falling back to
+    `HOUSEHOLD_BASE_CURRENCY` (`src/lib/currency.ts`, `"SEK"`) when it's
+    unset, so the link shows only for a SEK or unset household. A household
+    that picked EUR is taken at its word and gets no Swish link. The
+    link's aria label already says "kr", so it takes the plain number
+    rather than a second symbol.
   - Tapping it records nothing. The app can't see whether a Swish payment
     went through, and money changes are always an explicit action
     (BACKLOG.md's Guardrails), so a hint under the list tells the payer to
@@ -1851,7 +1886,8 @@ further here, as it isn't part of this section's original CSV-export scope.
   a field (doubling internal quotes) only when it contains a comma, quote,
   or newline, and joins rows with CRLF per RFC 4180. **Numeric fields are
   never run through `Intl.NumberFormat`/locale formatting** — unlike the
-  rest of the app's currency-symbol-free `Intl.NumberFormat` convention,
+  rest of the app's on-screen `createMoneyFormat` convention (which adds
+  GAP-13's currency symbol when one is set),
   several locales this app supports (Swedish) use a comma as the decimal
   separator, which would collide with CSV's own comma delimiter and corrupt
   the file; plain `.`-decimal numbers keep the export parseable by any
@@ -2115,10 +2151,10 @@ below.
   trailing amount. `detectReceiptCurrency` separately scans the whole
   receipt for the most frequent currency symbol/code, since a single
   receipt is essentially always one currency.
-- **Currency conversion**: there's no per-household currency setting
-  anywhere in the schema — every amount in this app is a plain `Float` — so
+- **Currency conversion**: every amount in this app is a plain `Float`, so
   `HOUSEHOLD_BASE_CURRENCY` (`src/lib/currency.ts`, currently `"SEK"`) is a
-  single fixed constant rather than a new setting. If a receipt's detected
+  single fixed constant. GAP-13's `Household.currencyCode` is a display
+  label only and deliberately doesn't change what receipts convert to. If a receipt's detected
   (or user-corrected) currency differs, `applyReceiptScanAction`
   (`src/app/dashboard/shopping-list/actions.ts`) fetches a live rate from
   **Frankfurter** (`frankfurter.dev`, free ECB reference rates, no API key)
@@ -2508,8 +2544,8 @@ meal-plan → shopping-list bridge uses.
   query on this tab only: the household's purchased, priced shopping-list
   lines for the inventory items some recipe links to, newest first. It
   passes the map with the `locale` to `RecipeManager`. Amounts use the app's
-  `Intl.NumberFormat` convention (locale-aware, 2 decimals, no currency
-  symbol), prefixed with "~" to mark them as estimates; the line's tooltip
+  `createMoneyFormat` convention (locale-aware, 2 decimals, with the
+  household's GAP-13 currency symbol when one is set), prefixed with "~" to mark them as estimates; the line's tooltip
   explains they come from what was last paid.
 
 ### Weekly nutrition recap

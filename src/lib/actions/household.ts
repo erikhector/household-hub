@@ -15,6 +15,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
+import { parseHouseholdCurrency } from "@/lib/currency";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -621,4 +622,42 @@ export async function regenerateCalendarFeedAction(): Promise<ActionState> {
 
 export async function disableCalendarFeedAction(): Promise<ActionState> {
   return setCalendarFeedToken("disable");
+}
+
+// --- Display currency (GAP-13) -------------------------------------------
+
+// Owner-only, like the calendar feed above: the choice relabels every amount
+// every member sees, so it's household administration rather than
+// day-to-day use (contrast the auto-add switch). Contributors still see the
+// current value on the Household page.
+const CURRENCY_OWNER_ONLY_MESSAGE = "Only the household owner can change the currency";
+
+/**
+ * Sets (or, with null/"", clears) the household's display currency. Only
+ * the label changes: no stored amount is converted or rewritten, and
+ * receipt conversion keeps targeting HOUSEHOLD_BASE_CURRENCY (see
+ * src/lib/currency.ts). A click action — the Household page's select saves
+ * on change — so it takes the value directly rather than FormData.
+ */
+export async function setHouseholdCurrencyAction(currencyCode: string | null): Promise<ActionState> {
+  const { household, role } = await requireHousehold();
+  if (role !== "OWNER") return { error: CURRENCY_OWNER_ONLY_MESSAGE };
+
+  const parsed = parseHouseholdCurrency(currencyCode);
+  if (parsed === undefined) return { error: "Choose a currency from the list" };
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { currencyCode: parsed },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  // Every page that shows an amount (budget, shopping lists, recipes, the
+  // household page itself) reads the setting, so the whole dashboard is
+  // revalidated rather than listing each route and missing one later.
+  revalidatePath("/dashboard", "layout");
+  return {};
 }

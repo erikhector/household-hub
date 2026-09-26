@@ -118,6 +118,18 @@ export const sv = {
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
     },
+    currency: {
+      title: "Valuta",
+      label: "Visa belopp i",
+      description:
+        "Lägger till en valutasymbol på belopp i hela appen, till exempel i budgeten, inköpslistor och receptkostnader.",
+      noConversionHint:
+        "Det här ändrar bara hur beloppen visas. Inget räknas om, så belopp du redan har skrivit in behåller sina siffror.",
+      none: "Ingen valutasymbol",
+      option: "{name} ({code})",
+      ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
+      savedToast: "Valutan har uppdaterats",
+    },
     calendarFeed: {
       title: "Kalenderflöde",
       description:

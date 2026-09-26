@@ -35,6 +35,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 // A household RecurringTemplate the user has opted into a split for (see
 // docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md) that's due but not yet
@@ -72,6 +73,7 @@ export function DueRecurringWidget({
   dict,
   logSharedDialogDict,
   locale,
+  currencyCode,
   onManageClick,
   onAcknowledge,
   onLogAsIs,
@@ -115,6 +117,8 @@ export function DueRecurringWidget({
    * undefined there. */
   logSharedDialogDict?: Dictionary["personalBudget"];
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   onManageClick: () => void;
   /** acknowledgeTemplatePeriodAction (household) or
    * acknowledgePersonalTemplatePeriodAction (personal). */
@@ -126,10 +130,7 @@ export function DueRecurringWidget({
   updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
 
   return (
     <Card>

@@ -153,6 +153,14 @@ model Household {
   // gives the route an indexed lookup, and Postgres allows many NULLs under a
   // unique index, so every household with the feed off can share the null.
   calendarFeedToken     String? @unique
+  // GAP-13: ISO 4217 code (one of SUPPORTED_CURRENCIES in
+  // src/lib/currency.ts, checked by setHouseholdCurrencyAction) that
+  // on-screen amounts are *labelled* with. Display only: amounts are plain
+  // Floats with no currency of their own and are never converted when this
+  // changes, and receipt conversion still targets HOUSEHOLD_BASE_CURRENCY.
+  // Null (the default) keeps the original symbol-free two-decimal display,
+  // so existing households see no change until the owner picks one.
+  currencyCode          String?
 
   members            HouseholdMember[]
   invitations        Invitation[]

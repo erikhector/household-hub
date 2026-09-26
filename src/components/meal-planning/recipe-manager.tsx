@@ -15,6 +15,7 @@ import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planni
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
+import { createMoneyFormat } from "@/lib/currency";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -31,6 +32,7 @@ function matchesQuery(recipe: RecipeData, query: string): boolean {
 export function RecipeManager({
   dict,
   locale,
+  currencyCode,
   recipes,
   recipeCosts,
   useItUpSuggestions,
@@ -39,6 +41,8 @@ export function RecipeManager({
 }: {
   dict: MealPlanningDict;
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   recipes: RecipeData[];
   // GAP-15: keyed by recipe id. A recipe with no entry had no ingredient
   // that could be priced and shows no cost line — see page.tsx.
@@ -48,14 +52,10 @@ export function RecipeManager({
   ingredientUnits: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
-  // Same convention as the shopping list's and budget page's amounts:
-  // locale-aware decimals, no currency symbol — there's no household-level
-  // currency setting, so a symbol would be a guess. Built once here rather
-  // than per row.
-  const numberFormat = useMemo(
-    () => new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-    [locale],
-  );
+  // Same formatter as the shopping list's and budget page's amounts:
+  // locale-aware two decimals, with the household's currency symbol once
+  // one is set (GAP-13). Built once here rather than per row.
+  const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
   const filteredRecipes = useMemo(
     () => recipes.filter((recipe) => matchesQuery(recipe, query)),
     [recipes, query],

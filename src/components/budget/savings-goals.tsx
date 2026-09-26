@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { SavingsGoalProgress } from "@/lib/savings-goal-calc";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type SavingsGoalRow = {
   id: string;
@@ -28,17 +29,19 @@ export function SavingsGoals({
   goals,
   dict,
   locale,
+  currencyCode,
 }: {
   goals: SavingsGoalRow[];
   dict: Dictionary["budget"]["savingsGoals"];
   locale: Locale;
+  /** GAP-13: the viewed household's display currency. Left unset by the
+   * personal budget page (no single household currency), so its amounts
+   * stay symbol-free like the rest of that page. */
+  currencyCode?: string | null;
 }) {
   if (goals.length === 0) return null;
 
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
   // goalDate is UTC midnight of the picked day (goalDateField), so it's
   // formatted in UTC to show that same day in every time zone.
   const dateFormat = new Intl.DateTimeFormat(locale, {

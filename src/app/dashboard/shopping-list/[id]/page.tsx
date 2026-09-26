@@ -106,6 +106,7 @@ export default async function ShoppingListDetailPage(
         manual: household.categoryOrderManual,
       }}
       locale={locale}
+      currencyCode={household.currencyCode}
     />
   );
 }
