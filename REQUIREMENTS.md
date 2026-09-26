@@ -4207,6 +4207,34 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `VAPID_PRIVATE_KEY` set (see `.env.example`), the card just reports the
   feature unavailable and every server-side send is a silent no-op — same
   fails-gracefully pattern as `RESEND_API_KEY` in `src/lib/email.ts`.
+  - **Input validation (SEC-3)**: `subscribeToPushAction` is the only place
+    an `endpoint`/keys pair enters the database, and `sendPushToHousehold`
+    later POSTs to that endpoint verbatim, so a Zod schema in
+    `src/lib/actions/push.ts` rejects anything that isn't a real browser's
+    Push API response before it's stored — a client-supplied endpoint that
+    isn't validated is a blind SSRF vector into this server's own network.
+    The endpoint must be an `https:` URL, ≤1024 characters, whose host
+    matches (by suffix, never by substring) one of the actual push
+    services' delivery hosts: `fcm.googleapis.com` (Chrome/Edge), a
+    subdomain of `push.services.mozilla.com` (Firefox), a subdomain of
+    `notify.windows.com` (legacy Edge/WNS), or a subdomain of
+    `push.apple.com` (Safari, including `web.push.apple.com`). `keys.p256dh`
+    and `keys.auth` must each decode (as base64url, padding tolerated) to
+    exactly 65 and 16 bytes — the fixed sizes the Web Push protocol defines
+    for the ECDH public key and auth secret. A subscription that fails
+    validation throws, which the card's existing subscribe try/catch
+    already surfaces as a generic error.
+  - **Per-user cap (SEC-3)**: `subscribeToPushAction` caps a user at 10
+    stored subscriptions. The cap is only checked when the endpoint is
+    brand new (an update to an already-stored endpoint never grows the
+    count); at the cap, the **oldest** row is evicted rather than the
+    subscribe being rejected — someone hitting the cap is almost always a
+    PWA reinstalled often (each install is a new endpoint), and the oldest
+    row is the one most likely already dead, so evicting it is friendlier
+    than leaving the device in front of them unable to get push. Both the
+    existence check and the eviction run inside the same `$transaction` as
+    the upsert, so concurrent subscribes from the same user can't both
+    slip past the count.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
     household. It's called from the same triggers as the in-app
@@ -4226,7 +4254,10 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     responds as soon as they resolve, at which point a serverless platform
     may freeze the invocation and drop any send still in flight. A 404/410 response (the browser revoked/expired that
     subscription) deletes the `PushSubscription` row so delivery stops
-    retrying it; any other error is just logged.
+    retrying it; any other error is just logged. Each send passes
+    `{ timeout: 10_000 }` (SEC-3) so one slow or unreachable push service
+    can't hang its socket indefinitely and, since every subscription's send
+    runs under the same `Promise.all`, hold up the rest of the fan-out.
   - **Quiet hours** (GAP-14): each `PushSubscription` row carries optional
     `quietHoursStart`/`quietHoursEnd` (0-23, local hour) and `timeZone`
     (the browser's IANA zone from

@@ -115,14 +115,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       add `checkRateLimit("recipe-import:<householdId>")` (~20/h) to the
       action in `meal-planning/recipe-actions.ts:420`. Test: mocked
       `dns.lookup` returning public-then-private never connects.
-- [ ] **SEC-3. Validate push subscription endpoints** (medium) —
-      `subscribeToPushAction` (`src/lib/actions/push.ts:30-40`) stores any
-      `endpoint`/keys, and `sendNotification` (`src/lib/push.ts:115`) later
-      POSTs to it: blind SSRF into internal hosts, plus unbounded rows per
-      user slowing every fan-out. Zod: `https:` URL ≤1024 chars on an
-      allowlist of push services (FCM, Mozilla, WNS, Apple), base64url keys
-      of the right length, ≤10 subscriptions per user; pass
-      `{ timeout: 10_000 }` to `sendNotification`.
 - [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
       SCALE-H's session revocation doesn't cover `PushSubscription`, so
       someone who briefly had the account keeps receiving household pushes.

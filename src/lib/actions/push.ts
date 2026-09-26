@@ -23,20 +23,123 @@ function sanitizeTimeZone(timeZone: string | undefined): string | null {
   return timeZone && isValidTimeZone(timeZone) ? timeZone : null;
 }
 
+// SEC-3: the endpoint is whatever the browser's Push API handed back, and
+// sendPushToHousehold (src/lib/push.ts) later POSTs to it verbatim — with no
+// allowlist, a tampered client could park an internal URL here and turn
+// every notification fan-out into a blind SSRF probe of this server's own
+// network. These are the real push services' delivery hosts as of today;
+// matched by suffix (`endsWith(".host")` after an exact-match check), never
+// by substring, so "fcm.googleapis.com.evil.example" doesn't qualify.
+const PUSH_ENDPOINT_HOST_ALLOWLIST = [
+  "fcm.googleapis.com", // Chrome, Edge and other Chromium-based browsers
+  "push.services.mozilla.com", // Firefox (covers updates.push.services.mozilla.com)
+  "notify.windows.com", // legacy Edge/WNS
+  "push.apple.com", // Safari on macOS/iOS 16.4+ (covers web.push.apple.com)
+] as const;
+
+function isAllowedPushHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return PUSH_ENDPOINT_HOST_ALLOWLIST.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}
+
+// Decodes a base64url string (padding tolerated, since some browsers still
+// send `=`-padded keys even though the Push API spec calls for unpadded) and
+// returns its byte length, or null if it isn't valid base64url at all. Used
+// below to check each ECDH/auth key is exactly the size the Web Push
+// protocol defines, rather than just "some string" that gets forwarded to
+// web-push and, from there, to the (now-allowlisted, but still
+// third-party) push service.
+function base64UrlByteLength(value: string): number | null {
+  const stripped = value.replace(/=+$/, "");
+  if (!/^[A-Za-z0-9_-]+$/.test(stripped)) return null;
+  return Buffer.from(stripped, "base64url").length;
+}
+
+const pushSubscriptionSchema = z.object({
+  endpoint: z
+    .string()
+    .max(1024)
+    .refine((value) => {
+      let url: URL;
+      try {
+        url = new URL(value);
+      } catch {
+        return false;
+      }
+      return url.protocol === "https:" && isAllowedPushHost(url.hostname);
+    }, "Endpoint must be an https URL on a recognised push service"),
+  keys: z.object({
+    // 65-byte uncompressed P-256 point -> 87 base64url characters unpadded.
+    p256dh: z
+      .string()
+      .max(128)
+      .refine((value) => base64UrlByteLength(value) === 65, "p256dh must decode to 65 bytes"),
+    // 16-byte auth secret -> 22 base64url characters unpadded.
+    auth: z
+      .string()
+      .max(64)
+      .refine((value) => base64UrlByteLength(value) === 16, "auth must decode to 16 bytes"),
+  }),
+  timeZone: z.string().optional(),
+});
+
+// SEC-3: caps rows per user so a PWA that gets reinstalled often (each
+// install/permission-reset is a brand-new endpoint) can't grow this table
+// without bound — sendPushToHousehold fetches every row for a household on
+// every notification, so an unbounded count slows down every fan-out, not
+// just that one user's.
+const MAX_PUSH_SUBSCRIPTIONS_PER_USER = 10;
+
 // Called from push-notifications-card.tsx right after
 // `pushManager.subscribe()` resolves. Upserts by endpoint so re-subscribing
 // the same browser (e.g. after clearing its permission) just refreshes the
 // keys instead of erroring on the unique constraint.
 export async function subscribeToPushAction(sub: PushSubscriptionInput): Promise<void> {
   const userId = await requireUserId();
-  const timeZone = sanitizeTimeZone(sub.timeZone);
 
-  await prisma.pushSubscription.upsert({
-    where: { endpoint: sub.endpoint },
-    create: { userId, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, timeZone },
-    // Quiet hours are left alone on update — re-subscribing refreshes keys
-    // and the zone, it isn't a request to reset the user's schedule.
-    update: { userId, p256dh: sub.keys.p256dh, auth: sub.keys.auth, timeZone },
+  const parsed = pushSubscriptionSchema.safeParse(sub);
+  if (!parsed.success) {
+    // A real browser's Push API never produces an endpoint or keys that
+    // fail this schema — this can only be a tampered client or a push
+    // service outside the allowlist, and there's no form here to show a
+    // field error on. Throwing surfaces it to the card's existing
+    // catch/setError(true) path, same as a rejected pushManager.subscribe().
+    throw new Error("Invalid push subscription");
+  }
+  const { endpoint, keys, timeZone: rawTimeZone } = parsed.data;
+  const timeZone = sanitizeTimeZone(rawTimeZone);
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.pushSubscription.findUnique({ where: { endpoint }, select: { id: true } });
+    if (!existing) {
+      // Only enforce the cap when this endpoint would add a new row — an
+      // update to an already-stored endpoint (the common "resubscribe the
+      // same browser" case) never grows the count, so it should never evict
+      // anything.
+      const count = await tx.pushSubscription.count({ where: { userId } });
+      if (count >= MAX_PUSH_SUBSCRIPTIONS_PER_USER) {
+        // Evict the oldest row rather than reject the new subscribe: a user
+        // hitting the cap is almost always someone who reinstalls the PWA a
+        // lot (a new service-worker registration each time is a new
+        // endpoint), and the oldest row is the one most likely already dead
+        // — rejecting would just leave them unable to get push on the
+        // device in front of them right now.
+        const oldest = await tx.pushSubscription.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        if (oldest) await tx.pushSubscription.delete({ where: { id: oldest.id } });
+      }
+    }
+
+    await tx.pushSubscription.upsert({
+      where: { endpoint },
+      create: { userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, timeZone },
+      // Quiet hours are left alone on update — re-subscribing refreshes keys
+      // and the zone, it isn't a request to reset the user's schedule.
+      update: { userId, p256dh: keys.p256dh, auth: keys.auth, timeZone },
+    });
   });
 
   revalidatePath("/dashboard/profile");
