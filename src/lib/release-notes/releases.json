@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.6",
+    "date": "2026-09-26",
+    "pr": 75,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning and the Cook tab load faster, especially if you have many recipes.",
+      "sv": "Måltidsplaneringen och fliken Laga laddas snabbare, särskilt om du har många recept."
+    }
+  },
+  {
     "version": "0.39.5",
     "date": "2026-09-26",
     "pr": 79,
