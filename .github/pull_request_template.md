@@ -30,6 +30,8 @@ English note to Swedish users too. Ignored for non-releasing PR types.
 
 ## Checklist
 
-- [ ] `npm run lint`, `npx next typegen && npx tsc --noEmit`, `npm test` and `npm run build` pass
+- [ ] `npm run check` (lint, typecheck, test) and `npm run build` pass
+- [ ] New or changed logic has colocated tests; bug fixes have a regression test
+- [ ] Self-reviewed the diff (`.claude/skills/self-review/SKILL.md`)
 - [ ] New user-facing text is in both `en.ts` and `sv.ts`
 - [ ] Finished BACKLOG.md items are documented in REQUIREMENTS.md and removed from the backlog

@@ -45,3 +45,6 @@ next-env.d.ts
 
 # agent worktrees used to parallelize the UX friction backlog work
 .claude/worktrees/
+
+# personal Claude Code overrides (shared settings live in .claude/settings.json)
+.claude/settings.local.json
