@@ -18,7 +18,13 @@ const {
   mealPlanEntryFindManyMock,
   mealPlanEntryCreateManyAndReturnMock,
   mealPlanEntryDeleteManyMock,
+  notificationUpdateManyMock,
+  transactionMock,
 } = vi.hoisted(() => ({
+  notificationUpdateManyMock: vi.fn(),
+  // The array form of $transaction: the "queries" are whatever the model
+  // mocks returned, so just resolve them all.
+  transactionMock: vi.fn((queries: unknown[]) => Promise.all(queries)),
   requireHouseholdMock: vi.fn(),
   recipeFindFirstMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
@@ -46,6 +52,8 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: mealPlanEntryDeleteManyMock,
     },
     mealPlan: { upsert: mealPlanUpsertMock },
+    notification: { updateMany: notificationUpdateManyMock },
+    $transaction: transactionMock,
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
@@ -55,6 +63,7 @@ const {
   addMealEntryAction,
   updateMealEntryAction,
   deleteMealEntryAction,
+  moveMealEntryAction,
   copyWeekAction,
   undoCopyWeekAction,
 } = await import(
@@ -221,6 +230,140 @@ describe("updateMealEntryAction", () => {
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
       where: { id: "entry-1" },
       data: { recipeId: null, freeformName: "Taco night", portions: 4 },
+    });
+  });
+});
+
+describe("moveMealEntryAction", () => {
+  const uncooked = { id: "entry-1", consumedAt: null };
+
+  it("returns 'Meal not found' for an entry outside the caller's household (IDOR guard)", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(null);
+
+    const result = await moveMealEntryAction(
+      {},
+      formData({ entryId: "someone-elses-entry", date: "2026-01-08", mealType: "LUNCH" }),
+    );
+
+    expect(result.error).toBe("Meal not found");
+    expect(mealPlanEntryFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "someone-elses-entry", mealPlan: { householdId: household.id } },
+      }),
+    );
+    expect(mealPlanUpsertMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses to move a meal that's already been cooked", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date("2026-01-06T18:00:00Z") });
+
+    const result = await moveMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", date: "2026-01-08", mealType: "DINNER" }),
+    );
+
+    expect(result.error).toBe("A cooked meal can't be moved");
+    expect(mealPlanUpsertMock).not.toHaveBeenCalled();
+    expect(mealPlanEntryUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a malformed date", { date: "08/01/2026", mealType: "DINNER" }],
+    ["an impossible calendar date", { date: "2026-02-31", mealType: "DINNER" }],
+    ["an unknown meal type", { date: "2026-01-08", mealType: "BRUNCH" }],
+  ])("rejects %s before touching the database", async (_label, fields) => {
+    const result = await moveMealEntryAction({}, formData({ entryId: "entry-1", ...fields }));
+
+    expect(result.error).toBeTruthy();
+    expect(mealPlanEntryFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("moves an entry within its week, re-deriving the week from the new date", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(uncooked);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+
+    // 2026-01-08 is a Thursday in the week starting Monday 2026-01-05.
+    const result = await moveMealEntryAction(
+      {},
+      formData({ entryId: "entry-1", date: "2026-01-08", mealType: "LUNCH" }),
+    );
+
+    expect(result).toEqual({});
+    const weekStartDate = new Date("2026-01-05T00:00:00.000Z");
+    expect(mealPlanUpsertMock).toHaveBeenCalledWith({
+      where: { householdId_weekStartDate: { householdId: household.id, weekStartDate } },
+      update: {},
+      create: { householdId: household.id, weekStartDate },
+    });
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { mealPlanId: "plan-1", date: new Date("2026-01-08T00:00:00.000Z"), mealType: "LUNCH" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("find-or-creates the target week's MealPlan when moving into a different week", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(uncooked);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-next-week" });
+
+    // Sunday 2026-01-18 belongs to the week starting Monday 2026-01-12.
+    await moveMealEntryAction({}, formData({ entryId: "entry-1", date: "2026-01-18", mealType: "DINNER" }));
+
+    const weekStartDate = new Date("2026-01-12T00:00:00.000Z");
+    expect(mealPlanUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { householdId_weekStartDate: { householdId: household.id, weekStartDate } },
+        create: { householdId: household.id, weekStartDate },
+      }),
+    );
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ mealPlanId: "plan-next-week" }) }),
+    );
+  });
+
+  it("ignores any week key or household id the client sends", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(uncooked);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+
+    await moveMealEntryAction(
+      {},
+      formData({
+        entryId: "entry-1",
+        date: "2026-01-08",
+        mealType: "LUNCH",
+        weekStartDate: "2030-06-03",
+        householdId: "someone-elses-household",
+      }),
+    );
+
+    expect(mealPlanUpsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          householdId_weekStartDate: {
+            householdId: household.id,
+            weekStartDate: new Date("2026-01-05T00:00:00.000Z"),
+          },
+        },
+      }),
+    );
+  });
+
+  it("dismisses an open 'meal not logged' reminder for the moved entry in the same transaction", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue(uncooked);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+
+    await moveMealEntryAction({}, formData({ entryId: "entry-1", date: "2026-01-08", mealType: "LUNCH" }));
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(notificationUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        householdId: household.id,
+        mealPlanEntryId: "entry-1",
+        kind: "MEAL_NOT_LOGGED",
+        dismissedAt: null,
+      },
+      data: { dismissedAt: expect.any(Date) },
     });
   });
 });

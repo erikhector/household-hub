@@ -150,6 +150,105 @@ export async function updateMealEntryAction(
   return {};
 }
 
+// A real calendar date, not just the `yyyy-mm-dd` shape: "2026-02-31" would
+// otherwise roll over to March 3rd inside `new Date()` and silently land the
+// meal somewhere the user never picked.
+const dateKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date")
+  .refine((key) => {
+    const date = parseDateKey(key);
+    return !Number.isNaN(date.getTime()) && toDateKey(date) === key;
+  }, "Invalid date");
+
+const moveEntrySchema = z.object({
+  entryId: z.string().min(1),
+  date: dateKeySchema,
+  mealType: z.enum(MEAL_TYPES),
+});
+
+// GAP-30: move a planned meal to another day and/or meal type, instead of
+// deleting it and adding it again (which loses its portions and forces
+// re-picking the recipe). A sibling of updateMealEntryAction rather than an
+// extension of it, so the edit form's "what's cooked" fields and this
+// "when" form stay independent and neither can clobber the other's columns.
+//
+// Unlike addMealEntryAction, the client doesn't send a week key at all: the
+// target week is derived here from the picked date via getWeekStart, so a
+// crafted form can't file an entry under a MealPlan whose week doesn't
+// contain its date (a row no page view would ever show). A date in another
+// week find-or-creates that week's MealPlan the same way add does. Slots
+// stack exactly as they do for add: moving into a slot that already has a
+// meal just puts both there, since there's no uniqueness constraint on
+// (date, mealType).
+//
+// A cooked entry can't be moved. Its date and slot are the record of when
+// that meal was actually eaten and its ingredients came out of inventory, so
+// moving it would rewrite history rather than change a plan. It's the same
+// reason the edit pencil is hidden once a meal is cooked, and like editing,
+// a cooked meal is final once "Mark as cooked"'s short Undo toast is gone.
+export async function moveMealEntryAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = moveEntrySchema.safeParse({
+    entryId: formData.get("entryId"),
+    date: formData.get("date"),
+    mealType: formData.get("mealType"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const { entryId, date, mealType } = parsed.data;
+
+  const entry = await prisma.mealPlanEntry.findFirst({
+    where: { id: entryId, mealPlan: { householdId: household.id } },
+    select: { id: true, consumedAt: true },
+  });
+  if (!entry) return { error: "Meal not found" };
+  if (entry.consumedAt) return { error: "A cooked meal can't be moved" };
+
+  const targetDate = parseDateKey(date);
+  const weekStartDate = getWeekStart(targetDate);
+
+  // The source week's MealPlan row is left behind even if this empties it,
+  // the same as deleting its last entry would: an empty plan is harmless and
+  // the page already treats "no row" and "no entries" alike.
+  const plan = await prisma.mealPlan.upsert({
+    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate } },
+    update: {},
+    create: { householdId: household.id, weekStartDate },
+  });
+
+  // Moving a meal is the household answering a "Meal not logged" reminder
+  // ("we didn't cook it, it's on Thursday now"), so an open one for this
+  // entry is dismissed alongside the move rather than left in the bell
+  // pointing at the new date. It's dismissed, not deleted: that reminder
+  // fires at most once per entry, ever (see "Meal not logged" in
+  // REQUIREMENTS.md), and a moved meal doesn't get a second nag.
+  await prisma.$transaction([
+    prisma.mealPlanEntry.update({
+      where: { id: entry.id },
+      data: { mealPlanId: plan.id, date: targetDate, mealType },
+    }),
+    prisma.notification.updateMany({
+      where: {
+        householdId: household.id,
+        mealPlanEntryId: entry.id,
+        kind: "MEAL_NOT_LOGGED",
+        dismissedAt: null,
+      },
+      data: { dismissedAt: new Date() },
+    }),
+  ]);
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return {};
+}
+
 export async function deleteMealEntryAction(entryId: string) {
   const { household } = await requireHousehold();
 
