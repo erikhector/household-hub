@@ -19,12 +19,11 @@ export const maxDuration = 60;
 export default async function ShoppingListDetailPage(
   props: PageProps<"/dashboard/shopping-list/[id]">,
 ) {
-  const [{ household }, dict, locale, { id }, searchParams] = await Promise.all([
+  const [{ household }, dict, locale, { id }] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     props.params,
-    props.searchParams,
   ]);
 
   const [list, inventoryItems] = await Promise.all([
@@ -136,9 +135,6 @@ export default async function ShoppingListDetailPage(
       currencyCode={household.currencyCode}
       defersToPutAway={defersToPutAway(household)}
       locations={locations}
-      // The put-away reminder (push and bell) links here with ?putAway=1 so
-      // acting on it is one tap.
-      openPutAwayOnLoad={searchParams.putAway === "1"}
     />
   );
 }

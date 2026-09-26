@@ -81,8 +81,11 @@ export function PutAwayDialog({
   items: PutAwayItem[];
   /** Opened from "Done shopping": offer finishing the list as well. */
   finishing: boolean;
-  /** Completes the list (the page's own completeList, with its Undo toast). */
-  onFinish: () => void;
+  /** Completes the list — the page decides whether that needs its "items
+   * still pending" confirmation first. `newlyPending` is how many rows this
+   * dialog just sent back to the list as "didn't get it", which the page's
+   * own props don't know about yet. */
+  onFinish: (newlyPending: number) => void;
   numberFormat: Intl.NumberFormat;
   locations: string[];
   dict: Dictionary["shoppingList"];
@@ -136,6 +139,7 @@ export function PutAwayDialog({
 
     setError(null);
     startTransition(async () => {
+      let newlyPending = 0;
       if (entries.length > 0) {
         const result = await putAwayItemsAction(listId, entries);
         if (result.error) {
@@ -144,12 +148,13 @@ export function PutAwayDialog({
         }
         const putAway = result.putAway ?? 0;
         const notBought = result.notBought ?? 0;
+        newlyPending = notBought;
         if (putAway > 0) toast.success(format(plural(putAway, t.doneToast), { count: putAway }));
         if (notBought > 0) toast.info(format(plural(notBought, t.notBoughtToast), { count: notBought }));
         showAutoAddedToast(result.autoAdded, autoAddDict);
       }
       onOpenChange(false);
-      if (thenFinish) onFinish();
+      if (thenFinish) onFinish(newlyPending);
     });
   }
 
@@ -263,7 +268,7 @@ export function PutAwayDialog({
               disabled={pending}
               onClick={() => {
                 onOpenChange(false);
-                onFinish();
+                onFinish(0);
               }}
             >
               {t.finishLater}

@@ -483,8 +483,8 @@ export const en = {
       finishConfirm: "Put away & finish",
       finishLater: "Finish, put away later",
       doneToast: {
-        one: "Put away {count} item",
-        other: "Put away {count} items",
+        one: "{count} item put away",
+        other: "{count} items put away",
       },
       notBoughtToast: {
         one: "{count} item went back on the list",

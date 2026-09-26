@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -143,7 +144,6 @@ export function ShoppingListClient({
   repurchaseSuggestions,
   defersToPutAway = false,
   locations = [],
-  openPutAwayOnLoad = false,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -170,8 +170,6 @@ export function ShoppingListClient({
   defersToPutAway?: boolean;
   /** The household's inventory locations, for the put-away dialog. */
   locations?: string[];
-  /** Arrived via the put-away reminder's link (`?putAway=1`). */
-  openPutAwayOnLoad?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -228,9 +226,26 @@ export function ShoppingListClient({
 
   // null = closed; "finish" = opened from "Done shopping"/"Complete list"
   // while rows are still waiting, so confirming also completes the list.
-  const [putAwayMode, setPutAwayMode] = useState<"putAway" | "finish" | null>(
-    openPutAwayOnLoad && awaitingPutAway.length > 0 ? "putAway" : null,
-  );
+  const [putAwayMode, setPutAwayMode] = useState<"putAway" | "finish" | null>(null);
+
+  // The put-away reminder (push and bell) links here with `?putAway=1`.
+  // Watched as it changes, not just read on mount: tapping the bell while
+  // this list is already open is a client-side navigation that only
+  // changes the search params. Adjust-state-during-render, like the
+  // cleared-state tracking below, so it opens in the same render. Closing
+  // the dialog strips the param again, so the next tap is a change too.
+  const router = useRouter();
+  const pathname = usePathname();
+  const putAwayParam = useSearchParams().get("putAway");
+  const [seenPutAwayParam, setSeenPutAwayParam] = useState<string | null>(null);
+  if (putAwayParam !== seenPutAwayParam) {
+    setSeenPutAwayParam(putAwayParam);
+    if (putAwayParam === "1" && awaitingPutAway.length > 0) setPutAwayMode("putAway");
+  }
+  const closePutAway = () => {
+    setPutAwayMode(null);
+    if (putAwayParam !== null) router.replace(pathname, { scroll: false });
+  };
 
   const addLowStock = () =>
     startTransition(async () => {
@@ -510,7 +525,7 @@ export function ShoppingListClient({
         <PutAwayDialog
           open={putAwayMode !== null}
           onOpenChange={(next) => {
-            if (!next) setPutAwayMode(null);
+            if (!next) closePutAway();
           }}
           listId={list.id}
           items={awaitingPutAway.map((item) => ({
@@ -523,7 +538,12 @@ export function ShoppingListClient({
             location: item.location,
           }))}
           finishing={putAwayMode === "finish" && isActive}
-          onFinish={completeList}
+          // Finishing from the dialog still respects the "complete with items
+          // pending" confirmation whenever unticked rows remain — including
+          // ones the dialog itself just sent back as "didn't get it".
+          onFinish={(newlyPending) =>
+            pendingItems.length + newlyPending > 0 ? dialogs.completeList.open(null) : completeList()
+          }
           numberFormat={numberFormat}
           locations={locations}
           dict={dict}
