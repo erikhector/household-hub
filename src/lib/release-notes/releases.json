@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.38.0",
+    "date": "2026-09-26",
+    "pr": 68,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Repeating tasks can now take turns: pick who's in the rotation, and each time the task is done it passes to the next person. Unticking it by mistake hands the turn back.",
+      "sv": "Återkommande uppgifter kan nu turas om: välj vilka som är med, så går uppgiften vidare till nästa person varje gång den är klar. Bockar du ur den av misstag går turen tillbaka."
+    }
+  },
+  {
     "version": "0.37.0",
     "date": "2026-09-26",
     "pr": 67,
