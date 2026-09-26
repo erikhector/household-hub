@@ -112,7 +112,16 @@ async function deliver(where: Prisma.PushSubscriptionWhereInput, payload: PushPa
   await Promise.all(
     subscriptions.map(async (sub) => {
       try {
-        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, body);
+        // SEC-3: without a timeout, one unreachable/slow push service (or an
+        // endpoint that slipped through as something other than a push
+        // service's own host) could hang this call indefinitely and, since
+        // these run under Promise.all, hold up every other subscription's
+        // send alongside it.
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          body,
+          { timeout: 10_000 },
+        );
       } catch (error) {
         // 404/410 means the browser has expired/revoked this subscription
         // server-side — clean it up so we stop trying. Anything else (a
