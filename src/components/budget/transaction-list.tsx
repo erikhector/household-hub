@@ -27,6 +27,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type TransactionListRow = TransactionRow & {
   categoryName: string;
@@ -101,6 +102,7 @@ export function TransactionList({
   monthKey,
   dict,
   locale,
+  currencyCode,
   onDelete,
   createAction,
   updateAction,
@@ -123,6 +125,8 @@ export function TransactionList({
   monthKey?: string;
   dict: BudgetDict;
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   /** deleteTransactionAction (household) or deletePersonalTransactionAction
    * (personal) — injected the same way TransactionDialog's createAction/
    * updateAction are (BUDGET-2). */
@@ -131,10 +135,7 @@ export function TransactionList({
   updateAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
   const dateFormat = new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "short",

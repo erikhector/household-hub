@@ -100,6 +100,10 @@ export const requireHousehold = cache(async () => {
       id: m.household.id,
       name: m.household.name,
       role: m.role,
+      // GAP-13: the Budget page can show a household other than the active
+      // one (F1's read-only view), whose amounts must carry *that*
+      // household's currency label. Already loaded by the include above.
+      currencyCode: m.household.currencyCode,
     })),
   };
 });

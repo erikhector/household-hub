@@ -21,6 +21,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type RecurringTemplateListRow = RecurringTemplateRow & {
   categoryName: string;
@@ -53,6 +54,7 @@ export function RecurringTemplatesPanel({
   monthKey,
   dict,
   locale,
+  currencyCode,
   onTogglePause,
   onDelete,
   onAcknowledge,
@@ -76,6 +78,8 @@ export function RecurringTemplatesPanel({
   monthKey: string;
   dict: BudgetDict;
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   /** setRecurringTemplateActiveAction (household) or
    * setPersonalRecurringTemplateActiveAction (personal). */
   onTogglePause: (id: string, active: boolean) => Promise<ActionState>;
@@ -94,10 +98,7 @@ export function RecurringTemplatesPanel({
   updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
 
   const due = templates.filter((t) => t.status === "due");
   const acknowledged = templates.filter((t) => t.status === "acknowledged");

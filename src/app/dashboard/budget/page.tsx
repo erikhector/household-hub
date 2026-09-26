@@ -111,10 +111,12 @@ async function CostAnalyzerSection({
   householdId,
   dict,
   locale,
+  currencyCode,
 }: {
   householdId: string;
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
+  currencyCode: string | null;
 }) {
   // `store` (GAP-6) is optional and mostly null on older rows — it's only
   // ever set when the household typed one in on a receipt scan/register
@@ -212,6 +214,7 @@ async function CostAnalyzerSection({
       expiredLastMonth={expiredLastMonth}
       dict={dict}
       locale={locale}
+      currencyCode={currencyCode}
     />
   );
 }
@@ -249,6 +252,7 @@ async function BudgetTabsSection({
   userId,
   dict,
   locale,
+  currencyCode,
   monthStart,
   monthEnd,
   monthKey,
@@ -264,6 +268,8 @@ async function BudgetTabsSection({
   userId: string;
   dict: Dictionary;
   locale: Locale;
+  // GAP-13: the *viewed* household's display currency (see BudgetPage).
+  currencyCode: string | null;
   monthStart: Date;
   monthEnd: Date;
   monthKey: string;
@@ -452,13 +458,15 @@ async function BudgetTabsSection({
       )
     : [];
   // GAP-7: Swish numbers for the transfers the signed-in member has to pay.
-  // Every amount is assumed to be in HOUSEHOLD_BASE_CURRENCY (there's no
-  // per-household currency yet, GAP-13), and Swish only moves SEK.
+  // Swish only moves SEK. A household that has picked a display currency
+  // (GAP-13) is taken at its word, so the link disappears for anything but
+  // SEK; one that hasn't keeps the pre-GAP-13 assumption that amounts are in
+  // HOUSEHOLD_BASE_CURRENCY, so the link still shows exactly as before.
   const swishNumbers = swishNumbersForPayer({
     settlements,
     payerMemberId: currentMemberId,
     members: householdMembers.map((m) => ({ id: m.id, swishNumber: m.user.swishNumber })),
-    currencyCode: HOUSEHOLD_BASE_CURRENCY,
+    currencyCode: currencyCode ?? HOUSEHOLD_BASE_CURRENCY,
   });
   const unpaidBills: UnpaidBillRow[] = splitTransactions
     .map((t) => ({
@@ -651,6 +659,7 @@ async function BudgetTabsSection({
         monthKey={monthKey}
         dict={dict.budget}
         locale={locale}
+        currencyCode={currencyCode}
         onTogglePause={setRecurringTemplateActiveAction}
         onDelete={deleteRecurringTemplateAction}
         onAcknowledge={acknowledgeTemplatePeriodAction}
@@ -687,6 +696,7 @@ async function BudgetTabsSection({
         currentMemberId={currentMemberId}
         dict={dict.budget}
         locale={locale}
+        currencyCode={currencyCode}
         onDelete={deleteTransactionAction}
         createAction={createTransactionAction}
         updateAction={updateTransactionAction}
@@ -719,6 +729,7 @@ async function BudgetTabsSection({
       savingsByCategory={savingsByCategory}
       dict={dict.budget.summary}
       locale={locale}
+      currencyCode={currencyCode}
     />
   );
 
@@ -733,6 +744,7 @@ async function BudgetTabsSection({
       )}
       dict={dict.budget.savingsGoals}
       locale={locale}
+      currencyCode={currencyCode}
     />
   );
 
@@ -749,11 +761,17 @@ async function BudgetTabsSection({
         expenseBreakdown={fixedExpenseBreakdown}
         dict={dict.budget.fixedSummary}
         locale={locale}
+        currencyCode={currencyCode}
       />
       {/* SCALE-J: its own Suspense boundary/query — see CostAnalyzerSection's
           doc comment above. */}
       <Suspense fallback={<CostAnalyzerSkeleton />}>
-        <CostAnalyzerSection householdId={householdId} dict={dict.budget.costAnalyzer} locale={locale} />
+        <CostAnalyzerSection
+          householdId={householdId}
+          dict={dict.budget.costAnalyzer}
+          locale={locale}
+          currencyCode={currencyCode}
+        />
       </Suspense>
       {hasSplitting && (
         <HouseholdBalances
@@ -765,6 +783,7 @@ async function BudgetTabsSection({
           swishNumbers={swishNumbers}
           dict={dict.budget.balances}
           locale={locale}
+          currencyCode={currencyCode}
           onRecordRepayment={recordSettlementAction}
           onDeleteRepayment={deleteSettlementAction}
         />
@@ -776,6 +795,7 @@ async function BudgetTabsSection({
     <BudgetTabs
       dict={dict.budget}
       locale={locale}
+      currencyCode={currencyCode}
       monthKey={monthKey}
       basePath="/dashboard/budget"
       householdParam={householdParam}
@@ -860,7 +880,11 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     activeHouseholdId: household.id,
     memberHouseholdIds: households.map((h) => h.id),
   });
-  const viewedHouseholdName = households.find((h) => h.id === householdId)?.name ?? household.name;
+  const viewedHousehold = households.find((h) => h.id === householdId);
+  const viewedHouseholdName = viewedHousehold?.name ?? household.name;
+  // GAP-13: amounts carry the currency of the household on screen, which
+  // is not the active one in F1's read-only view.
+  const currencyCode = viewedHousehold ? viewedHousehold.currencyCode : household.currencyCode;
 
   // Bounds for two of BudgetTabsSection's queries that need to see further
   // than just the viewed month — see RECURRING_LOOKBACK_MONTHS's and
@@ -894,6 +918,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           userId={userId}
           dict={dict}
           locale={locale}
+          currencyCode={currencyCode}
           monthStart={monthStart}
           monthEnd={monthEnd}
           monthKey={monthKey}

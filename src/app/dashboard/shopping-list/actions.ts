@@ -8,7 +8,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
-import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
+import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
@@ -1505,10 +1505,8 @@ export async function registerReceiptAction(
     });
 
     const locale = await getLocale();
-    const amountLabel = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(totalAmount);
+    // GAP-13: the household's display currency, like the list itself.
+    const amountLabel = createMoneyFormat(locale, household.currencyCode).format(totalAmount);
     expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
   }
 
@@ -1785,10 +1783,8 @@ export async function completeShoppingListAction(
     transactionId = transaction.id;
 
     const locale = await getLocale();
-    const amountLabel = new Intl.NumberFormat(locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(groceriesTotal);
+    // GAP-13: the household's display currency, like the list itself.
+    const amountLabel = createMoneyFormat(locale, household.currencyCode).format(groceriesTotal);
     expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
   }
 

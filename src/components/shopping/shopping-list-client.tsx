@@ -67,6 +67,7 @@ import type { StoreOrder } from "@/lib/shopping/store-order";
 import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -126,6 +127,7 @@ export function ShoppingListClient({
   barcodeDict,
   exportLabel,
   locale,
+  currencyCode,
   storeOrder,
 }: {
   list: ShoppingListData;
@@ -140,17 +142,16 @@ export function ShoppingListClient({
   barcodeDict: Dictionary["barcodeScanner"];
   exportLabel: string;
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
   /** AUTO-9: the household's learned and hand-arranged store order. */
   storeOrder: StoreOrder;
 }) {
   const [isPending, startTransition] = useTransition();
-  // Same convention as the budget page's amounts (SafeToSpend,
-  // TransactionList, …): locale-aware decimals, no currency symbol — there's
-  // no household-level currency setting, so a symbol would be a guess.
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  // Same formatter as the budget page's amounts (SafeToSpend,
+  // TransactionList, …): locale-aware two decimals, with the household's
+  // currency symbol once one is set (GAP-13) and none before that.
+  const numberFormat = createMoneyFormat(locale, currencyCode);
 
   const pendingItems = list.items.filter((item) => !item.purchased);
   const purchasedItems = list.items.filter((item) => item.purchased);

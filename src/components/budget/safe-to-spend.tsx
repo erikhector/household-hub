@@ -20,6 +20,7 @@ import type {
   SafeToSpendBreakdown,
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
+import { createMoneyFormat } from "@/lib/currency";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
 // tight-but-not-empty balance gets its own amber tone instead of being
@@ -41,6 +42,7 @@ export function SafeToSpend({
   showHouseholdName = false,
   dict,
   locale,
+  currencyCode,
 }: {
   amount: number;
   status: SafeToSpendStatus;
@@ -54,11 +56,10 @@ export function SafeToSpend({
   showHouseholdName?: boolean;
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
 }) {
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
   const summary = {
     healthy: dict.summaryHealthy,
     tight: dict.summaryTight,
