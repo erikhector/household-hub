@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   INCOMING_MAX_AGE_DAYS,
   coveredQuantity,
+  incomingSince,
   isIncoming,
   loadIncomingByItem,
   sumIncomingByItem,
@@ -21,6 +22,7 @@ function row(overrides: Partial<IncomingRow> = {}): IncomingRow {
     purchased: true,
     putAwayAt: null,
     checkedOffAt: new Date(now.getTime() - 60 * 60 * 1000),
+    priceRecordedAt: null,
     listStatus: "ACTIVE",
     listCompletedAt: null,
     ...overrides,
@@ -53,11 +55,32 @@ describe("isIncoming", () => {
     expect(isIncoming(row({ checkedOffAt: justOutside }), now)).toBe(false);
   });
 
-  it("dates an untimed (receipt-applied) row by its list's completion, and counts it while the list is open", () => {
-    expect(isIncoming(row({ checkedOffAt: null, listCompletedAt: null }), now)).toBe(true);
+  it("dates a receipt-priced row with no tick by when the receipt priced it, with the same time limit", () => {
+    const priced = (days: number) => new Date(now.getTime() - days * DAY_MS);
+    // A receipt applied to an ACTIVE list in put-away mode: no tick, no
+    // completion — only priceRecordedAt says when it was bought.
+    expect(isIncoming(row({ checkedOffAt: null, priceRecordedAt: priced(1), listCompletedAt: null }), now)).toBe(true);
+    expect(isIncoming(row({ checkedOffAt: null, priceRecordedAt: priced(30), listCompletedAt: null }), now)).toBe(false);
+  });
+
+  it("falls back to the list's completion, and doesn't count a row with no date at all", () => {
     expect(
       isIncoming(row({ checkedOffAt: null, listStatus: "COMPLETED", listCompletedAt: new Date(now.getTime() - 30 * DAY_MS) }), now),
     ).toBe(false);
+    expect(isIncoming(row({ checkedOffAt: null, listStatus: "COMPLETED", listCompletedAt: now }), now)).toBe(true);
+    expect(isIncoming(row({ checkedOffAt: null, priceRecordedAt: null, listCompletedAt: null }), now)).toBe(false);
+  });
+});
+
+describe("incomingSince", () => {
+  it("prefers the tick, then the receipt, then the list's completion", () => {
+    const a = new Date("2026-09-01");
+    const b = new Date("2026-09-02");
+    const c = new Date("2026-09-03");
+    expect(incomingSince({ checkedOffAt: a, priceRecordedAt: b, listCompletedAt: c })).toBe(a);
+    expect(incomingSince({ checkedOffAt: null, priceRecordedAt: b, listCompletedAt: c })).toBe(b);
+    expect(incomingSince({ checkedOffAt: null, priceRecordedAt: null, listCompletedAt: c })).toBe(c);
+    expect(incomingSince({ checkedOffAt: null, priceRecordedAt: null })).toBeNull();
   });
 });
 
@@ -97,6 +120,7 @@ describe("loadIncomingByItem", () => {
         purchased: true,
         putAwayAt: null,
         checkedOffAt: now,
+        priceRecordedAt: null,
         shoppingList: { status: "ACTIVE", completedAt: null },
       },
     ]);

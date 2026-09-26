@@ -78,7 +78,8 @@ describe("selectPutAwayReminders", () => {
           awaiting: [
             { checkedOffAt: hoursAgo(5), checkedOffByUserId: "user-1" },
             { checkedOffAt: hoursAgo(1), checkedOffByUserId: "user-2" },
-            { checkedOffAt: null, checkedOffByUserId: null },
+            // Priced by a receipt an hour ago: too fresh to trigger yet.
+            { checkedOffAt: null, priceRecordedAt: hoursAgo(1), checkedOffByUserId: "user-3" },
           ],
         }),
       ],
@@ -87,6 +88,19 @@ describe("selectPutAwayReminders", () => {
     expect(reminder.count).toBe(3);
     // Only the rows that triggered it pick the recipients.
     expect(reminder.recipientUserIds).toEqual(["user-1"]);
+  });
+
+  it("reminds about rows a receipt priced but nobody ticked, dated by the receipt", () => {
+    const receiptOnly = list({
+      awaiting: [{ checkedOffAt: null, priceRecordedAt: hoursAgo(4), checkedOffByUserId: "user-3" }],
+    });
+    expect(selectPutAwayReminders([receiptOnly], now)).toEqual([
+      { listId: "list-1", listName: "Next shop", count: 1, recipientUserIds: ["user-3"] },
+    ]);
+    // Undated rows (no tick, no receipt) never trigger one.
+    expect(
+      selectPutAwayReminders([list({ awaiting: [{ checkedOffAt: null, priceRecordedAt: null, checkedOffByUserId: null }] })], now),
+    ).toEqual([]);
   });
 
   it("falls back to the whole household when a triggering row has no known ticker", () => {

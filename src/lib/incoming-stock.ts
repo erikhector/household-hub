@@ -40,6 +40,7 @@ export type IncomingRow = {
   purchased: boolean;
   putAwayAt: Date | null;
   checkedOffAt: Date | null;
+  priceRecordedAt: Date | null;
   listStatus: "ACTIVE" | "COMPLETED" | "ARCHIVED";
   listCompletedAt: Date | null;
 };
@@ -47,19 +48,33 @@ export type IncomingRow = {
 /**
  * Ticked, not yet put away, linked, on a list that's still in play (an
  * archived list was abandoned, so whatever's on it isn't coming), and fresh
- * enough (see INCOMING_MAX_AGE_DAYS). A row is dated by its tick, else its
- * list's completion — the same fallback AUTO-10's purchaseTimestamp uses for
- * receipt-applied rows, which carry no checkedOffAt. A row with neither (a
- * receipt applied to a list that's still ACTIVE) was bought moments ago by
- * definition, so it counts.
+ * enough (see INCOMING_MAX_AGE_DAYS). See incomingSince for how a row is
+ * dated. A row with no date at all doesn't count: every path that leaves a
+ * row waiting stamps one, so an undated row is stray data, and the safe way
+ * for it to fail is to let the low-stock logic act rather than hold it off
+ * with no time limit.
  */
 export function isIncoming(row: IncomingRow, now: Date): boolean {
   if (!row.purchased || row.putAwayAt !== null || row.inventoryItemId === null) return false;
   if (row.listStatus === "ARCHIVED") return false;
   if (row.quantity <= 0) return false;
-  const dated = row.checkedOffAt ?? row.listCompletedAt;
-  if (dated === null) return true;
+  const dated = incomingSince(row);
+  if (dated === null) return false;
   return now.getTime() - dated.getTime() <= INCOMING_MAX_AGE_DAYS * DAY_MS;
+}
+
+/**
+ * When a waiting row started waiting: its tick, else when a receipt priced it
+ * (a receipt applied in put-away mode marks rows bought without a tick —
+ * see applyReceiptScanAction), else its list's completion. Shared with the
+ * put-away reminder so both agree on how old a trip is.
+ */
+export function incomingSince(row: {
+  checkedOffAt: Date | null;
+  priceRecordedAt: Date | null;
+  listCompletedAt?: Date | null;
+}): Date | null {
+  return row.checkedOffAt ?? row.priceRecordedAt ?? row.listCompletedAt ?? null;
 }
 
 /** Incoming quantity per inventory item id; items with none are absent. */
@@ -102,12 +117,12 @@ export async function loadIncomingByItem(
       putAwayAt: null,
       inventoryItemId: inventoryItemIds ? { in: [...inventoryItemIds] } : { not: null },
       shoppingList: { householdId, status: { in: ["ACTIVE", "COMPLETED"] } },
+      // The database half of incomingSince: dated by the first of these
+      // that's set, and recent enough.
       OR: [
         { checkedOffAt: { gte: since } },
-        {
-          checkedOffAt: null,
-          shoppingList: { OR: [{ completedAt: null }, { completedAt: { gte: since } }] },
-        },
+        { checkedOffAt: null, priceRecordedAt: { gte: since } },
+        { checkedOffAt: null, priceRecordedAt: null, shoppingList: { completedAt: { gte: since } } },
       ],
     },
     select: {
@@ -116,6 +131,7 @@ export async function loadIncomingByItem(
       purchased: true,
       putAwayAt: true,
       checkedOffAt: true,
+      priceRecordedAt: true,
       shoppingList: { select: { status: true, completedAt: true } },
     },
   });
@@ -126,6 +142,7 @@ export async function loadIncomingByItem(
       purchased: row.purchased,
       putAwayAt: row.putAwayAt,
       checkedOffAt: row.checkedOffAt,
+      priceRecordedAt: row.priceRecordedAt,
       listStatus: row.shoppingList.status,
       listCompletedAt: row.shoppingList.completedAt,
     })),

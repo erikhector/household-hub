@@ -807,6 +807,32 @@ describe("syncPutAwayReminders", () => {
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
+  it("reminds about rows a receipt priced without a tick, and queries for them", async () => {
+    shoppingListFindManyMock.mockResolvedValue([
+      {
+        id: "list-1",
+        name: "Weekly shop",
+        putAwayRemindedAt: null,
+        items: [{ checkedOffAt: null, priceRecordedAt: fourHoursAgo, checkedOffByUserId: "user-3" }],
+      },
+    ]);
+
+    await syncPutAwayReminders("household-1");
+
+    expect(shoppingListFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          items: {
+            some: expect.objectContaining({
+              OR: [{ checkedOffAt: { gte: expect.any(Date) } }, { checkedOffAt: null, priceRecordedAt: { gte: expect.any(Date) } }],
+            }),
+          },
+        }),
+      }),
+    );
+    expect(sendPushToHouseholdMembersMock).toHaveBeenCalledWith("household-1", ["user-3"], expect.anything());
+  });
+
   it("reminds the whole household when a row was ticked from a share link", async () => {
     shoppingListFindManyMock.mockResolvedValue([listWith([{ checkedOffAt: fourHoursAgo, checkedOffByUserId: null }])]);
 

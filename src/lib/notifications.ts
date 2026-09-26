@@ -626,7 +626,13 @@ export async function syncPutAwayReminders(householdId: string, now: Date = new 
     where: {
       householdId,
       status: { in: ["ACTIVE", "COMPLETED"] },
-      items: { some: { purchased: true, putAwayAt: null, checkedOffAt: { gte: since } } },
+      items: {
+        some: {
+          purchased: true,
+          putAwayAt: null,
+          OR: [{ checkedOffAt: { gte: since } }, { checkedOffAt: null, priceRecordedAt: { gte: since } }],
+        },
+      },
     },
     select: {
       id: true,
@@ -634,7 +640,7 @@ export async function syncPutAwayReminders(householdId: string, now: Date = new 
       putAwayRemindedAt: true,
       items: {
         where: { purchased: true, putAwayAt: null },
-        select: { checkedOffAt: true, checkedOffByUserId: true },
+        select: { checkedOffAt: true, priceRecordedAt: true, checkedOffByUserId: true },
       },
     },
   });

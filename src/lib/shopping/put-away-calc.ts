@@ -5,7 +5,7 @@
 // shopping list's put-away button and receipt row picker) can share them,
 // and the unit tests need no mocks.
 
-import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
+import { INCOMING_MAX_AGE_DAYS, incomingSince } from "@/lib/incoming-stock";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -50,6 +50,9 @@ export const PUT_AWAY_REMINDER_DELAY_HOURS = 3;
 
 export type ReminderRow = {
   checkedOffAt: Date | null;
+  /** A receipt applied in put-away mode marks rows bought without a tick;
+   * this is then when that happened (see incomingSince). */
+  priceRecordedAt?: Date | null;
   checkedOffByUserId: string | null;
 };
 
@@ -81,9 +84,11 @@ export type PutAwayReminder = {
  * list's last reminder. That last rule is what makes it "once per trip":
  * the default list lives across many shops, so a flag that stayed set after
  * the first reminder would silence every later trip, while one reminder per
- * cron run would nag. Rows with no checkedOffAt (receipt-applied) never
- * trigger one — whoever applied the receipt was just offered the put-away
- * dialog — but still count toward N once a reminder goes out.
+ * cron run would nag. A row is dated the same way incoming stock is
+ * (incomingSince): its tick, else when a receipt priced it — so a receipt
+ * applied at home and then forgotten is reminded about like a tick would be.
+ * Its recipient is `checkedOffByUserId`, which receipt apply fills with
+ * whoever applied it.
  */
 export function selectPutAwayReminders(lists: readonly ReminderList[], now: Date): PutAwayReminder[] {
   const dueBefore = now.getTime() - PUT_AWAY_REMINDER_DELAY_HOURS * HOUR_MS;
@@ -92,8 +97,9 @@ export function selectPutAwayReminders(lists: readonly ReminderList[], now: Date
   return lists.flatMap((list) => {
     const lastReminder = list.putAwayRemindedAt?.getTime() ?? -Infinity;
     const triggering = list.awaiting.filter((row) => {
-      if (!row.checkedOffAt) return false;
-      const at = row.checkedOffAt.getTime();
+      const since = incomingSince({ checkedOffAt: row.checkedOffAt, priceRecordedAt: row.priceRecordedAt ?? null });
+      if (!since) return false;
+      const at = since.getTime();
       return at <= dueBefore && at >= notBefore && at > lastReminder;
     });
     if (triggering.length === 0) return [];
