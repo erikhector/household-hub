@@ -41,6 +41,14 @@ easy for AI coding agents to work in correctly:
 - Prisma's client generator is the new `prisma-client` (Prisma 7), which
   **requires an explicit driver adapter** — see `src/lib/prisma.ts`
   (`@prisma/adapter-pg`). A bare `new PrismaClient()` throws at runtime.
+  `src/lib/prisma.ts` builds its own `pg.Pool` (rather than letting
+  `PrismaPg` construct one) so it can set `max` (20 by default, overridable
+  with `DATABASE_POOL_MAX` — the budget page alone fires ~14 queries in
+  parallel) and a 10s `idleTimeoutMillis`, and registers that pool with
+  `attachDatabasePool()` from `@vercel/functions` so an idle client doesn't
+  leak past a suspended Fluid compute instance (a documented no-op off
+  Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
+  interacts with the pooler `DATABASE_URL` must point at in production.
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and
