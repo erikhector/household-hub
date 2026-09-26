@@ -127,6 +127,22 @@ model Household {
   // remembering to press "Add low-stock items" — but a household-wide switch
   // on the Household page turns it off for anyone who'd rather curate by hand.
   autoAddLowStockToList Boolean @default(true)
+  // AUTO-9: the order shopping mode walks category groups in. Two separate
+  // columns rather than one table or one JSON blob: the learned map is
+  // always read and rewritten whole (an EMA over every category a trip
+  // touched, see src/lib/shopping/store-order.ts), and only ever on list
+  // completion, so rows would buy nothing but N upserts; keeping the manual
+  // order apart means a completion rewriting the learned map can never
+  // clobber a hand-saved order being written at the same moment, and
+  // "reset to learned" is just emptying the array.
+  //   categoryOrderLearned: { [categoryKey]: position in 0..1 }, null until
+  //     the first completed trip teaches it anything.
+  //   categoryOrderManual: category keys in the order someone arranged them
+  //     by hand via "Reorder sections"; empty = no manual order. Always
+  //     beats the learned one.
+  categoryOrderLearned  Json?
+  categoryOrderManual   String[] @default([])
+
   // GAP-3: secret for the read-only iCalendar feed at
   // /api/calendar/[token] (meal plan + recurring bill due dates). Null means
   // the feed is off, which is the default: calendar apps can't send cookies,
@@ -490,6 +506,15 @@ model ShoppingListItem {
   // quick type-and-enter. null (never "") when there's no note.
   note               String?
   purchased          Boolean  @default(false)
+  // AUTO-9: when someone ticked this row off by hand (togglePurchasedAction
+  // or the share-link toggle), cleared again when it's un-ticked. It's the
+  // only record of a trip's check-off sequence: completing the list reads
+  // these to learn the household's store order, so an un-tick never leaves
+  // a stale step behind. Deliberately not set by receipt apply, which marks
+  // a whole receipt purchased at one instant and so says nothing about the
+  // order anyone walked the aisles in. null on every row checked off before
+  // this column existed.
+  checkedOffAt       DateTime?
   addedAutomatically Boolean  @default(false)
   createdAt          DateTime @default(now())
 

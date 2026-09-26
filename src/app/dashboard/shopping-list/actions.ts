@@ -28,6 +28,14 @@ import {
   revalidateAutoAdded,
   type AutoAddedItem,
 } from "@/lib/shopping/default-list";
+import { categoryKey } from "@/lib/shopping/shopping-mode-grouping";
+import {
+  applySubsetReorder,
+  effectiveOrder,
+  learnFromCheckOffs,
+  parseLearnedOrder,
+  type CheckOff,
+} from "@/lib/shopping/store-order";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
 import { openedResetOnArrival } from "@/lib/inventory/expiry";
 import type { InventoryItem } from "@/generated/prisma/client";
@@ -1012,7 +1020,12 @@ export async function togglePurchasedAction(
     await prisma.$transaction(async (tx) => {
       await tx.shoppingListItem.update({
         where: { id: item.id },
-        data: { purchased: nextPurchased },
+        // AUTO-9: the tick's timestamp is the whole check-off sequence
+        // record — folded into this same row write, so learning the store
+        // order costs no extra write per tap. Un-ticking clears it, so an
+        // accidental tick never leaves a false step in the sequence, and a
+        // re-tick later records when it was actually picked up.
+        data: { purchased: nextPurchased, checkedOffAt: nextPurchased ? new Date() : null },
       });
 
       if (item.inventoryItem) {
@@ -1607,6 +1620,92 @@ export async function undoAutoAddedItemsAction(
   return { removed };
 }
 
+/**
+ * AUTO-9: folds one finished trip's check-off sequence into the household's
+ * learned store order (see store-order.ts for the EMA itself). Only rows
+ * ticked off by hand carry a checkedOffAt, so receipt-applied rows, rows
+ * ticked before the column existed and anything un-ticked again simply
+ * aren't part of the sequence. A trip that touched fewer than two
+ * categories teaches nothing and writes nothing.
+ *
+ * Best-effort on purpose: the list is already completed by the time this
+ * runs, so a failure here is logged and reported (toFriendlyError) but never
+ * turns a successful "Done shopping" into an error toast. `learned` is the
+ * value requireHousehold loaded at the start of the request; two members
+ * completing lists in the same instant can lose one trip's nudge, which a
+ * moving average shrugs off.
+ */
+async function learnStoreOrder(
+  householdId: string,
+  learned: unknown,
+  items: { checkedOffAt: Date | null; inventoryItem: { category: string } | null }[],
+) {
+  const checkOffs: CheckOff[] = items.flatMap((item) =>
+    item.checkedOffAt ? [{ key: categoryKey(item.inventoryItem?.category ?? null), at: item.checkedOffAt }] : [],
+  );
+  const next = learnFromCheckOffs(parseLearnedOrder(learned), checkOffs);
+  if (!next) return;
+  try {
+    await prisma.household.update({ where: { id: householdId }, data: { categoryOrderLearned: next } });
+  } catch (error) {
+    toFriendlyError(error);
+  }
+}
+
+// Category keys (see categoryKey in shopping-mode-grouping.ts) as the
+// "Reorder sections" dialog lists them. Bounded so a crafted call can't
+// store an unbounded array on the household row; a real list shows at most
+// a few dozen sections.
+const categoryOrderSchema = z.array(z.string().trim().min(1).max(200)).min(1).max(200);
+
+/**
+ * AUTO-9's "Reorder sections": saves a hand-arranged order of the
+ * categories one list shows. It's merged into the household's whole
+ * current order (applySubsetReorder) rather than replacing it, so sections
+ * this list doesn't have keep their place. Once saved, a manual order
+ * always beats the learned one (storeOrderSortKey) until it's reset; the
+ * learning itself keeps running underneath, so a reset lands on an
+ * up-to-date learned order. Household-wide, like the learned order —
+ * everyone shops the same store.
+ */
+export async function saveCategoryOrderAction(keys: string[]): Promise<ActionState> {
+  const { household } = await requireHousehold();
+  const parsed = categoryOrderSchema.safeParse(keys);
+  if (!parsed.success) return { error: "Invalid section order" };
+
+  const current = {
+    learned: parseLearnedOrder(household.categoryOrderLearned),
+    manual: household.categoryOrderManual,
+  };
+  const manual = applySubsetReorder(effectiveOrder(current, parsed.data), parsed.data);
+  try {
+    await prisma.household.update({ where: { id: household.id }, data: { categoryOrderManual: manual } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list/[id]", "page");
+  return {};
+}
+
+/**
+ * Drops the hand-arranged order so the learned one takes over again.
+ * Returns the order it dropped so the toast's "Undo" can put it back via
+ * saveCategoryOrderAction (Guardrails: undo over confirm).
+ */
+export async function resetCategoryOrderAction(): Promise<ActionState & { previous?: string[] }> {
+  const { household } = await requireHousehold();
+  const previous = household.categoryOrderManual;
+  try {
+    await prisma.household.update({ where: { id: household.id }, data: { categoryOrderManual: [] } });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/shopping-list/[id]", "page");
+  return { previous };
+}
+
 export async function completeShoppingListAction(
   listId: string,
 ): Promise<{
@@ -1622,7 +1721,9 @@ export async function completeShoppingListAction(
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
-    include: { items: true },
+    // The linked item's category rides along for AUTO-9's store-order
+    // learning below — it's the category a row was grouped under.
+    include: { items: { include: { inventoryItem: { select: { category: true } } } } },
   });
   if (!list) return {};
 
@@ -1661,6 +1762,8 @@ export async function completeShoppingListAction(
       data: { status: "COMPLETED", completedAt: new Date() },
     });
   }
+
+  await learnStoreOrder(household.id, household.categoryOrderLearned, list.items);
 
   // Log a "Groceries" expense for whatever purchased items actually have an
   // estimated price set — never invent/estimate a price for items that
