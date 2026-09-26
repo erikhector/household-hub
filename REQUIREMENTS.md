@@ -4215,8 +4215,15 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     isn't validated is a blind SSRF vector into this server's own network.
     The endpoint must be an `https:` URL, ≤1024 characters, whose host
     matches (by suffix, never by substring) one of the actual push
-    services' delivery hosts: `fcm.googleapis.com` (Chrome/Edge), a
-    subdomain of `push.services.mozilla.com` (Firefox), a subdomain of
+    services' delivery hosts: a subdomain of `googleapis.com`
+    (`fcm.googleapis.com`, Chrome/Edge) or of `google.com` — Chrome has been
+    observed handing out endpoints on `jmtNN.google.com` too, and since
+    Google doesn't publish that host as fixed the way the others below do,
+    the whole of `google.com` is allowlisted rather than a regex on one
+    seen-in-the-wild shape; it's Google's own public multi-tenant edge, so
+    this is broader than the other entries without reopening the
+    internal-network SSRF this list exists to block — a subdomain of
+    `push.services.mozilla.com` (Firefox), a subdomain of
     `notify.windows.com` (legacy Edge/WNS), or a subdomain of
     `push.apple.com` (Safari, including `web.push.apple.com`). `keys.p256dh`
     and `keys.auth` must each decode (as base64url, padding tolerated) to

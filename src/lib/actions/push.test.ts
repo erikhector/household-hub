@@ -124,7 +124,12 @@ describe("subscribeToPushAction", () => {
       // Substring/prefix tricks that must not slip past a naive `includes`
       // or `startsWith` check against the allowlist.
       ["a host with the allowed name as a prefix", "https://fcm.googleapis.com.evil.example/x"],
-      ["a host with the allowed name glued on without a dot", "https://evilfcm.googleapis.com/x"],
+      // Not "evilfcm.googleapis.com" — that IS a legitimate googleapis.com
+      // subdomain (Google controls that DNS, an attacker can't), so it's
+      // correctly accepted below, not a bypass.
+      ["a host with the allowed name glued on without a dot", "https://evilgoogleapis.com/x"],
+      ["a googleapis.com-style suffix trick against google.com", "https://google.com.evil.example/x"],
+      ["google.com glued onto another host without a dot", "https://evilgoogle.com/x"],
       ["an endpoint over 1024 characters", `https://fcm.googleapis.com/fcm/send/${"a".repeat(1100)}`],
     ])("rejects %s", async (_label, endpoint) => {
       await expect(subscribeToPushAction({ endpoint, keys: VALID_KEYS })).rejects.toThrow();
@@ -133,6 +138,9 @@ describe("subscribeToPushAction", () => {
 
     it.each([
       ["Chrome/Edge (FCM)", "https://fcm.googleapis.com/fcm/send/abc123"],
+      // Chrome has also been observed handing out endpoints on this host
+      // instead of fcm.googleapis.com — see the allowlist's own comment.
+      ["Chrome (the jmtNN.google.com host)", "https://jmt17.google.com/fcm/send/abc123"],
       ["Firefox (a subdomain of the Mozilla push service)", "https://updates.push.services.mozilla.com/wpush/v2/abc"],
       ["legacy Edge/WNS", "https://bn1.notify.windows.com/w/abc"],
       ["Safari web push", "https://web.push.apple.com/abc"],

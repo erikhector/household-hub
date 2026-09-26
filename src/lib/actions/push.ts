@@ -31,7 +31,20 @@ function sanitizeTimeZone(timeZone: string | undefined): string | null {
 // matched by suffix (`endsWith(".host")` after an exact-match check), never
 // by substring, so "fcm.googleapis.com.evil.example" doesn't qualify.
 const PUSH_ENDPOINT_HOST_ALLOWLIST = [
-  "fcm.googleapis.com", // Chrome, Edge and other Chromium-based browsers
+  // Chrome has been observed handing out endpoints on more than one Google
+  // host — the documented `fcm.googleapis.com/fcm/send/...`, but also
+  // `jmtNN.google.com/fcm/send/...` (`jmt17`, seen in the wild; the number
+  // isn't documented as fixed, so a regex on just that one shape would be
+  // one Chrome release away from breaking again). Both are Google's own
+  // public multi-tenant edge, not internal infrastructure, so allowlisting
+  // the whole of google.com carries none of the SSRF risk this list exists
+  // to block (that risk is reaching *this server's own network*, not
+  // reaching more of Google) — it's just broader than the other three
+  // entries because Google doesn't publish a fixed delivery host the way
+  // Mozilla/Microsoft/Apple do.
+  "googleapis.com", // fcm.googleapis.com — the documented Chrome/Edge host
+  "google.com", // a *different* domain than googleapis.com (not a subdomain
+  // of it), needed separately for the jmtNN.google.com hosts above
   "push.services.mozilla.com", // Firefox (covers updates.push.services.mozilla.com)
   "notify.windows.com", // legacy Edge/WNS
   "push.apple.com", // Safari on macOS/iOS 16.4+ (covers web.push.apple.com)
