@@ -224,12 +224,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       (`shopping-list/actions.ts:1095,1286,1480,1742`,
       `share/shopping-list/actions.ts:196`). Use `after()` from
       `next/server` for both, as `category-resolver.ts:79` already does.
-- [ ] **PERF-10. Configure the pg pool for serverless** (medium, S) —
-      `src/lib/prisma.ts:8` uses pg defaults (`max` 10, no idle handling)
-      while the budget page alone fires 14 parallel queries. Set `max` and a
-      short `idleTimeoutMillis`, add `attachDatabasePool(pool)` from
-      `@vercel/functions` on Fluid compute, and confirm `DATABASE_URL`
-      points at the pooler (DEPLOYMENT.md §3).
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
