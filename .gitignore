@@ -48,3 +48,8 @@ next-env.d.ts
 
 # personal Claude Code overrides (shared settings live in .claude/settings.json)
 .claude/settings.local.json
+
+# playwright
+/test-results/
+/playwright-report/
+/e2e/.auth/

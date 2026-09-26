@@ -43,12 +43,15 @@ npm run typecheck           # next typegen && tsc --noEmit (typegen emits .next/
 npm test                    # vitest run (non-watch)
 npm run check               # lint + typecheck + test in one go
 npm run build
+npm run test:e2e            # Playwright vs `next start` + real Postgres (build first)
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint → typegen → tsc → test → build on
 every push and PR. **Run `npm run check && npm run build` before calling a
-change done.** In Claude Code on the web, `.claude/hooks/session-start.sh`
-runs `npm ci` at startup, so these work from the first turn.
+change done.** For user-visible changes, `npm run test:e2e` too (CI runs it
+as a separate job). In Claude Code on the web, `.claude/hooks/session-start.sh`
+runs `npm ci` and starts a migrated local Postgres, so all of these work
+from the first turn.
 
 ## Layout
 
@@ -116,9 +119,11 @@ change, but don't skip one.
    touched: every new Server Action, calculator or branch in one. Test
    behaviour (tenancy check, validation errors, the happy path), not
    implementation details. Bug fixes get a test that fails without the fix.
+   User-visible changes also get an assertion in an `e2e/` spec.
 5. **Verify.** Run the focused test while iterating
-   (`npx vitest run <path>`), then `npm run check && npm run build` once at
-   the end. Fix every failure. Never skip, `.skip` or loosen a test to get
+   (`npx vitest run <path>` or `npx playwright test <spec>`), then
+   `npm run check && npm run build` (plus `npm run test:e2e` for anything
+   user-visible) once at the end. Fix every failure. Never skip, `.skip` or loosen a test to get
    green.
 6. **Self-review.** Run the `self-review` skill
    (`.claude/skills/self-review/SKILL.md`) against your diff before opening
@@ -186,6 +191,14 @@ priority order:
 Report findings most-severe first, each with file:line and a concrete fix.
 Skip style nits the linter would catch.
 
+## Autonomous loop
+
+Scheduled sessions (scouts, builder, retro) improve the app on their own,
+steered by [AUTOPILOT.md](./AUTOPILOT.md). If you are one of them, read
+AUTOPILOT.md first and obey it. Human-only areas listed there always get
+flagged for careful review. See REQUIREMENTS.md, "Autonomous improvement
+loop".
+
 ## Pull requests and releases
 
 - All work lands on `master` through a squash-merged PR. Never push to
@@ -208,7 +221,10 @@ Skip style nits the linter would catch.
   `@/lib/session`, `next/headers`, `next/navigation` and `next/cache` with
   `vi.mock`, and follow existing tests such as
   `src/lib/actions/household.test.ts`.
-- There's no component-rendering setup (no jsdom or Testing Library) yet.
+- There's no component-rendering setup (no jsdom or Testing Library).
+  UI behaviour is covered end to end instead: Playwright specs in `e2e/`
+  run against a production build and a real, seeded Postgres. See
+  REQUIREMENTS.md, "Testing", for the seed user and conventions.
 
 ## Database changes
 

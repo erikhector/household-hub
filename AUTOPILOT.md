@@ -1,0 +1,71 @@
+# AUTOPILOT.md
+
+Control file for the autonomous improvement loop: scheduled Claude Code
+sessions that find work (scouts), build it (builder), and improve the
+process itself (retro). Every autopilot session reads this file **first**
+and obeys it. Edit it on `master` to steer or stop the loop; no routine
+needs changing.
+
+The skills that do the work are in `.claude/skills/autopilot-*/SKILL.md`.
+Routine prompts live in REQUIREMENTS.md, "Autonomous improvement loop".
+
+## Switch
+
+```yaml
+enabled: true            # false = every autopilot session exits immediately
+scouts_enabled: true
+builder_enabled: true
+retro_enabled: true
+```
+
+## Limits
+
+```yaml
+max_open_autopilot_prs: 2      # builder does nothing while this many are open
+max_new_items_per_scout_run: 3
+max_items_per_build_run: 1
+```
+
+## What the builder may pick
+
+Lowest phase first, then highest impact per effort (see BACKLOG.md's
+"Picking an item"). Allowed prefixes, in priority order:
+
+```yaml
+allowed: [BUG, SEC, PERF, MAINT, UX, DEPS, AUTO, GAP, SCALE, BUDGET]
+```
+
+Never pick an item that is:
+- marked `[!]` (needs a decision) or `[~]` (in progress), or sits under
+  "Needs a decision before building";
+- already the subject of an open PR (search open PRs for its ID);
+- a Phase 2 (schema) item while another open PR adds a migration.
+
+## Human-only areas
+
+An autopilot PR touching any of these must say so in its Summary under
+"⚠️ Needs careful review", and is never a candidate for auto-merge:
+
+- `prisma/schema.prisma`, `prisma/migrations/`
+- `src/lib/auth.ts`, `src/lib/auth.config.ts`, `src/proxy.ts`, `src/lib/session.ts`
+- anything computing money: `*budget*`, `*safe-to-spend*`, `*split*`,
+  `*settlement*`, `*transaction*`
+- deleting user data, `src/lib/cookie-inventory.ts`, the privacy page
+- `.github/workflows/`, `AUTOPILOT.md`, `package.json` dependencies (except
+  `DEPS-` items)
+
+## Merge policy
+
+```yaml
+auto_merge: false        # phase 1: a human merges every autopilot PR
+# Later, once the retro shows a clean record, e.g.:
+# auto_merge_types: [docs, test, chore]   # never feat/fix touching human-only areas
+```
+
+## Metrics
+
+The retro appends one row per week. Autopilot "improving" means these move
+the right way.
+
+| Week | Merged | Reverted | Review rounds/PR | Unit tests | E2E tests | Lint warnings | Open backlog |
+|---|---|---|---|---|---|---|---|

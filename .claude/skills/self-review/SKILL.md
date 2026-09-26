@@ -32,6 +32,7 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] Schema change ⇒ a committed migration under `prisma/migrations/`.
 - [ ] New logic has a colocated test; a bug fix has a test that would fail
       without it. No `.skip`/`.only`, no weakened assertions.
+- [ ] User-visible change ⇒ an `e2e/` spec asserts it.
 
 **Must fix before merge**
 - [ ] Every user-facing string is in `en.ts` **and** `sv.ts`, none hardcoded
@@ -51,6 +52,7 @@ Stop at the first real problem in a hunk, note it, move on.
 
 ```bash
 npm run check 2>&1 | tail -n 40 && npm run build 2>&1 | tail -n 20
+npm run test:e2e 2>&1 | tail -n 30   # if anything user-visible changed
 ```
 
 ## 4. Report

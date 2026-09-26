@@ -10,7 +10,8 @@ harness still apply; this file only adds what's specific to this repo.
 
 ## CI failures
 
-CI is one job: lint → typegen → tsc → test → build (`.github/workflows/ci.yml`).
+CI has two jobs (`.github/workflows/ci.yml`): lint → typegen → tsc → test →
+build, and a separate Playwright `e2e` job against a Postgres service.
 Reproduce locally with the **same step only**, not the whole pipeline:
 
 | Failing step | Reproduce with |
@@ -19,6 +20,7 @@ Reproduce locally with the **same step only**, not the whole pipeline:
 | Typecheck | `npm run typecheck 2>&1 \| grep error \| head -n 30` |
 | Test | `npx vitest run <failing file>` |
 | Build | `npm run build 2>&1 \| tail -n 40` |
+| End-to-end | `npm run build >/dev/null && npx playwright test <failing spec>`; the uploaded `playwright-report` artifact has traces |
 
 Fetch only the failing job's log tail, not the full log. Fix, re-run that
 step, then `npm run check` once before pushing. One validated push per round.
