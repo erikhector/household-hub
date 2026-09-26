@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getStockStatus } from "@/lib/stock-status";
+import { coveredQuantity, loadIncomingQuantity } from "@/lib/incoming-stock";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -138,6 +139,12 @@ export async function addItemToDefaultList(
  * threshold on both sides — i.e. only a quantity *drop* can trigger an add,
  * never raising the threshold alone.
  *
+ * Stock that's ticked off but not yet put away (src/lib/incoming-stock.ts)
+ * counts as covered on both sides of the change: milk sitting in the cart
+ * while the last carton at home is used up is not a reason to put milk back
+ * on the list. The ticked row itself doesn't satisfy the "already pending"
+ * dedupe below (it's purchased), which is exactly why this has to.
+ *
  * Returns what it added (for the toast's Undo), or `null` when nothing was:
  * no crossing, the household turned auto-add off, or the item was already
  * pending on the default list.
@@ -158,9 +165,10 @@ export async function addToDefaultListOnLowStock(
   });
   if (!item) return null;
 
+  const incoming = await loadIncomingQuantity(db, householdId, itemId);
   const crossed =
-    getStockStatus(previousQuantity, item.lowStockThreshold) === "in" &&
-    getStockStatus(nextQuantity, item.lowStockThreshold) !== "in";
+    getStockStatus(coveredQuantity(previousQuantity, incoming), item.lowStockThreshold) === "in" &&
+    getStockStatus(coveredQuantity(nextQuantity, incoming), item.lowStockThreshold) !== "in";
   if (!crossed) return null;
 
   const household = await db.household.findUnique({

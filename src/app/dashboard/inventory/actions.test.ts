@@ -64,7 +64,13 @@ vi.mock("@/lib/prisma", () => {
       updateMany: updateManyMock,
     },
     shoppingList: { findFirst: shoppingListFindFirstMock, create: shoppingListCreateMock },
-    shoppingListItem: { findFirst: shoppingListItemFindFirstMock, create: shoppingListItemCreateMock },
+    shoppingListItem: {
+      findFirst: shoppingListItemFindFirstMock,
+      create: shoppingListItemCreateMock,
+      // recordOutOfStockTransition's incoming-stock check
+      // (src/lib/incoming-stock.ts): nothing ticked and waiting here.
+      findMany: vi.fn(async () => []),
+    },
     notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
   };
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
