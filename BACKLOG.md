@@ -305,6 +305,54 @@ then MAINT-7 per feature, to avoid churn.
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
 
+### UX (2026-09-26 scout)
+
+Found by loading every dashboard route at 390×844 and 1280×800, in English
+and Swedish (which needed the seeded user's `locale` set in the DB — the
+`locale` cookie is only a fallback for signed-out pages, per
+`get-dictionary.ts`'s comment). No console errors, no untranslated strings,
+no broken empty states — the issues below are all clipped/illegible text.
+
+- [ ] **UX-1. Quick-add's Unit field hides its own value** (impact: high,
+      effort: S) — `src/components/inventory/quick-add-bar.tsx:110` wraps the
+      unit `ComboField` in a fixed `w-20` (80px) column, but the field also
+      has to fit a clear (`×`) button and a dropdown chevron
+      (`combo-field.tsx`'s `AutocompleteClear`/`AutocompleteTrigger`). The
+      default value "pcs" (or a Swedish unit) is clipped down to a single
+      character — the row shows "p ×" with no way to tell what unit is
+      selected without opening the dropdown. Reproduces on the empty
+      inventory state at both 390px and 1280px, `en` and `sv`. Widen the
+      column (e.g. `w-28`/`w-32`) or drop one of the two trailing icons for
+      this field. Acceptance: an e2e assertion that the quick-add unit
+      field's visible text matches its selected value (not truncated to one
+      character) at 390px width.
+- [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
+      (impact: medium, effort: S) — the inventory filter row's `Select`s
+      (`src/components/inventory/inventory-client.tsx:262-282`) sit in
+      narrow grid columns, and the shared `SelectTrigger`/`SelectValue`
+      (`src/components/ui/select.tsx:20-42`) only sets `whitespace-nowrap` +
+      `line-clamp-1`, not `truncate` — so a label longer than its column is
+      hard-clipped instead of ellipsized. Visible on the Inventory page at
+      1280px in **both** locales: English clips "Group by: No groupin[g]",
+      Swedish clips "Senast uppdaterad: Ny[aste först]". Since
+      `SelectValue`/`SelectTrigger` are shared UI primitives, likely affects
+      any other narrow `Select` too. Fix in `select.tsx` (swap the
+      clamp/nowrap combo for `truncate`, or add `text-ellipsis overflow-hidden`
+      to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
+      or visual check that a long option's label ends in an ellipsis, not a
+      mid-word cut, at 1280px.
+- [ ] **UX-3. Notifications empty state gives no next step** (impact: low,
+      effort: S) — every other feature's empty state explains what to do
+      next ("Add a few items to start tracking what's in stock.", "No tasks
+      yet — use the + button above to add one."), but
+      `dictionaries/en.ts:68`'s notifications `empty: "No notifications
+      yet."` (and its `sv.ts` counterpart) doesn't say what would ever
+      produce one. Add a second sentence naming a couple of triggers (low
+      stock, a task assigned to you, a household invite) so a first-time
+      user knows the page isn't broken. Acceptance: the empty-state copy in
+      both dictionaries includes an example of what generates a
+      notification.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
