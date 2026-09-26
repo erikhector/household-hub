@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.35.0",
+    "date": "2026-09-26",
+    "pr": 63,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now save any shopping list as a named template, like \"BBQ\" or \"Big weekly shop\", from the list's ⋯ menu. Start a fresh list from it any time on the shopping list page.",
+      "sv": "Nu kan du spara en inköpslista som en namngiven mall, till exempel \"Grillkväll\" eller \"Storhandling\", via listans ⋯-meny. Starta en ny lista från mallen när du vill på sidan för inköpslistor."
+    }
+  },
+  {
     "version": "0.34.0",
     "date": "2026-09-26",
     "pr": 61,
