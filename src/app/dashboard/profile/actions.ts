@@ -12,12 +12,29 @@ import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { sendVerificationEmail } from "@/lib/email";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { INVALID_SWISH_NUMBER_ERROR, normalizeSwishNumber } from "@/lib/swish";
 
 // Mirrors auth.ts's PASSWORD_MAX_LENGTH — bcrypt silently ignores bytes past
 // 72, so anything longer is rejected rather than accepted-but-misleading.
 const PASSWORD_MAX_LENGTH = 72;
+
+// SEC-6: updateEmailAction/updatePasswordAction/deleteAccountAction all
+// re-prove account ownership with the *current password* before doing
+// anything security-sensitive (see the doc comments on each below), but
+// that compare was previously unlimited — a hijacked/left-open session
+// could brute-force the hash offline-speed-adjacent (bcrypt is slow, but
+// still far faster than a human) without ever touching login's own rate
+// limit. One shared bucket keyed by userId (not IP or form field) means
+// attempts against any of the three actions count against the same budget,
+// so switching targets doesn't reset the clock. 5 attempts / 15 minutes
+// mirrors LOGIN_RATE_LIMIT's order of magnitude (src/lib/actions/auth.ts) —
+// generous enough for a real typo, tight enough to make guessing
+// impractical.
+const REAUTH_RATE_LIMIT = 5;
+const REAUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 const updateProfileSchema = z.object({
   displayName: z.string().trim().min(1, "Name is required").max(60, "Name is too long"),
@@ -134,6 +151,10 @@ export async function updateEmailAction(
   }
   const { newEmail, currentPassword } = parsed.data;
 
+  if (!(await checkRateLimit(`reauth:${userId}`, REAUTH_RATE_LIMIT, REAUTH_RATE_LIMIT_WINDOW_MS))) {
+    return { error: (await getDictionary()).profile.reauthRateLimited };
+  }
+
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
   const validPassword = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -224,6 +245,10 @@ export async function updatePasswordAction(
   }
   const { currentPassword, newPassword } = parsed.data;
 
+  if (!(await checkRateLimit(`reauth:${userId}`, REAUTH_RATE_LIMIT, REAUTH_RATE_LIMIT_WINDOW_MS))) {
+    return { error: (await getDictionary()).profile.reauthRateLimited };
+  }
+
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
   const validPassword = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -294,6 +319,10 @@ export async function deleteAccountAction(
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  if (!(await checkRateLimit(`reauth:${userId}`, REAUTH_RATE_LIMIT, REAUTH_RATE_LIMIT_WINDOW_MS))) {
+    return { error: (await getDictionary()).profile.reauthRateLimited };
   }
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });

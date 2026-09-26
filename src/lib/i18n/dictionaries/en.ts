@@ -2136,6 +2136,11 @@ export const en = {
   profile: {
     title: "Profile",
     subtitle: "Your account details.",
+    // SEC-6: shown by updateEmailAction/updatePasswordAction/
+    // deleteAccountAction (src/app/dashboard/profile/actions.ts) when the
+    // current-password re-auth check is throttled. One string shared by
+    // all three since they share one rate-limit bucket.
+    reauthRateLimited: "Too many attempts. Please wait 15 minutes and try again.",
     about: {
       title: "About Squirrel",
       version: "Version {version}",
