@@ -525,6 +525,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+  - *Bundle size (PERF-6)*: matching a category label in either locale
+    (above) used to mean `shopping-mode-grouping.ts` imported the full
+    `en`/`sv` dictionaries, which — since that module is reachable from the
+    client `shopping-list-client.tsx` — put both complete dictionaries
+    (~68 KB gz) into every `/dashboard/shopping-list/[id]` page load. The
+    `uncategorized`/`autoCategories` labels now live in
+    `src/lib/inventory/category-labels.ts`, a tiny dependency-free module
+    that `en.ts`/`sv.ts` still re-export (so translators keep finding them
+    under `inventory.*`) but that `shopping-mode-grouping.ts` imports
+    directly instead of the whole dictionaries.
 - **Learned store order (AUTO-9)** — shopping mode's groups gradually
   reorder to match the order this household actually ticks things off in,
   with no setup. Pure logic lives in `src/lib/shopping/store-order.ts`

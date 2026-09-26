@@ -1,9 +1,14 @@
 // AUTO-3 — pure grouping/sort for "shopping mode": walk the store in
-// category order instead of insertion order. Dependency-free apart from the
-// dictionaries (for the category label lookup below) and store-order.ts, so
-// it's unit-testable without a DOM — the client component
-// (src/components/shopping/shopping-list-client.tsx) only calls this and
-// renders the result.
+// category order instead of insertion order. Dependency-free apart from
+// category-labels.ts (for the category label lookup below) and
+// store-order.ts, so it's unit-testable without a DOM — the client
+// component (src/components/shopping/shopping-list-client.tsx) only calls
+// this and renders the result.
+//
+// PERF-6: this module is reachable from that client component, so it
+// imports only category-labels.ts's small label lookup rather than the
+// full `en`/`sv` dictionaries (which used to double the shopping-list
+// route's client bundle by ~68 KB gz for text this file never renders).
 //
 // A shopping-list item has no category of its own; the category lives on
 // the linked InventoryItem (AUTO-2, src/lib/inventory/auto-category.ts) and
@@ -15,8 +20,7 @@
 // whatever that says.
 
 import { AUTO_CATEGORY_KEYS } from "@/lib/inventory/auto-category";
-import { en } from "@/lib/i18n/dictionaries/en";
-import { sv } from "@/lib/i18n/dictionaries/sv";
+import { categoryLabels } from "@/lib/inventory/category-labels";
 import {
   compareCategoryKeys,
   EMPTY_STORE_ORDER,
@@ -32,9 +36,9 @@ import {
 // for "Uncategorized".
 const KNOWN_CATEGORY_KEYS = new Map<string, string>();
 for (const key of AUTO_CATEGORY_KEYS) {
-  for (const dict of [en, sv]) {
+  for (const labels of [categoryLabels.en, categoryLabels.sv]) {
     KNOWN_CATEGORY_KEYS.set(
-      dict.inventory.autoCategories[key].trim().toLowerCase(),
+      labels.autoCategories[key].trim().toLowerCase(),
       `${KNOWN_CATEGORY_KEY_PREFIX}${key}`,
     );
   }
@@ -45,7 +49,9 @@ for (const key of AUTO_CATEGORY_KEYS) {
 // locale (see category-resolver.ts) — an item in any of these has no real
 // category, same as one with no category at all.
 const PLACEHOLDER_CATEGORIES = new Set(
-  [en.inventory.uncategorized, sv.inventory.uncategorized, "Uncategorized"].map((c) => c.trim().toLowerCase()),
+  [categoryLabels.en.uncategorized, categoryLabels.sv.uncategorized, "Uncategorized"].map((c) =>
+    c.trim().toLowerCase(),
+  ),
 );
 
 /**
