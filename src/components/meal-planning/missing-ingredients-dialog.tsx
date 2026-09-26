@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 import { ListPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,13 @@ import {
   previewMissingIngredientsAction,
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
+import { addDays, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import {
+  MAX_MISSING_INGREDIENTS_RANGE_DAYS,
+  parseMissingIngredientsRange,
+  weekRange,
+  type MissingIngredientsRange,
+} from "@/app/dashboard/meal-planning/missing-ingredients";
 import { format, plural } from "@/lib/i18n/format";
 import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/substitutions";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";
@@ -41,6 +48,37 @@ type ReviewItem = MissingIngredientData & {
 
 const initialState: ActionState = {};
 
+// GAP-32's range presets. "twoWeeks" is the visible week plus the one after
+// it (anchored on the planner's week like "This week", not on today), and
+// "custom" is any From/Through pair up to MAX_MISSING_INGREDIENTS_RANGE_DAYS.
+const RANGE_PRESETS = ["week", "twoWeeks", "custom"] as const;
+type RangePreset = (typeof RANGE_PRESETS)[number];
+
+// The custom inputs start out showing the same two weeks as "twoWeeks" —
+// the most likely thing to tweak from.
+function defaultCustomThrough(weekStartKey: string): string {
+  return toDateKey(addDays(parseDateKey(weekStartKey), 13));
+}
+
+// Resolves the picker's state to the half-open `[from, to)` range the
+// preview action takes, or null for a custom range the server would reject
+// (Through is inclusive in the UI — people think "the 1st through the
+// 14th" — so it's shifted one day to become the exclusive `to`).
+function rangeFor(
+  preset: RangePreset,
+  weekStartKey: string,
+  customFrom: string,
+  customThrough: string,
+): MissingIngredientsRange | null {
+  if (preset === "week") return weekRange(weekStartKey);
+  if (preset === "twoWeeks") {
+    return { from: weekStartKey, to: toDateKey(addDays(parseDateKey(weekStartKey), 14)) };
+  }
+  if (!isDateKey(customFrom) || !isDateKey(customThrough)) return null;
+  const range = { from: customFrom, to: toDateKey(addDays(parseDateKey(customThrough), 1)) };
+  return parseMissingIngredientsRange(range) ? range : null;
+}
+
 export function MissingIngredientsDialog({
   dict,
   weekStartKey,
@@ -54,6 +92,14 @@ export function MissingIngredientsDialog({
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Which dates to diff (GAP-32). Always "week" on open, so the default is
+  // exactly the pre-GAP-32 behavior: the visible planner week.
+  const [preset, setPreset] = useState<RangePreset>("week");
+  const [customFrom, setCustomFrom] = useState(weekStartKey);
+  const [customThrough, setCustomThrough] = useState(() => defaultCustomThrough(weekStartKey));
+  // Switching range while a preview is still in flight must not let the
+  // older (slower) response overwrite the newer one's items.
+  const latestPreviewRef = useRef(0);
   const [targetListId, setTargetListId] = useState(
     activeShoppingLists[0]?.id ?? NEW_SHOPPING_LIST_SENTINEL,
   );
@@ -80,11 +126,32 @@ export function MissingIngredientsDialog({
 
     // Always recompute on open rather than caching across opens — the meal
     // plan or inventory may have changed since the dialog was last shown,
-    // and this stays cheap (a handful of rows at household scale).
+    // and this stays cheap (a handful of rows at household scale). The
+    // range goes back to "This week" too, re-anchored on whichever week
+    // the planner is showing now.
+    setPreset("week");
+    setCustomFrom(weekStartKey);
+    setCustomThrough(defaultCustomThrough(weekStartKey));
+    loadPreview(weekRange(weekStartKey));
+  }
+
+  function changeRange(nextPreset: RangePreset, nextFrom: string, nextThrough: string) {
+    setPreset(nextPreset);
+    setCustomFrom(nextFrom);
+    setCustomThrough(nextThrough);
+    loadPreview(rangeFor(nextPreset, weekStartKey, nextFrom, nextThrough));
+  }
+
+  function loadPreview(range: MissingIngredientsRange | null) {
+    const requestId = ++latestPreviewRef.current;
     setItems(null);
     setPreviewError(null);
+    // An invalid custom range is shown inline (customRangeInvalid below)
+    // rather than sent — the server would only reject it the same way.
+    if (!range) return;
     startPreviewTransition(async () => {
-      const result = await previewMissingIngredientsAction(weekStartKey);
+      const result = await previewMissingIngredientsAction(range);
+      if (requestId !== latestPreviewRef.current) return;
       if ("error" in result) {
         setPreviewError(result.error);
       } else {
@@ -113,6 +180,16 @@ export function MissingIngredientsDialog({
       ? dict.newShoppingListOption
       : (activeShoppingLists.find((l) => l.id === value)?.name ?? value);
 
+  const rangePresetLabel = (value: RangePreset) =>
+    value === "week"
+      ? dict.missingIngredientsRangeThisWeek
+      : value === "twoWeeks"
+        ? dict.missingIngredientsRangeTwoWeeks
+        : dict.missingIngredientsRangeCustom;
+
+  const customRangeInvalid =
+    preset === "custom" && rangeFor(preset, weekStartKey, customFrom, customThrough) === null;
+
   const includedCount = items?.filter((item) => item.included).length ?? 0;
 
   return (
@@ -130,12 +207,66 @@ export function MissingIngredientsDialog({
           <DialogTitle>{dict.missingIngredientsDialogTitle}</DialogTitle>
         </DialogHeader>
 
-        {isPreviewPending || items === null ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="missingIngredientsRange">{dict.missingIngredientsRangeLabel}</Label>
+          <Select
+            value={preset}
+            onValueChange={(v) =>
+              changeRange((v as RangePreset | null) ?? "week", customFrom, customThrough)
+            }
+          >
+            <SelectTrigger id="missingIngredientsRange" className="w-full">
+              <SelectValue>{rangePresetLabel}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {RANGE_PRESETS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {rangePresetLabel(value)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {preset === "custom" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="missingIngredientsFrom" className="text-xs">
+                  {dict.missingIngredientsRangeFrom}
+                </Label>
+                <Input
+                  id="missingIngredientsFrom"
+                  type="date"
+                  value={customFrom}
+                  onChange={(e) => changeRange("custom", e.target.value, customThrough)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="missingIngredientsThrough" className="text-xs">
+                  {dict.missingIngredientsRangeThrough}
+                </Label>
+                <Input
+                  id="missingIngredientsThrough"
+                  type="date"
+                  min={customFrom || undefined}
+                  value={customThrough}
+                  onChange={(e) => changeRange("custom", customFrom, e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {customRangeInvalid ? (
+          <p className="text-sm text-destructive">
+            {format(dict.missingIngredientsRangeInvalid, { max: MAX_MISSING_INGREDIENTS_RANGE_DAYS })}
+          </p>
+        ) : isPreviewPending || items === null ? (
           <p className="text-sm text-muted-foreground">
             {previewError ?? dict.loadingMissingIngredients}
           </p>
         ) : items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{dict.noMissingIngredients}</p>
+          <p className="text-sm text-muted-foreground">
+            {preset === "week" ? dict.noMissingIngredients : dict.noMissingIngredientsInRange}
+          </p>
         ) : (
           <form action={formAction} className="flex flex-col gap-4">
             <p className="text-xs font-medium uppercase text-muted-foreground">

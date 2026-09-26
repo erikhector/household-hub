@@ -2839,14 +2839,39 @@ imported recipe" requirement.
 An "Add missing ingredients to shopping list" button
 (`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
 sits next to the "This week" control in the weekly planner
-(`WeekPlanner`), scoped to the whole visible week — the simplest option per
-the task spec, and the pattern every competitor researched (Mealime,
-Paprika, Plan to Eat, Whisk) uses:
+(`WeekPlanner`). By default it's scoped to the whole visible week — the
+pattern every competitor researched (Mealime, Paprika, Plan to Eat, Whisk)
+uses — but it can cover any date range up to 31 days (GAP-32):
 
+- **Date range (GAP-32)**: a "Plan period" `<Select>` at the top of the
+  dialog offers "This week" (the visible planner week, `[Monday, next
+  Monday)`; always selected when the dialog opens, so the default is
+  unchanged), "This week and next" (the visible week plus the following one,
+  anchored on the planner's week rather than today, same as "This week"),
+  and "Custom dates…", which shows From/Through date inputs (Through is
+  inclusive in the UI and shifted one day to an exclusive end before
+  calling). Changing the period re-runs the preview; a stale response from a
+  slower earlier request is ignored. The action takes a half-open
+  `{ from, to }` pair of `yyyy-mm-dd` keys, validated with Zod by
+  `parseMissingIngredientsRange` in `missing-ingredients.ts` — both must be
+  real calendar days, `to` after `from`, and the span at most
+  `MAX_MISSING_INGREDIENTS_RANGE_DAYS` (31), enough for "the next two weeks
+  before a big trip" or a whole month without letting one preview fan out
+  into hundreds of recipe expansions. The dialog runs the same check and
+  shows an inline error instead of calling; the server rejects anything
+  else with "Invalid date range" without querying. No schema change: the
+  range filters `MealPlanEntry.date` directly (scoped through
+  `mealPlan: { householdId }` from the session), so it spans however many
+  weekly `MealPlan` rows fall inside it, or starts mid-week. For "This week"
+  that selects the same entries the old single-`weekStartDate` lookup did,
+  since the planner only dates an entry on its own plan's seven days.
+  `addMissingIngredientsToShoppingListAction` takes no range: it commits
+  exactly the reviewed rows the preview returned, so preview and apply can't
+  disagree about which days were included.
 - **Diffing**: opening the dialog calls `previewMissingIngredientsAction`
-  (`src/app/dashboard/meal-planning/actions.ts`), a read-only preview — no
+  (`src/app/dashboard/meal-planning/cooking-actions.ts`), a read-only preview — no
   rows are written until the user commits. It collects every
-  `MealPlanEntry` with a `recipeId` in that week's `MealPlan` (freeform
+  `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
   entries have no ingredients and are skipped via `recipeId: { not: null }`),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
   linked `InventoryItem`. `RecipeIngredient.inventoryItemId` is normally
