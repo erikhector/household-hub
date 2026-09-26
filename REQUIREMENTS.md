@@ -4429,6 +4429,15 @@ approximating them, so the email never disagrees with the app.
   behind a separate `DATABASE_URL` (e.g. a second `docker-compose` service)
   or wrap each test in a rolled-back transaction — don't run them against
   the shared dev database by default.
+- **Cookie/localStorage drift guard** (`src/lib/cookie-inventory.test.ts`):
+  scans `src/` for any `*_COOKIE`, `*_COOKIE_PREFIX` (a cookie keyed per id,
+  e.g. `household_step_skipped_<householdId>` in
+  `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
+  its value isn't listed in `STORAGE_INVENTORY`
+  (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
+  cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  key must follow one of those three naming patterns and get a
+  `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 
 ## Not yet built / roadmap
 

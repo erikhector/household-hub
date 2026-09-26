@@ -259,17 +259,6 @@ tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
 touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
-- [ ] **MAINT-1. Cookie inventory is missing three keys, and its drift guard can't see them** (high, S) —
-      not in `src/lib/cookie-inventory.ts`: the `household_step_skipped_<id>`
-      cookie (`src/lib/actions/household.ts:300,311`) and the localStorage
-      keys `mealPlanning.varietyRecapDismissedCount`
-      (`components/meal-planning/meal-variety-recap.tsx:24`) and
-      `tasks.weeklyRecap.dismissedWeek`
-      (`components/tasks/tasks-weekly-recap.tsx:28`). The privacy page is
-      therefore incomplete. The test regex
-      (`cookie-inventory.test.ts:23`) only matches `*_COOKIE = "…"`; widen it
-      to `_COOKIE_PREFIX` / `_STORAGE_KEY` with prefix matching, then add
-      the entries.
 - [ ] **MAINT-2. No `householdId`-taking exports from `"use server"` files** (high, S) —
       `findOrCreateGroceriesCategory(householdId)`
       (`dashboard/budget/actions.ts:39`) and
