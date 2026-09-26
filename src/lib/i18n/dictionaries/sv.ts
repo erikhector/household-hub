@@ -1463,6 +1463,18 @@ export const sv = {
       noCheapestStoreData:
         "Inga jämförelser än. Ange en butik när du skannar eller registrerar ett kvitto — när en vara har priser från 2+ butiker visas den här.",
       cheapestStoreLabel: "Billigast hos {store}:",
+      stockValueTitle: "Hemma just nu",
+      stockValueSubtitle:
+        "Ungefär vad allt du har hemma kostade, till priset du betalade senast du köpte varje vara.",
+      noStockData: "Det finns inget i lager just nu.",
+      stockValueBasis: {
+        one: "Baserat på {priced} av {count} vara med känt pris.",
+        other: "Baserat på {priced} av {count} varor med känt pris.",
+      },
+      stockValueNoPrices: {
+        one: "{count} vara finns i lager, men den har inget känt pris än.",
+        other: "{count} varor finns i lager, men ingen av dem har något känt pris än.",
+      },
       expiredTitle: "Gick ut innan den användes",
       expiredSubtitle:
         "Mat som nådde sitt bäst före-datum den här månaden innan den tog slut, ungefär till vad den kostade senast du köpte den.",

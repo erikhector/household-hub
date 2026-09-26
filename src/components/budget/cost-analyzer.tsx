@@ -26,11 +26,19 @@
 // (there's deliberately no notification for it). See
 // src/lib/inventory/expired-waste.ts for which items count and why
 // estimated dates are kept out of the headline figure.
+//
+// "On hand now" (GAP-33) sits just before it: the other side of the same
+// coin — what's still in the cupboards, valued the same way (one last
+// known price per item). It always says how many in-stock items that figure
+// is built from ("based on N of M"), since a pantry where half the items
+// have never been bought through a priced shopping line would otherwise
+// read as worth half what it is. See src/lib/inventory/stock-value.ts.
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { StoreComparison } from "@/lib/cheapest-store-calc";
 import type { ExpiredWasteSummary } from "@/lib/inventory/expired-waste";
+import type { StockValueSummary } from "@/lib/inventory/stock-value";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
@@ -51,6 +59,7 @@ export function CostAnalyzer({
   storeComparisons,
   expiredThisMonth,
   expiredLastMonth,
+  stockValue,
   dict,
   locale,
   currencyCode,
@@ -60,6 +69,7 @@ export function CostAnalyzer({
   storeComparisons: StoreComparison[];
   expiredThisMonth: ExpiredWasteSummary;
   expiredLastMonth: ExpiredWasteSummary;
+  stockValue: StockValueSummary;
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -161,6 +171,8 @@ export function CostAnalyzer({
         </CardContent>
       </Card>
 
+      <StockValueCard stockValue={stockValue} dict={dict} numberFormat={numberFormat} />
+
       <ExpiredWasteCard
         thisMonth={expiredThisMonth}
         lastMonth={expiredLastMonth}
@@ -169,6 +181,48 @@ export function CostAnalyzer({
         dateFormat={dateFormat}
       />
     </div>
+  );
+}
+
+function StockValueCard({
+  stockValue,
+  dict,
+  numberFormat,
+}: {
+  stockValue: StockValueSummary;
+  dict: Dictionary["budget"]["costAnalyzer"];
+  numberFormat: Intl.NumberFormat;
+}) {
+  const { value, pricedCount, inStockCount } = stockValue;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{dict.stockValueTitle}</CardTitle>
+        <CardDescription>{dict.stockValueSubtitle}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1">
+        {inStockCount === 0 ? (
+          <p className="text-sm text-muted-foreground">{dict.noStockData}</p>
+        ) : pricedCount === 0 ? (
+          // "≈ 0 kr" here would read as "your pantry is worth nothing"
+          // rather than "we don't know yet".
+          <p className="text-sm text-muted-foreground">
+            {format(plural(inStockCount, dict.stockValueNoPrices), { count: inStockCount })}
+          </p>
+        ) : (
+          <>
+            <p className="text-2xl font-semibold tabular-nums">≈ {numberFormat.format(value)}</p>
+            <p className="text-xs text-muted-foreground">
+              {format(plural(inStockCount, dict.stockValueBasis), {
+                priced: pricedCount,
+                count: inStockCount,
+              })}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
