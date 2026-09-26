@@ -171,16 +171,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-1. Cook tab loads the recipe graph once per recipe** (high, S) —
-      `getCookableRecipes` (`meal-planning/cookable-recipes.ts:70-72`) calls
-      `expandRecipeIngredients` per recipe, and each call runs
-      `loadRecipeGraph` (`recipe-expansion.ts:51-59,146`) which fetches the
-      *whole* household recipe graph: O(R²) rows, R parallel queries that
-      saturate the pg pool, on every meal-planning load (the Cook tab is
-      server-rendered even when hidden, `page.tsx:447`).
-      `cooking-actions.ts:107-118` does the same per meal-plan entry. Load
-      the graph once and call `expandFromGraph` per recipe. Verify with
-      Prisma query logging on a 50-recipe household: 1 graph query, not 50.
 - [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
       `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
       the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use

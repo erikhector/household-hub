@@ -15,7 +15,12 @@ import {
   type MissingIngredientsRange,
 } from "@/app/dashboard/meal-planning/missing-ingredients";
 import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
-import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
+import {
+  expandRecipeIngredients,
+  loadRecipeGraph,
+  expandFromGraph,
+  portionsMultiplier,
+} from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
@@ -103,18 +108,23 @@ export async function previewMissingIngredientsAction(
   // dinner and Friday lunch) therefore total 1 full batch, not 2. The ratio
   // itself (and its no-scaling fallback) is portionsMultiplier in
   // recipe-expansion.ts.
-  const expanded = (
-    await Promise.all(
-      entries.map((entry) =>
-        expandRecipeIngredients(
-          household.id,
-          entry.recipeId!,
-          portionsMultiplier(entry.portions, entry.recipe?.servings),
-          new Set(),
-        ),
-      ),
-    )
-  ).flat();
+  //
+  // PERF-1: this used to call expandRecipeIngredients (one loadRecipeGraph
+  // query each) once per entry, so a week with several planned meals issued
+  // one query per entry on every preview. Loading the graph once for the
+  // whole range and walking it per entry with expandFromGraph keeps the
+  // same expansion (cycle handling, scaling, component recipes) at one
+  // query total.
+  const recipesById = await loadRecipeGraph(household.id);
+  const expanded = entries.flatMap((entry) =>
+    expandFromGraph(
+      recipesById,
+      entry.recipeId!,
+      portionsMultiplier(entry.portions, entry.recipe?.servings),
+      new Set(),
+      0,
+    ),
+  );
 
   // Every ingredient is normally linked to an InventoryItem at recipe-save
   // time (see "Ingredient → inventory linking" in REQUIREMENTS.md), but the
