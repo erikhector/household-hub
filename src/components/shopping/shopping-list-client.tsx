@@ -723,7 +723,13 @@ function ShoppingRow({
         highlighted && "border-primary/50 bg-primary/10",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      {/* Below sm the row stacks: the name gets the full width on its own
+          line and the controls drop to a second line, indented under it.
+          On one line, the shrink-0 controls (category chip, price — wider
+          since GAP-13 added a currency symbol — edit, delete) left a phone
+          only a few pixels of truncated name, the one part of the row you
+          actually need to read in the aisle. */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <label
           className={cn(
             "flex min-w-0 flex-1 items-center gap-3",
@@ -748,7 +754,7 @@ function ShoppingRow({
             }
           />
           <span
-            className={`min-w-0 flex-1 truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+            className={`min-w-0 flex-1 break-words sm:truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
             title={`${item.name} × ${item.quantity} ${item.unit}`}
           >
             {item.name} × {item.quantity} {item.unit}
@@ -769,7 +775,7 @@ function ShoppingRow({
             <input> the label is already wired to. Rendered even on a
             non-editable (view-only) row, just without the tap-to-correct
             affordance, since the estimate itself is still worth showing. */}
-        <div className="flex shrink-0 items-center gap-1">
+        <div className={cn("flex shrink-0 items-center gap-1 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
           {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
               Only on an editable, linked row — an unlinked one has no
               category yet (the mapping flow picks one), and a read-only
