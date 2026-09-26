@@ -4448,6 +4448,21 @@ approximating them, so the email never disagrees with the app.
     (`signupAction`, `loginAction`, `createHouseholdAction`,
     `joinViaInviteSignupAction`): each schema's validation-error paths, plus
     one success path per action.
+  - MAINT-14 filled in the remaining untested domain modules:
+    `src/lib/shopping/put-away.ts` (the quantity math, conditional
+    price/expiry/location fields, and PriceHistory recording behind stock
+    arriving and being reversed, with its collaborators mocked out),
+    `src/lib/settle-departing-member.ts` (money — every other member's
+    split marked paid, unconditionally, including a zero-amount split),
+    `src/lib/session-revocation.ts` (every branch of `isSessionRevoked`),
+    `src/lib/budget-date-utils.ts` and
+    `src/app/dashboard/meal-planning/date-utils.ts` (month/week navigation
+    across year boundaries, leap days, and the DST transition date, plus
+    `isMonthKey`/`isDateKey`'s rejection cases), `src/lib/digest-unsubscribe.ts`
+    (token verification failure vs. success, and idempotency), and the
+    inventory and shopping-list CSV `export/route.ts` handlers (household
+    tenancy scoping, filename generation, column rendering, and formula-
+    injection guarding end to end).
   - Not covered yet: meal planning, budgeting, profile — out of scope for
     this task per `AGENT_TASKS.md` (they're other in-flight Wave 1 work and
     don't exist in a stable form on this branch). Add their tests alongside

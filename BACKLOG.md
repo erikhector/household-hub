@@ -335,12 +335,6 @@ then MAINT-7 per feature, to avoid churn.
       `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
       cite a `findOrCreateInventoryItem` that no longer exists. Delete the
       stray committed `src/components/budget/cost-analyzer.tsx.orig`.
-- [ ] **MAINT-14. Unit tests for untested domain modules** (low, S–M) —
-      `lib/shopping/put-away.ts` (newest feature), `lib/settle-departing-member.ts`
-      (money), `lib/session-revocation.ts` (security),
-      `lib/budget-date-utils.ts`, `meal-planning/date-utils.ts`,
-      `lib/digest-unsubscribe.ts`, and the inventory and shopping-list CSV
-      `export/route.ts` handlers.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
