@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.36.0",
+    "date": "2026-09-26",
+    "pr": 65,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now move a planned meal to another day or meal, build a shopping list from several weeks of meal plans at once, and import recipes from many more websites. Cost analyzer also shows roughly what everything you have at home is worth, and what your whole shopping list would cost at each store.",
+      "sv": "Nu kan du flytta en planerad måltid till en annan dag eller måltid, skapa en inköpslista från flera veckors matsedel på en gång och importera recept från betydligt fler webbplatser. Kostnadsanalysen visar också ungefär vad allt du har hemma är värt, och vad hela inköpslistan skulle kosta i varje butik."
+    }
+  },
+  {
     "version": "0.35.1",
     "date": "2026-09-26",
     "pr": 64,
