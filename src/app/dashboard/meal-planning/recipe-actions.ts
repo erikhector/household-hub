@@ -7,7 +7,12 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
-import { fetchRecipeHtml, parseRecipeFromHtml, type FetchRecipeError } from "@/lib/recipe-import";
+import {
+  fetchRecipeHtml,
+  parseRecipeFromHtml,
+  type FetchRecipeError,
+  type RecipeImportSource,
+} from "@/lib/recipe-import";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
@@ -370,6 +375,9 @@ export type ImportRecipeState = ActionState & {
     name: string;
     instructions: string;
     ingredients: ImportedRecipeIngredient[];
+    // Which extraction tier found it (GAP-31) — the form shows a "review
+    // before saving" notice for anything but "jsonld".
+    source: RecipeImportSource;
   };
 };
 
@@ -387,15 +395,16 @@ function importErrorMessage(error: FetchRecipeError, dict: MealPlanningDict): st
   }
 }
 
-// Fetches a user-supplied recipe URL server-side and extracts its
-// schema.org/Recipe JSON-LD to pre-fill RecipeFormDialog's fields — never
+// Fetches a user-supplied recipe URL server-side and extracts its recipe
+// (schema.org/Recipe JSON-LD, falling back to Microdata or a heading
+// heuristic) to pre-fill RecipeFormDialog's fields — never
 // saves anything itself; the user still reviews and submits
 // createRecipeAction/updateRecipeAction. requireHousehold() just confirms
 // the caller is an authenticated member of a household (this action doesn't
 // read/write anything household-scoped), matching the rule that every
 // action in this feature re-derives its caller from the session rather than
 // trusting the client. See src/lib/recipe-import.ts for the SSRF-guarding
-// fetch and the JSON-LD parsing.
+// fetch and the JSON-LD → Microdata → heading-heuristic parsing.
 export async function importRecipeFromUrlAction(
   _prevState: ImportRecipeState,
   formData: FormData,

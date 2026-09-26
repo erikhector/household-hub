@@ -1102,6 +1102,8 @@ export const en = {
     importButton: "Import",
     importing: "Importing…",
     importSuccess: "Imported — review the fields below, then save.",
+    importLowConfidence:
+      "Review before saving: this page has no standard recipe data, so the fields below were guessed from its layout and may be incomplete or wrong.",
     importErrorInvalidUrl: "Enter a valid web address (starting with http:// or https://).",
     importErrorBlockedHost: "That address can't be fetched.",
     importErrorFetchFailed: "Couldn't load that page. Check the link and try again.",
