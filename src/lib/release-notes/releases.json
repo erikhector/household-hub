@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.2",
+    "date": "2026-09-26",
+    "pr": 72,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Security hardening for the scheduled background jobs. Nothing changes for you.",
+      "sv": "Säkerhetsförbättring för de schemalagda bakgrundsjobben. Ingen synlig förändring."
+    }
+  },
+  {
     "version": "0.39.1",
     "date": "2026-09-26",
     "pr": 73,
