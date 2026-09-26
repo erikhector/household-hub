@@ -4,7 +4,9 @@
 // (src/app/dashboard/meal-planning/recipe-actions.ts). The parsing functions below
 // take no network dependency and are unit-tested with inline HTML/JSON
 // fixtures in recipe-import.test.ts; fetchRecipeHtml is the only part that
-// touches the network and isn't exercised by tests.
+// touches the network — recipe-import.test.ts mocks node:dns/node:http/
+// node:https to exercise its SSRF/DNS-rebinding guard and its size/timeout
+// handling without a real connection.
 //
 // Extraction runs in three tiers, most trustworthy first (GAP-31):
 //   1. schema.org `Recipe` JSON-LD — the site's own machine-readable data,
@@ -25,6 +27,8 @@
 // regex/string-based — no DOM parser dependency, matching how the JSON-LD
 // tier has always worked.
 import { promises as dns } from "node:dns";
+import http, { type IncomingMessage } from "node:http";
+import https from "node:https";
 import net from "node:net";
 import { tagsFromSchemaOrgDiet, type RecipeTag } from "@/lib/recipe-tags";
 
@@ -795,51 +799,120 @@ export function validateRecipeUrl(rawUrl: string): UrlValidationResult {
   return { ok: true, url };
 }
 
-async function assertResolvesToPublicAddress(hostname: string): Promise<boolean> {
-  const ipFamily = net.isIP(hostname);
-  if (ipFamily) return true; // already checked by validateRecipeUrl
+// A `net.connect`-compatible `lookup` error code for "this hostname
+// resolves to a private/reserved address" — distinct from Node's own
+// ENOTFOUND/etc. so fetchRecipeHtml's catch block can tell a blocked host
+// apart from a plain connection failure and report "blockedHost" instead of
+// a generic "fetchFailed".
+const EBLOCKEDHOST = "EBLOCKEDHOST";
 
-  let records: { address: string; family: number }[];
-  try {
-    records = await dns.lookup(hostname, { all: true });
-  } catch {
-    return false; // unresolvable — refuse rather than guess safe
-  }
-  if (records.length === 0) return false;
+/**
+ * A `net.connect`-compatible `lookup` for `http(s).request`, pinning DNS
+ * resolution to the exact address the socket goes on to connect to (SEC-2).
+ *
+ * The previous version resolved the hostname once up front to check it was
+ * public (`dns.lookup` in `assertResolvesToPublicAddress`), then let
+ * `fetch` resolve the *same hostname again* to actually connect. Those are
+ * two independent DNS queries, and a TTL-0 or otherwise hostile DNS server
+ * can answer them differently — return a public address the first time
+ * (passing the check) and a private one (`127.0.0.1`, the cloud metadata
+ * address `169.254.169.254`, …) the second, which is exactly what the
+ * socket then connects to. This is the standard DNS-rebinding SSRF bypass.
+ *
+ * Passing this function as `lookup` to `http(s).request` means the
+ * request's *only* resolution is this one, and Node connects to whichever
+ * address it hands back — so validating here is validating what's actually
+ * connected to, with no gap for a second query to answer differently in.
+ *
+ * `dns.lookup(..., { all: true })` can return several records (multiple A
+ * results, A + AAAA, …), and Node tries them in order until one connects —
+ * so every record must be checked, not just the first, or a rebinding
+ * attacker could list a public "decoy" address alongside a private one and
+ * rely on the client eventually trying the private one.
+ */
+function createPinnedPublicLookup(): (
+  hostname: string,
+  options: unknown,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+) => void {
+  return (hostname, _options, callback) => {
+    dns.lookup(hostname, { all: true }).then(
+      (records) => {
+        if (records.length === 0) {
+          callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" }), "", 0);
+          return;
+        }
+        const blocked = records.some((record) =>
+          record.family === 4
+            ? isPrivateOrReservedIPv4(record.address)
+            : isPrivateOrReservedIPv6(record.address),
+        );
+        if (blocked) {
+          callback(
+            Object.assign(new Error(`${hostname} resolves to a private/reserved address`), {
+              code: EBLOCKEDHOST,
+            }),
+            "",
+            0,
+          );
+          return;
+        }
+        callback(null, records[0].address, records[0].family);
+      },
+      (error: NodeJS.ErrnoException) => callback(error, "", 0),
+    );
+  };
+}
 
-  for (const record of records) {
-    if (record.family === 4 && isPrivateOrReservedIPv4(record.address)) return false;
-    if (record.family === 6 && isPrivateOrReservedIPv6(record.address)) return false;
-  }
-  return true;
+const RECIPE_IMPORT_USER_AGENT = "HouseholdHubRecipeImporter/1.0";
+
+type RawHttpResponse = { statusCode: number; headers: http.IncomingHttpHeaders; body: IncomingMessage };
+
+/** One GET with DNS pinned via createPinnedPublicLookup; redirects are left for the caller to follow manually. */
+function requestOnce(url: URL, signal: AbortSignal): Promise<RawHttpResponse> {
+  return new Promise((resolve, reject) => {
+    const client = url.protocol === "https:" ? https : http;
+    const req = client.request(
+      url,
+      {
+        method: "GET",
+        headers: { "user-agent": RECIPE_IMPORT_USER_AGENT },
+        // Forces a fresh socket (and so a fresh `lookup` call) for this
+        // request — a pooled keep-alive socket from an earlier request
+        // could otherwise be reused for a different hop's hostname without
+        // ever going through `lookup` again.
+        agent: false,
+        lookup: createPinnedPublicLookup(),
+        signal,
+      },
+      (res) => resolve({ statusCode: res.statusCode ?? 0, headers: res.headers, body: res }),
+    );
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 const MAX_RESPONSE_BYTES = 3 * 1024 * 1024; // 3MB — plenty for a recipe page's HTML
 const MAX_REDIRECTS = 5;
 const FETCH_TIMEOUT_MS = 8000;
 
-async function readBodyWithLimit(response: Response, limitBytes: number): Promise<string> {
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        total += value.byteLength;
-        if (total > limitBytes) {
-          await reader.cancel();
-          throw new Error("tooLarge");
-        }
-        chunks.push(value);
+/** Reads a Node response stream up to `limitBytes`, destroying it and rejecting once exceeded. */
+function readBodyWithLimit(body: IncomingMessage, limitBytes: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    body.on("data", (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > limitBytes) {
+        body.destroy();
+        reject(new Error("tooLarge"));
+        return;
       }
-    }
-  } finally {
-    reader.releaseLock?.();
-  }
-  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf-8");
+      chunks.push(chunk);
+    });
+    body.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    body.on("error", reject);
+  });
 }
 
 export type FetchRecipeError =
@@ -851,10 +924,25 @@ export type FetchRecipeResult = { ok: true; html: string } | { ok: false; error:
 
 /**
  * Fetches a user-supplied recipe URL server-side, guarding against SSRF:
- * only http(s), never a private/loopback/link-local/reserved IP (checked
- * both as a literal in the URL and after DNS resolution, to also cover DNS
- * rebinding), redirects followed manually so every hop is re-validated the
- * same way, and the response body capped in size while streaming.
+ * only http(s), never a private/loopback/link-local/reserved IP (checked as
+ * a literal in the URL by validateRecipeUrl, and after DNS resolution by
+ * createPinnedPublicLookup — see its comment for why that's the *same*
+ * lookup used to connect, closing the DNS-rebinding gap a separate
+ * check-then-fetch resolution would leave open), redirects followed
+ * manually so every hop is re-validated the same way, and the response
+ * body capped in size while streaming.
+ *
+ * Built on node:http/https rather than `fetch` specifically so the lookup
+ * that *validates* a hostname is the one that *connects* to it (fetch/undici
+ * has no supported hook for that short of constructing an `undici.Agent`,
+ * and undici isn't a direct dependency here). One consequence: this doesn't
+ * send `Accept-Encoding`, so responses arrive uncompressed instead of via
+ * fetch's automatic gzip/br negotiation — heavier over the wire, but this
+ * fetches one page per import and MAX_RESPONSE_BYTES still applies.
+ *
+ * The abort timer set per hop stays armed through the body read below, not
+ * just until headers arrive — a slow-drip response has nothing else to cut
+ * it off past FETCH_TIMEOUT_MS otherwise (SEC-2).
  */
 export async function fetchRecipeHtml(rawUrl: string): Promise<FetchRecipeResult> {
   const initial = validateRecipeUrl(rawUrl);
@@ -863,51 +951,49 @@ export async function fetchRecipeHtml(rawUrl: string): Promise<FetchRecipeResult
   let currentUrl = initial.url;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const safe = await assertResolvesToPublicAddress(currentUrl.hostname);
-    if (!safe) return { ok: false, error: "blockedHost" };
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let response: Response;
     try {
-      response = await fetch(currentUrl, {
-        redirect: "manual",
-        signal: controller.signal,
-        headers: { "user-agent": "HouseholdHubRecipeImporter/1.0" },
-      });
-    } catch {
+      const response = await requestOnce(currentUrl, controller.signal);
+
+      if (response.statusCode >= 300 && response.statusCode < 400) {
+        response.body.resume(); // discard the redirect's own body, if any
+        const location = response.headers.location;
+        if (!location) return { ok: false, error: "fetchFailed" };
+        let nextUrl: URL;
+        try {
+          nextUrl = new URL(location, currentUrl);
+        } catch {
+          return { ok: false, error: "invalidUrl" };
+        }
+        const nextValidated = validateRecipeUrl(nextUrl.toString());
+        if (!nextValidated.ok) return nextValidated;
+        currentUrl = nextValidated.url;
+        continue;
+      }
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.body.resume();
+        return { ok: false, error: "fetchFailed" };
+      }
+
+      const contentLength = response.headers["content-length"];
+      if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
+        response.body.resume();
+        return { ok: false, error: "tooLarge" };
+      }
+
+      try {
+        const html = await readBodyWithLimit(response.body, MAX_RESPONSE_BYTES);
+        return { ok: true, html };
+      } catch {
+        return { ok: false, error: "tooLarge" };
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === EBLOCKEDHOST) return { ok: false, error: "blockedHost" };
       return { ok: false, error: "fetchFailed" };
     } finally {
       clearTimeout(timeout);
-    }
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) return { ok: false, error: "fetchFailed" };
-      let nextUrl: URL;
-      try {
-        nextUrl = new URL(location, currentUrl);
-      } catch {
-        return { ok: false, error: "invalidUrl" };
-      }
-      const nextValidated = validateRecipeUrl(nextUrl.toString());
-      if (!nextValidated.ok) return nextValidated;
-      currentUrl = nextValidated.url;
-      continue;
-    }
-
-    if (!response.ok) return { ok: false, error: "fetchFailed" };
-
-    const contentLength = response.headers.get("content-length");
-    if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
-      return { ok: false, error: "tooLarge" };
-    }
-
-    try {
-      const html = await readBodyWithLimit(response, MAX_RESPONSE_BYTES);
-      return { ok: true, html };
-    } catch {
-      return { ok: false, error: "tooLarge" };
     }
   }
 

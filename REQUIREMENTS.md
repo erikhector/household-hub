@@ -3011,18 +3011,35 @@ imported recipe" requirement.
   `localhost`/`*.localhost`, and an IP-literal hostname in a
   private/loopback/link-local/reserved range (checked via small CIDR-range
   helpers for both IPv4 and IPv6, including IPv4-mapped IPv6 addresses).
-  `fetchRecipeHtml` additionally resolves the hostname with `dns.lookup`
-  before connecting and re-checks every resolved address the same way —
-  guarding against DNS rebinding, which a literal-hostname check alone
-  can't catch — and does this again on every redirect hop, since redirects
-  are followed manually (`redirect: "manual"`) specifically so each one can
-  be re-validated before being followed rather than trusting `fetch`'s
+  `fetchRecipeHtml` is built on `node:http`/`node:https` rather than
+  `fetch`, specifically so DNS resolution can be pinned: `createPinnedPublicLookup`
+  is passed as the `lookup` option on every request, so the *same* `dns.lookup`
+  call that gets checked against the private/reserved ranges is the one Node
+  connects to — there's no separate "validate, then let fetch resolve again
+  to connect" step for a TTL-0/hostile DNS server to answer differently the
+  second time (SEC-2; that gap used to exist between a pre-flight
+  `assertResolvesToPublicAddress` check and `fetch`'s own resolution).
+  Redirects are followed manually specifically so each hop gets its own
+  fresh, pinned resolution before being followed, rather than trusting
   automatic redirect handling. The response body is read via a capped
   streaming reader (3MB) rather than buffered in full, and the whole fetch
-  has an 8s timeout via `AbortController`. None of this network-dependent
-  code is exercised by `recipe-import.test.ts` (per the "no real network
-  calls in tests" rule) — only the pure parsing and pure URL-scheme/
-  IP-literal validation are unit-tested.
+  (connect through body read) has an 8s timeout via `AbortController` that
+  stays armed until the body finishes reading, not just until headers
+  arrive. One consequence of not using `fetch`: no `Accept-Encoding` is
+  sent, so responses arrive uncompressed rather than via `fetch`'s automatic
+  gzip/br negotiation — heavier over the wire, but still capped at 3MB and
+  this only ever fetches one page per import. `recipe-import.test.ts`
+  exercises this network-dependent path by mocking `node:dns`/`node:http`/
+  `node:https` (never a real connection) — covering the DNS-rebinding guard
+  and the abort timer staying armed through the body read — while the pure
+  parsing and pure URL-scheme/IP-literal validation stay unit-tested as
+  before. `importRecipeFromUrlAction` (`recipe-actions.ts`) also
+  rate-limits this per household
+  (`checkRateLimit("recipe-import:<householdId>", 20/hour)`,
+  `dict.mealPlanning.importErrorRateLimited` on refusal) — this action
+  makes the server fetch an arbitrary URL, so without a limit a household
+  could use it to hammer a third-party host, or repeatedly probe internal
+  addresses past the guard above.
 - **Feedback**: `importRecipeFromUrlAction` returns `ImportRecipeState`
   (`ActionState & { recipe?: {...} }`, following the same
   `(prevState, formData) => Promise<State>` shape as every other

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { ActionState } from "@/lib/actions/auth";
 import {
   fetchRecipeHtml,
@@ -22,6 +23,15 @@ import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-component
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
+
+// SEC-2: importRecipeFromUrlAction makes this app's server fetch whatever
+// URL a household member pastes in, so it's the one action here that can be
+// used to hammer arbitrary third-party hosts (or repeatedly probe internal
+// ones past the SSRF guard) from our own server. Same limit/window as the
+// AI receipt scan's rate limit (src/lib/actions/receipt-scan.ts) — plenty
+// for genuine use, tight enough that abusing it isn't worthwhile.
+const RECIPE_IMPORT_RATE_LIMIT = 20;
+const RECIPE_IMPORT_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 type MealPlanningDict = Awaited<ReturnType<typeof getDictionary>>["mealPlanning"];
 
@@ -411,18 +421,34 @@ function importErrorMessage(error: FetchRecipeError, dict: MealPlanningDict): st
 // (schema.org/Recipe JSON-LD, falling back to Microdata or a heading
 // heuristic) to pre-fill RecipeFormDialog's fields — never
 // saves anything itself; the user still reviews and submits
-// createRecipeAction/updateRecipeAction. requireHousehold() just confirms
-// the caller is an authenticated member of a household (this action doesn't
-// read/write anything household-scoped), matching the rule that every
-// action in this feature re-derives its caller from the session rather than
-// trusting the client. See src/lib/recipe-import.ts for the SSRF-guarding
-// fetch and the JSON-LD → Microdata → heading-heuristic parsing.
+// createRecipeAction/updateRecipeAction. requireHousehold() confirms the
+// caller is an authenticated member of a household (this action doesn't
+// read/write anything household-scoped) and gives the household id the
+// rate limit below is keyed on, matching the rule that every action in
+// this feature re-derives its caller from the session rather than trusting
+// the client. See src/lib/recipe-import.ts for the SSRF/DNS-rebinding-
+// guarding fetch and the JSON-LD → Microdata → heading-heuristic parsing.
 export async function importRecipeFromUrlAction(
   _prevState: ImportRecipeState,
   formData: FormData,
 ): Promise<ImportRecipeState> {
-  await requireHousehold();
+  const { household } = await requireHousehold();
   const dict = await getDictionary();
+
+  // SEC-2: this action makes our server fetch whatever URL is pasted in, so
+  // without a limit a household could be used to hammer an arbitrary host
+  // (or repeatedly probe internal addresses past the SSRF guard) through
+  // us. Keyed per household, not per user, like the other server-side-fetch
+  // actions in this codebase (receipt-scan.ts, inventory-scan.ts).
+  if (
+    !(await checkRateLimit(
+      `recipe-import:${household.id}`,
+      RECIPE_IMPORT_RATE_LIMIT,
+      RECIPE_IMPORT_RATE_LIMIT_WINDOW_MS,
+    ))
+  ) {
+    return { error: dict.mealPlanning.importErrorRateLimited };
+  }
 
   const url = String(formData.get("url") ?? "").trim();
   if (!url) return { error: dict.mealPlanning.importErrorInvalidUrl };

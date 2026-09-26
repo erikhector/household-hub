@@ -1171,6 +1171,7 @@ export const en = {
     importErrorBlockedHost: "That address can't be fetched.",
     importErrorFetchFailed: "Couldn't load that page. Check the link and try again.",
     importErrorNoRecipeFound: "Couldn't read a recipe from that page.",
+    importErrorRateLimited: "Too many recipe imports in a short time — wait a bit and try again.",
     recipeNameLabel: "Name",
     servingsLabel: "Servings",
     servingsHint: "How many portions the ingredient amounts below make.",

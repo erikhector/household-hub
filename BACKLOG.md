@@ -105,16 +105,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `checkRateLimit("login:<email>")` into `authorize()`, normalising the
       email (trim + lowercase) there too. Test: the 11th `authorize` call is
       refused and `bcrypt.compare` isn't called.
-- [ ] **SEC-2. Close the DNS-rebinding hole in recipe import** (medium) —
-      `assertResolvesToPublicAddress` (`src/lib/recipe-import.ts:798-812`)
-      resolves the host, then `fetch` (`:873`) resolves it again, so a TTL-0
-      record can point the real request at `127.0.0.1`/`169.254.169.254`.
-      Pin the connection with an undici `Agent` whose `connect.lookup`
-      re-validates every resolved address; keep the abort timer running
-      through `readBodyWithLimit` (it's cleared before the body is read);
-      add `checkRateLimit("recipe-import:<householdId>")` (~20/h) to the
-      action in `meal-planning/recipe-actions.ts:420`. Test: mocked
-      `dns.lookup` returning public-then-private never connects.
 - [ ] **SEC-3. Validate push subscription endpoints** (medium) —
       `subscribeToPushAction` (`src/lib/actions/push.ts:30-40`) stores any
       `endpoint`/keys, and `sendNotification` (`src/lib/push.ts:115`) later

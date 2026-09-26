@@ -1112,6 +1112,7 @@ export const sv = {
     importErrorBlockedHost: "Den adressen kan inte hämtas.",
     importErrorFetchFailed: "Kunde inte läsa in sidan. Kontrollera länken och försök igen.",
     importErrorNoRecipeFound: "Kunde inte läsa ett recept från den sidan.",
+    importErrorRateLimited: "För många receptimporter på kort tid — vänta lite och försök igen.",
     recipeNameLabel: "Namn",
     servingsLabel: "Portioner",
     servingsHint: "Hur många portioner mängderna nedan räcker till.",
