@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.38.1",
+    "date": "2026-09-26",
+    "pr": 69,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping lists open noticeably faster, especially for households with a long shopping history.",
+      "sv": "Inköpslistor öppnas märkbart snabbare, särskilt för hushåll med lång inköpshistorik."
+    }
+  },
+  {
     "version": "0.38.0",
     "date": "2026-09-26",
     "pr": 68,
