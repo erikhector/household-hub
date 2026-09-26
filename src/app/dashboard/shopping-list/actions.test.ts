@@ -43,6 +43,8 @@ const {
   getOrCreateDefaultShoppingListMock,
   addToDefaultListOnLowStockMock,
   householdUpdateMock,
+  txShoppingListItemFindManyMock,
+  notificationUpdateManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
@@ -80,6 +82,10 @@ const {
         update: shoppingListItemUpdateMock,
         delete: shoppingListItemDeleteMock,
         count: shoppingListItemCountMock,
+        // The incoming-stock check behind the out-of-stock alert
+        // (src/lib/incoming-stock.ts) — its own mock so it never collides
+        // with the non-transactional findMany results a test sets up.
+        findMany: txShoppingListItemFindManyMock,
       },
       shoppingList: {
         create: shoppingListCreateMock,
@@ -94,7 +100,11 @@ const {
         create: inventoryItemCreateMock,
       },
       priceHistory: { create: priceHistoryCreateMock },
-      notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
+      notification: {
+        findFirst: notificationFindFirstMock,
+        create: notificationCreateMock,
+        updateMany: notificationUpdateManyMock,
+      },
     };
     return cb(tx);
   }),
@@ -108,6 +118,8 @@ const {
   getOrCreateDefaultShoppingListMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
   householdUpdateMock: vi.fn(),
+  txShoppingListItemFindManyMock: vi.fn(async () => [] as unknown[]),
+  notificationUpdateManyMock: vi.fn(async () => ({ count: 0 })),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -206,6 +218,7 @@ const {
   setShoppingListItemCategoryAction,
   resolveShoppingListMappingsAction,
   togglePurchasedAction,
+  putAwayItemsAction,
   applyReceiptScanAction,
   deleteShoppingListItemAction,
   completeShoppingListAction,
@@ -1197,8 +1210,17 @@ describe("togglePurchasedAction", () => {
 
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      // AUTO-9: the tick is timestamped for store-order learning.
-      data: { purchased: true, checkedOffAt: expect.any(Date) },
+      // AUTO-9: the tick is timestamped for store-order learning, and
+      // attributed for the put-away reminder. ON_CHECK (the household
+      // fixture predates inventorySyncMode): the tick is the arrival, so the
+      // row is put away and its price recorded in the same write.
+      data: {
+        purchased: true,
+        checkedOffAt: expect.any(Date),
+        checkedOffByUserId: "user-1",
+        putAwayAt: expect.any(Date),
+        priceRecordedAt: expect.any(Date),
+      },
     });
     expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "inv-1" },
@@ -1262,7 +1284,7 @@ describe("togglePurchasedAction", () => {
     // mistaken tick never teaches the store order anything.
     expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
       where: { id: "item-1" },
-      data: { purchased: false, checkedOffAt: null },
+      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
     });
   });
 
@@ -1765,6 +1787,10 @@ describe("registerReceiptAction", () => {
         unit: "l",
         purchased: true,
         estimatedPrice: 15,
+        // Registered after the shop: already home, counted below, and its
+        // price recorded — nothing left for the put-away step.
+        putAwayAt: expect.any(Date),
+        priceRecordedAt: expect.any(Date),
       },
     });
     // AUTO-4: a registered receipt's price also becomes the item's
@@ -1835,6 +1861,8 @@ describe("registerReceiptAction", () => {
         unit: "pcs",
         purchased: true,
         estimatedPrice: 10,
+        // Unlinked: put away (nothing to count), but no PriceHistory row.
+        putAwayAt: expect.any(Date),
       },
     });
     expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
@@ -2269,5 +2297,357 @@ describe("saveCategoryOrderAction / resetCategoryOrderAction (AUTO-9)", () => {
       data: { categoryOrderManual: [] },
     });
     expect(result.previous).toEqual(["garage", "auto:produce"]);
+  });
+});
+
+describe("togglePurchasedAction — put-away mode (ON_PUT_AWAY)", () => {
+  const putAwayHousehold = { id: "household-1", inventorySyncMode: "ON_PUT_AWAY" };
+
+  function asPutAwayHousehold() {
+    requireHouseholdMock.mockResolvedValue({ household: putAwayHousehold, userId: "user-1" });
+  }
+
+  it("ticking only marks the row in the cart — no inventory, price or expiry writes", async () => {
+    asPutAwayHousehold();
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: false,
+      putAwayAt: null,
+      quantity: 3,
+      unit: "pcs",
+      estimatedPrice: 25,
+      inventoryItem: { id: "inv-1", quantity: 0, category: "Dairy & eggs", expiresAt: null, expiresAtEstimated: false },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { purchased: true, checkedOffAt: expect.any(Date), checkedOffByUserId: "user-1" },
+    });
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+    expect(addToDefaultListOnLowStockMock).not.toHaveBeenCalled();
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith("household-1", [], "user-1");
+    // "The shopping is done" is still about the list, not the pantry.
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: { householdId: "household-1", kind: "LIST_CLEARED", shoppingListId: "list-1" },
+    });
+  });
+
+  it("un-ticking a row that was never put away has nothing to reverse", async () => {
+    asPutAwayHousehold();
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      putAwayAt: null,
+      quantity: 3,
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 4 },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "item-1" },
+      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
+    });
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(addToDefaultListOnLowStockMock).not.toHaveBeenCalled();
+  });
+
+  it("un-ticking a row that was already put away gives its stock back", async () => {
+    asPutAwayHousehold();
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      putAwayAt: new Date("2026-09-01"),
+      quantity: 3,
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 4 },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { quantity: 1 } });
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 4, 1);
+  });
+
+  it("in ON_CHECK mode, un-ticking a row left over from put-away mode doesn't take stock it never added", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      putAwayAt: null,
+      quantity: 3,
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 4 },
+    });
+
+    await togglePurchasedAction("item-1");
+
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("putAwayItemsAction", () => {
+  const dairy = {
+    category: "Dairy & eggs",
+    expiresAt: null,
+    expiresAtEstimated: false,
+    shelfLifeDays: null,
+    openedAt: null,
+  };
+
+  function row(overrides: Record<string, unknown>) {
+    return {
+      id: "sli-1",
+      shoppingListId: "list-1",
+      purchased: true,
+      putAwayAt: null,
+      priceRecordedAt: null,
+      quantity: 2,
+      unit: "l",
+      estimatedPrice: null,
+      inventoryItem: { id: "inv-1", quantity: 0, ...dairy },
+      ...overrides,
+    };
+  }
+
+  it("refuses a list that isn't this household's (or is archived) before reading any rows", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(null);
+
+    const result = await putAwayItemsAction("someone-elses-list", [{ itemId: "sli-1" }]);
+
+    expect(result.error).toBe("This list can't be edited right now");
+    expect(shoppingListFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-list", householdId: "household-1", status: { in: ["ACTIVE", "COMPLETED"] } },
+      select: { id: true },
+    });
+    expect(shoppingListItemFindManyMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the whole call when any item isn't on this list (IDOR guard)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({})]);
+
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1" }, { itemId: "someone-elses-row" }]);
+
+    expect(result.error).toBe("Item not found");
+    expect(shoppingListItemFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["sli-1", "someone-elses-row"] }, shoppingListId: "list-1" },
+      include: { inventoryItem: true },
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-positive quantity", async () => {
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1", quantity: 0 }]);
+
+    expect(result.error).toBe("Quantity must be greater than 0");
+    expect(shoppingListFindFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("puts away just the rows it's given, by the confirmed quantity, with every arrival side effect", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({ estimatedPrice: 18 })]);
+    // Another ticked row is still waiting on the list, so it stays open.
+    shoppingListItemCountMock.mockResolvedValueOnce(1);
+
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1", quantity: 3 }]);
+
+    expect(result).toEqual({ putAway: 1, notBought: 0 });
+    // The row records what came home, so a later un-tick gives back 3.
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "sli-1" },
+      data: { putAwayAt: expect.any(Date), quantity: 3, priceRecordedAt: expect.any(Date) },
+    });
+    const [[{ where, data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(where).toEqual({ id: "inv-1" });
+    expect(data).toEqual(
+      expect.objectContaining({ quantity: 3, lastKnownPrice: 18, expiresAtEstimated: true, expiresAt: expect.any(Date) }),
+    );
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-1", price: 18, quantity: 3, unit: "l" },
+    });
+    expect(addToDefaultListOnLowStockMock).toHaveBeenCalledWith(expect.anything(), "household-1", "inv-1", 0, 3);
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith(
+      "household-1",
+      [{ priceHistoryId: "ph-inv-1", inventoryItemId: "inv-1", price: 18, quantity: 3, unit: "l" }],
+      "user-1",
+    );
+    expect(notificationUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("uses a typed best-before date as a real one and sets the location", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({})]);
+
+    await putAwayItemsAction("list-1", [{ itemId: "sli-1", expiresAt: "2026-10-01", location: "Fridge" }]);
+
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data).toEqual(
+      expect.objectContaining({
+        quantity: 2,
+        location: "Fridge",
+        expiresAt: new Date("2026-10-01"),
+        expiresAtEstimated: false,
+      }),
+    );
+  });
+
+  it("\"not bought\" un-ticks the row instead of touching inventory", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({})]);
+
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1", notBought: true }]);
+
+    expect(result).toEqual({ putAway: 0, notBought: 1 });
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "sli-1" },
+      data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null },
+    });
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("doesn't record a price a receipt already recorded", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([
+      row({ estimatedPrice: 18, priceRecordedAt: new Date("2026-09-26") }),
+    ]);
+
+    await putAwayItemsAction("list-1", [{ itemId: "sli-1" }]);
+
+    expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+    const [[{ data }]] = inventoryItemUpdateMock.mock.calls;
+    expect(data).not.toHaveProperty("lastKnownPrice");
+    expect(data.quantity).toBe(2);
+  });
+
+  it("adds two rows for the same item up instead of both starting from the same stock", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([
+      row({ id: "sli-1", quantity: 2 }),
+      row({ id: "sli-2", quantity: 1 }),
+    ]);
+
+    await putAwayItemsAction("list-1", [{ itemId: "sli-1" }, { itemId: "sli-2" }]);
+
+    expect(inventoryItemUpdateMock.mock.calls.map(([args]) => args.data.quantity)).toEqual([2, 3]);
+  });
+
+  it("skips rows already put away (a double tap) and dismisses the list's reminder once nothing waits", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({ putAwayAt: new Date("2026-09-26") })]);
+
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1" }]);
+
+    expect(result).toEqual({ putAway: 0, notBought: 0 });
+    expect(shoppingListItemUpdateMock).not.toHaveBeenCalled();
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(notificationUpdateManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", shoppingListId: "list-1", kind: "PUT_AWAY_REMINDER", dismissedAt: null },
+      data: { dismissedAt: expect.any(Date) },
+    });
+  });
+
+  it("puts an unlinked row away without any stock to add", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([row({ inventoryItem: null, estimatedPrice: 9 })]);
+
+    const result = await putAwayItemsAction("list-1", [{ itemId: "sli-1" }]);
+
+    expect(result.putAway).toBe(1);
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "sli-1" },
+      data: { putAwayAt: expect.any(Date) },
+    });
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(priceHistoryCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("applyReceiptScanAction — put-away mode (ON_PUT_AWAY)", () => {
+  function asPutAwayHousehold() {
+    requireHouseholdMock.mockResolvedValue({
+      household: { id: "household-1", inventorySyncMode: "ON_PUT_AWAY" },
+      userId: "user-1",
+    });
+  }
+
+  it("prices and ticks the rows but leaves the stock for the put-away step", async () => {
+    asPutAwayHousehold();
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [
+        { id: "sli-1", purchased: false, putAwayAt: null, priceRecordedAt: null, quantity: 2, unit: "pcs", inventoryItem: { id: "inv-1", quantity: 0 } },
+        // Ticked in the store, scanned at home — the usual order.
+        { id: "sli-2", purchased: true, putAwayAt: null, priceRecordedAt: null, quantity: 1, unit: "kg", inventoryItem: { id: "inv-2", quantity: 5 } },
+      ],
+    });
+
+    const result = await applyReceiptScanAction(
+      "list-1",
+      "SEK",
+      [
+        { shoppingListItemId: "sli-1", price: 10 },
+        { shoppingListItemId: "sli-2", price: 30 },
+      ],
+      "ICA",
+    );
+
+    expect(result.itemsUpdated).toBe(2);
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "sli-1" },
+      data: { estimatedPrice: 10, purchased: true, priceRecordedAt: expect.any(Date) },
+    });
+    // Only the price moves on the inventory item — no quantity.
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-1" }, data: { lastKnownPrice: 10 } });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({ where: { id: "inv-2" }, data: { lastKnownPrice: 30 } });
+    expect(priceHistoryCreateMock).toHaveBeenCalledWith({
+      data: { inventoryItemId: "inv-2", price: 30, quantity: 1, unit: "kg", store: "ICA" },
+    });
+    expect(recordPriceSpikesMock).toHaveBeenCalledWith("household-1", expect.arrayContaining([expect.objectContaining({ inventoryItemId: "inv-1" })]), "user-1");
+  });
+
+  it("won't price a row twice or re-add one already put away", async () => {
+    asPutAwayHousehold();
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [
+        { id: "sli-1", purchased: true, putAwayAt: null, priceRecordedAt: new Date(), quantity: 2, unit: "pcs", inventoryItem: { id: "inv-1", quantity: 0 } },
+        { id: "sli-2", purchased: true, putAwayAt: new Date(), priceRecordedAt: null, quantity: 1, unit: "kg", inventoryItem: { id: "inv-2", quantity: 5 } },
+      ],
+    });
+
+    const result = await applyReceiptScanAction("list-1", "SEK", [
+      { shoppingListItemId: "sli-1", price: 10 },
+      { shoppingListItemId: "sli-2", price: 30 },
+    ]);
+
+    expect(result.error).toBe("Nothing to apply");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("in ON_CHECK mode a receipt line is the arrival, and the row is put away", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({
+      id: "list-1",
+      items: [{ id: "sli-1", purchased: false, quantity: 2, unit: "pcs", inventoryItem: { id: "inv-1", quantity: 1 } }],
+    });
+
+    await applyReceiptScanAction("list-1", "SEK", [{ shoppingListItemId: "sli-1", price: 10 }]);
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "sli-1" },
+      data: { estimatedPrice: 10, purchased: true, priceRecordedAt: expect.any(Date), putAwayAt: expect.any(Date) },
+    });
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
+      where: { id: "inv-1" },
+      data: { quantity: 3, lastKnownPrice: 10 },
+    });
   });
 });

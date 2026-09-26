@@ -661,3 +661,44 @@ export async function setHouseholdCurrencyAction(currencyCode: string | null): P
   revalidatePath("/dashboard", "layout");
   return {};
 }
+
+// --- Inventory sync mode (put-away) --------------------------------------
+
+// Owner-only, like the currency above: it changes what every member's tick
+// on every list does to the shared inventory, so it's a household-wide
+// decision rather than day-to-day use (contrast the auto-add switch).
+// Contributors still see the current choice on the Household page.
+const INVENTORY_SYNC_OWNER_ONLY_MESSAGE = "Only the household owner can change when inventory is updated";
+
+const inventorySyncModeSchema = z.enum(["ON_CHECK", "ON_PUT_AWAY"]);
+
+/**
+ * Chooses whether ticking a shopping-list row updates inventory straight
+ * away (ON_CHECK) or waits for the list's "Put away" step (ON_PUT_AWAY) —
+ * see Household.inventorySyncMode. Switching is always safe mid-trip:
+ * togglePurchasedAction decides an un-tick by the row's own `putAwayAt`,
+ * never the mode, and rows ticked under ON_PUT_AWAY stay in the put-away
+ * dialog after a switch to ON_CHECK rather than being counted or dropped
+ * silently. A click action (the Household page's select saves on change),
+ * so it takes the value directly rather than FormData.
+ */
+export async function setInventorySyncModeAction(mode: string): Promise<ActionState> {
+  const { household, role } = await requireHousehold();
+  if (role !== "OWNER") return { error: INVENTORY_SYNC_OWNER_ONLY_MESSAGE };
+
+  const parsed = inventorySyncModeSchema.safeParse(mode);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { inventorySyncMode: parsed.data },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  revalidatePath("/dashboard/shopping-list", "layout");
+  return {};
+}

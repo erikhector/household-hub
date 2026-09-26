@@ -3,13 +3,10 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
-import {
-  recordListClearedTransition,
-  recordOutOfStockTransition,
-  recordPriceSpikes,
-  type RecordedPrice,
-} from "@/lib/notifications";
-import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
+import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
+import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
+import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
+import { defersToPutAway } from "@/lib/shopping/put-away-calc";
 
 // Genuinely unauthenticated actions reached via the token-only public page at
 // src/app/share/shopping-list/[token]/page.tsx — there is no session on this
@@ -85,12 +82,18 @@ export async function getShoppingListByShareToken(token: string): Promise<Shared
 /**
  * Unauthenticated equivalent of togglePurchasedAction
  * (src/app/dashboard/shopping-list/actions.ts) — replicates its exact side
- * effects (flip `purchased`, adjust the linked InventoryItem's quantity,
- * recordOutOfStockTransition, the AUTO-8 low-stock auto-add, log
- * PriceHistory), just reached via a share
- * token instead of requireHousehold(). See this file's top doc comment for
- * why the itemId/token pairing check below is the actual security boundary,
- * not optional defensive dressing.
+ * effects, just reached via a share token instead of requireHousehold():
+ * flip `purchased` and stamp `checkedOffAt` (AUTO-9); then, by the list's
+ * household's `inventorySyncMode`, either leave the stock for the put-away
+ * step (ON_PUT_AWAY) or apply the arrival straight away and stamp
+ * `putAwayAt` (ON_CHECK — quantity, AUTO-7 expiry, GAP-28 opened-reset,
+ * PriceHistory, the out-of-stock and AUTO-8 hooks, all via
+ * applyStockArrival). Un-ticking a row that was already put away reverses
+ * its stock; one that wasn't has nothing to reverse. `checkedOffByUserId`
+ * stays null — a link holder has no account — so the put-away reminder for
+ * their ticks goes to the whole household. See this file's top doc comment
+ * for why the itemId/token pairing check below is the actual security
+ * boundary, not optional defensive dressing.
  */
 export async function toggleItemViaShareTokenAction(
   token: string,
@@ -121,73 +124,51 @@ export async function toggleItemViaShareTokenAction(
   const recordedPrices: RecordedPrice[] = [];
   try {
     await prisma.$transaction(async (tx) => {
+      const list = await tx.shoppingList.findUnique({
+        where: { id: item.shoppingListId },
+        select: { householdId: true, household: { select: { inventorySyncMode: true } } },
+      });
+      const arrivesNow = nextPurchased && !!list && !defersToPutAway(list.household ?? {});
+      const reversesArrival = !nextPurchased && item.putAwayAt !== null;
+      const now = new Date();
+
       await tx.shoppingListItem.update({
         where: { id: item.id },
         // AUTO-9: whoever holds the share link is often the one walking
         // the store, so their ticks teach the store order too — same
         // set/clear as togglePurchasedAction.
-        data: { purchased: nextPurchased, checkedOffAt: nextPurchased ? new Date() : null },
+        data: nextPurchased
+          ? {
+              purchased: true,
+              checkedOffAt: now,
+              ...(arrivesNow ? { putAwayAt: now, ...(item.estimatedPrice != null ? { priceRecordedAt: now } : {}) } : {}),
+            }
+          : { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
       });
 
-      const list = await tx.shoppingList.findUnique({
-        where: { id: item.shoppingListId },
-        select: { householdId: true },
-      });
-
-      if (item.inventoryItem) {
-        const delta = nextPurchased ? item.quantity : -item.quantity;
-        const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
-        // AUTO-4: mirrors togglePurchasedAction's lastKnownPrice update —
-        // folded into the same quantity write, only set when this toggle
-        // actually recorded a price.
-        const priceToRecord = nextPurchased ? item.estimatedPrice : null;
-        await tx.inventoryItem.update({
-          where: { id: item.inventoryItem.id },
-          data:
-            priceToRecord != null
-              ? { quantity: nextQuantity, lastKnownPrice: priceToRecord }
-              : { quantity: nextQuantity },
+      if (list && item.inventoryItem && arrivesNow) {
+        const arrival = await applyStockArrival(tx, {
+          householdId: list.householdId,
+          inventoryItem: item.inventoryItem,
+          quantity: item.quantity,
+          unit: item.unit,
+          price: item.estimatedPrice,
         });
-        if (list) {
-          await recordOutOfStockTransition(
-            tx,
-            list.householdId,
-            item.inventoryItem.id,
-            item.inventoryItem.quantity,
-            nextQuantity,
-          );
-          // Same auto-add as the signed-in toggle, but with no toast/Undo:
-          // a share-link visitor has no session to undo with, and the row
-          // is still marked "added automatically" for the household to see.
-          autoAdded = await addToDefaultListOnLowStock(
-            tx,
-            list.householdId,
-            item.inventoryItem.id,
-            item.inventoryItem.quantity,
-            nextQuantity,
-          );
+        // Same auto-add as the signed-in toggle, but with no toast/Undo:
+        // a share-link visitor has no session to undo with, and the row
+        // is still marked "added automatically" for the household to see.
+        autoAdded = arrival.autoAdded;
+        if (arrival.recordedPrice) {
+          householdId = list.householdId;
+          recordedPrices.push(arrival.recordedPrice);
         }
-
-        if (priceToRecord != null) {
-          const row = await tx.priceHistory.create({
-            data: {
-              inventoryItemId: item.inventoryItem.id,
-              price: priceToRecord,
-              quantity: item.quantity,
-              unit: item.unit,
-            },
-          });
-          if (list) {
-            householdId = list.householdId;
-            recordedPrices.push({
-              priceHistoryId: row.id,
-              inventoryItemId: item.inventoryItem.id,
-              price: priceToRecord,
-              quantity: item.quantity,
-              unit: item.unit,
-            });
-          }
-        }
+      } else if (list && item.inventoryItem && reversesArrival) {
+        const reversal = await reverseStockArrival(tx, {
+          householdId: list.householdId,
+          inventoryItem: item.inventoryItem,
+          quantity: item.quantity,
+        });
+        autoAdded = reversal.autoAdded;
       }
 
       if (list && nextPurchased) {

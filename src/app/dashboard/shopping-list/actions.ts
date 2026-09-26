@@ -12,23 +12,13 @@ import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
-import {
-  recordListClearedTransition,
-  recordOutOfStockTransition,
-  recordPriceSpikes,
-  type RecordedPrice,
-} from "@/lib/notifications";
+import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 import { matchSmartAddInventoryItem } from "@/lib/shopping/smart-add-suggestions";
 import { AUTO_FUZZY_MATCH_MIN_SCORE, createInventoryLinker } from "@/lib/shopping/inventory-link";
-import {
-  addToDefaultListOnLowStock,
-  getOrCreateDefaultShoppingList,
-  revalidateAutoAdded,
-  type AutoAddedItem,
-} from "@/lib/shopping/default-list";
+import { getOrCreateDefaultShoppingList, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { categoryKey } from "@/lib/shopping/shopping-mode-grouping";
 import {
   applySubsetReorder,
@@ -39,6 +29,9 @@ import {
 } from "@/lib/shopping/store-order";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
 import { openedResetOnArrival } from "@/lib/inventory/expiry";
+import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
+import { awaitsReceiptPrice, defersToPutAway } from "@/lib/shopping/put-away-calc";
+import { loadIncomingByItem, coveredQuantity } from "@/lib/incoming-stock";
 import type { InventoryItem } from "@/generated/prisma/client";
 
 /**
@@ -176,10 +169,14 @@ export async function generateFromLowStockAction(
       select: { inventoryItemId: true },
     });
     const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
+    // Stock ticked off but not yet put away counts as covered — see
+    // src/lib/incoming-stock.ts. Without it, pressing this while the last
+    // trip's bags are still on the counter would re-list everything in them.
+    const incoming = await loadIncomingByItem(prisma, household.id, new Date());
 
     const toAdd = lowStockItems.filter(
       (item) =>
-        getStockStatus(item.quantity, item.lowStockThreshold) !== "in" &&
+        getStockStatus(coveredQuantity(item.quantity, incoming.get(item.id) ?? 0), item.lowStockThreshold) !== "in" &&
         !alreadyOnListIds.has(item.id),
     );
 
@@ -988,6 +985,24 @@ export async function resolveShoppingListMappingsAction(
   return { resolvedCount };
 }
 
+/**
+ * Ticks a row off (or back on). What a tick *means* for inventory depends on
+ * the household's `inventorySyncMode`:
+ *
+ * - ON_PUT_AWAY (new households' default): the tick is "it's in the cart".
+ *   Only `purchased`/`checkedOffAt`/`checkedOffByUserId` change; the pantry
+ *   is updated later, when the row is put away (putAwayItemsAction). Until
+ *   then the row is *incoming* stock (src/lib/incoming-stock.ts).
+ * - ON_CHECK (every household that predates the put-away step): the tick is
+ *   the arrival, exactly as before — applyStockArrival runs straight away
+ *   and the row is stamped `putAwayAt` in the same write, so the data reads
+ *   the same way whichever mode put it there.
+ *
+ * Un-ticking is decided by the *row*, not the mode: a row that was already
+ * put away gives its stock back (the old un-tick), one that never was has
+ * nothing to reverse. That keeps a household that switches modes mid-trip
+ * from double-counting or losing anything.
+ */
 export async function togglePurchasedAction(
   itemId: string,
 ): Promise<ActionState & { autoAdded?: AutoAddedItem[] }> {
@@ -1000,6 +1015,8 @@ export async function togglePurchasedAction(
   if (!item) return { error: "Item not found" };
 
   const nextPurchased = !item.purchased;
+  const arrivesNow = nextPurchased && !defersToPutAway(household);
+  const reversesArrival = !nextPurchased && item.putAwayAt !== null;
 
   let autoAdded: AutoAddedItem | null = null;
   // GAP-9: the PriceHistory row this toggle wrote, if any — checked for a
@@ -1007,86 +1024,50 @@ export async function togglePurchasedAction(
   const recordedPrices: RecordedPrice[] = [];
   try {
     await prisma.$transaction(async (tx) => {
+      const now = new Date();
       await tx.shoppingListItem.update({
         where: { id: item.id },
         // AUTO-9: the tick's timestamp is the whole check-off sequence
         // record — folded into this same row write, so learning the store
         // order costs no extra write per tap. Un-ticking clears it, so an
         // accidental tick never leaves a false step in the sequence, and a
-        // re-tick later records when it was actually picked up.
-        data: { purchased: nextPurchased, checkedOffAt: nextPurchased ? new Date() : null },
+        // re-tick later records when it was actually picked up. Who ticked
+        // it rides along so the put-away reminder reaches them.
+        data: nextPurchased
+          ? {
+              purchased: true,
+              checkedOffAt: now,
+              checkedOffByUserId: userId,
+              ...(arrivesNow ? { putAwayAt: now, ...(item.estimatedPrice != null ? { priceRecordedAt: now } : {}) } : {}),
+            }
+          : { purchased: false, checkedOffAt: null, checkedOffByUserId: null, putAwayAt: null },
       });
 
-      if (item.inventoryItem) {
-        const delta = nextPurchased ? item.quantity : -item.quantity;
-        const nextQuantity = Math.max(0, item.inventoryItem.quantity + delta);
+      if (item.inventoryItem && arrivesNow) {
         // AUTO-4: this purchase's price becomes the item's new
-        // lastKnownPrice — folded into the same quantity update rather than
-        // a second write, and only set when a price was actually recorded
-        // (marking something purchased with no price, or un-marking it,
-        // leaves the last known price untouched).
-        const priceToRecord = nextPurchased ? item.estimatedPrice : null;
-        // AUTO-7: checking an item off is a stock-arrival event — only
-        // considered while marking purchased (un-marking removes stock, not
-        // adds it), and only actually writes when estimatedExpiryUpdate
-        // decides it should (see that function's doc comment for the
-        // 0→>0-or-no-expiry-yet rule and why a real date is never touched).
-        const expiryUpdate = nextPurchased
-          ? estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
-          : null;
-        // GAP-28: a restock from zero is a fresh, sealed pack — spread
-        // before expiryUpdate so a new estimate wins over the cleared date
-        // (see openedResetOnArrival's doc comment).
-        const openedReset = nextPurchased
-          ? openedResetOnArrival(item.inventoryItem, item.inventoryItem.quantity, nextQuantity)
-          : null;
-        await tx.inventoryItem.update({
-          where: { id: item.inventoryItem.id },
-          data: {
-            quantity: nextQuantity,
-            ...(priceToRecord != null ? { lastKnownPrice: priceToRecord } : {}),
-            ...openedReset,
-            ...expiryUpdate,
-          },
+        // lastKnownPrice and a PriceHistory row — only when a price was
+        // actually set on the row.
+        const arrival = await applyStockArrival(tx, {
+          householdId: household.id,
+          actingUserId: userId,
+          inventoryItem: item.inventoryItem,
+          quantity: item.quantity,
+          unit: item.unit,
+          price: item.estimatedPrice,
         });
-        await recordOutOfStockTransition(
-          tx,
-          household.id,
-          item.inventoryItem.id,
-          item.inventoryItem.quantity,
-          nextQuantity,
-          userId,
-        );
+        autoAdded = arrival.autoAdded;
+        if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
+      } else if (item.inventoryItem && reversesArrival) {
         // Only un-checking can decrease stock here. Un-checking a row on the
-        // default list itself is a no-op: that same row is pending again,
-        // which is exactly what the dedupe looks for.
-        autoAdded = await addToDefaultListOnLowStock(
-          tx,
-          household.id,
-          item.inventoryItem.id,
-          item.inventoryItem.quantity,
-          nextQuantity,
-        );
-
-        if (priceToRecord != null) {
-          // GAP-9: the line's quantity/unit too, so the price can be
-          // compared per unit later (see detectPriceSpike).
-          const row = await tx.priceHistory.create({
-            data: {
-              inventoryItemId: item.inventoryItem.id,
-              price: priceToRecord,
-              quantity: item.quantity,
-              unit: item.unit,
-            },
-          });
-          recordedPrices.push({
-            priceHistoryId: row.id,
-            inventoryItemId: item.inventoryItem.id,
-            price: priceToRecord,
-            quantity: item.quantity,
-            unit: item.unit,
-          });
-        }
+        // default list itself is a no-op for AUTO-8: that same row is
+        // pending again, which is exactly what the dedupe looks for.
+        const reversal = await reverseStockArrival(tx, {
+          householdId: household.id,
+          actingUserId: userId,
+          inventoryItem: item.inventoryItem,
+          quantity: item.quantity,
+        });
+        autoAdded = reversal.autoAdded;
       }
 
       if (nextPurchased) {
@@ -1108,6 +1089,172 @@ export async function togglePurchasedAction(
   return autoAdded ? { autoAdded: [autoAdded] } : {};
 }
 
+export type PutAwayEntry = {
+  itemId: string;
+  /** "Didn't get it after all": the row is un-ticked instead. */
+  notBought?: boolean;
+  /** What actually came home; the row's own quantity when left out. */
+  quantity?: number;
+  /** A native date input's `YYYY-MM-DD`; blank leaves AUTO-7 to estimate. */
+  expiresAt?: string;
+  /** Where it was put; blank leaves the item's location as it is. */
+  location?: string;
+};
+
+const putAwaySchema = z.object({
+  listId: z.string().min(1),
+  entries: z
+    .array(
+      z.object({
+        itemId: z.string().min(1),
+        notBought: z.boolean().optional(),
+        quantity: z.number().min(0.01, "Quantity must be greater than 0").max(100000).optional(),
+        expiresAt: z
+          .string()
+          .trim()
+          .optional()
+          .refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid date")
+          .transform((value) => (value ? new Date(value) : null)),
+        location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
+      }),
+    )
+    .min(1, "Nothing to put away")
+    .max(300),
+});
+
+/**
+ * The second half of the two-phase flow: moves ticked rows' stock into
+ * inventory now that it's actually home (see togglePurchasedAction for the
+ * first half, and Household.inventorySyncMode). Everything the old tick did
+ * at arrival happens here instead, via applyStockArrival — the increment
+ * (by what the person says came home, which also becomes the row's
+ * quantity so a later un-tick gives back the right amount), PriceHistory
+ * and lastKnownPrice unless a receipt already recorded them
+ * (`priceRecordedAt`), AUTO-7's estimate or the person's own date, GAP-28's
+ * opened-reset, the location, and the stock-change hooks — then stamps
+ * `putAwayAt`. A "not bought" entry un-ticks the row instead, so it goes
+ * back to pending rather than counting as bought.
+ *
+ * Partial on purpose: any subset of the ticked rows can be put away, the
+ * rest stay incoming, and the list isn't completed by this. Works on ACTIVE
+ * and COMPLETED lists (a finished trip is exactly when there's something to
+ * unpack), never ARCHIVED ones.
+ *
+ * Tenancy: the list must be this household's, and every entry must be a row
+ * on that list — a single foreign id fails the whole call rather than being
+ * silently dropped, so a forged request can't learn which of its ids were
+ * real. Rows already put away (a double tap, or two members unpacking the
+ * same bags at once) and rows no longer ticked are skipped, which is what
+ * makes a repeat harmless. Rows are processed one at a time inside one
+ * transaction, carrying each inventory item's updated state forward, so two
+ * rows for the same item add up instead of both starting from the same
+ * stale quantity.
+ */
+export async function putAwayItemsAction(
+  listId: string,
+  entries: PutAwayEntry[],
+): Promise<ActionState & { putAway?: number; notBought?: number; autoAdded?: AutoAddedItem[] }> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = putAwaySchema.safeParse({ listId, entries });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: parsed.data.listId, householdId: household.id, status: { in: ["ACTIVE", "COMPLETED"] } },
+    select: { id: true },
+  });
+  if (!list) return { error: "This list can't be edited right now" };
+
+  const ids = [...new Set(parsed.data.entries.map((entry) => entry.itemId))];
+  const rows = await prisma.shoppingListItem.findMany({
+    where: { id: { in: ids }, shoppingListId: list.id },
+    include: { inventoryItem: true },
+  });
+  if (rows.length !== ids.length) return { error: "Item not found" };
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+
+  // Last entry per row wins, in the order the dialog sent them.
+  const entryById = new Map(parsed.data.entries.map((entry) => [entry.itemId, entry]));
+
+  let putAway = 0;
+  let notBought = 0;
+  const autoAdded: AutoAddedItem[] = [];
+  const recordedPrices: RecordedPrice[] = [];
+  try {
+    await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      // Each inventory item's state after the arrivals already applied in
+      // this batch — see the doc comment on two rows for one item.
+      const current = new Map<string, InventoryItem>();
+
+      for (const [itemId, entry] of entryById) {
+        const row = rowsById.get(itemId)!;
+        if (!row.purchased || row.putAwayAt !== null) continue;
+
+        if (entry.notBought) {
+          await tx.shoppingListItem.update({
+            where: { id: row.id },
+            data: { purchased: false, checkedOffAt: null, checkedOffByUserId: null },
+          });
+          notBought++;
+          continue;
+        }
+
+        const quantity = entry.quantity ?? row.quantity;
+        const recordPrice = row.inventoryItem !== null && row.estimatedPrice != null && row.priceRecordedAt === null;
+        await tx.shoppingListItem.update({
+          where: { id: row.id },
+          data: {
+            putAwayAt: now,
+            ...(quantity !== row.quantity ? { quantity } : {}),
+            ...(recordPrice ? { priceRecordedAt: now } : {}),
+          },
+        });
+        putAway++;
+
+        if (!row.inventoryItem) continue;
+        const arrival = await applyStockArrival(tx, {
+          householdId: household.id,
+          actingUserId: userId,
+          inventoryItem: current.get(row.inventoryItem.id) ?? row.inventoryItem,
+          quantity,
+          unit: row.unit,
+          price: recordPrice ? row.estimatedPrice : null,
+          expiresAt: entry.expiresAt,
+          location: entry.location || null,
+        });
+        current.set(row.inventoryItem.id, arrival.inventoryItem);
+        if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
+        if (arrival.autoAdded) autoAdded.push(arrival.autoAdded);
+      }
+
+      // Nothing left to unpack on this list: an outstanding reminder about
+      // it is now just noise in the bell.
+      const stillWaiting = await tx.shoppingListItem.count({
+        where: { shoppingListId: list.id, purchased: true, putAwayAt: null },
+      });
+      if (stillWaiting === 0) {
+        await tx.notification.updateMany({
+          where: { householdId: household.id, shoppingListId: list.id, kind: "PUT_AWAY_REMINDER", dismissedAt: null },
+          data: { dismissedAt: now },
+        });
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+  await recordPriceSpikes(household.id, recordedPrices, userId);
+
+  revalidatePath(`/dashboard/shopping-list/${list.id}`);
+  revalidatePath("/dashboard/shopping-list");
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  revalidateAutoAdded(autoAdded);
+  return { putAway, notBought, ...(autoAdded.length > 0 ? { autoAdded } : {}) };
+}
+
 export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
 
 /**
@@ -1115,9 +1262,18 @@ export type ReceiptScanMatch = { shoppingListItemId: string; price: number };
  * list: for every matched line, converts its price to
  * HOUSEHOLD_BASE_CURRENCY if the receipt was in a different currency, sets
  * that as the item's estimatedPrice, and marks it purchased — mirroring
- * togglePurchasedAction's inventory-quantity/PriceHistory side effects, just
- * batched across every scanned line in one transaction instead of one
- * checkbox at a time.
+ * togglePurchasedAction's side effects for the household's
+ * `inventorySyncMode`, just batched across every scanned line in one
+ * transaction instead of one checkbox at a time. In ON_CHECK mode that's
+ * the full arrival (stock, expiry, PriceHistory) and the row is put away;
+ * in ON_PUT_AWAY mode only the price is recorded and the stock waits for
+ * the put-away step.
+ *
+ * A line can match a row that hasn't been ticked yet, or — the usual way
+ * round in put-away mode, where people tick in the store and scan at home —
+ * one that's ticked but not yet put away and has no price recorded (see
+ * awaitsReceiptPrice). A row already counted into inventory never matches
+ * again, so a receipt can't add the same carton twice.
  *
  * Only ever receives the OCR'd text/numbers the client already extracted
  * (see receipt-parsing.ts) — the receipt photo itself never reaches the
@@ -1155,7 +1311,8 @@ export async function applyReceiptScanAction(
   const validMatches = matches.filter((m) => {
     if (seen.has(m.shoppingListItemId)) return false;
     const item = itemsById.get(m.shoppingListItemId);
-    if (!item || item.purchased || !Number.isFinite(m.price) || m.price <= 0) return false;
+    if (!item || !Number.isFinite(m.price) || m.price <= 0) return false;
+    if (!awaitsReceiptPrice(item)) return false;
     seen.add(m.shoppingListItemId);
     return true;
   });
@@ -1172,6 +1329,14 @@ export async function applyReceiptScanAction(
     rate = fetched;
   }
 
+  // Put-away mode: the receipt says what was paid, not that anything is in
+  // the cupboard yet, so the rows are marked bought with their real price
+  // and left for the put-away step to move the stock. The price itself is a
+  // fact right now, so PriceHistory (with the store) and lastKnownPrice are
+  // written here and `priceRecordedAt` tells the put-away not to write them
+  // again.
+  const deferStock = defersToPutAway(household);
+
   let totalAmount = 0;
   // GAP-9: every PriceHistory row written below, checked for price spikes
   // as one batch after the transaction commits — see recordPriceSpikes for
@@ -1187,6 +1352,7 @@ export async function applyReceiptScanAction(
   // so the additions happen in validMatches order exactly as the old loop
   // did, before any of the awaited writes resolve.
   await prisma.$transaction(async (tx) => {
+    const now = new Date();
     await Promise.all(
       validMatches.map(async (match) => {
         const item = itemsById.get(match.shoppingListItemId)!;
@@ -1195,22 +1361,23 @@ export async function applyReceiptScanAction(
 
         await tx.shoppingListItem.update({
           where: { id: item.id },
-          data: { estimatedPrice: convertedPrice, purchased: true },
+          data: {
+            estimatedPrice: convertedPrice,
+            purchased: true,
+            ...(item.inventoryItem ? { priceRecordedAt: now } : {}),
+            ...(deferStock ? {} : { putAwayAt: now }),
+          },
         });
 
-        if (item.inventoryItem) {
-          const nextQuantity = item.inventoryItem.quantity + item.quantity;
-          // AUTO-7: a matched receipt line is stock arriving, same as
-          // togglePurchasedAction — see estimatedExpiryUpdate's doc comment.
-          const expiryUpdate = estimatedExpiryUpdate(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
-          // GAP-28: same fresh-pack reset as togglePurchasedAction.
-          const openedReset = openedResetOnArrival(item.inventoryItem, item.inventoryItem.quantity, nextQuantity);
+        if (!item.inventoryItem) return;
+
+        if (deferStock) {
           // AUTO-4: a scanned receipt price is as real as it gets, so it
-          // becomes the item's new lastKnownPrice — folded into the same
-          // quantity update rather than a second write.
+          // becomes the item's new lastKnownPrice even before the stock
+          // itself is put away.
           await tx.inventoryItem.update({
             where: { id: item.inventoryItem.id },
-            data: { quantity: nextQuantity, lastKnownPrice: convertedPrice, ...openedReset, ...expiryUpdate },
+            data: { lastKnownPrice: convertedPrice },
           });
           const row = await tx.priceHistory.create({
             data: {
@@ -1228,7 +1395,23 @@ export async function applyReceiptScanAction(
             quantity: item.quantity,
             unit: item.unit,
           });
+          return;
         }
+
+        // A matched receipt line is stock arriving, same as a tick in
+        // ON_CHECK mode: AUTO-7's estimate, GAP-28's fresh-pack reset,
+        // AUTO-4's lastKnownPrice and GAP-9's PriceHistory all come from
+        // applyStockArrival.
+        const arrival = await applyStockArrival(tx, {
+          householdId: household.id,
+          actingUserId: userId,
+          inventoryItem: item.inventoryItem,
+          quantity: item.quantity,
+          unit: item.unit,
+          price: convertedPrice,
+          store: trimmedStore,
+        });
+        if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
       }),
     );
   });
@@ -1427,12 +1610,13 @@ export async function registerReceiptAction(
   let listId: string;
   try {
     listId = await prisma.$transaction(async (tx) => {
+      const registeredAt = new Date();
       const list = await tx.shoppingList.create({
         data: {
           householdId: household.id,
           name: finalListName,
           status: "COMPLETED",
-          completedAt: new Date(),
+          completedAt: registeredAt,
         },
       });
 
@@ -1446,6 +1630,12 @@ export async function registerReceiptAction(
             unit: item.unit,
             purchased: true,
             estimatedPrice: item.convertedPrice,
+            // The receipt is registered after the shop, so the stock is home
+            // and counted below in this same transaction — whatever the
+            // household's inventorySyncMode, there's nothing left to put
+            // away (and nothing for the put-away step to count twice).
+            putAwayAt: registeredAt,
+            ...(item.inventoryItem ? { priceRecordedAt: registeredAt } : {}),
           },
         });
 
@@ -1693,6 +1883,17 @@ export async function resetCategoryOrderAction(): Promise<ActionState & { previo
   return { previous };
 }
 
+/**
+ * Finishes a trip: status COMPLETED, AUTO-9's store-order learning, and the
+ * Groceries expense. Deliberately leaves inventory alone, including rows
+ * that are ticked but not yet put away (put-away mode): putting those away
+ * here, at the list's quantities, would book stock nobody confirmed —
+ * exactly what the put-away step exists to avoid. Instead the list page
+ * routes "Done shopping" through PutAwayDialog whenever such rows exist
+ * (put away and finish, or finish and put away later), and a row left
+ * waiting isn't lost: it stays incoming on the completed list, where the
+ * "Put away" button and the reminder still find it.
+ */
 export async function completeShoppingListAction(
   listId: string,
 ): Promise<{
@@ -1811,8 +2012,9 @@ export async function completeShoppingListAction(
  * COMPLETED (a double-tapped Undo, or it was archived meanwhile) is left
  * alone, and the expense delete is a household-scoped deleteMany, so a
  * stale or foreign id removes nothing. Inventory needs no reversal —
- * completing never touched it (purchases already moved stock as each item
- * was checked off, and they stay checked off).
+ * completing never touched it (stock moves when each item is checked off,
+ * or put away in put-away mode, and neither is undone here; a row still
+ * waiting to be put away simply keeps waiting on the reopened list).
  */
 export async function uncompleteShoppingListAction(
   listId: string,

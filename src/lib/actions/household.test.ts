@@ -149,6 +149,7 @@ const {
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
   setHouseholdCurrencyAction,
+  setInventorySyncModeAction,
 } = await import("@/lib/actions/household");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -1060,5 +1061,39 @@ describe("setHouseholdCurrencyAction (GAP-13)", () => {
 
     expect(result.error).toBeTruthy();
     expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setInventorySyncModeAction (put-away)", () => {
+  it("lets the owner switch the session's household to put-away mode", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setInventorySyncModeAction("ON_PUT_AWAY");
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { inventorySyncMode: "ON_PUT_AWAY" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("refuses a contributor", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await setInventorySyncModeAction("ON_CHECK");
+
+    expect(result.error).toBe("Only the household owner can change when inventory is updated");
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a value that isn't a mode", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setInventorySyncModeAction("WHENEVER");
+
+    expect(result.error).toBe("Invalid input");
+    expect(householdUpdateMock).not.toHaveBeenCalled();
   });
 });
