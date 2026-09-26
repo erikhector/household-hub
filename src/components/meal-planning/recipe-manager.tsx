@@ -5,6 +5,9 @@ import { ChefHat, Layers, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
@@ -18,6 +21,10 @@ import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
+
+// Tag filter's "no filter" value — a sentinel that can't collide with a
+// RecipeTag key, same as inventory-client.tsx's.
+const ALL = "__all__";
 
 function matchesQuery(recipe: RecipeData, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -52,13 +59,20 @@ export function RecipeManager({
   ingredientUnits: Record<string, string>;
 }) {
   const [query, setQuery] = useState("");
+  // GAP-29: ALL or one RecipeTag key. Combines with the name search (both
+  // must match); vegan implies vegetarian/dairy-free via recipeMatchesTag.
+  const [tagFilter, setTagFilter] = useState<string>(ALL);
   // Same formatter as the shopping list's and budget page's amounts:
   // locale-aware two decimals, with the household's currency symbol once
   // one is set (GAP-13). Built once here rather than per row.
   const numberFormat = useMemo(() => createMoneyFormat(locale, currencyCode), [locale, currencyCode]);
   const filteredRecipes = useMemo(
-    () => recipes.filter((recipe) => matchesQuery(recipe, query)),
-    [recipes, query],
+    () =>
+      recipes.filter(
+        (recipe) =>
+          matchesQuery(recipe, query) && (!isRecipeTag(tagFilter) || recipeMatchesTag(recipe.tags, tagFilter)),
+      ),
+    [recipes, query, tagFilter],
   );
 
   return (
@@ -91,13 +105,35 @@ export function RecipeManager({
         </p>
       ) : (
         <>
-          <SearchInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder={dict.searchRecipesPlaceholder}
-            aria-label={dict.searchRecipesPlaceholder}
-            clearLabel={dict.clearSearch}
-          />
+          {/* Search + tag filter in one row, the same "all / one value"
+              Select the inventory page uses for category and location. Only
+              one row's worth of controls, so unlike inventory there's no
+              folded mobile "Filters" dialog — both fit side by side. */}
+          <div className="flex items-center gap-2">
+            <SearchInput
+              value={query}
+              onValueChange={setQuery}
+              placeholder={dict.searchRecipesPlaceholder}
+              aria-label={dict.searchRecipesPlaceholder}
+              clearLabel={dict.clearSearch}
+              containerClassName="min-w-0 flex-1"
+            />
+            <Select value={tagFilter} onValueChange={(v) => setTagFilter(v ?? ALL)}>
+              <SelectTrigger className="w-36 shrink-0 sm:w-44" aria-label={dict.tagFilterLabel}>
+                <SelectValue>
+                  {(v: string) => (isRecipeTag(v) ? dict.recipeTags[v] : dict.allTags)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{dict.allTags}</SelectItem>
+                {RECIPE_TAGS.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {dict.recipeTags[tag]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {filteredRecipes.length === 0 ? (
             <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -211,6 +247,17 @@ function RecipeRow({
         <p className="truncate font-medium" title={recipe.name}>
           {recipe.name}
         </p>
+        {/* GAP-29: only the tags actually set — recipe.tags is already in
+            canonical order (see page.tsx). */}
+        {recipe.tags.length > 0 && (
+          <div className="mt-0.5 mb-1 flex flex-wrap gap-1">
+            {recipe.tags.map((tag) => (
+              <Badge key={tag} variant="secondary">
+                {dict.recipeTags[tag]}
+              </Badge>
+            ))}
+          </div>
+        )}
         {ingredientSummary && (
           <p className="truncate text-sm text-muted-foreground" title={ingredientSummary}>
             {ingredientSummary}

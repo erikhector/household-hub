@@ -13,6 +13,11 @@ import {
   type FetchRecipeError,
   type RecipeImportSource,
 } from "@/lib/recipe-import";
+// GAP-29: the `tags` checkboxes arrive as repeated FormData values and are
+// run through the closed-set parser on every create/update — unknown keys
+// are dropped, so nothing outside RECIPE_TAGS can reach Recipe.tags no
+// matter what the client posts.
+import { parseRecipeTags, type RecipeTag } from "@/lib/recipe-tags";
 import { wouldCreateCycle } from "@/app/dashboard/meal-planning/recipe-components";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
 
@@ -250,6 +255,7 @@ export async function createRecipeAction(
       proteinGramsPerServing: parsed.data.proteinGramsPerServing,
       carbsGramsPerServing: parsed.data.carbsGramsPerServing,
       fatGramsPerServing: parsed.data.fatGramsPerServing,
+      tags: parseRecipeTags(formData.getAll("tags")),
       ingredients: { create: ingredients.data },
       components: { create: components.data },
     },
@@ -304,6 +310,9 @@ export async function updateRecipeAction(
         proteinGramsPerServing: parsed.data.proteinGramsPerServing,
         carbsGramsPerServing: parsed.data.carbsGramsPerServing,
         fatGramsPerServing: parsed.data.fatGramsPerServing,
+        // Replaced wholesale, like ingredients/components — an edit that
+        // un-ticks every chip sends no `tags` at all and clears them.
+        tags: parseRecipeTags(formData.getAll("tags")),
         ingredients: { create: ingredients.data },
         components: { create: components.data },
       },
@@ -375,6 +384,9 @@ export type ImportRecipeState = ActionState & {
     name: string;
     instructions: string;
     ingredients: ImportedRecipeIngredient[];
+    // GAP-29: from JSON-LD `suitableForDiet` only; empty for the other
+    // tiers. Pre-ticks the form's chips — still only saved on submit.
+    tags: RecipeTag[];
     // Which extraction tier found it (GAP-31) — the form shows a "review
     // before saving" notice for anything but "jsonld".
     source: RecipeImportSource;
