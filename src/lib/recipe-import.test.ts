@@ -634,3 +634,28 @@ describe("isPrivateOrReservedIPv6", () => {
     expect(isPrivateOrReservedIPv6("2606:4700:4700::1111")).toBe(false);
   });
 });
+
+// The fallback tiers run on whatever HTML an imported URL returns, so broken
+// or hostile markup must not turn into seconds of server CPU. Each case
+// below was quadratic before GAP-31's scans were bounded (a 400KB page of
+// unclosed <h2>s took ~13s); the time limit is deliberately loose so it only
+// catches a regression back to that, not a slow CI runner.
+describe("parseRecipeFromHtml on pathological markup", () => {
+  const MB = 1_000_000;
+  const cases: Array<[string, string]> = [
+    ["unclosed headings", "<h2>x"],
+    ["unclosed scripts", "<script>x"],
+    ["unclosed comments", "<!--x"],
+    ["unclosed list items", "<ul><li>x"],
+    ["nested Microdata items", '<div itemscope itemtype="https://schema.org/Recipe"><span itemprop="name">x'],
+  ];
+
+  for (const [label, unit] of cases) {
+    it(`stays fast on 1MB of ${label}`, () => {
+      const html = `<html><body>${unit.repeat(Math.floor(MB / unit.length))}`;
+      const started = performance.now();
+      parseRecipeFromHtml(html);
+      expect(performance.now() - started).toBeLessThan(5_000);
+    });
+  }
+});

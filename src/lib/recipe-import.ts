@@ -352,10 +352,32 @@ export function parseRecipeFromHtml(html: string): ImportedRecipe | null {
 // Fallback tiers: shared HTML-string helpers
 // ---------------------------------------------------------------------------
 
+// A hand-rolled scan rather than `/<(script|…)\b[^>]*>[\s\S]*?<\/\1>/g`: on a
+// hostile (or just broken) page full of *unclosed* `<script>`s that regex
+// rescans to the end of the document from every one of them — quadratic, and
+// many seconds of server CPU on a 3MB response. Here an unclosed element
+// simply runs to the end of the input (which is also how a browser treats an
+// unclosed `<script>`), so each character is looked at a bounded number of
+// times.
+const NON_CONTENT_OPEN_RE = /<!--|<(script|style|noscript|template|svg)\b[^>]*>/gi;
+
 function stripNonContent(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "");
+  const lower = html.toLowerCase();
+  let out = "";
+  let cursor = 0;
+  NON_CONTENT_OPEN_RE.lastIndex = 0;
+  for (let m = NON_CONTENT_OPEN_RE.exec(html); m; m = NON_CONTENT_OPEN_RE.exec(html)) {
+    out += html.slice(cursor, m.index);
+    const contentStart = m.index + m[0].length;
+    const close = m[1] ? `</${m[1].toLowerCase()}` : "-->";
+    const closeAt = lower.indexOf(close, contentStart);
+    if (closeAt === -1) return out;
+    const closeEnd = m[1] ? lower.indexOf(">", closeAt) : closeAt + close.length - 1;
+    if (closeEnd === -1) return out;
+    cursor = closeEnd + 1;
+    NON_CONTENT_OPEN_RE.lastIndex = cursor;
+  }
+  return out + html.slice(cursor);
 }
 
 // A separate decoder from decodeHtmlEntities above on purpose: that one only
@@ -478,6 +500,11 @@ function isRecipeItemtype(attrs: string): boolean {
  * the Recipe's — that's how `<li itemprop="recipeInstructions" itemscope
  * itemtype=".../HowToStep">` is picked up, with its full text as the step.
  */
+const MICRODATA_MAX_TAGS = 1_000;
+// A nested item (a review, the author) or a single property's element is
+// small; the Recipe root itself still gets the whole page.
+const MICRODATA_ELEMENT_SCAN_LIMIT = 50_000;
+
 export function parseMicrodataRecipe(html: string): ParsedRecipe | null {
   let root: ElementSlice | null = null;
   for (const match of html.matchAll(OPEN_TAG_RE)) {
@@ -492,9 +519,14 @@ export function parseMicrodataRecipe(html: string): ParsedRecipe | null {
   const nestedRanges: Array<[number, number]> = [];
   const props: Array<{ names: string[]; index: number; attrs: string }> = [];
   for (const match of scope.matchAll(OPEN_TAG_RE)) {
+    // Bounded work on hostile markup: each nested scope/prop costs a
+    // sliceElement scan and the own-prop filter below is props × scopes, so
+    // a page stuffed with thousands of them would otherwise be quadratic.
+    // A real recipe has a few dozen of each.
+    if (nestedRanges.length >= MICRODATA_MAX_TAGS || props.length >= MICRODATA_MAX_TAGS) break;
     const attrs = match[2];
     if (hasBooleanAttr(attrs, "itemscope")) {
-      const nested = sliceElement(scope, match.index);
+      const nested = sliceElement(scope, match.index, MICRODATA_ELEMENT_SCAN_LIMIT);
       if (nested) nestedRanges.push([nested.start, nested.end]);
     }
     const itemprop = getAttr(attrs, "itemprop");
@@ -513,7 +545,7 @@ export function parseMicrodataRecipe(html: string): ParsedRecipe | null {
       .flatMap((prop) => {
         const content = getAttr(prop.attrs, "content");
         if (content !== null) return [htmlToText(content)];
-        const element = sliceElement(scope, prop.index);
+        const element = sliceElement(scope, prop.index, MICRODATA_ELEMENT_SCAN_LIMIT);
         if (!element) return [];
         return lines ? htmlToLines(element.inner) : [htmlToText(element.inner)];
       })
@@ -563,14 +595,26 @@ function pageTitle(html: string): string {
 
 type Heading = { level: number; text: string; start: number; end: number };
 
+// A heading's text is short; its close tag is looked for only this far past
+// the opening tag. Unbounded (`<h([1-6])>[\s\S]*?<\/h\1>`), a page of
+// unclosed `<h2>`s makes every one of them scan to the end of the document —
+// quadratic on attacker-controlled input. An unclosed or absurdly long
+// heading just isn't treated as one.
+const HEADING_SCAN_LIMIT = 2_000;
+const HEADING_OPEN_RE = /<h([1-6])\b[^>]*>/gi;
+
 function findHeadings(html: string): Heading[] {
   const headings: Heading[] = [];
-  for (const match of html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1\s*>/gi)) {
+  for (const match of html.matchAll(HEADING_OPEN_RE)) {
+    const contentStart = match.index + match[0].length;
+    const window = html.slice(contentStart, contentStart + HEADING_SCAN_LIMIT);
+    const close = window.match(new RegExp(`</h${match[1]}\\s*>`, "i"));
+    if (!close || close.index === undefined) continue;
     headings.push({
       level: Number(match[1]),
-      text: htmlToText(match[2]).replace(/\s*:$/, ""),
+      text: htmlToText(window.slice(0, close.index)).replace(/\s*:$/, ""),
       start: match.index,
-      end: match.index + match[0].length,
+      end: contentStart + close.index + close[0].length,
     });
   }
   return headings;
