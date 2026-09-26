@@ -46,11 +46,21 @@ const { lookupMock, connectSpy, responsePlans, requestMock } = vi.hoisted(() => 
         destroy: () => void;
       };
       req.end = () => {
-        const onLookup = (err: NodeJS.ErrnoException | null, address: string, family: number) => {
+        // Real Node calls `lookup` with `{ all: true, ... }` here — net's
+        // `autoSelectFamily` (on by default since Node 20) means
+        // http(s).request always wants every resolved address up front, to
+        // attempt them in turn (Happy Eyeballs), never the single
+        // `(address, family)` shape. Faking that any other way is exactly
+        // how the earlier version of this fix passed tests while still
+        // breaking every real request (ERR_INVALID_IP_ADDRESS) — see
+        // fetchRecipeHtml's real-http.createServer tests further down for
+        // the version of this contract that isn't faked at all.
+        const onLookup = (err: NodeJS.ErrnoException | null, records: Array<{ address: string; family: number }>) => {
           if (err) {
             queueMicrotask(() => req.emit("error", err));
             return;
           }
+          const [{ address, family }] = records;
           connectSpy(url.hostname, address, family);
           const plan = responsePlans.shift();
           if (!plan) {
@@ -74,7 +84,7 @@ const { lookupMock, connectSpy, responsePlans, requestMock } = vi.hoisted(() => 
             res.emit("end");
           });
         };
-        options.lookup(url.hostname, {}, onLookup as (...args: unknown[]) => void);
+        options.lookup(url.hostname, { all: true }, onLookup as (...args: unknown[]) => void);
       };
       req.destroy = () => {};
       return req;

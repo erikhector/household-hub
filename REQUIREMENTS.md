@@ -3033,8 +3033,23 @@ imported recipe" requirement.
   `node:https` (never a real connection) — covering the DNS-rebinding guard
   and the abort timer staying armed through the body read — while the pure
   parsing and pure URL-scheme/IP-literal validation stay unit-tested as
-  before. `importRecipeFromUrlAction` (`recipe-actions.ts`) also
-  rate-limits this per household
+  before. A faked `node:http`/`node:https` can only prove
+  `createPinnedPublicLookup` satisfies whatever contract the fake itself
+  expects, not Node's real one — `net`'s `autoSelectFamily` (on by default
+  since Node 20) makes `http(s).request` always call `lookup` with
+  `{ all: true, ... }`, and a `lookup` that ignores `options.all` breaks
+  every real request with `ERR_INVALID_IP_ADDRESS`. `recipe-import.real-http.test.ts`
+  (deliberately a separate file, so it can leave `node:http`/`node:https`
+  unmocked) proves the real contract end-to-end: it spins up a real
+  `http.createServer` on loopback and runs `fetchRecipeHtml` against it for
+  real, mocking only `node:dns` (so a made-up hostname resolves to that
+  server) and, for the one case that needs a real connection to succeed,
+  swapping in a different private-address check via the test-only
+  `_setPrivateAddressCheckForTests` seam — loopback is genuinely private,
+  so that override is what lets the "succeeds end-to-end" case connect at
+  all; the "refuses and never connects" case in the same file uses the
+  real, unmodified guard. `importRecipeFromUrlAction` (`recipe-actions.ts`)
+  also rate-limits this per household
   (`checkRateLimit("recipe-import:<householdId>", 20/hour)`,
   `dict.mealPlanning.importErrorRateLimited` on refusal) — this action
   makes the server fetch an arbitrary URL, so without a limit a household

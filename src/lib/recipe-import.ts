@@ -26,7 +26,7 @@
 // makes that review explicit when we were guessing). All three stay
 // regex/string-based — no DOM parser dependency, matching how the JSON-LD
 // tier has always worked.
-import { promises as dns } from "node:dns";
+import { promises as dns, type LookupAddress, type LookupOptions } from "node:dns";
 import http, { type IncomingMessage } from "node:http";
 import https from "node:https";
 import net from "node:net";
@@ -806,6 +806,29 @@ export function validateRecipeUrl(rawUrl: string): UrlValidationResult {
 // a generic "fetchFailed".
 const EBLOCKEDHOST = "EBLOCKEDHOST";
 
+// Test-only seam (SEC-2): recipe-import.test.ts fakes node:http/https to
+// exercise most of fetchRecipeHtml without a real connection, but that
+// can't by itself prove createPinnedPublicLookup satisfies Node's *real*
+// lookup contract (the fake only does what it's coded to do). Proving that
+// means running a real `http.createServer` round trip through real
+// `http.request` — which means the target has to be loopback, and loopback
+// is exactly what this function exists to block. This override lets a test
+// swap in a different private-address check for that one round trip
+// (mocking `dns.lookup` to point at the local test server, and this to
+// treat that address as "public" for the purpose of the test) while
+// everything else — the real Node `lookup` contract, the real connect,
+// the real body read — stays real. Never touched outside tests; always
+// null in production.
+type PrivateAddressCheck = (address: string, family: number) => boolean;
+let privateAddressCheckOverride: PrivateAddressCheck | null = null;
+export function _setPrivateAddressCheckForTests(check: PrivateAddressCheck | null): void {
+  privateAddressCheckOverride = check;
+}
+function isPrivateOrReservedAddress(address: string, family: number): boolean {
+  if (privateAddressCheckOverride) return privateAddressCheckOverride(address, family);
+  return family === 4 ? isPrivateOrReservedIPv4(address) : isPrivateOrReservedIPv6(address);
+}
+
 /**
  * A `net.connect`-compatible `lookup` for `http(s).request`, pinning DNS
  * resolution to the exact address the socket goes on to connect to (SEC-2).
@@ -829,37 +852,70 @@ const EBLOCKEDHOST = "EBLOCKEDHOST";
  * so every record must be checked, not just the first, or a rebinding
  * attacker could list a public "decoy" address alongside a private one and
  * rely on the client eventually trying the private one.
+ *
+ * This must follow `dns.lookup`'s own callback contract, not a simplified
+ * one, because Node calls it that way whether we like it or not: `net`'s
+ * `autoSelectFamily` (on by default since Node 20) makes `http(s).request`
+ * always call `lookup` with `{ all: true, ... }` so it can attempt multiple
+ * resolved addresses (Happy Eyeballs) — never the single
+ * `(address, family)` shape. A `lookup` that always calls back with a
+ * single address regardless of `options.all` breaks *every* request with
+ * `ERR_INVALID_IP_ADDRESS` (address undefined), because Node passes that
+ * single value through `isIP()` expecting the array shape it asked for.
+ * `options.family` (4 or 6) is honored too, the same way `dns.lookup`
+ * itself would filter, when a caller asks for just one.
  */
+function normalizeFamily(family: LookupOptions["family"]): number {
+  if (family === "IPv4") return 4;
+  if (family === "IPv6") return 6;
+  return family || 0; // 0 (or unset) means "either"
+}
+
 function createPinnedPublicLookup(): (
   hostname: string,
-  options: unknown,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+  options: LookupOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void,
 ) => void {
-  return (hostname, _options, callback) => {
+  return (hostname, options, callback) => {
     dns.lookup(hostname, { all: true }).then(
       (records) => {
         if (records.length === 0) {
-          callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" }), "", 0);
+          callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" }), "");
           return;
         }
-        const blocked = records.some((record) =>
-          record.family === 4
-            ? isPrivateOrReservedIPv4(record.address)
-            : isPrivateOrReservedIPv6(record.address),
-        );
+        // Every resolved record must be validated, regardless of which
+        // family the caller ends up wanting — an attacker could otherwise
+        // hide a private address behind a family Node didn't ask for this
+        // time (e.g. it wants AAAA now, A later) and have it validated as
+        // "safe" simply because it wasn't looked at.
+        const blocked = records.some((record) => isPrivateOrReservedAddress(record.address, record.family));
         if (blocked) {
           callback(
             Object.assign(new Error(`${hostname} resolves to a private/reserved address`), {
               code: EBLOCKEDHOST,
             }),
             "",
-            0,
           );
           return;
         }
-        callback(null, records[0].address, records[0].family);
+
+        const wantFamily = normalizeFamily(options.family);
+        const matching = wantFamily ? records.filter((record) => record.family === wantFamily) : records;
+        if (matching.length === 0) {
+          callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: "ENOTFOUND" }), "");
+          return;
+        }
+
+        if (options.all) {
+          callback(
+            null,
+            matching.map((record) => ({ address: record.address, family: record.family })),
+          );
+        } else {
+          callback(null, matching[0].address, matching[0].family);
+        }
       },
-      (error: NodeJS.ErrnoException) => callback(error, "", 0),
+      (error: NodeJS.ErrnoException) => callback(error, ""),
     );
   };
 }
