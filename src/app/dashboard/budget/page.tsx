@@ -13,6 +13,7 @@ import {
 } from "@/components/budget/cost-analyzer";
 import { computeCheapestStoreComparisons } from "@/lib/cheapest-store-calc";
 import { computeExpiredWaste } from "@/lib/inventory/expired-waste";
+import { computeStockValue } from "@/lib/inventory/stock-value";
 import { FixedBudgetSummary } from "@/components/budget/fixed-budget-summary";
 import {
   HouseholdBalances,
@@ -126,10 +127,13 @@ async function CostAnalyzerSection({
   // month and has already passed — the only rows computeExpiredWaste can
   // ever count. Same Suspense boundary and household scope rather than its
   // own section, since it's one small read on InventoryItem.
+  //
+  // GAP-33: and every item currently in stock, for the "on hand now" value
+  // shown next to it — two columns per row, same scope again.
   const now = new Date();
   const thisMonthStart = getMonthStart(now);
   const lastMonthStart = addMonths(thisMonthStart, -1);
-  const [priceHistoryRows, expiredCandidates] = await Promise.all([
+  const [priceHistoryRows, expiredCandidates, inStockItems] = await Promise.all([
     prisma.priceHistory.findMany({
       where: { inventoryItem: { householdId } },
       include: { inventoryItem: { select: { id: true, name: true } } },
@@ -147,12 +151,17 @@ async function CostAnalyzerSection({
         updatedAt: true,
       },
     }),
+    prisma.inventoryItem.findMany({
+      where: { householdId, quantity: { gt: 0 } },
+      select: { quantity: true, lastKnownPrice: true },
+    }),
   ]);
   // This month is the recap itself, last month one line of context — no
   // further back, since the snapshot it's derived from decays (a restock
   // re-estimates the date; see expired-waste.ts's doc comment).
   const expiredThisMonth = computeExpiredWaste(expiredCandidates, thisMonthStart, getMonthEnd(now), now);
   const expiredLastMonth = computeExpiredWaste(expiredCandidates, lastMonthStart, thisMonthStart, now);
+  const stockValue = computeStockValue(inStockItems);
 
   const monthlyTotals = new Map<string, number>();
   for (const row of priceHistoryRows) {
@@ -212,6 +221,7 @@ async function CostAnalyzerSection({
       storeComparisons={storeComparisons}
       expiredThisMonth={expiredThisMonth}
       expiredLastMonth={expiredLastMonth}
+      stockValue={stockValue}
       dict={dict}
       locale={locale}
       currencyCode={currencyCode}

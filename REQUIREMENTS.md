@@ -1226,7 +1226,7 @@ item is marked purchased with an estimated price
   (GAP-6)" below for the full write-up (it's grouped there with the receipt
   scan/register changes that feed it `PriceHistory.store`
   in the first place).
-- **Went past its date (GAP-17)**: a fourth, last section — a quiet monthly
+- **Went past its date (GAP-17)**: the last section — a quiet monthly
   recap of food that expired unused, valued at what it cost last time.
   It's a "here's what happened" card in the same register as
   `MealVarietyRecap`, never a notification. Built as a **derived** figure
@@ -1268,6 +1268,28 @@ item is marked purchased with an estimated price
     a restock re-estimates an estimated date, and later edits move
     `updatedAt`. An empty month shows a plain "Nothing has gone past its
     date this month" rather than a zero.
+- **On hand now (GAP-33)**: a small card just before GAP-17's, showing
+  roughly what everything currently in stock is worth — Grocy's headline
+  pantry stat, the counterpart to "what went to waste". Derived with no
+  migration by the pure `computeStockValue`
+  (`src/lib/inventory/stock-value.ts`, unit-tested) from one more
+  `InventoryItem` read in `CostAnalyzerSection` (items with
+  `quantity > 0`, selecting only `quantity` and `lastKnownPrice`; same
+  household scope and Suspense boundary as the GAP-17 read).
+  - **Which items count.** Only items the household actually has
+    (`quantity > 0`); a zero-quantity row is a "we usually keep this"
+    placeholder, not stock. Items past their date but still on the shelf
+    are counted — they're physically there, and whether they were wasted
+    is GAP-17's question.
+  - **Value.** Same rule as GAP-17: one `lastKnownPrice` per item, never
+    `lastKnownPrice × quantity` (it's a per-shopping-line price, not a
+    per-unit one), so a half-used bag counts at its full last price and the
+    figure is shown with "≈". Items with no known price (null or 0) add
+    nothing but are counted, and the card always says what the figure is
+    built from: "Based on N of M items with a known price."
+  - **Empty states.** Nothing in stock shows "Nothing is in stock right
+    now"; stock with no priced items shows "M items are in stock, but none
+    of them has a known price yet" instead of a misleading "≈ 0".
 
 ### Shopping-list → budget expense link
 

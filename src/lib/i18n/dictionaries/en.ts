@@ -1525,6 +1525,18 @@ export const en = {
       noCheapestStoreData:
         "No comparisons yet. Add a store name when scanning or registering a receipt, and once an item has prices from 2+ stores it'll show up here.",
       cheapestStoreLabel: "Cheapest at {store}:",
+      stockValueTitle: "On hand now",
+      stockValueSubtitle:
+        "Roughly what everything you have in stock cost, at the price you paid last time you bought each item.",
+      noStockData: "Nothing is in stock right now.",
+      stockValueBasis: {
+        one: "Based on {priced} of {count} item with a known price.",
+        other: "Based on {priced} of {count} items with a known price.",
+      },
+      stockValueNoPrices: {
+        one: "{count} item is in stock, but it has no known price yet.",
+        other: "{count} items are in stock, but none of them has a known price yet.",
+      },
       expiredTitle: "Went past its date",
       expiredSubtitle:
         "Food that reached its expiry date this month before it was used up, at roughly what it cost last time you bought it.",
