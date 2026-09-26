@@ -204,10 +204,13 @@ function PlannerTabSkeleton() {
 
 async function RecipesTabSection({
   householdId,
+  currencyCode,
   dict,
   weekStartKey,
 }: {
   householdId: string;
+  // GAP-13: labels the recipe cost lines; null keeps plain numbers.
+  currencyCode: string | null;
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
@@ -338,6 +341,7 @@ async function RecipesTabSection({
     <RecipeManager
       dict={dict}
       locale={locale}
+      currencyCode={currencyCode}
       recipes={recipeRows}
       recipeCosts={recipeCosts}
       useItUpSuggestions={useItUpSuggestions}
@@ -436,7 +440,12 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         }
         recipesTab={
           <Suspense key="recipes-tab" fallback={<RecipesTabSkeleton />}>
-            <RecipesTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+            <RecipesTabSection
+              householdId={household.id}
+              currencyCode={household.currencyCode}
+              dict={dict.mealPlanning}
+              weekStartKey={weekStartKey}
+            />
           </Suspense>
         }
         cookTab={

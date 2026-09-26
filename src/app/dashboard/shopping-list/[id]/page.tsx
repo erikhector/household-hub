@@ -5,6 +5,7 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
 import { getStockStatus } from "@/lib/stock-status";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
+import { parseLearnedOrder } from "@/lib/shopping/store-order";
 
 // Same reasoning as inventory/page.tsx's maxDuration: ReceiptScanDialog can
 // call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which has
@@ -98,7 +99,14 @@ export default async function ShoppingListDetailPage(
       autoAddDict={dict.inventory.autoAdd}
       barcodeDict={dict.barcodeScanner}
       exportLabel={dict.export.button}
+      // AUTO-9: the household's store order, straight off the Household row
+      // requireHousehold already loaded, so it costs no extra query.
+      storeOrder={{
+        learned: parseLearnedOrder(household.categoryOrderLearned),
+        manual: household.categoryOrderManual,
+      }}
       locale={locale}
+      currencyCode={household.currencyCode}
     />
   );
 }

@@ -13,6 +13,7 @@ import {
   rolloverEnabledField,
   rolloverForLimit,
 } from "@/lib/budget-category-limit";
+import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
 
 // --- Categories --------------------------------------------------------
 
@@ -23,6 +24,9 @@ const categorySchema = z.object({
   monthlyLimit: monthlyLimitField,
   // GAP-21 — see src/lib/budget-rollover-calc.ts. Kept only with a limit.
   rolloverEnabled: rolloverEnabledField,
+  // GAP-22 — see src/lib/savings-goal-calc.ts. Kept only on SAVINGS.
+  goalAmount: goalAmountField,
+  goalDate: goalDateField,
 });
 
 export async function createPersonalCategoryAction(
@@ -36,6 +40,8 @@ export async function createPersonalCategoryAction(
     type: formData.get("type"),
     monthlyLimit: formData.get("monthlyLimit"),
     rolloverEnabled: formData.get("rolloverEnabled"),
+    goalAmount: formData.get("goalAmount"),
+    goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -47,6 +53,7 @@ export async function createPersonalCategoryAction(
   if (existing) return { error: "A category with that name already exists" };
 
   const monthlyLimit = limitForType(parsed.data.type, parsed.data.monthlyLimit);
+  const goal = goalForType(parsed.data.type, parsed.data.goalAmount, parsed.data.goalDate);
   try {
     await prisma.personalBudgetCategory.create({
       data: {
@@ -55,6 +62,7 @@ export async function createPersonalCategoryAction(
         type: parsed.data.type,
         monthlyLimit,
         rolloverEnabled: rolloverForLimit(monthlyLimit, parsed.data.rolloverEnabled),
+        ...goal,
       },
     });
   } catch (error) {
@@ -72,6 +80,9 @@ const updateCategorySchema = z.object({
   // by the stored type below, not by anything the form sends.
   monthlyLimit: monthlyLimitField,
   rolloverEnabled: rolloverEnabledField,
+  // GAP-22 — see src/lib/savings-goal-calc.ts. Kept only on SAVINGS.
+  goalAmount: goalAmountField,
+  goalDate: goalDateField,
 });
 
 export async function updatePersonalCategoryAction(
@@ -85,6 +96,8 @@ export async function updatePersonalCategoryAction(
     name: formData.get("name"),
     monthlyLimit: formData.get("monthlyLimit"),
     rolloverEnabled: formData.get("rolloverEnabled"),
+    goalAmount: formData.get("goalAmount"),
+    goalDate: formData.get("goalDate"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -105,6 +118,10 @@ export async function updatePersonalCategoryAction(
   if (existing) return { error: "A category with that name already exists" };
 
   const monthlyLimit = limitForType(category.type, parsed.data.monthlyLimit);
+  // Decided from the stored type like the limit above: a category's type
+  // can't be edited, so an income/expense category can never gain a goal
+  // (or keep a stale one) whatever the form sends.
+  const goal = goalForType(category.type, parsed.data.goalAmount, parsed.data.goalDate);
   try {
     await prisma.personalBudgetCategory.update({
       where: { id: category.id },
@@ -112,6 +129,7 @@ export async function updatePersonalCategoryAction(
         name: parsed.data.name,
         monthlyLimit,
         rolloverEnabled: rolloverForLimit(monthlyLimit, parsed.data.rolloverEnabled),
+        ...goal,
       },
     });
   } catch (error) {

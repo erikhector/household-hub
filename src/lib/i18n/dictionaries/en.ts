@@ -435,6 +435,22 @@ export const en = {
     // inventory item has no category, or is still sitting in the
     // "Uncategorized" placeholder — see groupPendingItemsByCategory.
     otherCategory: "Other",
+    // AUTO-9: the ⋯ menu's hand-arranged store order, and its reset back to
+    // the order learned from the household's check-offs.
+    reorderSections: {
+      menuItem: "Reorder sections",
+      title: "Reorder sections",
+      description:
+        "Arrange this list's sections in the order you walk the store. It's saved for the whole household and used on every list. Without it, the order is learned from what you check off.",
+      moveUp: "Move {name} up",
+      moveDown: "Move {name} down",
+      cancel: "Cancel",
+      save: "Save order",
+      saving: "Saving…",
+      savedToast: "Section order saved",
+      resetMenuItem: "Use learned order",
+      resetToast: "Back to the learned order",
+    },
     lowStockBadge: "Low stock",
     expenseLogged: "Logged {amount} to your Groceries budget",
     expenseDescription: 'From "{name}"',
@@ -1370,6 +1386,11 @@ export const en = {
       limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
       rolloverLabel: "Roll unspent budget over",
       rolloverHint: "What's left of the limit at the end of a month is added to the next one's. Overspending never carries over, and it starts fresh each January.",
+      goalLabel: "Savings goal (optional)",
+      goalPlaceholder: "No goal",
+      goalHint: "How much you want to have saved in this category. Leave empty for no goal.",
+      goalDateLabel: "Reach it by (optional)",
+      goalDateHint: "With a date, the overview suggests roughly how much to put aside each month.",
       rolloverNeedsLimit: "Set a monthly limit to roll unspent budget over.",
     },
     summary: {
@@ -1388,6 +1409,15 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+    },
+    savingsGoals: {
+      title: "Savings goals",
+      savedOfGoal: "{saved} / {goal}",
+      reached: "Goal reached.",
+      toGo: "{amount} to go.",
+      savePerMonth: "Save ~{amount}/month to reach this by {date}.",
+      saveThisMonth: "Save {amount} this month to reach this by {date}.",
+      datePassed: "{amount} to go. The goal date ({date}) has passed.",
     },
     safeToSpend: {
       title: "Safe to spend",
@@ -1693,6 +1723,11 @@ export const en = {
       limitHint: "This month's spending is shown against it in the summary. Leave empty for no limit.",
       rolloverLabel: "Roll unspent budget over",
       rolloverHint: "What's left of the limit at the end of a month is added to the next one's. Overspending never carries over, and it starts fresh each January.",
+      goalLabel: "Savings goal (optional)",
+      goalPlaceholder: "No goal",
+      goalHint: "How much you want to have saved in this category. Leave empty for no goal.",
+      goalDateLabel: "Reach it by (optional)",
+      goalDateHint: "With a date, the overview suggests roughly how much to put aside each month.",
       rolloverNeedsLimit: "Set a monthly limit to roll unspent budget over.",
     },
     summary: {
@@ -1711,6 +1746,15 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+    },
+    savingsGoals: {
+      title: "Savings goals",
+      savedOfGoal: "{saved} / {goal}",
+      reached: "Goal reached.",
+      toGo: "{amount} to go.",
+      savePerMonth: "Save ~{amount}/month to reach this by {date}.",
+      saveThisMonth: "Save {amount} this month to reach this by {date}.",
+      datePassed: "{amount} to go. The goal date ({date}) has passed.",
     },
     safeToSpend: {
       title: "Safe to spend",

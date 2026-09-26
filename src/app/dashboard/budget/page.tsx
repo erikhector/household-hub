@@ -20,6 +20,8 @@ import {
   type UnpaidBillRow,
 } from "@/components/budget/household-balances";
 import { PeriodSummary, type CategoryTotal } from "@/components/budget/period-summary";
+import { SavingsGoals } from "@/components/budget/savings-goals";
+import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
 import {
@@ -289,6 +291,7 @@ async function BudgetTabsSection({
     recurringTemplateAcks,
     splitTransactions,
     memberSettlements,
+    savingsTotals,
   ] = await Promise.all([
       prisma.budgetCategory.findMany({
         where: { householdId },
@@ -385,6 +388,16 @@ async function BudgetTabsSection({
         where: { householdId },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       }),
+      // GAP-22: each category's all-time savings, for the Savings goals
+      // card. A goal is a running total towards a destination, so unlike
+      // monthTransactions this ignores the viewed month entirely — and is
+      // summed in the database, so it stays one row per category however
+      // long a household keeps saving.
+      prisma.transaction.groupBy({
+        by: ["categoryId"],
+        where: { householdId, type: "SAVINGS" },
+        _sum: { amount: true },
+      }),
     ]);
 
   const categoryRows = categories.map((c) => ({
@@ -393,6 +406,8 @@ async function BudgetTabsSection({
     type: c.type,
     monthlyLimit: c.monthlyLimit,
     rolloverEnabled: c.rolloverEnabled,
+    goalAmount: c.goalAmount,
+    goalDate: c.goalDate,
   }));
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
@@ -718,6 +733,21 @@ async function BudgetTabsSection({
     />
   );
 
+  // GAP-22: progress towards each SAVINGS category's goal, as of today
+  // (`now`, not the viewed month — see SavingsGoals's doc comment).
+  const savingsGoals = (
+    <SavingsGoals
+      goals={savingsGoalRows(
+        categories,
+        new Map(savingsTotals.map((row) => [row.categoryId, row._sum.amount ?? 0])),
+        now,
+      )}
+      dict={dict.budget.savingsGoals}
+      locale={locale}
+      currencyCode={currencyCode}
+    />
+  );
+
   const insights = (
     <div className="flex flex-col gap-6">
       {periodSummary}
@@ -785,6 +815,7 @@ async function BudgetTabsSection({
       onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
       onLogTemplateAsIs={logRecurringTemplateAction}
       periodSummary={periodSummary}
+      savingsGoals={savingsGoals}
       onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
       manage={manage}
       transactions={transactionsTab}

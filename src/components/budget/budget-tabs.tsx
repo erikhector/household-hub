@@ -133,6 +133,7 @@ export function BudgetTabs({
   onAcknowledgeTemplate,
   onLogTemplateAsIs,
   periodSummary,
+  savingsGoals,
   onboarding,
   manage,
   transactions,
@@ -208,6 +209,9 @@ export function BudgetTabs({
   /** Selected month's income/expense/savings breakdown (PeriodSummary) —
    * rendered on both Overview and Insights, see page.tsx's doc comment. */
   periodSummary: ReactNode;
+  /** GAP-22's SavingsGoals card, prebuilt by the page like periodSummary
+   * (it renders nothing when no SAVINGS category has a goal). */
+  savingsGoals?: ReactNode;
   /** BudgetOnboarding or PersonalBudgetOnboarding, prebuilt by the page —
    * see this file's doc comment on why these stay separate components. */
   onboarding: ReactNode;
@@ -294,6 +298,7 @@ export function BudgetTabs({
                 locale={locale}
                 currencyCode={currencyCode}
               />
+              {savingsGoals}
               {periodSummary}
             </>
           ) : (

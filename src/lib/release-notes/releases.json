@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.32.0",
+    "date": "2026-09-26",
+    "pr": 58,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Shopping mode now learns the order you walk your store in from the order you check things off, and sorts sections to match. You can also set the order yourself with \"Reorder sections\" in the list's ⋯ menu.",
+      "sv": "Handlingsläget lär sig nu i vilken ordning du går genom butiken utifrån hur du bockar av varor, och sorterar avsnitten därefter. Du kan också bestämma ordningen själv med \"Ändra ordning på avsnitt\" i listans ⋯-meny."
+    }
+  },
+  {
+    "version": "0.31.0",
+    "date": "2026-09-25",
+    "pr": 57,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Savings categories can now have a goal amount and an optional target date. The budget overview shows your progress and roughly how much to put aside each month to get there.",
+      "sv": "Sparkategorier kan nu ha ett sparmål och ett valfritt måldatum. Budgetöversikten visar hur långt du har kommit och ungefär hur mycket du behöver lägga undan varje månad för att nå dit."
+    }
+  },
+  {
     "version": "0.30.0",
     "date": "2026-09-25",
     "pr": 56,

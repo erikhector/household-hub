@@ -501,9 +501,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   sorts after the known ones, alphabetically; items with no linked item, a
   blank category, or still sitting in the "Uncategorized" placeholder
   collect under "Other" at the end. Only categories actually present get a
-  header. This wave's order is fixed; AUTO-9 will let it learn a
-  household's own store layout. Purchased items are unaffected — they still
-  collapse into the flat "Purchased" section below.
+  header. That fixed order is only the starting point: AUTO-9 (below)
+  replaces it with the household's own store order. Purchased items are
+  unaffected — they still collapse into the flat "Purchased" section below.
   While the list is `ACTIVE`, rows get a larger touch target (more
   vertical padding, a bigger checkbox) and the whole row — not just the
   checkbox — toggles purchased, via the row's existing `<label>`/`<input>`
@@ -514,6 +514,55 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+- **Learned store order (AUTO-9)** — shopping mode's groups gradually
+  reorder to match the order this household actually ticks things off in,
+  with no setup. Pure logic lives in `src/lib/shopping/store-order.ts`
+  (unit-tested); `groupPendingItemsByCategory` takes the order as an
+  optional third argument and, without one, is exactly AUTO-3's fixed order.
+  - *Category keys*: a category is learned under `categoryKey()`
+    (shopping-mode-grouping.ts): `auto:<key>` for any `AUTO_CATEGORY_KEYS`
+    label in either locale (so "Dairy & eggs" and "Mejeri & ägg" learn as
+    one), otherwise the custom category's trimmed, lower-cased text.
+    "Other" has no key, is never learned and always sorts last.
+  - *Recording*: `togglePurchasedAction` and the share-link toggle set
+    `ShoppingListItem.checkedOffAt` in the same row write that flips
+    `purchased`, and clear it on un-tick, so a mistaken tick leaves no
+    stale step and a re-tick records when the item was really picked up.
+    Receipt apply deliberately doesn't set it (a whole receipt lands at
+    one instant and says nothing about aisle order). Nothing else is
+    stored per trip.
+  - *Learning*: `completeShoppingListAction` sorts the list's timestamped
+    rows by `checkedOffAt`, gives each the midpoint of its slot on a 0..1
+    entrance→checkout scale, averages per category, and moves each
+    observed category `LEARNING_RATE` (0.3) of the way toward that rank —
+    an exponential moving average. Categories the trip didn't touch keep
+    their position; a trip that touched fewer than two categories teaches
+    nothing and writes nothing. Before anything is learned a known
+    category sits at its `AUTO_CATEGORY_KEYS` slot midpoint and a custom
+    one at 1 (after them, alphabetically). The write is best-effort: a
+    failure is logged and never fails "Done shopping".
+  - *Manual order*: "Reorder sections" in the `⋯` menu (active lists with
+    at least two non-"Other" sections) opens `ReorderSectionsDialog`,
+    up/down buttons rather than drag and drop (no new dependency, works
+    the same by thumb and keyboard). `saveCategoryOrderAction` merges the
+    list's sections into the household's whole current order
+    (`applySubsetReorder`: they're poured back into the slots they already
+    held, so sections this list lacks don't move). A manual order always
+    beats the learned one; a category it doesn't mention sorts after every
+    arranged one. "Use learned order" (shown only while a manual order
+    exists) calls `resetCategoryOrderAction`, whose toast offers Undo.
+    Learning keeps running underneath, so a reset lands on an up-to-date
+    learned order.
+  - *Storage*: two columns on `Household` — `categoryOrderLearned Json?`
+    (`{ [categoryKey]: position }`) and `categoryOrderManual String[]`
+    (empty = none) — rather than a `HouseholdCategoryOrder` table. The
+    learned map is always read and rewritten whole, once per completed
+    list, so rows would only add N upserts; a separate manual column means
+    a completion can't clobber a hand-saved order, and reset is emptying
+    an array. `requireHousehold()` already loads the row, so reading it
+    costs no extra query. Household-wide, never per member; per-store
+    orders are a non-goal (`PriceHistory.store` is too sparse to key off).
+    Migration: `store_order_learning`.
 - **Per-item notes (GAP-5)** — `ShoppingListItem.note` (`String?`,
   migration `20260925124224_shopping_item_note`) holds an optional
   free-text hint for whoever does the shopping ("get the ripe ones", "any
@@ -840,6 +889,41 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   the "X over" note against limit + carried and adds an "incl. X carried over"
   line under the bar when anything was carried. Like the limit itself it's
   purely visual: safe to spend and every total ignore it.
+- **Savings goals (GAP-22)**: a savings category can carry an optional
+  target amount and date, the way YNAB's and Qapital's goals do.
+  `goalAmount Float?` and `goalDate DateTime?` sit on both `BudgetCategory`
+  and `PersonalBudgetCategory` (migration `20260925220624_savings_goals`).
+  The personal budget got it too because `CategoryManager`, `BudgetTabs` and
+  the category actions are already shared, so it cost nothing extra. They're
+  set from "Savings goal (optional)" and "Reach it by (optional)" fields in
+  `CategoryManager`'s add and edit dialogs, shown only for savings
+  categories. The fields are parsed by `goalAmountField` (empty means no goal
+  and clears one on edit; otherwise it must be a positive number) and
+  `goalDateField` (a `YYYY-MM-DD` date input value stored as UTC midnight of
+  that day, like a transaction's date; impossible dates such as 2026-02-31
+  are rejected, past dates are accepted so an unrelated rename still saves)
+  in `src/lib/savings-goal-calc.ts`. `goalForType` enforces the rule
+  server-side: anything but a `SAVINGS` category stores null for both, and
+  on edit that's decided from the stored type rather than the form. A
+  category's type can't be changed after creation, so a goal can't outlive
+  a type change. A date sent without an amount is dropped too.
+  `computeSavingsGoalProgress` turns (saved so far, goal amount, goal date,
+  today) into a status (`reached`, `noDate`, `inProgress` or `datePassed`),
+  a progress percentage (clamped to 100 for the bar) and, while in progress,
+  the monthly pace: what's left divided by the calendar months from this one
+  through the goal's month, inclusive. A goal dated later this month
+  therefore asks for the whole remainder, never a division by zero. "Saved
+  so far" is the category's **all-time** `SAVINGS` total, floored at 0. The
+  household page sums it with one `transaction.groupBy`, and the personal
+  page sums the loader's full transaction list, so it adds no query there. A
+  `SavingsGoals` card on the Overview tab (under Safe to spend, and only when
+  some savings category has a goal) shows each goal as "saved / goal", a bar
+  in the calm savings colour and a line such as "Save ~X/month to reach this
+  by {date}". It doesn't follow the month navigator, since a goal is a
+  running total measured as of today. It's informational only, in keeping
+  with the Guardrails on money: there's no notification, no red or warning
+  state (a passed date is simply stated), no streaks, and it never blocks
+  or affects a transaction, safe to spend or any total.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
   (householdId: string)`, exported from
   `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
@@ -958,11 +1042,43 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   with a `returnTo` (only in-app `/dashboard` paths are honoured, never an
   open redirect), which re-checks membership, makes that household active
   and lands back on the same month, now writable.
-- **No currency symbol**: amounts are formatted with `Intl.NumberFormat`
-  (locale-aware decimal separator, always 2 decimals) but no currency
-  symbol or code, same as `InventoryItem.lastKnownPrice`/
-  `ShoppingListItem.estimatedPrice` elsewhere in the app — there's no
-  household-level currency setting, so a symbol would be a guess.
+- **Display currency (GAP-13)**: every on-screen amount goes through one
+  formatter, `createMoneyFormat(locale, currencyCode)` in
+  `src/lib/currency.ts` (locale-aware decimal separator, always 2
+  decimals). `Household.currencyCode` (`String?`, default null) picks the
+  label:
+  - **Unset (the default)**: the plain symbol-free number every amount used
+    before GAP-13, so existing households see no change until the owner
+    opts in.
+  - **Set**: `Intl.NumberFormat`'s `{ style: "currency", currency }`, so the
+    locale places the symbol ("1 234,50 kr" in Swedish, "SEK 1,234.50" in
+    English). An unrecognised stored code falls back to the plain format
+    rather than throwing mid-render.
+  - **Display only, never converted.** Amounts are plain `Float`s with no
+    currency of their own; switching the setting relabels them and rewrites
+    nothing. Receipt conversion keeps targeting `HOUSEHOLD_BASE_CURRENCY`
+    (see "Currency conversion" under Receipt scanning), and GAP-9's
+    price-spike thresholds stay in SEK. The Household page says so in an
+    always-visible hint, since "switching to EUR converts my kronor" is
+    the one misreading the setting must not invite.
+  - **Where it's set**: `CurrencySetting`
+    (`src/components/household/currency-setting.tsx`) on the Household
+    page, a select of "No currency symbol" plus `SUPPORTED_CURRENCIES` (the
+    receipt scanner's list, all two-decimal currencies), with names from
+    `Intl.DisplayNames` in the viewer's language. It saves on change with
+    `useOptimistic`. **Owner-only**, like the calendar feed: it relabels
+    every amount every member sees. `setHouseholdCurrencyAction`
+    (`src/lib/actions/household.ts`) re-checks the role, normalises and
+    allow-lists the code (`parseHouseholdCurrency`), and revalidates the
+    whole `/dashboard` layout. Contributors see the value read-only.
+  - **Where it shows**: the household budget (Overview, Transactions,
+    Manage, Fixed budget, Cost analyzer, balances, savings goals), shopping
+    lists (row prices, the "left to spend" total and the completion toast)
+    and recipe cost lines. In F1's read-only view the budget uses the
+    *viewed* household's currency, not the active one's. The personal
+    budget spans every household the user is in, so it has no single
+    currency and stays symbol-free. CSV exports and the weekly digest email
+    stay plain numbers (see "Data export (CSV)").
 
 ### Cost analyzer
 
@@ -1120,7 +1236,8 @@ only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
-the budget page (locale-aware decimals, no currency symbol). The summation
+the budget page (`createMoneyFormat`: locale-aware decimals, plus the
+household's currency symbol once GAP-13's setting is chosen). The summation
 itself is a pure, unit-tested helper
 (`sumEstimatedPendingTotal`, `src/lib/shopping/estimated-total.ts`).
 - **Category lookup**: reuses `findOrCreateGroceriesCategory` (see
@@ -1142,8 +1259,8 @@ itself is a pure, unit-tested helper
 - **Feedback**: `completeShoppingListAction` returns
   `{ expenseLoggedMessage?: string }` (a change from its previous `void`
   return) built server-side from the `shoppingList` dictionary
-  (`expenseLogged`, interpolating a locale-formatted, currency-symbol-free
-  amount via `Intl.NumberFormat` — same convention as the rest of
+  (`expenseLogged`, interpolating a locale-formatted amount via
+  `createMoneyFormat` with the household's display currency — same convention as the rest of
   Budgeting) so the client stays dumb. `ShoppingListClient`
   (`src/components/shopping/shopping-list-client.tsx`) awaits the action
   inside its existing `useTransition` click handler and shows a `sonner`
@@ -1342,8 +1459,8 @@ Component page function can't itself be unit-tested.
   "Saving" badge, payments `text-destructive`, shared items badged
   "Shared") — so the number is never a black box. The list is hidden when
   nothing is due.
-- Same no-currency-symbol `Intl.NumberFormat` convention as the rest of
-  Budgeting; the headline number is colored `text-chart-5` (safe/positive)
+- Same `createMoneyFormat` display-currency convention as the rest of
+  Budgeting (GAP-13); the headline number is colored `text-chart-5` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
 
@@ -1487,11 +1604,13 @@ unit-tested in `src/lib/settle-up-calc.ts` (moved from
     (`swishNumbersForPayer`), and `HouseholdBalances` re-checks
     `fromMemberId === currentMemberId` before rendering a link, so nobody
     else's number reaches the browser for no reason.
-  - Swish only moves SEK. There's no per-household currency yet (GAP-13);
-    every amount is assumed to be in `HOUSEHOLD_BASE_CURRENCY`
-    (`src/lib/currency.ts`, `"SEK"`), and the link is only offered while
-    `swishSupportsCurrency` accepts that — so it disappears by itself if
-    that constant, or a future household setting, says otherwise.
+  - Swish only moves SEK. The page passes `swishSupportsCurrency` the
+    household's display currency (GAP-13), falling back to
+    `HOUSEHOLD_BASE_CURRENCY` (`src/lib/currency.ts`, `"SEK"`) when it's
+    unset, so the link shows only for a SEK or unset household. A household
+    that picked EUR is taken at its word and gets no Swish link. The
+    link's aria label already says "kr", so it takes the plain number
+    rather than a second symbol.
   - Tapping it records nothing. The app can't see whether a Swish payment
     went through, and money changes are always an explicit action
     (BACKLOG.md's Guardrails), so a hint under the list tells the payer to
@@ -1767,7 +1886,8 @@ further here, as it isn't part of this section's original CSV-export scope.
   a field (doubling internal quotes) only when it contains a comma, quote,
   or newline, and joins rows with CRLF per RFC 4180. **Numeric fields are
   never run through `Intl.NumberFormat`/locale formatting** — unlike the
-  rest of the app's currency-symbol-free `Intl.NumberFormat` convention,
+  rest of the app's on-screen `createMoneyFormat` convention (which adds
+  GAP-13's currency symbol when one is set),
   several locales this app supports (Swedish) use a comma as the decimal
   separator, which would collide with CSV's own comma delimiter and corrupt
   the file; plain `.`-decimal numbers keep the export parseable by any
@@ -2031,10 +2151,10 @@ below.
   trailing amount. `detectReceiptCurrency` separately scans the whole
   receipt for the most frequent currency symbol/code, since a single
   receipt is essentially always one currency.
-- **Currency conversion**: there's no per-household currency setting
-  anywhere in the schema — every amount in this app is a plain `Float` — so
+- **Currency conversion**: every amount in this app is a plain `Float`, so
   `HOUSEHOLD_BASE_CURRENCY` (`src/lib/currency.ts`, currently `"SEK"`) is a
-  single fixed constant rather than a new setting. If a receipt's detected
+  single fixed constant. GAP-13's `Household.currencyCode` is a display
+  label only and deliberately doesn't change what receipts convert to. If a receipt's detected
   (or user-corrected) currency differs, `applyReceiptScanAction`
   (`src/app/dashboard/shopping-list/actions.ts`) fetches a live rate from
   **Frankfurter** (`frankfurter.dev`, free ECB reference rates, no API key)
@@ -2424,8 +2544,8 @@ meal-plan → shopping-list bridge uses.
   query on this tab only: the household's purchased, priced shopping-list
   lines for the inventory items some recipe links to, newest first. It
   passes the map with the `locale` to `RecipeManager`. Amounts use the app's
-  `Intl.NumberFormat` convention (locale-aware, 2 decimals, no currency
-  symbol), prefixed with "~" to mark them as estimates; the line's tooltip
+  `createMoneyFormat` convention (locale-aware, 2 decimals, with the
+  household's GAP-13 currency symbol when one is set), prefixed with "~" to mark them as estimates; the line's tooltip
   explains they come from what was last paid.
 
 ### Weekly nutrition recap
