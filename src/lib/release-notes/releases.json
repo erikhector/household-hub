@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.0",
+    "date": "2026-09-26",
+    "pr": 70,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now check items off in the store and put them away when you're home. In household settings, set \"Update inventory\" to \"When the shopping is put away\": checked items then show as on the way until you tap \"Put away\" to confirm what you bought and correct amounts and best-before dates. New households get this by default.",
+      "sv": "Nu kan du bocka av varor i butiken och ställa in dem när du kommer hem. Välj \"När varorna ställs in\" under \"Uppdatera lagret\" i hushållsinställningarna: avbockade varor visas då som på väg tills du trycker på \"Ställ in\" och bekräftar vad du köpte, med rätt antal och bäst före-datum. Nya hushåll får det här som standard."
+    }
+  },
+  {
     "version": "0.38.1",
     "date": "2026-09-26",
     "pr": 69,
