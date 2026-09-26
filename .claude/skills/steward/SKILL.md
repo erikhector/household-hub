@@ -8,6 +8,17 @@ description: Repo-specific rules for driving a household-hub PR to green and mer
 Repo conventions for getting a PR merged. General PR-driving rules from the
 harness still apply; this file only adds what's specific to this repo.
 
+## CI gate
+
+Read `ci_gate` in AUTOPILOT.md first. While it is `local`, GitHub Actions
+is paused (the account can't start runners) and GitHub check runs are
+**not** a signal: don't fix, re-run, comment on or wait for them, and
+don't treat "Release preview" failing as a blocker either. The gate is
+`npm run ci:local` in your session: run it before every push and put its
+summary in the PR body under "Verification". A PR is mergeable when that
+passes, there's no conflict and no review thread waits on you. The
+section below applies once `ci_gate` is `github` again.
+
 ## CI failures
 
 CI has two jobs (`.github/workflows/ci.yml`): lint → typegen → tsc → test →

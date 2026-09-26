@@ -51,8 +51,7 @@ Stop at the first real problem in a hunk, note it, move on.
 ## 3. Verify
 
 ```bash
-npm run check 2>&1 | tail -n 40 && npm run build 2>&1 | tail -n 20
-npm run test:e2e 2>&1 | tail -n 30   # if anything user-visible changed
+npm run ci:local 2>&1 | grep -E "Test Files|Tests |passed|failed|error" | tail -n 20
 ```
 
 ## 4. Report

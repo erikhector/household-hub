@@ -13,8 +13,9 @@ PR; the difference is nobody is watching, so verify everything.
 1. Read `AUTOPILOT.md`. Stop if `enabled` or `builder_enabled` is false.
 2. Count open PRs labelled `autopilot` (excluding `docs(backlog)` scans).
    If ≥ `max_open_autopilot_prs`, stop: finishing beats starting.
-3. If an open `autopilot` PR is red or has unanswered review comments, work
-   on **that** instead, per the `steward` skill, and stop after.
+3. If an open `autopilot` PR has unanswered review comments, a merge
+   conflict, or (only when AUTOPILOT.md says `ci_gate: github`) red CI,
+   work on **that** instead, per the `steward` skill, and stop after.
 
 ## 1. Pick
 
@@ -36,8 +37,10 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
 - **Tests**: unit tests for logic (`*.test.ts`). For any user-visible
   change, add or extend a spec in `e2e/` that asserts the item's
   Acceptance line through the UI. A bug fix gets a test that fails first.
-- **Verify**: `npm run check`, `npm run build`, `npm run test:e2e`. All
-  green, no skipped tests.
+- **Verify**: `npm run ci:local` (lint, typecheck, unit tests, build,
+  e2e). All green, no skipped tests. While AUTOPILOT.md says
+  `ci_gate: local` this *is* CI: re-run it before every push and ignore
+  GitHub check runs.
 - **Self-review**: run the `self-review` skill, then re-read the diff once
   more asking "what would a careful reviewer reject?". Fix it.
 
@@ -49,8 +52,11 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
 - Body: fill in the PR template. Release note in English **and** Swedish,
   written for users. If AUTOPILOT.md's human-only areas are touched, add
   "⚠️ Needs careful review" listing them.
-- Label `autopilot`. Subscribe to the PR and drive it to green with the
-  `steward` skill. Never merge it yourself unless AUTOPILOT.md's merge
+- Body also gets a "Verification" section with the summary lines of
+  `npm run ci:local` (test counts, pass/fail) for the pushed commit.
+- Label `autopilot`. Subscribe to the PR and drive it to mergeable with the
+  `steward` skill (review comments, conflicts, and CI per `ci_gate`).
+  Never merge it yourself unless AUTOPILOT.md's merge
   policy explicitly allows this PR's type and it touches no human-only area.
 
 ## 4. Report
