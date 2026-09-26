@@ -33,6 +33,7 @@ import type { StoreComparison } from "@/lib/cheapest-store-calc";
 import type { ExpiredWasteSummary } from "@/lib/inventory/expired-waste";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { createMoneyFormat } from "@/lib/currency";
 
 export type MonthlySpendPoint = { month: string; total: number };
 export type PricePoint = { date: Date; price: number };
@@ -52,6 +53,7 @@ export function CostAnalyzer({
   expiredLastMonth,
   dict,
   locale,
+  currencyCode,
 }: {
   monthlySpending: MonthlySpendPoint[];
   itemTrends: ItemPriceTrend[];
@@ -60,11 +62,10 @@ export function CostAnalyzer({
   expiredLastMonth: ExpiredWasteSummary;
   dict: Dictionary["budget"]["costAnalyzer"];
   locale: Locale;
+  // GAP-13: the household's display currency; null keeps plain numbers.
+  currencyCode?: string | null;
 }) {
-  const numberFormat = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const numberFormat = createMoneyFormat(locale, currencyCode);
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
 

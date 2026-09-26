@@ -131,6 +131,21 @@ export const en = {
       enabledToast: "Low-stock items will be added automatically",
       disabledToast: "Low-stock items won't be added automatically",
     },
+    // GAP-13: the display currency (CurrencySetting). Currency names come
+    // from Intl.DisplayNames in the viewer's locale, so only the "none"
+    // option and the surrounding copy live here.
+    currency: {
+      title: "Currency",
+      label: "Show amounts in",
+      description:
+        "Adds a currency symbol to amounts across the app, like budgets, shopping lists and recipe costs.",
+      noConversionHint:
+        "This only changes how amounts are labelled. Nothing is converted, so amounts you've already entered keep their numbers.",
+      none: "No currency symbol",
+      option: "{name} ({code})",
+      ownerOnlyHint: "Only the household owner can change this.",
+      savedToast: "Currency updated",
+    },
     // GAP-3: the read-only calendar feed (CalendarFeedSetting). `feed` holds
     // the strings written into the .ics itself; the route picks the locale
     // from the URL's ?lang=, since calendar apps send no cookie.
