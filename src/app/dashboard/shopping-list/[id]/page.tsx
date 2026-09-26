@@ -6,6 +6,8 @@ import { ShoppingListClient } from "@/components/shopping/shopping-list-client";
 import { getStockStatus } from "@/lib/stock-status";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { parseLearnedOrder } from "@/lib/shopping/store-order";
+import { loadRepurchaseSuggestions } from "@/lib/inventory/repurchase-suggestions";
+import { RepurchaseSuggestions } from "@/components/shopping/repurchase-suggestions";
 
 // Same reasoning as inventory/page.tsx's maxDuration: ReceiptScanDialog can
 // call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which has
@@ -67,6 +69,11 @@ export default async function ShoppingListDetailPage(
   ]);
   if (!list) notFound();
 
+  // AUTO-10: only an ACTIVE list can take a tapped suggestion, so a
+  // completed or archived one skips the history query altogether.
+  const repurchaseSuggestions =
+    list.status === "ACTIVE" ? await loadRepurchaseSuggestions(household.id, new Date()) : [];
+
   const smartAddCandidates: SmartAddCandidate[] = inventoryItems.map((item) => ({
     id: item.id,
     name: item.name,
@@ -106,6 +113,17 @@ export default async function ShoppingListDetailPage(
         manual: household.categoryOrderManual,
       }}
       locale={locale}
+      repurchaseSuggestions={
+        <RepurchaseSuggestions
+          listId={list.id}
+          suggestions={repurchaseSuggestions.map(({ inventoryItemId, name, intervalDays }) => ({
+            inventoryItemId,
+            name,
+            intervalDays,
+          }))}
+          dict={dict.repurchase}
+        />
+      }
       currencyCode={household.currencyCode}
     />
   );

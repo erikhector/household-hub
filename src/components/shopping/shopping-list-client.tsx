@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -127,6 +127,7 @@ export function ShoppingListClient({
   locale,
   currencyCode,
   storeOrder,
+  repurchaseSuggestions,
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -144,6 +145,9 @@ export function ShoppingListClient({
   currencyCode?: string | null;
   /** AUTO-9: the household's learned and hand-arranged store order. */
   storeOrder: StoreOrder;
+  /** AUTO-10: the "You usually buy this about now" chips, rendered by the
+   * page (RepurchaseSuggestions) and shown under the smart add line. */
+  repurchaseSuggestions?: ReactNode;
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -502,6 +506,7 @@ export function ShoppingListClient({
           onAdded={highlightAdded}
         />
       )}
+      {isActive && repurchaseSuggestions}
 
       <div className="flex flex-col gap-2">
         {showCleared ? (

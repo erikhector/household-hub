@@ -316,6 +316,14 @@ model InventoryItem {
   // (see openedResetOnArrival, same file).
   openedAt           DateTime?
   useWithinDaysOpened Int?
+  // AUTO-10: the "You usually buy this about now" chip is dismissed until
+  // this moment. Dismissing sets it one median purchase interval ahead —
+  // the item's next cycle (repurchaseSnoozeUntil in
+  // src/lib/inventory/repurchase-calc.ts); null = never dismissed, a past
+  // value = expired. Stored on the item rather than in the browser so a
+  // dismissal holds on every member's device, and household-scoped for
+  // free through the item's householdId.
+  repurchaseSnoozedUntil DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   // Who last touched this row — set on every mutation (edits, quantity

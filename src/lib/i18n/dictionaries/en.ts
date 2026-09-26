@@ -1963,6 +1963,18 @@ export const en = {
     cameraError: "Couldn't start the camera. You can still enter the item manually.",
     cancel: "Cancel",
   },
+  repurchase: {
+    label: "You usually buy these about now",
+    chip: {
+      one: "{name} · usually every day",
+      other: "{name} · usually every {count} days",
+    },
+    addAriaLabel: "Add {name} to the list",
+    dismissAriaLabel: "Not now: {name}",
+    added: "Added {name} to the list",
+    dismissed: "Okay, {name} will be suggested again next time around",
+    undo: "Undo",
+  },
   profile: {
     title: "Profile",
     subtitle: "Your account details.",
