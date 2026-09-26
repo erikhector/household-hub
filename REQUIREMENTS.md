@@ -2516,10 +2516,38 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 - **Editing a meal entry**: an entry that hasn't been cooked yet has a
   pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
   backed by `updateMealEntryAction`, which changes the entry's recipe or
-  freeform name and its portions. Date and meal type aren't editable, so
-  moving a meal still means deleting it and adding it again. Each recipe
-  entry in the planner shows its portion count next to the name
-  ("Lasagna · 2 portions").
+  freeform name and its portions. Each recipe entry in the planner shows
+  its portion count next to the name ("Lasagna · 2 portions").
+- **Moving a meal entry (GAP-30)**: next to the pencil, an uncooked entry
+  has a move button (`MoveMealDialog`,
+  `src/components/meal-planning/move-meal-dialog.tsx`) with a date picker
+  and a meal-type select, the same picker "Add to plan" uses. No
+  drag-and-drop: the picker works the same on a phone, where the planner
+  stacks into one column, and can reach any week. It's backed by
+  `moveMealEntryAction`, a sibling of `updateMealEntryAction` that only
+  changes `date`, `mealType` and `mealPlanId`, so the recipe, freeform name
+  and portions carry over untouched.
+  - The target week is derived on the server from the picked date
+    (`getWeekStart`). The client sends no week key, so an entry can't be
+    filed under a `MealPlan` whose week doesn't contain its date. A date in
+    another week find-or-creates that week's `MealPlan` the way
+    `addMealEntryAction` does. The source week's plan row stays even if the
+    move empties it.
+  - Slots stack like they do for add: moving into a slot that already has a
+    meal puts both there. There's no uniqueness constraint on
+    (date, meal type).
+  - **Cooked meals can't be moved.** The button is hidden once an entry has
+    `consumedAt` (like the pencil), and the action refuses with "A cooked
+    meal can't be moved". A cooked entry's day and slot record when the meal
+    was eaten and its ingredients left inventory, so moving it would rewrite
+    history rather than change a plan.
+  - Moving an entry dismisses any open "Meal not logged" reminder for it in
+    the same transaction. Rescheduling a meal answers that nudge. The
+    reminder is dismissed, not deleted, so the "at most once per entry,
+    ever" rule still holds.
+  - The success toast names the meal. When the new date is in a different
+    week than the one on screen, the meal disappears from view, so the toast
+    says so and offers "View that week", the same as "Add to plan".
 - **Scaling a recipe to how many it's feeding (GAP-11)**: every recipe
   entry carries `MealPlanEntry.portions`, the number of people that slot
   is cooking for. The meal entry dialog's "Portions" field sets it. Picking
