@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.1",
+    "date": "2026-09-26",
+    "pr": 73,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The privacy page now lists every preference Squirrel stores in your browser.",
+      "sv": "Integritetssidan visar nu alla inställningar som Squirrel sparar i din webbläsare."
+    }
+  },
+  {
     "version": "0.39.0",
     "date": "2026-09-26",
     "pr": 70,
