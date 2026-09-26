@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.39.5",
+    "date": "2026-09-26",
+    "pr": 79,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list loads faster, especially on mobile data.",
+      "sv": "Inköpslistan laddas snabbare, särskilt på mobildata."
+    }
+  },
+  {
     "version": "0.39.4",
     "date": "2026-09-26",
     "pr": 77,
