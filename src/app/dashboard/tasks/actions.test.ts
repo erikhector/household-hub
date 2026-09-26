@@ -10,6 +10,7 @@ const {
   householdTaskCreateMock,
   householdTaskFindFirstMock,
   householdTaskUpdateMock,
+  householdTaskUpdateManyMock,
   householdTaskDeleteManyMock,
   householdMemberFindFirstMock,
   householdMemberFindManyMock,
@@ -19,6 +20,7 @@ const {
   householdTaskCreateMock: vi.fn(),
   householdTaskFindFirstMock: vi.fn(),
   householdTaskUpdateMock: vi.fn(),
+  householdTaskUpdateManyMock: vi.fn(),
   householdTaskDeleteManyMock: vi.fn(),
   householdMemberFindFirstMock: vi.fn(),
   householdMemberFindManyMock: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
       create: householdTaskCreateMock,
       findFirst: householdTaskFindFirstMock,
       update: householdTaskUpdateMock,
+      updateMany: householdTaskUpdateManyMock,
       deleteMany: householdTaskDeleteManyMock,
     },
     householdMember: { findFirst: householdMemberFindFirstMock, findMany: householdMemberFindManyMock },
@@ -292,8 +295,8 @@ describe("toggleTaskCompletedAction", () => {
       where: { householdId: "household-1", userId: "user-1" },
       select: { id: true },
     });
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: null },
       data: { completedAt: expect.any(Date), completedByMemberId: "member-1" },
     });
   });
@@ -351,8 +354,8 @@ describe("toggleTaskCompletedAction", () => {
     const result = await toggleTaskCompletedAction("task-1");
 
     expect(result.error).toBeUndefined();
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: new Date("2020-01-01T00:00:00.000Z") },
       data: { completedAt: expect.any(Date), completedByMemberId: "member-1" },
     });
   });
@@ -506,8 +509,8 @@ describe("task rotation (GAP-38)", () => {
       select: { id: true },
     });
     // Advances from the assignee (wrapping to member-1), not the completer.
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: null },
       data: {
         completedAt: expect.any(Date),
         completedByMemberId: "member-1",
@@ -532,8 +535,8 @@ describe("task rotation (GAP-38)", () => {
 
     await toggleTaskCompletedAction("task-1");
 
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: new Date("2020-01-01T00:00:00.000Z") },
       data: expect.objectContaining({ assignedToMemberId: "member-3", rotationPreviousAssigneeId: "member-1" }),
     });
   });
@@ -558,8 +561,8 @@ describe("task rotation (GAP-38)", () => {
       select: { id: true },
     });
     expect(householdMemberFindManyMock).not.toHaveBeenCalled();
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: expect.any(Date) },
       data: { completedAt: null, assignedToMemberId: "member-1" },
     });
   });
@@ -578,10 +581,64 @@ describe("task rotation (GAP-38)", () => {
 
     await toggleTaskCompletedAction("task-1");
 
-    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
-      where: { id: "task-1" },
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: expect.any(Date) },
       data: { completedAt: null, assignedToMemberId: null },
     });
+  });
+
+  it("a second completion that lost the race is a no-op success, not a second advance", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    // Both requests read the task while it was still open on member-1's turn...
+    householdTaskFindFirstMock.mockResolvedValue({
+      id: "task-1",
+      completedAt: null,
+      recurrenceIntervalDays: 7,
+      assignedToMemberId: "member-1",
+      rotationMemberIds: ["member-1", "member-2", "member-3"],
+      rotationPreviousAssigneeId: null,
+    });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdMemberFindManyMock.mockResolvedValue([{ id: "member-1" }, { id: "member-2" }, { id: "member-3" }]);
+    // ...but the other one already wrote, so this conditional write matches nothing.
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    // The write is guarded on the completedAt that was read, so it can
+    // only ever advance member-1 -> member-2 once.
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledTimes(1);
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt: null },
+      data: expect.objectContaining({ assignedToMemberId: "member-2", rotationPreviousAssigneeId: "member-1" }),
+    });
+    expect(householdTaskUpdateMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
+  });
+
+  it("an undo that lost the race is a no-op success", async () => {
+    requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
+    const completedAt = new Date();
+    householdTaskFindFirstMock.mockResolvedValue({
+      id: "task-1",
+      completedAt,
+      recurrenceIntervalDays: 7,
+      assignedToMemberId: "member-2",
+      rotationMemberIds: ["member-1", "member-2"],
+      rotationPreviousAssigneeId: "member-1",
+    });
+    householdMemberFindFirstMock.mockResolvedValue({ id: "member-1" });
+    householdTaskUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await toggleTaskCompletedAction("task-1");
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "task-1", householdId: "household-1", completedAt },
+      data: { completedAt: null, assignedToMemberId: "member-1" },
+    });
+    expect(householdTaskUpdateMock).not.toHaveBeenCalled();
   });
 });
 

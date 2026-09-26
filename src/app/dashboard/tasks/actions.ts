@@ -210,6 +210,14 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
   const now = new Date();
   const nextCompleted = isTaskOpen(task, now);
   const rotating = isRotating(task);
+  // Compare-and-set: the completion and rotating-undo writes below only
+  // apply if the task still has the `completedAt` read above. Without it,
+  // two members ticking the same rotating task at once (or one double-tap)
+  // would both see it open and advance the turn twice, skipping someone.
+  // A write that matches nothing means someone else already toggled it, so
+  // it's treated as a no-op success rather than an error — the revalidate
+  // below still refreshes the caller's stale view.
+  const unchangedSinceRead = { id: task.id, householdId: household.id, completedAt: task.completedAt };
 
   try {
     if (nextCompleted) {
@@ -239,8 +247,8 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
           rotationPreviousAssigneeId: task.assignedToMemberId,
         };
       }
-      await prisma.householdTask.update({
-        where: { id: task.id },
+      await prisma.householdTask.updateMany({
+        where: unchangedSinceRead,
         data: { completedAt: now, completedByMemberId: member?.id ?? null, ...rotationData },
       });
     } else if (rotating) {
@@ -258,8 +266,8 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
         });
         previous = member?.id ?? null;
       }
-      await prisma.householdTask.update({
-        where: { id: task.id },
+      await prisma.householdTask.updateMany({
+        where: unchangedSinceRead,
         data: { completedAt: null, assignedToMemberId: previous },
       });
     } else {

@@ -3278,7 +3278,10 @@ co-managers, not kids earning rewards.
     completed, not when it reopens (reopening never writes, see above), so
     the next person sees it in their dashboard's "my tasks" straight away.
     It advances from the *assignee*, not the completer: helping out on
-    someone else's turn doesn't reorder the rotation.
+    someone else's turn doesn't reorder the rotation. The write (and the
+    undo below) is an `updateMany` guarded on the `completedAt` it read, so
+    a double-tap or two members ticking at once advances only once; the
+    losing request is a no-op success.
   - **Undo**: completion also stores who had the turn in
     `rotationPreviousAssigneeId`. Un-completing a rotating task restores
     that person instead of advancing again (if they've left, it goes back

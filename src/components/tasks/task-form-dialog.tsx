@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { createTaskAction, updateTaskAction } from "@/app/dashboard/tasks/actions";
 import type { ActionState } from "@/lib/actions/auth";
+import { MIN_ROTATION_MEMBERS } from "@/lib/task-rotation";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -58,10 +59,6 @@ const initialState: ActionState = {};
 const UNASSIGNED_VALUE = "__unassigned__";
 const NO_REPEAT_VALUE = "__no_repeat__";
 const RECURRENCE_OPTION_DAYS = [1, 2, 3, 7] as const;
-// Mirrors MIN_ROTATION_MEMBERS in src/lib/task-rotation.ts — not imported so
-// this Client Component doesn't pull in server-side modules by accident; the
-// server re-checks it anyway.
-const MIN_ROTATION_MEMBERS = 2;
 
 export function TaskFormDialog({
   mode,
@@ -239,10 +236,13 @@ export function TaskFormDialog({
                 <ol className="flex flex-col gap-1">
                   {rotation.map((id, index) => (
                     <li key={id} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
-                      {/* Only submitted while the task repeats (this whole
-                          block is hidden otherwise), so switching to
-                          "doesn't repeat" clears the rotation on save. */}
-                      <input type="hidden" name="rotationMemberIds" value={id} />
+                      {/* Only submitted while it's a real rotation (repeats,
+                          2+ people). A lone leftover person — e.g. after the
+                          other one left the household — then saves as "no
+                          rotation" instead of blocking every save with the
+                          server's "at least two" error; the rotationNeedsTwo
+                          hint below says why. */}
+                      {rotating && <input type="hidden" name="rotationMemberIds" value={id} />}
                       <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
                       <span className="flex-1 truncate text-sm">{memberName(id)}</span>
                       <Button
