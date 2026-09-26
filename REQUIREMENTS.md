@@ -3819,6 +3819,41 @@ intruder out. The fix is a password "version" stamped into the token:
   `/dashboard` and every data-touching Server Action goes through one of
   the two guards.
 
+### Login rate limiting (SEC-1)
+
+The per-email login throttle (`checkRateLimit("login:<email>")`,
+`LOGIN_RATE_LIMIT` = 10 attempts / 10 minutes — see its doc comment for why
+this throttles instead of locking accounts out) lives inside the
+Credentials provider's `authorize` callback in `src/lib/auth.ts`, not in
+`loginAction` (`src/lib/actions/auth.ts`). It used to be the other way
+round, which left it bypassable: Auth.js also serves
+`POST /api/auth/callback/credentials` directly (paired with
+`GET /api/auth/csrf`), and that route calls `authorize` without ever going
+through `loginAction`, so a script hitting it directly got unlimited
+password guesses against any known email.
+
+- `authorize` trims and lowercases the submitted email itself before using
+  it as both the rate-limit key and the `prisma.user.findUnique` lookup —
+  `loginAction`'s Zod schema already does this, but `authorize` is also
+  reachable from that credentials callback route, which never runs through
+  `loginSchema`.
+- The check runs before the `user.findUnique` call and before
+  `bcrypt.compare`, and regardless of whether the account exists, so a
+  throttled attempt never pays either cost and an unknown email doesn't
+  skip the bucket.
+- On the limit tripping, `authorize` throws `RateLimitedSignin` — a
+  `CredentialsSignin` subclass with `code = "rate-limited"`, the same
+  pattern `EmailNotVerifiedSignin` already used for the "verify your email"
+  case. `loginAction` catches it (checked before the generic `AuthError`
+  branch, same as `EmailNotVerifiedSignin`) and returns its existing "Too
+  many attempts. Please wait a few minutes and try again." message, so the
+  user-facing behavior is unchanged from before the fix.
+- `loginAction` no longer has a rate-limit check of its own: a pre-check
+  there would consume a second attempt from the same bucket `authorize`
+  already checks for that same sign-in, silently halving the effective
+  limit. `signIn("credentials", ...)` always calls `authorize` internally,
+  so one call to `loginAction` still means exactly one throttle check.
+
 ## Navigation & responsive layout
 
 Nav sections (Overview, Inventory, Shopping list, Meal planning, Budget,

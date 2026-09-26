@@ -32,6 +32,13 @@ vi.mock("next-auth", () => ({ AuthError }));
 // actually exercises the hard-gate-on-verification bug fix end to end.
 class EmailNotVerifiedSignin extends AuthError {}
 
+// Mirrors src/lib/auth.ts's real RateLimitedSignin (SEC-1). Never thrown by
+// this test's signInMock — this golden path exercises one clean run per
+// step, not the throttle itself (see src/lib/auth.test.ts for that) — but
+// loginAction's `error instanceof RateLimitedSignin` check needs a real
+// class on this mock, same as EmailNotVerifiedSignin above.
+class RateLimitedSignin extends AuthError {}
+
 const {
   store,
   fakePrisma,
@@ -254,6 +261,7 @@ vi.mock("@/lib/auth", () => ({
   signIn: signInMock,
   signOut: signOutMock,
   EmailNotVerifiedSignin,
+  RateLimitedSignin,
 }));
 // src/lib/email.ts imports "server-only", which Vitest's Node environment
 // can't resolve outside a Next.js build — stub it out (same as auth.test.ts).
