@@ -12,6 +12,7 @@ import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
 import { CurrencySetting } from "@/components/household/currency-setting";
+import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { calendarFeedPath } from "@/lib/calendar-feed";
 
 // GAP-3. APP_URL first, request headers only as the local-dev fallback: the
@@ -168,6 +169,13 @@ export default async function HouseholdPage() {
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
           shopping behaviour every member already fully operates. */}
       <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
+      {/* Owner-gated inside (see setInventorySyncModeAction); contributors
+          see the current value read-only. */}
+      <InventorySyncSetting
+        mode={household.inventorySyncMode}
+        isOwner={isOwner}
+        dict={dict.household.inventorySync}
+      />
       {/* Owner-gated inside (see setHouseholdCurrencyAction); contributors
           see the current value read-only. */}
       <CurrencySetting

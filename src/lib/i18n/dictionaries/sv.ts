@@ -44,6 +44,7 @@ export const sv = {
     listCleared: "{name} är helt avbockad",
     priceSpike: "{name} kostade {percent} % mer än vanligt",
     priceSpikePlain: "{name} kostade mer än vanligt",
+    putAwayReminder: "Dags att ställa in varorna från {name}?",
     mealNotLogged: "Glömde du registrera en måltid?",
     mealNotLoggedNamed: "Glömde du registrera {name}?",
     viewAll: "Visa alla aviseringar",
@@ -117,6 +118,18 @@ export const sv = {
         'När något börjar ta slut eller är slut hamnar det direkt på "Att handla". Inställningen gäller alla i hushållet.',
       enabledToast: "Varor med lågt lager läggs till automatiskt",
       disabledToast: "Varor med lågt lager läggs inte till automatiskt",
+    },
+    inventorySync: {
+      title: "Uppdatera lagret",
+      label: "Uppdatera lagret",
+      description: "När det som bockas av på en inköpslista läggs till i lagret.",
+      onCheck: "När en vara bockas av",
+      onPutAway: "När varorna ställs in",
+      onCheckHint: "Lagret ökar så fort någon bockar av en vara, även om den fortfarande ligger i kundvagnen.",
+      onPutAwayHint:
+        "Avbockade varor räknas som på väg. Lagret ökar när någon bekräftar dem med \"Ställ in\" hemma, där antal och bäst före-datum också kan rättas.",
+      ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
+      savedToast: "Sparat",
     },
     currency: {
       title: "Valuta",
@@ -410,6 +423,50 @@ export const sv = {
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
     clearedDismissAriaLabel: "Stäng",
     purchased: "Köpt",
+    // "Ställ in" som i streckkodsskanningens "Ställt in (+1)", så att båda
+    // läses som samma sak.
+    putAway: {
+      button: "Ställ in ({count})",
+      awaitingBadge: "Inte inställd",
+      title: "Ställ in varorna",
+      description:
+        "Kolla vad som faktiskt kom hem. Varorna läggs till i lagret när du bekräftar, och det du sparar till senare ligger kvar här.",
+      finishTitle: "Ställa in innan du avslutar?",
+      finishDescription:
+        "De här varorna är avbockade men finns inte i lagret än. Ställ in dem nu, eller avsluta listan och gör det senare.",
+      optionAriaLabel: "Vad ska göras med {name}",
+      options: {
+        putAway: "Ställ in",
+        later: "Senare",
+        notBought: "Blev inte köpt",
+      },
+      quantityLabel: "Antal ({unit})",
+      quantityAriaLabel: "Antal {name}",
+      quantityInvalid: "Ange ett antal för {name}",
+      expiresLabel: "Bäst före",
+      expiresAriaLabel: "Bäst före-datum för {name}",
+      locationLabel: "Plats",
+      locationPlaceholder: "Oförändrad",
+      notLinkedHint: "Inte kopplad till lagret, så det finns inget att lägga till.",
+      confirmAll: "Ställ in allt",
+      confirm: {
+        one: "Ställ in {count} vara",
+        other: "Ställ in {count} varor",
+      },
+      save: "Spara",
+      confirming: "Ställer in…",
+      cancel: "Avbryt",
+      finishConfirm: "Ställ in och avsluta",
+      finishLater: "Avsluta, ställ in senare",
+      doneToast: {
+        one: "{count} vara inställd",
+        other: "{count} varor inställda",
+      },
+      notBoughtToast: {
+        one: "{count} vara lades tillbaka på listan",
+        other: "{count} varor lades tillbaka på listan",
+      },
+    },
     otherCategory: "Övrigt",
     reorderSections: {
       menuItem: "Ändra ordning på avsnitt",
@@ -718,6 +775,7 @@ export const sv = {
     },
     locationLabel: "Plats",
     locationPlaceholder: "t.ex. Kylskåp",
+    onTheWay: "+{amount} på väg",
     quantityLabel: "Antal",
     unitLabel: "Enhet",
     unitPlaceholder: "t.ex. st",

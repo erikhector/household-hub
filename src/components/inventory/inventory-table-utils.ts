@@ -28,6 +28,10 @@ export type InventoryItemRow = {
   useWithinDaysOpened: number | null;
   updatedAt: Date;
   updatedByUserId: string | null;
+  // Ticked off a shopping list but not put away yet (src/lib/incoming-stock.ts)
+  // — shown as a "+N on the way" hint beside the stock badge. The badge
+  // itself stays on `quantity`: it isn't home yet. Absent or 0 = none.
+  incoming?: number;
 };
 
 export type HouseholdMemberOption = { userId: string; displayName: string };

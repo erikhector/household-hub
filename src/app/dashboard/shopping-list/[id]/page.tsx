@@ -8,6 +8,7 @@ import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { parseLearnedOrder } from "@/lib/shopping/store-order";
 import { loadRepurchaseSuggestions } from "@/lib/inventory/repurchase-suggestions";
 import { RepurchaseSuggestions } from "@/components/shopping/repurchase-suggestions";
+import { defersToPutAway } from "@/lib/shopping/put-away-calc";
 
 // Same reasoning as inventory/page.tsx's maxDuration: ReceiptScanDialog can
 // call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which has
@@ -18,11 +19,12 @@ export const maxDuration = 60;
 export default async function ShoppingListDetailPage(
   props: PageProps<"/dashboard/shopping-list/[id]">,
 ) {
-  const [{ household }, dict, locale, { id }] = await Promise.all([
+  const [{ household }, dict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     props.params,
+    props.searchParams,
   ]);
 
   const [list, inventoryItems] = await Promise.all([
@@ -37,7 +39,9 @@ export default async function ShoppingListDetailPage(
         // receipt line that prints an EAN to its list row exactly (AUTO-11).
         items: {
           orderBy: { createdAt: "asc" },
-          include: { inventoryItem: { select: { category: true, barcode: true } } },
+          // Its location too, as the put-away dialog's "stays where it is"
+          // placeholder.
+          include: { inventoryItem: { select: { category: true, barcode: true, location: true } } },
         },
       },
     }),
@@ -55,6 +59,7 @@ export default async function ShoppingListDetailPage(
         name: true,
         category: true,
         unit: true,
+        location: true,
         quantity: true,
         lowStockThreshold: true,
         shoppingListItems: {
@@ -84,6 +89,9 @@ export default async function ShoppingListDetailPage(
 
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
   const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
+  const locations = [
+    ...new Set(inventoryItems.flatMap((item) => (item.location?.trim() ? [item.location.trim()] : []))),
+  ].sort();
 
   return (
     <ShoppingListClient
@@ -96,6 +104,7 @@ export default async function ShoppingListDetailPage(
           ...item,
           category: inventoryItem?.category ?? null,
           barcode: inventoryItem?.barcode ?? null,
+          location: inventoryItem?.location ?? null,
         })),
       }}
       inventoryItems={inventoryItems.map(({ id, name, category, unit }) => ({ id, name, category, unit }))}
@@ -125,6 +134,11 @@ export default async function ShoppingListDetailPage(
         />
       }
       currencyCode={household.currencyCode}
+      defersToPutAway={defersToPutAway(household)}
+      locations={locations}
+      // The put-away reminder (push and bell) links here with ?putAway=1 so
+      // acting on it is one tap.
+      openPutAwayOnLoad={searchParams.putAway === "1"}
     />
   );
 }
