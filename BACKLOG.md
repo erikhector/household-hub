@@ -153,10 +153,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `count === 0`. Store reset/verification tokens as `sha256(token)` so a
       read-only DB leak isn't an account takeover (invalidates tokens in
       flight — fine, they live an hour).
-- [ ] **SEC-9. Constant-time cron secret check** (low) —
-      `api/cron/sync-notifications/route.ts:57` and
-      `api/cron/weekly-digest/route.ts:23` compare with `!==`. Share a
-      `timingSafeEqual` helper with `digest-unsubscribe-token.ts`.
 - [ ] **SEC-10. Complete the personal data export** (low) —
       `src/app/dashboard/profile/export-data/route.ts` omits push
       subscriptions, `locale`/`theme`/`weeklyDigestEnabled`, notes, task
