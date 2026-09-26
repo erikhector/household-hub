@@ -4628,8 +4628,11 @@ approximating them, so the email never disagrees with the app.
   (`workers: 1`) since they share the seeded household, and name the rows
   they create uniquely so reruns don't collide. `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
-  login callback. CI runs this as a separate `e2e` job with a Postgres
-  service container and uploads the report and traces on failure. In
+  login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
+  with a Postgres service container, but GitHub CI is paused for now
+  (manual dispatch only, since the account can't start runners): the
+  gate is `npm run ci:local` (check + build + e2e) in the working
+  session, per `ci_gate` in AUTOPILOT.md. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
   Any user-visible change should add or extend a spec here.

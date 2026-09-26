@@ -11,6 +11,11 @@ The "Release preview" check comments on this PR with the exact version and note.
 
 <!-- What changed and why. For reviewers, not users. -->
 
+## Verification
+
+<!-- CI is local for now (see AUTOPILOT.md `ci_gate`): paste the summary
+lines of `npm run ci:local` for the pushed commit. -->
+
 ## Release note
 
 <!--

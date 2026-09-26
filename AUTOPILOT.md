@@ -54,6 +54,20 @@ An autopilot PR touching any of these must say so in its Summary under
 - `.github/workflows/`, `AUTOPILOT.md`, `package.json` dependencies (except
   `DEPS-` items)
 
+## CI gate
+
+```yaml
+ci_gate: local           # local | github
+```
+
+`local` (current): GitHub Actions is paused (`ci.yml` runs only on manual
+dispatch) because the account can't start runners. The gate is
+`npm run ci:local` (lint, typecheck, unit tests, build, e2e), run in the
+session before every push. Paste its summary lines into the PR body under
+"Verification". Ignore GitHub check runs entirely: a red or missing check
+is not a failure to fix, comment on or wait for. `github`: CI runs on
+push/PR again and must be green, as in the `steward` skill.
+
 ## Merge policy
 
 ```yaml

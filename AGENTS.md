@@ -44,14 +44,17 @@ npm test                    # vitest run (non-watch)
 npm run check               # lint + typecheck + test in one go
 npm run build
 npm run test:e2e            # Playwright vs `next start` + real Postgres (build first)
+npm run ci:local            # the full gate: check + build + e2e
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint → typegen → tsc → test → build on
-every push and PR. **Run `npm run check && npm run build` before calling a
-change done.** For user-visible changes, `npm run test:e2e` too (CI runs it
-as a separate job). In Claude Code on the web, `.claude/hooks/session-start.sh`
-runs `npm ci` and starts a migrated local Postgres, so all of these work
-from the first turn.
+**CI is local for now.** GitHub Actions is paused (the account can't start
+runners), so `.github/workflows/ci.yml` only runs on manual dispatch and
+GitHub check results are to be ignored. `npm run ci:local` (lint →
+typecheck → unit tests → build → e2e) is the gate: **run it and see it pass
+before every push**, and paste its summary into the PR body. See
+`ci_gate` in AUTOPILOT.md. In Claude Code on the web,
+`.claude/hooks/session-start.sh` runs `npm ci` and starts a migrated local
+Postgres, so all of these work from the first turn.
 
 ## Layout
 

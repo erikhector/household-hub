@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "ci:local": "npm run check && npm run build && npm run test:e2e",
     "postinstall": "prisma generate"
   },
   "dependencies": {
