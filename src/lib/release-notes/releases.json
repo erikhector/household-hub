@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.35.1",
+    "date": "2026-09-26",
+    "pr": 64,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Item names on the shopping list are readable again on phones. The price and edit buttons now sit on their own line below the name.",
+      "sv": "Varornas namn på inköpslistan går att läsa igen i mobilen. Pris- och redigeringsknapparna ligger nu på en egen rad under namnet."
+    }
+  },
+  {
     "version": "0.35.0",
     "date": "2026-09-26",
     "pr": 63,
