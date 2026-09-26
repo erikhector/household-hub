@@ -735,23 +735,35 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     row's stock actually landed in inventory. A row that's `purchased`
     with `putAwayAt` null is *awaiting put-away*. `checkedOffByUserId`
     (plain string, like `Transaction.createdByUserId`) records who ticked
-    it, for the reminder below; `priceRecordedAt` records that the line's
-    price is already in `PriceHistory` (a receipt applied while the row was
-    still in the cart), so the put-away doesn't record it again. The
-    migration backfilled `putAwayAt = COALESCE(checkedOffAt, list
+    it, for the reminder below (receipt apply fills it with whoever applied
+    the receipt for rows nobody ticked). `priceRecordedAt` has exactly one
+    meaning: *a `PriceHistory` row was written for this line* — set by an
+    `ON_CHECK` tick, a put-away or a receipt only when they really write
+    one (so never on an unlinked row), and cleared whenever the purchase is
+    undone (un-tick, "Didn't get it"), since a re-tick is a new purchase.
+    The put-away step reads it to avoid recording a receipt's price twice.
+    The migration backfilled `putAwayAt = COALESCE(checkedOffAt, list
     completedAt, now())` on every already-purchased row, since the old tick
     had already counted those — without it, each would read as incoming
-    and a put-away would count it twice.
+    and a put-away would count it twice. A follow-up migration,
+    `put_away_deploy_window_backfill`, re-runs that backfill for `ON_CHECK`
+    households' purchased rows with no `putAwayAt` and no
+    `checkedOffByUserId` — rows only the previous app version can have
+    written, while the deploy was building. It has to be run once more by
+    hand after the deploy is live (DEPLOYMENT.md, "Put-away deploy
+    window").
   - *The tick* (`togglePurchasedAction`, `toggleItemViaShareTokenAction`):
     always flips `purchased` and sets/clears AUTO-9's `checkedOffAt` exactly
     as before (store-order learning and AUTO-10's purchase dating are
-    unchanged). In `ON_PUT_AWAY` mode that's all it does. In `ON_CHECK`
+    unchanged). In `ON_PUT_AWAY` mode that's all it does, plus an explicit
+    `putAwayAt: null` so a row never enters the cart already looking put
+    away. In `ON_CHECK`
     mode it also runs the arrival (below) and stamps `putAwayAt` in the
     same write, so the data model reads the same either way. Un-ticking is
     decided by the *row*, never the mode: a row with `putAwayAt` gives its
     stock back (`reverseStockArrival`: decrement floored at zero, then the
     out-of-stock and AUTO-8 hooks) and clears `putAwayAt`; a row without
-    one has nothing to reverse. So a household can switch modes mid-trip
+    one has nothing to reverse. Either way `priceRecordedAt` is cleared. So a household can switch modes mid-trip
     without double-counting or losing anything. LIST_CLEARED still fires on
     the tick — it's about the list, not the pantry.
   - *The arrival* (`applyStockArrival`, `src/lib/shopping/put-away.ts`) is
@@ -768,14 +780,26 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     optional location, or `notBought`. Validated with Zod (at most 300
     entries). The list must be this household's and `ACTIVE` or
     `COMPLETED`, and every entry must be a row on that list — one foreign
-    id fails the whole call. Rows already put away or no longer ticked are
-    skipped, which makes a double tap harmless. In one transaction, rows
-    are processed one at a time, carrying each inventory item's updated
-    state forward so two rows for the same item add up: the row gets
-    `putAwayAt` (and its confirmed quantity, so a later un-tick gives back
-    the right amount), then `applyStockArrival` runs, recording the price
-    only if `priceRecordedAt` is still null. "Not bought" un-ticks the row
-    instead (it goes back on the list). Any subset can be put away; the rest
+    id fails the whole call. That pre-read is for tenancy only. In one
+    transaction, rows are processed one at a time: each is *claimed* with a
+    conditional `updateMany` (`purchased AND putAwayAt IS NULL`) and skipped
+    when the claim matches nothing, then re-read (with its inventory item)
+    inside the transaction. The row keeps its confirmed quantity (so a
+    later un-tick gives back the right amount), and `applyStockArrival`
+    runs on the re-read item, recording the price only if `priceRecordedAt`
+    is still null — against the row's *listed* quantity, the one the price
+    was paid for, so correcting the quantity can't distort the unit price
+    or raise a false price jump. "Not bought" is the same claim writing an
+    un-tick instead (it goes back on the list, `priceRecordedAt` cleared).
+    **What's guaranteed**: a row's stock is counted at most once, however
+    many members put away at once, and a row un-ticked meanwhile is
+    skipped; the claim holds the row's lock until commit and receipt apply
+    claims rows the same way, so a receipt and a put-away can't both record
+    one line's price; two rows for one item add up. **Not guaranteed**: the
+    inventory item is re-read and then written with an absolute quantity,
+    like every stock change in the app, so an unrelated change to the same
+    item committing in between (a − tap at that instant) can be
+    overwritten. Any subset can be put away; the rest
     stay waiting, and the list isn't completed by this. Once nothing on
     the list is waiting, its undismissed reminder is dismissed.
   - *UI*: a "Put away (N)" button beside "Scan receipt" whenever N rows are
@@ -787,13 +811,18 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     Didn't get it, and — for linked items — quantity, best-before and
     location (the item's current location as placeholder, blank = leave
     it). "Put away all" confirms. `?putAway=1` on the list URL opens it
-    straight away (the reminder links there).
+    straight away (the reminder links there). The client watches the
+    parameter rather than reading it once on mount, so tapping the bell
+    while the list is already open works, and closing the dialog strips
+    the parameter so the next tap is a change again.
   - *Finishing a trip*: `completeShoppingListAction` never touches
     inventory, including rows still waiting — booking stock nobody
     confirmed at the list's quantities is exactly what this feature exists
     to avoid. Instead "Done shopping" and the ⋯ menu's "Complete list" open
     the dialog in finishing mode whenever rows are waiting: "Put away &
-    finish" or "Finish, put away later". Finishing later doesn't lose
+    finish" or "Finish, put away later". Either way, if unticked rows remain
+    (including ones just marked "Didn't get it"), finishing still goes
+    through the usual "Complete this list?" confirmation. Finishing later doesn't lose
     anything: the rows stay ticked on the completed list, still count as
     incoming, and the button and reminder still find them there.
   - *Incoming stock* (`src/lib/incoming-stock.ts`, pure half unit-tested):
@@ -804,9 +833,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     (`recordOutOfStockTransition`) — so milk in the cart isn't re-listed or
     alerted on. The stock badge, status filter and dashboard counts stay on
     the real count (it isn't home yet); the inventory page shows a muted
-    "+N on the way" hint beside the badge instead. A row stops counting
-    `INCOMING_MAX_AGE_DAYS` (7) after its tick (or its list's completion,
-    for receipt-applied rows): a trip nobody put away within a week was put
+    "+N on the way" hint beside the badge instead. A row is dated by
+    `incomingSince`: its tick, else when a receipt priced it
+    (`priceRecordedAt`), else its list's completion. It stops counting
+    `INCOMING_MAX_AGE_DAYS` (7) after that, and a row with no date at all
+    doesn't count (every path that leaves a row waiting dates it, so the
+    safe failure for stray data is to let the low-stock logic act): a trip nobody put away within a week was put
     away without telling the app, and counting it forever would silently
     stop that item from ever being auto-added again. It can still be put
     away from the dialog.
@@ -2470,19 +2502,25 @@ below.
   (with the store) and `lastKnownPrice` are written now and the row is
   stamped `priceRecordedAt`, but the stock waits for the put-away step,
   which then doesn't record the price a second time; the list page opens
-  the put-away dialog straight after. A line can match any unticked row,
+  the put-away dialog straight after. An unlinked row has no stock to wait
+  for and no `PriceHistory` to write, so it's put away on the spot instead
+  (otherwise it would stay matchable forever). Lines are applied one at a
+  time, each claiming its row with a conditional `updateMany` (still
+  unticked, or ticked with neither `putAwayAt` nor `priceRecordedAt`) and
+  re-reading row and inventory item inside the transaction — so two lines
+  for the same inventory item both land instead of one overwriting the
+  other, and a line whose row a put-away or another receipt took first is
+  skipped. This replaced SCALE-C's parallel per-line writes, which worked
+  from one stale snapshot. A line can match any unticked row,
   or a ticked row with neither `putAwayAt` nor `priceRecordedAt`
   (`awaitsReceiptPrice` — the usual order in put-away mode is tick in the
   store, scan at home); a row whose stock or price is already recorded
   never matches, so nothing is counted twice. It's all batched across
   every scanned line in one transaction instead of one checkbox at a
-  time, with the per-line writes
-  themselves run concurrently via `Promise.all` inside that transaction
-  rather than sequentially — the same change applied to
-  `resolveShoppingListMappingsAction`'s batch resolution
-  (`src/app/dashboard/shopping-list/actions.ts`, the `ResolveMappingsDialog`
-  commit path) — since each line/resolution only ever touches its own rows
-  (SCALE-C). De-dupes by `shoppingListItemId` server-side (in case two
+  time, sequentially (see above; SCALE-C's concurrent `Promise.all` still
+  applies to `resolveShoppingListMappingsAction`'s batch resolution, the
+  `ResolveMappingsDialog` commit path, where each resolution only touches
+  its own rows). De-dupes by `shoppingListItemId` server-side (in case two
   OCR'd lines were ever matched to the same item) so nothing is
   double-counted.
 - **`RegisterReceiptDialog`'s own inventory match/create-new review**: since
@@ -3971,12 +4009,12 @@ Exactly six triggers exist — nothing else creates a notification:
   next morning. Which lists qualify is the pure, unit-tested
   `selectPutAwayReminders` (`src/lib/shopping/put-away-calc.ts`): a
   waiting row ticked at least 3 hours ago, within `INCOMING_MAX_AGE_DAYS`,
-  and *after* the list's `ShoppingList.putAwayRemindedAt`. That last rule
+  and *after* the list's `ShoppingList.putAwayRemindedAt`, where a row is
+  dated like incoming stock (its tick, else when a receipt priced it). That last rule
   is what makes it at most once per list per trip — the default list lives
   across many trips, so a flag that stayed set would silence every later
-  one, while no flag would nag on every run. Rows without a tick time
-  (receipt-applied) never trigger one, since whoever applied the receipt
-  was just shown the put-away dialog. The trip is claimed with an
+  one, while no flag would nag on every run. A receipt-priced row nobody
+  ticked goes to whoever applied the receipt. The trip is claimed with an
   `updateMany` that only matches while `putAwayRemindedAt` still holds the
   value the run read, so overlapping runs can't both send. A
   `PUT_AWAY_REMINDER` bell row (linked to the list, deduped against an
