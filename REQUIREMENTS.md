@@ -3979,7 +3979,11 @@ Exactly six triggers exist — nothing else creates a notification:
     setup). It's protected by a `CRON_SECRET`-checked bearer token, since
     unlike `/api/health` it both writes data and sends push notifications;
     an unset `CRON_SECRET` fails closed (every run is a logged `401`), so it
-    must be configured in production before the route is deployed.
+    must be configured in production before the route is deployed. The
+    check compares in constant time
+    (`src/lib/timing-safe-equal.ts`'s `timingSafeStringEqual`, shared with
+    `/api/cron/weekly-digest` and `digest-unsubscribe-token.ts`) rather than
+    `!==`, so a wrong guess can't be narrowed down from response timing.
     `getActiveNotifications` itself is now a pure read (`prisma.notification.findMany`
     only) with no side effects. **User-facing effect:** a new
     meal-not-logged or expiring-soon notification now appears with a delay

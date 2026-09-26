@@ -1,4 +1,6 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac } from "crypto";
+
+import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 
 // Signed, login-free unsubscribe token for the weekly digest email (GAP-27).
 // `<userId>.<base64url HMAC-SHA256>` — the user id is readable (it's an
@@ -33,8 +35,6 @@ export function verifyDigestUnsubscribeToken(token: unknown, secret: string | un
   const dot = token.lastIndexOf(".");
   if (dot <= 0) return null;
   const userId = token.slice(0, dot);
-  const given = Buffer.from(token.slice(dot + 1));
-  const expected = Buffer.from(sign(userId, secret));
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  if (!timingSafeStringEqual(token.slice(dot + 1), sign(userId, secret))) return null;
   return userId;
 }

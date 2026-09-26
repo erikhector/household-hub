@@ -1,4 +1,5 @@
 import { isEmailConfigured } from "@/lib/email";
+import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 import { runWeeklyDigest } from "@/lib/weekly-digest";
 
 // GAP-27: sends the opt-in weekly household digest email. Same shape and
@@ -19,8 +20,10 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
 
   // An unset secret must never be treated as "no auth required" — same rule
-  // as the notification sync route.
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  // as the notification sync route. The match is constant-time (see
+  // timing-safe-equal.ts) so a wrong guess can't be narrowed down from
+  // response timing.
+  if (!secret || !authHeader || !timingSafeStringEqual(authHeader, `Bearer ${secret}`)) {
     console.error("Weekly digest cron rejected: missing or incorrect CRON_SECRET bearer token");
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }

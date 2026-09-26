@@ -4,6 +4,7 @@ import {
   syncMealNotLoggedNotifications,
   syncPutAwayReminders,
 } from "@/lib/notifications";
+import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 
 // Scheduled background sync for the lazy notification triggers (meal not
 // logged, expiring soon, and the put-away reminder) — see
@@ -46,6 +47,9 @@ export async function GET(request: Request) {
 
   // Reject unless CRON_SECRET is actually configured AND the header matches
   // it exactly — an unset secret must never be treated as "no auth required".
+  // The match itself is constant-time (see timing-safe-equal.ts): a plain
+  // `!==` here would let an attacker recover CRON_SECRET byte-by-byte from
+  // response timing.
   //
   // Operational note: if CRON_SECRET is missing or wrong in the deploy
   // environment, EVERY invocation of this route 401s and the
@@ -54,7 +58,7 @@ export async function GET(request: Request) {
   // DEPLOYMENT.md's "Scheduled jobs" section, which calls out setting this
   // variable before merge as a hard deploy prerequisite,
   // not an optional follow-up.
-  if (!secret || authHeader !== `Bearer ${secret}`) {
+  if (!secret || !authHeader || !timingSafeStringEqual(authHeader, `Bearer ${secret}`)) {
     console.error("Notification sync cron rejected: missing or incorrect CRON_SECRET bearer token");
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }
