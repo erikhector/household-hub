@@ -96,16 +96,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-2. Close the DNS-rebinding hole in recipe import** (medium) —
-      `assertResolvesToPublicAddress` (`src/lib/recipe-import.ts:798-812`)
-      resolves the host, then `fetch` (`:873`) resolves it again, so a TTL-0
-      record can point the real request at `127.0.0.1`/`169.254.169.254`.
-      Pin the connection with an undici `Agent` whose `connect.lookup`
-      re-validates every resolved address; keep the abort timer running
-      through `readBodyWithLimit` (it's cleared before the body is read);
-      add `checkRateLimit("recipe-import:<householdId>")` (~20/h) to the
-      action in `meal-planning/recipe-actions.ts:420`. Test: mocked
-      `dns.lookup` returning public-then-private never connects.
 - [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
       SCALE-H's session revocation doesn't cover `PushSubscription`, so
       someone who briefly had the account keeps receiving household pushes.

@@ -23,6 +23,7 @@ const {
   fetchRecipeHtmlMock,
   parseRecipeFromHtmlMock,
   revalidatePathMock,
+  checkRateLimitMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
@@ -42,6 +43,10 @@ const {
   fetchRecipeHtmlMock: vi.fn(),
   parseRecipeFromHtmlMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  // Defaults to "allowed" so every existing test (which doesn't care about
+  // the SEC-2 rate limit) keeps working unmodified; the rate-limit tests
+  // below override this per-case.
+  checkRateLimitMock: vi.fn(async () => true),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -76,6 +81,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
         importErrorBlockedHost: "That host can't be fetched",
         importErrorFetchFailed: "Couldn't fetch that page",
         importErrorNoRecipeFound: "No recipe found on that page",
+        importErrorRateLimited: "Too many recipe imports, slow down",
         componentQuantityError: "Sub-recipe amounts must be greater than 0",
         componentNotFoundError: "One of the selected sub-recipes could not be found.",
         componentCycleError: "That would create a circular reference between recipes.",
@@ -92,6 +98,7 @@ vi.mock("@/lib/recipe-import", () => ({
   fetchRecipeHtml: fetchRecipeHtmlMock,
   parseRecipeFromHtml: parseRecipeFromHtmlMock,
 }));
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: checkRateLimitMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
@@ -706,5 +713,26 @@ describe("importRecipeFromUrlAction", () => {
       source: "jsonld",
       tags: ["vegan"],
     });
+  });
+
+  // SEC-2: this action makes the server fetch an arbitrary URL, so it needs
+  // its own rate limit independent of the SSRF guard — without one, a
+  // household could still hammer a third party (or repeatedly probe
+  // internal addresses past that guard) through us at will.
+  it("refuses to fetch once the per-household rate limit is hit, without calling fetchRecipeHtml", async () => {
+    checkRateLimitMock.mockResolvedValueOnce(false);
+
+    const result = await importRecipeFromUrlAction({}, formData({ url: "https://example.com/recipe" }));
+
+    expect(result.error).toBe("Too many recipe imports, slow down");
+    expect(fetchRecipeHtmlMock).not.toHaveBeenCalled();
+  });
+
+  it("keys the rate limit on the caller's own household, not on client input", async () => {
+    fetchRecipeHtmlMock.mockResolvedValue({ ok: false, error: "fetchFailed" });
+
+    await importRecipeFromUrlAction({}, formData({ url: "https://example.com/recipe" }));
+
+    expect(checkRateLimitMock).toHaveBeenCalledWith(`recipe-import:${household.id}`, 20, 60 * 60 * 1000);
   });
 });
