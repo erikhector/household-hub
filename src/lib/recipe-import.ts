@@ -550,8 +550,13 @@ function extractRecipe(html: string): ImportedRecipe | null {
 // without it the save path's exact-name lookup would create a new item for
 // every row with a note, so MATCH-1 must merge before (or with) this. The
 // parsed rows above keep name and note apart for when the column lands.
+//
+// Quantities are rounded to two decimals here too: "⅓ dl" parses to
+// 0.3333333333333333, which the form's number field shows cut off. The
+// parsed rows keep the exact value.
 function toFormRow({ note, ...row }: ParsedIngredient): ParsedIngredient {
-  return note ? { ...row, name: `${row.name} (${note})` } : row;
+  const quantity = Math.round(row.quantity * 100) / 100;
+  return note ? { ...row, quantity, name: `${row.name} (${note})` } : { ...row, quantity };
 }
 
 // ---------------------------------------------------------------------------

@@ -745,6 +745,15 @@ describe("parseRecipeFromHtml ingredient notes (MATCH-4)", () => {
     ]);
   });
 
+  it("rounds fractional quantities to two decimals for the form", () => {
+    const html = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "Recipe",
+      name: "Pannkakor",
+      recipeIngredient: ["⅓ dl olja", "1⅔ dl mjölk", "⅛ tsk salt"],
+    })}</script>`;
+    expect(parseRecipeFromHtml(html)?.ingredients.map((i) => i.quantity)).toEqual([0.33, 1.67, 0.13]);
+  });
+
   it("keeps name and note apart in the tier parsers", () => {
     const node = { "@type": "Recipe", recipeIngredient: ["1 gul lök, finhackad"] };
     expect(mapJsonLdToRecipe(node).ingredients).toEqual([

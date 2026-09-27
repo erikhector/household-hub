@@ -3100,7 +3100,8 @@ imported recipe" requirement.
     matcher's job. Until recipe ingredients have a note column,
     `parseRecipeFromHtml` hands the form each row with the note appended to
     the name in parentheses (`"gul lök (finhackad)"`), so the user still
-    sees it; the tier parsers keep `name` and `note` apart. This relies on
+    sees it, and rounds each quantity to two decimals (`⅓` → `0.33`); the
+    tier parsers keep `name` and `note` apart and the exact quantity. This relies on
     MATCH-1's matcher ignoring a trailing parenthesized part when it links
     rows to inventory items.
   - **Fallbacks for non-JSON-LD pages (GAP-31)**: if no usable Recipe
