@@ -80,6 +80,15 @@ export async function seed() {
        VALUES ('e2e-item-oat-milk', $1, 'Oat milk', 2, 'l'), ('e2e-item-apples', $1, 'Apples', 6, 'pcs')`,
       [E2E_SHOPPING_LIST.id],
     );
+    // Pantry items for e2e/recipe-ingredients.spec.ts (MATCH-1): its
+    // recipes name one exactly ("Olive oil") and one only loosely
+    // ("Tomater" for "Tomatoes").
+    await client.query(
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+       VALUES ('e2e-inv-tomatoes', $1, 'Tomatoes', 'Produce', 6, 'pcs', now()),
+              ('e2e-inv-olive-oil', $1, 'Olive oil', 'Pantry', 1, 'l', now())`,
+      [E2E_HOUSEHOLD.id],
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

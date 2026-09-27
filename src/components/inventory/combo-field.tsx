@@ -35,7 +35,9 @@ export function ComboField({
   dict,
 }: {
   id: string;
-  name: string;
+  /** Omit when the value is read from state rather than posted with a
+   * surrounding form. */
+  name?: string;
   items: string[];
   value: string;
   onValueChange: (value: string) => void;

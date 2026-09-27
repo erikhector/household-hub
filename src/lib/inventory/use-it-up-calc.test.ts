@@ -83,9 +83,8 @@ describe("computeUseItUpSuggestions", () => {
     expect(computeUseItUpSuggestions(recipes, flagged)).toEqual([]);
   });
 
-  // Regression test for a review finding on PR #24: every ingredient
-  // auto-created via parseIngredientRows/addMissingIngredientsToShoppingListAction
-  // starts at quantity 0 (lowStockThreshold 0), which makes it "out" from the
+  // Regression test for a review finding on PR #24: every item created from
+  // a recipe's "Create new" ingredient row starts at quantity 0 (lowStockThreshold 0), which makes it "out" from the
   // moment it's created — but you can't "use up" something you already have
   // none of. Without this gate, almost any recipe with a freshly-added
   // ingredient would misleadingly surface here.

@@ -33,6 +33,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 | `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 | `UX-`, `BUG-`, `DEPS-` | UX problems, production errors, dependency upgrades | Autopilot scouts (see AUTOPILOT.md); `SEC-`/`PERF-`/`MAINT-`/`GAP-` scouts reuse those prefixes |
+| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/RECIPE_INGREDIENT_MATCHING.md`](./docs/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -105,9 +106,8 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       transactions; unsubscribe the current endpoint in `logoutAction`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
-      and several schemas have no caps: recipe ingredient rows
-      (`recipe-actions.ts:42-44`, each find-or-creates an inventory item),
-      `registerReceipt` items/quantity/price
+      and several schemas have no caps (recipe ingredient rows are capped
+      since MATCH-1): `registerReceipt` items/quantity/price
       (`shopping-list/actions.ts:1505-1520`), cooked-ingredient name/unit/
       quantity (`cooking-actions.ts:190-196`), `bulkUpdateFieldAction` ids
       (`inventory/actions.ts:723`), `componentRecipeId` rows. Add `.max()`
@@ -151,6 +151,15 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
       …)` call to both, mirroring the calendar feed's constants. Test: the
       Nth request in a window past the cap is rejected.
+
+### Recipe ingredient matching (design: `docs/RECIPE_INGREDIENT_MATCHING.md`)
+
+- [ ] **MATCH-4. Better ingredient-line parsing** (medium, S) — `parseIngredientString`
+      (`src/lib/recipe-import.ts`) misses `½`, `1,5`, `2-3`, `500g` and keeps
+      prep text in the name ("gul lök, finhackad"), so the matcher gets
+      names that never match. Add those forms, split a prep note off after a
+      comma or in parentheses, split "salt och peppar". Design §5. Pure,
+      unit tests only.
 
 ### Performance (2026-09-26 audit)
 
@@ -419,13 +428,47 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
+- [ ] **MATCH-2. "Don't track" ingredients and learned aliases** (high, M; after MATCH-1) —
+      migration: `RecipeIngredient.untracked/rawText/note` and `ItemAlias`
+      (`householdId`, `normalizedName`, nullable `inventoryItemId`). The
+      review writes an alias when the user links a name to a differently
+      named item, or marks it Don't track, and the matcher checks aliases
+      before fuzzy. Recipe expansion skips untracked rows. Design §3.4, §4.
+- [ ] **MATCH-3. Per-item unit conversions** (high, M; after MATCH-2) —
+      migration: `ItemUnitConversion` (`inventoryItemId`, `fromUnit`,
+      `factor`). The review offers "remember 1 pcs = 2000 g", "override for
+      this recipe" or "decide when cooking" for weight↔volume↔count rows.
+      `convertForItem` in `units.ts` replaces direct
+      `convertQuantity`/`unitsAreComparable` use in missing/cooked/cost/
+      cookable. Optional "≈" density hints for about 20 staples. Design §3.3.
+
 ---
 
 ## Phase 3 — larger items, own PR each
 
 ### Shopping list & inventory automation
 
-Nothing queued right now.
+- [ ] **MATCH-6. Item page: where it's used, and its units** (medium, M; after MATCH-3) —
+      new route `/dashboard/inventory/items/[id]`: recipes, lists and templates
+      using the item, with each recipe amount converted into the item's unit
+      (⚠ + "Add conversion" when it can't be converted). Also conversions
+      CRUD with a live calculator, "Change unit…" (converts stock and
+      threshold and keeps the old unit as a conversion), and the names that
+      map to the item (aliases). Needs a `routes.ts` entry, a seed row and an
+      e2e flow. Design §6.1.
+- [ ] **MATCH-7. Item catalog with duplicate groups and merge** (medium, L; after MATCH-6) —
+      new route `/dashboard/inventory/items` with filters (all / possible
+      duplicates / never stocked / unit problems). Pure
+      `findDuplicateGroups`, "Not duplicates" saved per household
+      (migration: `InventoryDuplicateDismissal`), and a merge with preview
+      that moves stock (converted, or asks for a factor), recipe rows, list
+      and template rows, price history, aliases, conversions and barcode in
+      one transaction, then writes an alias from the merged name. Design
+      §6.2–6.3.
+- [ ] **MATCH-5. Learned aliases in every linker** (medium, M; after MATCH-2) —
+      `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
+      consult `ItemAlias`. Add "Review ingredient matches" per recipe.
+      Design §3.5, §6.3.
 
 ---
 

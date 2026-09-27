@@ -5,11 +5,12 @@
 // threshold and then show every line open for review, which meant a
 // 25-line receipt where 20 lines matched perfectly still took 25 looks.
 //
-// There are now two thresholds:
-// - RECEIPT_PRESELECT_MIN_SCORE (unchanged from before): above it the best
+// There are now two thresholds (shared with the recipe ingredient matcher,
+// MATCH-1, so they live in src/lib/item-matching.ts):
+// - MATCH_PRESELECT_MIN_SCORE (unchanged from before): above it the best
 //   match is pre-selected in the row's picker, but the row stays open for
 //   the user to confirm.
-// - RECEIPT_AUTO_ACCEPT_MIN_SCORE, much stricter: above it (and with a
+// - MATCH_AUTO_ACCEPT_MIN_SCORE, much stricter: above it (and with a
 //   clear margin over the runner-up) the line is pre-accepted and the
 //   dialog collapses it into an expandable "N items matched" summary.
 //
@@ -28,28 +29,13 @@
 // client dialogs and be unit-tested without mocks.
 
 import { receiptLineBarcode } from "@/lib/barcode";
-import { findInventoryMatches, type InventoryMatchCandidate } from "@/lib/item-matching";
-
-// Below this, defaulting to "skip"/"create new" is safer than confidently
-// linking the wrong item — the user can still pick one manually. Same value
-// both dialogs used before AUTO-11.
-export const RECEIPT_PRESELECT_MIN_SCORE = 0.35;
-
-// Deliberately close to "the same name after normalization" (which scores
-// exactly 1): bigram similarity puts ordinary near-misses like "Tomatoes"
-// vs "tomato" around 0.83, and a plural/singular slip is exactly the kind
-// of thing that should still get a glance. Swedish receipts abbreviate
-// names heavily, so in practice most fuzzy auto-accepts are exact-name
-// hits and the barcode path does the rest. Tune against real receipts
-// before loosening — a wrong auto-accept costs more than an extra look.
-export const RECEIPT_AUTO_ACCEPT_MIN_SCORE = 0.9;
-
-// Even a high score isn't confident when a second candidate is nearly as
-// good — most often two items with the same name (a list with "Milk" on it
-// twice, or inventory items "Mjölk" and "mjölk." that only differ in case
-// and punctuation, which both score 1). Which one the user meant is a
-// genuine choice, so the line stays open.
-export const RECEIPT_AUTO_ACCEPT_MIN_MARGIN = 0.15;
+import {
+  findInventoryMatches,
+  MATCH_AUTO_ACCEPT_MIN_MARGIN,
+  MATCH_AUTO_ACCEPT_MIN_SCORE,
+  MATCH_PRESELECT_MIN_SCORE,
+  type InventoryMatchCandidate,
+} from "@/lib/item-matching";
 
 export type ReceiptMatchCandidate = InventoryMatchCandidate & { barcode?: string | null };
 
@@ -84,12 +70,12 @@ export function matchReceiptLine(line: ReceiptLineInput, candidates: ReceiptMatc
 
   const [best, runnerUp] = findInventoryMatches(line.name, candidates, {
     limit: 2,
-    minScore: RECEIPT_PRESELECT_MIN_SCORE,
+    minScore: MATCH_PRESELECT_MIN_SCORE,
   });
   if (!best) return { matchId: null, confidence: "none" };
 
-  const clearWinner = !runnerUp || best.score - runnerUp.score >= RECEIPT_AUTO_ACCEPT_MIN_MARGIN;
-  if (best.score >= RECEIPT_AUTO_ACCEPT_MIN_SCORE && clearWinner) {
+  const clearWinner = !runnerUp || best.score - runnerUp.score >= MATCH_AUTO_ACCEPT_MIN_MARGIN;
+  if (best.score >= MATCH_AUTO_ACCEPT_MIN_SCORE && clearWinner) {
     return { matchId: best.id, confidence: "confident" };
   }
   return { matchId: best.id, confidence: "suggested" };

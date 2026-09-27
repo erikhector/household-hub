@@ -93,6 +93,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
       name: ingredient.name,
       quantity: ingredient.quantity,
       unit: ingredient.unit,
+      inventoryItemId: ingredient.inventoryItemId,
     })),
     components: recipe.components.map((component) => ({
       id: component.id,

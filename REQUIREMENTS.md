@@ -441,18 +441,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     existing category hint (`categoryHintAi`), shown only when a key is
     actually configured, and on the privacy page's "Third parties" section
     (alongside AI shelf/receipt scan). Covers every InventoryItem create
-    path: inventory, shopping list, and recipe-ingredient find-or-create
-    (below). The `revalidatePath` inside `after()` runs after the response
+    path: inventory, shopping list, and a recipe's "Create new" ingredient
+    rows (below). The `revalidatePath` inside `after()` runs after the response
     is sent, so the adding user sees the patched category on their next
     navigation or refresh, not instantly.
-    **Recipe-ingredient find-or-create** (`parseIngredientRows` in
-    `recipe-actions.ts`, and the missing-ingredients → shopping-list bridge
-    in `cooking-actions.ts`) also runs every newly-created ingredient
-    through `createCategoryResolver`, falling back to `"Uncategorized"`
-    (plus the AI fallback above, when configured) only when neither step
-    recognizes the name — the resolver's own lazy,
-    memoized load means this costs one extra query for the whole batch, not
-    one per ingredient, matching SCALE-B/SCALE-D's existing batching there.
+    **Recipe ingredients** (`resolveIngredientDecisions` in
+    `recipe-actions.ts`, MATCH-1): a "Create new" row whose category was
+    left blank runs through `createCategoryResolver` (seeded with the
+    inventory the action already loaded, so a batch costs no extra query),
+    falling back to `"Uncategorized"` (plus the AI fallback above, when
+    configured) only when neither step recognizes the name. A category the
+    user typed in the review is never second-guessed.
     **Correcting a guess in place (AUTO-2b)**: every editable, linked
     shopping-list row shows its `InventoryItem`'s category as a small chip
     (`CategoryChip`, `src/components/shopping/category-chip.tsx`, outside
@@ -2705,20 +2704,72 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking**: mirrors the shopping list's
-  find-or-create identity rule (case-insensitive name match, scoped to the
-  household) but batched across every ingredient row on the recipe in one
-  pass — `parseIngredientRows` (`src/app/dashboard/meal-planning/recipe-actions.ts`)
-  runs a single `findMany` for every distinct name, a single
-  `createManyAndReturn` for the ones that don't already exist, then maps
-  each row back to its `InventoryItem` id from the combined result (SCALE-B),
-  rather than a `findFirst`/`create` pair per ingredient. `parseComponentRows`
+- **Ingredient → inventory linking (MATCH-1)**: saving a recipe never
+  creates an inventory item on its own; design in
+  `docs/RECIPE_INGREDIENT_MATCHING.md` §3.
+  - **Matcher** (`src/lib/recipes/ingredient-match.ts`, pure): per row, in
+    order: the row's existing link (edit only, name unchanged), an exact
+    `normalizeItemName` match, a plural/singular fold of the last word
+    (English -s/-es, Swedish -ar/-or/-er/-na, both sides; only ever a
+    pre-selected suggestion, since "creamer" also folds to "cream"), then
+    `findInventoryMatches`
+    with the AUTO-11 thresholds (`MATCH_*` constants in
+    `src/lib/item-matching.ts`, shared with the receipt matcher):
+    confident at ≥ 0.9 with a ≥ 0.15 lead, a pre-selected suggestion at
+    ≥ 0.35, otherwise none. A trailing parenthesized part of the name
+    ("gul lök (finhackad)") is ignored for matching and for the default
+    "Create new" name. Each match also carries a unit class from
+    `classifyUnits` (`src/lib/units.ts`): `same` after `canonicalUnit`
+    (st/pcs, msk/tbsp, tsk/tsp, liter/l, …), `convertible` by the generic
+    table, or `unknown`.
+  - **Preview**: `previewIngredientMatchesAction` (read-only,
+    `requireHousehold`, one inventory `findMany`) returns the matches, the
+    household's items and categories, and a guessed category for each row
+    without a confident match.
+  - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
+    every row is confident and its unit is `same`/`convertible` (or the
+    row was already linked when the recipe was opened), the recipe saves
+    straight away and a toast says "Saved · N ingredients linked to your
+    pantry". Otherwise the dialog swaps to a "Match ingredients" step
+    (`ingredient-review-step.tsx`, a content swap with a Back button, not
+    a nested dialog): confident rows are collapsed in an
+    `AutoMatchedSection`, the rest listed under "Needs a look" with
+    "Use existing" (an `ItemCombobox`, best candidates first) or "Create
+    new" (name, category, unit). The new item's unit defaults per kind:
+    count units stay (canonicalized), other volumes → `l`, weights → `g`,
+    spoon measures, pinches and unknown units → `pcs`. Each open row says
+    why it's open ("Closest match: X. Check it's right." or "Nothing
+    close…") and whether the pantry unit reconciles; one that doesn't says
+    the amount will be asked for when cooking (the existing unit-mismatch
+    path). An untouched default unit gets a neutral note, not that
+    warning. Saving with an incomplete row shows a count at the top
+    (`role="alert"`), marks the field `aria-invalid` with its error in
+    `aria-describedby`, and focuses it. Switching steps scrolls the form to
+    the top and focuses the step's title; a server error is focused too.
+    While the preview runs the button reads "Checking ingredients…", and
+    step 2 has a text Back button in the footer as well as the header
+    arrow.
+    "Create all new" flips every unconfident row to "Create new". Back
+    keeps decisions for rows whose name and unit didn't change, and the
+    step-1 button then reads "Next: match ingredients". A saved row's
+    `inventoryItemId` rides along in the dialog, so editing a recipe keeps
+    its links unless a row is renamed.
+  - **Save** (`resolveIngredientDecisions` in `recipe-actions.ts`): each
+    row posts `ingredientDecision` (`existing` | `new`) with
+    `ingredientItemId` or `ingredientNewName`/`NewCategory`/`NewUnit`, as
+    parallel FormData arrays. Every chosen item id is checked in one
+    household-scoped `findMany`; an unknown or foreign id rejects the
+    save. `new` rows are deduped by normalized name and created in one
+    `createManyAndReturn` (quantity 0, threshold 0, the chosen unit); a
+    `new` name that already exists exactly links to that item instead. A
+    row with no decision (older client, direct POST) links only on an
+    exact name and otherwise stays unlinked. New items and the recipe are
+    written in one interactive `$transaction`. Rows are capped at 100
+    (the recipe part of SEC-7). `parseComponentRows`
   in the same file batches its sub-recipe existence check the same way — one
   `recipe.findMany` across every candidate id instead of a `findFirst` per
   row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is
-  (it's not a flat lookup). This happens automatically on every save —
-  there's no "link to inventory?" toggle in the UI, same as shopping list
-  items.
+  (it's not a flat lookup).
 - **Weekly planner**: a Monday-start week grid (one card per day, one slot
   per `MealType`) addressed by a `?week=yyyy-mm-dd` search param on
   `/dashboard/meal-planning` (default: the Monday of the current week).
@@ -3157,11 +3208,10 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   `MealPlanEntry` with a `recipeId` dated inside the chosen range (freeform
   entries have no ingredients and are skipped via `recipeId: { not: null }`),
   gathers each recipe's `RecipeIngredient` rows, and resolves each to its
-  linked `InventoryItem`. `RecipeIngredient.inventoryItemId` is normally
-  always set (every ingredient is find-or-create-linked at recipe-save
-  time — see "Ingredient → inventory linking" above), but the relation is
-  `onDelete: SetNull`, so a since-deleted inventory item can leave one
-  unlinked; that case falls back to the same case-insensitive name match the
+  linked `InventoryItem`. `RecipeIngredient.inventoryItemId` can be null —
+  a row saved without a match (see "Ingredient → inventory linking"
+  above), or one whose item was since deleted (`onDelete: SetNull`); that
+  case falls back to the same case-insensitive name match the
   find-or-create paths elsewhere in this app use, against a fresh query of
   the household's current inventory.
 - **Aggregation/diff**: the pure "sum required quantity per resolved item
@@ -3200,14 +3250,14 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   written until the user confirms.
 - **Committing**: `addMissingIngredientsToShoppingListAction` (same file)
   creates the new list if requested (defaulting its name the same way
-  `createShoppingListAction` does), then find-or-create-links every checked
-  ingredient to an `InventoryItem` in one batched pass — a single
-  case-insensitive `findMany` across all the row names, a single
-  `createManyAndReturn` for whichever names don't already exist, then a
-  single `shoppingListItem.createMany` for every row not already pending —
-  rather than a `findFirst`/`create`/`create` round trip per ingredient
-  (SCALE-A). Items already pending (unpurchased) on the target list are
-  skipped rather than duplicated, mirroring `generateFromLowStockAction`'s
+  `createShoppingListAction` does), then links every checked ingredient
+  with `createInventoryLinker` (exact name, else one clear fuzzy match —
+  the same rule as a pasted list or template) over one inventory fetch,
+  and writes every row in a single `shoppingListItem.createMany`. A row
+  with no match is added **unlinked** for "Resolve mappings" on the list;
+  it never creates an inventory item (MATCH-1). Items (or unlinked names)
+  already pending (unpurchased) on the target list are skipped rather than
+  duplicated, mirroring `generateFromLowStockAction`'s
   existing dedupe in `src/app/dashboard/shopping-list/actions.ts`. On
   success the dialog closes and a `sonner` toast confirms which list the
   items were added to.
@@ -3397,9 +3447,8 @@ computed by `computeUseItUpSuggestions`
   at `quantity <= 0` from *both* reasons — you can't "use up" something you
   already have none of; that gap belongs to the shopping-list bridge, not
   this feature. This matters in practice, not just in theory: every
-  ingredient auto-created via `parseIngredientRows`/
-  `addMissingIngredientsToShoppingListAction` starts at `quantity: 0,
-  lowStockThreshold: 0` (see "Ingredient → inventory linking" above), which
+  ingredient created from a recipe's "Create new" row starts at
+  `quantity: 0, lowStockThreshold: 0` (see "Ingredient → inventory linking" above), which
   makes `getStockStatus` report it as `"out"` from the moment it's created.
   Without this gate almost any recipe with a freshly-added ingredient would
   misleadingly surface a suggestion (caught in PR #24 review before merge).
