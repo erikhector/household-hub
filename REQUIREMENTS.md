@@ -4116,6 +4116,14 @@ version or the notes by hand.
   bumping in each PR would make every pair of open PRs conflict on the
   version line. Concurrent merges retry from the newest `master` instead
   of using a concurrency group, which would cancel queued runs.
+- **While GitHub Actions is paused** (`ci_gate: local`, see AUTOPILOT.md)
+  `release.yml` can't run. Instead, each releasing PR runs the same
+  `scripts/release.ts apply` itself, as its last commit before merge, on
+  top of the latest `master` (see AGENTS.md, "Pull requests and
+  releases"). Versions cut this way have no git tag or GitHub Release
+  yet. BACKLOG.md's INFRA-6 lists them for a backfill once CI is back.
+  v0.39.9 to v0.42.0 (#81, #92, #91, #94) were merged before this
+  stopgap existed, and were cut together in #93 alongside its own v0.42.1.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports
   because `scripts/release.ts` runs it under Node's built-in type stripping

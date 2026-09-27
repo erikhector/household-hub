@@ -171,7 +171,7 @@ export function PutAwayDialog({
           <DialogTitle>{finishing ? t.finishTitle : t.title}</DialogTitle>
           <DialogDescription>{finishing ? t.finishDescription : t.description}</DialogDescription>
         </DialogHeader>
-        <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+        <div className="flex flex-col gap-2">
           {items.map((item) => {
             const row = rowFor(item);
             const linked = item.inventoryItemId !== null;

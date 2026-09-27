@@ -347,7 +347,7 @@ export function AiShelfScanDialog({
           )}
 
           {(phase === "review" || phase === "applying") && (
-            <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+            <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
                 {mode === "restock" ? t.reviewSubtitleRestock : t.reviewSubtitle}
               </p>

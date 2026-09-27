@@ -556,14 +556,12 @@ export function RecipeFormDialog({
           )}
         </form>
 
-        {/* -mx-4/px-4: the form is the scroll container, and DialogFooter
-            bleeds -mx-4 to the dialog's edges; without room for that bleed
-            the whole form scrolled 16px sideways. */}
-        <form
-          ref={formRef}
-          action={formAction}
-          className="-mx-4 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-4"
-        >
+        {/* Not its own scroll container: DialogContent already scrolls, and
+            a second scroller nested inside it (with the import form above
+            pushing it past the sheet's height) left iOS Safari stuck — a
+            swipe on the form never hands over to the sheet, so the bottom
+            of the form and the save button couldn't be reached. */}
+        <form ref={formRef} action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && recipe && (
             <input type="hidden" name="recipeId" value={recipe.id} />
           )}

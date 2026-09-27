@@ -540,7 +540,7 @@ export function RegisterReceiptDialog({
           )}
 
           {(phase === "review" || phase === "applying") && (
-            <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+            <div className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">{dict.reviewSubtitle}</p>
 
               <div className="flex flex-col gap-2">

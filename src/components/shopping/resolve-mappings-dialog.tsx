@@ -138,7 +138,7 @@ export function ResolveMappingsDialog({
         <DialogHeader>
           <DialogTitle>{dict.dialogTitle}</DialogTitle>
         </DialogHeader>
-        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+        <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
           <div className="flex flex-col gap-2">
             {rows.map((row) => {

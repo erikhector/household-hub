@@ -220,6 +220,13 @@ loop".
 - Never edit `version` in `package.json` or
   `src/lib/release-notes/releases.json` by hand. `.github/workflows/release.yml`
   writes both after merge. See REQUIREMENTS.md, "Releases & What's new".
+- **While CI is local** (`ci_gate: local` in AUTOPILOT.md) that workflow
+  can't run, so a releasing PR (`feat`, `fix`, `perf`, `revert` or `!`)
+  cuts its own release as the last step before merge. Merge the latest
+  `master` first, then run
+  `PR_NUMBER=<n> PR_TITLE="<title>" PR_BODY="$(cat <body.md>)" node scripts/release.ts apply`
+  and commit the three files it changes. Then add the version to the
+  INFRA-6 list in BACKLOG.md, so its tag and GitHub Release get backfilled.
 
 ## Testing
 
