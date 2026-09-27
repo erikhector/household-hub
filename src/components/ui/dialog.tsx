@@ -59,7 +59,11 @@ function DialogContent({
           // the viewport with the toolbars hidden, so 85vh overshoots the
           // visible screen and the sheet's bottom sits out of reach.
           // overscroll-contain keeps a swipe that hits the end from
-          // rubber-banding the page behind. sm+: the original centered modal.
+          // rubber-banding the page behind. This is the dialog's scroller, so
+          // don't give content a viewport-height one of its own (max-h-[70vh]
+          // overflow-y-auto): iOS Safari won't pass a swipe between the two
+          // and the sheet gets stuck (dialog-scroll.test.ts guards this).
+          // sm+: the original centered modal.
           "fixed inset-x-0 top-auto bottom-0 z-50 grid max-h-[85dvh] overscroll-containw-full max-w-none translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-t-2xl bg-popover p-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
           // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
           // "left" conflict group, and it keeps only the later class — reversing
