@@ -11,8 +11,13 @@ PR; the difference is nobody is watching, so verify everything.
 ## 0. Gate
 
 1. Read `AUTOPILOT.md`. Stop if `enabled` or `builder_enabled` is false.
-2. Count open PRs labelled `autopilot` (excluding `docs(backlog)` scans).
-   If ≥ `max_open_autopilot_prs`, stop: finishing beats starting.
+2. Count open PRs with `label:autopilot -in:title "docs(backlog)"` (a GitHub
+   search, not eyeballing the label list) — this is builder-opened PRs only,
+   never scout scans. A scout scan is still labelled `autopilot`, so
+   counting the label alone over-counts and can wrongly stop the builder
+   (seen 2026-09-27: 3 open scout PRs alone hit the old cap of 2, forcing a
+   manual limit bump in #89 instead of a real fix). If the search count is
+   ≥ `max_open_autopilot_prs`, stop: finishing beats starting.
 3. If an open `autopilot` PR has unanswered review comments, a merge
    conflict, or (only when AUTOPILOT.md says `ci_gate: github`) red CI,
    work on **that** instead, per the `steward` skill, and stop after.
