@@ -65,7 +65,9 @@ dispatch) because the account can't start runners. The gate is
 `npm run ci:local` (lint, typecheck, unit tests, build, e2e), run in the
 session before every push. Paste its summary lines into the PR body under
 "Verification". Ignore GitHub check runs entirely: a red or missing check
-is not a failure to fix, comment on or wait for. `github`: CI runs on
+is not a failure to fix, comment on or wait for. The release workflow is
+paused too, so a releasing PR cuts its own release before merge (see
+AGENTS.md, "Pull requests and releases"). `github`: CI runs on
 push/PR again and must be green, as in the `steward` skill.
 
 ## Merge policy
