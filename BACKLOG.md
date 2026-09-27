@@ -152,15 +152,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       …)` call to both, mirroring the calendar feed's constants. Test: the
       Nth request in a window past the cap is rejected.
 
-### Recipe ingredient matching (design: `docs/RECIPE_INGREDIENT_MATCHING.md`)
-
-- [ ] **MATCH-4. Better ingredient-line parsing** (medium, S) — `parseIngredientString`
-      (`src/lib/recipe-import.ts`) misses `½`, `1,5`, `2-3`, `500g` and keeps
-      prep text in the name ("gul lök, finhackad"), so the matcher gets
-      names that never match. Add those forms, split a prep note off after a
-      comma or in parentheses, split "salt och peppar". Design §5. Pure,
-      unit tests only.
-
 ### Performance (2026-09-26 audit)
 
 Bundle numbers are First Load JS gzipped, measured from a production build:
