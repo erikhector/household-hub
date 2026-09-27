@@ -24,7 +24,7 @@ import {
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
 import { recordOutOfStockTransition } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
-import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
+import { createInventoryLinker } from "@/lib/shopping/inventory-link";
 import {
   LEFTOVERS_SHELF_LIFE_DAYS,
   leftoverServingsSchema,
@@ -231,91 +231,58 @@ export async function addMissingIngredientsToShoppingListAction(
 
   // Mirrors generateFromLowStockAction's dedupe: don't add a second row for
   // an inventory item that's already pending (unpurchased) on the target
-  // list — the user can adjust the quantity already there instead.
+  // list — the user can adjust the quantity already there instead. An
+  // unlinked row is deduped by name the same way.
   const alreadyOnList = await prisma.shoppingListItem.findMany({
-    where: { shoppingListId: listId, purchased: false, inventoryItemId: { not: null } },
-    select: { inventoryItemId: true },
+    where: { shoppingListId: listId, purchased: false },
+    select: { inventoryItemId: true, name: true },
   });
-  const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId));
+  const alreadyOnListIds = new Set(alreadyOnList.map((i) => i.inventoryItemId).filter(Boolean));
+  const alreadyOnListNames = new Set(
+    alreadyOnList.filter((i) => !i.inventoryItemId).map((i) => i.name.trim().toLowerCase()),
+  );
 
-  // Batched find-or-create: one lookup for every distinct ingredient name,
-  // one createMany for the ones that don't already exist, instead of a
-  // findFirst+create round trip per row (SCALE-A).
-  const uniqueNames = Array.from(new Set(rows.map((row) => row.name)));
-  const existingItems = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id, name: { in: uniqueNames, mode: "insensitive" } },
+  // MATCH-1: link each row the same way a pasted list or template does
+  // (exact name, else one clear fuzzy match) over one inventory fetch, and
+  // leave the rest unlinked for "Resolve mappings" on the list. This used
+  // to find-or-create an inventory item for every unmatched name, which
+  // filled the pantry with zero-stock phantoms.
+  const inventoryItems = await prisma.inventoryItem.findMany({
+    where: { householdId: household.id },
+    select: { id: true, name: true, lastKnownPrice: true },
   });
-  const existingByLowerName = new Map(existingItems.map((item) => [item.name.toLowerCase(), item]));
-
-  // Dedupe by lowercase too, so two rows differing only in case ("Milk" /
-  // "milk") don't try to create the same item twice.
-  const namesToCreate = Array.from(
-    new Map(
-      uniqueNames
-        .filter((name) => !existingByLowerName.has(name.toLowerCase()))
-        .map((name) => [name.toLowerCase(), name]),
-    ).values(),
-  );
-  // Each brand-new ingredient gets a real guessed category (AUTO-2b) — the
-  // same household-memory-then-dictionary resolver the inventory and
-  // shopping-list create paths already use — instead of the "Uncategorized"
-  // placeholder. createCategoryResolver loads the household's inventory on
-  // its own first call below and memoizes it for the rest, so resolving
-  // every name in namesToCreate costs one extra query for the whole batch,
-  // not one per ingredient, and it's never invoked at all when nothing
-  // needs creating.
-  const resolveCategory = createCategoryResolver(household.id);
-  const categoryByName = new Map<string, string>();
-  // AUTO-2b(a): names neither tier recognized go to the optional AI
-  // fallback once they've been created below, same as every other
-  // InventoryItem create path.
-  const aiCandidates: string[] = [];
-  for (const name of namesToCreate) {
-    const guessed = await resolveCategory(name);
-    if (!guessed) aiCandidates.push(name);
-    categoryByName.set(name, guessed || "Uncategorized");
-  }
-
-  const createdItems =
-    namesToCreate.length > 0
-      ? await prisma.inventoryItem.createManyAndReturn({
-          data: namesToCreate.map((name) => ({
-            householdId: household.id,
-            name,
-            category: categoryByName.get(name)!,
-            quantity: 0,
-            lowStockThreshold: 0,
-          })),
-        })
-      : [];
-  // The rows are committed by now, so the background patch can't race their
-  // creation. A no-op when no AI provider key is configured.
-  if (aiCandidates.length > 0) scheduleAiCategoryFallback(household.id, aiCandidates);
-  const itemByLowerName = new Map(
-    [...existingItems, ...createdItems].map((item) => [item.name.toLowerCase(), item]),
-  );
+  const linkInventoryItem = createInventoryLinker(inventoryItems);
 
   const itemsToCreate: {
     shoppingListId: string;
-    inventoryItemId: string;
+    inventoryItemId: string | null;
     name: string;
     quantity: number;
     unit: string;
+    estimatedPrice?: number;
     addedAutomatically: true;
   }[] = [];
   for (const row of rows) {
-    const inventoryItem = itemByLowerName.get(row.name.toLowerCase());
-    if (!inventoryItem || alreadyOnListIds.has(inventoryItem.id)) continue;
+    const inventoryItem = linkInventoryItem(row.name);
+    if (inventoryItem) {
+      if (alreadyOnListIds.has(inventoryItem.id)) continue;
+      alreadyOnListIds.add(inventoryItem.id);
+    } else {
+      const key = row.name.toLowerCase();
+      if (alreadyOnListNames.has(key)) continue;
+      alreadyOnListNames.add(key);
+    }
 
     itemsToCreate.push({
       shoppingListId: listId,
-      inventoryItemId: inventoryItem.id,
+      inventoryItemId: inventoryItem?.id ?? null,
       name: row.name,
       quantity: row.quantity,
       unit: row.unit,
+      // AUTO-4: same last-known-price default as the other add paths.
+      estimatedPrice: inventoryItem?.lastKnownPrice ?? undefined,
       addedAutomatically: true,
     });
-    alreadyOnListIds.add(inventoryItem.id);
   }
   if (itemsToCreate.length > 0) {
     await prisma.shoppingListItem.createMany({ data: itemsToCreate });

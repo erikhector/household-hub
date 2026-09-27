@@ -6,6 +6,10 @@ export type RecipeIngredientData = {
   name: string;
   quantity: number;
   unit: string;
+  // The linked InventoryItem, carried through RecipeFormDialog so an edit
+  // keeps the link instead of re-matching by name (MATCH-1). Null when the
+  // row isn't linked (never matched, or its item was deleted).
+  inventoryItemId: string | null;
 };
 
 // A sub-recipe this recipe includes (e.g. a lasagna's bolognese +

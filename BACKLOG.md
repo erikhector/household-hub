@@ -106,9 +106,8 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       transactions; unsubscribe the current endpoint in `logoutAction`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
-      and several schemas have no caps: recipe ingredient rows
-      (`recipe-actions.ts:42-44`, each find-or-creates an inventory item),
-      `registerReceipt` items/quantity/price
+      and several schemas have no caps (recipe ingredient rows are capped
+      since MATCH-1): `registerReceipt` items/quantity/price
       (`shopping-list/actions.ts:1505-1520`), cooked-ingredient name/unit/
       quantity (`cooking-actions.ts:190-196`), `bulkUpdateFieldAction` ids
       (`inventory/actions.ts:723`), `componentRecipeId` rows. Add `.max()`
@@ -161,18 +160,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       names that never match. Add those forms, split a prep note off after a
       comma or in parentheses, split "salt och peppar". Design §5. Pure,
       unit tests only.
-- [ ] **MATCH-1. Stop silently creating inventory items from recipes** (high, M) —
-      `parseIngredientRows` (`meal-planning/recipe-actions.ts`) find-or-creates
-      an `InventoryItem` for every unmatched name on save, so one import adds
-      5–15 zero-stock phantom items and breaks cookable / missing / cost
-      numbers. Add a pure matcher, a read-only preview action, and a
-      "Match ingredients" step in `RecipeFormDialog` (confident rows
-      collapsed, AUTO-11 style; skipped entirely when all rows are
-      confident). Send explicit per-row decisions (use existing / create new)
-      and never create without one. Keep existing links on edit. Make
-      `addMissingIngredientsToShoppingListAction` leave unmatched rows
-      unlinked. Design §3.1–3.5, file plan §7. Includes an e2e spec.
-      Supersedes the recipe part of SEC-7.
 
 ### Performance (2026-09-26 audit)
 
