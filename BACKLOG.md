@@ -461,12 +461,27 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Shopping list & inventory automation
 
-- [ ] **MATCH-5. Aliases everywhere, and cleaning up phantom items** (medium, L; after MATCH-3) —
+- [ ] **MATCH-6. Item page: where it's used, and its units** (medium, M; after MATCH-3) —
+      new route `/dashboard/inventory/items/[id]`: recipes, lists and templates
+      using the item, with each recipe amount converted into the item's unit
+      (⚠ + "Add conversion" when it can't be converted). Also conversions
+      CRUD with a live calculator, "Change unit…" (converts stock and
+      threshold and keeps the old unit as a conversion), and the names that
+      map to the item (aliases). Needs a `routes.ts` entry, a seed row and an
+      e2e flow. Design §6.1.
+- [ ] **MATCH-7. Item catalog with duplicate groups and merge** (medium, L; after MATCH-6) —
+      new route `/dashboard/inventory/items` with filters (all / possible
+      duplicates / never stocked / unit problems). Pure
+      `findDuplicateGroups`, "Not duplicates" saved per household
+      (migration: `InventoryDuplicateDismissal`), and a merge with preview
+      that moves stock (converted, or asks for a factor), recipe rows, list
+      and template rows, price history, aliases, conversions and barcode in
+      one transaction, then writes an alias from the merged name. Design
+      §6.2–6.3.
+- [ ] **MATCH-5. Learned aliases in every linker** (medium, M; after MATCH-2) —
       `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
-      consult `ItemAlias`. Add "Review ingredient matches" per recipe, and
-      "Merge into…" for inventory items (moves recipe rows, list rows, price
-      history, barcode and stock, writes an alias), suggested for zero-stock
-      recipe-only items with a confident duplicate. Design §6.
+      consult `ItemAlias`. Add "Review ingredient matches" per recipe.
+      Design §3.5, §6.3.
 
 ---
 

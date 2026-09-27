@@ -1,6 +1,6 @@
 # Recipe ingredient matching: design and implementation plan
 
-Status: **proposed**. Tracked in BACKLOG.md as `MATCH-1` … `MATCH-5`. When an
+Status: **proposed**. Tracked in BACKLOG.md as `MATCH-1` … `MATCH-7`. When an
 item ships, document the behaviour in REQUIREMENTS.md ("Meal planning" →
 "Ingredient → inventory linking" and "Recipe import from URL"), delete the
 backlog item, and move this file to `docs/archive/` once every item is done.
@@ -307,8 +307,8 @@ already been checked against the household. `ItemAlias` carries
 
 Changing an item's unit in the item form: conversions whose `fromUnit` is
 now the item's own unit are deleted. The rest become wrong in scale, so
-the form asks the user to review them (the item dialog shows a small
-"Unit conversions" list where each can be edited or removed). Deleting an
+the form sends the user to the item page (§6.1), where "Change unit…"
+converts stock and re-expresses the conversions in one step. Deleting an
 item cascades both tables.
 
 ## 5. Parser improvements (MATCH-4, pure, no schema)
@@ -329,20 +329,153 @@ Swedish and English fixtures:
 
 This helps even before MATCH-1, because cleaner names match more often.
 
-## 6. Existing data (MATCH-5)
+## 6. Item catalog: usage, units and duplicates (MATCH-6, MATCH-7)
 
-Households already have phantom items. Two cleanup tools, both
-review-first:
+Matching only works if the item list it matches against is clean.
+Households already have phantom items and duplicates ("Egg" / "eggs" /
+"Ägg"). Even after MATCH-1 there is no place to see how an item is used or
+to fix its units. So the design adds two pages under inventory.
 
-- **"Review ingredient matches"** on the recipe manager opens step 2 for
-  one recipe with its current links shown as decisions, so a wrong link
-  can be moved.
-- **Merge items** (inventory item menu → "Merge into…"): moves
-  `RecipeIngredient`, `ShoppingListItem`, `PriceHistory` and barcode links
-  to the target, adds stock (converted via 3.3), writes an alias from the
-  old name, then deletes the old item. Offered as a suggestion on items
-  that have `quantity 0`, no stock history, are only referenced by recipes,
-  and have a confident fuzzy match to another item.
+### 6.1 Item page `/dashboard/inventory/items/[id]` (MATCH-6)
+
+This opens from an item row's menu ("Details"), from the catalog below, and
+from a linked ingredient in the recipe card and review step. It has four
+sections:
+
+```
+┌ Vetemjöl ───────────────────────────── Baking · Pantry ┐
+│ In stock: 1 pcs          [Change unit…]                  │
+│                                                          │
+│ Units                                                    │
+│   Counted in pcs                                         │
+│   1 pcs = 2000 g                          [Edit] [✕]     │
+│   1 dl  = ≈ 60 g                          [Edit] [✕]     │
+│   [+ Add conversion]                                     │
+│   Try it: [300] [g ▾] = 0.15 pcs                         │
+│                                                          │
+│ Used in 4 recipes                                        │
+│   Pannkakor      3 dl   = 0.009 pcs  ✓                   │
+│   Kanelbullar    750 g  = 0.375 pcs  ✓                   │
+│   Pizzadeg       5 dl   = 0.015 pcs  ✓                   │
+│   Sockerkaka     2 cups             ⚠ [Add cups…]        │
+│                                                          │
+│ Also on          Weekly list (1 pcs) · Template "Bak"    │
+│ Names that map here   vetemjol · wheat flour  [✕]        │
+│                                                          │
+│ [Merge into another item…]                               │
+└──────────────────────────────────────────────────────────┘
+```
+
+- **Used in.** Every `RecipeIngredient` linked to the item, with the
+  amount as the recipe writes it and the same amount in the item's unit
+  through `convertForItem` (§3.3). A row that can't convert gets ⚠ and an
+  inline "Add {unit}…" button that opens the add-conversion form with that
+  unit filled in. Fixing it there fixes that recipe's cook, shopping and
+  cost numbers everywhere. Each recipe name opens that recipe. Also lists
+  pending shopping-list rows and templates that point at the item.
+- **Units.** The item's `ItemUnitConversion` rows (MATCH-3), which can be
+  added, edited and deleted. The "Try it" line is a live calculator, so a
+  factor can be sanity-checked before it's trusted. Density hints (§3.3)
+  pre-fill new rows, marked "≈".
+- **Change unit…** (e.g. flour from `pcs` to `g`). This is a dialog with the
+  new unit and a factor, pre-filled when the generic table can convert
+  (`l` → `dl` = 10). It shows the result before saving
+  ("1 pcs → 2000 g, low-stock at 0.5 pcs → 1000 g") and, in one
+  transaction, converts `quantity` and `lowStockThreshold` and re-expresses
+  every conversion (`factor ÷ f`). The old unit becomes a conversion
+  (`1 pcs = 2000 g`), so recipes and lists written in the old unit keep
+  working. `lastKnownPrice` and `PriceHistory` stay as they are: they're
+  per purchase line and already record their own unit (GAP-9). This is
+  the only place stock is converted between units. The item form's unit
+  field stays a plain edit for items with no stock.
+- **Names that map here.** The item's `ItemAlias` rows (MATCH-2), each
+  removable, so a wrong learned match can be undone.
+
+### 6.2 Catalog `/dashboard/inventory/items` (MATCH-7)
+
+A list of every item, reached from "Manage items" in the inventory page's
+menu. The menu entry shows a badge with the number of open duplicate groups.
+The list has filter chips:
+
+| Chip | Shows |
+|---|---|
+| **All** | name, category, stock + unit, "used in N recipes" |
+| **Possible duplicates** | groups (6.3) |
+| **Never stocked** | quantity 0, no `PriceHistory`, never on a purchased list row. These are mostly phantom items created from recipes. |
+| **Unit problems** | items that at least one recipe uses in a unit that can't be converted |
+
+Each row opens the item page. On phones the rows become cards, like the
+inventory list. The server does the grouping once per request, as a pure
+calculation over one inventory `findMany` with `_count` of the relations
+(PERF-1 style, no query per item).
+
+### 6.3 Duplicate detection and merge
+
+**Detection** is a pure calculation, `findDuplicateGroups(items, aliases,
+dismissals)` in `src/lib/inventory/duplicates.ts`. Two items are a
+candidate pair when any of these holds:
+
+- their normalized names are equal
+- they're equal after the plural fold (§3.2)
+- one's name is an alias of the other
+- fuzzy score ≥ 0.8
+
+A pair that was dismissed is skipped. Pairs are joined into groups
+(union-find), and groups are sorted by strongest pair. Each member is
+tagged: *never stocked*, *used in N recipes*, *has barcode*, unit. The
+suggested **keeper** is, in order: the one with stock, then the most
+recipe/list/price history, then the oldest.
+
+```
+┌ Possible duplicates (3 groups) ──────────────────────────┐
+│ Egg                                                      │
+│  (•) Egg      12 pcs · 5 recipes · barcode    keep       │
+│  [✓] eggs      0 pcs · 2 recipes · never stocked         │
+│  [✓] Ägg       0 st  · 1 recipe                          │
+│  [Merge 2 into Egg]         [Not duplicates]             │
+│──────────────────────────────────────────────────────────│
+│ Crème fraiche                                            │
+│  (•) Crème fraiche  2 pcs (burk)                         │
+│  [✓] crème fraiche, gärna lätt  0 dl · 1 recipe          │
+│  ⚠ dl → pcs: 1 pcs = [2] dl                              │
+│  [Merge into Crème fraiche]   [Not duplicates]           │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Not duplicates** is saved for the whole household (not in the browser),
+so the group doesn't come back for anyone:
+`InventoryDuplicateDismissal(householdId, itemAId, itemBId)`, ids stored
+sorted, unique, cascading with either item.
+
+**Merge** is available here and from the item page. It first runs a
+read-only `previewMergeAction(keeperId, mergeIds)` that shows exactly
+what will move:
+
+| Moved from each merged item | How |
+|---|---|
+| Stock | added to the keeper, converted with `convertForItem`. If the units can't be converted, the row asks for a factor ("1 pcs = [2] dl"), and that factor is saved as an `ItemUnitConversion` on the keeper, so the moved recipe rows reconcile too. |
+| `RecipeIngredient`, `ShoppingListItem`, `ShoppingListTemplateItem` | re-pointed to the keeper. Amounts and units are kept, and the conversions make them work. If the keeper and a merged item are both pending on the same list, the rows are summed when the units convert and otherwise kept as two rows. |
+| `PriceHistory` | re-pointed. Each row already records its own quantity and unit. |
+| `ItemAlias`, `ItemUnitConversion` | re-pointed. Conversions are re-expressed through the merge factor, and the keeper's own row wins on a conflict. The merged item's name becomes a new alias, so the next import matches the keeper. |
+| Barcode | the keeper keeps its own. If it has none it takes the merged item's (cleared first, because of `@@unique([householdId, barcode])`). |
+| Expiry / threshold / price / category | the keeper's, except that an empty value takes the merged item's (the earliest real expiry wins). |
+| `Notification` | deleted. These are stale alerts about an item that no longer exists. |
+
+`mergeInventoryItemsAction({ keeperId, merge: [{ id, factor? }] })`:
+`requireHousehold()`, and every id is checked in one `findMany` scoped to the
+household. It does everything above and then deletes the merged items, all
+in **one `$transaction`**. It's Zod-validated, with at most 10 items per
+merge.
+
+**Confirm, not undo.** The repo's convention is "undo over confirm". A
+merge breaks that on purpose, because it re-points rows in six tables, and
+a reliable undo would need a stored snapshot of all of them. Instead the
+preview is the confirmation: it lists every count that will move, and
+Merge is the only button that writes.
+
+Also: **"Review ingredient matches"** on each recipe card (MATCH-5) opens
+the §3.1 step for one recipe, with its current links shown as decisions,
+so a wrong link can be moved without merging anything.
 
 ## 7. Implementation plan
 
@@ -354,8 +487,17 @@ MATCH-3 each add one migration (Phase 2 rules: one at a time).
 | **MATCH-4** | Parser improvements (§5) | none | S |
 | **MATCH-1** | Stop silent creation: pure matcher, preview action, step-2 review, explicit decisions on save, keep links on edit, shopping bridge stops creating (§3.1, 3.2, 3.4, 3.5 minus untracked/aliases/conversions) | none | M |
 | **MATCH-2** | "Don't track" + `rawText`/`note` + `ItemAlias` learning and lookup (§3.4 learning, §4) | 1 migration | M |
-| **MATCH-3** | `ItemUnitConversion`, `convertForItem`, unit choices in review, density hints, conversions list in the item dialog (§3.3) | 1 migration | M |
-| **MATCH-5** | Aliases in shopping/receipt linkers, recipe "Review ingredient matches", Merge items (§3.5 last bullet, §6) | none | L |
+| **MATCH-3** | `ItemUnitConversion`, `convertForItem`, unit choices in review, density hints (§3.3). The conversions UI lives on the item page (MATCH-6) | 1 migration | M |
+| **MATCH-6** | Item page: used in recipes/lists, conversions CRUD + calculator, "Change unit…", aliases list (§6.1) | none (uses MATCH-2/3 tables) | M |
+| **MATCH-7** | Catalog page with filters, duplicate groups, "Not duplicates", merge preview + merge (§6.2, 6.3) | 1 migration (`InventoryDuplicateDismissal`) | L |
+| **MATCH-5** | Aliases in shopping/receipt linkers, per-recipe "Review ingredient matches" (§3.5 last bullet, §6.3 end) | none | M |
+
+Build order: MATCH-4 → MATCH-1 → MATCH-2 → MATCH-3 → MATCH-6 → MATCH-7 →
+MATCH-5. MATCH-6 and MATCH-7 each add a page, so each must also add its
+entries to `e2e/routes.ts` (with a seeded item and seeded duplicate pair in
+`e2e/seed.ts`) and an e2e flow spec: change a unit and see the stock
+converted, and merge a duplicate and see the recipe now pointing at the
+keeper.
 
 ### MATCH-1 file-level plan
 
@@ -404,6 +546,10 @@ MATCH-3 each add one migration (Phase 2 rules: one at a time).
 3. **Aliases outside recipes** (MATCH-5): should an alias learned in the
    recipe review also auto-link shopping-list rows? (Proposed: yes. It's
    the same household vocabulary.)
+4. **Merge: confirm with preview, or undo?** (Proposed: confirm with
+   preview, §6.3. An undo would need a snapshot of six tables.)
+5. **Catalog entry point**: a menu item on the inventory page (proposed),
+   or its own tab in the bottom navigation?
 
 ## Sources
 
