@@ -37,7 +37,7 @@ English note to Swedish users too. Ignored for non-releasing PR types.
 
 - [ ] `npm run check` (lint, typecheck, test) and `npm run build` pass
 - [ ] New or changed logic has colocated tests; bug fixes have a regression test
-- [ ] User-visible changes are covered in `e2e/` and `npm run test:e2e` passes
+- [ ] UI changes are covered in `e2e/` (new pages in `e2e/routes.ts`) and `npm run test:e2e` passes on desktop and mobile
 - [ ] Self-reviewed the diff (`.claude/skills/self-review/SKILL.md`)
 - [ ] New user-facing text is in both `en.ts` and `sv.ts`
 - [ ] Finished BACKLOG.md items are documented in REQUIREMENTS.md and removed from the backlog
