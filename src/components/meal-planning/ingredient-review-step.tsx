@@ -4,7 +4,9 @@
 // docs/RECIPE_INGREDIENT_MATCHING.md §3.1). Built from the receipt review's
 // pieces (AUTO-11): rows the matcher is confident about are collapsed into
 // an AutoMatchedSection, and only the rest are open, each with the same
-// "Use existing / Create new" choice as ResolveMappingsDialog. Nothing here
+// "Use existing / Create new" choice as ResolveMappingsDialog, plus "Don't
+// track" (MATCH-2) for ingredients like water that the pantry never holds.
+// Nothing here
 // writes anything: the choices live in the dialog's state and are sent as
 // explicit per-row decisions when the recipe is saved.
 
@@ -33,7 +35,9 @@ export type ReviewRow = {
   unit: string;
   status: IngredientMatchStatus;
   needsReview: boolean;
-  mode: "existing" | "new";
+  /** Whether the matcher defaulted this row to "Don't track" (MATCH-2). */
+  defaultUntracked: boolean;
+  mode: "existing" | "new" | "untracked";
   selectedId: string;
   /** Best-first item ids to list above the rest in the picker. */
   candidateIds: string[];
@@ -74,9 +78,12 @@ export function IngredientReviewStep({
   const [showMatched, setShowMatched] = useState(false);
   const matched = review.rows.filter((row) => !row.needsReview);
   const needsLook = review.rows.filter((row) => row.needsReview);
-  // "Create all new" only flips rows the matcher had no confident item for;
-  // a confident row that's only here for its unit keeps its match.
-  const leftOver = needsLook.filter((row) => row.status !== "confident" && row.mode !== "new");
+  // The batch helpers only flip rows the matcher had no confident answer
+  // for; a confident row that's only here for its unit keeps its match.
+  // "Create all new" leaves Don't-track rows alone: water stays water.
+  const open = needsLook.filter((row) => row.status !== "confident");
+  const leftOver = open.filter((row) => row.mode === "existing");
+  const trackedRest = open.filter((row) => row.mode !== "untracked");
   const errorCount = attempted ? review.rows.filter((row) => reviewRowError(row, t)).length : 0;
 
   const renderRow = (row: ReviewRow) => (
@@ -113,16 +120,28 @@ export function IngredientReviewStep({
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium">{format(t.needsLook, { count: needsLook.length })}</h3>
-            {leftOver.length > 1 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="xs"
-                onClick={() => leftOver.forEach((row) => onRowChange(row.uid, { mode: "new" }))}
-              >
-                {t.createAllNew}
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-1">
+              {leftOver.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => leftOver.forEach((row) => onRowChange(row.uid, { mode: "new" }))}
+                >
+                  {t.createAllNew}
+                </Button>
+              )}
+              {trackedRest.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => trackedRest.forEach((row) => onRowChange(row.uid, { mode: "untracked" }))}
+                >
+                  {t.dontTrackRest}
+                </Button>
+              )}
+            </div>
           </div>
           {needsLook.map(renderRow)}
         </div>
@@ -168,11 +187,13 @@ function ReviewRowCard({
   // through its unit note below.
   const reason = !row.needsReview
     ? null
-    : row.status === "suggested" && candidates[0]
-      ? format(t.reasonSuggested, { name: candidates[0].name })
-      : row.status === "none"
-        ? t.reasonNone
-        : null;
+    : row.defaultUntracked
+      ? t.reasonStaple
+      : row.status === "suggested" && candidates[0]
+        ? format(t.reasonSuggested, { name: candidates[0].name })
+        : row.status === "none"
+          ? t.reasonNone
+          : null;
 
   return (
     <div role="group" aria-label={row.label} className="flex min-w-0 flex-col gap-2 rounded-md border bg-background p-2">
@@ -202,8 +223,19 @@ function ReviewRowCard({
           >
             {t.createNew}
           </Button>
+          <Button
+            type="button"
+            variant={row.mode === "untracked" ? "secondary" : "ghost"}
+            size="sm"
+            aria-pressed={row.mode === "untracked"}
+            onClick={() => onChange({ mode: "untracked" })}
+          >
+            {t.dontTrack}
+          </Button>
         </div>
       </div>
+
+      {row.mode === "untracked" && <p className="text-xs text-muted-foreground">{t.dontTrackHint}</p>}
 
       {row.mode === "existing" && (
         <ItemCombobox

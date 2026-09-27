@@ -246,6 +246,27 @@ describe("previewMissingIngredientsAction", () => {
     });
   });
 
+  it("never lists a Don't-track row as missing, but keeps a row whose item was deleted (MATCH-2)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([{ recipeId: "bread", portions: 4, recipe: { servings: 4 } }]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "bread",
+        ingredients: [
+          { inventoryItemId: null, inventoryItem: null, untracked: true, name: "Vatten", unit: "dl", quantity: 3 },
+          { inventoryItemId: null, inventoryItem: null, untracked: false, name: "Flour", unit: "g", quantity: 500 },
+        ],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    expect(result).toEqual({
+      items: [{ key: "name:flour::g", name: "Flour", unit: "g", missingQuantity: 500, unitMismatch: false }],
+    });
+  });
+
   it("scales each entry's ingredients by its portions relative to the recipe's own servings, instead of always counting a full recipe per entry", async () => {
     // A 4-serving soup recipe planned twice in the week (e.g. dinner Thursday
     // and lunch Friday), 2 portions each — together that's exactly one batch

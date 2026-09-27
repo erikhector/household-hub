@@ -8,8 +8,11 @@
 // entirely when every row is confident.
 //
 // Nothing here writes anything. The save action gets an explicit decision
-// per row (use existing / create new) and never creates an item without
-// one (resolveIngredientDecisions in meal-planning/recipe-actions.ts).
+// per row (use existing / create new / don't track) and never creates an
+// item without one (resolveIngredientDecisions in
+// meal-planning/recipe-actions.ts). MATCH-2 adds the household's learned
+// aliases (ItemAlias) and a tiny built-in list of names that default to
+// "Don't track".
 //
 // Dependency-free (bar the other pure helpers), so the preview action and
 // the tests run it the same way.
@@ -30,14 +33,21 @@ export type IngredientMatchInput = {
   /** The item this row was already linked to when an existing recipe was
    * opened for editing, carried through only while its name is unchanged. */
   linkedItemId?: string | null;
+  /** The row was saved as "Don't track" and its name is unchanged (MATCH-2),
+   * carried through the same way as `linkedItemId`. */
+  untracked?: boolean;
 };
+
+/** A learned alias (ItemAlias, MATCH-2): `normalizedName` means that item,
+ * or, with a null `inventoryItemId`, "never tracked". */
+export type IngredientAlias = { normalizedName: string; inventoryItemId: string | null };
 
 export type IngredientMatchItem = InventoryMatchCandidate & { unit: string };
 
 /**
- * - `confident`: linked before, an exact (normalized) name, or a fuzzy
- *   match above the AUTO-11 bar with a clear margin. Pre-accepted, but
- *   still one tap away in the review.
+ * - `confident`: linked before, an exact (normalized) name, a learned
+ *   alias, or a fuzzy match above the AUTO-11 bar with a clear margin.
+ *   Pre-accepted, but still one tap away in the review.
  * - `suggested`: a best guess (a plural/singular fold, a fuzzy score
  *   ≥ MATCH_PRESELECT_MIN_SCORE, or a tie between confident-looking items)
  *   is pre-selected, but the row is open.
@@ -45,12 +55,15 @@ export type IngredientMatchItem = InventoryMatchCandidate & { unit: string };
  */
 export type IngredientMatchStatus = "confident" | "suggested" | "none";
 
-export type IngredientMatchSource = "linked" | "exact" | "plural" | "fuzzy";
+export type IngredientMatchSource = "linked" | "exact" | "alias" | "staple" | "plural" | "fuzzy";
 
 export type IngredientMatch = {
   rowIndex: number;
   status: IngredientMatchStatus;
   itemId: string | null;
+  /** Defaults to "Don't track" (MATCH-2): saved that way before, an
+   * untracked alias, or a built-in staple. `itemId` is null when set. */
+  untracked: boolean;
   source: IngredientMatchSource | null;
   /** Best-first ids to list at the top of the row's picker. */
   candidateIds: string[];
@@ -61,13 +74,27 @@ export type IngredientMatch = {
 
 /**
  * The ingredient name without a trailing parenthesized part: "gul lök
- * (finhackad)" → "gul lök". Until MATCH-2 adds a note column the parser
- * (MATCH-4) keeps prep text in that form, so matching and the default name
- * for "Create new" both ignore it.
+ * (finhackad)" → "gul lök". An imported row's prep text goes to its own
+ * `note` (MATCH-2), but a row typed by hand can still carry it in that
+ * form, so matching, aliases and the default name for "Create new" all
+ * ignore it.
  */
 export function ingredientBaseName(name: string): string {
   const stripped = name.replace(/\s*\([^()]*\)\s*$/, "").trim();
   return stripped || name.trim();
+}
+
+/**
+ * Splits an imported name's trailing "(prep note)" into its own note, for
+ * a parser that leaves it on the name: "gul lök (finhackad)" →
+ * { name: "gul lök", note: "finhackad" }. Only used on import; a row typed
+ * by hand keeps its name as typed.
+ */
+export function splitIngredientNote(name: string): { name: string; note: string } {
+  const trimmed = name.trim();
+  const base = ingredientBaseName(trimmed);
+  if (base === trimmed) return { name: trimmed, note: "" };
+  return { name: base, note: trimmed.slice(base.length).trim().slice(1, -1).trim() };
 }
 
 // English -s/-es and Swedish -ar/-or/-er/-na on the last word (the head
@@ -97,6 +124,12 @@ function intersects(a: Set<string>, b: Set<string>): boolean {
   return false;
 }
 
+// Decision 1 in the design (§7): only water and ice default to "Don't
+// track". Anything else the household never wants tracked is learned as an
+// untracked alias the first time they say so. Compared on the normalized
+// name, so "Vatten" and "water." count; "kallt vatten" doesn't.
+const UNTRACKED_STAPLES = new Set(["water", "vatten", "ice", "is"]);
+
 // How many best-first candidates a row's picker lists above the rest.
 const CANDIDATE_LIMIT = 5;
 
@@ -106,16 +139,19 @@ function matchOne(
   items: IngredientMatchItem[],
   itemsById: Map<string, IngredientMatchItem>,
   folded: { item: IngredientMatchItem; normalized: string; forms: Set<string> }[],
+  aliases: Map<string, string | null>,
 ): IngredientMatch {
   const result = (
     status: IngredientMatchStatus,
     item: IngredientMatchItem | null,
     source: IngredientMatchSource | null,
     candidateIds: string[],
+    untracked = false,
   ): IngredientMatch => ({
     rowIndex,
     status,
     itemId: item?.id ?? null,
+    untracked,
     source,
     candidateIds,
     unitClass: item ? classifyUnits(row.unit, item.unit) : null,
@@ -123,6 +159,7 @@ function matchOne(
 
   const linked = row.linkedItemId ? itemsById.get(row.linkedItemId) : undefined;
   if (linked) return result("confident", linked, "linked", [linked.id]);
+  if (row.untracked) return result("confident", null, "linked", [], true);
 
   const baseName = ingredientBaseName(row.name);
   const normalized = normalizeItemName(baseName);
@@ -140,6 +177,18 @@ function matchOne(
   // genuine choice, so pre-select the first and leave it open.
   if (exact.length > 1) return result("suggested", exact[0], "exact", withFirst(exact.map((item) => item.id)));
 
+  // A learned alias is the household's own earlier answer, so it's as good
+  // as an exact name. One whose item has since gone is ignored (the
+  // cascade normally removes it first).
+  const aliasItemId = aliases.get(normalized);
+  if (aliasItemId === null) return result("confident", null, "alias", fuzzyIds, true);
+  const aliasItem = aliasItemId ? itemsById.get(aliasItemId) : undefined;
+  if (aliasItem) return result("confident", aliasItem, "alias", withFirst([aliasItem.id]));
+
+  // A staple is only a default: the row stays open, so the first recipe
+  // with water in it asks once, and that answer is learned as an alias.
+  if (UNTRACKED_STAPLES.has(normalized)) return result("suggested", null, "staple", fuzzyIds, true);
+
   const rowForms = foldedForms(normalized);
   const byFold = folded.filter((entry) => intersects(rowForms, entry.forms)).map((entry) => entry.item);
   if (byFold.length > 0) return result("suggested", byFold[0], "plural", withFirst(byFold.map((item) => item.id)));
@@ -151,17 +200,20 @@ function matchOne(
   return result(status, itemsById.get(best.id)!, "fuzzy", fuzzyIds);
 }
 
-/** Matches every recipe row against the household's inventory, in order. */
+/** Matches every recipe row against the household's inventory and learned
+ * aliases, in order. */
 export function matchIngredientRows(
   rows: IngredientMatchInput[],
   items: IngredientMatchItem[],
+  aliases: IngredientAlias[] = [],
 ): IngredientMatch[] {
+  const aliasMap = new Map(aliases.map((alias) => [alias.normalizedName, alias.inventoryItemId]));
   const itemsById = new Map(items.map((item) => [item.id, item]));
   const folded = items.map((item) => {
     const normalized = normalizeItemName(item.name);
     return { item, normalized, forms: foldedForms(normalized) };
   });
-  return rows.map((row, index) => matchOne(row, index, items, itemsById, folded));
+  return rows.map((row, index) => matchOne(row, index, items, itemsById, folded, aliasMap));
 }
 
 /**

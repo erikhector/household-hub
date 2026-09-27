@@ -419,12 +419,6 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
-- [ ] **MATCH-2. "Don't track" ingredients and learned aliases** (high, M; after MATCH-1) —
-      migration: `RecipeIngredient.untracked/rawText/note` and `ItemAlias`
-      (`householdId`, `normalizedName`, nullable `inventoryItemId`). The
-      review writes an alias when the user links a name to a differently
-      named item, or marks it Don't track, and the matcher checks aliases
-      before fuzzy. Recipe expansion skips untracked rows. Design §3.4, §4.
 - [ ] **MATCH-3. Per-item unit conversions** (high, M; after MATCH-2) —
       migration: `ItemUnitConversion` (`inventoryItemId`, `fromUnit`,
       `factor`). The review offers "remember 1 pcs = 2000 g", "override for

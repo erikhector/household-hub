@@ -19,6 +19,9 @@ const {
   recipeComponentFindManyMock,
   recipeComponentFindFirstMock,
   recipeComponentDeleteManyMock,
+  itemAliasFindManyMock,
+  itemAliasDeleteManyMock,
+  itemAliasCreateManyMock,
   transactionMock,
   fetchRecipeHtmlMock,
   parseRecipeFromHtmlMock,
@@ -39,6 +42,9 @@ const {
   >(),
   recipeComponentFindFirstMock: vi.fn(),
   recipeComponentDeleteManyMock: vi.fn(),
+  itemAliasFindManyMock: vi.fn(async () => [] as { normalizedName: string; inventoryItemId: string | null }[]),
+  itemAliasDeleteManyMock: vi.fn(),
+  itemAliasCreateManyMock: vi.fn(),
   // Interactive transactions run their callback against the same mocked
   // client (set up in the prisma mock below).
   transactionMock: vi.fn(),
@@ -65,6 +71,11 @@ vi.mock("@/lib/prisma", () => {
       delete: recipeDeleteMock,
     },
     recipeIngredient: { deleteMany: recipeIngredientDeleteManyMock },
+    itemAlias: {
+      findMany: itemAliasFindManyMock,
+      deleteMany: itemAliasDeleteManyMock,
+      createMany: itemAliasCreateManyMock,
+    },
     recipeComponent: {
       findMany: recipeComponentFindManyMock,
       findFirst: recipeComponentFindFirstMock,
@@ -130,11 +141,13 @@ function appendIngredient(
     name: string;
     quantity?: string;
     unit?: string;
-    decision?: "existing" | "new" | "";
+    decision?: "existing" | "new" | "untracked" | "";
     itemId?: string;
     newName?: string;
     newCategory?: string;
     newUnit?: string;
+    rawText?: string;
+    note?: string;
   },
 ) {
   fd.append("ingredientName", row.name);
@@ -145,7 +158,18 @@ function appendIngredient(
   fd.append("ingredientNewName", row.newName ?? "");
   fd.append("ingredientNewCategory", row.newCategory ?? "");
   fd.append("ingredientNewUnit", row.newUnit ?? "");
+  fd.append("ingredientRawText", row.rawText ?? "");
+  fd.append("ingredientNote", row.note ?? "");
 }
+
+// What a saved row looks like when the test doesn't care about the MATCH-2
+// columns.
+const savedRow = (row: { name: string; quantity: number; unit: string; inventoryItemId: string | null }) => ({
+  rawText: null,
+  note: null,
+  untracked: false,
+  ...row,
+});
 
 const household = { id: "household-1" };
 
@@ -227,10 +251,10 @@ describe("createRecipeAction", () => {
         householdId: "household-1",
         ingredients: {
           create: [
-            { name: "Carrot", quantity: 2, unit: "pcs", inventoryItemId: "inv-carrot" },
+            savedRow({ name: "Carrot", quantity: 2, unit: "pcs", inventoryItemId: "inv-carrot" }),
             // A plural is only a suggestion: without a decision it stays unlinked.
-            { name: "Carrots", quantity: 2, unit: "pcs", inventoryItemId: null },
-            { name: "Kale", quantity: 2, unit: "pcs", inventoryItemId: null },
+            savedRow({ name: "Carrots", quantity: 2, unit: "pcs", inventoryItemId: null }),
+            savedRow({ name: "Kale", quantity: 2, unit: "pcs", inventoryItemId: null }),
           ],
         },
       }),
@@ -238,7 +262,7 @@ describe("createRecipeAction", () => {
   });
 
   it("links an `existing` decision after checking the item belongs to the household", async () => {
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg" }]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg", name: "Egg" }]);
     recipeCreateMock.mockResolvedValue({});
     const fd = formData({ name: "Omelette" });
     appendIngredient(fd, { name: "eggs", quantity: "3", decision: "existing", itemId: "inv-egg" });
@@ -248,13 +272,140 @@ describe("createRecipeAction", () => {
     expect(result).toEqual({});
     expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
       where: { id: { in: ["inv-egg"] }, householdId: "household-1" },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     expect(recipeCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        ingredients: { create: [{ name: "eggs", quantity: 3, unit: "pcs", inventoryItemId: "inv-egg" }] },
+        ingredients: { create: [savedRow({ name: "eggs", quantity: 3, unit: "pcs", inventoryItemId: "inv-egg" })] },
       }),
     });
+  });
+
+  it("saves a Don't-track row with no link, never creates, and remembers the name as untracked (MATCH-2)", async () => {
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Bread" });
+    appendIngredient(fd, { name: "Vatten", quantity: "3", unit: "dl", decision: "untracked" });
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result).toEqual({});
+    // Nothing to look up: no item is chosen and nothing is matched by name.
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+    expect(inventoryItemCreateManyAndReturnMock).not.toHaveBeenCalled();
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ingredients: {
+          create: [{ name: "Vatten", quantity: 3, unit: "dl", rawText: null, note: null, untracked: true, inventoryItemId: null }],
+        },
+      }),
+    });
+    expect(itemAliasDeleteManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", normalizedName: { in: ["vatten"] } },
+    });
+    expect(itemAliasCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", normalizedName: "vatten", inventoryItemId: null }],
+    });
+  });
+
+  it("writes an alias only when the linked item's normalized name differs (MATCH-2)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-egg", name: "Egg" },
+      { id: "inv-milk", name: "Mjölk" },
+    ]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Pancakes" });
+    appendIngredient(fd, { name: "eggs (large)", decision: "existing", itemId: "inv-egg" });
+    appendIngredient(fd, { name: "mjölk.", decision: "existing", itemId: "inv-milk" });
+
+    await createRecipeAction({}, fd);
+
+    // Keyed without the prep note, the way the matcher looks it up; "mjölk."
+    // already normalizes to the item's own name, so it gets none.
+    expect(itemAliasCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", normalizedName: "eggs", inventoryItemId: "inv-egg" }],
+    });
+  });
+
+  it("writes no alias when every link already matches by name (MATCH-2)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg", name: "Egg" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Omelette" });
+    appendIngredient(fd, { name: "egg", decision: "existing", itemId: "inv-egg" });
+
+    await createRecipeAction({}, fd);
+
+    expect(itemAliasDeleteManyMock).not.toHaveBeenCalled();
+    expect(itemAliasCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("aliases a name to a new item created under a different name (MATCH-2)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-egg", name: "Egg" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Omelette" });
+    appendIngredient(fd, { name: "ägg", decision: "new", newName: "Egg", newCategory: "Dairy" });
+
+    await createRecipeAction({}, fd);
+
+    expect(itemAliasCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", normalizedName: "ägg", inventoryItemId: "inv-egg" }],
+    });
+  });
+
+  it("stores the imported line and prep note (MATCH-2)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-onion", name: "Gul lök" }]);
+    recipeCreateMock.mockResolvedValue({});
+    const fd = formData({ name: "Soup" });
+    appendIngredient(fd, {
+      name: "gul lök",
+      decision: "existing",
+      itemId: "inv-onion",
+      rawText: "1 gul lök, finhackad",
+      note: "finhackad",
+    });
+
+    await createRecipeAction({}, fd);
+
+    expect(recipeCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        ingredients: {
+          create: [
+            {
+              name: "gul lök",
+              quantity: 1,
+              unit: "pcs",
+              rawText: "1 gul lök, finhackad",
+              note: "finhackad",
+              untracked: false,
+              inventoryItemId: "inv-onion",
+            },
+          ],
+        },
+      }),
+    });
+  });
+
+  it("rejects an over-long prep note", async () => {
+    const fd = formData({ name: "Soup" });
+    appendIngredient(fd, { name: "onion", note: "x".repeat(201) });
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result.error).toBe("Invalid input");
+    expect(recipeCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("still rejects a foreign item id alongside a Don't-track row, writing no alias (IDOR guard)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    const fd = formData({ name: "Bread" });
+    appendIngredient(fd, { name: "vatten", decision: "untracked" });
+    appendIngredient(fd, { name: "flour", decision: "existing", itemId: "someone-elses-item" });
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result.error).toBe("One of the chosen pantry items no longer exists. Go back and pick again.");
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(itemAliasCreateManyMock).not.toHaveBeenCalled();
   });
 
   it("rejects an item id from another household instead of creating or dropping it (IDOR guard)", async () => {
@@ -282,7 +433,7 @@ describe("createRecipeAction", () => {
 
   it("rejects an unknown decision", async () => {
     const fd = formData({ name: "Omelette" });
-    appendIngredient(fd, { name: "eggs", decision: "untracked" as "new" });
+    appendIngredient(fd, { name: "eggs", decision: "bogus" as "new" });
 
     const result = await createRecipeAction({}, fd);
 
@@ -316,7 +467,7 @@ describe("createRecipeAction", () => {
     );
     expect(recipeCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        ingredients: { create: [{ name: "Milk", quantity: 3, unit: "dl", inventoryItemId: "inv-milk" }] },
+        ingredients: { create: [savedRow({ name: "Milk", quantity: 3, unit: "dl", inventoryItemId: "inv-milk" })] },
       }),
     });
   });
@@ -358,7 +509,7 @@ describe("createRecipeAction", () => {
     expect(recipeCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         ingredients: {
-          create: [{ name: "gul lök (finhackad)", quantity: 1, unit: "pcs", inventoryItemId: "inv-onion" }],
+          create: [savedRow({ name: "gul lök (finhackad)", quantity: 1, unit: "pcs", inventoryItemId: "inv-onion" })],
         },
       }),
     });
@@ -382,9 +533,9 @@ describe("createRecipeAction", () => {
       data: expect.objectContaining({
         ingredients: {
           create: [
-            { name: "Kale", quantity: 1, unit: "pcs", inventoryItemId: "inv-kale" },
-            { name: "kale", quantity: 1, unit: "pcs", inventoryItemId: "inv-kale" },
-            { name: "salt", quantity: 1, unit: "pcs", inventoryItemId: "inv-salt" },
+            savedRow({ name: "Kale", quantity: 1, unit: "pcs", inventoryItemId: "inv-kale" }),
+            savedRow({ name: "kale", quantity: 1, unit: "pcs", inventoryItemId: "inv-kale" }),
+            savedRow({ name: "salt", quantity: 1, unit: "pcs", inventoryItemId: "inv-salt" }),
           ],
         },
       }),
@@ -716,7 +867,7 @@ describe("updateRecipeAction", () => {
     recipeFindFirstMock.mockResolvedValue({ id: "omelette" });
     // The household's egg item: the row's name doesn't match it exactly,
     // but the dialog carried the saved link through as `existing`.
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg" }]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg", name: "Egg" }]);
     recipeUpdateMock.mockResolvedValue({});
     const fd = formData({ recipeId: "omelette", name: "Omelette" });
     appendIngredient(fd, { name: "ägg", quantity: "3", unit: "st", decision: "existing", itemId: "inv-egg" });
@@ -730,7 +881,7 @@ describe("updateRecipeAction", () => {
     expect(recipeUpdateMock).toHaveBeenCalledWith({
       where: { id: "omelette" },
       data: expect.objectContaining({
-        ingredients: { create: [{ name: "ägg", quantity: 3, unit: "st", inventoryItemId: "inv-egg" }] },
+        ingredients: { create: [savedRow({ name: "ägg", quantity: 3, unit: "st", inventoryItemId: "inv-egg" })] },
       }),
     });
   });
@@ -787,6 +938,32 @@ describe("previewIngredientMatchesAction (MATCH-1)", () => {
     // A category is only guessed for rows that may become a new item.
     expect(result.guessedCategories[0]).toBeNull();
     expect(result.guessedCategories[2]).toBe("Dairy & eggs");
+  });
+
+  it("uses the household's learned aliases (MATCH-2)", async () => {
+    inventoryItemFindManyMock.mockResolvedValue(pantry);
+    itemAliasFindManyMock.mockResolvedValueOnce([
+      { normalizedName: "eggs", inventoryItemId: "inv-egg" },
+      { normalizedName: "salt", inventoryItemId: null },
+    ]);
+
+    const result = await previewIngredientMatchesAction([
+      { name: "Eggs", unit: "pcs" },
+      { name: "salt", unit: "tsp" },
+      { name: "vatten", unit: "dl" },
+    ]);
+
+    expect(itemAliasFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { householdId: "household-1" } }),
+    );
+    if ("error" in result) throw new Error(result.error);
+    expect(result.matches.map((match) => [match.status, match.itemId, match.untracked])).toEqual([
+      ["confident", "inv-egg", false],
+      ["confident", null, true],
+      ["suggested", null, true],
+    ]);
+    // Nothing to guess for a row that defaults to Don't track.
+    expect(result.guessedCategories).toEqual([null, null, null]);
   });
 
   it("requires a household session", async () => {

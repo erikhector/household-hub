@@ -4,6 +4,8 @@ import {
   ingredientBaseName,
   ingredientNeedsReview,
   matchIngredientRows,
+  splitIngredientNote,
+  type IngredientAlias,
   type IngredientMatchItem,
 } from "./ingredient-match";
 
@@ -108,6 +110,62 @@ describe("matchIngredientRows", () => {
   });
 });
 
+describe("matchIngredientRows with learned aliases and staples (MATCH-2)", () => {
+  const matchWith = (name: string, aliases: IngredientAlias[], unit = "pcs") =>
+    matchIngredientRows([{ name, unit }], pantry, aliases)[0];
+
+  it("is confident about an alias hit, ahead of the plural fold", () => {
+    const match = matchWith("eggs", [{ normalizedName: "eggs", inventoryItemId: "egg" }]);
+    expect(match).toMatchObject({ status: "confident", itemId: "egg", source: "alias", untracked: false });
+    expect(ingredientNeedsReview(match)).toBe(false);
+  });
+
+  it("matches an alias on the normalized name without its prep note", () => {
+    const match = matchWith("Eggs (large)", [{ normalizedName: "eggs", inventoryItemId: "egg" }]);
+    expect(match).toMatchObject({ status: "confident", itemId: "egg", source: "alias" });
+  });
+
+  it("defaults a name aliased as untracked to Don't track, with no review", () => {
+    const match = matchWith("Salt", [{ normalizedName: "salt", inventoryItemId: null }]);
+    expect(match).toMatchObject({ status: "confident", itemId: null, untracked: true, source: "alias" });
+    expect(ingredientNeedsReview(match)).toBe(false);
+  });
+
+  it("lets an exact item name win over an alias", () => {
+    const match = matchWith("Egg", [{ normalizedName: "egg", inventoryItemId: null }]);
+    expect(match).toMatchObject({ itemId: "egg", source: "exact", untracked: false });
+  });
+
+  it("ignores an alias whose item is gone", () => {
+    const match = matchWith("Saffron", [{ normalizedName: "saffron", inventoryItemId: "deleted" }]);
+    expect(match).toMatchObject({ status: "none", itemId: null, untracked: false });
+  });
+
+  it("defaults water and ice to Don't track, but still asks", () => {
+    for (const name of ["vatten", "Water", "is", "ice"]) {
+      const match = matchWith(name, [], "dl");
+      expect(match).toMatchObject({ status: "suggested", itemId: null, untracked: true, source: "staple" });
+      expect(ingredientNeedsReview(match)).toBe(true);
+    }
+    // Only the bare words: anything longer follows the normal rules.
+    expect(matchWith("kallt vatten", []).untracked).toBe(false);
+  });
+
+  it("links a staple the household keeps as an item", () => {
+    const items = [...pantry, { id: "water", name: "Vatten", unit: "l" }];
+    expect(matchIngredientRows([{ name: "vatten", unit: "dl" }], items)[0]).toMatchObject({
+      status: "confident",
+      itemId: "water",
+      untracked: false,
+    });
+  });
+
+  it("keeps a row saved as Don't track while its name is unchanged", () => {
+    const match = matchIngredientRows([{ name: "Egg", unit: "pcs", untracked: true }], pantry)[0];
+    expect(match).toMatchObject({ status: "confident", itemId: null, untracked: true, source: "linked" });
+  });
+});
+
 describe("ingredientBaseName", () => {
   it("strips only a trailing parenthesized part", () => {
     expect(ingredientBaseName("gul lök (finhackad)")).toBe("gul lök");
@@ -117,6 +175,14 @@ describe("ingredientBaseName", () => {
 
   it("keeps the name when it's nothing but parentheses", () => {
     expect(ingredientBaseName("(salt)")).toBe("(salt)");
+  });
+});
+
+describe("splitIngredientNote", () => {
+  it("moves a trailing parenthesized part to the note", () => {
+    expect(splitIngredientNote("gul lök (finhackad)")).toEqual({ name: "gul lök", note: "finhackad" });
+    expect(splitIngredientNote(" salt ")).toEqual({ name: "salt", note: "" });
+    expect(splitIngredientNote("(salt)")).toEqual({ name: "(salt)", note: "" });
   });
 });
 

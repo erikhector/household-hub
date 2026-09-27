@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { Client } from "pg";
+import { E2E_HOUSEHOLD } from "./seed";
 import { dismissCookieNotice } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
@@ -9,7 +11,32 @@ const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
+  await forgetAliases();
 });
+
+// MATCH-2: a review answer is remembered household-wide (ItemAlias), and
+// the desktop and mobile runs share one household, so the second run would
+// find "Tomater" or "vatten" already answered and skip the review these
+// tests are about. Each test starts with the household's aliases forgotten.
+async function forgetAliases() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(`DELETE FROM "ItemAlias" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+  } finally {
+    await client.end();
+  }
+}
+
+// Right after navigation the streamed page can briefly hold two copies of
+// the inventory list (the Suspense fallback swap), so wait for the visible
+// search field before typing.
+async function searchInventory(page: Page, query: string) {
+  await page.goto("/dashboard/inventory");
+  const search = page.getByPlaceholder("Search by name…").filter({ visible: true });
+  await expect(search).toHaveCount(1);
+  await search.fill(query);
+}
 
 async function openNewRecipe(page: Page, name: string) {
   await page.goto("/dashboard/meal-planning");
@@ -81,8 +108,7 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // No phantom "Tomater" item appeared in the pantry.
-  await page.goto("/dashboard/inventory");
-  await page.getByPlaceholder("Search by name…").fill("Tomat");
+  await searchInventory(page, "Tomat");
   // Desktop shows a table and phones show cards, so only one is visible.
   await expect(page.getByText("Tomatoes", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Tomater", { exact: true })).toHaveCount(0);
@@ -154,7 +180,62 @@ test("the review step creates a new item, blocks an incomplete row, and folds aw
   await expect(page.getByText("Saved · 2 ingredients linked to your pantry")).toBeVisible();
 
   // The new item exists, under the chosen name.
-  await page.goto("/dashboard/inventory");
-  await page.getByPlaceholder("Search by name…").fill(spice);
+  await searchInventory(page, spice);
   await expect(page.getByText(itemName, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+});
+
+test("water defaults to Don't track, saves without creating an item, and isn't asked about again", async ({
+  page,
+}) => {
+  const dialog = await openNewRecipe(page, unique("Bread"));
+  await fillIngredient(page, "vatten", "3", "dl");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  const row = review.getByRole("group", { name: "3 dl vatten" });
+  await expect(row.getByText("Usually not kept in the pantry.")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Don't track" })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByText(/cooking, shopping and cost skip it/)).toBeVisible();
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // The answer is remembered: the next recipe with water saves straight away.
+  const second = await openNewRecipe(page, unique("Porridge"));
+  await fillIngredient(page, "Vatten", "5", "dl");
+  await second.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // And no "vatten" item was ever created.
+  await searchInventory(page, "vatten");
+  await expect(page.getByText(/vatten/i).filter({ visible: true })).toHaveCount(0);
+});
+
+test("linking \"eggs\" to Egg once makes it a confident match on the next recipe", async ({ page }) => {
+  const dialog = await openNewRecipe(page, unique("Omelette"));
+  await fillIngredient(page, "eggs", "3", "pcs");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  // A plural is only a suggestion the first time.
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  const row = review.getByRole("group", { name: "3 pcs eggs" });
+  await expect(row.getByRole("combobox", { name: "Pantry item for eggs" })).toHaveValue("Egg · Dairy & eggs");
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByText("Saved · 1 ingredient linked to your pantry")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // The household's answer is now an alias, so "eggs" skips the review.
+  const second = await openNewRecipe(page, unique("Pancakes"));
+  await fillIngredient(page, "eggs", "2", "pcs");
+  await second.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByText("Saved · 1 ingredient linked to your pantry").last()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a server error takes focus once it renders", async ({ page }) => {
+  // Whitespace passes the browser's `required` check, and the server
+  // rejects it after trimming.
+  const dialog = await openNewRecipe(page, "   ");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+  await expect(dialog.getByRole("alert")).toHaveText("Name is required");
+  await expect(dialog.getByRole("alert")).toBeFocused();
 });

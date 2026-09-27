@@ -34,6 +34,9 @@ type RecipeGraphNode = {
   ingredients: {
     inventoryItemId: string | null;
     inventoryItem: { name: string; quantity: number; unit: string } | null;
+    // RecipeIngredient.untracked (MATCH-2). Optional only so hand-built
+    // test graphs can leave it out; loadRecipeGraph always has it.
+    untracked?: boolean;
     name: string;
     unit: string;
     quantity: number;
@@ -93,15 +96,22 @@ export function expandFromGraph(
   const recipe = recipesById.get(recipeId);
   if (!recipe) return [];
 
-  const own: ExpandedIngredientNeed[] = recipe.ingredients.map((ingredient) => ({
-    inventoryItemId: ingredient.inventoryItemId,
-    inventoryItemName: ingredient.inventoryItem?.name ?? null,
-    onHandQuantity: ingredient.inventoryItem?.quantity ?? null,
-    onHandUnit: ingredient.inventoryItem?.unit ?? null,
-    name: ingredient.name,
-    unit: ingredient.unit,
-    quantity: ingredient.quantity * multiplier,
-  }));
+  // A "Don't track" row (MATCH-2: water, or anything the household said
+  // never to track) isn't an inventory need at all, so the shopping-list
+  // bridge, "Mark as cooked" and the Cook tab never see it. It still shows
+  // on the recipe card. An unlinked row that isn't untracked (its item was
+  // deleted) stays, and keeps matching by name downstream.
+  const own: ExpandedIngredientNeed[] = recipe.ingredients
+    .filter((ingredient) => !ingredient.untracked)
+    .map((ingredient) => ({
+      inventoryItemId: ingredient.inventoryItemId,
+      inventoryItemName: ingredient.inventoryItem?.name ?? null,
+      onHandQuantity: ingredient.inventoryItem?.quantity ?? null,
+      onHandUnit: ingredient.inventoryItem?.unit ?? null,
+      name: ingredient.name,
+      unit: ingredient.unit,
+      quantity: ingredient.quantity * multiplier,
+    }));
 
   const nextAncestry = new Set(ancestry).add(recipeId);
   const nested = recipe.components.map((component) =>

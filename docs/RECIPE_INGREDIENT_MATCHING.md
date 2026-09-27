@@ -486,7 +486,7 @@ MATCH-3 each add one migration (Phase 2 rules: one at a time).
 |---|---|---|---|
 | **MATCH-4** (shipped) | Parser improvements (§5) | none | S |
 | **MATCH-1** (shipped) | Stop silent creation: pure matcher, preview action, step-2 review, explicit decisions on save, keep links on edit, shopping bridge stops creating (§3.1, 3.2, 3.4, 3.5 minus untracked/aliases/conversions) | none | M |
-| **MATCH-2** | "Don't track" + `rawText`/`note` + `ItemAlias` learning and lookup (§3.4 learning, §4) | 1 migration | M |
+| **MATCH-2** (shipped) | "Don't track" + `rawText`/`note` + `ItemAlias` learning and lookup (§3.4 learning, §4) | 1 migration | M |
 | **MATCH-3** | `ItemUnitConversion`, `convertForItem`, unit choices in review, density hints (§3.3). The conversions UI lives on the item page (MATCH-6) | 1 migration | M |
 | **MATCH-6** | Item page: used in recipes/lists, conversions CRUD + calculator, "Change unit…", aliases list (§6.1) | none (uses MATCH-2/3 tables) | M |
 | **MATCH-7** | Catalog page with filters, duplicate groups, "Not duplicates", merge preview + merge (§6.2, 6.3) | 1 migration (`InventoryDuplicateDismissal`) | L |

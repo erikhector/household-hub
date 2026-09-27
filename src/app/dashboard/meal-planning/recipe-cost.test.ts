@@ -71,6 +71,14 @@ describe("unitPriceFromLastPurchase", () => {
 });
 
 describe("computeRecipeCost", () => {
+  it("leaves Don't-track rows out entirely instead of counting them as skipped (MATCH-2)", () => {
+    const cost = computeRecipeCost(
+      [priced(2, "pcs", "pcs", 10), { untracked: true, quantity: 3, unit: "dl", inventoryItem: null }],
+      2,
+    );
+    expect(cost).toMatchObject({ total: 20, pricedCount: 1, skippedCount: 0 });
+  });
+
   it("prices a gram ingredient from a 500 g pack as a share of the pack, not grams × pack price", () => {
     // The regression this module was fixed for: lastKnownPrice 24 is what a
     // 500 g pack cost, so 200 g is 200 × 24/500 = 9.60, not 200 × 24 = 4800.
