@@ -77,6 +77,16 @@ describe("rowUnitChoice (MATCH-3)", () => {
     }
   });
 
+  it("rejects a factor outside the bounds the save action accepts", () => {
+    // 1 pcs = 1e7 g is 1 g = 1e-7 pcs, below MIN_UNIT_FACTOR.
+    expect(rowUnitChoice(row({ unitAction: "remember", rememberValue: "10000000" }), items).factor).toBeNull();
+    expect(rowUnitChoice(row({ unitAction: "remember", rememberValue: "1000000" }), items).factor).toBeCloseTo(1e-6, 12);
+    // Recipe unit leads: 1 dl = 2e6 g is above MAX_UNIT_FACTOR.
+    const dl = { selectedId: "flour-g", unit: "dl", unitAction: "remember" as const };
+    expect(rowUnitChoice(row({ ...dl, rememberValue: "2000000" }), items).factor).toBeNull();
+    expect(rowUnitChoice(row({ ...dl, rememberValue: "60" }), items).factor).toBe(60);
+  });
+
   it("never pre-selects Remember on a row nobody is asked to look at", () => {
     const choice = rowUnitChoice(row({ selectedId: "egg", unit: "g", needsReview: false }), items);
     expect(choice).toMatchObject({ unitClass: "unknown", action: "defer" });

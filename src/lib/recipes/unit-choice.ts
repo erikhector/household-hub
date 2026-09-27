@@ -9,6 +9,13 @@ import { conversionLeadUnit, unitConversionHint } from "@/lib/recipes/unit-hints
 
 export type UnitChoiceAction = "remember" | "override" | "defer";
 
+// A conversion is between two amounts a kitchen actually uses, so a factor
+// outside this range is a typo, never a real density. The save action
+// enforces the same bounds; checking them here too flags the row inline
+// instead of failing the whole save with a message that doesn't fit.
+export const MIN_UNIT_FACTOR = 1e-6;
+export const MAX_UNIT_FACTOR = 1e6;
+
 /** The fields of a review row this reads (ReviewRow in
  * ingredient-review-step.tsx). */
 export type UnitChoiceRow = {
@@ -82,7 +89,11 @@ export function rowUnitChoice(row: UnitChoiceRow, items: readonly UnitChoiceItem
   const rememberValue = row.rememberValue ?? (hint !== null ? roundHint(lead === "recipe" ? hint : 1 / hint) : "");
   const overrideValue = row.overrideValue ?? (hint !== null ? roundHint(row.quantity * hint) : "");
   const typed = positiveNumber(rememberValue);
-  const factor = typed === null ? null : lead === "recipe" ? typed : 1 / typed;
+  const perRecipeUnit = typed === null ? null : lead === "recipe" ? typed : 1 / typed;
+  const factor =
+    perRecipeUnit !== null && perRecipeUnit >= MIN_UNIT_FACTOR && perRecipeUnit <= MAX_UNIT_FACTOR
+      ? perRecipeUnit
+      : null;
 
   const action =
     unitClass !== "unknown"

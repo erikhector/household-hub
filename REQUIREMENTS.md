@@ -2820,7 +2820,12 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     save posts `ingredientUnitAction` (`none` | `remember` | `override` |
     `defer`) with `ingredientUnitFactor` (per recipe unit, 1e-6–1e6) or
     `ingredientOverrideQuantity`; the server ignores them for a unit the
-    generic table already reconciles. `remember` upserts the conversion
+    generic table already reconciles, and for a Create new row that ends
+    up on an item counted in another unit than the one the user answered
+    for (its name already exists, or an earlier row made the item in
+    another unit), where the choice is dropped and the row is left to be
+    decided when cooking. The review applies the same factor bounds, so
+    an out-of-range factor is flagged on the row. `remember` upserts the conversion
     in the recipe's transaction, only for an item checked against the
     household or created by this save; `override` stores the row in the
     item's unit and amount, keeping the original line in `rawText`

@@ -29,6 +29,7 @@ import {
   type IngredientMatch,
 } from "@/lib/recipes/ingredient-match";
 import { canonicalUnit, classifyUnits, type ItemUnitConversionLike } from "@/lib/units";
+import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
 import type { Prisma } from "@/generated/prisma/client";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
@@ -82,10 +83,6 @@ type IngredientDecision = z.infer<typeof ingredientDecisionSchema>;
 // leaves it for "Mark as cooked" to ask, as before.
 const ingredientUnitActionSchema = z.enum(["none", "remember", "override", "defer"]);
 type IngredientUnitAction = z.infer<typeof ingredientUnitActionSchema>;
-// A conversion is between two amounts a kitchen actually uses, so a factor
-// outside this range is a typo (or a direct POST), never a real density.
-const MIN_UNIT_FACTOR = 1e-6;
-const MAX_UNIT_FACTOR = 1e6;
 
 type ParsedIngredientRow = IngredientRow & {
   rawText: string | null;
@@ -324,6 +321,15 @@ async function resolveIngredientDecisions(
     return base;
   };
 
+  // A `new` row's unit choice was answered against the unit the user gave
+  // the new item. When the row ends up on an item counted in another unit
+  // (its name already exists, or an earlier row created the item with a
+  // different unit), that answer means nothing for it, and applying it
+  // would store a conversion off by orders of magnitude. It's dropped, and
+  // the row is left to be decided when cooking.
+  const answeredFor = (row: ParsedIngredientRow, itemUnit: string): ParsedIngredientRow =>
+    canonicalUnit(row.newUnit) === canonicalUnit(itemUnit) ? row : { ...row, unitAction: "none" };
+
   for (const row of rows) {
     const base = {
       name: row.name,
@@ -356,7 +362,7 @@ async function resolveIngredientDecisions(
       const key = normalizeItemName(row.newName);
       if (existingId) {
         resolved.push({
-          ...linkedRow(row, { itemId: existingId }, unitById.get(existingId)!),
+          ...linkedRow(answeredFor(row, unitById.get(existingId)!), { itemId: existingId }, unitById.get(existingId)!),
           inventoryItemId: existingId,
           newItemKey: null,
         });
@@ -372,8 +378,9 @@ async function resolveIngredientDecisions(
       }
       // Two rows for one new item share the first row's unit, since that's
       // the unit the item is created with.
+      const newItemUnit = newItems.get(key)!.unit;
       resolved.push({
-        ...linkedRow(row, { newItemKey: key }, newItems.get(key)!.unit),
+        ...linkedRow(answeredFor(row, newItemUnit), { newItemKey: key }, newItemUnit),
         inventoryItemId: null,
         newItemKey: key,
       });
