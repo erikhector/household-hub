@@ -1223,6 +1223,9 @@ export const en = {
       useExisting: "Use existing",
       createNew: "Create new",
       createAllNew: "Create all new",
+      dontTrack: "Don't track",
+      dontTrackRest: "Don't track the rest",
+      dontTrackHint: "Stays in the recipe, but cooking, shopping and cost skip it. We'll remember this for next time.",
       existingItemLabel: "Pantry item for {name}",
       existingItemNoResults: "No matching items",
       existingSelectionRequired: 'Choose an item, or switch to "Create new".',
@@ -1236,6 +1239,7 @@ export const en = {
       newUnitDefault: "The pantry will count it in {unit}. Change it if you buy it differently.",
       reasonSuggested: "Closest match: {name}. Check it's right.",
       reasonNone: "Nothing close in your pantry, so this becomes a new item.",
+      reasonStaple: "Usually not kept in the pantry.",
       errorSummary: {
         one: "{count} ingredient still needs a choice.",
         other: "{count} ingredients still need a choice.",

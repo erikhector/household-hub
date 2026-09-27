@@ -1160,6 +1160,9 @@ export const sv = {
       useExisting: "Använd befintlig",
       createNew: "Skapa ny",
       createAllNew: "Skapa alla som nya",
+      dontTrack: "Följ inte",
+      dontTrackRest: "Följ inte resten",
+      dontTrackHint: "Står kvar i receptet, men matlagning, inköp och kostnad hoppar över den. Vi kommer ihåg valet till nästa gång.",
       existingItemLabel: "Vara i skafferiet för {name}",
       existingItemNoResults: "Inga matchande varor",
       existingSelectionRequired: "Välj en vara, eller växla till ”Skapa ny”.",
@@ -1173,6 +1176,7 @@ export const sv = {
       newUnitDefault: "Skafferiet kommer att räkna den i {unit}. Ändra om du köper den på annat sätt.",
       reasonSuggested: "Närmaste träff: {name}. Kontrollera att den stämmer.",
       reasonNone: "Inget liknande i skafferiet, så den blir en ny vara.",
+      reasonStaple: "Brukar inte finnas i skafferiet.",
       errorSummary: {
         one: "{count} ingrediens behöver fortfarande ett val.",
         other: "{count} ingredienser behöver fortfarande ett val.",

@@ -38,7 +38,12 @@ import {
   type ReviewState,
 } from "@/components/meal-planning/ingredient-review-step";
 import type { RecipeData } from "@/components/meal-planning/types";
-import { defaultNewItemUnit, ingredientBaseName, ingredientNeedsReview } from "@/lib/recipes/ingredient-match";
+import {
+  defaultNewItemUnit,
+  ingredientBaseName,
+  ingredientNeedsReview,
+  splitIngredientNote,
+} from "@/lib/recipes/ingredient-match";
 import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
 import { cn } from "@/lib/utils";
@@ -48,6 +53,9 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 type MealPlanningDict = Dictionary["mealPlanning"];
 
 const initialState: ActionState = {};
+// Same caps as recipe-actions.ts's ingredient rawText/note (MATCH-2).
+const MAX_RAW_TEXT_LENGTH = 300;
+const MAX_NOTE_LENGTH = 200;
 const initialImportState: ImportRecipeState = {};
 
 // `unitTouched` tracks whether the user has explicitly set the unit for a
@@ -61,6 +69,11 @@ const initialImportState: ImportRecipeState = {};
 // and the name it had when the dialog opened. The link is carried to the
 // matcher only while the name is still that name, so editing a recipe
 // never re-matches a row the user didn't touch, and renaming one does.
+// `untracked` (MATCH-2) is carried the same way for a "Don't track" row.
+//
+// `rawText`/`note` (MATCH-2): an imported row's original line and its prep
+// note, saved with the row. The note is shown under the row; the original
+// line is dropped once the row is edited, since it no longer describes it.
 type IngredientRow = {
   uid: string;
   name: string;
@@ -68,7 +81,10 @@ type IngredientRow = {
   unit: string;
   unitTouched: boolean;
   linkedItemId: string | null;
+  untracked: boolean;
   linkedName: string;
+  rawText: string;
+  note: string;
 };
 
 function blankRow(): IngredientRow {
@@ -79,7 +95,10 @@ function blankRow(): IngredientRow {
     unit: "pcs",
     unitTouched: false,
     linkedItemId: null,
+    untracked: false,
     linkedName: "",
+    rawText: "",
+    note: "",
   };
 }
 
@@ -92,12 +111,17 @@ function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
     unit: ingredient.unit,
     unitTouched: true,
     linkedItemId: ingredient.inventoryItemId,
+    untracked: ingredient.untracked,
     linkedName: ingredient.name,
+    rawText: ingredient.rawText ?? "",
+    note: ingredient.note ?? "",
   }));
 }
 
+const nameUnchanged = (row: IngredientRow) => row.name.trim() === row.linkedName.trim();
+
 function currentLink(row: IngredientRow): string | null {
-  return row.linkedItemId && row.name.trim() === row.linkedName.trim() ? row.linkedItemId : null;
+  return row.linkedItemId && nameUnchanged(row) ? row.linkedItemId : null;
 }
 
 // Turns a preview into the review step's rows. A row the user already
@@ -124,7 +148,8 @@ function buildReview(
       unit,
       status: match.status,
       needsReview: ingredientNeedsReview(match),
-      mode: match.itemId ? "existing" : "new",
+      defaultUntracked: match.untracked,
+      mode: match.untracked ? "untracked" : match.itemId ? "existing" : "new",
       selectedId: match.itemId ?? "",
       candidateIds: match.candidateIds,
       newName,
@@ -139,12 +164,14 @@ function buildReview(
 // The per-row decision fields the save action reads, appended in the same
 // order as the ingredient inputs already in the form (blank rows included,
 // so the parallel arrays line up).
-function appendDecisions(formData: FormData, rows: IngredientRow[], review: ReviewState) {
+function appendDecisions(formData: FormData, rows: IngredientRow[], review: ReviewState | null) {
   for (const row of rows) {
-    const decided = review.rows.find((r) => r.uid === row.uid);
+    formData.append("ingredientRawText", row.rawText);
+    formData.append("ingredientNote", row.note);
+    const decided = review?.rows.find((r) => r.uid === row.uid);
     const isNew = decided?.mode === "new";
     formData.append("ingredientDecision", decided ? decided.mode : "");
-    formData.append("ingredientItemId", decided && !isNew ? decided.selectedId : "");
+    formData.append("ingredientItemId", decided?.mode === "existing" ? decided.selectedId : "");
     formData.append("ingredientNewName", isNew ? decided.newName.trim() : "");
     formData.append("ingredientNewCategory", isNew ? decided.newCategory.trim() : "");
     formData.append("ingredientNewUnit", isNew ? decided.newUnit.trim() : "");
@@ -240,17 +267,17 @@ export function RecipeFormDialog({
 
   // Keyboard and screen-reader users get told when the dialog changes under
   // them: a step change scrolls the form back to the top and focuses the
-  // new title, a blocked Save focuses the first row that needs a choice,
-  // and a server error focuses the error. Requested from the action (or a
-  // click), and carried out once React has rendered the result. `id` makes
-  // a repeated request for the same target run again.
+  // new title, and a blocked Save focuses the first row that needs a choice.
+  // Requested from the action (or a click), and carried out once React has
+  // rendered the result. `id` makes a repeated request for the same target
+  // run again. A server error is focused from the action's result instead
+  // (below): it only renders once the action has returned, so a request
+  // made inside the action ran before the error existed.
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const [focusRequest, setFocusRequest] = useState<{ target: "title" | "invalid" | "error"; id: number } | null>(
-    null,
-  );
-  const requestFocus = (target: "title" | "invalid" | "error") =>
+  const [focusRequest, setFocusRequest] = useState<{ target: "title" | "invalid"; id: number } | null>(null);
+  const requestFocus = (target: "title" | "invalid") =>
     setFocusRequest((current) => ({ target, id: (current?.id ?? 0) + 1 }));
   const goBack = () => {
     setStep("recipe");
@@ -263,13 +290,14 @@ export function RecipeFormDialog({
       titleRef.current?.focus();
       return;
     }
-    const target =
-      focusRequest.target === "invalid"
-        ? formRef.current?.querySelector<HTMLElement>('input[aria-invalid="true"]')
-        : errorRef.current;
+    const target = formRef.current?.querySelector<HTMLElement>('input[aria-invalid="true"]');
     target?.scrollIntoView({ block: "center" });
     target?.focus();
   }, [focusRequest]);
+
+  // True only while the read-only preview runs, so the button says
+  // "Checking ingredients…" then, and "Saving…" during the save itself.
+  const [checking, setChecking] = useState(false);
 
   const action = mode === "create" ? createRecipeAction : updateRecipeAction;
   const [state, formAction, pending] = useActionState(async (
@@ -282,13 +310,17 @@ export function RecipeFormDialog({
     const filledRows = rows.filter((row) => row.name.trim());
     let decided = review;
     if (step === "recipe") {
+      setChecking(true);
       const preview = await previewIngredientMatchesAction(
-        filledRows.map((row) => ({ name: row.name.trim(), unit: row.unit.trim(), linkedItemId: currentLink(row) })),
+        filledRows.map((row) => ({
+          name: row.name.trim(),
+          unit: row.unit.trim(),
+          linkedItemId: currentLink(row),
+          untracked: row.untracked && nameUnchanged(row),
+        })),
       );
-      if ("error" in preview) {
-        requestFocus("error");
-        return { error: preview.error };
-      }
+      setChecking(false);
+      if ("error" in preview) return { error: preview.error };
       decided = buildReview(filledRows, preview, review);
       if (decided.rows.some((row) => row.needsReview)) {
         setReview(decided);
@@ -302,15 +334,16 @@ export function RecipeFormDialog({
       requestFocus("invalid");
       return {};
     }
-    if (decided) appendDecisions(formData, rows, decided);
+    appendDecisions(formData, rows, decided);
 
     const result = await action(prevState, formData);
-    if (result.error) requestFocus("error");
     if (!result.error) {
       // Rows the save can actually link: a chosen item, or a new item with
       // a name (the server leaves anything else unlinked).
       const linked =
-        decided?.rows.filter((row) => (row.mode === "existing" ? row.selectedId : row.newName.trim())).length ?? 0;
+        decided?.rows.filter((row) =>
+          row.mode === "existing" ? row.selectedId : row.mode === "new" ? row.newName.trim() : false,
+        ).length ?? 0;
       if (linked > 0) {
         toast.success(format(plural(linked, dict.ingredientReview.savedLinked), { count: linked }));
       }
@@ -334,6 +367,12 @@ export function RecipeFormDialog({
     return result;
   }, initialState);
 
+  useEffect(() => {
+    if (!state.error) return;
+    errorRef.current?.scrollIntoView({ block: "center" });
+    errorRef.current?.focus();
+  }, [state]);
+
   // Pre-fills the manual fields from a successful import, for the user to
   // review/edit before saving — never auto-saves. Mirrors the main form's
   // action wrapper above: state updates happen right after the action
@@ -349,15 +388,27 @@ export function RecipeFormDialog({
       if (result.recipe.instructions) setInstructions(result.recipe.instructions);
       if (result.recipe.ingredients.length > 0) {
         setIngredients(
-          result.recipe.ingredients.map((ingredient) => ({
-            uid: crypto.randomUUID(),
-            name: ingredient.name,
-            quantity: String(ingredient.quantity),
-            unit: ingredient.unit,
-            unitTouched: true,
-            linkedItemId: null,
-            linkedName: "",
-          })),
+          result.recipe.ingredients.map((ingredient) => {
+            // A parser that splits the prep note off (MATCH-4) hands it over
+            // as `note`; otherwise it's still a trailing "(…)" on the name.
+            const split = ingredient.note
+              ? { name: ingredient.name, note: ingredient.note }
+              : splitIngredientNote(ingredient.name);
+            return {
+              uid: crypto.randomUUID(),
+              name: split.name,
+              quantity: String(ingredient.quantity),
+              unit: ingredient.unit,
+              unitTouched: true,
+              linkedItemId: null,
+              untracked: false,
+              linkedName: "",
+              // Clamped to the save action's caps, so an unusually long
+              // imported line can't make the whole save fail.
+              rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
+              note: split.note.slice(0, MAX_NOTE_LENGTH),
+            };
+          }),
         );
       }
       // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips
@@ -398,8 +449,9 @@ export function RecipeFormDialog({
     setIngredients((rows) => (rows.length > 1 ? rows.filter((r) => r.uid !== uid) : rows));
   const updateRow = (uid: string, field: "name" | "quantity" | "unit", value: string) =>
     setIngredients((rows) =>
-      rows.map((r) => {
-        if (r.uid !== uid) return r;
+      rows.map((row) => {
+        if (row.uid !== uid) return row;
+        const r = { ...row, rawText: "" };
         if (field === "unit") return { ...r, unit: value, unitTouched: true };
         if (field === "name") {
           const matchedUnit = ingredientUnits[value.trim().toLowerCase()];
@@ -615,48 +667,51 @@ export function RecipeFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               {ingredients.map((row) => (
-                <div key={row.uid} className="flex items-center gap-1.5">
-                  <div className="min-w-0 flex-1">
-                    <ComboField
-                      id={`ingredient-name-${row.uid}`}
-                      name="ingredientName"
-                      items={ingredientNames}
-                      value={row.name}
-                      onValueChange={(value) => updateRow(row.uid, "name", value)}
-                      placeholder={dict.ingredientNamePlaceholder}
-                      maxLength={120}
-                      dict={dict}
+                <div key={row.uid} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <ComboField
+                        id={`ingredient-name-${row.uid}`}
+                        name="ingredientName"
+                        items={ingredientNames}
+                        value={row.name}
+                        onValueChange={(value) => updateRow(row.uid, "name", value)}
+                        placeholder={dict.ingredientNamePlaceholder}
+                        maxLength={120}
+                        dict={dict}
+                      />
+                    </div>
+                    <Input
+                      name="ingredientQuantity"
+                      type="number"
+                      min={0.01}
+                      max={1000000}
+                      step="any"
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
+                      placeholder={dict.ingredientQuantityPlaceholder}
+                      className="w-16 shrink-0"
                     />
+                    <Input
+                      name="ingredientUnit"
+                      value={row.unit}
+                      onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
+                      placeholder={dict.ingredientUnitPlaceholder}
+                      maxLength={20}
+                      className="w-16 shrink-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={dict.removeIngredientAriaLabel}
+                      onClick={() => removeRow(row.uid)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
-                  <Input
-                    name="ingredientQuantity"
-                    type="number"
-                    min={0.01}
-                    max={1000000}
-                    step="any"
-                    value={row.quantity}
-                    onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
-                    placeholder={dict.ingredientQuantityPlaceholder}
-                    className="w-16 shrink-0"
-                  />
-                  <Input
-                    name="ingredientUnit"
-                    value={row.unit}
-                    onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
-                    placeholder={dict.ingredientUnitPlaceholder}
-                    maxLength={20}
-                    className="w-16 shrink-0"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label={dict.removeIngredientAriaLabel}
-                    onClick={() => removeRow(row.uid)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  {row.note && <p className="px-1 text-xs break-words text-muted-foreground">{row.note}</p>}
                 </div>
               ))}
             </div>
@@ -821,7 +876,7 @@ export function RecipeFormDialog({
             )}
             <Button type="submit" disabled={pending}>
               {pending
-                ? step === "recipe"
+                ? checking
                   ? dict.ingredientReview.checking
                   : mode === "create"
                     ? dict.creating

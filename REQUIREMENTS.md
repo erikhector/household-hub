@@ -2704,12 +2704,16 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking (MATCH-1)**: saving a recipe never
+- **Ingredient → inventory linking (MATCH-1, MATCH-2)**: saving a recipe never
   creates an inventory item on its own; design in
   `docs/RECIPE_INGREDIENT_MATCHING.md` §3.
   - **Matcher** (`src/lib/recipes/ingredient-match.ts`, pure): per row, in
-    order: the row's existing link (edit only, name unchanged), an exact
-    `normalizeItemName` match, a plural/singular fold of the last word
+    order: the row's existing link or Don't-track state (edit only, name
+    unchanged), an exact `normalizeItemName` match, a learned alias
+    (confident; see "Don't track and learned aliases" below), the
+    built-in staples (only `water`/`vatten`/`ice`/`is` as the whole
+    normalized name: Don't track pre-selected, but the row stays open), a
+    plural/singular fold of the last word
     (English -s/-es, Swedish -ar/-or/-er/-na, both sides; only ever a
     pre-selected suggestion, since "creamer" also folds to "cream"), then
     `findInventoryMatches`
@@ -2745,9 +2749,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     warning. Saving with an incomplete row shows a count at the top
     (`role="alert"`), marks the field `aria-invalid` with its error in
     `aria-describedby`, and focuses it. Switching steps scrolls the form to
-    the top and focuses the step's title; a server error is focused too.
-    While the preview runs the button reads "Checking ingredients…", and
-    step 2 has a text Back button in the footer as well as the header
+    the top and focuses the step's title. A server error is focused from an
+    effect on the action's result, once it has rendered. Only while the
+    preview runs does the button read "Checking ingredients…"; during the
+    save itself it reads "Creating…"/"Saving…". Step 2 has
+    a text Back button in the footer as well as the header
     arrow.
     "Create all new" flips every unconfident row to "Create new". Back
     keeps decisions for rows whose name and unit didn't change, and the
@@ -2755,7 +2761,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `inventoryItemId` rides along in the dialog, so editing a recipe keeps
     its links unless a row is renamed.
   - **Save** (`resolveIngredientDecisions` in `recipe-actions.ts`): each
-    row posts `ingredientDecision` (`existing` | `new`) with
+    row posts `ingredientDecision` (`existing` | `new` | `untracked`) with
     `ingredientItemId` or `ingredientNewName`/`NewCategory`/`NewUnit`, as
     parallel FormData arrays. Every chosen item id is checked in one
     household-scoped `findMany`; an unknown or foreign id rejects the
@@ -2765,7 +2771,30 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     row with no decision (older client, direct POST) links only on an
     exact name and otherwise stays unlinked. New items and the recipe are
     written in one interactive `$transaction`. Rows are capped at 100
-    (the recipe part of SEC-7). `parseComponentRows`
+    (the recipe part of SEC-7).
+  - **Don't track and learned aliases (MATCH-2)**: a third review choice,
+    "Don't track", saves the row with `RecipeIngredient.untracked = true`
+    and no link, and never creates anything. The row stays on the recipe
+    card, but `expandFromGraph` (so the shopping-list bridge, "Mark as
+    cooked" and the Cook tab), the cost estimate and "use it up" skip it.
+    A row with no link that isn't untracked (its item was deleted) keeps
+    the old match-by-name fallback. "Don't track the rest" flips every
+    unconfident row; "Create all new" leaves Don't-track rows alone. The
+    save learns into `ItemAlias` (`householdId`, `normalizedName` of the
+    name without a trailing "(…)", nullable `inventoryItemId`), replaced
+    per name in the same transaction: linking a name to an item whose
+    normalized name differs ("eggs" → Egg, including a new item created
+    under another name) aliases it to that item, and Don't track aliases
+    it to null. `previewIngredientMatchesAction` loads the household's
+    aliases alongside its items: an item alias is a confident match and an
+    untracked alias a confident Don't track, so neither is asked again.
+    Deleting an item cascades its aliases. An imported row's prep note
+    (the parser's `note`, or a trailing "(…)" split off the name on
+    import) and original line are saved in `RecipeIngredient.note` and
+    `rawText` (capped at 200/300 characters); the note shows under the
+    row in the dialog and after the name on the recipe card, and the
+    original line is dropped once the row is edited. A name typed by hand
+    keeps its "(…)", which matching still ignores. `parseComponentRows`
   in the same file batches its sub-recipe existence check the same way — one
   `recipe.findMany` across every candidate id instead of a `findFirst` per
   row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is

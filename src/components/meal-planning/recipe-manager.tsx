@@ -179,7 +179,11 @@ function RecipeRow({
   ingredientUnits: Record<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
-  const ingredientSummary = recipe.ingredients.map((ingredient) => ingredient.name).join(", ");
+  // An imported row's prep note (MATCH-2) reads after its name, the way
+  // the recipe had it: "gul lök (finhackad)".
+  const ingredientSummary = recipe.ingredients
+    .map((ingredient) => (ingredient.note ? `${ingredient.name} (${ingredient.note})` : ingredient.name))
+    .join(", ");
   const componentSummary = recipe.components.map((component) => component.componentRecipeName).join(", ");
   // Only shown when at least one nutrition field was filled in — see
   // Recipe's doc comment in schema.prisma. Empty recipes (the vast

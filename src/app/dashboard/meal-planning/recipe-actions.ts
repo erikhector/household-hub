@@ -59,15 +59,23 @@ const MAX_INGREDIENT_ROWS = 100;
 // Same bound as the category field on the inventory item form.
 const MAX_ITEM_CATEGORY_LENGTH = 60;
 const MAX_ITEM_ID_LENGTH = 64;
+// MATCH-2: the imported line and its prep note. An ingredient line on a
+// recipe site is a sentence at most; these only stop a direct POST from
+// storing an essay per row.
+const MAX_INGREDIENT_RAW_TEXT_LENGTH = 300;
+const MAX_INGREDIENT_NOTE_LENGTH = 200;
 
 // MATCH-1: what the "Match ingredients" step decided for one row. `existing`
 // links to `ingredientItemId`; `new` creates an item from the
-// `ingredientNew*` fields. A row with no decision (an older client, or a
-// direct POST) only ever links on an exact name match — it never creates.
-const ingredientDecisionSchema = z.enum(["existing", "new"]);
+// `ingredientNew*` fields; `untracked` (MATCH-2, "Don't track") saves the
+// row with no link on purpose. A row with no decision (an older client, or
+// a direct POST) only ever links on an exact name match — it never creates.
+const ingredientDecisionSchema = z.enum(["existing", "new", "untracked"]);
 type IngredientDecision = z.infer<typeof ingredientDecisionSchema>;
 
 type ParsedIngredientRow = IngredientRow & {
+  rawText: string | null;
+  note: string | null;
   decision: IngredientDecision | null;
   itemId: string;
   newName: string;
@@ -88,6 +96,8 @@ function parseIngredientRows(
   const newNames = field("ingredientNewName");
   const newCategories = field("ingredientNewCategory");
   const newUnits = field("ingredientNewUnit");
+  const rawTexts = field("ingredientRawText");
+  const notes = field("ingredientNote");
 
   const rows: ParsedIngredientRow[] = [];
   for (let i = 0; i < names.length; i++) {
@@ -108,6 +118,12 @@ function parseIngredientRows(
     const quantity = Number(quantities[i] || "1");
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_INGREDIENT_QUANTITY) {
       return { error: "Ingredient quantities must be greater than 0" };
+    }
+
+    const rawText = rawTexts[i] || null;
+    const note = notes[i] || null;
+    if ((rawText?.length ?? 0) > MAX_INGREDIENT_RAW_TEXT_LENGTH || (note?.length ?? 0) > MAX_INGREDIENT_NOTE_LENGTH) {
+      return { error: "Invalid input" };
     }
 
     let decision: IngredientDecision | null = null;
@@ -136,7 +152,7 @@ function parseIngredientRows(
       }
     }
 
-    rows.push({ name, quantity, unit, decision, itemId, newName, newCategory, newUnit });
+    rows.push({ name, quantity, unit, rawText, note, decision, itemId, newName, newCategory, newUnit });
   }
 
   return { data: rows };
@@ -144,11 +160,23 @@ function parseIngredientRows(
 
 type NewIngredientItem = { name: string; category: string; unit: string };
 
+type ResolvedIngredientRow = IngredientRow & {
+  rawText: string | null;
+  note: string | null;
+  untracked: boolean;
+  inventoryItemId: string | null;
+  newItemKey: string | null;
+};
+
 type ResolvedIngredients = {
-  rows: (IngredientRow & { inventoryItemId: string | null; newItemKey: string | null })[];
+  rows: ResolvedIngredientRow[];
   // Keyed by normalized name, so two "Create new" rows for the same thing
   // ("Milk" / "milk") create one item.
   newItems: Map<string, NewIngredientItem>;
+  // MATCH-2 learning, keyed by the ingredient's normalized name: the item
+  // it was linked to (an id, or the key of a new item), or null for "Don't
+  // track". Written in the save's transaction.
+  aliases: Map<string, { itemId: string } | { newItemKey: string } | null>;
   aiCandidates: string[];
 };
 
@@ -163,19 +191,21 @@ async function resolveIngredientDecisions(
   // Every chosen item must belong to this household. An unknown or foreign
   // id is rejected outright, never quietly created or dropped.
   const chosenIds = [...new Set(rows.filter((row) => row.decision === "existing").map((row) => row.itemId))];
+  const chosenNames = new Map<string, string>();
   if (chosenIds.length > 0) {
     const found = await prisma.inventoryItem.findMany({
       where: { id: { in: chosenIds }, householdId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (found.length !== chosenIds.length) return { error: dict.ingredientItemNotFoundError };
+    for (const item of found) chosenNames.set(item.id, normalizeItemName(item.name));
   }
 
   // Undecided rows link on an exact (normalized) name, and a `new` row
   // whose name already exists exactly links to that item instead of
   // creating a twin — the same dedupe the old find-or-create did. Only
   // loaded when some row needs it; also seeds the category resolver below.
-  const needsInventory = rows.some((row) => row.decision !== "existing");
+  const needsInventory = rows.some((row) => row.decision === "new" || row.decision === null);
   const inventory = needsInventory
     ? await prisma.inventoryItem.findMany({
         where: { householdId },
@@ -194,22 +224,43 @@ async function resolveIngredientDecisions(
   };
 
   const newItems = new Map<string, NewIngredientItem>();
-  const resolved: ResolvedIngredients["rows"] = [];
+  const aliases: ResolvedIngredients["aliases"] = new Map();
+  const resolved: ResolvedIngredientRow[] = [];
   for (const row of rows) {
-    const base = { name: row.name, quantity: row.quantity, unit: row.unit };
+    const base = {
+      name: row.name,
+      quantity: row.quantity,
+      unit: row.unit,
+      rawText: row.rawText,
+      note: row.note,
+      untracked: false,
+    };
+    // MATCH-2 learning (design §3.4): linking a name to an item called
+    // something else ("eggs" → Egg) remembers it, so the next recipe with
+    // "eggs" is confident. A link whose names already agree needs no alias,
+    // since it matches exactly anyway. Keyed like the matcher looks it up.
+    const aliasKey = normalizeItemName(ingredientBaseName(row.name));
     if (row.decision === "existing") {
       resolved.push({ ...base, inventoryItemId: row.itemId, newItemKey: null });
+      if (aliasKey && aliasKey !== chosenNames.get(row.itemId)) aliases.set(aliasKey, { itemId: row.itemId });
+    } else if (row.decision === "untracked") {
+      // "Don't track" is always remembered, so the same name defaults to it
+      // next time (and water only has to be answered once).
+      resolved.push({ ...base, untracked: true, inventoryItemId: null, newItemKey: null });
+      if (aliasKey) aliases.set(aliasKey, null);
     } else if (row.decision === "new") {
       const existingId = exactId(row.newName);
       const key = normalizeItemName(row.newName);
       if (existingId || !key) {
         resolved.push({ ...base, inventoryItemId: existingId, newItemKey: null });
+        if (existingId && aliasKey && aliasKey !== key) aliases.set(aliasKey, { itemId: existingId });
         continue;
       }
       if (!newItems.has(key)) {
         newItems.set(key, { name: row.newName, category: row.newCategory, unit: row.newUnit });
       }
       resolved.push({ ...base, inventoryItemId: null, newItemKey: key });
+      if (aliasKey && aliasKey !== key) aliases.set(aliasKey, { newItemKey: key });
     } else {
       resolved.push({ ...base, inventoryItemId: exactId(ingredientBaseName(row.name)), newItemKey: null });
     }
@@ -232,11 +283,12 @@ async function resolveIngredientDecisions(
     item.category = guessed || "Uncategorized";
   }
 
-  return { rows: resolved, newItems, aiCandidates };
+  return { rows: resolved, newItems, aliases, aiCandidates };
 }
 
-// Writes the new items (if any) with the given transaction client and
-// returns the recipe's ingredient rows with every link filled in.
+// Writes the new items (if any) and the learned aliases with the given
+// transaction client and returns the recipe's ingredient rows with every
+// link filled in.
 async function createIngredientItems(
   tx: Prisma.TransactionClient,
   householdId: string,
@@ -257,6 +309,23 @@ async function createIngredientItems(
         })
       : [];
   const createdIdByKey = new Map(created.map((item) => [normalizeItemName(item.name), item.id]));
+
+  // An alias is replaced, not added to: the latest answer for a name wins.
+  // Every id here was checked against the household above or was just
+  // created for it.
+  const aliases = [...resolved.aliases].map(([normalizedName, target]) => ({
+    householdId,
+    normalizedName,
+    inventoryItemId:
+      target === null ? null : "itemId" in target ? target.itemId : (createdIdByKey.get(target.newItemKey) ?? null),
+  }));
+  if (aliases.length > 0) {
+    await tx.itemAlias.deleteMany({
+      where: { householdId, normalizedName: { in: aliases.map((alias) => alias.normalizedName) } },
+    });
+    await tx.itemAlias.createMany({ data: aliases });
+  }
+
   return resolved.rows.map(({ newItemKey, inventoryItemId, ...row }) => ({
     ...row,
     inventoryItemId: newItemKey ? (createdIdByKey.get(newItemKey) ?? null) : inventoryItemId,
@@ -269,6 +338,7 @@ const previewRowsSchema = z
       name: z.string().trim().min(1).max(MAX_INGREDIENT_NAME_LENGTH),
       unit: z.string().trim().max(MAX_INGREDIENT_UNIT_LENGTH),
       linkedItemId: z.string().max(MAX_ITEM_ID_LENGTH).nullish(),
+      untracked: z.boolean().optional(),
     }),
   )
   .max(MAX_INGREDIENT_ROWS);
@@ -305,22 +375,34 @@ export async function previewIngredientMatchesAction(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
 
-  const items = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-    select: { id: true, name: true, category: true, unit: true },
-    orderBy: { name: "asc" },
-  });
+  const [items, aliases] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { id: true, name: true, category: true, unit: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.itemAlias.findMany({
+      where: { householdId: household.id },
+      select: { normalizedName: true, inventoryItemId: true },
+    }),
+  ]);
 
   const matches = matchIngredientRows(
-    parsed.data.map((row) => ({ name: row.name, unit: row.unit || "pcs", linkedItemId: row.linkedItemId })),
+    parsed.data.map((row) => ({
+      name: row.name,
+      unit: row.unit || "pcs",
+      linkedItemId: row.linkedItemId,
+      untracked: row.untracked,
+    })),
     items,
+    aliases,
   );
 
   // Seeded with the items above, so guessing costs no extra query.
   const resolveCategory = createCategoryResolver(household.id, items);
   const guessedCategories = await Promise.all(
     matches.map((match, index) =>
-      match.status === "confident" ? null : resolveCategory(ingredientBaseName(parsed.data[index].name)),
+      match.status === "confident" || match.untracked ? null : resolveCategory(ingredientBaseName(parsed.data[index].name)),
     ),
   );
 
@@ -594,7 +676,15 @@ export async function toggleRecipeFavoriteAction(recipeId: string): Promise<Acti
   return {};
 }
 
-export type ImportedRecipeIngredient = { name: string; quantity: number; unit: string };
+// `note` and `rawText` are optional so this stays assignable from the
+// parser's ParsedIngredient before and after MATCH-4 adds them (MATCH-2).
+export type ImportedRecipeIngredient = {
+  name: string;
+  quantity: number;
+  unit: string;
+  note?: string;
+  rawText?: string;
+};
 export type ImportRecipeState = ActionState & {
   recipe?: {
     name: string;
