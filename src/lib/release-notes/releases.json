@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.44.0",
+    "date": "2026-09-27",
+    "pr": 96,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Every pantry item now has its own page. It shows which recipes use the item, converts each recipe's amount into the item's unit, and lets you add unit conversions, change the item's unit without messing up its stock, and remove names it learned by mistake.",
+      "sv": "Varje vara i skafferiet har nu en egen sida. Där ser du vilka recept som använder varan, räknar om receptens mängder till varans enhet, lägger till enhetsomvandlingar, byter varans enhet utan att lagret blir fel och tar bort namn som kopplats fel."
+    }
+  },
+  {
     "version": "0.43.0",
     "date": "2026-09-27",
     "pr": 95,
