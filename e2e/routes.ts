@@ -6,7 +6,7 @@
 //
 // Plain data with no Playwright import, so Vitest can load it too.
 
-import { E2E_SHOPPING_LIST } from "./seed-data";
+import { E2E_ITEM, E2E_SHOPPING_LIST } from "./seed-data";
 
 export type UiRoute = {
   // The App Router pattern, exactly as the folder path spells it
@@ -25,6 +25,7 @@ export type UiRoute = {
 export const DASHBOARD_ROUTES: UiRoute[] = [
   { pattern: "/dashboard", path: "/dashboard" },
   { pattern: "/dashboard/inventory", path: "/dashboard/inventory" },
+  { pattern: "/dashboard/inventory/items/[id]", path: `/dashboard/inventory/items/${E2E_ITEM.id}` },
   { pattern: "/dashboard/shopping-list", path: "/dashboard/shopping-list" },
   {
     pattern: "/dashboard/shopping-list/[id]",

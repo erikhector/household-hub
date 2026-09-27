@@ -177,6 +177,17 @@ export async function updateInventoryItemAction(
   });
   if (!item) return { error: "Item not found" };
 
+  // MATCH-6 (design §4, §6.1): the form's unit field is a plain edit only
+  // while nothing is measured in the old unit. With stock, or with saved
+  // conversions (whose factors are per old unit), a bare rename would
+  // silently rescale them ("1 pcs" of flour becoming "1 g"), so the change
+  // goes through the item page's "Change unit…", which converts them.
+  if (canonicalUnit(parsed.data.unit) !== canonicalUnit(item.unit)) {
+    const measuredInOldUnit =
+      item.quantity > 0 || (await prisma.itemUnitConversion.count({ where: { inventoryItemId: item.id } })) > 0;
+    if (measuredInOldUnit) return { error: (await getDictionary()).inventory.unitChangeNeedsItemPage };
+  }
+
   const category = parsed.data.category || (await getDictionary()).inventory.uncategorized;
 
   // AUTO-7: "editing the date in the item form makes it real" means the
@@ -215,16 +226,6 @@ export async function updateInventoryItemAction(
         useWithinDaysOpened: neverExpires ? null : useWithinDaysOpened,
       },
     });
-    // MATCH-3 (design §4): a saved conversion from what is now the item's
-    // own unit ("1 g = 0.0005 pcs" after switching the item to grams) would
-    // be 1 = 1 at best and wrong at worst, so it goes. The item's other
-    // conversions stay; re-expressing them in the new unit is the item
-    // page's "Change unit…" (MATCH-6). Scoped by the item just checked
-    // against the household above.
-    const nextUnit = canonicalUnit(parsed.data.unit);
-    if (nextUnit !== canonicalUnit(item.unit)) {
-      await prisma.itemUnitConversion.deleteMany({ where: { inventoryItemId: item.id, fromUnit: nextUnit } });
-    }
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
   } catch (error) {

@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { Client } from "pg";
-import { E2E_SHOPPING_LIST } from "./seed-data";
+import { E2E_ITEM, E2E_SHOPPING_LIST } from "./seed-data";
 
 // A fixed, already-verified account with one household, so specs can log in
 // without going through signup + the email-verification gate (which needs a
@@ -90,6 +90,40 @@ export async function seed() {
               ('e2e-inv-olive-oil', $1, 'Olive oil', 'Pantry', 1, 'l', now()),
               ('e2e-inv-egg', $1, 'Egg', 'Dairy & eggs', 12, 'pcs', now())`,
       [E2E_HOUSEHOLD.id],
+    );
+    // The item page's seeded row (MATCH-6, e2e/routes.ts): flour counted in
+    // bags, with "1 pcs = 2000 g" saved, used by one recipe in grams (✓) and
+    // one in dl (⚠), on the seeded list, and a learned name. No template:
+    // a seeded one adds a "Start a new list from…" button that flows.spec.ts's
+    // "New list" locator would also match.
+    await client.query(
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
+       VALUES ($1, $2, $3, 'Baking', 1, 'pcs', 0.5, now())`,
+      [E2E_ITEM.id, E2E_HOUSEHOLD.id, E2E_ITEM.name],
+    );
+    await client.query(
+      `INSERT INTO "ItemUnitConversion" (id, "inventoryItemId", "fromUnit", factor) VALUES ('e2e-conv-flour-g', $1, 'g', 0.0005)`,
+      [E2E_ITEM.id],
+    );
+    await client.query(
+      `INSERT INTO "ItemAlias" (id, "householdId", "normalizedName", "inventoryItemId")
+       VALUES ('e2e-alias-flour', $1, 'vetemjöl', $2)`,
+      [E2E_HOUSEHOLD.id, E2E_ITEM.id],
+    );
+    await client.query(
+      `INSERT INTO "Recipe" (id, "householdId", name) VALUES ('e2e-recipe-buns', $1, 'Cinnamon buns'), ('e2e-recipe-pancakes', $1, 'Pancakes')`,
+      [E2E_HOUSEHOLD.id],
+    );
+    await client.query(
+      `INSERT INTO "RecipeIngredient" (id, "recipeId", "inventoryItemId", name, quantity, unit)
+       VALUES ('e2e-ing-buns-flour', 'e2e-recipe-buns', $1, 'Wheat flour', 750, 'g'),
+              ('e2e-ing-pancakes-flour', 'e2e-recipe-pancakes', $1, 'Wheat flour', 3, 'dl')`,
+      [E2E_ITEM.id],
+    );
+    await client.query(
+      `INSERT INTO "ShoppingListItem" (id, "shoppingListId", "inventoryItemId", name, quantity, unit)
+       VALUES ('e2e-item-flour', $1, $2, 'Wheat flour', 1, 'pcs')`,
+      [E2E_SHOPPING_LIST.id, E2E_ITEM.id],
     );
     await client.query("COMMIT");
   } catch (error) {

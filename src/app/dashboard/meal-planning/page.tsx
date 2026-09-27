@@ -451,6 +451,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
 
       <MealPlanningView
         dict={dict.mealPlanning}
+        initialTab={searchParams.tab === "recipes" || searchParams.tab === "cook" ? searchParams.tab : "planner"}
         varietyRecap={
           <Suspense key="variety-recap" fallback={null}>
             <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />

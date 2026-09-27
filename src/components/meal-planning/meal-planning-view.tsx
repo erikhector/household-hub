@@ -25,6 +25,7 @@ export function MealPlanningView({
   plannerTab,
   recipesTab,
   cookTab,
+  initialTab = "planner",
 }: {
   dict: Dictionary["mealPlanning"];
   varietyRecap: ReactNode;
@@ -32,8 +33,10 @@ export function MealPlanningView({
   plannerTab: ReactNode;
   recipesTab: ReactNode;
   cookTab: ReactNode;
+  /** `?tab=` on the page URL (MATCH-6's recipe links). */
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("planner");
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const tabItems: TabItem<Tab>[] = [
     { value: "planner", label: dict.tabPlanner },

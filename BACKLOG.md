@@ -425,14 +425,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Shopping list & inventory automation
 
-- [ ] **MATCH-6. Item page: where it's used, and its units** (medium, M; after MATCH-3) —
-      new route `/dashboard/inventory/items/[id]`: recipes, lists and templates
-      using the item, with each recipe amount converted into the item's unit
-      (⚠ + "Add conversion" when it can't be converted). Also conversions
-      CRUD with a live calculator, "Change unit…" (converts stock and
-      threshold and keeps the old unit as a conversion), and the names that
-      map to the item (aliases). Needs a `routes.ts` entry, a seed row and an
-      e2e flow. Design §6.1.
 - [ ] **MATCH-7. Item catalog with duplicate groups and merge** (medium, L; after MATCH-6) —
       new route `/dashboard/inventory/items` with filters (all / possible
       duplicates / never stocked / unit problems). Pure

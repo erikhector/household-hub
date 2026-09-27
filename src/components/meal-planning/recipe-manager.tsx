@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ChefHat, Layers, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -58,7 +60,10 @@ export function RecipeManager({
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
 }) {
-  const [query, setQuery] = useState("");
+  // MATCH-6: the item page links a recipe as `?tab=recipes&recipe=<id>`,
+  // which opens the list searched down to that recipe.
+  const linkedRecipeId = useSearchParams().get("recipe");
+  const [query, setQuery] = useState(() => recipes.find((recipe) => recipe.id === linkedRecipeId)?.name ?? "");
   // GAP-29: ALL or one RecipeTag key. Combines with the name search (both
   // must match); vegan implies vegetarian/dairy-free via recipeMatchesTag.
   const [tagFilter, setTagFilter] = useState<string>(ALL);
@@ -264,7 +269,23 @@ function RecipeRow({
         )}
         {ingredientSummary && (
           <p className="truncate text-sm text-muted-foreground" title={ingredientSummary}>
-            {ingredientSummary}
+            {/* MATCH-6: a linked ingredient opens its pantry item's page. */}
+            {recipe.ingredients.map((ingredient, index) => (
+              <Fragment key={ingredient.id}>
+                {index > 0 && ", "}
+                {ingredient.inventoryItemId ? (
+                  <Link
+                    href={`/dashboard/inventory/items/${ingredient.inventoryItemId}`}
+                    className="underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    {ingredient.name}
+                  </Link>
+                ) : (
+                  ingredient.name
+                )}
+                {ingredient.note && ` (${ingredient.note})`}
+              </Fragment>
+            ))}
           </p>
         )}
         {componentSummary && (
