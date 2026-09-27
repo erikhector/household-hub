@@ -138,6 +138,19 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `migrate deploy` (check Vercel installs devDeps at build), else wait
       for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
       advisories. Pairs with MAINT-12's Dependabot config.
+- [ ] **SEC-13. Rate-limit the shopping-list share-token endpoints** (low) —
+      `getShoppingListByShareToken` and `toggleItemViaShareTokenAction`
+      (`share/shopping-list/actions.ts:58,98`) take no session at all by
+      design (the token is the credential) and never call
+      `checkRateLimit`, unlike every other unauthenticated token endpoint:
+      the calendar feed (`api/calendar/[token]/route.ts:28,54`) added
+      `checkRateLimit` keyed on the token specifically so "a leaked link"
+      couldn't become "a cheap way to hammer the database." A leaked or
+      guessed share-list token has the identical exposure today with no
+      throttle on either the read or the write (item toggle, which also
+      moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
+      …)` call to both, mirroring the calendar feed's constants. Test: the
+      Nth request in a window past the cap is rejected.
 
 ### Performance (2026-09-26 audit)
 
@@ -304,6 +317,54 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
+
+### UX (2026-09-26 scout)
+
+Found by loading every dashboard route at 390×844 and 1280×800, in English
+and Swedish (which needed the seeded user's `locale` set in the DB — the
+`locale` cookie is only a fallback for signed-out pages, per
+`get-dictionary.ts`'s comment). No console errors, no untranslated strings,
+no broken empty states — the issues below are all clipped/illegible text.
+
+- [ ] **UX-1. Quick-add's Unit field hides its own value** (impact: high,
+      effort: S) — `src/components/inventory/quick-add-bar.tsx:110` wraps the
+      unit `ComboField` in a fixed `w-20` (80px) column, but the field also
+      has to fit a clear (`×`) button and a dropdown chevron
+      (`combo-field.tsx`'s `AutocompleteClear`/`AutocompleteTrigger`). The
+      default value "pcs" (or a Swedish unit) is clipped down to a single
+      character — the row shows "p ×" with no way to tell what unit is
+      selected without opening the dropdown. Reproduces on the empty
+      inventory state at both 390px and 1280px, `en` and `sv`. Widen the
+      column (e.g. `w-28`/`w-32`) or drop one of the two trailing icons for
+      this field. Acceptance: an e2e assertion that the quick-add unit
+      field's visible text matches its selected value (not truncated to one
+      character) at 390px width.
+- [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
+      (impact: medium, effort: S) — the inventory filter row's `Select`s
+      (`src/components/inventory/inventory-client.tsx:262-282`) sit in
+      narrow grid columns, and the shared `SelectTrigger`/`SelectValue`
+      (`src/components/ui/select.tsx:20-42`) only sets `whitespace-nowrap` +
+      `line-clamp-1`, not `truncate` — so a label longer than its column is
+      hard-clipped instead of ellipsized. Visible on the Inventory page at
+      1280px in **both** locales: English clips "Group by: No groupin[g]",
+      Swedish clips "Senast uppdaterad: Ny[aste först]". Since
+      `SelectValue`/`SelectTrigger` are shared UI primitives, likely affects
+      any other narrow `Select` too. Fix in `select.tsx` (swap the
+      clamp/nowrap combo for `truncate`, or add `text-ellipsis overflow-hidden`
+      to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
+      or visual check that a long option's label ends in an ellipsis, not a
+      mid-word cut, at 1280px.
+- [ ] **UX-3. Notifications empty state gives no next step** (impact: low,
+      effort: S) — every other feature's empty state explains what to do
+      next ("Add a few items to start tracking what's in stock.", "No tasks
+      yet — use the + button above to add one."), but
+      `dictionaries/en.ts:68`'s notifications `empty: "No notifications
+      yet."` (and its `sv.ts` counterpart) doesn't say what would ever
+      produce one. Add a second sentence naming a couple of triggers (low
+      stock, a task assigned to you, a household invite) so a first-time
+      user knows the page isn't broken. Acceptance: the empty-state copy in
+      both dictionaries includes an example of what generates a
+      notification.
 
 ### Budget component unification
 
@@ -488,6 +549,42 @@ out to be a product-scope question rather than a scoped task should move to
       design for a non-member participant's identity (a name-only row with
       no login, most likely) before it's a scoped task rather than an
       open-ended one.
+
+### 2026-09-27 scan
+
+- [ ] **GAP-38. Per-transaction currency for expenses paid in a different currency** `[!]` —
+      needs a product decision. Splitwise records each expense in whatever
+      currency it was actually paid in and offers currency conversion on
+      top; Squirrel's whole money model is one `Household.currencyCode`
+      (GAP-13, `src/lib/currency.ts`) that every `Transaction` and
+      `TransactionSplit` is assumed to be denominated in — there's no
+      per-transaction currency field or exchange rate anywhere in
+      `prisma/schema.prisma`. This bites hardest exactly where household
+      expense splitting is most useful (`TransactionSplit`/
+      `MemberSettlement`, `src/lib/settle-up-calc.ts`): a shared trip
+      abroad, where the bill was paid in a currency the household doesn't
+      use day to day, today has no honest way to be logged. Supporting it
+      means deciding whether to store a frozen FX rate at entry time or
+      convert live, and whether `computeBillPositions`/the settle-up
+      balances stay single-currency internally with only the display layer
+      converting — a currency-model change, not a UI tweak.
+
+- [ ] **GAP-39. Auto-schedule leftovers onto a future day's meal plan** `[!]` —
+      needs a product decision. Plan to Eat's standout feature is leftover
+      scheduling: cooking a big batch lets a household drop "leftovers"
+      straight onto a later day's plan instead of re-deciding what to eat.
+      Squirrel's leftovers flow (GAP-8,
+      `src/app/dashboard/meal-planning/leftovers.ts`,
+      `markMealEntryCookedAction`) only ever turns leftover servings into an
+      `InventoryItem` ("Leftovers: <recipe>") for the pantry — it never
+      creates a `MealPlan` entry, so a household still has to remember the
+      leftovers exist and manually plan a day around them (or hope
+      "Use it up", `src/lib/inventory/use-it-up-calc.ts`, surfaces it, which
+      only happens once the item is flagged expiring or low). Turning it
+      into an actual plan slot needs decisions this app hasn't made yet:
+      which day it lands on by default, what happens if that day already
+      has a dinner planned, and whether it's opt-in per meal or a household
+      setting.
 
 ## Needs a decision before building
 

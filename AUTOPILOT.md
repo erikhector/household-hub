@@ -21,7 +21,7 @@ retro_enabled: true
 ## Limits
 
 ```yaml
-max_open_autopilot_prs: 2      # builder does nothing while this many are open
+max_open_autopilot_prs: 10     # builder does nothing while this many are open
 max_new_items_per_scout_run: 3
 max_items_per_build_run: 1
 ```
