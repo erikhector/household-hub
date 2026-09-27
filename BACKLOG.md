@@ -718,7 +718,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.40.0 | #92 feat: ingredient match review (MATCH-1) | 2026-09-27 | #93 (catch-up) |
       | v0.41.0 | #91 feat: ingredient parsing (MATCH-4) | 2026-09-27 | #93 (catch-up) |
       | v0.42.0 | #94 feat: untracked ingredients and aliases (MATCH-2) | 2026-09-27 | #93 (catch-up) |
-      | v0.42.1 | #93 fix: long dialogs scroll on iOS | not yet | #93 |
+      | v0.42.1 | #93 fix: long dialogs scroll on iOS | 2026-09-27 | #93 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
