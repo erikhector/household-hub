@@ -2737,9 +2737,18 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     "Use existing" (an `ItemCombobox`, best candidates first) or "Create
     new" (name, category, unit). The new item's unit defaults per kind:
     count units stay (canonicalized), other volumes → `l`, weights → `g`,
-    spoon measures, pinches and unknown units → `pcs`. Each row shows
-    whether the pantry unit reconciles; one that doesn't says the amount
-    will be asked for when cooking (the existing unit-mismatch path).
+    spoon measures, pinches and unknown units → `pcs`. Each open row says
+    why it's open ("Closest match: X. Check it's right." or "Nothing
+    close…") and whether the pantry unit reconciles; one that doesn't says
+    the amount will be asked for when cooking (the existing unit-mismatch
+    path). An untouched default unit gets a neutral note, not that
+    warning. Saving with an incomplete row shows a count at the top
+    (`role="alert"`), marks the field `aria-invalid` with its error in
+    `aria-describedby`, and focuses it. Switching steps scrolls the form to
+    the top and focuses the step's title; a server error is focused too.
+    While the preview runs the button reads "Checking ingredients…", and
+    step 2 has a text Back button in the footer as well as the header
+    arrow.
     "Create all new" flips every unconfident row to "Create new". Back
     keeps decisions for rows whose name and unit didn't change, and the
     step-1 button then reads "Next: match ingredients". A saved row's

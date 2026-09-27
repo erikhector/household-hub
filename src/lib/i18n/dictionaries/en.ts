@@ -1232,7 +1232,15 @@ export const en = {
       newCategoryPlaceholder: "e.g. Produce",
       newUnitLabel: "Counted in",
       unitOk: "Pantry counts it in {unit}.",
-      unitUnknown: "The recipe uses {recipeUnit} and the pantry counts {itemUnit}. You'll be asked for the amount when you cook.",
+      unitUnknown: "The recipe uses {recipeUnit} and the pantry counts it in {itemUnit}. You'll be asked for the amount when you cook.",
+      newUnitDefault: "The pantry will count it in {unit}. Change it if you buy it differently.",
+      reasonSuggested: "Closest match: {name}. Check it's right.",
+      reasonNone: "Nothing close in your pantry, so this becomes a new item.",
+      errorSummary: {
+        one: "{count} ingredient still needs a choice.",
+        other: "{count} ingredients still need a choice.",
+      },
+      checking: "Checking ingredients…",
       back: "Back",
       next: "Next: match ingredients",
       savedLinked: {

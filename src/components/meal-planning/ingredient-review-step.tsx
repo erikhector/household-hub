@@ -40,6 +40,9 @@ export type ReviewRow = {
   newName: string;
   newCategory: string;
   newUnit: string;
+  /** False while `newUnit` is still the default we picked, so the row
+   * doesn't warn about a unit the user never chose. */
+  newUnitTouched: boolean;
 };
 
 export type ReviewState = {
@@ -74,6 +77,7 @@ export function IngredientReviewStep({
   // "Create all new" only flips rows the matcher had no confident item for;
   // a confident row that's only here for its unit keeps its match.
   const leftOver = needsLook.filter((row) => row.status !== "confident" && row.mode !== "new");
+  const errorCount = attempted ? review.rows.filter((row) => reviewRowError(row, t)).length : 0;
 
   const renderRow = (row: ReviewRow) => (
     <ReviewRowCard
@@ -87,8 +91,13 @@ export function IngredientReviewStep({
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+      {errorCount > 0 && (
+        <p role="alert" className="text-sm font-medium text-destructive">
+          {format(plural(errorCount, t.errorSummary), { count: errorCount })}
+        </p>
+      )}
       {matched.length > 0 && (
         <AutoMatchedSection
           summary={format(plural(matched.length, t.matchedSummary), { count: matched.length })}
@@ -150,15 +159,29 @@ function ReviewRowCard({
       ? review.items.find((item) => item.id === row.selectedId)?.unit
       : row.newUnit.trim() || undefined;
   const unitClass = pantryUnit ? classifyUnits(row.unit, pantryUnit) : null;
+  // The default unit for a new item is our pick, not a mismatch the user
+  // made, so it gets a neutral note instead of a warning.
+  const isDefaultNewUnit = row.mode === "new" && !row.newUnitTouched;
   const fieldId = `ingredient-review-${row.uid}`;
+  const errorId = `${fieldId}-error`;
+  // Why the row is open at all: a confident row with a unit problem says so
+  // through its unit note below.
+  const reason = !row.needsReview
+    ? null
+    : row.status === "suggested" && candidates[0]
+      ? format(t.reasonSuggested, { name: candidates[0].name })
+      : row.status === "none"
+        ? t.reasonNone
+        : null;
 
   return (
-    <div role="group" aria-label={row.label} className="flex flex-col gap-2 rounded-md border bg-background p-2">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium" title={row.label}>
-          {row.label}
-        </p>
-        <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1">
+    <div role="group" aria-label={row.label} className="flex min-w-0 flex-col gap-2 rounded-md border bg-background p-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-sm font-medium break-words">{row.label}</p>
+          {reason && <p className="text-xs text-muted-foreground">{reason}</p>}
+        </div>
+        <div className="flex w-fit shrink-0 flex-wrap gap-1 rounded-lg bg-muted p-1">
           {review.items.length > 0 && (
             <Button
               type="button"
@@ -187,8 +210,11 @@ function ReviewRowCard({
           items={orderedItems.map((item) => ({ id: item.id, label: `${item.name} · ${item.category}` }))}
           value={row.selectedId}
           onValueChange={(value) => onChange({ selectedId: value })}
+          id={`${fieldId}-item`}
           ariaLabel={format(t.existingItemLabel, { name: row.name })}
           emptyMessage={t.existingItemNoResults}
+          invalid={!!error}
+          describedBy={error ? errorId : undefined}
         />
       )}
 
@@ -203,9 +229,11 @@ function ReviewRowCard({
               value={row.newName}
               onChange={(e) => onChange({ newName: e.target.value })}
               maxLength={120}
+              aria-invalid={!!error || undefined}
+              aria-describedby={error ? errorId : undefined}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <Label htmlFor={`${fieldId}-category`} className="text-xs font-normal text-muted-foreground">
                 {t.newCategoryLabel}
@@ -227,7 +255,7 @@ function ReviewRowCard({
               <Input
                 id={`${fieldId}-unit`}
                 value={row.newUnit}
-                onChange={(e) => onChange({ newUnit: e.target.value })}
+                onChange={(e) => onChange({ newUnit: e.target.value, newUnitTouched: true })}
                 maxLength={20}
               />
             </div>
@@ -235,16 +263,23 @@ function ReviewRowCard({
         </div>
       )}
 
-      {pantryUnit && unitClass !== "unknown" && (
+      {pantryUnit && isDefaultNewUnit && (
+        <p className="text-xs text-muted-foreground">{format(t.newUnitDefault, { unit: pantryUnit })}</p>
+      )}
+      {pantryUnit && !isDefaultNewUnit && unitClass !== "unknown" && (
         <p className="text-xs text-muted-foreground">{format(t.unitOk, { unit: pantryUnit })}</p>
       )}
-      {pantryUnit && unitClass === "unknown" && (
+      {pantryUnit && !isDefaultNewUnit && unitClass === "unknown" && (
         <p className="flex items-start gap-1.5 text-xs text-warning">
           <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden />
           {format(t.unitUnknown, { recipeUnit: row.unit, itemUnit: pantryUnit })}
         </p>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <p id={errorId} className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

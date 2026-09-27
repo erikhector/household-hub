@@ -56,8 +56,9 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   await expect(row.getByRole("combobox", { name: "Pantry item for Tomater" })).toHaveValue("Tomatoes · Produce");
   await expect(row.getByRole("button", { name: "Use existing" })).toHaveAttribute("aria-pressed", "true");
 
-  // Back returns to the recipe fields with nothing saved yet.
-  await review.getByRole("button", { name: "Back" }).click();
+  // Back (the text button in the footer; the header has an arrow too)
+  // returns to the recipe fields with nothing saved yet.
+  await review.getByRole("button", { name: "Back" }).last().click();
   const recipeStep = page.getByRole("dialog", { name: "New recipe" });
   await expect(recipeStep.getByRole("button", { name: "Next: match ingredients" })).toBeVisible();
   await recipeStep.getByRole("button", { name: "Next: match ingredients" }).click();
@@ -85,4 +86,75 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   // Desktop shows a table and phones show cards, so only one is visible.
   await expect(page.getByText("Tomatoes", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Tomater", { exact: true })).toHaveCount(0);
+});
+
+// A name no pantry item resembles, so the row gets no suggestion. Random
+// letters rather than a shared prefix, since the desktop and mobile runs
+// share one household and a common prefix would fuzzily match the item the
+// other run created.
+const nonsenseName = () =>
+  Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+
+test("the review step creates a new item, blocks an incomplete row, and folds away confident matches", async ({
+  page,
+}) => {
+  const recipeName = unique("Stew");
+  const spice = nonsenseName();
+  const dialog = await openNewRecipe(page, recipeName);
+  await fillIngredient(page, "Olive oil", "1", "dl");
+  await dialog.getByRole("button", { name: "Add ingredient" }).click();
+  await dialog.getByPlaceholder("Ingredient").nth(1).fill(spice);
+  await dialog.getByPlaceholder("Qty").nth(1).fill("1");
+  await dialog.getByPlaceholder("Unit").nth(1).fill("krm");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  await expect(review.getByRole("heading", { name: "Match ingredients" })).toBeFocused();
+
+  // The confident "Olive oil" row is folded into the summary.
+  const oliveOil = review.getByRole("group", { name: "1 dl Olive oil" });
+  await expect(oliveOil).toHaveCount(0);
+  await review.getByRole("button", { name: "Show" }).click();
+  await expect(oliveOil).toBeVisible();
+  await review.getByRole("button", { name: "Hide" }).click();
+  await expect(oliveOil).toHaveCount(0);
+
+  // No match, so it defaults to Create new with a pantry-friendly unit and
+  // a neutral note (not a warning about our own default).
+  const row = review.getByRole("group", { name: `1 krm ${spice}` });
+  await expect(row.getByText("Nothing close in your pantry, so this becomes a new item.")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Create new" })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByRole("textbox", { name: "Counted in" })).toHaveValue("pcs");
+  await expect(row.getByText("The pantry will count it in pcs. Change it if you buy it differently.")).toBeVisible();
+
+  // A new item needs a name: Save is blocked, and focus lands on the field.
+  const newName = row.getByRole("textbox", { name: "New item name" });
+  await newName.fill("");
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(review.getByRole("alert").filter({ hasText: "1 ingredient still needs a choice." })).toBeVisible();
+  await expect(newName).toBeFocused();
+  await expect(newName).toHaveAttribute("aria-invalid", "true");
+
+  const itemName = `${spice} jar`;
+  await newName.fill(itemName);
+  const category = row.getByRole("combobox", { name: "Category" });
+  await category.fill("Spices");
+  // Leave the field so its suggestion popup closes.
+  await category.press("Tab");
+
+  // Nothing in the step scrolls sideways.
+  const form = review.locator("form:not([hidden])");
+  const { scrollWidth, clientWidth } = await form.evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByText("Saved · 2 ingredients linked to your pantry")).toBeVisible();
+
+  // The new item exists, under the chosen name.
+  await page.goto("/dashboard/inventory");
+  await page.getByPlaceholder("Search by name…").fill(spice);
+  await expect(page.getByText(itemName, { exact: true }).filter({ visible: true }).first()).toBeVisible();
 });

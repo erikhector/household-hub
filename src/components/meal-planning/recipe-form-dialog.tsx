@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactElement } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactElement } from "react";
 import { ArrowLeft, Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,7 @@ function buildReview(
       newName,
       newCategory: preview.guessedCategories[index] ?? "",
       newUnit: defaultNewItemUnit(unit),
+      newUnitTouched: false,
     };
   });
   return { rows: reviewRows, items: preview.items, categories: preview.categories };
@@ -237,6 +238,39 @@ export function RecipeFormDialog({
     setReviewAttempted(false);
   };
 
+  // Keyboard and screen-reader users get told when the dialog changes under
+  // them: a step change scrolls the form back to the top and focuses the
+  // new title, a blocked Save focuses the first row that needs a choice,
+  // and a server error focuses the error. Requested from the action (or a
+  // click), and carried out once React has rendered the result. `id` makes
+  // a repeated request for the same target run again.
+  const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: "title" | "invalid" | "error"; id: number } | null>(
+    null,
+  );
+  const requestFocus = (target: "title" | "invalid" | "error") =>
+    setFocusRequest((current) => ({ target, id: (current?.id ?? 0) + 1 }));
+  const goBack = () => {
+    setStep("recipe");
+    requestFocus("title");
+  };
+  useEffect(() => {
+    if (!focusRequest) return;
+    if (focusRequest.target === "title") {
+      formRef.current?.scrollTo({ top: 0 });
+      titleRef.current?.focus();
+      return;
+    }
+    const target =
+      focusRequest.target === "invalid"
+        ? formRef.current?.querySelector<HTMLElement>('input[aria-invalid="true"]')
+        : errorRef.current;
+    target?.scrollIntoView({ block: "center" });
+    target?.focus();
+  }, [focusRequest]);
+
   const action = mode === "create" ? createRecipeAction : updateRecipeAction;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -251,21 +285,27 @@ export function RecipeFormDialog({
       const preview = await previewIngredientMatchesAction(
         filledRows.map((row) => ({ name: row.name.trim(), unit: row.unit.trim(), linkedItemId: currentLink(row) })),
       );
-      if ("error" in preview) return { error: preview.error };
+      if ("error" in preview) {
+        requestFocus("error");
+        return { error: preview.error };
+      }
       decided = buildReview(filledRows, preview, review);
       if (decided.rows.some((row) => row.needsReview)) {
         setReview(decided);
         setReviewAttempted(false);
         setStep("review");
+        requestFocus("title");
         return {};
       }
     } else if (decided?.rows.some((row) => reviewRowError(row, dict.ingredientReview))) {
       setReviewAttempted(true);
+      requestFocus("invalid");
       return {};
     }
     if (decided) appendDecisions(formData, rows, decided);
 
     const result = await action(prevState, formData);
+    if (result.error) requestFocus("error");
     if (!result.error) {
       // Rows the save can actually link: a chosen item, or a new item with
       // a name (the server leaves anything else unlinked).
@@ -406,15 +446,17 @@ export function RecipeFormDialog({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={dict.ingredientReview.back}
-                onClick={() => setStep("recipe")}
+                onClick={goBack}
                 disabled={pending}
               >
                 <ArrowLeft className="size-4" />
               </Button>
-              <DialogTitle>{dict.ingredientReview.title}</DialogTitle>
+              <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+                {dict.ingredientReview.title}
+              </DialogTitle>
             </div>
           ) : (
-            <DialogTitle>
+            <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
               {mode === "create" ? dict.newRecipeDialogTitle : dict.editRecipeDialogTitle}
             </DialogTitle>
           )}
@@ -462,7 +504,14 @@ export function RecipeFormDialog({
           )}
         </form>
 
-        <form action={formAction} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+        {/* -mx-4/px-4: the form is the scroll container, and DialogFooter
+            bleeds -mx-4 to the dialog's edges; without room for that bleed
+            the whole form scrolled 16px sideways. */}
+        <form
+          ref={formRef}
+          action={formAction}
+          className="-mx-4 flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-4"
+        >
           {mode === "edit" && recipe && (
             <input type="hidden" name="recipeId" value={recipe.id} />
           )}
@@ -759,13 +808,24 @@ export function RecipeFormDialog({
 
           </div>
 
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state.error && (
+            <p ref={errorRef} tabIndex={-1} role="alert" className="text-sm text-destructive outline-none">
+              {state.error}
+            </p>
+          )}
           <DialogFooter>
+            {step === "review" && (
+              <Button type="button" variant="outline" onClick={goBack} disabled={pending}>
+                {dict.ingredientReview.back}
+              </Button>
+            )}
             <Button type="submit" disabled={pending}>
               {pending
-                ? mode === "create"
-                  ? dict.creating
-                  : dict.saving
+                ? step === "recipe"
+                  ? dict.ingredientReview.checking
+                  : mode === "create"
+                    ? dict.creating
+                    : dict.saving
                 : step === "recipe" && review?.rows.some((row) => row.needsReview)
                   ? dict.ingredientReview.next
                   : mode === "create"
