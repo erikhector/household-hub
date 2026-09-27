@@ -26,7 +26,7 @@ const {
   revalidatePathMock,
   addToDefaultListOnLowStockMock,
   addItemToDefaultListMock,
-  unitConversionDeleteManyMock,
+  unitConversionCountMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
@@ -47,7 +47,7 @@ const {
   revalidatePathMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
   addItemToDefaultListMock: vi.fn(),
-  unitConversionDeleteManyMock: vi.fn(),
+  unitConversionCountMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -74,7 +74,7 @@ vi.mock("@/lib/prisma", () => {
       findMany: vi.fn(async () => []),
     },
     notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
-    itemUnitConversion: { deleteMany: unitConversionDeleteManyMock },
+    itemUnitConversion: { count: unitConversionCountMock },
   };
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
   return { prisma };
@@ -85,7 +85,11 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
   return {
     getDictionary: vi.fn(async () => ({
       shoppingList: { defaultNamePrefix: "Shopping list" },
-      inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
+      inventory: {
+        uncategorized: "Uncategorized",
+        autoCategories: en.inventory.autoCategories,
+        unitChangeNeedsItemPage: en.inventory.unitChangeNeedsItemPage,
+      },
     })),
   };
 });
@@ -99,6 +103,7 @@ vi.mock("@/lib/shopping/default-list", () => ({
   revalidateAutoAdded: vi.fn(),
 }));
 
+const { en } = await import("@/lib/i18n/dictionaries/en");
 const {
   createInventoryItemAction,
   updateInventoryItemAction,
@@ -278,24 +283,45 @@ describe("updateInventoryItemAction", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it("deletes a saved conversion from the item's new unit when the unit changes (MATCH-3)", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs" });
+  it("changes the unit as a plain edit when nothing is measured in it (MATCH-6)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs", quantity: 0 });
+    unitConversionCountMock.mockResolvedValue(0);
     updateMock.mockResolvedValue({});
 
-    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "Grams" }));
+    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "g" }));
 
     expect(result.error).toBeUndefined();
-    // Canonicalized, like the stored fromUnit; scoped by the checked item.
-    expect(unitConversionDeleteManyMock).toHaveBeenCalledWith({ where: { inventoryItemId: "item-1", fromUnit: "g" } });
+    expect(unitConversionCountMock).toHaveBeenCalledWith({ where: { inventoryItemId: "item-1" } });
+    expect(updateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ unit: "g" }) }));
   });
 
-  it("leaves conversions alone when the unit is only respelled (MATCH-3)", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs" });
+  it("sends a unit change on an item with stock to the item page instead (MATCH-6)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs", quantity: 1 });
+
+    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "g" }));
+
+    expect(result.error).toBe(en.inventory.unitChangeNeedsItemPage);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("sends a unit change on an item with saved conversions to the item page instead (MATCH-6)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs", quantity: 0 });
+    unitConversionCountMock.mockResolvedValue(1);
+
+    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "g" }));
+
+    expect(result.error).toBe(en.inventory.unitChangeNeedsItemPage);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("lets the unit be respelled on an item with stock (MATCH-6)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs", quantity: 3 });
     updateMock.mockResolvedValue({});
 
-    await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "st" }));
+    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "st" }));
 
-    expect(unitConversionDeleteManyMock).not.toHaveBeenCalled();
+    expect(result.error).toBeUndefined();
+    expect(unitConversionCountMock).not.toHaveBeenCalled();
   });
 
   it("nulls out location explicitly when cleared, instead of leaving it stale", async () => {
@@ -349,6 +375,7 @@ describe("updateInventoryItemAction", () => {
     it("keeps an existing estimate when the submitted date is the same calendar day (an untouched, re-submitted date input)", async () => {
       findFirstMock.mockResolvedValue({
         id: "item-1",
+        unit: "kg",
         expiresAt: estimatedDate,
         expiresAtEstimated: true,
       });
@@ -367,6 +394,7 @@ describe("updateInventoryItemAction", () => {
     it("makes the date real when the submitted date is a different day", async () => {
       findFirstMock.mockResolvedValue({
         id: "item-1",
+        unit: "kg",
         expiresAt: estimatedDate,
         expiresAtEstimated: true,
       });
@@ -385,6 +413,7 @@ describe("updateInventoryItemAction", () => {
     it("clears the estimate flag when the date is cleared", async () => {
       findFirstMock.mockResolvedValue({
         id: "item-1",
+        unit: "kg",
         expiresAt: estimatedDate,
         expiresAtEstimated: true,
       });
@@ -429,7 +458,7 @@ describe("useWithinDaysOpened on the item form (GAP-28)", () => {
   });
 
   it("drops the window for an item that doesn't expire", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 2, expiresAt: null, expiresAtEstimated: false });
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "kg", quantity: 2, expiresAt: null, expiresAtEstimated: false });
     updateMock.mockResolvedValue({});
 
     await updateInventoryItemAction(

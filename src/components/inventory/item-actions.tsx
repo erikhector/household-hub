@@ -1,8 +1,9 @@
 "use client";
 
-import { Ban, PackageOpen, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Ban, Info, PackageOpen, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +17,7 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 
 // Shared between the desktop table row and the mobile card (see
-// InventoryTable) so the mark-empty/edit/delete cluster — and its touch-
+// InventoryTable) so the details/mark-empty/edit/delete cluster — and its touch-
 // target sizing — only needs to be defined once.
 export function ItemActions({
   item,
@@ -66,6 +67,15 @@ export function ItemActions({
           <PackageOpen className="size-3.5" />
         </Button>
       )}
+      {/* MATCH-6: the item page (recipes using it, units, learned names). */}
+      <Link
+        href={`/dashboard/inventory/items/${item.id}`}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary")}
+        aria-label={format(dict.detailsAriaLabel, { name: item.name })}
+        title={dict.details}
+      >
+        <Info className="size-3.5" />
+      </Link>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

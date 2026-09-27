@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState, type ReactElement } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -254,6 +255,17 @@ export function ItemFormDialog({
               />
             </div>
           </div>
+          {/* MATCH-6: changing the unit of an item with stock or saved
+              conversions happens on its page ("Change unit…"), which is
+              also where its conversions and recipes are. */}
+          {mode === "edit" && item && (
+            <Link
+              href={`/dashboard/inventory/items/${item.id}`}
+              className="-mt-2 w-fit text-xs text-primary underline-offset-4 hover:underline"
+            >
+              {dict.unitsAndDetailsLink}
+            </Link>
+          )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="expiresAt">{dict.expiresAtLabel}</Label>
             <Input

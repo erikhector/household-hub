@@ -275,6 +275,62 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   Adding an item offers previously-used categories/locations via a native
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
+  - **Item page (MATCH-6)**: `/dashboard/inventory/items/[id]`
+    (design `docs/RECIPE_INGREDIENT_MATCHING.md` §6.1), a Server Component
+    that loads the item (with its `ItemUnitConversion`s and `ItemAlias`es),
+    its linked `RecipeIngredient`s, its pending rows (not purchased, on an
+    `ACTIVE` list) and its template rows in four household-scoped queries
+    run together, and `notFound()`s an item of another household. Opened
+    from the ⓘ "Details for {name}" link in each inventory row's action
+    cluster (desktop table and phone card), from a linked ingredient name
+    on a recipe card, and from the item form's "Units, recipes and
+    details" link. Sections, stacked on phones:
+    - **Header**: name, category · location, "In stock: 1 pcs · low stock
+      at 0.5 pcs" and "Change unit…".
+    - **Units**: "Counted in {unit}" and each conversion, written the way
+      people know the number (`conversionSentence`, the review's
+      `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
+      edit and delete (confirmed). "Add conversion" opens the same dialog
+      blank. The dialog takes the unit and "1 X = [n] Y", pre-filled from
+      `unitConversionHint` and marked "≈" while untouched. `saveUnitConversionAction`
+      canonicalizes the unit, keeps the factor within
+      `MIN/MAX_UNIT_FACTOR`, refuses the item's own unit and a unit the
+      generic table already converts (`convertForItem` would never read
+      it), and upserts one row per unit (an edit that changes the unit
+      replaces its row). `deleteUnitConversionAction` only reaches a
+      conversion through an item of the household. "Try it" is a live,
+      client-side calculator over `convertForItem`.
+    - **Used in N recipes**: each linked row as the recipe writes it, then
+      `convertForItem` into the item's unit (three significant digits)
+      with ✓, or ⚠ and an "Add {unit}…" button that opens the conversion
+      dialog with that unit filled in. The recipe name links to
+      `/dashboard/meal-planning?tab=recipes&recipe=<id>`, which opens the
+      Recipes tab searched down to that recipe.
+    - **Also on**: pending list rows ("E2E Groceries (1 pcs)", linking to
+      the list) and templates (linking to the shopping lists page).
+    - **Names that map here**: the item's learned aliases, each removable
+      (`removeItemAliasAction`, household-scoped), so the name is asked
+      about again.
+    - **Change unit…** (`changeItemUnitAction`): the new unit and "How
+      many {new} is 1 {old}?", pre-filled by `suggestedUnitChangeFactor`
+      (the generic table, "l" → "dl" = 10, else a saved conversion from
+      the new unit, "1 g = 0.0005 pcs" → 2000), with a before/after
+      preview of stock and low-stock level. `planUnitChange`
+      (`src/lib/inventory/item-units.ts`, pure, shared by the preview and
+      the action) multiplies quantity and threshold by the factor (ten
+      significant digits, so "5 g" in kg stays 0.005), multiplies each
+      conversion's factor by it, drops a conversion from the new unit or
+      one the generic table now converts, and adds the old unit as a
+      conversion ("1 pcs = 2000 g"). One transaction writes the item with
+      an `updateMany` guarded on the unit, quantity and threshold it read
+      (a +/- from another phone in between fails with "The stock
+      changed…" rather than being rescaled twice), then replaces the
+      conversions. `lastKnownPrice` and `PriceHistory` are untouched.
+      This is the only place stock is converted between units.
+    - **Item form's unit field**: still a plain edit, but only while
+      nothing is measured in the old unit. `updateInventoryItemAction`
+      refuses a unit change (other than a respelling like st → pcs) on an
+      item with stock or saved conversions and points to "Change unit…".
   - **Expiry/best-before tracking**: an optional `expiresAt` (`DateTime?`),
     set from a native date input on the single-item add/edit form
     (`ItemFormDialog`), or estimated automatically (AUTO-7, below) — never
@@ -2829,10 +2885,10 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     in the recipe's transaction, only for an item checked against the
     household or created by this save; `override` stores the row in the
     item's unit and amount, keeping the original line in `rawText`
-    (built from the row when it had none). Changing an item's unit in the
-    item form deletes a conversion from the new unit (it would be 1 = 1);
-    the others are kept as they are until the item page's "Change unit…"
-    (MATCH-6) re-expresses them. `parseComponentRows`
+    (built from the row when it had none). An item's conversions are
+    listed, added, edited and deleted on its item page, where "Change
+    unit…" re-expresses them; the item form can't change the unit of an
+    item that has any (see "Item page (MATCH-6)" under Inventory). `parseComponentRows`
   in the same file batches its sub-recipe existence check the same way — one
   `recipe.findMany` across every candidate id instead of a `findFirst` per
   row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is

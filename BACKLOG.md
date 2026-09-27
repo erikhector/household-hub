@@ -425,14 +425,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Shopping list & inventory automation
 
-- [ ] **MATCH-6. Item page: where it's used, and its units** (medium, M; after MATCH-3) —
-      new route `/dashboard/inventory/items/[id]`: recipes, lists and templates
-      using the item, with each recipe amount converted into the item's unit
-      (⚠ + "Add conversion" when it can't be converted). Also conversions
-      CRUD with a live calculator, "Change unit…" (converts stock and
-      threshold and keeps the old unit as a conversion), and the names that
-      map to the item (aliases). Needs a `routes.ts` entry, a seed row and an
-      e2e flow. Design §6.1.
 - [ ] **MATCH-7. Item catalog with duplicate groups and merge** (medium, L; after MATCH-6) —
       new route `/dashboard/inventory/items` with filters (all / possible
       duplicates / never stocked / unit problems). Pure
@@ -712,6 +704,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.42.0 | #94 feat: untracked ingredients and aliases (MATCH-2) | 2026-09-27 | #93 (catch-up) |
       | v0.42.1 | #93 fix: long dialogs scroll on iOS | 2026-09-27 | #93 |
       | v0.43.0 | #95 feat: per-item unit conversions (MATCH-3) | 2026-09-27 | #95 |
+      | v0.44.0 | #96 feat: item page (MATCH-6) | 2026-09-27 | #96 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
