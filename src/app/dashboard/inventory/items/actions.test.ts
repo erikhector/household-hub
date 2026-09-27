@@ -1,6 +1,7 @@
 // The item page's Server Actions (MATCH-6): tenancy on every item,
 // conversion and alias id, the factor bounds, and the "Change unit…" maths
-// as it reaches the database. All I/O is mocked, as in
+// as it reaches the database. Then the catalog's (MATCH-7): "Not
+// duplicates", the merge preview and the merge. All I/O is mocked, as in
 // src/app/dashboard/inventory/actions.test.ts.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +18,7 @@ const {
   aliasDeleteMock,
   transactionMock,
   revalidatePathMock,
+  db,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   itemFindFirstMock: vi.fn(),
@@ -30,12 +32,29 @@ const {
   aliasDeleteMock: vi.fn(),
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
+  // The catalog actions' calls, by model and method (MATCH-7).
+  db: {
+    inventoryItem: { findMany: vi.fn(), count: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
+    inventoryDuplicateDismissal: { createMany: vi.fn() },
+    shoppingListItem: { findMany: vi.fn(), deleteMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    recipeIngredient: { updateMany: vi.fn() },
+    shoppingListTemplateItem: { updateMany: vi.fn() },
+    priceHistory: { updateMany: vi.fn() },
+    itemAlias: { updateMany: vi.fn(), upsert: vi.fn() },
+    notification: { deleteMany: vi.fn() },
+  },
 }));
 
 vi.mock("@/lib/prisma", () => {
   const prisma = {
     $transaction: transactionMock,
-    inventoryItem: { findFirst: itemFindFirstMock, updateMany: itemUpdateManyMock },
+    inventoryItem: { ...db.inventoryItem, findFirst: itemFindFirstMock, updateMany: itemUpdateManyMock },
+    inventoryDuplicateDismissal: db.inventoryDuplicateDismissal,
+    shoppingListItem: db.shoppingListItem,
+    recipeIngredient: db.recipeIngredient,
+    shoppingListTemplateItem: db.shoppingListTemplateItem,
+    priceHistory: db.priceHistory,
+    notification: db.notification,
     itemUnitConversion: {
       findFirst: conversionFindFirstMock,
       delete: conversionDeleteMock,
@@ -43,7 +62,7 @@ vi.mock("@/lib/prisma", () => {
       createMany: conversionCreateManyMock,
       upsert: conversionUpsertMock,
     },
-    itemAlias: { findFirst: aliasFindFirstMock, delete: aliasDeleteMock },
+    itemAlias: { ...db.itemAlias, findFirst: aliasFindFirstMock, delete: aliasDeleteMock },
   };
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
   return { prisma };
@@ -56,8 +75,15 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const { en } = await import("@/lib/i18n/dictionaries/en");
-const { saveUnitConversionAction, deleteUnitConversionAction, changeItemUnitAction, removeItemAliasAction } =
-  await import("@/app/dashboard/inventory/items/actions");
+const {
+  saveUnitConversionAction,
+  deleteUnitConversionAction,
+  changeItemUnitAction,
+  removeItemAliasAction,
+  dismissDuplicatesAction,
+  previewMergeAction,
+  mergeInventoryItemsAction,
+} = await import("@/app/dashboard/inventory/items/actions");
 
 const errors = en.inventory.itemPage.errors;
 const household = { id: "household-1" };
@@ -262,5 +288,240 @@ describe("removeItemAliasAction", () => {
 
     expect((await removeItemAliasAction("foreign")).error).toBe(errors.notFound);
     expect(aliasDeleteMock).not.toHaveBeenCalled();
+  });
+});
+
+// --- Item catalog (MATCH-7) ---------------------------------------------------
+
+const catalogErrors = en.inventory.catalog.errors;
+
+type Row = {
+  id: string;
+  name?: string;
+  unit?: string;
+  quantity?: number;
+  barcode?: string | null;
+  unitConversions?: { fromUnit: string; factor: number }[];
+};
+
+// What loadMergeItems' findMany returns for each id.
+function itemRow({ id, name = id, unit = "pcs", quantity = 0, barcode = null, unitConversions = [] }: Row) {
+  return {
+    id,
+    name,
+    unit,
+    quantity,
+    lowStockThreshold: 1,
+    lastKnownPrice: null,
+    expiresAt: null,
+    expiresAtEstimated: false,
+    category: "Dairy & eggs",
+    barcode,
+    unitConversions,
+    _count: { recipeIngredients: 2, shoppingListItems: 1, listTemplateItems: 0, priceHistory: 3, aliases: 1, unitConversions: 0 },
+  };
+}
+
+function mergeHappyPath(rows: Row[]) {
+  db.inventoryItem.findMany.mockResolvedValue(rows.map(itemRow));
+  itemUpdateManyMock.mockResolvedValue({ count: 1 });
+  db.shoppingListItem.findMany.mockResolvedValue([]);
+  db.inventoryItem.deleteMany.mockResolvedValue({ count: rows.length - 1 });
+}
+
+describe("dismissDuplicatesAction", () => {
+  it("stores every pair in the group with its ids sorted", async () => {
+    db.inventoryItem.count.mockResolvedValue(3);
+    expect(await dismissDuplicatesAction(["c", "a", "b"])).toEqual({});
+    expect(db.inventoryItem.count).toHaveBeenCalledWith({
+      where: { id: { in: ["c", "a", "b"] }, householdId: household.id },
+    });
+    expect(db.inventoryDuplicateDismissal.createMany).toHaveBeenCalledWith({
+      data: [
+        { householdId: household.id, itemAId: "a", itemBId: "c" },
+        { householdId: household.id, itemAId: "b", itemBId: "c" },
+        { householdId: household.id, itemAId: "a", itemBId: "b" },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it("rejects an item from another household", async () => {
+    db.inventoryItem.count.mockResolvedValue(1);
+    expect(await dismissDuplicatesAction(["mine", "foreign"])).toEqual({ error: catalogErrors.notFound });
+    expect(db.inventoryDuplicateDismissal.createMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects fewer than two or repeated ids", async () => {
+    expect(await dismissDuplicatesAction(["a"])).toEqual({ error: catalogErrors.invalid });
+    expect(await dismissDuplicatesAction(["a", "a"])).toEqual({ error: catalogErrors.invalid });
+    expect(db.inventoryItem.count).not.toHaveBeenCalled();
+  });
+});
+
+describe("previewMergeAction", () => {
+  it("returns the keeper and each merged item with its counts, from one household-scoped query", async () => {
+    db.inventoryItem.findMany.mockResolvedValue([itemRow({ id: "egg", quantity: 12 }), itemRow({ id: "eggs" })]);
+    const result = await previewMergeAction("egg", ["eggs"]);
+    expect(db.inventoryItem.findMany).toHaveBeenCalledTimes(1);
+    expect(db.inventoryItem.findMany.mock.calls[0][0].where).toEqual({
+      id: { in: ["egg", "eggs"] },
+      householdId: household.id,
+    });
+    expect(result).toMatchObject({
+      preview: {
+        keeper: { id: "egg", quantity: 12, conversions: [] },
+        items: [{ id: "eggs", counts: { recipes: 2, listRows: 1, templates: 0, prices: 3, aliases: 1, conversions: 0 } }],
+      },
+    });
+  });
+
+  it("rejects a foreign keeper or merged id", async () => {
+    db.inventoryItem.findMany.mockResolvedValue([itemRow({ id: "egg" })]);
+    expect(await previewMergeAction("egg", ["foreign"])).toEqual({ error: catalogErrors.notFound });
+    db.inventoryItem.findMany.mockResolvedValue([itemRow({ id: "eggs" })]);
+    expect(await previewMergeAction("foreign", ["eggs"])).toEqual({ error: catalogErrors.notFound });
+  });
+
+  it("rejects more than ten items and the keeper among the merged", async () => {
+    const eleven = Array.from({ length: 11 }, (_, i) => `item-${i}`);
+    expect(await previewMergeAction("keeper", eleven)).toEqual({ error: catalogErrors.tooMany });
+    expect(await previewMergeAction("egg", ["eggs", "egg"])).toEqual({ error: catalogErrors.keeperInMerge });
+    expect(db.inventoryItem.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("mergeInventoryItemsAction", () => {
+  it("rejects a foreign keeper or merged id before writing anything", async () => {
+    db.inventoryItem.findMany.mockResolvedValue([itemRow({ id: "egg" })]);
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "foreign" }] })).toEqual({
+      error: catalogErrors.notFound,
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects more than ten items, the keeper among the merged, and bad input", async () => {
+    const eleven = Array.from({ length: 11 }, (_, i) => ({ id: `item-${i}` }));
+    expect(await mergeInventoryItemsAction({ keeperId: "keeper", merge: eleven })).toEqual({
+      error: catalogErrors.tooMany,
+    });
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "egg" }] })).toEqual({
+      error: catalogErrors.keeperInMerge,
+    });
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs", factor: -1 }] })).toEqual({
+      error: catalogErrors.invalid,
+    });
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [] })).toEqual({ error: catalogErrors.invalid });
+    expect(db.inventoryItem.findMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses units that can't convert without a factor", async () => {
+    db.inventoryItem.findMany.mockResolvedValue([
+      itemRow({ id: "creme", unit: "pcs" }),
+      itemRow({ id: "creme-dl", unit: "dl", quantity: 2 }),
+    ]);
+    expect(await mergeInventoryItemsAction({ keeperId: "creme", merge: [{ id: "creme-dl" }] })).toEqual({
+      error: catalogErrors.needsFactor,
+    });
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("moves every relation to the keeper in one transaction, then deletes the merged item", async () => {
+    mergeHappyPath([{ id: "egg", name: "Egg", quantity: 12 }, { id: "eggs", name: "eggs", quantity: 2 }]);
+
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] })).toEqual({});
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+
+    expect(itemUpdateManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "egg", householdId: household.id, quantity: 12, unit: "pcs" },
+        data: expect.objectContaining({ quantity: 14, updatedByUserId: "user-1" }),
+      }),
+    );
+    const moved = { inventoryItemId: { in: ["eggs"] } };
+    const toKeeper = { data: { inventoryItemId: "egg" } };
+    expect(db.recipeIngredient.updateMany).toHaveBeenCalledWith({
+      where: { ...moved, recipe: { householdId: household.id } },
+      ...toKeeper,
+    });
+    expect(db.shoppingListItem.updateMany).toHaveBeenCalledWith({
+      where: { ...moved, shoppingList: { householdId: household.id } },
+      ...toKeeper,
+    });
+    expect(db.shoppingListTemplateItem.updateMany).toHaveBeenCalledWith({
+      where: { ...moved, template: { householdId: household.id } },
+      ...toKeeper,
+    });
+    expect(db.priceHistory.updateMany).toHaveBeenCalledWith({ where: moved, ...toKeeper });
+    expect(db.itemAlias.updateMany).toHaveBeenCalledWith({ where: { ...moved, householdId: household.id }, ...toKeeper });
+    expect(db.notification.deleteMany).toHaveBeenCalledWith({ where: { ...moved, householdId: household.id } });
+    expect(db.inventoryItem.deleteMany).toHaveBeenCalledWith({
+      where: { householdId: household.id, OR: [{ id: "eggs", quantity: 2, unit: "pcs" }] },
+    });
+  });
+
+  it("writes the merged item's name as an alias of the keeper", async () => {
+    mergeHappyPath([{ id: "egg", name: "Egg" }, { id: "eggs", name: "Eggs!" }]);
+    await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] });
+    expect(db.itemAlias.upsert).toHaveBeenCalledWith({
+      where: { householdId_normalizedName: { householdId: household.id, normalizedName: "eggs" } },
+      create: { householdId: household.id, normalizedName: "eggs", inventoryItemId: "egg" },
+      update: { inventoryItemId: "egg" },
+    });
+  });
+
+  it("clears the merged barcode first and hands it to a keeper without one", async () => {
+    mergeHappyPath([{ id: "egg" }, { id: "eggs", barcode: "7310865004703" }]);
+    await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] });
+    expect(itemUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["eggs"] }, householdId: household.id, barcode: { not: null } },
+      data: { barcode: null },
+    });
+    expect(db.inventoryItem.update).toHaveBeenCalledWith({ where: { id: "egg" }, data: { barcode: "7310865004703" } });
+    expect(itemUpdateManyMock.mock.invocationCallOrder[1]).toBeLessThan(
+      db.inventoryItem.update.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("keeps the keeper's barcode", async () => {
+    mergeHappyPath([{ id: "egg", barcode: "111" }, { id: "eggs", barcode: "222" }]);
+    await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] });
+    expect(db.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it("saves a typed factor on the keeper and converts the stock with it", async () => {
+    mergeHappyPath([
+      { id: "creme", unit: "pcs", quantity: 2 },
+      { id: "creme-dl", unit: "dl", quantity: 4 },
+    ]);
+    expect(await mergeInventoryItemsAction({ keeperId: "creme", merge: [{ id: "creme-dl", factor: 0.5 }] })).toEqual({});
+    expect(conversionCreateManyMock).toHaveBeenCalledWith({
+      data: [{ inventoryItemId: "creme", fromUnit: "dl", factor: 0.5 }],
+      skipDuplicates: true,
+    });
+    expect(itemUpdateManyMock.mock.calls[0][0].data.quantity).toBe(4);
+  });
+
+  it("adds a merged pending row into the keeper's row on the same list", async () => {
+    mergeHappyPath([{ id: "egg" }, { id: "eggs" }]);
+    db.shoppingListItem.findMany.mockResolvedValue([
+      { id: "row-k", shoppingListId: "list", inventoryItemId: "egg", quantity: 6, unit: "pcs", estimatedPrice: null, note: null },
+      { id: "row-m", shoppingListId: "list", inventoryItemId: "eggs", quantity: 6, unit: "pcs", estimatedPrice: null, note: null },
+    ]);
+    await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] });
+    expect(db.shoppingListItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["row-m"] } } });
+    expect(db.shoppingListItem.update).toHaveBeenCalledWith({
+      where: { id: "row-k" },
+      data: { quantity: 12, estimatedPrice: null, note: null },
+    });
+  });
+
+  it("rolls back when the stock changed since the preview", async () => {
+    mergeHappyPath([{ id: "egg" }, { id: "eggs" }]);
+    db.inventoryItem.deleteMany.mockResolvedValue({ count: 0 });
+    expect(await mergeInventoryItemsAction({ keeperId: "egg", merge: [{ id: "eggs" }] })).toEqual({
+      error: catalogErrors.stockChanged,
+    });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

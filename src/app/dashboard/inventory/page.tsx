@@ -1,9 +1,10 @@
 import { Suspense, cache } from "react";
-import { ClipboardList, Plus, ScanBarcode, ScanLine, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, ListChecks, Plus, ScanBarcode, ScanLine, Sparkles } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
@@ -17,6 +18,8 @@ import { getStockStatus, type StockStatus } from "@/lib/stock-status";
 import { getUserPreferences } from "@/lib/preferences";
 import { isAiCategoryFallbackConfigured } from "@/lib/inventory/ai-category-fallback";
 import { loadIncomingByItem } from "@/lib/incoming-stock";
+import { countDuplicateGroups } from "@/lib/inventory/catalog-data";
+import { format, plural } from "@/lib/i18n/format";
 
 // Vercel caps a Server Action's own runtime well below a Route Handler's
 // (15s by default, regardless of function region/plan) — too tight for
@@ -176,6 +179,30 @@ async function InventoryActionButtons({
   );
 }
 
+// Decision 5 in the design (§7): the item catalog is reached from here, not
+// from a bottom-nav tab, and the badge counts its open duplicate groups so
+// they get noticed. With groups open, the link lands on them.
+async function ManageItemsLink({ householdId, dict }: { householdId: string; dict: Dictionary["inventory"]["catalog"] }) {
+  const { items } = await getInventoryData(householdId);
+  const groups = await countDuplicateGroups(householdId, items);
+  const href = groups > 0 ? "/dashboard/inventory/items?filter=duplicates" : "/dashboard/inventory/items";
+
+  return (
+    // A plain link styled as a button: Button's `render` would give it the
+    // button role, and this navigates.
+    <Link href={href} className={buttonVariants({ variant: "outline", className: "gap-1.5" })}>
+      <ListChecks className="size-4" />
+      <span className="sr-only sm:not-sr-only">{dict.manageItems}</span>
+      {groups > 0 && (
+        <Badge variant="secondary">
+          <span aria-hidden="true">{groups}</span>
+          <span className="sr-only">{format(plural(groups, dict.duplicateBadge), { count: groups })}</span>
+        </Badge>
+      )}
+    </Link>
+  );
+}
+
 function InventoryTableSkeleton() {
   return (
     <div className="flex animate-pulse flex-col gap-4" role="status" aria-label="Loading">
@@ -264,6 +291,9 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
+            <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
+          </Suspense>
           <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
           <Suspense fallback={<InventoryActionButtonsSkeleton />}>
             <InventoryActionButtons householdId={household.id} dict={dict.inventory} barcodeDict={dict.barcodeScanner} />

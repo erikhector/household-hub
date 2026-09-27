@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { usedInRows } from "@/lib/inventory/item-units";
 import { canonicalUnit } from "@/lib/units";
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
 import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
+import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
 
 // Amounts restated in another unit get three significant digits ("0.009
 // pcs", "0.375 pcs"), the way the design shows them; stock and typed
@@ -17,13 +18,19 @@ import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list"
 const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
-// Everything comes from four household-scoped queries run together, never
-// one per recipe or list.
+// Everything comes from five household-scoped queries run together, never
+// one per recipe or list. The fifth lists the other items, for "Merge into
+// another item…" (MATCH-7).
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
-  const [{ household }, fullDict, { id }] = await Promise.all([requireHousehold(), getDictionary(), props.params]);
+  const [{ household }, fullDict, locale, { id }] = await Promise.all([
+    requireHousehold(),
+    getDictionary(),
+    getLocale(),
+    props.params,
+  ]);
   const dict = fullDict.inventory.itemPage;
 
-  const [item, ingredients, listRows, templateRows] = await Promise.all([
+  const [item, ingredients, listRows, templateRows, otherItems] = await Promise.all([
     prisma.inventoryItem.findFirst({
       where: { id, householdId: household.id },
       select: {
@@ -56,6 +63,11 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       where: { inventoryItemId: id, template: { householdId: household.id } },
       select: { id: true, template: { select: { id: true, name: true } } },
       orderBy: { template: { name: "asc" } },
+    }),
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id, id: { not: id } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     }),
   ]);
   if (!item) notFound();
@@ -155,6 +167,13 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       </section>
 
       <ItemAliasList aliases={item.aliases} dict={dict} />
+
+      <MergeIntoDialog
+        item={{ id: item.id, name: item.name }}
+        targets={otherItems.map((other) => ({ id: other.id, label: other.name }))}
+        dict={fullDict.inventory.catalog}
+        locale={locale}
+      />
     </div>
   );
 }

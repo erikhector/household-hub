@@ -125,6 +125,16 @@ export async function seed() {
        VALUES ('e2e-item-flour', $1, $2, 'Wheat flour', 1, 'pcs')`,
       [E2E_SHOPPING_LIST.id, E2E_ITEM.id],
     );
+    // A possible-duplicate pair for the item catalog (MATCH-7, e2e/routes.ts),
+    // so its duplicates view has a group to lay out: the same name, one in
+    // stock in pcs and one never stocked in dl, which a merge would ask a
+    // factor for. e2e/item-catalog.spec.ts merges and dismisses its own pairs.
+    await client.query(
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+       VALUES ('e2e-inv-creme', $1, 'Crème fraiche', 'Dairy & eggs', 2, 'pcs', now()),
+              ('e2e-inv-creme-dl', $1, 'crème fraiche', 'Dairy & eggs', 0, 'dl', now())`,
+      [E2E_HOUSEHOLD.id],
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

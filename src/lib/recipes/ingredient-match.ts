@@ -95,11 +95,12 @@ export function ingredientBaseName(name: string): string {
 // "egg" fold together, and so do "tomater" and "tomat". A fold also
 // over-generates onto words that merely end that way ("creamer" folds to
 // "cream"), so a fold match is only ever a pre-selected suggestion, never
-// confident, and a stem has to keep at least three letters.
+// confident, and a stem has to keep at least three letters. The item
+// catalog's duplicate finder (MATCH-7) folds item names the same way.
 const PLURAL_ENDINGS = ["es", "s", "ar", "or", "er", "na"];
 const MIN_STEM_LENGTH = 3;
 
-function foldedForms(normalized: string): Set<string> {
+export function foldedForms(normalized: string): Set<string> {
   const forms = new Set([normalized]);
   const lastSpace = normalized.lastIndexOf(" ");
   const head = normalized.slice(0, lastSpace + 1);

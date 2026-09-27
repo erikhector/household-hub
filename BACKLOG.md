@@ -425,15 +425,6 @@ order below is a suggestion, not a dependency, unless noted.
 
 ### Shopping list & inventory automation
 
-- [ ] **MATCH-7. Item catalog with duplicate groups and merge** (medium, L; after MATCH-6) —
-      new route `/dashboard/inventory/items` with filters (all / possible
-      duplicates / never stocked / unit problems). Pure
-      `findDuplicateGroups`, "Not duplicates" saved per household
-      (migration: `InventoryDuplicateDismissal`), and a merge with preview
-      that moves stock (converted, or asks for a factor), recipe rows, list
-      and template rows, price history, aliases, conversions and barcode in
-      one transaction, then writes an alias from the merged name. Design
-      §6.2–6.3.
 - [ ] **MATCH-5. Learned aliases in every linker** (medium, M; after MATCH-2) —
       `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
       consult `ItemAlias`. Add "Review ingredient matches" per recipe.
