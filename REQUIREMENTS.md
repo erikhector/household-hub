@@ -3070,30 +3070,39 @@ imported recipe" requirement.
     "pcs", name: "a pinch of salt"}` (no leading number at all).
   - **Richer ingredient lines (MATCH-4)**: the leading number may also be a
     unicode fraction (`½ ¼ ¾ ⅓ ⅔ …`, `1½`, `1 ½`, and `1⁄2` with a fraction
-    slash), a comma decimal (`1,5`), or a range (`2-3`, `2–3`, `½-1`),
+    slash), a comma decimal (`1,5`), an English thousands separator
+    (`1,000`, read as 1000; only a non-zero lead of 1–3 digits followed by
+    groups of exactly three, so `0,125` and `1,25` stay decimals), or a range (`2-3`, `2–3`, `½-1`),
     which takes the upper bound and keeps `2–3` in the note. A leading
     `ca`/`ca.`/`c:a`/`cirka`/`ungefär`/`about`/`approx.`/`approximately` is
     dropped. A unit glued to the number (`500g`, `2dl`) is read like a
-    spaced one. The name is then split into the thing itself and an
-    optional `note`: text inside parentheses, text after the first comma,
-    and a leading list of preparation words (`finhackad`, `riven`,
-    `pressade`, `chopped`, `grated`, `finely chopped`, … — preparation
-    only, so `kokta linser`, `rökt lax` and `ground beef` stay whole) go to
-    the note, joined with `, ` and led by the range. `"1 gul lök,
+    spaced one, and a parenthesized pack size between number and unit
+    (`1 (400 g) burk tomater`) doesn't hide the unit. The name is then
+    split into the thing itself and an optional `note`: text inside
+    parentheses, text after the first comma, and a leading preparation word
+    go to the note, joined with `, ` and led by the range. The leading list
+    is kept to words that never name a packaged product (`finhackad`,
+    `grovhackad`, `pressade`, and adverb forms like `fint hackad` /
+    `finely chopped`), so `krossade tomater`, `riven ost`, `skivad mandel`,
+    `crushed red pepper`, `minced garlic`, `chopped tomatoes`, `kokta
+    linser` and `ground beef` stay whole; after a comma any word is a note
+    (`parmesan, riven`). `"1 gul lök,
     finhackad"` → `{quantity: 1, unit: "pcs", name: "gul lök", note:
     "finhackad"}`. The note never empties the name; if it would, the text
     stays whole. Every parsed row also keeps `rawText`, the line as written
     (whitespace collapsed). `parseIngredientLine` wraps
     `parseIngredientString` and splits the fixed pair "salt och peppar" /
-    "salt and pepper" / "salt & pepper" (and `svartpeppar`, `black pepper`,
-    …) into two rows that share quantity, unit, note and `rawText`; no
+    "salt and pepper" / "salt & pepper" / "salt, peppar" (and
+    `svartpeppar`, `black pepper`, …) into two rows that share quantity, unit, note and `rawText`; no
     other "X and Y" is split, so "sweet and sour sauce" stays one row. All
     three extraction tiers use `parseIngredientLine`. Units are passed
     through as written (`st` stays `st`); canonicalizing them is the
     matcher's job. Until recipe ingredients have a note column,
     `parseRecipeFromHtml` hands the form each row with the note appended to
     the name in parentheses (`"gul lök (finhackad)"`), so the user still
-    sees it; the tier parsers keep `name` and `note` apart.
+    sees it; the tier parsers keep `name` and `note` apart. This relies on
+    MATCH-1's matcher ignoring a trailing parenthesized part when it links
+    rows to inventory items.
   - **Fallbacks for non-JSON-LD pages (GAP-31)**: if no usable Recipe
     JSON-LD is found, `parseRecipeFromHtml` tries two best-effort tiers, in
     order, stopping at the first that yields something. JSON-LD always wins

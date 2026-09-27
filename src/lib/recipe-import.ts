@@ -259,6 +259,9 @@ function parseLeadingQuantity(raw: string): number | null {
     if (!d || !Number.isFinite(n)) return null;
     return n / d;
   }
+  // English thousands separators ("1,000 g") — see NUMBER_SRC for why only
+  // this exact shape counts as one.
+  if (THOUSANDS_RE.test(raw)) return Number(raw.replace(/,/g, ""));
   // Swedish sites write decimals with a comma ("1,5 dl"). The number pattern
   // only lets a comma through when digits follow it, so a prep-note comma
   // ("1, finhackad") never gets here.
@@ -266,10 +269,19 @@ function parseLeadingQuantity(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// One quantity: "1½" / "1 ½", "1 1/2", "1/2", "1.5" / "1,5", "3", or a bare
-// "½". Order matters — the longer forms must be tried before a plain integer
-// so "1 1/2" isn't read as "1" followed by the name "1/2 cup …".
-const NUMBER_SRC = `(?:\\d+\\s*[${FRACTION_CHARS}]|\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:[.,]\\d+)?|[${FRACTION_CHARS}])`;
+// "1,000" / "12,500": a non-zero lead of 1–3 digits, then groups of exactly
+// three. Read as thousands, not as a Swedish decimal, because a recipe
+// amount with three decimals ("1,500 kg") is far rarer than an English
+// "1,000 g", and reading that as 1 g would be silently wrong. A leading zero
+// ("0,125 l") stays a decimal.
+const THOUSANDS_SRC = "[1-9]\\d{0,2}(?:,\\d{3})+(?![\\d,])";
+const THOUSANDS_RE = new RegExp(`^${THOUSANDS_SRC}$`);
+
+// One quantity: "1½" / "1 ½", "1 1/2", "1/2", "1,000", "1.5" / "1,5", "3",
+// or a bare "½". Order matters — the longer forms must be tried before a
+// plain integer so "1 1/2" isn't read as "1" followed by the name "1/2 cup
+// …".
+const NUMBER_SRC = `(?:\\d+\\s*[${FRACTION_CHARS}]|\\d+\\s+\\d+/\\d+|\\d+/\\d+|${THOUSANDS_SRC}|\\d+(?:[.,]\\d+)?|[${FRACTION_CHARS}])`;
 // An optional approximation word ("ca 500 g", "about 2 cups", "ungefär 1
 // dl") — the amount is used as-is, the hedge is dropped. Then the quantity,
 // an optional range upper bound ("2-3", "2–3", "2 - 3"), and the rest, with
@@ -281,50 +293,19 @@ const LEADING_QUANTITY_RE = new RegExp(
 );
 
 // Preparation words that sites put in front of the ingredient ("finhackad
-// gul lök", "finely chopped onion"). Moved to the note so the name is the
-// thing you buy. Deliberately short and limited to *preparation*: words that
-// describe a different product ("kokta linser", "rökt lax", "ground beef")
-// are part of the name and must stay there.
-const PREP_ADJECTIVES = new Set([
-  "finhackad",
-  "finhackade",
-  "grovhackad",
-  "grovhackade",
-  "hackad",
-  "hackade",
-  "riven",
-  "rivet",
-  "rivna",
-  "finriven",
-  "finrivet",
-  "finrivna",
-  "skivad",
-  "skivade",
-  "tärnad",
-  "tärnade",
-  "strimlad",
-  "strimlade",
-  "pressad",
-  "pressade",
-  "krossad",
-  "krossade",
-  "skalad",
-  "skalade",
-  "mosad",
-  "mosade",
-  "chopped",
-  "diced",
-  "minced",
-  "grated",
-  "sliced",
-  "shredded",
-  "crushed",
-  "peeled",
-  "halved",
-]);
-// Only count when a prep adjective follows ("finely chopped", "fint
-// hackad"): on their own they're too vague to strip.
-const PREP_ADVERBS = new Set(["fint", "grovt", "finely", "roughly", "coarsely", "thinly"]);
+// gul lök", "finely chopped onion") and that are moved to the note. Kept to
+// words that never name a product you buy: "krossade tomater", "riven ost",
+// "skivad mandel", "hackade tomater", "crushed red pepper", "minced garlic"
+// and "chopped tomatoes" are all packaged goods, and stripping them would
+// link to the wrong item (fresh tomatoes, cheese, the vegetable). Anything
+// else stays in the name; a prep note after a comma or in parentheses is
+// still split off.
+const PREP_ADJECTIVES = new Set(["finhackad", "finhackade", "grovhackad", "grovhackade", "pressad", "pressade"]);
+// Two-word forms: a degree adverb makes it plain this is preparation, even
+// though the bare participle ("chopped tomatoes", "hackade tomater") can be
+// a product.
+const PREP_ADVERBS = new Set(["fint", "grovt", "finely", "roughly", "coarsely"]);
+const PREP_ADVERB_TARGETS = new Set(["hackad", "hackade", "chopped"]);
 
 function takeLeadingPrep(name: string): { name: string; prep: string | null } {
   const words = name.split(" ");
@@ -332,12 +313,23 @@ function takeLeadingPrep(name: string): { name: string; prep: string | null } {
   while (i < words.length) {
     const word = words[i].toLowerCase();
     if (PREP_ADJECTIVES.has(word)) i += 1;
-    else if (PREP_ADVERBS.has(word) && PREP_ADJECTIVES.has(words[i + 1]?.toLowerCase() ?? "")) i += 2;
+    else if (PREP_ADVERBS.has(word) && PREP_ADVERB_TARGETS.has(words[i + 1]?.toLowerCase() ?? "")) i += 2;
     else break;
   }
-  // Never strip the whole name ("riven" alone is still what the line says).
+  // Never strip the whole name ("finhackad" alone is still what the line says).
   if (i === 0 || i >= words.length) return { name, prep: null };
   return { name: words.slice(i).join(" "), prep: words.slice(0, i).join(" ") };
+}
+
+// Pulls every "(…)" out of the text, returning what's left (whitespace
+// collapsed) and the non-empty insides in order.
+function takeParentheses(text: string): { text: string; notes: string[] } {
+  const notes: string[] = [];
+  const rest = text.replace(/\(([^()]*)\)/g, (_, inner: string) => {
+    if (inner.trim()) notes.push(inner.trim());
+    return " ";
+  });
+  return { text: rest.replace(/\s+/g, " ").trim(), notes };
 }
 
 /**
@@ -348,18 +340,15 @@ function takeLeadingPrep(name: string): { name: string; prep: string | null } {
  * name, the text is kept whole.
  */
 function splitNote(text: string): { name: string; notes: string[] } {
-  const notes: string[] = [];
-  let name = text.replace(/\(([^()]*)\)/g, (_, inner: string) => {
-    if (inner.trim()) notes.push(inner.trim());
-    return " ";
-  });
+  const parens = takeParentheses(text);
+  const notes = [...parens.notes];
+  let name = parens.text;
   const comma = name.indexOf(",");
   if (comma !== -1) {
     const after = name.slice(comma + 1).trim();
     if (after) notes.push(after);
-    name = name.slice(0, comma);
+    name = name.slice(0, comma).trim();
   }
-  name = name.replace(/\s+/g, " ").trim();
   const prep = takeLeadingPrep(name);
   if (prep.prep) {
     notes.unshift(prep.prep);
@@ -397,7 +386,10 @@ export function parseIngredientString(raw: string): ParsedIngredient {
   const match = trimmed.match(LEADING_QUANTITY_RE);
   if (!match) return whole();
 
-  const [, lowRaw, highRaw, rest] = match;
+  const [, lowRaw, highRaw, restRaw] = match;
+  // Parentheses come out before the unit check, so a pack size between the
+  // number and the unit ("1 (400 g) burk tomater") doesn't hide the unit.
+  const { text: rest, notes: parenNotes } = takeParentheses(restRaw);
   const low = parseLeadingQuantity(lowRaw);
   const high = highRaw ? parseLeadingQuantity(highRaw) : null;
   if (low === null || low <= 0 || (highRaw && (high === null || high <= 0)) || !rest) return whole();
@@ -414,14 +406,17 @@ export function parseIngredientString(raw: string): ParsedIngredient {
   const nameText = (hasUnit ? restWords.slice(1).join(" ") : rest).trim();
 
   const { name, notes } = splitNote(nameText);
-  return withNote({ name, quantity, unit, rawText }, [...rangeNote, ...notes]);
+  return withNote({ name, quantity, unit, rawText }, [...rangeNote, ...parenNotes, ...notes]);
 }
 
-// "Salt och peppar" / "salt and pepper" is two things in the pantry, so it
-// becomes two rows. Only this fixed pair: a general "X och Y" split would
-// break real names like "sweet and sour sauce".
-const SALT_AND_PEPPER_RE =
-  /^(salt|flingsalt|havssalt|sea salt)\s+(?:och|and|&)\s+((?:svart|vit)?peppar|(?:black |white )?pepper)$/i;
+// "Salt och peppar" / "salt and pepper" / "salt, peppar" is two things in
+// the pantry, so it becomes two rows. Only this fixed pair: a general "X och
+// Y" split would break real names like "sweet and sour sauce".
+const SALT_SRC = "salt|flingsalt|havssalt|sea salt";
+const PEPPER_SRC = "(?:svart|vit)?peppar|(?:black |white )?pepper";
+const SALT_AND_PEPPER_RE = new RegExp(`^(${SALT_SRC})\\s+(?:och|and|&)\\s+(${PEPPER_SRC})$`, "i");
+const SALT_RE = new RegExp(`^(?:${SALT_SRC})$`, "i");
+const PEPPER_RE = new RegExp(`^(?:${PEPPER_SRC})$`, "i");
 
 /**
  * Parse one ingredient line into one or more rows: `parseIngredientString`,
@@ -431,11 +426,22 @@ const SALT_AND_PEPPER_RE =
 export function parseIngredientLine(raw: string): ParsedIngredient[] {
   const parsed = parseIngredientString(raw);
   const pair = parsed.name.match(SALT_AND_PEPPER_RE);
-  if (!pair) return [parsed];
-  return [
-    { ...parsed, name: pair[1] },
-    { ...parsed, name: pair[2] },
-  ];
+  if (pair) {
+    return [
+      { ...parsed, name: pair[1] },
+      { ...parsed, name: pair[2] },
+    ];
+  }
+  // "Salt, peppar": the comma split already made "peppar" the start of the
+  // note, so take it back out as the second row.
+  if (SALT_RE.test(parsed.name) && parsed.note) {
+    const [first, ...others] = parsed.note.split(", ");
+    if (PEPPER_RE.test(first)) {
+      const salt = withNote({ name: parsed.name, quantity: parsed.quantity, unit: parsed.unit, rawText: parsed.rawText }, others);
+      return [salt, { ...salt, name: first }];
+    }
+  }
+  return [parsed];
 }
 
 // ---------------------------------------------------------------------------
@@ -538,9 +544,12 @@ function extractRecipe(html: string): ImportedRecipe | null {
 
 // The recipe form has no note field yet (RecipeIngredient.note arrives with
 // MATCH-2), so until then the note rides along in the name as a trailing
-// "(…)" — visible to the user, and the ingredient matcher ignores a trailing
-// parenthesized part, so "gul lök (finhackad)" still links to "Gul lök".
-// The parsed rows above keep name and note apart for when the column lands.
+// "(…)" so the user sees it. This relies on MATCH-1's matcher
+// (src/lib/recipes/ingredient-match.ts), which ignores a trailing
+// parenthesized part so "gul lök (finhackad)" still links to "Gul lök";
+// without it the save path's exact-name lookup would create a new item for
+// every row with a note, so MATCH-1 must merge before (or with) this. The
+// parsed rows above keep name and note apart for when the column lands.
 function toFormRow({ note, ...row }: ParsedIngredient): ParsedIngredient {
   return note ? { ...row, name: `${row.name} (${note})` } : row;
 }

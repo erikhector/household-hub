@@ -343,6 +343,26 @@ describe("parseIngredientString", () => {
     expectParsed("0,5 l cream", { name: "cream", quantity: 0.5, unit: "l" });
   });
 
+  it("reads English thousands separators as thousands, not decimals", () => {
+    expectParsed("1,000 g flour", { name: "flour", quantity: 1000, unit: "g" });
+    expectParsed("12,500 ml water", { name: "water", quantity: 12500, unit: "ml" });
+    expectParsed("1,000,000 grains rice", { name: "grains rice", quantity: 1000000, unit: "pcs" });
+    // A leading zero or a non-three-digit tail is still a decimal.
+    expectParsed("0,125 l grädde", { name: "grädde", quantity: 0.125, unit: "l" });
+    expectParsed("1,25 kg potatis", { name: "potatis", quantity: 1.25, unit: "kg" });
+    expectParsed("1,0000 kg x", { name: "x", quantity: 1, unit: "kg" });
+  });
+
+  it("finds the unit behind a parenthesized pack size", () => {
+    expectParsed("1 (400 g) burk tomater", { name: "tomater", quantity: 1, unit: "burk", note: "400 g" });
+    expectParsed("2 (14.5 oz) cans diced tomatoes", {
+      name: "diced tomatoes",
+      quantity: 2,
+      unit: "cans",
+      note: "14.5 oz",
+    });
+  });
+
   describe("ranges", () => {
     it("takes the upper bound across hyphen, en dash, em dash and spaces", () => {
       expectParsed("2–3 msk olja", { name: "olja", quantity: 3, unit: "msk", note: "2–3" });
@@ -412,10 +432,10 @@ describe("parseIngredientString", () => {
         note: "gärna ekologisk",
       });
       expectParsed("1 can (400 g) chopped tomatoes", {
-        name: "tomatoes",
+        name: "chopped tomatoes",
         quantity: 1,
         unit: "can",
-        note: "chopped, 400 g",
+        note: "400 g",
       });
     });
 
@@ -426,8 +446,18 @@ describe("parseIngredientString", () => {
 
     it("moves leading prep adjectives to the note", () => {
       expectParsed("1 finhackad gul lök", { name: "gul lök", quantity: 1, unit: "pcs", note: "finhackad" });
-      expectParsed("2 msk riven parmesan", { name: "parmesan", quantity: 2, unit: "msk", note: "riven" });
-      expectParsed("1 cup grated cheese", { name: "cheese", quantity: 1, unit: "cup", note: "grated" });
+      expectParsed("2 grovhackade valnötter", {
+        name: "valnötter",
+        quantity: 2,
+        unit: "pcs",
+        note: "grovhackade",
+      });
+      expectParsed("1 fint hackad schalottenlök", {
+        name: "schalottenlök",
+        quantity: 1,
+        unit: "pcs",
+        note: "fint hackad",
+      });
       expectParsed("2 finely chopped shallots", {
         name: "shallots",
         quantity: 2,
@@ -447,8 +477,31 @@ describe("parseIngredientString", () => {
       expectParsed("200 g rökt lax", { name: "rökt lax", quantity: 200, unit: "g" });
     });
 
+    // Prep participles that are also packaged goods stay whole, so they
+    // link to e.g. "Krossade tomater" rather than fresh tomatoes.
+    it.each([
+      ["400 g krossade tomater", "krossade tomater", 400, "g"],
+      ["400 g hackade tomater", "hackade tomater", 400, "g"],
+      ["400 g skalade tomater", "skalade tomater", 400, "g"],
+      ["200 g riven ost", "riven ost", 200, "g"],
+      ["100 g skivad mandel", "skivad mandel", 100, "g"],
+      ["1 tsk crushed red pepper", "crushed red pepper", 1, "tsk"],
+      ["1 cup shredded cheese", "shredded cheese", 1, "cup"],
+      ["2 tbsp minced garlic", "minced garlic", 2, "tbsp"],
+      ["1 cup grated parmesan", "grated parmesan", 1, "cup"],
+      ["2 cups sliced mushrooms", "sliced mushrooms", 2, "cups"],
+      ["1 cup diced tomatoes", "diced tomatoes", 1, "cup"],
+      ["1 can chopped tomatoes", "chopped tomatoes", 1, "can"],
+    ])("keeps %s whole", (raw, name, quantity, unit) => {
+      expectParsed(raw, { name, quantity, unit });
+    });
+
+    it("still splits those words off after a comma", () => {
+      expectParsed("2 msk parmesan, riven", { name: "parmesan", quantity: 2, unit: "msk", note: "riven" });
+    });
+
     it("never empties the name", () => {
-      expectParsed("1 riven", { name: "riven", quantity: 1, unit: "pcs" });
+      expectParsed("1 finhackad", { name: "finhackad", quantity: 1, unit: "pcs" });
       expectParsed("(valfritt)", { name: "(valfritt)", quantity: 1, unit: "pcs" });
     });
 
@@ -481,6 +534,23 @@ describe("parseIngredientLine", () => {
     expect(parseIngredientLine("salt och peppar, efter smak")).toEqual([
       { name: "salt", quantity: 1, unit: "pcs", note: "efter smak", rawText: "salt och peppar, efter smak" },
       { name: "peppar", quantity: 1, unit: "pcs", note: "efter smak", rawText: "salt och peppar, efter smak" },
+    ]);
+  });
+
+  it("splits a comma-separated salt, peppar and keeps the rest of the note", () => {
+    expect(parseIngredientLine("Salt, peppar")).toEqual([
+      { name: "Salt", quantity: 1, unit: "pcs", rawText: "Salt, peppar" },
+      { name: "peppar", quantity: 1, unit: "pcs", rawText: "Salt, peppar" },
+    ]);
+    expect(parseIngredientLine("salt, svartpeppar, efter smak")).toEqual([
+      { name: "salt", quantity: 1, unit: "pcs", note: "efter smak", rawText: "salt, svartpeppar, efter smak" },
+      { name: "svartpeppar", quantity: 1, unit: "pcs", note: "efter smak", rawText: "salt, svartpeppar, efter smak" },
+    ]);
+  });
+
+  it("leaves salt with another note alone", () => {
+    expect(parseIngredientLine("salt, efter smak")).toEqual([
+      { name: "salt", quantity: 1, unit: "pcs", note: "efter smak", rawText: "salt, efter smak" },
     ]);
   });
 
