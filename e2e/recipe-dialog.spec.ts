@@ -1,0 +1,53 @@
+import { expect, test, type Locator } from "@playwright/test";
+
+// The recipe form is the longest dialog in the app. On phones it opens as a
+// bottom sheet, and it used to be a scroll container nested inside the
+// sheet's own scroller. iOS Safari doesn't hand a swipe from one scroller
+// over to the other, so the sheet got stuck partway and the save button was
+// unreachable. Chromium chains the scroll, so it can't reproduce the stall
+// itself; instead this pins down its cause: the sheet is the dialog's only
+// scroll container, and scrolling it brings the footer button on screen.
+async function expectScrollsAsOneSheet(dialog: Locator, button: Locator) {
+  const nestedScrollers = await dialog.evaluate((root) =>
+    Array.from(root.querySelectorAll<HTMLElement>("*"))
+      .filter((el) => {
+        const { overflowY } = getComputedStyle(el);
+        return /auto|scroll/.test(overflowY) && el.scrollHeight > el.clientHeight;
+      })
+      .map((el) => el.tagName.toLowerCase()),
+  );
+  expect(nestedScrollers).toEqual([]);
+
+  // The sheet itself mustn't scroll sideways either (DialogFooter bleeds
+  // -mx-4 into the sheet's padding).
+  expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+
+  await button.scrollIntoViewIfNeeded();
+  await expect(button).toBeInViewport();
+}
+
+// A name no pantry item resembles (and no remembered alias answers, since
+// nothing here is saved), so step 2 always shows it for review.
+const nonsenseName = () =>
+  Array.from({ length: 10 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+
+test("the new recipe dialog scrolls as one sheet on both steps", async ({ page }) => {
+  await page.goto("/dashboard/meal-planning");
+  await page.getByRole("tab", { name: "Recipes" }).click();
+  await page.getByRole("button", { name: "New recipe" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New recipe" });
+  await expect(dialog).toBeVisible();
+  await expectScrollsAsOneSheet(dialog, dialog.getByRole("button", { name: "Create recipe" }));
+
+  // Step 2, the ingredient review, is the longest content now.
+  await dialog.getByRole("textbox", { name: "Name" }).fill(`Scroll check ${Date.now().toString(36)}`);
+  await dialog.getByPlaceholder("Ingredient").fill(nonsenseName());
+  await dialog.getByPlaceholder("Qty").fill("1");
+  await dialog.getByPlaceholder("Unit").fill("pcs");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  await expect(review).toBeVisible();
+  await expectScrollsAsOneSheet(review, review.getByRole("button", { name: "Create recipe" }));
+});

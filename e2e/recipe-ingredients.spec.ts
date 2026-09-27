@@ -169,9 +169,10 @@ test("the review step creates a new item, blocks an incomplete row, and folds aw
   // Leave the field so its suggestion popup closes.
   await category.press("Tab");
 
-  // Nothing in the step scrolls sideways.
-  const form = review.locator("form:not([hidden])");
-  const { scrollWidth, clientWidth } = await form.evaluate((el) => ({
+  // Nothing in the step scrolls sideways. Measured on the dialog sheet, the
+  // one scroll container (the form isn't one, and DialogFooter bleeds -mx-4
+  // past it into the sheet's padding on purpose).
+  const { scrollWidth, clientWidth } = await review.evaluate((el) => ({
     scrollWidth: el.scrollWidth,
     clientWidth: el.clientWidth,
   }));

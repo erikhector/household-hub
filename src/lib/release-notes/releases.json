@@ -1,5 +1,60 @@
 [
   {
+    "version": "0.42.1",
+    "date": "2026-09-27",
+    "pr": 93,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Long forms such as recipes and receipts now scroll properly on iPhone.",
+      "sv": "Långa formulär, som recept och kvitton, går nu att scrolla ordentligt på iPhone."
+    }
+  },
+  {
+    "version": "0.42.0",
+    "date": "2026-09-27",
+    "pr": 94,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes can now mark ingredients like water as \"Don't track\", so cooking and shopping skip them. When you link an ingredient to a pantry item once (say \"eggs\" to Egg), Squirrel remembers it for your next recipe. Imported prep notes such as \"finely chopped\" are kept and shown next to the ingredient.",
+      "sv": "I recept kan du nu markera ingredienser som vatten med \"Följ inte\", så att matlagning och inköp hoppar över dem. När du kopplat en ingrediens till en vara i skafferiet en gång (till exempel \"ägg\" till Ägg) kommer Squirrel ihåg det till nästa recept. Importerade tillagningsanvisningar som \"finhackad\" sparas och visas bredvid ingrediensen."
+    }
+  },
+  {
+    "version": "0.41.0",
+    "date": "2026-09-27",
+    "pr": 91,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Imported recipes now read amounts like ½, 1,5 and 2–3, and units written together with the number (500g). Preparation notes like \"finely chopped\" move out of the ingredient name, and \"Salt and pepper\" becomes two ingredients.",
+      "sv": "Importerade recept förstår nu mängder som ½, 1,5 och 2–3 och enheter som skrivs ihop med siffran (500g), och flyttar tillagningsanvisningar som \"finhackad\" ut ur ingrediensnamnet. \"Salt och peppar\" blir två ingredienser."
+    }
+  },
+  {
+    "version": "0.40.0",
+    "date": "2026-09-27",
+    "pr": 92,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Adding a recipe no longer fills your pantry with duplicate items. When an ingredient doesn't clearly match something you already have, you choose whether to link it to an existing item or create a new one.",
+      "sv": "När du lägger till ett recept fylls skafferiet inte längre med dubbletter. Om en ingrediens inte tydligt matchar något du redan har väljer du själv om den ska kopplas till en befintlig vara eller skapas som ny."
+    }
+  },
+  {
+    "version": "0.39.9",
+    "date": "2026-09-26",
+    "pr": 81,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Recipe import from a link is safer and now allows up to 20 imports per hour for each household.",
+      "sv": "Receptimport från en länk är säkrare och tillåter nu upp till 20 importer per timme per hushåll."
+    }
+  },
+  {
     "version": "0.39.8",
     "date": "2026-09-26",
     "pr": 78,
