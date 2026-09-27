@@ -212,7 +212,6 @@ function ReviewRowCard({
               </Label>
               <ComboField
                 id={`${fieldId}-category`}
-                name="reviewNewCategory"
                 items={review.categories}
                 value={row.newCategory}
                 onValueChange={(value) => onChange({ newCategory: value })}

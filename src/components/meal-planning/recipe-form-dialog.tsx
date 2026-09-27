@@ -111,13 +111,15 @@ function buildReview(
   const reviewRows = rows.map((row, index): ReviewRow => {
     const name = row.name.trim();
     const unit = row.unit.trim() || "pcs";
+    const label = [row.quantity.trim(), unit, name].filter(Boolean).join(" ");
     const earlier = previous?.rows.find((r) => r.uid === row.uid && r.name === name && r.unit === unit);
-    if (earlier) return earlier;
+    // The quantity may have changed while the decision still stands.
+    if (earlier) return { ...earlier, label };
     const match = preview.matches[index];
     const newName = ingredientBaseName(name);
     return {
       uid: row.uid,
-      label: [row.quantity.trim(), unit, name].filter(Boolean).join(" "),
+      label,
       name,
       unit,
       status: match.status,
@@ -265,7 +267,10 @@ export function RecipeFormDialog({
 
     const result = await action(prevState, formData);
     if (!result.error) {
-      const linked = decided?.rows.length ?? 0;
+      // Rows the save can actually link: a chosen item, or a new item with
+      // a name (the server leaves anything else unlinked).
+      const linked =
+        decided?.rows.filter((row) => (row.mode === "existing" ? row.selectedId : row.newName.trim())).length ?? 0;
       if (linked > 0) {
         toast.success(format(plural(linked, dict.ingredientReview.savedLinked), { count: linked }));
       }

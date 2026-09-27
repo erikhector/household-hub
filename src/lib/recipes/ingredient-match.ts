@@ -35,11 +35,12 @@ export type IngredientMatchInput = {
 export type IngredientMatchItem = InventoryMatchCandidate & { unit: string };
 
 /**
- * - `confident`: linked before, an exact (normalized) name, a single
- *   plural/singular fold, or a fuzzy match above the AUTO-11 bar with a
- *   clear margin. Pre-accepted, but still one tap away in the review.
- * - `suggested`: a best guess (≥ MATCH_PRESELECT_MIN_SCORE, or a tie
- *   between confident-looking items) is pre-selected, but the row is open.
+ * - `confident`: linked before, an exact (normalized) name, or a fuzzy
+ *   match above the AUTO-11 bar with a clear margin. Pre-accepted, but
+ *   still one tap away in the review.
+ * - `suggested`: a best guess (a plural/singular fold, a fuzzy score
+ *   ≥ MATCH_PRESELECT_MIN_SCORE, or a tie between confident-looking items)
+ *   is pre-selected, but the row is open.
  * - `none`: nothing close enough; the row defaults to "Create new".
  */
 export type IngredientMatchStatus = "confident" | "suggested" | "none";
@@ -71,10 +72,10 @@ export function ingredientBaseName(name: string): string {
 
 // English -s/-es and Swedish -ar/-or/-er/-na on the last word (the head
 // noun), as in the substitutions table, compared on both sides: "eggs" and
-// "egg" fold together, and so do "tomater" and "tomat". A fold can
-// over-generate onto a word that merely ends that way, so a fold match is
-// only confident when exactly one item folds to the same form, and a stem
-// has to keep at least three letters.
+// "egg" fold together, and so do "tomater" and "tomat". A fold also
+// over-generates onto words that merely end that way ("creamer" folds to
+// "cream"), so a fold match is only ever a pre-selected suggestion, never
+// confident, and a stem has to keep at least three letters.
 const PLURAL_ENDINGS = ["es", "s", "ar", "or", "er", "na"];
 const MIN_STEM_LENGTH = 3;
 
@@ -141,8 +142,7 @@ function matchOne(
 
   const rowForms = foldedForms(normalized);
   const byFold = folded.filter((entry) => intersects(rowForms, entry.forms)).map((entry) => entry.item);
-  if (byFold.length === 1) return result("confident", byFold[0], "plural", withFirst([byFold[0].id]));
-  if (byFold.length > 1) return result("suggested", byFold[0], "plural", withFirst(byFold.map((item) => item.id)));
+  if (byFold.length > 0) return result("suggested", byFold[0], "plural", withFirst(byFold.map((item) => item.id)));
 
   const [best, runnerUp] = fuzzy;
   if (!best) return result("none", null, null, []);

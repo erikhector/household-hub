@@ -29,13 +29,22 @@ describe("matchIngredientRows", () => {
     expect(matchOne("gul lök (finhackad)")).toMatchObject({ status: "confident", itemId: "onion" });
   });
 
-  it("folds an English plural onto a singular item", () => {
-    expect(matchOne("eggs")).toMatchObject({ status: "confident", itemId: "egg", source: "plural" });
+  it("suggests a singular item for an English plural", () => {
+    expect(matchOne("eggs")).toMatchObject({ status: "suggested", itemId: "egg", source: "plural" });
   });
 
-  it("folds a Swedish plural too", () => {
+  it("suggests for a Swedish plural too", () => {
     const items = [{ id: "tomat", name: "Tomat", unit: "pcs" }];
-    expect(matchOne("tomater", "pcs", items)).toMatchObject({ status: "confident", itemId: "tomat" });
+    expect(matchOne("tomater", "pcs", items)).toMatchObject({ status: "suggested", itemId: "tomat" });
+  });
+
+  it("never confidently links through a fold that only looks like a plural", () => {
+    // "creamer" folds to "cream" via -er: a different product, so the
+    // row must be reviewed even though the units convert.
+    const items = [{ id: "creamer", name: "Creamer", unit: "l" }];
+    const match = matchOne("cream", "dl", items);
+    expect(match).toMatchObject({ status: "suggested", itemId: "creamer", source: "plural" });
+    expect(ingredientNeedsReview(match)).toBe(true);
   });
 
   it("leaves a fold that hits two items open", () => {

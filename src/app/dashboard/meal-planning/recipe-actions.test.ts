@@ -766,7 +766,7 @@ describe("previewIngredientMatchesAction (MATCH-1)", () => {
     inventoryItemFindManyMock.mockResolvedValue(pantry);
 
     const result = await previewIngredientMatchesAction([
-      { name: "eggs", unit: "st" },
+      { name: "egg", unit: "st" },
       { name: "Tomater", unit: "pcs" },
       { name: "Milk", unit: "dl" },
     ]);

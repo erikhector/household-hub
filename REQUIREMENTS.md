@@ -2710,8 +2710,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   - **Matcher** (`src/lib/recipes/ingredient-match.ts`, pure): per row, in
     order: the row's existing link (edit only, name unchanged), an exact
     `normalizeItemName` match, a plural/singular fold of the last word
-    (English -s/-es, Swedish -ar/-or/-er/-na, both sides; confident only
-    when exactly one item folds the same), then `findInventoryMatches`
+    (English -s/-es, Swedish -ar/-or/-er/-na, both sides; only ever a
+    pre-selected suggestion, since "creamer" also folds to "cream"), then
+    `findInventoryMatches`
     with the AUTO-11 thresholds (`MATCH_*` constants in
     `src/lib/item-matching.ts`, shared with the receipt matcher):
     confident at ≥ 0.9 with a ≥ 0.15 lead, a pre-selected suggestion at
