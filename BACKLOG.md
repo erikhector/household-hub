@@ -489,6 +489,42 @@ out to be a product-scope question rather than a scoped task should move to
       no login, most likely) before it's a scoped task rather than an
       open-ended one.
 
+### 2026-09-27 scan
+
+- [ ] **GAP-38. Per-transaction currency for expenses paid in a different currency** `[!]` —
+      needs a product decision. Splitwise records each expense in whatever
+      currency it was actually paid in and offers currency conversion on
+      top; Squirrel's whole money model is one `Household.currencyCode`
+      (GAP-13, `src/lib/currency.ts`) that every `Transaction` and
+      `TransactionSplit` is assumed to be denominated in — there's no
+      per-transaction currency field or exchange rate anywhere in
+      `prisma/schema.prisma`. This bites hardest exactly where household
+      expense splitting is most useful (`TransactionSplit`/
+      `MemberSettlement`, `src/lib/settle-up-calc.ts`): a shared trip
+      abroad, where the bill was paid in a currency the household doesn't
+      use day to day, today has no honest way to be logged. Supporting it
+      means deciding whether to store a frozen FX rate at entry time or
+      convert live, and whether `computeBillPositions`/the settle-up
+      balances stay single-currency internally with only the display layer
+      converting — a currency-model change, not a UI tweak.
+
+- [ ] **GAP-39. Auto-schedule leftovers onto a future day's meal plan** `[!]` —
+      needs a product decision. Plan to Eat's standout feature is leftover
+      scheduling: cooking a big batch lets a household drop "leftovers"
+      straight onto a later day's plan instead of re-deciding what to eat.
+      Squirrel's leftovers flow (GAP-8,
+      `src/app/dashboard/meal-planning/leftovers.ts`,
+      `markMealEntryCookedAction`) only ever turns leftover servings into an
+      `InventoryItem` ("Leftovers: <recipe>") for the pantry — it never
+      creates a `MealPlan` entry, so a household still has to remember the
+      leftovers exist and manually plan a day around them (or hope
+      "Use it up", `src/lib/inventory/use-it-up-calc.ts`, surfaces it, which
+      only happens once the item is flagged expiring or low). Turning it
+      into an actual plan slot needs decisions this app hasn't made yet:
+      which day it lands on by default, what happens if that day already
+      has a dinner planned, and whether it's opt-in per meal or a household
+      setting.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
