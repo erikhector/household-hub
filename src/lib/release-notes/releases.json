@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.45.0",
+    "date": "2026-09-27",
+    "pr": 98,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel can now find pantry items you've added twice, like \"Egg\" and \"eggs\". Open \"Manage items\" on the inventory page to merge them into one. You see exactly what moves before you confirm. You can also filter for items that were never stocked or have units that don't convert.",
+      "sv": "Squirrel hittar nu varor du har lagt in två gånger, som ”Ägg” och ”ägg”. Öppna ”Hantera varor” på lagersidan och slå ihop dem till en. Du ser exakt vad som flyttas innan du bekräftar. Du kan också filtrera fram varor som aldrig funnits i lager eller har enheter som inte går att räkna om."
+    }
+  },
+  {
     "version": "0.44.0",
     "date": "2026-09-27",
     "pr": 96,
