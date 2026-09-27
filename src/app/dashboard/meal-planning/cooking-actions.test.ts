@@ -170,6 +170,50 @@ describe("previewMissingIngredientsAction", () => {
     );
   });
 
+  it("converts through saved item conversions, linked or matched by name, with no extra query per recipe (MATCH-3)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([{ recipeId: "bread", portions: 4, recipe: { servings: 4 } }]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "bread",
+        ingredients: [
+          {
+            inventoryItemId: "inv-flour",
+            inventoryItem: {
+              name: "Flour",
+              quantity: 1,
+              unit: "pcs",
+              unitConversions: [{ fromUnit: "g", factor: 0.0005 }],
+            },
+            name: "Flour",
+            unit: "g",
+            quantity: 3000,
+          },
+          // Its item was deleted; the name fallback finds "Yeast".
+          { inventoryItemId: null, inventoryItem: null, name: "Yeast", unit: "g", quantity: 50 },
+        ],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-yeast", name: "Yeast", quantity: 1, unit: "pcs", unitConversions: [{ fromUnit: "g", factor: 0.04 }] },
+    ]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    // 3000 g = 1.5 bags against 1 on hand; 50 g = 2 packs against 1.
+    expect(result).toEqual({
+      items: [
+        { key: "inv-flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 0.5, unitMismatch: false },
+        { key: "inv-yeast::pcs", name: "Yeast", unit: "pcs", missingQuantity: 1, unitMismatch: false },
+      ],
+    });
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1" },
+      include: { unitConversions: { select: { fromUnit: true, factor: true } } },
+    });
+  });
+
   it("spans several weeks' meal plans for a multi-week range and totals across them (GAP-32)", async () => {
     // Two weeks, one soup entry in each — the MealPlan rows differ, but the
     // date filter picks both up and the shortfall is summed once.

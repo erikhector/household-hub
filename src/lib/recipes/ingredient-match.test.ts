@@ -4,7 +4,6 @@ import {
   ingredientBaseName,
   ingredientNeedsReview,
   matchIngredientRows,
-  splitIngredientNote,
   type IngredientAlias,
   type IngredientMatchItem,
 } from "./ingredient-match";
@@ -98,6 +97,19 @@ describe("matchIngredientRows", () => {
     expect(ingredientNeedsReview(matchOne("Vetemjöl", "g", pantry, "flour"))).toBe(false);
   });
 
+  it("is confident when the item's saved conversion covers the unit (MATCH-3)", () => {
+    const withBag = pantry.map((item) =>
+      item.id === "flour" ? { ...item, conversions: [{ fromUnit: "g", factor: 1 / 2000 }] } : item,
+    );
+    const match = matchOne("Vetemjöl", "g", withBag);
+    expect(match).toMatchObject({ status: "confident", itemId: "flour", unitClass: "known" });
+    expect(ingredientNeedsReview(match)).toBe(false);
+    // Chained through the generic table too.
+    expect(matchOne("Vetemjöl", "kg", withBag).unitClass).toBe("known");
+    // A unit no conversion reaches still needs a look.
+    expect(ingredientNeedsReview(matchOne("Vetemjöl", "dl", withBag))).toBe(true);
+  });
+
   it("keeps row indexes in input order", () => {
     const matches = matchIngredientRows(
       [
@@ -175,14 +187,6 @@ describe("ingredientBaseName", () => {
 
   it("keeps the name when it's nothing but parentheses", () => {
     expect(ingredientBaseName("(salt)")).toBe("(salt)");
-  });
-});
-
-describe("splitIngredientNote", () => {
-  it("moves a trailing parenthesized part to the note", () => {
-    expect(splitIngredientNote("gul lök (finhackad)")).toEqual({ name: "gul lök", note: "finhackad" });
-    expect(splitIngredientNote(" salt ")).toEqual({ name: "salt", note: "" });
-    expect(splitIngredientNote("(salt)")).toEqual({ name: "(salt)", note: "" });
   });
 });
 

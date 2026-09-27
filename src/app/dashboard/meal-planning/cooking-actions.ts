@@ -138,7 +138,10 @@ export async function previewMissingIngredientsAction(
   }
   const looseMatches =
     looseNames.size > 0
-      ? await prisma.inventoryItem.findMany({ where: { householdId: household.id } })
+      ? await prisma.inventoryItem.findMany({
+          where: { householdId: household.id },
+          include: { unitConversions: { select: { fromUnit: true, factor: true } } },
+        })
       : [];
   const looseByName = new Map(
     looseMatches
@@ -155,6 +158,7 @@ export async function previewMissingIngredientsAction(
         quantity: ingredient.quantity,
         onHandQuantity: ingredient.onHandQuantity ?? 0,
         onHandUnit: ingredient.onHandUnit,
+        conversions: ingredient.conversions,
       };
     }
     const loose = looseByName.get(ingredient.name.toLowerCase());
@@ -165,6 +169,7 @@ export async function previewMissingIngredientsAction(
       quantity: ingredient.quantity,
       onHandQuantity: loose?.quantity ?? 0,
       onHandUnit: loose?.unit ?? null,
+      conversions: loose?.unitConversions ?? [],
     };
   });
 
@@ -349,7 +354,10 @@ export async function previewCookedIngredientsAction(
   }
   const looseMatches =
     looseNames.size > 0
-      ? await prisma.inventoryItem.findMany({ where: { householdId: household.id } })
+      ? await prisma.inventoryItem.findMany({
+          where: { householdId: household.id },
+          include: { unitConversions: { select: { fromUnit: true, factor: true } } },
+        })
       : [];
   const looseByName = new Map(
     looseMatches
@@ -367,6 +375,7 @@ export async function previewCookedIngredientsAction(
         onHandUnit: ingredient.onHandUnit ?? "pcs",
         requiredQuantity: ingredient.quantity,
         requiredUnit: ingredient.unit,
+        conversions: ingredient.conversions,
       });
       continue;
     }
@@ -382,6 +391,7 @@ export async function previewCookedIngredientsAction(
       onHandUnit: loose.unit,
       requiredQuantity: ingredient.quantity,
       requiredUnit: ingredient.unit,
+      conversions: loose.unitConversions,
     });
   }
 

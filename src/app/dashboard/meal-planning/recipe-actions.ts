@@ -28,6 +28,7 @@ import {
   matchIngredientRows,
   type IngredientMatch,
 } from "@/lib/recipes/ingredient-match";
+import { canonicalUnit, classifyUnits, type ItemUnitConversionLike } from "@/lib/units";
 import type { Prisma } from "@/generated/prisma/client";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
@@ -73,6 +74,19 @@ const MAX_INGREDIENT_NOTE_LENGTH = 200;
 const ingredientDecisionSchema = z.enum(["existing", "new", "untracked"]);
 type IngredientDecision = z.infer<typeof ingredientDecisionSchema>;
 
+// MATCH-3 (design §3.3/§3.4): what to do about a row whose unit the linked
+// item can't convert. `remember` saves `ingredientUnitFactor` as the item's
+// own conversion (1 recipe unit = factor × item unit); `override` rewrites
+// this row into the item's unit, `ingredientOverrideQuantity` of it, keeping
+// the original line in rawText; `defer` (and `none`, or nothing at all)
+// leaves it for "Mark as cooked" to ask, as before.
+const ingredientUnitActionSchema = z.enum(["none", "remember", "override", "defer"]);
+type IngredientUnitAction = z.infer<typeof ingredientUnitActionSchema>;
+// A conversion is between two amounts a kitchen actually uses, so a factor
+// outside this range is a typo (or a direct POST), never a real density.
+const MIN_UNIT_FACTOR = 1e-6;
+const MAX_UNIT_FACTOR = 1e6;
+
 type ParsedIngredientRow = IngredientRow & {
   rawText: string | null;
   note: string | null;
@@ -81,6 +95,9 @@ type ParsedIngredientRow = IngredientRow & {
   newName: string;
   newCategory: string;
   newUnit: string;
+  unitAction: IngredientUnitAction;
+  unitFactor: number | null;
+  overrideQuantity: number | null;
 };
 
 function parseIngredientRows(
@@ -98,6 +115,9 @@ function parseIngredientRows(
   const newUnits = field("ingredientNewUnit");
   const rawTexts = field("ingredientRawText");
   const notes = field("ingredientNote");
+  const unitActions = field("ingredientUnitAction");
+  const unitFactors = field("ingredientUnitFactor");
+  const overrideQuantities = field("ingredientOverrideQuantity");
 
   const rows: ParsedIngredientRow[] = [];
   for (let i = 0; i < names.length; i++) {
@@ -152,7 +172,43 @@ function parseIngredientRows(
       }
     }
 
-    rows.push({ name, quantity, unit, rawText, note, decision, itemId, newName, newCategory, newUnit });
+    // Only a row linked to an item (existing or new) has a unit to
+    // reconcile; anything else sent for another row is ignored.
+    let unitAction: IngredientUnitAction = "none";
+    let unitFactor: number | null = null;
+    let overrideQuantity: number | null = null;
+    if (unitActions[i] && (decision === "existing" || decision === "new")) {
+      const parsed = ingredientUnitActionSchema.safeParse(unitActions[i]);
+      if (!parsed.success) return { error: "Invalid input" };
+      unitAction = parsed.data;
+      if (unitAction === "remember") {
+        unitFactor = Number(unitFactors[i] || "NaN");
+        if (!Number.isFinite(unitFactor) || unitFactor < MIN_UNIT_FACTOR || unitFactor > MAX_UNIT_FACTOR) {
+          return { error: dict.ingredientReview.unitFactorError };
+        }
+      } else if (unitAction === "override") {
+        overrideQuantity = Number(overrideQuantities[i] || "NaN");
+        if (!Number.isFinite(overrideQuantity) || overrideQuantity <= 0 || overrideQuantity > MAX_INGREDIENT_QUANTITY) {
+          return { error: dict.ingredientReview.overrideQuantityError };
+        }
+      }
+    }
+
+    rows.push({
+      name,
+      quantity,
+      unit,
+      rawText,
+      note,
+      decision,
+      itemId,
+      newName,
+      newCategory,
+      newUnit,
+      unitAction,
+      unitFactor,
+      overrideQuantity,
+    });
   }
 
   return { data: rows };
@@ -176,9 +232,16 @@ type ResolvedIngredients = {
   // MATCH-2 learning, keyed by the ingredient's normalized name: the item
   // it was linked to (an id, or the key of a new item), or null for "Don't
   // track". Written in the save's transaction.
-  aliases: Map<string, { itemId: string } | { newItemKey: string } | null>;
+  aliases: Map<string, IngredientItemTarget | null>;
+  // MATCH-3 "Remember for this item": conversions to upsert, keyed by
+  // target and unit so the last row about the same pair wins.
+  conversions: Map<string, IngredientItemTarget & { fromUnit: string; factor: number }>;
   aiCandidates: string[];
 };
+
+// An item a row ends up linked to: one checked against the household, or
+// one about to be created for it (keyed like `newItems`).
+type IngredientItemTarget = { itemId: string } | { newItemKey: string };
 
 // MATCH-1: turns each row's decision into a link, reading only (the writes
 // happen in the caller's transaction). Replaces the old silent
@@ -191,14 +254,14 @@ async function resolveIngredientDecisions(
   // Every chosen item must belong to this household. An unknown or foreign
   // id is rejected outright, never quietly created or dropped.
   const chosenIds = [...new Set(rows.filter((row) => row.decision === "existing").map((row) => row.itemId))];
-  const chosenNames = new Map<string, string>();
+  const chosen = new Map<string, { normalizedName: string; unit: string }>();
   if (chosenIds.length > 0) {
     const found = await prisma.inventoryItem.findMany({
       where: { id: { in: chosenIds }, householdId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, unit: true },
     });
     if (found.length !== chosenIds.length) return { error: dict.ingredientItemNotFoundError };
-    for (const item of found) chosenNames.set(item.id, normalizeItemName(item.name));
+    for (const item of found) chosen.set(item.id, { normalizedName: normalizeItemName(item.name), unit: item.unit });
   }
 
   // Undecided rows link on an exact (normalized) name, and a `new` row
@@ -209,9 +272,10 @@ async function resolveIngredientDecisions(
   const inventory = needsInventory
     ? await prisma.inventoryItem.findMany({
         where: { householdId },
-        select: { id: true, name: true, category: true },
+        select: { id: true, name: true, category: true, unit: true },
       })
     : [];
+  const unitById = new Map(inventory.map((item) => [item.id, item.unit]));
   const idsByName = new Map<string, string[]>();
   for (const item of inventory) {
     const key = normalizeItemName(item.name);
@@ -225,7 +289,41 @@ async function resolveIngredientDecisions(
 
   const newItems = new Map<string, NewIngredientItem>();
   const aliases: ResolvedIngredients["aliases"] = new Map();
+  const conversions: ResolvedIngredients["conversions"] = new Map();
   const resolved: ResolvedIngredientRow[] = [];
+
+  // MATCH-3 (design §3.3): a row linked to an item whose unit it doesn't
+  // reconcile with carries the user's unit choice. Nothing is done for a
+  // unit the generic table already handles, so a stale or hand-posted
+  // choice can't store a conversion that would never be used, or one from
+  // the item's own unit (§4).
+  const linkedRow = (row: ParsedIngredientRow, target: IngredientItemTarget, itemUnit: string) => {
+    const base = {
+      name: row.name,
+      quantity: row.quantity,
+      unit: row.unit,
+      rawText: row.rawText,
+      note: row.note,
+      untracked: false,
+    };
+    if (classifyUnits(row.unit, itemUnit) !== "unknown") return base;
+    if (row.unitAction === "remember" && row.unitFactor !== null) {
+      const fromUnit = canonicalUnit(row.unit);
+      const targetKey = "itemId" in target ? `id:${target.itemId}` : `new:${target.newItemKey}`;
+      conversions.set(`${targetKey}::${fromUnit}`, { ...target, fromUnit, factor: row.unitFactor });
+    } else if (row.unitAction === "override" && row.overrideQuantity !== null) {
+      // "Use 0.15 pcs here only": the row is stored in the item's unit,
+      // and the line as the recipe wrote it stays readable to the cook.
+      return {
+        ...base,
+        quantity: row.overrideQuantity,
+        unit: itemUnit,
+        rawText: row.rawText ?? `${row.quantity} ${row.unit} ${row.name}`,
+      };
+    }
+    return base;
+  };
+
   for (const row of rows) {
     const base = {
       name: row.name,
@@ -241,8 +339,13 @@ async function resolveIngredientDecisions(
     // since it matches exactly anyway. Keyed like the matcher looks it up.
     const aliasKey = normalizeItemName(ingredientBaseName(row.name));
     if (row.decision === "existing") {
-      resolved.push({ ...base, inventoryItemId: row.itemId, newItemKey: null });
-      if (aliasKey && aliasKey !== chosenNames.get(row.itemId)) aliases.set(aliasKey, { itemId: row.itemId });
+      const item = chosen.get(row.itemId)!;
+      resolved.push({
+        ...linkedRow(row, { itemId: row.itemId }, item.unit),
+        inventoryItemId: row.itemId,
+        newItemKey: null,
+      });
+      if (aliasKey && aliasKey !== item.normalizedName) aliases.set(aliasKey, { itemId: row.itemId });
     } else if (row.decision === "untracked") {
       // "Don't track" is always remembered, so the same name defaults to it
       // next time (and water only has to be answered once).
@@ -251,15 +354,29 @@ async function resolveIngredientDecisions(
     } else if (row.decision === "new") {
       const existingId = exactId(row.newName);
       const key = normalizeItemName(row.newName);
-      if (existingId || !key) {
-        resolved.push({ ...base, inventoryItemId: existingId, newItemKey: null });
-        if (existingId && aliasKey && aliasKey !== key) aliases.set(aliasKey, { itemId: existingId });
+      if (existingId) {
+        resolved.push({
+          ...linkedRow(row, { itemId: existingId }, unitById.get(existingId)!),
+          inventoryItemId: existingId,
+          newItemKey: null,
+        });
+        if (aliasKey && aliasKey !== key) aliases.set(aliasKey, { itemId: existingId });
+        continue;
+      }
+      if (!key) {
+        resolved.push({ ...base, inventoryItemId: null, newItemKey: null });
         continue;
       }
       if (!newItems.has(key)) {
         newItems.set(key, { name: row.newName, category: row.newCategory, unit: row.newUnit });
       }
-      resolved.push({ ...base, inventoryItemId: null, newItemKey: key });
+      // Two rows for one new item share the first row's unit, since that's
+      // the unit the item is created with.
+      resolved.push({
+        ...linkedRow(row, { newItemKey: key }, newItems.get(key)!.unit),
+        inventoryItemId: null,
+        newItemKey: key,
+      });
       if (aliasKey && aliasKey !== key) aliases.set(aliasKey, { newItemKey: key });
     } else {
       resolved.push({ ...base, inventoryItemId: exactId(ingredientBaseName(row.name)), newItemKey: null });
@@ -283,7 +400,7 @@ async function resolveIngredientDecisions(
     item.category = guessed || "Uncategorized";
   }
 
-  return { rows: resolved, newItems, aliases, aiCandidates };
+  return { rows: resolved, newItems, aliases, conversions, aiCandidates };
 }
 
 // Writes the new items (if any) and the learned aliases with the given
@@ -310,20 +427,38 @@ async function createIngredientItems(
       : [];
   const createdIdByKey = new Map(created.map((item) => [normalizeItemName(item.name), item.id]));
 
-  // An alias is replaced, not added to: the latest answer for a name wins.
   // Every id here was checked against the household above or was just
-  // created for it.
-  const aliases = [...resolved.aliases].map(([normalizedName, target]) => ({
-    householdId,
-    normalizedName,
-    inventoryItemId:
-      target === null ? null : "itemId" in target ? target.itemId : (createdIdByKey.get(target.newItemKey) ?? null),
-  }));
-  if (aliases.length > 0) {
-    await tx.itemAlias.deleteMany({
-      where: { householdId, normalizedName: { in: aliases.map((alias) => alias.normalizedName) } },
+  // created for it. A new item whose id somehow isn't in `created` has no
+  // target at all: its alias and conversions are skipped rather than
+  // written against nothing — an alias with a null item would mean "Don't
+  // track", the opposite of what the user chose.
+  const targetId = (target: IngredientItemTarget) =>
+    "itemId" in target ? target.itemId : createdIdByKey.get(target.newItemKey);
+
+  // An alias is replaced, not added to: the latest answer for a name wins.
+  // One upsert each (INSERT … ON CONFLICT), so two saves teaching the same
+  // name at once can't both insert and fail the whole recipe save on the
+  // unique index; whichever commits last wins, as with any other edit.
+  for (const [normalizedName, target] of resolved.aliases) {
+    const inventoryItemId = target === null ? null : targetId(target);
+    if (inventoryItemId === undefined) continue;
+    await tx.itemAlias.upsert({
+      where: { householdId_normalizedName: { householdId, normalizedName } },
+      create: { householdId, normalizedName, inventoryItemId },
+      update: { inventoryItemId },
     });
-    await tx.itemAlias.createMany({ data: aliases });
+  }
+
+  // MATCH-3 "Remember for this item", the same way: the latest factor for
+  // an item and unit replaces the old one.
+  for (const { fromUnit, factor, ...target } of resolved.conversions.values()) {
+    const inventoryItemId = targetId(target);
+    if (inventoryItemId === undefined) continue;
+    await tx.itemUnitConversion.upsert({
+      where: { inventoryItemId_fromUnit: { inventoryItemId, fromUnit } },
+      create: { inventoryItemId, fromUnit, factor },
+      update: { factor },
+    });
   }
 
   return resolved.rows.map(({ newItemKey, inventoryItemId, ...row }) => ({
@@ -344,7 +479,15 @@ const previewRowsSchema = z
   .max(MAX_INGREDIENT_ROWS);
 
 export type IngredientPreviewRow = z.input<typeof previewRowsSchema>[number];
-export type IngredientPreviewItem = { id: string; name: string; category: string; unit: string };
+export type IngredientPreviewItem = {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  /** The item's saved unit conversions (MATCH-3), so the review can tell
+   * whether a row's unit is covered after the user picks another item. */
+  conversions: ItemUnitConversionLike[];
+};
 export type IngredientPreview = {
   matches: IngredientMatch[];
   /** The household's items, for each row's "Use existing" picker. */
@@ -378,7 +521,13 @@ export async function previewIngredientMatchesAction(
   const [items, aliases] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { householdId: household.id },
-      select: { id: true, name: true, category: true, unit: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        unit: true,
+        unitConversions: { select: { fromUnit: true, factor: true } },
+      },
       orderBy: { name: "asc" },
     }),
     prisma.itemAlias.findMany({
@@ -387,6 +536,10 @@ export async function previewIngredientMatchesAction(
     }),
   ]);
 
+  const previewItems: IngredientPreviewItem[] = items.map(({ unitConversions, ...item }) => ({
+    ...item,
+    conversions: unitConversions,
+  }));
   const matches = matchIngredientRows(
     parsed.data.map((row) => ({
       name: row.name,
@@ -394,7 +547,7 @@ export async function previewIngredientMatchesAction(
       linkedItemId: row.linkedItemId,
       untracked: row.untracked,
     })),
-    items,
+    previewItems,
     aliases,
   );
 
@@ -407,7 +560,7 @@ export async function previewIngredientMatchesAction(
   );
 
   const categories = [...new Set(items.map((item) => item.category))].sort((a, b) => a.localeCompare(b));
-  return { matches, items, categories, guessedCategories };
+  return { matches, items: previewItems, categories, guessedCategories };
 }
 
 // Optional, manual-entry-only nutrition fields (see Recipe's doc comment in

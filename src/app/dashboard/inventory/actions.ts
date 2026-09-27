@@ -21,6 +21,7 @@ import { normalizeBarcode } from "@/lib/barcode";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
 import { openedExpiryUpdate } from "@/lib/inventory/expiry";
+import { canonicalUnit } from "@/lib/units";
 
 const itemSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
@@ -214,6 +215,16 @@ export async function updateInventoryItemAction(
         useWithinDaysOpened: neverExpires ? null : useWithinDaysOpened,
       },
     });
+    // MATCH-3 (design §4): a saved conversion from what is now the item's
+    // own unit ("1 g = 0.0005 pcs" after switching the item to grams) would
+    // be 1 = 1 at best and wrong at worst, so it goes. The item's other
+    // conversions stay; re-expressing them in the new unit is the item
+    // page's "Change unit…" (MATCH-6). Scoped by the item just checked
+    // against the household above.
+    const nextUnit = canonicalUnit(parsed.data.unit);
+    if (nextUnit !== canonicalUnit(item.unit)) {
+      await prisma.itemUnitConversion.deleteMany({ where: { inventoryItemId: item.id, fromUnit: nextUnit } });
+    }
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, parsed.data.quantity, userId);
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, parsed.data.quantity);
   } catch (error) {

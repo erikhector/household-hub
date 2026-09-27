@@ -25,7 +25,7 @@ import {
   normalizeItemName,
   type InventoryMatchCandidate,
 } from "@/lib/item-matching";
-import { canonicalUnit, classifyUnits, unitKind, type UnitClass } from "@/lib/units";
+import { canonicalUnit, classifyUnits, unitKind, type ItemUnitConversionLike, type UnitClass } from "@/lib/units";
 
 export type IngredientMatchInput = {
   name: string;
@@ -42,7 +42,13 @@ export type IngredientMatchInput = {
  * or, with a null `inventoryItemId`, "never tracked". */
 export type IngredientAlias = { normalizedName: string; inventoryItemId: string | null };
 
-export type IngredientMatchItem = InventoryMatchCandidate & { unit: string };
+/** An inventory item to match against, with its saved unit conversions
+ * (MATCH-3), so a row whose unit one of them covers is `known`, not
+ * `unknown`. */
+export type IngredientMatchItem = InventoryMatchCandidate & {
+  unit: string;
+  conversions?: readonly ItemUnitConversionLike[];
+};
 
 /**
  * - `confident`: linked before, an exact (normalized) name, a learned
@@ -82,19 +88,6 @@ export type IngredientMatch = {
 export function ingredientBaseName(name: string): string {
   const stripped = name.replace(/\s*\([^()]*\)\s*$/, "").trim();
   return stripped || name.trim();
-}
-
-/**
- * Splits an imported name's trailing "(prep note)" into its own note, for
- * a parser that leaves it on the name: "gul lök (finhackad)" →
- * { name: "gul lök", note: "finhackad" }. Only used on import; a row typed
- * by hand keeps its name as typed.
- */
-export function splitIngredientNote(name: string): { name: string; note: string } {
-  const trimmed = name.trim();
-  const base = ingredientBaseName(trimmed);
-  if (base === trimmed) return { name: trimmed, note: "" };
-  return { name: base, note: trimmed.slice(base.length).trim().slice(1, -1).trim() };
 }
 
 // English -s/-es and Swedish -ar/-or/-er/-na on the last word (the head
@@ -154,7 +147,7 @@ function matchOne(
     untracked,
     source,
     candidateIds,
-    unitClass: item ? classifyUnits(row.unit, item.unit) : null,
+    unitClass: item ? classifyUnits(row.unit, item.unit, item.conversions) : null,
   });
 
   const linked = row.linkedItemId ? itemsById.get(row.linkedItemId) : undefined;
@@ -218,11 +211,12 @@ export function matchIngredientRows(
 
 /**
  * Whether a row has to be shown in the review step. A confident name match
- * isn't enough on its own: the unit must also reconcile, or cooking will
+ * isn't enough on its own: the unit must also reconcile (the same unit, the
+ * generic table, or one of the item's saved conversions), or cooking will
  * hit a unit mismatch every time. The exception is a row that was already
  * linked when the recipe was opened for editing — the user matched it
- * before, and with no way yet to remember a per-item conversion (MATCH-3)
- * asking again on every edit would change nothing.
+ * before and chose then how to handle its unit ("Decide when cooking" is a
+ * valid answer), so asking again on every edit would only nag.
  */
 export function ingredientNeedsReview(match: IngredientMatch): boolean {
   if (match.status !== "confident") return true;

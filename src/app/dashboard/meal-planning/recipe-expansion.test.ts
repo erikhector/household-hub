@@ -16,7 +16,7 @@ const HOUSEHOLD_ID = "house-1";
 
 type FakeRecipe = {
   id: string;
-  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number; unit: string } | null; untracked?: boolean; name: string; unit: string; quantity: number }[];
+  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number; unit: string; unitConversions?: { fromUnit: string; factor: number }[] } | null; untracked?: boolean; name: string; unit: string; quantity: number }[];
   components: { componentRecipeId: string; quantity: number }[];
 };
 
@@ -52,12 +52,49 @@ describe("expandRecipeIngredients", () => {
         inventoryItemName: "Ground beef",
         onHandQuantity: 2,
         onHandUnit: "kg",
+        conversions: [],
         name: "Ground beef",
         unit: "kg",
         quantity: 0.5,
       },
     ]);
     expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the linked item's saved conversions, fetched with the graph (MATCH-3)", async () => {
+    const conversions = [{ fromUnit: "g", factor: 1 / 2000 }];
+    mockRecipes([
+      {
+        id: "bread",
+        ingredients: [
+          {
+            inventoryItemId: "inv-flour",
+            inventoryItem: { name: "Flour", quantity: 1, unit: "pcs", unitConversions: conversions },
+            name: "Flour",
+            unit: "g",
+            quantity: 300,
+          },
+        ],
+        components: [],
+      },
+    ]);
+
+    const [need] = await expandRecipeIngredients(HOUSEHOLD_ID, "bread", 1, new Set());
+
+    expect(need.conversions).toEqual(conversions);
+    // Still the one query: the conversions come in its include, not per row.
+    expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+    expect(recipeFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          ingredients: {
+            include: {
+              inventoryItem: { include: { unitConversions: { select: { fromUnit: true, factor: true } } } },
+            },
+          },
+        }),
+      }),
+    );
   });
 
   it("skips Don't-track rows but keeps an unlinked row for the name fallback (MATCH-2)", async () => {
@@ -146,6 +183,7 @@ describe("expandRecipeIngredients", () => {
         inventoryItemName: null,
         onHandQuantity: null,
         onHandUnit: null,
+        conversions: [],
         name: "Tomato passata",
         unit: "L",
         quantity: 6,

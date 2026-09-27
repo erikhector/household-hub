@@ -92,7 +92,12 @@ export async function getCookableRecipes(
     }
   }
   const looseMatches =
-    looseNames.size > 0 ? await prisma.inventoryItem.findMany({ where: { householdId } }) : [];
+    looseNames.size > 0
+      ? await prisma.inventoryItem.findMany({
+          where: { householdId },
+          include: { unitConversions: { select: { fromUnit: true, factor: true } } },
+        })
+      : [];
   const looseByName = new Map(
     looseMatches
       .filter((item) => looseNames.has(item.name.toLowerCase()))
@@ -112,6 +117,7 @@ export async function getCookableRecipes(
           quantity: ingredient.quantity,
           onHandQuantity: ingredient.onHandQuantity ?? 0,
           onHandUnit: ingredient.onHandUnit,
+          conversions: ingredient.conversions,
         };
       }
       const loose = looseByName.get(ingredient.name.toLowerCase());
@@ -122,6 +128,7 @@ export async function getCookableRecipes(
         quantity: ingredient.quantity,
         onHandQuantity: loose?.quantity ?? 0,
         onHandUnit: loose?.unit ?? null,
+        conversions: loose?.unitConversions ?? [],
       };
     }),
   }));

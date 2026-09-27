@@ -5,6 +5,7 @@
 // `ExpandedIngredientNeed` type can be exported and this stays unit-testable
 // by mocking @/lib/prisma — mirrors missing-ingredients.ts.
 import { prisma } from "@/lib/prisma";
+import type { ItemUnitConversionLike } from "@/lib/units";
 
 // Recipe boxes are household-sized, not catalog-sized — this caps
 // recursion depth so a bug (or a row edited directly in the database) can't
@@ -22,6 +23,9 @@ export type ExpandedIngredientNeed = {
   // on-hand quantity from a requirement denominated in the same unit,
   // instead of assuming the two always match.
   onHandUnit: string | null;
+  // The linked item's saved unit conversions (MATCH-3), fetched with the
+  // graph so the callers never query per recipe. Empty when unlinked.
+  conversions: ItemUnitConversionLike[];
   name: string;
   unit: string;
   quantity: number;
@@ -33,7 +37,13 @@ export type ExpandedIngredientNeed = {
 type RecipeGraphNode = {
   ingredients: {
     inventoryItemId: string | null;
-    inventoryItem: { name: string; quantity: number; unit: string } | null;
+    inventoryItem: {
+      name: string;
+      quantity: number;
+      unit: string;
+      // Optional only so hand-built test graphs can leave it out.
+      unitConversions?: ItemUnitConversionLike[];
+    } | null;
     // RecipeIngredient.untracked (MATCH-2). Optional only so hand-built
     // test graphs can leave it out; loadRecipeGraph always has it.
     untracked?: boolean;
@@ -64,7 +74,11 @@ export async function loadRecipeGraph(householdId: string): Promise<Map<string, 
   const recipes = await prisma.recipe.findMany({
     where: { householdId },
     include: {
-      ingredients: { include: { inventoryItem: true } },
+      ingredients: {
+        include: {
+          inventoryItem: { include: { unitConversions: { select: { fromUnit: true, factor: true } } } },
+        },
+      },
       components: { select: { componentRecipeId: true, quantity: true } },
     },
   });
@@ -108,6 +122,7 @@ export function expandFromGraph(
       inventoryItemName: ingredient.inventoryItem?.name ?? null,
       onHandQuantity: ingredient.inventoryItem?.quantity ?? null,
       onHandUnit: ingredient.inventoryItem?.unit ?? null,
+      conversions: ingredient.inventoryItem?.unitConversions ?? [],
       name: ingredient.name,
       unit: ingredient.unit,
       quantity: ingredient.quantity * multiplier,

@@ -26,6 +26,7 @@ const {
   revalidatePathMock,
   addToDefaultListOnLowStockMock,
   addItemToDefaultListMock,
+  unitConversionDeleteManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
@@ -46,6 +47,7 @@ const {
   revalidatePathMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
   addItemToDefaultListMock: vi.fn(),
+  unitConversionDeleteManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -72,6 +74,7 @@ vi.mock("@/lib/prisma", () => {
       findMany: vi.fn(async () => []),
     },
     notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
+    itemUnitConversion: { deleteMany: unitConversionDeleteManyMock },
   };
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
   return { prisma };
@@ -275,8 +278,28 @@ describe("updateInventoryItemAction", () => {
     expect(updateMock).not.toHaveBeenCalled();
   });
 
+  it("deletes a saved conversion from the item's new unit when the unit changes (MATCH-3)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs" });
+    updateMock.mockResolvedValue({});
+
+    const result = await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "Grams" }));
+
+    expect(result.error).toBeUndefined();
+    // Canonicalized, like the stored fromUnit; scoped by the checked item.
+    expect(unitConversionDeleteManyMock).toHaveBeenCalledWith({ where: { inventoryItemId: "item-1", fromUnit: "g" } });
+  });
+
+  it("leaves conversions alone when the unit is only respelled (MATCH-3)", async () => {
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "pcs" });
+    updateMock.mockResolvedValue({});
+
+    await updateInventoryItemAction({}, formData({ ...validItem, itemId: "item-1", unit: "st" }));
+
+    expect(unitConversionDeleteManyMock).not.toHaveBeenCalled();
+  });
+
   it("nulls out location explicitly when cleared, instead of leaving it stale", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1" });
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "kg" });
     updateMock.mockResolvedValue({});
     const fd = formData({ ...validItem, itemId: "item-1" });
     fd.delete("location");
@@ -289,7 +312,7 @@ describe("updateInventoryItemAction", () => {
   });
 
   it("clears expiresAt back to null when the date input is emptied", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1" });
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "kg" });
     updateMock.mockResolvedValue({});
     const fd = formData({ ...validItem, itemId: "item-1", expiresAt: "2026-01-01" });
     fd.delete("expiresAt");
@@ -302,7 +325,7 @@ describe("updateInventoryItemAction", () => {
   });
 
   it("updates the item when it belongs to the caller's household", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1" });
+    findFirstMock.mockResolvedValue({ id: "item-1", unit: "kg" });
     updateMock.mockResolvedValue({});
 
     const result = await updateInventoryItemAction(
@@ -664,7 +687,7 @@ describe("low-stock auto-add from quantity changes (AUTO-8)", () => {
   });
 
   it("updateInventoryItemAction checks the edit form's new quantity for a crossing", async () => {
-    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 5, lowStockThreshold: 2 });
+    findFirstMock.mockResolvedValue({ id: "item-1", quantity: 5, lowStockThreshold: 2, unit: "l" });
     updateMock.mockResolvedValue({});
     addToDefaultListOnLowStockMock.mockResolvedValue(autoAdded);
 

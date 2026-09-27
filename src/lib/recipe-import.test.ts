@@ -729,16 +729,22 @@ describe("parseRecipeFromHtml", () => {
 });
 
 describe("parseRecipeFromHtml ingredient notes (MATCH-4)", () => {
-  // Until RecipeIngredient has a note column (MATCH-2) the form only has a
-  // name, so the note rides along in parentheses there.
-  it("appends the note to the form row's name and splits salt and pepper", () => {
+  // The form row has its own note field (MATCH-2), so the note is passed
+  // through as is, never folded back into the name.
+  it("keeps the note apart on the form row and splits salt and pepper", () => {
     const html = `<script type="application/ld+json">${JSON.stringify({
       "@type": "Recipe",
       name: "Löksoppa",
       recipeIngredient: ["2-3 gula lökar, finhackade", "1,5 l buljong", "salt och peppar"],
     })}</script>`;
     expect(parseRecipeFromHtml(html)?.ingredients).toEqual([
-      { name: "gula lökar (2–3, finhackade)", quantity: 3, unit: "pcs", rawText: "2-3 gula lökar, finhackade" },
+      {
+        name: "gula lökar",
+        quantity: 3,
+        unit: "pcs",
+        note: "2–3, finhackade",
+        rawText: "2-3 gula lökar, finhackade",
+      },
       { name: "buljong", quantity: 1.5, unit: "l", rawText: "1,5 l buljong" },
       { name: "salt", quantity: 1, unit: "pcs", rawText: "salt och peppar" },
       { name: "peppar", quantity: 1, unit: "pcs", rawText: "salt och peppar" },

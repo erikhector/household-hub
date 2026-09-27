@@ -419,14 +419,6 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
-- [ ] **MATCH-3. Per-item unit conversions** (high, M; after MATCH-2) —
-      migration: `ItemUnitConversion` (`inventoryItemId`, `fromUnit`,
-      `factor`). The review offers "remember 1 pcs = 2000 g", "override for
-      this recipe" or "decide when cooking" for weight↔volume↔count rows.
-      `convertForItem` in `units.ts` replaces direct
-      `convertQuantity`/`unitsAreComparable` use in missing/cooked/cost/
-      cookable. Optional "≈" density hints for about 20 staples. Design §3.3.
-
 ---
 
 ## Phase 3 — larger items, own PR each

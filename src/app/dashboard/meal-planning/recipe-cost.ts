@@ -34,7 +34,7 @@
 // estimate is at least consistent with what inventory believes was bought.
 // That residual fuzziness is why the UI prints the result with a "~".
 
-import { convertQuantity } from "@/lib/units";
+import { convertForItem, type ItemUnitConversionLike } from "@/lib/units";
 
 // A purchased shopping-list line linked to the inventory item: what was
 // paid for it (`price`, its `estimatedPrice`) and how much it was for.
@@ -60,6 +60,9 @@ export type RecipeCostIngredient = {
     unit: string;
     lastKnownPrice: number | null;
     purchases: RecipeCostPurchase[];
+    // Its saved unit conversions (ItemUnitConversion, MATCH-3), so "300 g"
+    // of flour counted in pcs can still be priced.
+    conversions?: readonly ItemUnitConversionLike[];
   } | null;
 };
 
@@ -75,14 +78,17 @@ export type RecipeCost = {
   skippedCount: number;
 };
 
-const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // The same reconciliation computeMissingIngredients uses for recipe vs.
-// on-hand units: an exact (case/whitespace-insensitive) string match first,
-// then src/lib/units.ts's fixed table. null when there's no conversion.
-function toItemUnit(quantity: number, unit: string, itemUnit: string): number | null {
-  return normalizeUnit(unit) === normalizeUnit(itemUnit) ? quantity : convertQuantity(quantity, unit, itemUnit);
+// on-hand units: the same unit, src/lib/units.ts's fixed table, then the
+// item's own saved conversions (MATCH-3). null when there's no conversion.
+function toItemUnit(
+  quantity: number,
+  unit: string,
+  item: NonNullable<RecipeCostIngredient["inventoryItem"]>,
+): number | null {
+  return convertForItem(quantity, unit, item, item.conversions);
 }
 
 // The price of one of the item's own unit, recovered from the purchased
@@ -100,7 +106,7 @@ export function unitPriceFromLastPurchase(item: NonNullable<RecipeCostIngredient
   const purchase = item.purchases.find((p) => p.price === price);
   if (!purchase) return null;
 
-  const purchasedInItemUnit = toItemUnit(purchase.quantity, purchase.unit, item.unit);
+  const purchasedInItemUnit = toItemUnit(purchase.quantity, purchase.unit, item);
   // A zero/negative quantity would divide into Infinity or a negative
   // price; treat it as unrecoverable like any other bad row.
   if (purchasedInItemUnit === null || !(purchasedInItemUnit > 0)) return null;
@@ -128,7 +134,7 @@ export function computeRecipeCost(ingredients: RecipeCostIngredient[], servings:
     if (ingredient.untracked) continue;
     const item = ingredient.inventoryItem;
     const unitPrice = item ? unitPriceFromLastPurchase(item) : null;
-    const quantityInItemUnit = item ? toItemUnit(ingredient.quantity, ingredient.unit, item.unit) : null;
+    const quantityInItemUnit = item ? toItemUnit(ingredient.quantity, ingredient.unit, item) : null;
     if (unitPrice === null || quantityInItemUnit === null) {
       skippedCount++;
       continue;
