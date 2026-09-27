@@ -33,6 +33,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 | `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 | `UX-`, `BUG-`, `DEPS-` | UX problems, production errors, dependency upgrades | Autopilot scouts (see AUTOPILOT.md); `SEC-`/`PERF-`/`MAINT-`/`GAP-` scouts reuse those prefixes |
+| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/RECIPE_INGREDIENT_MATCHING.md`](./docs/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -151,6 +152,27 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
       …)` call to both, mirroring the calendar feed's constants. Test: the
       Nth request in a window past the cap is rejected.
+
+### Recipe ingredient matching (design: `docs/RECIPE_INGREDIENT_MATCHING.md`)
+
+- [ ] **MATCH-4. Better ingredient-line parsing** (medium, S) — `parseIngredientString`
+      (`src/lib/recipe-import.ts`) misses `½`, `1,5`, `2-3`, `500g` and keeps
+      prep text in the name ("gul lök, finhackad"), so the matcher gets
+      names that never match. Add those forms, split a prep note off after a
+      comma or in parentheses, split "salt och peppar". Design §5. Pure,
+      unit tests only.
+- [ ] **MATCH-1. Stop silently creating inventory items from recipes** (high, M) —
+      `parseIngredientRows` (`meal-planning/recipe-actions.ts`) find-or-creates
+      an `InventoryItem` for every unmatched name on save, so one import adds
+      5–15 zero-stock phantom items and breaks cookable / missing / cost
+      numbers. Add a pure matcher, a read-only preview action, and a
+      "Match ingredients" step in `RecipeFormDialog` (confident rows
+      collapsed, AUTO-11 style; skipped entirely when all rows are
+      confident). Send explicit per-row decisions (use existing / create new)
+      and never create without one. Keep existing links on edit. Make
+      `addMissingIngredientsToShoppingListAction` leave unmatched rows
+      unlinked. Design §3.1–3.5, file plan §7. Includes an e2e spec.
+      Supersedes the recipe part of SEC-7.
 
 ### Performance (2026-09-26 audit)
 
@@ -419,13 +441,32 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
+- [ ] **MATCH-2. "Don't track" ingredients and learned aliases** (high, M; after MATCH-1) —
+      migration: `RecipeIngredient.untracked/rawText/note` and `ItemAlias`
+      (`householdId`, `normalizedName`, nullable `inventoryItemId`). The
+      review writes an alias when the user links a name to a differently
+      named item, or marks it Don't track, and the matcher checks aliases
+      before fuzzy. Recipe expansion skips untracked rows. Design §3.4, §4.
+- [ ] **MATCH-3. Per-item unit conversions** (high, M; after MATCH-2) —
+      migration: `ItemUnitConversion` (`inventoryItemId`, `fromUnit`,
+      `factor`). The review offers "remember 1 pcs = 2000 g", "override for
+      this recipe" or "decide when cooking" for weight↔volume↔count rows.
+      `convertForItem` in `units.ts` replaces direct
+      `convertQuantity`/`unitsAreComparable` use in missing/cooked/cost/
+      cookable. Optional "≈" density hints for about 20 staples. Design §3.3.
+
 ---
 
 ## Phase 3 — larger items, own PR each
 
 ### Shopping list & inventory automation
 
-Nothing queued right now.
+- [ ] **MATCH-5. Aliases everywhere, and cleaning up phantom items** (medium, L; after MATCH-3) —
+      `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
+      consult `ItemAlias`. Add "Review ingredient matches" per recipe, and
+      "Merge into…" for inventory items (moves recipe rows, list rows, price
+      history, barcode and stock, writes an alias), suggested for zero-stock
+      recipe-only items with a confident duplicate. Design §6.
 
 ---
 
