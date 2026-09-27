@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DASHBOARD_ROUTES } from "./routes";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { collectErrors, expectRendersCleanly, LOCALES, saveScreenshot } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, LOCALES, saveScreenshot } from "./ui";
 
 // Every dashboard page, in both languages, on both the desktop and the
 // mobile project: it must render without hitting an error boundary or
@@ -14,6 +14,9 @@ for (const locale of LOCALES) {
     // Signed in, the language comes from the account, not the cookie, so
     // each locale runs as its own seeded user (e2e/seed.ts).
     test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+    test.beforeEach(async ({ context, baseURL }) => {
+      await dismissCookieNotice(context, baseURL!);
+    });
 
     for (const route of DASHBOARD_ROUTES) {
       test(`${route.path} renders cleanly`, async ({ page }, testInfo) => {

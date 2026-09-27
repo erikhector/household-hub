@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
 
 // Shared checks for the UI suites (smoke.spec.ts, public.spec.ts). Each
@@ -16,6 +17,15 @@ export type Locale = (typeof LOCALES)[number];
 // instead, which is why smoke.spec.ts logs in as a Swedish user for sv.
 export async function setLocaleCookie(context: BrowserContext, baseURL: string, locale: Locale) {
   await context.addCookies([{ name: "locale", value: locale, url: baseURL }]);
+}
+
+// Pre-acknowledge the cookie notice (src/components/legal/cookie-notice.tsx)
+// the same way its "Got it" button does. It's a fixed overlay on every page
+// of a fresh context, so without this every screenshot has it covering the
+// bottom of the page, and a layout check measures the notice instead of the
+// page. The notice itself is covered by cookie-notice.spec.ts.
+export async function dismissCookieNotice(context: BrowserContext, baseURL: string) {
+  await context.addCookies([{ name: COOKIE_NOTICE_COOKIE, value: "1", url: baseURL }]);
 }
 
 // Start collecting uncaught page errors and console errors. Call before the

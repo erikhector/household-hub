@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PUBLIC_ROUTES } from "./routes";
-import { collectErrors, expectRendersCleanly, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
 
 // The logged-out pages (landing, auth forms, legal pages, and the
 // token-link pages in their "invalid link" state), with the same checks as
@@ -11,6 +11,7 @@ for (const locale of LOCALES) {
   test.describe(`public (${locale})`, () => {
     test.beforeEach(async ({ context, baseURL }) => {
       await setLocaleCookie(context, baseURL!, locale);
+      await dismissCookieNotice(context, baseURL!);
     });
 
     for (const route of PUBLIC_ROUTES) {

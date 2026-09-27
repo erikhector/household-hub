@@ -4664,7 +4664,12 @@ approximating them, so the email never disagrees with the app.
   full-page `<project>-<locale>-<route>.png` of every page. On mobile the
   viewport is grown to `main`'s scroll height for the shot so it doesn't
   stop at the fold. The `ux` scout lens runs this instead of its own
-  crawler, so its screenshots and the gate check the same pages.
+  crawler, so its screenshots and the gate check the same pages. Both
+  specs pre-set the cookie notice's `cookie_notice_ack` cookie
+  (`dismissCookieNotice` in `e2e/ui.ts`) so the fixed notice doesn't
+  cover every screenshot or skew the layout checks;
+  `cookie-notice.spec.ts` covers the notice itself (shows on a first
+  visit, "Got it" hides it, stays hidden after a reload).
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the
