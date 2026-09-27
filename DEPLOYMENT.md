@@ -307,6 +307,13 @@ for the full list (including the optional `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/
 `SENTRY_PROJECT` needed only for source-map upload). Requires creating a free
 Sentry project (Platform: Next.js) to get a real DSN.
 
+**Checking it works (temporary):** after deploying with the DSN set, sign in
+and open `/api/debug/sentry`. It throws on purpose, so you get an error page,
+and an issue "Squirrel Sentry pipeline test" should appear in Sentry within a
+minute. Load it at least twice so the production autopilot scout (which skips
+issues with fewer than 2 events) picks it up too. Remove
+`src/app/api/debug/sentry/` once this has been confirmed.
+
 **Privacy:** with Sentry on, the browser sends error details (message, stack trace, page
 URL, browser/device type, possibly IP address) to a third party. The privacy policy
 (`src/app/privacy/page.tsx`, "Third parties") already describes this as conditional on the
