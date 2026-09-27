@@ -534,22 +534,17 @@ keeper.
     unchanged. An all-confident recipe saves without step 2. Runs on
     desktop and mobile.
 
-### Open questions for the product owner
+### Decisions (product owner, 2026-09-27)
 
-1. **Salt/pepper/oil default**: link if the item exists, otherwise default
-   to *Don't track* rather than *Create new*? (Proposed: only water and ice
-   default to Don't track. Everything else follows the normal rules, and
-   aliases remember the household's choice.)
-2. **Density hint table**: ship with MATCH-3, or start with empty factor
-   fields and add hints later? (Proposed: ship a short table of about 20
-   staples, marked "≈".)
-3. **Aliases outside recipes** (MATCH-5): should an alias learned in the
-   recipe review also auto-link shopping-list rows? (Proposed: yes. It's
-   the same household vocabulary.)
-4. **Merge: confirm with preview, or undo?** (Proposed: confirm with
-   preview, §6.3. An undo would need a snapshot of six tables.)
-5. **Catalog entry point**: a menu item on the inventory page (proposed),
-   or its own tab in the bottom navigation?
+1. **Default to Don't track**: only water and ice. Everything else follows
+   the normal matching rules, and aliases remember the household's choice.
+2. **Density hints**: ship with MATCH-3, as a short table of about 20
+   staples marked "≈".
+3. **Aliases outside recipes**: yes. An alias learned in the recipe review
+   also links shopping-list and receipt rows (MATCH-5).
+4. **Merge**: confirm with a preview, no undo (§6.3).
+5. **Catalog entry point**: a "Manage items" entry on the inventory page,
+   with the duplicate-group badge (§6.2). No new bottom-nav tab.
 
 ## Sources
 
