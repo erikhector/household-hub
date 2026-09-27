@@ -32,7 +32,9 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] Schema change ⇒ a committed migration under `prisma/migrations/`.
 - [ ] New logic has a colocated test; a bug fix has a test that would fail
       without it. No `.skip`/`.only`, no weakened assertions.
-- [ ] User-visible change ⇒ an `e2e/` spec asserts it.
+- [ ] User-visible change ⇒ an `e2e/` spec asserts it, passing on both the
+      `desktop` and `mobile` projects. New page ⇒ listed in `e2e/routes.ts`
+      (seeded row in `e2e/seed.ts` if it has a dynamic segment).
 
 **Must fix before merge**
 - [ ] Every user-facing string is in `en.ts` **and** `sv.ts`, none hardcoded

@@ -36,7 +36,11 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
 
 - **Tests**: unit tests for logic (`*.test.ts`). For any user-visible
   change, add or extend a spec in `e2e/` that asserts the item's
-  Acceptance line through the UI. A bug fix gets a test that fails first.
+  Acceptance line through the UI, following AGENTS.md "UI tests". It
+  runs on the `desktop` and `mobile` projects, so it must pass on both;
+  a new page goes in `e2e/routes.ts`. For a `UX-` item, compare
+  `npm run test:e2e:screenshots` before and after. A bug fix gets a test
+  that fails first.
 - **Verify**: `npm run ci:local` (lint, typecheck, unit tests, build,
   e2e). All green, no skipped tests. While AUTOPILOT.md says
   `ci_gate: local` this *is* CI: re-run it before every push and ignore

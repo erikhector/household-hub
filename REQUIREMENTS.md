@@ -4617,16 +4617,17 @@ approximating them, so the email never disagrees with the app.
   `next start` itself) against a real Postgres, because the unit suite
   mocks every I/O boundary and so can't tell whether a page actually
   renders or a form actually saves. `e2e/global-setup.ts` seeds a fixed,
-  already-verified user with one household (`e2e/seed.ts`; login is gated
-  on email verification, which a test can't click through) and refuses to
-  run against a non-local `DATABASE_URL` unless `E2E_ALLOW_REMOTE_DB=true`.
-  `e2e/auth.setup.ts` logs in once through the real form and shares the
-  session with every spec. `smoke.spec.ts` loads every top-level dashboard
-  route and fails on an HTTP error, the error boundary, or any browser
-  console error; `flows.spec.ts` covers core write paths (add and complete
-  a task, create a shopping list and add items). Specs run serially
-  (`workers: 1`) since they share the seeded household, and name the rows
-  they create uniquely so reruns don't collide. `next start` gets
+  already-verified household with two owners, one whose account language
+  is English and one Swedish, plus a shopping list with two rows
+  (`e2e/seed.ts`, fixed ids in `e2e/seed-data.ts`; login is gated on email
+  verification, which a test can't click through) and refuses to run
+  against a non-local `DATABASE_URL` unless `E2E_ALLOW_REMOTE_DB=true`.
+  `e2e/auth.setup.ts` logs both users in once through the real form and
+  saves their sessions for the specs. Signed-in pages take the locale
+  from the account rather than the cookie, which is why Swedish needs its
+  own user. Specs run serially (`workers: 1`) since they share the seeded
+  household, and name the rows they create uniquely so reruns don't
+  collide. `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
   with a Postgres service container, but GitHub CI is paused for now
@@ -4635,7 +4636,44 @@ approximating them, so the email never disagrees with the app.
   session, per `ci_gate` in AUTOPILOT.md. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
-  Any user-visible change should add or extend a spec here.
+- **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
+  every spec in two projects, `desktop` (Desktop Chrome, 1280×720) and
+  `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
+  only Chromium is installed, and the iPhone presets need WebKit).
+  `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
+  `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
+  point at a seeded row, or at a bogus token so the "invalid link" state
+  renders), and `src/app/page-coverage.test.ts` fails `npm test` if a
+  `page.tsx` is missing from it or it lists a page that no longer exists;
+  `/no-household` is the one exemption (unreachable for the seeded user,
+  guard unit-tested). `smoke.spec.ts` (signed in) and `public.spec.ts`
+  (logged out) visit every listed page in `en` and `sv` on both
+  viewports and fail on an HTTP error, the error boundary, a browser
+  console error, the wrong `<html lang>`, or horizontal overflow of the
+  document or of `main` (which is what scrolls on a phone). The shared
+  checks are in `e2e/ui.ts`. `navigation.desktop.spec.ts` walks every
+  sidebar entry; `navigation.mobile.spec.ts` walks the bottom bar and its
+  "More" menu and checks the last content on a long page isn't hidden
+  under the bar. Both read `nav-items.ts` and the dictionary, so moving
+  a section keeps them in step. `flows.spec.ts` covers core write paths
+  (add and complete a task, create a shopping list and add items).
+  `npm run test:e2e:desktop` / `:mobile` run one project.
+- **Screenshots for review and the UX scout**: with
+  `E2E_SCREENSHOT_DIR` set (`npm run test:e2e:screenshots` defaults it to
+  `test-results/screenshots/`), the smoke and public specs also save a
+  full-page `<project>-<locale>-<route>.png` of every page. On mobile the
+  viewport is grown to `main`'s scroll height for the shot so it doesn't
+  stop at the fold. The `ux` scout lens runs this instead of its own
+  crawler, so its screenshots and the gate check the same pages. Both
+  specs pre-set the cookie notice's `cookie_notice_ack` cookie
+  (`dismissCookieNotice` in `e2e/ui.ts`) so the fixed notice doesn't
+  cover every screenshot or skew the layout checks;
+  `cookie-notice.spec.ts` covers the notice itself (shows on a first
+  visit, "Got it" hides it, stays hidden after a reload).
+- **Rule**: anything that changes the UI adds or extends an `e2e/` spec
+  that asserts it and passes on both projects, and a new page goes in
+  `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the
+  PR template and the autopilot builder all check for it.
 
 ## Autonomous improvement loop
 

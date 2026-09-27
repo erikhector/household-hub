@@ -35,12 +35,28 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
+  // Every spec runs twice, once per viewport: a desktop browser and a
+  // phone. Squirrel is mostly used on phones, and the dashboard shell is a
+  // different layout there (bottom bar instead of sidebar, only `main`
+  // scrolls), so desktop-only coverage misses a whole class of bugs.
+  // `*.desktop.spec.ts` / `*.mobile.spec.ts` are for the few checks that
+  // only make sense at one size (e.g. which navigation is showing). Pixel 7
+  // rather than an iPhone: the iPhone presets need WebKit, and only
+  // Chromium is installed here and in CI; the viewport and touch
+  // emulation are what matter for layout.
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
-      name: "chromium",
+      name: "desktop",
       use: { ...devices["Desktop Chrome"], storageState: STORAGE_STATE },
       dependencies: ["setup"],
+      testIgnore: /\.mobile\.spec\.ts$/,
+    },
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 7"], storageState: STORAGE_STATE },
+      dependencies: ["setup"],
+      testIgnore: /\.desktop\.spec\.ts$/,
     },
   ],
   webServer: process.env.E2E_BASE_URL

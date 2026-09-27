@@ -43,7 +43,9 @@ npm run typecheck           # next typegen && tsc --noEmit (typegen emits .next/
 npm test                    # vitest run (non-watch)
 npm run check               # lint + typecheck + test in one go
 npm run build
-npm run test:e2e            # Playwright vs `next start` + real Postgres (build first)
+npm run test:e2e            # Playwright vs `next start` + real Postgres (build first), desktop + mobile
+npm run test:e2e:mobile     # just the phone viewport (or :desktop) while iterating
+npm run test:e2e:screenshots # every page × desktop/mobile × en/sv to test-results/screenshots/
 npm run ci:local            # the full gate: check + build + e2e
 ```
 
@@ -122,7 +124,10 @@ change, but don't skip one.
    touched: every new Server Action, calculator or branch in one. Test
    behaviour (tenancy check, validation errors, the happy path), not
    implementation details. Bug fixes get a test that fails without the fix.
-   User-visible changes also get an assertion in an `e2e/` spec.
+   **Anything that changes the UI gets a UI test**: a new page, component,
+   form, dialog or layout change adds or extends an `e2e/` spec that
+   asserts it through the browser (see "UI tests" under Testing). It runs
+   on desktop and mobile automatically, so make sure it passes on both.
 5. **Verify.** Run the focused test while iterating
    (`npx vitest run <path>` or `npx playwright test <spec>`), then
    `npm run check && npm run build` (plus `npm run test:e2e` for anything
@@ -227,7 +232,42 @@ loop".
 - There's no component-rendering setup (no jsdom or Testing Library).
   UI behaviour is covered end to end instead: Playwright specs in `e2e/`
   run against a production build and a real, seeded Postgres. See
-  REQUIREMENTS.md, "Testing", for the seed user and conventions.
+  REQUIREMENTS.md, "Testing", for the seed users and conventions.
+
+### UI tests
+
+- **Every spec runs twice**: the `desktop` project (Desktop Chrome) and
+  the `mobile` project (Pixel 7, 412 px wide, touch). The dashboard is a
+  different layout on phones (bottom bar, only `main` scrolls), so a test
+  that passes on one can fail on the other. Name a spec
+  `*.desktop.spec.ts` or `*.mobile.spec.ts` only when the check is
+  meaningless at the other size (e.g. which navigation shows).
+- **Every page is listed in `e2e/routes.ts`.** `smoke.spec.ts`
+  (dashboard) and `public.spec.ts` (logged out) render each one in `en`
+  and `sv` on both viewports and fail on an HTTP error, the error
+  boundary, a console error, or content wider than the screen.
+  `src/app/page-coverage.test.ts` fails `npm test` when a `page.tsx` has
+  no entry there, so a new page must be added in the same PR (with a
+  seeded row in `e2e/seed.ts` if it has a dynamic segment).
+- **Behaviour goes in a flow spec.** The smoke run only proves a page
+  renders. Anything a user does (submit a form, open a dialog, toggle,
+  delete, navigate) gets a test in `flows.spec.ts` or a new
+  `e2e/<feature>.spec.ts`: act through the UI, then assert the visible
+  result, and reload first when the point is that it saved.
+- **Locators**: by role and accessible name (`getByRole("button", { name:
+  "Add task" })`), not CSS classes or test ids. If you can't find an
+  element that way, it probably needs a label for screen readers too.
+  Name rows you create uniquely (`unique()` in `flows.spec.ts`), since
+  specs share the seeded household.
+- **Shared checks** live in `e2e/ui.ts` (`collectErrors`,
+  `expectRendersCleanly`, `expectNoHorizontalOverflow`, `saveScreenshot`,
+  `dismissCookieNotice` for specs where the cookie notice would get in
+  the way).
+  Reuse them in new specs rather than re-implementing.
+- **Screenshots**: `npm run test:e2e:screenshots` (or
+  `E2E_SCREENSHOT_DIR=<dir> npx playwright test smoke public`) saves
+  `<desktop|mobile>-<en|sv>-<route>.png` for every page. The UX scout
+  looks at these. Use them yourself to eyeball a layout change.
 
 ## Database changes
 
