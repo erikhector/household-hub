@@ -16,7 +16,7 @@ const HOUSEHOLD_ID = "house-1";
 
 type FakeRecipe = {
   id: string;
-  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number; unit: string } | null; name: string; unit: string; quantity: number }[];
+  ingredients: { inventoryItemId: string | null; inventoryItem: { name: string; quantity: number; unit: string } | null; untracked?: boolean; name: string; unit: string; quantity: number }[];
   components: { componentRecipeId: string; quantity: number }[];
 };
 
@@ -58,6 +58,29 @@ describe("expandRecipeIngredients", () => {
       },
     ]);
     expect(recipeFindManyMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips Don't-track rows but keeps an unlinked row for the name fallback (MATCH-2)", async () => {
+    mockRecipes([
+      {
+        id: "bread",
+        ingredients: [
+          { inventoryItemId: null, inventoryItem: null, untracked: true, name: "Vatten", unit: "dl", quantity: 3 },
+          // Its item was deleted (SetNull): still a need, matched by name.
+          { inventoryItemId: null, inventoryItem: null, untracked: false, name: "Flour", unit: "g", quantity: 500 },
+        ],
+        components: [{ componentRecipeId: "starter", quantity: 1 }],
+      },
+      {
+        id: "starter",
+        ingredients: [{ inventoryItemId: null, inventoryItem: null, untracked: true, name: "Water", unit: "dl", quantity: 1 }],
+        components: [],
+      },
+    ]);
+
+    const result = await expandRecipeIngredients(HOUSEHOLD_ID, "bread", 1, new Set());
+
+    expect(result.map((need) => need.name)).toEqual(["Flour"]);
   });
 
   it("includes a sub-recipe's ingredients scaled by the component's quantity", async () => {

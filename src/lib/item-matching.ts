@@ -53,6 +53,32 @@ export function itemNameSimilarity(a: string, b: string): number {
   return diceCoefficient(normA, normB);
 }
 
+// Confidence thresholds for a fuzzy name match, first tuned for receipt
+// lines (AUTO-11, src/lib/shopping/receipt-match.ts) and shared with the
+// recipe ingredient matcher (MATCH-1, src/lib/recipes/ingredient-match.ts)
+// so both review screens accept and pre-select on exactly the same terms.
+//
+// Below this, defaulting to "skip"/"create new" is safer than confidently
+// linking the wrong item — the user can still pick one manually. Same value
+// both dialogs used before AUTO-11.
+export const MATCH_PRESELECT_MIN_SCORE = 0.35;
+
+// Deliberately close to "the same name after normalization" (which scores
+// exactly 1): bigram similarity puts ordinary near-misses like "Tomatoes"
+// vs "tomato" around 0.83, and a plural/singular slip is exactly the kind
+// of thing that should still get a glance. Swedish receipts abbreviate
+// names heavily, so in practice most fuzzy auto-accepts are exact-name
+// hits and the barcode path does the rest. Tune against real receipts
+// before loosening — a wrong auto-accept costs more than an extra look.
+export const MATCH_AUTO_ACCEPT_MIN_SCORE = 0.9;
+
+// Even a high score isn't confident when a second candidate is nearly as
+// good — most often two items with the same name (a list with "Milk" on it
+// twice, or inventory items "Mjölk" and "mjölk." that only differ in case
+// and punctuation, which both score 1). Which one the user meant is a
+// genuine choice, so the line stays open.
+export const MATCH_AUTO_ACCEPT_MIN_MARGIN = 0.15;
+
 export type InventoryMatchCandidate = { id: string; name: string };
 export type InventoryMatch<T extends InventoryMatchCandidate> = T & { score: number };
 

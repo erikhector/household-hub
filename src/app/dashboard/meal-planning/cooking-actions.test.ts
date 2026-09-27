@@ -83,10 +83,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
       // Leftovers name prefix/category/unit and the invalid-servings error
       // (GAP-8) come from the real English strings.
       mealPlanning: en.mealPlanning,
-      // Backs createCategoryResolver's dictionary tier (AUTO-2b) —
-      // addMissingIngredientsToShoppingListAction resolves a real category
-      // for a brand-new ingredient the same way the inventory/shopping-list
-      // create paths do.
+      // Backs createCategoryResolver's dictionary tier (AUTO-2b).
       inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
     })),
   };
@@ -249,6 +246,27 @@ describe("previewMissingIngredientsAction", () => {
     });
   });
 
+  it("never lists a Don't-track row as missing, but keeps a row whose item was deleted (MATCH-2)", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([{ recipeId: "bread", portions: 4, recipe: { servings: 4 } }]);
+    recipeFindManyMock.mockResolvedValue([
+      {
+        id: "bread",
+        ingredients: [
+          { inventoryItemId: null, inventoryItem: null, untracked: true, name: "Vatten", unit: "dl", quantity: 3 },
+          { inventoryItemId: null, inventoryItem: null, untracked: false, name: "Flour", unit: "g", quantity: 500 },
+        ],
+        components: [],
+      },
+    ]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+
+    const result = await previewMissingIngredientsAction(weekRange("2026-01-05"));
+
+    expect(result).toEqual({
+      items: [{ key: "name:flour::g", name: "Flour", unit: "g", missingQuantity: 500, unitMismatch: false }],
+    });
+  });
+
   it("scales each entry's ingredients by its portions relative to the recipe's own servings, instead of always counting a full recipe per entry", async () => {
     // A 4-serving soup recipe planned twice in the week (e.g. dinner Thursday
     // and lunch Friday), 2 portions each — together that's exactly one batch
@@ -375,7 +393,6 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     shoppingListCreateMock.mockResolvedValue({ id: "new-list" });
     shoppingListItemFindManyMock.mockResolvedValue([]);
     inventoryItemFindManyMock.mockResolvedValue([]);
-    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-1", name: "Carrot" }]);
     shoppingListItemCreateManyMock.mockResolvedValue({});
     const fd = formData({ targetListId: NEW_SHOPPING_LIST_SENTINEL });
     fd.append("itemName", "Carrot");
@@ -390,12 +407,11 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     );
   });
 
-  it("batches inventory find-or-create across rows into one lookup and one createMany (SCALE-A)", async () => {
+  it("links a known ingredient and leaves an unmatched one unlinked, never creating an inventory item (MATCH-1)", async () => {
     shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
     shoppingListItemFindManyMock.mockResolvedValue([]);
-    // "Carrot" already exists (case-insensitive match); "Kale" doesn't.
-    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot", category: "Produce" }]);
-    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-kale", name: "Kale" }]);
+    // "Carrot" exists (case-insensitive match); "Kale" doesn't.
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "carrot", lastKnownPrice: 4 }]);
     shoppingListItemCreateManyMock.mockResolvedValue({});
     const fd = formData({ targetListId: "list-1" });
     fd.append("itemName", "Carrot");
@@ -408,77 +424,30 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     const result = await addMissingIngredientsToShoppingListAction({}, fd);
 
     expect(result).toEqual({});
-    // Two calls total, not three: one lookup for every distinct name (the
-    // find-or-create itself), one for createCategoryResolver's
-    // household-memory load (AUTO-2b) — the resolver memoizes that load, so
-    // it never scales with the number of new ingredients (see the next
-    // test), and there's still exactly one createMany for the missing row.
-    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
-    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledTimes(1);
-    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
-      expect.objectContaining({ data: [expect.objectContaining({ name: "Kale" })] }),
+    // One household-scoped inventory fetch for every row, and no create.
+    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { householdId: "household-1" } }),
     );
-    expect(shoppingListItemCreateManyMock).toHaveBeenCalledTimes(1);
+    expect(inventoryItemCreateManyAndReturnMock).not.toHaveBeenCalled();
     expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot" }),
-        expect.objectContaining({ inventoryItemId: "inv-kale", name: "Kale" }),
+        expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot", estimatedPrice: 4 }),
+        expect.objectContaining({ inventoryItemId: null, name: "Kale" }),
       ],
     });
   });
 
-  it("guesses a category for a brand-new ingredient instead of writing 'Uncategorized' (AUTO-2b)", async () => {
+  it("doesn't add a second pending row for an item or unlinked name already on the list", async () => {
     shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
-    shoppingListItemFindManyMock.mockResolvedValue([]);
-    inventoryItemFindManyMock.mockResolvedValue([]);
-    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-milk", name: "Milk" }]);
-    shoppingListItemCreateManyMock.mockResolvedValue({});
-    const fd = formData({ targetListId: "list-1" });
-    fd.append("itemName", "Milk");
-    fd.append("itemQuantity", "1");
-    fd.append("itemUnit", "l");
-
-    await addMissingIngredientsToShoppingListAction({}, fd);
-
-    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: [expect.objectContaining({ name: "Milk", category: "Dairy & eggs" })],
-      }),
-    );
-  });
-
-  it("still falls back to 'Uncategorized' for a name the resolver doesn't recognize", async () => {
-    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
-    shoppingListItemFindManyMock.mockResolvedValue([]);
-    inventoryItemFindManyMock.mockResolvedValue([]);
-    inventoryItemCreateManyAndReturnMock.mockResolvedValue([{ id: "inv-mystery", name: "Xyzzyplorp" }]);
-    shoppingListItemCreateManyMock.mockResolvedValue({});
-    const fd = formData({ targetListId: "list-1" });
-    fd.append("itemName", "Xyzzyplorp");
-    fd.append("itemQuantity", "1");
-    fd.append("itemUnit", "pcs");
-
-    await addMissingIngredientsToShoppingListAction({}, fd);
-
-    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: [expect.objectContaining({ name: "Xyzzyplorp", category: "Uncategorized" })],
-      }),
-    );
-  });
-
-  it("resolves categories for every new ingredient in a batch with one lookup, not one per ingredient", async () => {
-    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
-    shoppingListItemFindManyMock.mockResolvedValue([]);
-    inventoryItemFindManyMock.mockResolvedValue([]);
-    inventoryItemCreateManyAndReturnMock.mockResolvedValue([
-      { id: "inv-milk", name: "Milk" },
-      { id: "inv-bread", name: "Bread" },
-      { id: "inv-chicken", name: "Chicken" },
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { inventoryItemId: "inv-carrot", name: "Carrot" },
+      { inventoryItemId: null, name: "kale" },
     ]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-carrot", name: "Carrot", lastKnownPrice: null }]);
     shoppingListItemCreateManyMock.mockResolvedValue({});
     const fd = formData({ targetListId: "list-1" });
-    for (const name of ["Milk", "Bread", "Chicken"]) {
+    for (const name of ["Carrot", "Kale", "Leek", "leek"]) {
       fd.append("itemName", name);
       fd.append("itemQuantity", "1");
       fd.append("itemUnit", "pcs");
@@ -486,19 +455,9 @@ describe("addMissingIngredientsToShoppingListAction", () => {
 
     await addMissingIngredientsToShoppingListAction({}, fd);
 
-    // One call for the find-or-create's own existence check, one for the
-    // category resolver's household-memory load — still 2 regardless of the
-    // 3 new ingredients resolved against it.
-    expect(inventoryItemFindManyMock).toHaveBeenCalledTimes(2);
-    expect(inventoryItemCreateManyAndReturnMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: [
-          expect.objectContaining({ name: "Milk", category: "Dairy & eggs" }),
-          expect.objectContaining({ name: "Bread", category: "Bakery" }),
-          expect.objectContaining({ name: "Chicken", category: "Meat & fish" }),
-        ],
-      }),
-    );
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ inventoryItemId: null, name: "Leek" })],
+    });
   });
 });
 

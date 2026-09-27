@@ -45,6 +45,10 @@ export type RecipeCostPurchase = {
 };
 
 export type RecipeCostIngredient = {
+  // RecipeIngredient.untracked (MATCH-2): "Don't track" rows (water, …)
+  // cost nothing worth estimating, so they're left out entirely rather
+  // than counted as skipped and making the estimate read as partial.
+  untracked?: boolean;
   quantity: number;
   // The RecipeIngredient's own unit — independent free text from the
   // linked item's unit below, see schema.prisma.
@@ -121,6 +125,7 @@ export function computeRecipeCost(ingredients: RecipeCostIngredient[], servings:
   let skippedCount = 0;
 
   for (const ingredient of ingredients) {
+    if (ingredient.untracked) continue;
     const item = ingredient.inventoryItem;
     const unitPrice = item ? unitPriceFromLastPurchase(item) : null;
     const quantityInItemUnit = item ? toItemUnit(ingredient.quantity, ingredient.unit, item.unit) : null;

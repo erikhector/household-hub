@@ -177,6 +177,7 @@ model Household {
   shoppingLists      ShoppingList[]
   listTemplates      ShoppingListTemplate[]
   recipes            Recipe[]
+  itemAliases        ItemAlias[]
   mealPlans          MealPlan[]
   budgetCategories   BudgetCategory[]
   transactions       Transaction[]
@@ -365,6 +366,7 @@ model InventoryItem {
   listTemplateItems ShoppingListTemplateItem[]
   priceHistory      PriceHistory[]
   recipeIngredients RecipeIngredient[]
+  aliases           ItemAlias[]
   notifications     Notification[]
 
   @@index([householdId])
@@ -754,11 +756,47 @@ model RecipeIngredient {
   name            String
   quantity        Float
   unit            String  @default("pcs")
+  // MATCH-2 ("Don't track"): the row is deliberately not linked to any
+  // InventoryItem (water, ice, or anything the household said never to
+  // track), so cooking, the shopping-list bridge, cost and "use it up" skip
+  // it. A row with `inventoryItemId = null` and `untracked = false` is
+  // different: its item was deleted (SetNull below) or it never matched,
+  // and it keeps the old match-by-name fallback.
+  untracked       Boolean @default(false)
+  // The original imported line ("300 g vetemjöl, siktat"), kept for the
+  // cook when the row's amount is rewritten into the item's unit (MATCH-3).
+  rawText         String?
+  // Prep text split off an imported name ("finhackad"), shown after the
+  // name on the recipe card and never used for matching.
+  note            String?
 
   recipe        Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
 
   @@index([recipeId])
+  @@index([inventoryItemId])
+}
+
+// MATCH-2: a household's learned "this ingredient name means that item",
+// written by the recipe review when the user links a name to a differently
+// named item ("eggs" → Egg) or marks it Don't track, and checked by the
+// matcher right after an exact name match (src/lib/recipes/ingredient-match.ts).
+// `inventoryItemId = null` means "this name is never tracked". Carries its
+// own householdId because that untracked alias has no item to scope it by;
+// deleting the item deletes its aliases.
+model ItemAlias {
+  id              String   @id @default(cuid())
+  householdId     String
+  // normalizeItemName() of the ingredient name, without a trailing
+  // parenthesized note.
+  normalizedName  String
+  inventoryItemId String?
+  createdAt       DateTime @default(now())
+
+  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, normalizedName])
   @@index([inventoryItemId])
 }
 

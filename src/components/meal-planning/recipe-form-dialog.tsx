@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactElement } from "react";
-import { Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, type ReactElement } from "react";
+import { ArrowLeft, Link2, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,10 +26,25 @@ import {
 import {
   createRecipeAction,
   importRecipeFromUrlAction,
+  previewIngredientMatchesAction,
   updateRecipeAction,
   type ImportRecipeState,
+  type IngredientPreview,
 } from "@/app/dashboard/meal-planning/recipe-actions";
+import {
+  IngredientReviewStep,
+  reviewRowError,
+  type ReviewRow,
+  type ReviewState,
+} from "@/components/meal-planning/ingredient-review-step";
 import type { RecipeData } from "@/components/meal-planning/types";
+import {
+  defaultNewItemUnit,
+  ingredientBaseName,
+  ingredientNeedsReview,
+  splitIngredientNote,
+} from "@/lib/recipes/ingredient-match";
+import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/actions/auth";
@@ -37,6 +53,9 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 type MealPlanningDict = Dictionary["mealPlanning"];
 
 const initialState: ActionState = {};
+// Same caps as recipe-actions.ts's ingredient rawText/note (MATCH-2).
+const MAX_RAW_TEXT_LENGTH = 300;
+const MAX_NOTE_LENGTH = 200;
 const initialImportState: ImportRecipeState = {};
 
 // `unitTouched` tracks whether the user has explicitly set the unit for a
@@ -45,10 +64,42 @@ const initialImportState: ImportRecipeState = {};
 // purpose. Rows that already carry a real unit (loaded from a saved recipe
 // or a URL import) start touched — flipping the name there swaps out the
 // ingredient, not its already-deliberate unit.
-type IngredientRow = { uid: string; name: string; quantity: string; unit: string; unitTouched: boolean };
+//
+// `linkedItemId`/`linkedName` (MATCH-1): the item a saved row is linked to
+// and the name it had when the dialog opened. The link is carried to the
+// matcher only while the name is still that name, so editing a recipe
+// never re-matches a row the user didn't touch, and renaming one does.
+// `untracked` (MATCH-2) is carried the same way for a "Don't track" row.
+//
+// `rawText`/`note` (MATCH-2): an imported row's original line and its prep
+// note, saved with the row. The note is shown under the row; the original
+// line is dropped once the row is edited, since it no longer describes it.
+type IngredientRow = {
+  uid: string;
+  name: string;
+  quantity: string;
+  unit: string;
+  unitTouched: boolean;
+  linkedItemId: string | null;
+  untracked: boolean;
+  linkedName: string;
+  rawText: string;
+  note: string;
+};
 
 function blankRow(): IngredientRow {
-  return { uid: crypto.randomUUID(), name: "", quantity: "1", unit: "pcs", unitTouched: false };
+  return {
+    uid: crypto.randomUUID(),
+    name: "",
+    quantity: "1",
+    unit: "pcs",
+    unitTouched: false,
+    linkedItemId: null,
+    untracked: false,
+    linkedName: "",
+    rawText: "",
+    note: "",
+  };
 }
 
 function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
@@ -59,7 +110,72 @@ function rowsFromRecipe(recipe: RecipeData | undefined): IngredientRow[] {
     quantity: String(ingredient.quantity),
     unit: ingredient.unit,
     unitTouched: true,
+    linkedItemId: ingredient.inventoryItemId,
+    untracked: ingredient.untracked,
+    linkedName: ingredient.name,
+    rawText: ingredient.rawText ?? "",
+    note: ingredient.note ?? "",
   }));
+}
+
+const nameUnchanged = (row: IngredientRow) => row.name.trim() === row.linkedName.trim();
+
+function currentLink(row: IngredientRow): string | null {
+  return row.linkedItemId && nameUnchanged(row) ? row.linkedItemId : null;
+}
+
+// Turns a preview into the review step's rows. A row the user already
+// decided on in an earlier pass (they went Back and pressed Save again)
+// keeps that decision as long as its name and unit are unchanged.
+function buildReview(
+  rows: IngredientRow[],
+  preview: IngredientPreview,
+  previous: ReviewState | null,
+): ReviewState {
+  const reviewRows = rows.map((row, index): ReviewRow => {
+    const name = row.name.trim();
+    const unit = row.unit.trim() || "pcs";
+    const label = [row.quantity.trim(), unit, name].filter(Boolean).join(" ");
+    const earlier = previous?.rows.find((r) => r.uid === row.uid && r.name === name && r.unit === unit);
+    // The quantity may have changed while the decision still stands.
+    if (earlier) return { ...earlier, label };
+    const match = preview.matches[index];
+    const newName = ingredientBaseName(name);
+    return {
+      uid: row.uid,
+      label,
+      name,
+      unit,
+      status: match.status,
+      needsReview: ingredientNeedsReview(match),
+      defaultUntracked: match.untracked,
+      mode: match.untracked ? "untracked" : match.itemId ? "existing" : "new",
+      selectedId: match.itemId ?? "",
+      candidateIds: match.candidateIds,
+      newName,
+      newCategory: preview.guessedCategories[index] ?? "",
+      newUnit: defaultNewItemUnit(unit),
+      newUnitTouched: false,
+    };
+  });
+  return { rows: reviewRows, items: preview.items, categories: preview.categories };
+}
+
+// The per-row decision fields the save action reads, appended in the same
+// order as the ingredient inputs already in the form (blank rows included,
+// so the parallel arrays line up).
+function appendDecisions(formData: FormData, rows: IngredientRow[], review: ReviewState | null) {
+  for (const row of rows) {
+    formData.append("ingredientRawText", row.rawText);
+    formData.append("ingredientNote", row.note);
+    const decided = review?.rows.find((r) => r.uid === row.uid);
+    const isNew = decided?.mode === "new";
+    formData.append("ingredientDecision", decided ? decided.mode : "");
+    formData.append("ingredientItemId", decided?.mode === "existing" ? decided.selectedId : "");
+    formData.append("ingredientNewName", isNew ? decided.newName.trim() : "");
+    formData.append("ingredientNewCategory", isNew ? decided.newCategory.trim() : "");
+    formData.append("ingredientNewUnit", isNew ? decided.newUnit.trim() : "");
+  }
 }
 
 type ComponentRow = { uid: string; componentRecipeId: string; quantity: string };
@@ -134,14 +250,105 @@ export function RecipeFormDialog({
   // real (see wouldCreateCycle in actions.ts); this only drives the picker.
   const componentCandidates = allRecipes.filter((candidate) => candidate.id !== recipe?.id);
 
+  // MATCH-1: Save first previews the ingredient matches, and only shows
+  // step 2 ("Match ingredients") when some row isn't confident.
+  const [step, setStep] = useState<"recipe" | "review">("recipe");
+  const [review, setReview] = useState<ReviewState | null>(null);
+  const [reviewAttempted, setReviewAttempted] = useState(false);
+  const updateReviewRow = (uid: string, patch: Partial<ReviewRow>) =>
+    setReview((current) =>
+      current && { ...current, rows: current.rows.map((row) => (row.uid === uid ? { ...row, ...patch } : row)) },
+    );
+  const resetReview = () => {
+    setStep("recipe");
+    setReview(null);
+    setReviewAttempted(false);
+  };
+
+  // Keyboard and screen-reader users get told when the dialog changes under
+  // them: a step change scrolls the form back to the top and focuses the
+  // new title, and a blocked Save focuses the first row that needs a choice.
+  // Requested from the action (or a click), and carried out once React has
+  // rendered the result. `id` makes a repeated request for the same target
+  // run again. A server error is focused from the action's result instead
+  // (below): it only renders once the action has returned, so a request
+  // made inside the action ran before the error existed.
+  const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: "title" | "invalid"; id: number } | null>(null);
+  const requestFocus = (target: "title" | "invalid") =>
+    setFocusRequest((current) => ({ target, id: (current?.id ?? 0) + 1 }));
+  const goBack = () => {
+    setStep("recipe");
+    requestFocus("title");
+  };
+  useEffect(() => {
+    if (!focusRequest) return;
+    if (focusRequest.target === "title") {
+      formRef.current?.scrollTo({ top: 0 });
+      titleRef.current?.focus();
+      return;
+    }
+    const target = formRef.current?.querySelector<HTMLElement>('input[aria-invalid="true"]');
+    target?.scrollIntoView({ block: "center" });
+    target?.focus();
+  }, [focusRequest]);
+
+  // True only while the read-only preview runs, so the button says
+  // "Checking ingredients…" then, and "Saving…" during the save itself.
+  const [checking, setChecking] = useState(false);
+
   const action = mode === "create" ? createRecipeAction : updateRecipeAction;
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
   ) => {
+    // useActionState always runs the action from the latest committed
+    // render, so `step`, `review` and `ingredients` here are current.
+    const rows = ingredients;
+    const filledRows = rows.filter((row) => row.name.trim());
+    let decided = review;
+    if (step === "recipe") {
+      setChecking(true);
+      const preview = await previewIngredientMatchesAction(
+        filledRows.map((row) => ({
+          name: row.name.trim(),
+          unit: row.unit.trim(),
+          linkedItemId: currentLink(row),
+          untracked: row.untracked && nameUnchanged(row),
+        })),
+      );
+      setChecking(false);
+      if ("error" in preview) return { error: preview.error };
+      decided = buildReview(filledRows, preview, review);
+      if (decided.rows.some((row) => row.needsReview)) {
+        setReview(decided);
+        setReviewAttempted(false);
+        setStep("review");
+        requestFocus("title");
+        return {};
+      }
+    } else if (decided?.rows.some((row) => reviewRowError(row, dict.ingredientReview))) {
+      setReviewAttempted(true);
+      requestFocus("invalid");
+      return {};
+    }
+    appendDecisions(formData, rows, decided);
+
     const result = await action(prevState, formData);
     if (!result.error) {
+      // Rows the save can actually link: a chosen item, or a new item with
+      // a name (the server leaves anything else unlinked).
+      const linked =
+        decided?.rows.filter((row) =>
+          row.mode === "existing" ? row.selectedId : row.mode === "new" ? row.newName.trim() : false,
+        ).length ?? 0;
+      if (linked > 0) {
+        toast.success(format(plural(linked, dict.ingredientReview.savedLinked), { count: linked }));
+      }
       setOpen(false);
+      resetReview();
       if (mode === "create") {
         setName("");
         setServings("4");
@@ -160,6 +367,12 @@ export function RecipeFormDialog({
     return result;
   }, initialState);
 
+  useEffect(() => {
+    if (!state.error) return;
+    errorRef.current?.scrollIntoView({ block: "center" });
+    errorRef.current?.focus();
+  }, [state]);
+
   // Pre-fills the manual fields from a successful import, for the user to
   // review/edit before saving — never auto-saves. Mirrors the main form's
   // action wrapper above: state updates happen right after the action
@@ -175,13 +388,27 @@ export function RecipeFormDialog({
       if (result.recipe.instructions) setInstructions(result.recipe.instructions);
       if (result.recipe.ingredients.length > 0) {
         setIngredients(
-          result.recipe.ingredients.map((ingredient) => ({
-            uid: crypto.randomUUID(),
-            name: ingredient.name,
-            quantity: String(ingredient.quantity),
-            unit: ingredient.unit,
-            unitTouched: true,
-          })),
+          result.recipe.ingredients.map((ingredient) => {
+            // A parser that splits the prep note off (MATCH-4) hands it over
+            // as `note`; otherwise it's still a trailing "(…)" on the name.
+            const split = ingredient.note
+              ? { name: ingredient.name, note: ingredient.note }
+              : splitIngredientNote(ingredient.name);
+            return {
+              uid: crypto.randomUUID(),
+              name: split.name,
+              quantity: String(ingredient.quantity),
+              unit: ingredient.unit,
+              unitTouched: true,
+              linkedItemId: null,
+              untracked: false,
+              linkedName: "",
+              // Clamped to the save action's caps, so an unusually long
+              // imported line can't make the whole save fail.
+              rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
+              note: split.note.slice(0, MAX_NOTE_LENGTH),
+            };
+          }),
         );
       }
       // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips
@@ -197,6 +424,7 @@ export function RecipeFormDialog({
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
+      resetReview();
       setName(recipe?.name ?? "");
       setServings(String(recipe?.servings ?? 4));
       setInstructions(recipe?.instructions ?? "");
@@ -221,8 +449,9 @@ export function RecipeFormDialog({
     setIngredients((rows) => (rows.length > 1 ? rows.filter((r) => r.uid !== uid) : rows));
   const updateRow = (uid: string, field: "name" | "quantity" | "unit", value: string) =>
     setIngredients((rows) =>
-      rows.map((r) => {
-        if (r.uid !== uid) return r;
+      rows.map((row) => {
+        if (row.uid !== uid) return row;
+        const r = { ...row, rawText: "" };
         if (field === "unit") return { ...r, unit: value, unitTouched: true };
         if (field === "name") {
           const matchedUnit = ingredientUnits[value.trim().toLowerCase()];
@@ -262,15 +491,34 @@ export function RecipeFormDialog({
         }
       >
         <DialogHeader>
-          <DialogTitle>
-            {mode === "create" ? dict.newRecipeDialogTitle : dict.editRecipeDialogTitle}
-          </DialogTitle>
+          {step === "review" ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={dict.ingredientReview.back}
+                onClick={goBack}
+                disabled={pending}
+              >
+                <ArrowLeft className="size-4" />
+              </Button>
+              <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+                {dict.ingredientReview.title}
+              </DialogTitle>
+            </div>
+          ) : (
+            <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+              {mode === "create" ? dict.newRecipeDialogTitle : dict.editRecipeDialogTitle}
+            </DialogTitle>
+          )}
         </DialogHeader>
         {/* A sibling form, not nested inside the create/edit form below (HTML
             forms can't nest) — importing just populates the manual fields'
             state for review, it never saves anything itself. */}
         <form
           action={importFormAction}
+          hidden={step === "review"}
           className="flex flex-col gap-2 rounded-md border border-dashed p-3"
         >
           <Label htmlFor="recipe-import-url">{dict.importUrlLabel}</Label>
@@ -313,10 +561,23 @@ export function RecipeFormDialog({
             pushing it past the sheet's height) left iOS Safari stuck — a
             swipe on the form never hands over to the sheet, so the bottom
             of the form and the save button couldn't be reached. */}
-        <form action={formAction} className="flex flex-col gap-4">
+        <form ref={formRef} action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && recipe && (
             <input type="hidden" name="recipeId" value={recipe.id} />
           )}
+
+          {step === "review" && review && (
+            <IngredientReviewStep
+              review={review}
+              dict={dict}
+              attempted={reviewAttempted}
+              onRowChange={updateReviewRow}
+            />
+          )}
+
+          {/* Step 1 stays mounted (only hidden) while step 2 shows, so its
+              fields are still part of the form that Save submits. */}
+          <div hidden={step === "review"} className="flex flex-col gap-4">
 
           <div className="flex gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -404,48 +665,51 @@ export function RecipeFormDialog({
             </div>
             <div className="flex flex-col gap-2">
               {ingredients.map((row) => (
-                <div key={row.uid} className="flex items-center gap-1.5">
-                  <div className="min-w-0 flex-1">
-                    <ComboField
-                      id={`ingredient-name-${row.uid}`}
-                      name="ingredientName"
-                      items={ingredientNames}
-                      value={row.name}
-                      onValueChange={(value) => updateRow(row.uid, "name", value)}
-                      placeholder={dict.ingredientNamePlaceholder}
-                      maxLength={120}
-                      dict={dict}
+                <div key={row.uid} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <ComboField
+                        id={`ingredient-name-${row.uid}`}
+                        name="ingredientName"
+                        items={ingredientNames}
+                        value={row.name}
+                        onValueChange={(value) => updateRow(row.uid, "name", value)}
+                        placeholder={dict.ingredientNamePlaceholder}
+                        maxLength={120}
+                        dict={dict}
+                      />
+                    </div>
+                    <Input
+                      name="ingredientQuantity"
+                      type="number"
+                      min={0.01}
+                      max={1000000}
+                      step="any"
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
+                      placeholder={dict.ingredientQuantityPlaceholder}
+                      className="w-16 shrink-0"
                     />
+                    <Input
+                      name="ingredientUnit"
+                      value={row.unit}
+                      onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
+                      placeholder={dict.ingredientUnitPlaceholder}
+                      maxLength={20}
+                      className="w-16 shrink-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={dict.removeIngredientAriaLabel}
+                      onClick={() => removeRow(row.uid)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
-                  <Input
-                    name="ingredientQuantity"
-                    type="number"
-                    min={0.01}
-                    max={1000000}
-                    step="any"
-                    value={row.quantity}
-                    onChange={(e) => updateRow(row.uid, "quantity", e.target.value)}
-                    placeholder={dict.ingredientQuantityPlaceholder}
-                    className="w-16 shrink-0"
-                  />
-                  <Input
-                    name="ingredientUnit"
-                    value={row.unit}
-                    onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
-                    placeholder={dict.ingredientUnitPlaceholder}
-                    maxLength={20}
-                    className="w-16 shrink-0"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label={dict.removeIngredientAriaLabel}
-                    onClick={() => removeRow(row.uid)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  {row.note && <p className="px-1 text-xs break-words text-muted-foreground">{row.note}</p>}
                 </div>
               ))}
             </div>
@@ -595,16 +859,31 @@ export function RecipeFormDialog({
             )}
           </div>
 
-          {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          </div>
+
+          {state.error && (
+            <p ref={errorRef} tabIndex={-1} role="alert" className="text-sm text-destructive outline-none">
+              {state.error}
+            </p>
+          )}
           <DialogFooter>
+            {step === "review" && (
+              <Button type="button" variant="outline" onClick={goBack} disabled={pending}>
+                {dict.ingredientReview.back}
+              </Button>
+            )}
             <Button type="submit" disabled={pending}>
               {pending
-                ? mode === "create"
-                  ? dict.creating
-                  : dict.saving
-                : mode === "create"
-                  ? dict.create
-                  : dict.save}
+                ? checking
+                  ? dict.ingredientReview.checking
+                  : mode === "create"
+                    ? dict.creating
+                    : dict.saving
+                : step === "recipe" && review?.rows.some((row) => row.needsReview)
+                  ? dict.ingredientReview.next
+                  : mode === "create"
+                    ? dict.create
+                    : dict.save}
             </Button>
           </DialogFooter>
         </form>

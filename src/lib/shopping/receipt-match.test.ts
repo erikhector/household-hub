@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  isAutoAccepted,
-  matchReceiptLine,
-  matchReceiptLines,
-  RECEIPT_AUTO_ACCEPT_MIN_SCORE,
-  RECEIPT_PRESELECT_MIN_SCORE,
-} from "./receipt-match";
+import { MATCH_AUTO_ACCEPT_MIN_SCORE, MATCH_PRESELECT_MIN_SCORE } from "@/lib/item-matching";
+import { isAutoAccepted, matchReceiptLine, matchReceiptLines } from "./receipt-match";
 
 // A real EAN-13 with a valid check digit, and the same code with a broken one.
 const EAN = "4006381333931";
@@ -19,7 +14,7 @@ const candidates = [
 
 describe("thresholds", () => {
   it("keeps the auto-accept bar stricter than the pre-select bar", () => {
-    expect(RECEIPT_AUTO_ACCEPT_MIN_SCORE).toBeGreaterThan(RECEIPT_PRESELECT_MIN_SCORE);
+    expect(MATCH_AUTO_ACCEPT_MIN_SCORE).toBeGreaterThan(MATCH_PRESELECT_MIN_SCORE);
   });
 });
 

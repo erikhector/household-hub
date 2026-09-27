@@ -28,6 +28,8 @@ export function ItemCombobox({
   placeholder,
   emptyMessage,
   ariaLabel,
+  invalid,
+  describedBy,
 }: {
   id?: string;
   items: ComboboxOption[];
@@ -36,6 +38,10 @@ export function ItemCombobox({
   placeholder?: string;
   emptyMessage: string;
   ariaLabel?: string;
+  /** Marks the input invalid for assistive tech (and styles the group). */
+  invalid?: boolean;
+  /** Id of the element that explains the value, e.g. its error message. */
+  describedBy?: string;
 }) {
   const comboboxItems = createComboboxItems(items, {
     getValue: (item) => item.id,
@@ -48,8 +54,14 @@ export function ItemCombobox({
       value={value}
       onValueChange={(next) => onValueChange(typeof next === "string" ? next : "")}
     >
-      <ComboboxInputGroup>
-        <ComboboxInput id={id} placeholder={placeholder} aria-label={ariaLabel} />
+      <ComboboxInputGroup aria-invalid={invalid || undefined}>
+        <ComboboxInput
+          id={id}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+        />
         <ComboboxTrigger aria-label={ariaLabel} />
       </ComboboxInputGroup>
       <ComboboxContent emptyMessage={emptyMessage}>

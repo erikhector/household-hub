@@ -79,10 +79,10 @@ const MAX_SUGGESTIONS = 5;
 // Zero (or negative) on hand is excluded from *both* reasons — there's
 // nothing left to cook with, so "use it up" is backwards; that gap belongs
 // to the shopping-list bridge, not this feature. This isn't just a
-// theoretical edge case: every ingredient auto-created via
-// parseIngredientRows/addMissingIngredientsToShoppingListAction starts at
-// quantity 0 with lowStockThreshold 0 (see recipe-actions.ts), which makes
-// it "out" from the moment it's created. Without this gate, almost any
+// theoretical edge case: every item created from a recipe's "Create new"
+// ingredient row starts at quantity 0 with lowStockThreshold 0 (see
+// resolveIngredientDecisions in recipe-actions.ts), which makes it "out"
+// from the moment it's created. Without this gate, almost any
 // recipe with a freshly-added ingredient would misleadingly show up here —
 // caught in PR review, see the use-it-up-calc.test.ts cases for both
 // reasons.

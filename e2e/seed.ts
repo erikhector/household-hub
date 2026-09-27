@@ -80,6 +80,17 @@ export async function seed() {
        VALUES ('e2e-item-oat-milk', $1, 'Oat milk', 2, 'l'), ('e2e-item-apples', $1, 'Apples', 6, 'pcs')`,
       [E2E_SHOPPING_LIST.id],
     );
+    // Pantry items for e2e/recipe-ingredients.spec.ts (MATCH-1/2): its
+    // recipes name one exactly ("Olive oil"), one only loosely ("Tomater"
+    // for "Tomatoes"), and one by its plural ("eggs" for "Egg", which the
+    // review then learns as an alias).
+    await client.query(
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+       VALUES ('e2e-inv-tomatoes', $1, 'Tomatoes', 'Produce', 6, 'pcs', now()),
+              ('e2e-inv-olive-oil', $1, 'Olive oil', 'Pantry', 1, 'l', now()),
+              ('e2e-inv-egg', $1, 'Egg', 'Dairy & eggs', 12, 'pcs', now())`,
+      [E2E_HOUSEHOLD.id],
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

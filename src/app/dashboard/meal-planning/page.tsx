@@ -93,6 +93,10 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
       name: ingredient.name,
       quantity: ingredient.quantity,
       unit: ingredient.unit,
+      inventoryItemId: ingredient.inventoryItemId,
+      untracked: ingredient.untracked,
+      rawText: ingredient.rawText,
+      note: ingredient.note,
     })),
     components: recipe.components.map((component) => ({
       id: component.id,
@@ -265,10 +269,13 @@ async function RecipesTabSection({
       recipeId: recipe.id,
       recipeName: recipe.name,
       isFavorite: recipe.isFavorite,
-      ingredients: recipe.ingredients.map((ingredient) => ({
-        name: ingredient.name,
-        inventoryItemId: ingredient.inventoryItemId,
-      })),
+      // A "Don't track" row (MATCH-2) is never something to use up.
+      ingredients: recipe.ingredients
+        .filter((ingredient) => !ingredient.untracked)
+        .map((ingredient) => ({
+          name: ingredient.name,
+          inventoryItemId: ingredient.inventoryItemId,
+        })),
     })),
     flaggedInventoryItems,
   );
@@ -325,6 +332,7 @@ async function RecipesTabSection({
       recipe.ingredients.map((ingredient) => {
         const item = ingredient.inventoryItemId ? inventoryById.get(ingredient.inventoryItemId) : undefined;
         return {
+          untracked: ingredient.untracked,
           quantity: ingredient.quantity,
           unit: ingredient.unit,
           inventoryItem: item
