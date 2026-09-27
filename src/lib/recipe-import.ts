@@ -542,21 +542,12 @@ function extractRecipe(html: string): ImportedRecipe | null {
   return null;
 }
 
-// The recipe form has no note field yet (RecipeIngredient.note arrives with
-// MATCH-2), so until then the note rides along in the name as a trailing
-// "(…)" so the user sees it. This relies on MATCH-1's matcher
-// (src/lib/recipes/ingredient-match.ts), which ignores a trailing
-// parenthesized part so "gul lök (finhackad)" still links to "Gul lök";
-// without it the save path's exact-name lookup would create a new item for
-// every row with a note, so MATCH-1 must merge before (or with) this. The
-// parsed rows above keep name and note apart for when the column lands.
-//
-// Quantities are rounded to two decimals here too: "⅓ dl" parses to
-// 0.3333333333333333, which the form's number field shows cut off. The
-// parsed rows keep the exact value.
-function toFormRow({ note, ...row }: ParsedIngredient): ParsedIngredient {
-  const quantity = Math.round(row.quantity * 100) / 100;
-  return note ? { ...row, quantity, name: `${row.name} (${note})` } : { ...row, quantity };
+// The form row keeps the prep note in its own field (RecipeIngredient.note,
+// MATCH-2), so it's passed straight through. Quantities are rounded to two
+// decimals here: "⅓ dl" parses to 0.3333333333333333, which the form's
+// number field shows cut off. The parsed rows keep the exact value.
+function toFormRow(row: ParsedIngredient): ParsedIngredient {
+  return { ...row, quantity: Math.round(row.quantity * 100) / 100 };
 }
 
 // ---------------------------------------------------------------------------

@@ -164,4 +164,14 @@ describe("computeRecipeCost", () => {
   it("treats a non-positive servings count as 1 instead of dividing by zero", () => {
     expect(computeRecipeCost([priced(1, "pcs", "pcs", 10)], 0)).toMatchObject({ perServing: 10 });
   });
+
+  it("prices an amount through the item's saved conversion (MATCH-3)", () => {
+    // A 2 kg bag of flour (1 pcs) bought for 30: 300 g is 0.15 bags = 4.5.
+    const ingredient = priced(300, "g", "pcs", 30);
+    ingredient.inventoryItem!.conversions = [{ fromUnit: "g", factor: 0.0005 }];
+
+    expect(computeRecipeCost([ingredient], 1)).toMatchObject({ total: 4.5, pricedCount: 1, skippedCount: 0 });
+    // Without it, the same row can't be priced.
+    expect(computeRecipeCost([priced(300, "g", "pcs", 30)], 1)).toBeNull();
+  });
 });

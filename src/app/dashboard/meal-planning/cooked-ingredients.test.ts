@@ -204,4 +204,42 @@ describe("computeCookedIngredients", () => {
     expect(result[0]?.suggestedQuantity).toBe(0);
     expect(result[0]?.unitMismatch).toBe(true);
   });
+
+  it("suggests the amount converted through the item's saved conversion (MATCH-3)", () => {
+    const needs: CookedIngredientNeed[] = [
+      {
+        inventoryItemId: "flour-1",
+        name: "Flour",
+        onHandQuantity: 2,
+        onHandUnit: "pcs",
+        requiredQuantity: 300,
+        requiredUnit: "g",
+        conversions: [{ fromUnit: "g", factor: 0.0005 }],
+      },
+    ];
+
+    expect(computeCookedIngredients(needs)[0]).toMatchObject({
+      unit: "pcs",
+      suggestedQuantity: 0.15,
+      requiredQuantity: 300,
+      requiredUnit: "g",
+      unitMismatch: false,
+    });
+  });
+
+  it("still flags a unit the saved conversions don't reach (MATCH-3)", () => {
+    const needs: CookedIngredientNeed[] = [
+      {
+        inventoryItemId: "flour-1",
+        name: "Flour",
+        onHandQuantity: 2,
+        onHandUnit: "pcs",
+        requiredQuantity: 3,
+        requiredUnit: "dl",
+        conversions: [{ fromUnit: "g", factor: 0.0005 }],
+      },
+    ];
+
+    expect(computeCookedIngredients(needs)[0]).toMatchObject({ suggestedQuantity: 0, unitMismatch: true });
+  });
 });

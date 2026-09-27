@@ -6,9 +6,11 @@
 // an AutoMatchedSection, and only the rest are open, each with the same
 // "Use existing / Create new" choice as ResolveMappingsDialog, plus "Don't
 // track" (MATCH-2) for ingredients like water that the pantry never holds.
-// Nothing here
-// writes anything: the choices live in the dialog's state and are sent as
-// explicit per-row decisions when the recipe is saved.
+// A row whose unit the item can't convert also gets the three unit choices
+// (MATCH-3, §3.3): remember a conversion for the item, override the amount
+// for this recipe, or decide when cooking. Nothing here writes anything:
+// the choices live in the dialog's state and are sent as explicit per-row
+// decisions when the recipe is saved.
 
 import { useState } from "react";
 import { TriangleAlert } from "lucide-react";
@@ -19,8 +21,8 @@ import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { format, plural } from "@/lib/i18n/format";
-import { classifyUnits } from "@/lib/units";
 import type { IngredientMatchStatus } from "@/lib/recipes/ingredient-match";
+import { rowUnitChoice, type RowUnitChoice, type UnitChoiceAction } from "@/lib/recipes/unit-choice";
 import type { IngredientPreviewItem } from "@/app/dashboard/meal-planning/recipe-actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -32,6 +34,8 @@ export type ReviewRow = {
   /** What the recipe says, e.g. "300 g vetemjöl". */
   label: string;
   name: string;
+  /** The recipe's amount, for the "this recipe only" default. */
+  quantity: number;
   unit: string;
   status: IngredientMatchStatus;
   needsReview: boolean;
@@ -47,7 +51,18 @@ export type ReviewRow = {
   /** False while `newUnit` is still the default we picked, so the row
    * doesn't warn about a unit the user never chose. */
   newUnitTouched: boolean;
+  /** The unit choice (MATCH-3) for a row whose unit the item can't
+   * convert; null until the user picks one (see rowUnitChoice). */
+  unitAction: UnitChoiceAction | null;
+  /** "1 X = [n] Y" as typed, in conversionLeadUnit's order; null shows the
+   * density hint, if there is one. */
+  rememberValue: string | null;
+  /** "[n] pcs in this recipe only" as typed; null shows the hint's amount. */
+  overrideValue: string | null;
 };
+
+// A choice that no longer fits once the item or its unit changes.
+export const UNIT_CHOICE_RESET = { unitAction: null, rememberValue: null, overrideValue: null } as const;
 
 export type ReviewState = {
   rows: ReviewRow[];
@@ -56,9 +71,16 @@ export type ReviewState = {
 };
 
 /** Why a row can't be saved as it stands, or null when it can. */
-export function reviewRowError(row: ReviewRow, dict: MealPlanningDict["ingredientReview"]): string | null {
+export function reviewRowError(
+  row: ReviewRow,
+  items: IngredientPreviewItem[],
+  dict: MealPlanningDict["ingredientReview"],
+): string | null {
   if (row.mode === "existing" && !row.selectedId) return dict.existingSelectionRequired;
   if (row.mode === "new" && !row.newName.trim()) return dict.newNameRequired;
+  const choice = rowUnitChoice(row, items);
+  if (choice.action === "remember" && choice.factor === null) return dict.unitFactorError;
+  if (choice.action === "override" && choice.overrideQuantity === null) return dict.overrideQuantityError;
   return null;
 }
 
@@ -84,7 +106,7 @@ export function IngredientReviewStep({
   const open = needsLook.filter((row) => row.status !== "confident");
   const leftOver = open.filter((row) => row.mode === "existing");
   const trackedRest = open.filter((row) => row.mode !== "untracked");
-  const errorCount = attempted ? review.rows.filter((row) => reviewRowError(row, t)).length : 0;
+  const errorCount = attempted ? review.rows.filter((row) => reviewRowError(row, review.items, t)).length : 0;
 
   const renderRow = (row: ReviewRow) => (
     <ReviewRowCard
@@ -92,7 +114,7 @@ export function IngredientReviewStep({
       row={row}
       review={review}
       dict={dict}
-      error={attempted ? reviewRowError(row, t) : null}
+      error={attempted ? reviewRowError(row, review.items, t) : null}
       onChange={(patch) => onRowChange(row.uid, patch)}
     />
   );
@@ -170,14 +192,8 @@ function ReviewRowCard({
   const candidateIds = new Set(row.candidateIds);
   const orderedItems = [...candidates, ...review.items.filter((item) => !candidateIds.has(item.id))];
 
-  // What the pantry counts this in: the chosen item's unit, or the unit the
-  // new item will get. A unit that can't be reconciled isn't an error —
-  // cooking asks for the amount, as it does today.
-  const pantryUnit =
-    row.mode === "existing"
-      ? review.items.find((item) => item.id === row.selectedId)?.unit
-      : row.newUnit.trim() || undefined;
-  const unitClass = pantryUnit ? classifyUnits(row.unit, pantryUnit) : null;
+  const choice = rowUnitChoice(row, review.items);
+  const { pantryUnit, unitClass } = choice;
   // The default unit for a new item is our pick, not a mismatch the user
   // made, so it gets a neutral note instead of a warning.
   const isDefaultNewUnit = row.mode === "new" && !row.newUnitTouched;
@@ -209,7 +225,7 @@ function ReviewRowCard({
               variant={row.mode === "existing" ? "secondary" : "ghost"}
               size="sm"
               aria-pressed={row.mode === "existing"}
-              onClick={() => onChange({ mode: "existing" })}
+              onClick={() => onChange({ mode: "existing", ...UNIT_CHOICE_RESET })}
             >
               {t.useExisting}
             </Button>
@@ -219,7 +235,7 @@ function ReviewRowCard({
             variant={row.mode === "new" ? "secondary" : "ghost"}
             size="sm"
             aria-pressed={row.mode === "new"}
-            onClick={() => onChange({ mode: "new" })}
+            onClick={() => onChange({ mode: "new", ...UNIT_CHOICE_RESET })}
           >
             {t.createNew}
           </Button>
@@ -241,7 +257,7 @@ function ReviewRowCard({
         <ItemCombobox
           items={orderedItems.map((item) => ({ id: item.id, label: `${item.name} · ${item.category}` }))}
           value={row.selectedId}
-          onValueChange={(value) => onChange({ selectedId: value })}
+          onValueChange={(value) => onChange({ selectedId: value, ...UNIT_CHOICE_RESET })}
           id={`${fieldId}-item`}
           ariaLabel={format(t.existingItemLabel, { name: row.name })}
           emptyMessage={t.existingItemNoResults}
@@ -287,7 +303,7 @@ function ReviewRowCard({
               <Input
                 id={`${fieldId}-unit`}
                 value={row.newUnit}
-                onChange={(e) => onChange({ newUnit: e.target.value, newUnitTouched: true })}
+                onChange={(e) => onChange({ newUnit: e.target.value, newUnitTouched: true, ...UNIT_CHOICE_RESET })}
                 maxLength={20}
               />
             </div>
@@ -298,8 +314,11 @@ function ReviewRowCard({
       {pantryUnit && isDefaultNewUnit && (
         <p className="text-xs text-muted-foreground">{format(t.newUnitDefault, { unit: pantryUnit })}</p>
       )}
-      {pantryUnit && !isDefaultNewUnit && unitClass !== "unknown" && (
+      {pantryUnit && !isDefaultNewUnit && (unitClass === "same" || unitClass === "convertible") && (
         <p className="text-xs text-muted-foreground">{format(t.unitOk, { unit: pantryUnit })}</p>
+      )}
+      {pantryUnit && !isDefaultNewUnit && unitClass === "known" && (
+        <p className="text-xs text-muted-foreground">{format(t.unitKnown, { unit: pantryUnit })}</p>
       )}
       {pantryUnit && !isDefaultNewUnit && unitClass === "unknown" && (
         <p className="flex items-start gap-1.5 text-xs text-warning">
@@ -307,11 +326,86 @@ function ReviewRowCard({
           {format(t.unitUnknown, { recipeUnit: row.unit, itemUnit: pantryUnit })}
         </p>
       )}
+      {pantryUnit && unitClass === "unknown" && (
+        <UnitChoiceFields row={row} choice={choice} pantryUnit={pantryUnit} dict={dict} onChange={onChange} />
+      )}
       {error && (
         <p id={errorId} className="text-xs text-destructive">
           {error}
         </p>
       )}
     </div>
+  );
+}
+
+// The three choices for a row whose unit the item can't convert (MATCH-3,
+// design §3.3). Native radios in a fieldset, so they're one tab stop with
+// arrow-key selection and read as a group; only the chosen option shows its
+// amount field, which keeps the row short on a phone.
+function UnitChoiceFields({
+  row,
+  choice,
+  pantryUnit,
+  dict,
+  onChange,
+}: {
+  row: ReviewRow;
+  choice: RowUnitChoice;
+  pantryUnit: string;
+  dict: MealPlanningDict;
+  onChange: (patch: Partial<ReviewRow>) => void;
+}) {
+  const t = dict.ingredientReview;
+  const group = `ingredient-review-${row.uid}-unit`;
+  const option = (value: UnitChoiceAction, label: string) => (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="radio"
+        name={group}
+        value={value}
+        checked={choice.action === value}
+        onChange={() => onChange({ unitAction: value })}
+        className="size-4 accent-primary"
+      />
+      {label}
+    </label>
+  );
+
+  return (
+    <fieldset className="flex min-w-0 flex-col gap-1.5">
+      <legend className="sr-only">{format(t.unitChoiceLabel, { name: row.name })}</legend>
+      {option("remember", t.unitRemember)}
+      {choice.action === "remember" && (
+        <div className="flex flex-col gap-1 pl-6">
+          <div className="flex flex-wrap items-center gap-1.5 text-sm">
+            <span>1 {choice.leadUnit} =</span>
+            <Input
+              value={choice.rememberValue}
+              onChange={(e) => onChange({ rememberValue: e.target.value })}
+              inputMode="decimal"
+              className="h-8 w-24"
+              aria-label={format(t.unitRememberInputLabel, { unit: choice.otherUnit, leadUnit: choice.leadUnit })}
+            />
+            <span>{choice.otherUnit}</span>
+          </div>
+          {choice.fromHint && <p className="text-xs text-muted-foreground">{t.unitRememberHint}</p>}
+        </div>
+      )}
+      {option("override", t.unitOverride)}
+      {choice.action === "override" && (
+        <div className="flex flex-wrap items-center gap-1.5 pl-6 text-sm">
+          <Input
+            value={choice.overrideValue}
+            onChange={(e) => onChange({ overrideValue: e.target.value })}
+            inputMode="decimal"
+            className="h-8 w-24"
+            aria-label={format(t.unitOverrideInputLabel, { unit: pantryUnit })}
+          />
+          <span>{pantryUnit}</span>
+        </div>
+      )}
+      {option("defer", t.unitDefer)}
+      {choice.action === "defer" && <p className="pl-6 text-xs text-muted-foreground">{t.unitDeferHint}</p>}
+    </fieldset>
   );
 }

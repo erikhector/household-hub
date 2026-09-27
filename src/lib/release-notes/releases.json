@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.43.0",
+    "date": "2026-09-27",
+    "pr": 95,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "When a recipe measures something differently from how your pantry counts it (grams of flour against bags), you can now tell Squirrel once how they relate. Shopping lists, \"Mark as cooked\" and cost estimates then convert it for you.",
+      "sv": "När ett recept mäter något annorlunda än hur skafferiet räknar det (gram mjöl mot påsar) kan du nu tala om för Squirrel en gång hur de hänger ihop. Inköpslistor, \"Markera som lagad\" och kostnadsuppskattningar räknar sedan om det åt dig."
+    }
+  },
+  {
     "version": "0.42.1",
     "date": "2026-09-27",
     "pr": 93,

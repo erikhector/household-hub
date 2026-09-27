@@ -7,7 +7,7 @@
 // inventory item, converting into the inventory item's own unit where
 // possible" step.
 
-import { convertQuantity, unitsAreComparable } from "@/lib/units";
+import { convertForItem, type ItemUnitConversionLike } from "@/lib/units";
 
 export type CookedIngredientNeed = {
   inventoryItemId: string;
@@ -21,6 +21,9 @@ export type CookedIngredientNeed = {
   // expressed in.
   requiredQuantity: number;
   requiredUnit: string;
+  // The item's saved conversions (ItemUnitConversion, MATCH-3), tried when
+  // the generic table can't convert `requiredUnit` into `onHandUnit`.
+  conversions?: readonly ItemUnitConversionLike[];
 };
 
 export type CookedIngredientData = {
@@ -33,11 +36,11 @@ export type CookedIngredientData = {
   onHandQuantity: number;
   // Defaults the confirm dialog's editable quantity input: the summed
   // required quantity — converted into the inventory item's own unit via
-  // src/lib/units.ts where the two units are recognized and comparable —
-  // when every contributing row's unit reconciles that way, else 0 (the
-  // household must enter the amount themselves — there's no way to convert
-  // an unrecognized unit, or one from a different dimension like cups vs
-  // grams, without ingredient-specific data we don't have).
+  // src/lib/units.ts's convertForItem (the generic table, or the item's own
+  // saved conversions, MATCH-3) — when every contributing row's unit
+  // reconciles that way, else 0 (the household must enter the amount
+  // themselves: an unrecognized unit, or one from a different dimension like
+  // cups vs grams, can't be converted until the item has a conversion).
   suggestedQuantity: number;
   // The recipe-side requirement, kept for display when units mismatch so
   // the household has something to convert from.
@@ -45,8 +48,6 @@ export type CookedIngredientData = {
   requiredUnit: string;
   unitMismatch: boolean;
 };
-
-const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
 
 // Groups by inventory item (not by item+unit like computeMissingIngredients
 // — there's only ever one unit to decrement in here, the inventory item's
@@ -68,12 +69,14 @@ export function computeCookedIngredients(needs: CookedIngredientNeed[]): CookedI
   const byItem = new Map<string, Accum>();
 
   for (const need of needs) {
-    const comparable = unitsAreComparable(need.requiredUnit, need.onHandUnit);
-    const contribution = comparable
-      ? normalizeUnit(need.requiredUnit) === normalizeUnit(need.onHandUnit)
-        ? need.requiredQuantity
-        : convertQuantity(need.requiredQuantity, need.requiredUnit, need.onHandUnit)!
-      : 0;
+    const converted = convertForItem(
+      need.requiredQuantity,
+      need.requiredUnit,
+      { unit: need.onHandUnit },
+      need.conversions,
+    );
+    const comparable = converted !== null;
+    const contribution = converted ?? 0;
 
     const existing = byItem.get(need.inventoryItemId);
     if (existing) {

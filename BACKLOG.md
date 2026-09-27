@@ -419,14 +419,6 @@ order below is a suggestion, not a dependency, unless noted.
       automatically). Test: `invitation.deleteMany` with that user's id
       after `removeMemberAction`.
 
-- [ ] **MATCH-3. Per-item unit conversions** (high, M; after MATCH-2) —
-      migration: `ItemUnitConversion` (`inventoryItemId`, `fromUnit`,
-      `factor`). The review offers "remember 1 pcs = 2000 g", "override for
-      this recipe" or "decide when cooking" for weight↔volume↔count rows.
-      `convertForItem` in `units.ts` replaces direct
-      `convertQuantity`/`unitsAreComparable` use in missing/cooked/cost/
-      cookable. Optional "≈" density hints for about 20 staples. Design §3.3.
-
 ---
 
 ## Phase 3 — larger items, own PR each
@@ -719,6 +711,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.41.0 | #91 feat: ingredient parsing (MATCH-4) | 2026-09-27 | #93 (catch-up) |
       | v0.42.0 | #94 feat: untracked ingredients and aliases (MATCH-2) | 2026-09-27 | #93 (catch-up) |
       | v0.42.1 | #93 fix: long dialogs scroll on iOS | 2026-09-27 | #93 |
+      | v0.43.0 | #95 feat: per-item unit conversions (MATCH-3) | 2026-09-27 | #95 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

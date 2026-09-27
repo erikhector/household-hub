@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalUnit, classifyUnits, convertQuantity, unitsAreComparable } from "./units";
+import { canonicalUnit, classifyUnits, convertForItem, convertQuantity, unitsAreComparable } from "./units";
 
 describe("convertQuantity", () => {
   it("converts between volume units", () => {
@@ -71,6 +71,69 @@ describe("classifyUnits", () => {
     expect(classifyUnits("g", "pcs")).toBe("unknown");
     expect(classifyUnits("dl", "g")).toBe("unknown");
     expect(classifyUnits("handful", "pcs")).toBe("unknown");
+  });
+
+  it("is `known` when only the item's saved conversions reconcile it (MATCH-3)", () => {
+    const flourBags = [{ fromUnit: "g", factor: 1 / 2000 }];
+    expect(classifyUnits("g", "pcs", flourBags)).toBe("known");
+    expect(classifyUnits("kg", "pcs", flourBags)).toBe("known");
+    expect(classifyUnits("dl", "pcs", flourBags)).toBe("unknown");
+    // The generic answer still wins where there is one.
+    expect(classifyUnits("st", "pcs", flourBags)).toBe("same");
+  });
+});
+
+describe("convertForItem (MATCH-3)", () => {
+  const flourInPcs = { unit: "pcs" };
+  // 1 pcs (a 2 kg bag) = 2000 g, stored the other way round: 1 g = 1/2000 pcs.
+  const bag = [{ fromUnit: "g", factor: 1 / 2000 }];
+
+  it("returns the same amount for the same unit, with or without conversions", () => {
+    expect(convertForItem(3, "st", flourInPcs)).toBe(3);
+    expect(convertForItem(3, "pcs", flourInPcs, bag)).toBe(3);
+  });
+
+  it("uses the generic table before any saved conversion", () => {
+    // A saved "dl" conversion on a litre item can't override the real
+    // 1 dl = 0.1 l.
+    expect(convertForItem(2, "dl", { unit: "l" }, [{ fromUnit: "dl", factor: 5 }])).toBeCloseTo(0.2, 10);
+  });
+
+  it("applies a saved conversion for exactly that unit", () => {
+    expect(convertForItem(300, "g", flourInPcs, bag)).toBeCloseTo(0.15, 10);
+  });
+
+  it("matches the saved unit by its canonical spelling", () => {
+    expect(convertForItem(2, "Gram", flourInPcs, bag)).toBeCloseTo(0.001, 10);
+    expect(convertForItem(3, "st", { unit: "g" }, [{ fromUnit: "pcs", factor: 55 }])).toBe(165);
+  });
+
+  it("chains through the generic table into a saved conversion", () => {
+    expect(convertForItem(1, "kg", flourInPcs, bag)).toBeCloseTo(0.5, 10);
+    // Flour weighed in grams, with 1 dl = 60 g saved: 2 msk = 30 ml = 0.3 dl.
+    expect(convertForItem(2, "msk", { unit: "g" }, [{ fromUnit: "dl", factor: 60 }])).toBeCloseTo(18, 10);
+  });
+
+  it("refuses a unit no conversion reaches", () => {
+    expect(convertForItem(300, "g", flourInPcs)).toBeNull();
+    expect(convertForItem(2, "dl", flourInPcs, bag)).toBeNull();
+    expect(convertForItem(1, "handful", flourInPcs, bag)).toBeNull();
+    expect(convertForItem(1, "clove", flourInPcs, bag)).toBeNull();
+  });
+
+  it("ignores a conversion with a factor that isn't a positive number", () => {
+    expect(convertForItem(300, "g", flourInPcs, [{ fromUnit: "g", factor: 0 }])).toBeNull();
+    expect(convertForItem(300, "g", flourInPcs, [{ fromUnit: "g", factor: -1 }])).toBeNull();
+    expect(convertForItem(300, "g", flourInPcs, [{ fromUnit: "g", factor: Number.NaN }])).toBeNull();
+    expect(convertForItem(1, "kg", flourInPcs, [{ fromUnit: "g", factor: Infinity }])).toBeNull();
+  });
+
+  it("falls back to a usable conversion when a direct one is unusable", () => {
+    const conversions = [
+      { fromUnit: "g", factor: 0 },
+      { fromUnit: "kg", factor: 0.5 },
+    ];
+    expect(convertForItem(300, "g", flourInPcs, conversions)).toBeCloseTo(0.15, 10);
   });
 });
 

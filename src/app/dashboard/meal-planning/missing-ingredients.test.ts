@@ -214,4 +214,53 @@ describe("computeMissingIngredients", () => {
       { key: "flour::g", name: "Flour", unit: "g", missingQuantity: 100, unitMismatch: false },
     ]);
   });
+
+  it("reconciles a unit through the item's saved conversion instead of flagging it (MATCH-3)", () => {
+    // Flour counted in 2 kg bags (1 g = 0.0005 pcs), one bag on hand.
+    const conversions = [{ fromUnit: "g", factor: 0.0005 }];
+    const needs: IngredientNeed[] = [
+      { key: "flour", name: "Flour", unit: "g", quantity: 3000, onHandQuantity: 1, onHandUnit: "pcs", conversions },
+      { key: "flour", name: "Flour", unit: "pcs", quantity: 1, onHandQuantity: 1, onHandUnit: "pcs", conversions },
+    ];
+
+    // 3000 g = 1.5 bags, plus 1 bag, minus the 1 on hand: 1.5 bags short,
+    // in one line and without a unit mismatch.
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "flour::pcs", name: "Flour", unit: "pcs", missingQuantity: 1.5, unitMismatch: false },
+    ]);
+  });
+
+  it("proposes nothing when the converted amount is on hand (MATCH-3)", () => {
+    const needs: IngredientNeed[] = [
+      {
+        key: "flour",
+        name: "Flour",
+        unit: "kg",
+        quantity: 1,
+        onHandQuantity: 1,
+        onHandUnit: "pcs",
+        conversions: [{ fromUnit: "g", factor: 0.0005 }],
+      },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([]);
+  });
+
+  it("still flags a unit no saved conversion reaches (MATCH-3)", () => {
+    const needs: IngredientNeed[] = [
+      {
+        key: "flour",
+        name: "Flour",
+        unit: "dl",
+        quantity: 3,
+        onHandQuantity: 1,
+        onHandUnit: "pcs",
+        conversions: [{ fromUnit: "g", factor: 0.0005 }],
+      },
+    ];
+
+    expect(computeMissingIngredients(needs)).toEqual([
+      { key: "flour::dl", name: "Flour", unit: "dl", missingQuantity: 3, unitMismatch: true },
+    ]);
+  });
 });

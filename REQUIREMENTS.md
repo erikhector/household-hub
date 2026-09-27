@@ -2704,7 +2704,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking (MATCH-1, MATCH-2)**: saving a recipe never
+- **Ingredient → inventory linking (MATCH-1, MATCH-2, MATCH-3)**: saving a recipe never
   creates an inventory item on its own; design in
   `docs/RECIPE_INGREDIENT_MATCHING.md` §3.
   - **Matcher** (`src/lib/recipes/ingredient-match.ts`, pure): per row, in
@@ -2725,14 +2725,15 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     "Create new" name. Each match also carries a unit class from
     `classifyUnits` (`src/lib/units.ts`): `same` after `canonicalUnit`
     (st/pcs, msk/tbsp, tsk/tsp, liter/l, …), `convertible` by the generic
-    table, or `unknown`.
+    table, `known` when only the item's saved conversions reach it (see
+    "Unit conversions" below), or `unknown`.
   - **Preview**: `previewIngredientMatchesAction` (read-only,
     `requireHousehold`, one inventory `findMany`) returns the matches, the
-    household's items and categories, and a guessed category for each row
-    without a confident match.
+    household's items (with their saved unit conversions) and categories,
+    and a guessed category for each row without a confident match.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
-    every row is confident and its unit is `same`/`convertible` (or the
-    row was already linked when the recipe was opened), the recipe saves
+    every row is confident and its unit is `same`/`convertible`/`known`
+    (or the row was already linked when the recipe was opened), the recipe saves
     straight away and a toast says "Saved · N ingredients linked to your
     pantry". Otherwise the dialog swaps to a "Match ingredients" step
     (`ingredient-review-step.tsx`, a content swap with a Back button, not
@@ -2743,10 +2744,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     count units stay (canonicalized), other volumes → `l`, weights → `g`,
     spoon measures, pinches and unknown units → `pcs`. Each open row says
     why it's open ("Closest match: X. Check it's right." or "Nothing
-    close…") and whether the pantry unit reconciles; one that doesn't says
-    the amount will be asked for when cooking (the existing unit-mismatch
-    path). An untouched default unit gets a neutral note, not that
-    warning. Saving with an incomplete row shows a count at the top
+    close…") and whether the pantry unit reconciles; one that doesn't gets
+    the three unit choices (see "Unit conversions" below). An untouched
+    default unit gets a neutral note, not the mismatch warning. Saving with an incomplete row shows a count at the top
     (`role="alert"`), marks the field `aria-invalid` with its error in
     `aria-describedby`, and focuses it. Switching steps scrolls the form to
     the top and focuses the step's title. A server error is focused from an
@@ -2781,20 +2781,58 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     the old match-by-name fallback. "Don't track the rest" flips every
     unconfident row; "Create all new" leaves Don't-track rows alone. The
     save learns into `ItemAlias` (`householdId`, `normalizedName` of the
-    name without a trailing "(…)", nullable `inventoryItemId`), replaced
-    per name in the same transaction: linking a name to an item whose
+    name without a trailing "(…)", nullable `inventoryItemId`), upserted
+    per name in the same transaction (so two saves teaching the same name
+    at once can't collide on the unique index; the last one wins, and an
+    alias whose new item somehow wasn't created is skipped rather than
+    written as Don't track): linking a name to an item whose
     normalized name differs ("eggs" → Egg, including a new item created
     under another name) aliases it to that item, and Don't track aliases
     it to null. `previewIngredientMatchesAction` loads the household's
     aliases alongside its items: an item alias is a confident match and an
     untracked alias a confident Don't track, so neither is asked again.
     Deleting an item cascades its aliases. An imported row's prep note
-    (the parser's `note`, or a trailing "(…)" split off the name on
-    import) and original line are saved in `RecipeIngredient.note` and
+    (the parser's `note`, passed straight through to the form row) and
+    original line are saved in `RecipeIngredient.note` and
     `rawText` (capped at 200/300 characters); the note shows under the
     row in the dialog and after the name on the recipe card, and the
     original line is dropped once the row is edited. A name typed by hand
-    keeps its "(…)", which matching still ignores. `parseComponentRows`
+    keeps its "(…)", which matching still ignores.
+  - **Unit conversions (MATCH-3)**: `ItemUnitConversion`
+    (`inventoryItemId`, `fromUnit` stored as `canonicalUnit`, `factor` > 0,
+    unique per item and unit, cascade on item delete) means "1 `fromUnit`
+    = `factor` × the item's unit". `convertForItem(qty, fromUnit, item,
+    conversions)` in `src/lib/units.ts` tries the same unit, the generic
+    table, then one of the item's conversions for exactly that unit, then
+    one reached through the generic table ("1 kg" → g → pcs); a factor
+    that isn't a positive number is ignored. In the review, a row whose
+    unit is `unknown` for the chosen (or new) item offers "Remember for
+    this item" ("1 pcs = [2000] g", written the way people know it: the
+    item's unit first when it's a count, or a volume against a recipe
+    weight, and the recipe's unit first otherwise), "In this recipe only"
+    ("[0.15] pcs") and "Decide when cooking". Remember is pre-selected and
+    pre-filled, marked "≈", when `unitConversionHint`
+    (`src/lib/recipes/unit-hints.ts`: about 20 staples with a typical
+    density or piece weight, e.g. flour ≈ 0.6 g/ml, egg ≈ 55 g) covers the
+    item and both units; otherwise Decide when cooking is the default, and
+    it's always the default for a row that wasn't up for review. An empty
+    or non-positive amount blocks the save like any incomplete row. The
+    save posts `ingredientUnitAction` (`none` | `remember` | `override` |
+    `defer`) with `ingredientUnitFactor` (per recipe unit, 1e-6–1e6) or
+    `ingredientOverrideQuantity`; the server ignores them for a unit the
+    generic table already reconciles, and for a Create new row that ends
+    up on an item counted in another unit than the one the user answered
+    for (its name already exists, or an earlier row made the item in
+    another unit), where the choice is dropped and the row is left to be
+    decided when cooking. The review applies the same factor bounds, so
+    an out-of-range factor is flagged on the row. `remember` upserts the conversion
+    in the recipe's transaction, only for an item checked against the
+    household or created by this save; `override` stores the row in the
+    item's unit and amount, keeping the original line in `rawText`
+    (built from the row when it had none). Changing an item's unit in the
+    item form deletes a conversion from the new unit (it would be 1 = 1);
+    the others are kept as they are until the item page's "Change unit…"
+    (MATCH-6) re-expresses them. `parseComponentRows`
   in the same file batches its sub-recipe existence check the same way — one
   `recipe.findMany` across every candidate id instead of a `findFirst` per
   row — while `wouldCreateCycle`'s per-candidate graph walk stays as-is
@@ -2983,17 +3021,20 @@ meal-plan → shopping-list bridge uses.
 - **Calculation**: `computeRecipeCost(ingredients, servings)`
   (`src/app/dashboard/meal-planning/recipe-cost.ts`, pure, unit-tested in
   `recipe-cost.test.ts`) converts each ingredient's quantity into its linked
-  item's own unit — exact case/whitespace-insensitive match first, then
-  `convertQuantity` — and multiplies by that per-unit price (200 g of the
+  item's own unit — `convertForItem`: the same unit, the generic table,
+  then the item's saved conversions (MATCH-3; `page.tsx` loads them for
+  the priced items in one query alongside the purchase lines) — and
+  multiplies by that per-unit price (200 g of the
   flour above is 9.60). `total` and `perServing` (`total / servings`) are
   rounded to 2 decimals.
 - **Skipped, not guessed**: an ingredient with no linked inventory item, a
   linked item that has never been priced, a price whose purchase line can't
   be found (its list was deleted, or the price was corrected afterwards), a
   purchase line in a unit that can't be converted into the item's (the
-  typical "1 pcs" receipt line for an item kept in grams), or a recipe unit
-  that can't be converted into the item's (volume vs. weight, or an
-  unrecognized unit like "clove" against "pcs") is left out and counted in
+  typical "1 pcs" receipt line for an item kept in grams, unless the item
+  has a saved conversion for pcs), or a recipe unit that can't be
+  converted into the item's (volume vs. weight, or an unrecognized unit
+  like "clove" against "pcs", with no saved conversion) is left out and counted in
   `skippedCount`. The card then appends "N ingredients not priced" so the
   total reads as a partial estimate. A price of 0 counts as priced. A
   multi-pack entered as "1 pcs" of an item counted in pcs still reads as one
@@ -3304,7 +3345,14 @@ uses — but it can cover any date range up to 31 days (GAP-32):
   and the shopping-list item it produces — never splits one ingredient
   across rows just because two recipes phrased the amount differently;
   requirements in an unconvertible unit still get their own line, as
-  before.
+  before. **Per-item conversions (MATCH-3)**: a requirement only the
+  item's saved `ItemUnitConversion`s reconcile (`convertForItem`, see
+  "Ingredient → inventory linking") is restated in the item's own unit
+  first, so it joins that unit's line and on-hand stock covers it; only a
+  unit with no conversion at all is flagged `unitMismatch`. The
+  conversions come in with the recipe graph's one query (and the loose
+  name-match fallback's inventory query), never a query per recipe
+  (PERF-1); the Cook tab uses the same path.
 - **Review before committing**: the dialog lists each proposed ingredient
   (name + suggested quantity/unit) behind a checkbox (all checked by
   default, individually deselectable), a target-list `<Select>` (any
@@ -3390,8 +3438,10 @@ actually used, once they've cooked it.
   denominated in the inventory item's own unit (never the recipe
   ingredient's); the same `src/lib/units.ts` table used by the shopping-list
   bridge converts a recipe row's unit into it where the two are recognized
-  and in the same dimension. A row that still doesn't reconcile (an
-  unrecognized unit, or one from a different dimension) is flagged
+  and in the same dimension, and otherwise the item's saved conversions do
+  (`convertForItem`, MATCH-3: "300 g" of flour counted in 2 kg bags
+  suggests 0.15). A row that still doesn't reconcile (an unrecognized
+  unit, or a different dimension with no saved conversion) is flagged
   (`unitMismatch`) and suggests `0` rather than a guessed conversion —
   the household sees the recipe's own required quantity/unit alongside it
   and enters the equivalent themselves.

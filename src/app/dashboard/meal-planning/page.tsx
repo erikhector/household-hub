@@ -17,6 +17,7 @@ import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
+import type { ItemUnitConversionLike } from "@/lib/units";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -305,19 +306,33 @@ async function RecipesTabSection({
       ),
     ),
   ];
-  const purchasedLines =
+  // MATCH-3: the same priced items' saved unit conversions, fetched once
+  // alongside, so "300 g" of flour counted in pcs can still be priced.
+  const [purchasedLines, unitConversions] =
     pricedLinkedItemIds.length > 0
-      ? await prisma.shoppingListItem.findMany({
-          where: {
-            shoppingList: { householdId },
-            inventoryItemId: { in: pricedLinkedItemIds },
-            purchased: true,
-            estimatedPrice: { not: null },
-          },
-          select: { inventoryItemId: true, quantity: true, unit: true, estimatedPrice: true },
-          orderBy: { createdAt: "desc" },
-        })
-      : [];
+      ? await Promise.all([
+          prisma.shoppingListItem.findMany({
+            where: {
+              shoppingList: { householdId },
+              inventoryItemId: { in: pricedLinkedItemIds },
+              purchased: true,
+              estimatedPrice: { not: null },
+            },
+            select: { inventoryItemId: true, quantity: true, unit: true, estimatedPrice: true },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.itemUnitConversion.findMany({
+            where: { inventoryItemId: { in: pricedLinkedItemIds }, inventoryItem: { householdId } },
+            select: { inventoryItemId: true, fromUnit: true, factor: true },
+          }),
+        ])
+      : [[], []];
+  const conversionsByItemId = new Map<string, ItemUnitConversionLike[]>();
+  for (const conversion of unitConversions) {
+    const list = conversionsByItemId.get(conversion.inventoryItemId) ?? [];
+    list.push(conversion);
+    conversionsByItemId.set(conversion.inventoryItemId, list);
+  }
   const purchasesByItemId = new Map<string, RecipeCostPurchase[]>();
   for (const line of purchasedLines) {
     if (line.inventoryItemId === null || line.estimatedPrice === null) continue;
@@ -340,6 +355,7 @@ async function RecipesTabSection({
                 unit: item.unit,
                 lastKnownPrice: item.lastKnownPrice,
                 purchases: purchasesByItemId.get(item.id) ?? [],
+                conversions: conversionsByItemId.get(item.id) ?? [],
               }
             : null,
         };

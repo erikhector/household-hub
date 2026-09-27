@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
-import { convertQuantity, unitsAreComparable } from "@/lib/units";
+import { convertForItem, convertQuantity, unitsAreComparable, type ItemUnitConversionLike } from "@/lib/units";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
 // --- Date range (GAP-32) -----------------------------------------------------
@@ -80,6 +80,9 @@ export type IngredientNeed = {
   // `unit` above (a RecipeIngredient's unit) — see schema.prisma. Null
   // when there's no linked/matched inventory item to read a unit from.
   onHandUnit: string | null;
+  // The matched item's saved conversions (ItemUnitConversion, MATCH-3),
+  // for a recipe unit the generic table can't turn into `onHandUnit`.
+  conversions?: readonly ItemUnitConversionLike[];
 };
 
 const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
@@ -114,9 +117,21 @@ export function computeMissingIngredients(needs: IngredientNeed[]): MissingIngre
     const name = keyNeeds[0].name;
     const onHandQuantity = keyNeeds[0].onHandQuantity;
     const onHandUnit = keyNeeds[0].onHandUnit;
+    const conversions = keyNeeds[0].conversions ?? [];
+
+    // MATCH-3: a requirement only the item's own conversions can reconcile
+    // ("300 g" of flour counted in pcs, with 1 pcs = 2000 g saved) is
+    // restated in the item's unit first, so it joins that unit's cluster
+    // and on-hand stock covers it like any other. The generic-table
+    // clustering below is unchanged for everything else.
+    const restated = keyNeeds.map((need) => {
+      if (onHandUnit === null || unitsAreComparable(need.unit, onHandUnit)) return need;
+      const converted = convertForItem(need.quantity, need.unit, { unit: onHandUnit }, conversions);
+      return converted === null ? need : { ...need, unit: onHandUnit, quantity: converted };
+    });
 
     const clusters: { unit: string; required: number }[] = [];
-    for (const need of keyNeeds) {
+    for (const need of restated) {
       const cluster = clusters.find((c) => unitsAreComparable(c.unit, need.unit));
       if (cluster) {
         const sameUnit = normalizeUnit(cluster.unit) === normalizeUnit(need.unit);

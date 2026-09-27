@@ -152,17 +152,26 @@ export function unitKind(unit: string): UnitKind | null {
 
 /**
  * How a recipe's unit relates to the unit an inventory item is counted in
- * (MATCH-1, design §3.3):
+ * (MATCH-1/MATCH-3, design §3.3):
  * - `same`: the same unit after canonicalizing ("st" and "pcs").
  * - `convertible`: the generic table converts between them ("dl" and "l").
+ * - `known`: only the item's own saved conversions (ItemUnitConversion)
+ *   convert it, directly or chained through the generic table ("300 g"
+ *   against flour counted in pcs, with 1 g = 0.0005 pcs saved).
  * - `unknown`: different dimensions, count vs measure, or an unrecognized
- *   unit. Cooking asks for the amount (MarkCookedDialog's unit mismatch).
+ *   unit, and nothing saved for the item. Cooking asks for the amount
+ *   (MarkCookedDialog's unit mismatch).
  */
-export type UnitClass = "same" | "convertible" | "unknown";
+export type UnitClass = "same" | "convertible" | "known" | "unknown";
 
-export function classifyUnits(recipeUnit: string, itemUnit: string): UnitClass {
+export function classifyUnits(
+  recipeUnit: string,
+  itemUnit: string,
+  conversions: readonly ItemUnitConversionLike[] = [],
+): UnitClass {
   if (canonicalUnit(recipeUnit) === canonicalUnit(itemUnit)) return "same";
   if (convertQuantity(1, recipeUnit, itemUnit) !== null) return "convertible";
+  if (convertForItem(1, recipeUnit, { unit: itemUnit }, conversions) !== null) return "known";
   return "unknown";
 }
 
@@ -194,4 +203,47 @@ export function convertQuantity(quantity: number, fromUnit: string, toUnit: stri
 // different but convertible units (e.g. "tbsp" and "l").
 export function unitsAreComparable(a: string, b: string): boolean {
   return classifyUnits(a, b) !== "unknown";
+}
+
+/** A saved per-item conversion (ItemUnitConversion, MATCH-3): one
+ * `fromUnit` is `factor` of the item's own unit. */
+export type ItemUnitConversionLike = { fromUnit: string; factor: number };
+
+const isUsableFactor = (factor: number) => Number.isFinite(factor) && factor > 0;
+
+/**
+ * Converts `quantity` of `fromUnit` into `item`'s own unit (MATCH-3,
+ * design §3.5), which is what every inventory-facing caller actually wants:
+ * the shopping-list bridge, "Mark as cooked", the Cook tab and the recipe
+ * cost all compare a recipe amount against what the pantry holds. In
+ * order:
+ * 1. the same unit, or the generic table (`convertQuantity`), which never
+ *    needs anything item-specific;
+ * 2. one of the item's saved conversions for exactly this unit ("g" on a
+ *    flour item counted in pcs);
+ * 3. a saved conversion reached through the generic table: "1 kg" of that
+ *    flour goes kg → g → pcs.
+ * Null when none of those apply — the caller treats it as a unit mismatch,
+ * as before. A conversion with a nonsensical factor (≤ 0, NaN) is ignored
+ * rather than trusted; the write path never stores one.
+ */
+export function convertForItem(
+  quantity: number,
+  fromUnit: string,
+  item: { unit: string },
+  conversions: readonly ItemUnitConversionLike[] = [],
+): number | null {
+  const generic = convertQuantity(quantity, fromUnit, item.unit);
+  if (generic !== null) return generic;
+
+  const usable = conversions.filter((conversion) => isUsableFactor(conversion.factor));
+  const from = canonicalUnit(fromUnit);
+  const direct = usable.find((conversion) => canonicalUnit(conversion.fromUnit) === from);
+  if (direct) return quantity * direct.factor;
+
+  for (const conversion of usable) {
+    const inConversionUnit = convertQuantity(quantity, fromUnit, conversion.fromUnit);
+    if (inConversionUnit !== null) return inConversionUnit * conversion.factor;
+  }
+  return null;
 }

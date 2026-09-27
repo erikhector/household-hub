@@ -7,6 +7,7 @@ import { dismissCookieNotice } from "./ui";
 // user's back. Rows the matcher is sure about save straight away; anything
 // else goes through the dialog's "Match ingredients" step first. Relies on
 // the "Tomatoes" and "Olive oil" pantry items seeded in e2e/seed.ts.
+// MATCH-3's unit choices are at the end.
 const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -230,6 +231,148 @@ test("linking \"eggs\" to Egg once makes it a confident match on the next recipe
   await second.getByRole("button", { name: "Create recipe" }).click();
   await expect(page.getByText("Saved · 1 ingredient linked to your pantry").last()).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+// MATCH-3: a fresh item per run, since a remembered conversion is saved on
+// the item and the desktop and mobile runs share one household.
+async function insertItemCountedInPcs(name: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const id = `e2e-inv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    await client.query(
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
+       VALUES ($1, $2, $3, 'Pantry', 3, 'pcs', now())`,
+      [id, E2E_HOUSEHOLD.id, name],
+    );
+    return id;
+  } finally {
+    await client.end();
+  }
+}
+
+// Plans `recipeName` for tonight in the current week, the way the planner
+// would, so "Mark as cooked" can be opened on it.
+async function planForToday(recipeName: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const monday = new Date(today);
+    monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+    const suffix = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    await client.query(
+      `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+       ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
+      [`e2e-plan-${suffix}`, E2E_HOUSEHOLD.id, monday],
+    );
+    await client.query(
+      `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId")
+       SELECT $1, plan.id, $2, 'DINNER', recipe.id
+       FROM "MealPlan" plan, "Recipe" recipe
+       WHERE plan."householdId" = $3 AND plan."weekStartDate" = $4
+         AND recipe."householdId" = $3 AND recipe.name = $5`,
+      [`e2e-entry-${suffix}`, today, E2E_HOUSEHOLD.id, monday, recipeName],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+test("remembering 1 pcs = 2000 g for an item skips the unit question next time, and cooking uses it", async ({
+  page,
+}) => {
+  const itemName = `Mjöl ${nonsenseName()}`;
+  await insertItemCountedInPcs(itemName);
+
+  const recipeName = unique("Bread");
+  const dialog = await openNewRecipe(page, recipeName);
+  await fillIngredient(page, itemName, "300", "g");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  // The name matches exactly, but grams can't become pieces on their own.
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  const row = review.getByRole("group", { name: `300 g ${itemName}` });
+  await expect(row.getByText("The recipe uses g and the pantry counts it in pcs. How should they match?")).toBeVisible();
+  const units = row.getByRole("group", { name: `Unit for ${itemName}` });
+  // No typical weight for this name, so nothing is guessed.
+  await expect(units.getByRole("radio", { name: "Decide when cooking" })).toBeChecked();
+
+  // Remembering needs a number: an empty one blocks the save.
+  await units.getByRole("radio", { name: "Remember for this item" }).check();
+  const factor = units.getByRole("textbox", { name: "How many g in 1 pcs" });
+  await expect(factor).toHaveValue("");
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(review.getByRole("alert").filter({ hasText: "1 ingredient still needs a choice." })).toBeVisible();
+
+  await factor.fill("2000");
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByText("Saved · 1 ingredient linked to your pantry")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // The item now knows its grams, so another recipe in grams (or kilos)
+  // saves without asking.
+  const second = await openNewRecipe(page, unique("Rolls"));
+  await fillIngredient(page, itemName, "0.5", "kg");
+  await second.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByText("Saved · 1 ingredient linked to your pantry").last()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Cooking the first recipe proposes 300 g as 0.15 of the 2 kg bag, with
+  // no "enter the amount manually" note.
+  await planForToday(recipeName);
+  await page.goto("/dashboard/meal-planning");
+  const entry = page
+    .locator("div")
+    .filter({ has: page.getByText(recipeName) })
+    .filter({ has: page.getByRole("button", { name: "Mark as cooked" }) })
+    .filter({ visible: true })
+    .last();
+  await entry.getByRole("button", { name: "Mark as cooked" }).click();
+  const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
+  await expect(cooked.getByRole("spinbutton", { name: `Quantity to use for ${itemName}` })).toHaveValue("0.15");
+  await expect(cooked.getByText(/enter the amount manually/)).toHaveCount(0);
+});
+
+test("a single recipe can use its own amount in the pantry's unit instead", async ({ page }) => {
+  const itemName = `Mjöl ${nonsenseName()}`;
+  await insertItemCountedInPcs(itemName);
+
+  const recipeName = unique("Cake");
+  const dialog = await openNewRecipe(page, recipeName);
+  await fillIngredient(page, itemName, "300", "g");
+  await dialog.getByRole("button", { name: "Create recipe" }).click();
+
+  const review = page.getByRole("dialog", { name: "Match ingredients" });
+  const units = review.getByRole("group", { name: `Unit for ${itemName}` });
+  await units.getByRole("radio", { name: "In this recipe only" }).check();
+  await units.getByRole("textbox", { name: "Amount in pcs for this recipe" }).fill("0.2");
+  await review.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // After a reload, the row reads 0.2 pcs.
+  await page.reload();
+  await page.getByRole("tab", { name: "Recipes" }).click();
+  await page
+    .locator("div")
+    .filter({ has: page.getByText(recipeName, { exact: true }) })
+    .filter({ has: page.getByRole("button", { name: "Edit recipe" }) })
+    .last()
+    .getByRole("button", { name: "Edit recipe" })
+    .click();
+  const edit = page.getByRole("dialog", { name: "Edit recipe" });
+  await expect(edit.getByPlaceholder("Qty")).toHaveValue("0.2");
+  await expect(edit.getByPlaceholder("Unit")).toHaveValue("pcs");
+  await edit.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  // Nothing was remembered for the item, so grams still get asked about in
+  // the next recipe.
+  const second = await openNewRecipe(page, unique("Muffins"));
+  await fillIngredient(page, itemName, "100", "g");
+  await second.getByRole("button", { name: "Create recipe" }).click();
+  await expect(page.getByRole("dialog", { name: "Match ingredients" })).toBeVisible();
 });
 
 test("a server error takes focus once it renders", async ({ page }) => {

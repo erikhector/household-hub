@@ -34,15 +34,16 @@ import {
 import {
   IngredientReviewStep,
   reviewRowError,
+  UNIT_CHOICE_RESET,
   type ReviewRow,
   type ReviewState,
 } from "@/components/meal-planning/ingredient-review-step";
 import type { RecipeData } from "@/components/meal-planning/types";
+import { rowUnitChoice } from "@/lib/recipes/unit-choice";
 import {
   defaultNewItemUnit,
   ingredientBaseName,
   ingredientNeedsReview,
-  splitIngredientNote,
 } from "@/lib/recipes/ingredient-match";
 import { format, plural } from "@/lib/i18n/format";
 import { RECIPE_TAGS, type RecipeTag } from "@/lib/recipe-tags";
@@ -136,15 +137,17 @@ function buildReview(
     const name = row.name.trim();
     const unit = row.unit.trim() || "pcs";
     const label = [row.quantity.trim(), unit, name].filter(Boolean).join(" ");
+    const quantity = Number(row.quantity) > 0 ? Number(row.quantity) : 1;
     const earlier = previous?.rows.find((r) => r.uid === row.uid && r.name === name && r.unit === unit);
     // The quantity may have changed while the decision still stands.
-    if (earlier) return { ...earlier, label };
+    if (earlier) return { ...earlier, label, quantity };
     const match = preview.matches[index];
     const newName = ingredientBaseName(name);
     return {
       uid: row.uid,
       label,
       name,
+      quantity,
       unit,
       status: match.status,
       needsReview: ingredientNeedsReview(match),
@@ -156,6 +159,7 @@ function buildReview(
       newCategory: preview.guessedCategories[index] ?? "",
       newUnit: defaultNewItemUnit(unit),
       newUnitTouched: false,
+      ...UNIT_CHOICE_RESET,
     };
   });
   return { rows: reviewRows, items: preview.items, categories: preview.categories };
@@ -175,6 +179,14 @@ function appendDecisions(formData: FormData, rows: IngredientRow[], review: Revi
     formData.append("ingredientNewName", isNew ? decided.newName.trim() : "");
     formData.append("ingredientNewCategory", isNew ? decided.newCategory.trim() : "");
     formData.append("ingredientNewUnit", isNew ? decided.newUnit.trim() : "");
+    // MATCH-3: what to do about a unit the item can't convert.
+    const choice = decided && review && decided.mode !== "untracked" ? rowUnitChoice(decided, review.items) : null;
+    formData.append("ingredientUnitAction", choice?.action ?? "");
+    formData.append("ingredientUnitFactor", choice?.action === "remember" ? String(choice.factor ?? "") : "");
+    formData.append(
+      "ingredientOverrideQuantity",
+      choice?.action === "override" ? String(choice.overrideQuantity ?? "") : "",
+    );
   }
 }
 
@@ -329,7 +341,7 @@ export function RecipeFormDialog({
         requestFocus("title");
         return {};
       }
-    } else if (decided?.rows.some((row) => reviewRowError(row, dict.ingredientReview))) {
+    } else if (review?.rows.some((row) => reviewRowError(row, review.items, dict.ingredientReview))) {
       setReviewAttempted(true);
       requestFocus("invalid");
       return {};
@@ -388,27 +400,22 @@ export function RecipeFormDialog({
       if (result.recipe.instructions) setInstructions(result.recipe.instructions);
       if (result.recipe.ingredients.length > 0) {
         setIngredients(
-          result.recipe.ingredients.map((ingredient) => {
-            // A parser that splits the prep note off (MATCH-4) hands it over
-            // as `note`; otherwise it's still a trailing "(…)" on the name.
-            const split = ingredient.note
-              ? { name: ingredient.name, note: ingredient.note }
-              : splitIngredientNote(ingredient.name);
-            return {
-              uid: crypto.randomUUID(),
-              name: split.name,
-              quantity: String(ingredient.quantity),
-              unit: ingredient.unit,
-              unitTouched: true,
-              linkedItemId: null,
-              untracked: false,
-              linkedName: "",
-              // Clamped to the save action's caps, so an unusually long
-              // imported line can't make the whole save fail.
-              rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
-              note: split.note.slice(0, MAX_NOTE_LENGTH),
-            };
-          }),
+          // The parser splits the prep note off the name (MATCH-4) and
+          // hands it over as `note`, which the row keeps as its own field.
+          result.recipe.ingredients.map((ingredient) => ({
+            uid: crypto.randomUUID(),
+            name: ingredient.name,
+            quantity: String(ingredient.quantity),
+            unit: ingredient.unit,
+            unitTouched: true,
+            linkedItemId: null,
+            untracked: false,
+            linkedName: "",
+            // Clamped to the save action's caps, so an unusually long
+            // imported line can't make the whole save fail.
+            rawText: (ingredient.rawText ?? "").slice(0, MAX_RAW_TEXT_LENGTH),
+            note: (ingredient.note ?? "").slice(0, MAX_NOTE_LENGTH),
+          })),
         );
       }
       // Only ever adds: a page's own diet claim (GAP-29) pre-ticks chips

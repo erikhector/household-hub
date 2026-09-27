@@ -367,6 +367,7 @@ model InventoryItem {
   priceHistory      PriceHistory[]
   recipeIngredients RecipeIngredient[]
   aliases           ItemAlias[]
+  unitConversions   ItemUnitConversion[]
   notifications     Notification[]
 
   @@index([householdId])
@@ -798,6 +799,28 @@ model ItemAlias {
 
   @@unique([householdId, normalizedName])
   @@index([inventoryItemId])
+}
+
+// MATCH-3: a per-item conversion into the item's own unit: 1 `fromUnit` =
+// `factor` × item.unit ("1 g = 0.0005 pcs" is stored as fromUnit "g",
+// factor 0.0005, for a flour item counted in 2 kg bags). Only needed where
+// src/lib/units.ts's generic table can't convert (weight↔volume,
+// count↔measure); convertForItem there applies it directly or chained
+// through that table. Written by the recipe review's "Remember" choice, and
+// always reached through an item already checked against the household, so
+// it carries no householdId of its own. Deleting the item deletes these.
+model ItemUnitConversion {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  // canonicalUnit() of the unit ("st" → "pcs", "msk" → "tbsp").
+  fromUnit        String
+  // > 0, validated on write.
+  factor          Float
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([inventoryItemId, fromUnit])
 }
 
 model MealPlan {
