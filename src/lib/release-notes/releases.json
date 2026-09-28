@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.6",
+    "date": "2026-09-28",
+    "pr": 113,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Shared shopping-list links are now protected against abuse: a single link can only be used a limited number of times per hour, far more than any real shopping trip needs.",
+      "sv": "Delade inköpslistelänkar skyddas nu mot missbruk: en länk kan bara användas ett begränsat antal gånger per timme, långt mer än någon riktig inköpsrunda behöver."
+    }
+  },
+  {
     "version": "0.46.5",
     "date": "2026-09-28",
     "pr": 112,

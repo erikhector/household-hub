@@ -1208,6 +1208,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     token, or a real item from the wrong list) all resolve to the same
     generic "not found"/"invalid or revoked" errors — nothing here
     distinguishes *why* a token or pairing failed.
+    **Rate limit (SEC-13)**: both are throttled per token with
+    `checkRateLimit`, 120 an hour each, the same constants and the same
+    reason as the calendar feed (a leaked or guessed link mustn't become a
+    cheap way to hammer the database or churn inventory stock). Reads
+    (`share-list:<token>`) and toggles (`share-list-toggle:<token>`) have
+    separate buckets, because every toggle's `revalidatePath` re-renders
+    the page and so costs a read too; one shared bucket would halve how many
+    items a shopper can tick in an hour. Over the cap, the read returns
+    `null` (the page shows its one "not found or revoked" state) and the
+    toggle returns a "too many changes" error, both before any database
+    lookup.
 
   UI: `/dashboard/shopping-list/[id]`'s `ShoppingListClient` renders a
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-

@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
@@ -24,6 +26,20 @@ import { defersToPutAway } from "@/lib/shopping/put-away-calc";
 // same "always re-derive the tenant boundary server-side" shape
 // requireHousehold()-scoped actions use, just with the token standing in for
 // the session.
+
+// SEC-13: the same throttle, with the same constants, as the calendar feed
+// (src/app/api/calendar/[token]/route.ts), for the same reason: with no
+// session, a leaked or guessed link would otherwise be a free way to hammer
+// the database, and the toggle also moves inventory stock. Keyed on the
+// token rather than the caller's IP, so switching networks doesn't reset it.
+//
+// Reads and toggles get separate buckets. Every toggle already costs a read
+// as well (its revalidatePath re-renders the share page in the action's
+// response), so one shared bucket would halve how many items a shopper
+// could tick in an hour. This way a trip can tick about 120 items an hour,
+// well past any real list.
+const SHARE_LIST_RATE_LIMIT = 120;
+const SHARE_LIST_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 
 async function findActiveShareLink(token: string) {
   return prisma.shoppingListShareLink.findUnique({
@@ -56,6 +72,13 @@ export type SharedShoppingList = {
  * revoked" state.
  */
 export async function getShoppingListByShareToken(token: string): Promise<SharedShoppingList | null> {
+  // Over the cap reads the same as a dead link: the page has one "not found
+  // or revoked" state, and a real visitor only gets here by reloading far
+  // more than any shopping trip needs.
+  if (!(await checkRateLimit(`share-list:${token}`, SHARE_LIST_RATE_LIMIT, SHARE_LIST_RATE_LIMIT_WINDOW_MS))) {
+    return null;
+  }
+
   const shareLink = await findActiveShareLink(token);
   if (!shareLink || shareLink.revokedAt) return null;
 
@@ -99,6 +122,12 @@ export async function toggleItemViaShareTokenAction(
   token: string,
   itemId: string,
 ): Promise<{ error?: string }> {
+  if (
+    !(await checkRateLimit(`share-list-toggle:${token}`, SHARE_LIST_RATE_LIMIT, SHARE_LIST_RATE_LIMIT_WINDOW_MS))
+  ) {
+    return { error: (await getDictionary()).sharedShoppingList.rateLimited };
+  }
+
   const shareLink = await findActiveShareLink(token);
   if (!shareLink || shareLink.revokedAt) {
     return { error: "This share link is invalid or has been revoked" };

@@ -2592,6 +2592,7 @@ export const sv = {
     purchased: "Köpt",
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",
+    rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
   },
   cookieNotice: {
     title: "Information om cookies",
