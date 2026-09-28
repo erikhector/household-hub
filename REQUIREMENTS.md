@@ -2764,6 +2764,12 @@ below.
   anywhere. Either way, the server only ever receives the extracted item
   names, prices, and currency the user has already reviewed — never the
   photo itself.
+- **No raw model output in logs (SEC-11)**: when a provider's reply isn't
+  valid JSON, both this action and AI shelf scan log only its length and
+  first 200 characters (`excerptForLog`, `src/lib/logger.ts`), never the
+  whole reply — a receipt's payment block (masked card number, loyalty
+  number) sits at the bottom, past what's kept. Regression tests in
+  `receipt-scan.test.ts` and `inventory-scan.test.ts`.
 - **i18n**: all new strings live under `shoppingList.receiptScan`/
   `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
 

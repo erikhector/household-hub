@@ -121,10 +121,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       history, splits and settlements; exports `categoryId` without the
       categories; and sends no `Cache-Control: private, no-store`.
       Snapshot-test the export's keys.
-- [ ] **SEC-11. Don't log raw AI output** (low) — on a JSON parse failure
-      `receipt-scan.ts:211` and `inventory-scan.ts:291` log the whole model
-      response, which for receipts can include card/loyalty details. Log
-      length + first ~200 chars. (Lands naturally with MAINT-8.)
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to
