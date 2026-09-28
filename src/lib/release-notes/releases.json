@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.1",
+    "date": "2026-09-28",
+    "pr": 107,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Text, badges and form fields are easier to read in both light and dark mode, and pop-up messages are now coloured: green when something worked, red when it failed and amber for warnings.",
+      "sv": "Text, etiketter och formulärfält är lättare att läsa i både ljust och mörkt läge, och popup-meddelanden har nu färg: grönt när något lyckades, rött när det misslyckades och gult för varningar."
+    }
+  },
+  {
     "version": "0.46.0",
     "date": "2026-09-28",
     "pr": 103,
