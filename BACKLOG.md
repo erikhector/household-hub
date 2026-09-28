@@ -98,12 +98,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
-      SCALE-H's session revocation doesn't cover `PushSubscription`, so
-      someone who briefly had the account keeps receiving household pushes.
-      `deleteMany({ where: { userId } })` inside the reset
-      (`auth.ts:425-446`) and change-password (`profile/actions.ts:238-249`)
-      transactions; unsubscribe the current endpoint in `logoutAction`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
       and several schemas have no caps (recipe ingredient rows are capped
@@ -151,6 +145,19 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
       …)` call to both, mirroring the calendar feed's constants. Test: the
       Nth request in a window past the cap is rejected.
+- [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
+      follow-up from SEC-5's review. A password reset/change drops every
+      `PushSubscription` row for a user, but only for the device that
+      triggered it — every *other* signed-in device keeps whatever
+      `pushManager.getSubscription()` returns client-side, with no
+      server-side row behind it. `push-notifications-card.tsx`'s
+      `subscriptionState` trusts that browser-side result alone (see its
+      `useEffect`), so those devices' Profile pages keep showing
+      "Subscribed" for a subscription that silently receives nothing. On
+      mount (or the next time the card checks), confirm the endpoint still
+      has a matching row — reuse `subscribeToPushAction`'s upsert to
+      self-heal (recreate the row) or fall back to showing "Unsubscribed"
+      if it doesn't.
 
 ### Performance (2026-09-26 audit)
 
@@ -772,6 +779,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.43.0 | #95 feat: per-item unit conversions (MATCH-3) | 2026-09-27 | #95 |
       | v0.44.0 | #96 feat: item page (MATCH-6) | 2026-09-27 | #96 |
       | v0.45.0 | #98 feat: find and merge duplicate pantry items (MATCH-7) | 2026-09-27 | #98 |
+      | v0.45.1 | #101 fix: drop push subscriptions on logout/password change (SEC-5) | 2026-09-28 | #101 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

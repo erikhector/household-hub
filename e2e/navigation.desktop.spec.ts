@@ -18,3 +18,13 @@ test("the sidebar reaches every section", async ({ page }) => {
     await expect(page.locator("main")).toBeVisible();
   }
 });
+
+// SEC-5: the sidebar's "Log out" button (unlike a plain form submit before
+// it) grabs this browser's push subscription endpoint client-side before
+// signing out — check it still logs out and redirects even though there's
+// no subscription to find in a fresh test browser.
+test("logs out and redirects to login", async ({ page }) => {
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: en.nav.logOut }).click();
+  await expect(page).toHaveURL(/\/login/);
+});
