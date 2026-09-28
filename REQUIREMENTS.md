@@ -286,6 +286,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     cluster (desktop table and phone card), from a linked ingredient name
     on a recipe card, and from the item form's "Units, recipes and
     details" link. Sections, stacked on phones:
+    - **Back arrow**: goes one step back, to wherever the page was opened
+      from, carried as `?from=` (`src/lib/inventory/item-page-origin.ts`,
+      a fixed set of values, so never an open redirect): the catalog on
+      the filter it was showing ("Manage items", e.g.
+      `?filter=unitProblems`, so fixing unit problems is a loop through
+      one list), the Recipes tab from a recipe card's ingredient link
+      ("Recipes"), else the inventory ("Inventory"). "Merge into another
+      item…" keeps the origin on the kept item's page. The catalog's
+      chips and the meal-planning tabs also write `?filter=` / `?tab=`
+      with `history.replaceState`, so the browser's back button lands on
+      the same filter or tab.
     - **Header**: name, category · location, "In stock: 1 pcs · low stock
       at 0.5 pcs" and "Change unit…".
     - **Units**: "Counted in {unit}" and each conversion, written the way
@@ -4262,6 +4273,20 @@ intruder out. The fix is a password "version" stamped into the token:
   covered — none of it exposes account or household data. Everything under
   `/dashboard` and every data-touching Server Action goes through one of
   the two guards.
+- This revocation doesn't reach `PushSubscription` (Web Push, not a
+  session cookie), so `resetPasswordAction` and `updatePasswordAction` also
+  `deleteMany` every `PushSubscription` row for the user in the same
+  transaction as the `passwordChangedAt` stamp (SEC-5). `logoutAction`
+  drops just this device's subscription, on both the server (its DB row)
+  and the browser (`subscription.unsubscribe()`), since only client-side
+  JS knows which subscription is this device's — every logout entry point
+  (the sidebar and bottom-nav menus, and the no-household page's
+  `LogoutButton`) calls `src/lib/push-client.ts`'s `useLogout()` hook
+  instead of `logoutAction` directly, which also exposes a `pending` flag
+  so the button disables itself during the lookup. This makes logout
+  require JavaScript (it no longer degrades to a plain form submit), which
+  matches the rest of the sidebar/bottom-nav's other buttons (theme,
+  locale) — none of them work without JS either.
 
 ### Login rate limiting (SEC-1)
 
@@ -5048,7 +5073,7 @@ approximating them, so the email never disagrees with the app.
 ## Autonomous improvement loop
 
 Scheduled Claude Code sessions ("routines") improve the app continuously,
-under human control. Three roles, each a skill in `.claude/skills/`:
+under human control. Four roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
@@ -5062,6 +5087,15 @@ under human control. Three roles, each a skill in `.claude/skills/`:
   PR (ID in the title, label `autopilot`, release note in both languages)
   and drives it to green. Before starting anything new it finishes its own
   red or reviewed PRs, and it stops when `max_open_autopilot_prs` are open.
+- **Reviewer** (`autopilot-review`, daily after the last builder run)
+  reviews every open PR, whoever opened it, as inline comments marked
+  `🤖 autopilot-review`. On later runs it checks each finding against the
+  new head and resolves the thread once it's fixed; the builder (or the
+  PR's author) does the fixing. A PR whose latest verdict is approved, with
+  no open threads, gets `master` merged in, conflicting migrations
+  regenerated on top of master's, its release cut, and `npm run ci:local`
+  run, then it is squash-merged. At most `max_merges_per_review_run` per
+  run. Drafts and PRs labelled `hold` are left alone.
 - **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
@@ -5070,8 +5104,11 @@ under human control. Three roles, each a skill in `.claude/skills/`:
 `AUTOPILOT.md` is the control file every session reads first: on/off
 switches per role, limits, which backlog prefixes the builder may pick,
 human-only areas (schema, auth, money logic, data deletion, workflows)
-and the merge policy. It starts with `auto_merge: false`, so a human
-merges every autopilot PR. Items marked `[!]` or under "Needs a decision
+and the merge policy. With `auto_merge: reviewer` the reviewer merges;
+PRs touching human-only areas get a deeper review rather than a human
+merge, except those changing AUTOPILOT.md or `.github/workflows/`
+(`never_merge_paths`), which a human merges so the loop can't loosen its
+own limits. Items marked `[!]` or under "Needs a decision
 before building" are never built autonomously: product direction stays
 with the owner.
 
@@ -5091,7 +5128,8 @@ runs don't queue behind everyone else's.
 | Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * 1-5` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: review every open PR, resolve addressed review threads, and merge the PRs that pass. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
 The existing daily competitive-scan routine is replaced by "Scout:

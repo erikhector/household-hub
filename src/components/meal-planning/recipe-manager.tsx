@@ -21,6 +21,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
+import { itemPageHref } from "@/lib/inventory/item-page-origin";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -269,13 +270,14 @@ function RecipeRow({
         )}
         {ingredientSummary && (
           <p className="truncate text-sm text-muted-foreground" title={ingredientSummary}>
-            {/* MATCH-6: a linked ingredient opens its pantry item's page. */}
+            {/* MATCH-6: a linked ingredient opens its pantry item's page,
+                whose back arrow comes back to this tab. */}
             {recipe.ingredients.map((ingredient, index) => (
               <Fragment key={ingredient.id}>
                 {index > 0 && ", "}
                 {ingredient.inventoryItemId ? (
                   <Link
-                    href={`/dashboard/inventory/items/${ingredient.inventoryItemId}`}
+                    href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
                     className="underline-offset-4 hover:text-foreground hover:underline"
                   >
                     {ingredient.name}

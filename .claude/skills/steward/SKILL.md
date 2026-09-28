@@ -57,6 +57,11 @@ implement and push. Anything touching the schema, tenancy model, auth or the
 release flow is a design question: reply with a proposal and let the author
 decide.
 
+Reply in every thread you act on, naming the commit that fixes it (or why
+you didn't). Don't resolve a `🤖 autopilot-review` thread yourself: the
+`autopilot-review` routine checks the fix on its next run and resolves it.
+A thread with your reply as its last comment counts as answered.
+
 ## Done means
 
 CI green on the head commit, no conflicts, no unanswered review threads, PR

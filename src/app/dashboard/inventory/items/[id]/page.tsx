@@ -11,6 +11,7 @@ import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-a
 import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
+import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
 
 // Amounts restated in another unit get three significant digits ("0.009
 // pcs", "0.375 pcs"), the way the design shows them; stock and typed
@@ -22,13 +23,18 @@ const short = (value: number) => String(Number(value.toPrecision(3)));
 // one per recipe or list. The fifth lists the other items, for "Merge into
 // another item…" (MATCH-7).
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
-  const [{ household }, fullDict, locale, { id }] = await Promise.all([
+  const [{ household }, fullDict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
     getDictionary(),
     getLocale(),
     props.params,
+    props.searchParams,
   ]);
   const dict = fullDict.inventory.itemPage;
+  // The back arrow goes to wherever this page was opened from (see
+  // item-page-origin.ts), e.g. the catalog's "Unit problems" list.
+  const origin = parseItemPageOrigin(searchParams.from);
+  const backLabel = { inventory: dict.back, catalog: dict.backToCatalog, recipes: dict.backToRecipes }[origin.kind];
 
   const [item, ingredients, listRows, templateRows, otherItems] = await Promise.all([
     prisma.inventoryItem.findFirst({
@@ -95,11 +101,11 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
     <div className="flex max-w-3xl min-w-0 flex-col gap-6">
       <div className="flex flex-col gap-2">
         <Link
-          href="/dashboard/inventory"
+          href={itemPageBackHref(origin)}
           className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
-          {dict.back}
+          {backLabel}
         </Link>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">{item.name}</h1>
@@ -170,6 +176,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
 
       <MergeIntoDialog
         item={{ id: item.id, name: item.name }}
+        origin={origin}
         targets={otherItems.map((other) => ({ id: other.id, label: other.name }))}
         dict={fullDict.inventory.catalog}
         locale={locale}

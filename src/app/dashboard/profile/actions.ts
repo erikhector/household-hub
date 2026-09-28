@@ -259,13 +259,20 @@ export async function updatePasswordAction(
   // Reuse the exact hashing approach signup already uses (bcryptjs, cost 12)
   // rather than reinventing it — see src/lib/actions/auth.ts.
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await prisma.user.update({
-    where: { id: userId },
-    // Revokes every other session for this user (another device, or a
-    // stolen cookie) on its next request — SCALE-H, see src/lib/session.ts.
-    // This one is signed out just below anyway.
-    data: { passwordHash, passwordChangedAt: new Date() },
-  });
+  // SEC-5: dropping every push subscription alongside the hash update, in
+  // the same transaction, so a failure partway through can't leave the
+  // password changed but a stale subscription still receiving pushes (or
+  // the reverse) — same atomicity as resetPasswordAction's transaction.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      // Revokes every other session for this user (another device, or a
+      // stolen cookie) on its next request — SCALE-H, see src/lib/session.ts.
+      // This one is signed out just below anyway.
+      data: { passwordHash, passwordChangedAt: new Date() },
+    }),
+    prisma.pushSubscription.deleteMany({ where: { userId } }),
+  ]);
 
   // Rotating the password credential should invalidate the current session
   // too, the same way changing a password anywhere else typically forces

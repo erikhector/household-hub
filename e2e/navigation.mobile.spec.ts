@@ -28,6 +28,17 @@ test("the More menu reaches every other section", async ({ page }) => {
   }
 });
 
+// SEC-5: the "Log out" menu item grabs this browser's push subscription
+// endpoint client-side before signing out — check it still logs out and
+// redirects even though there's no subscription to find in a fresh test
+// browser.
+test("logs out and redirects to login", async ({ page }) => {
+  await page.goto("/dashboard");
+  await page.getByRole("navigation").getByRole("button", { name: en.nav.more }).click();
+  await page.getByRole("menuitem", { name: en.nav.logOut }).click();
+  await expect(page).toHaveURL(/\/login/);
+});
+
 test("the bottom bar doesn't cover the end of a long page", async ({ page }) => {
   // The list detail page is seeded with rows (e2e/seed.ts). Scrolled to the
   // bottom, its last element must sit above the fixed bar, not under it:

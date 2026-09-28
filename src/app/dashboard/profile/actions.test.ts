@@ -21,6 +21,7 @@ const {
   transactionSplitUpdateMock,
   emailVerificationTokenCreateMock,
   emailVerificationTokenDeleteManyMock,
+  pushSubscriptionDeleteManyMock,
   transactionMock,
   signOutMock,
   bcryptCompareMock,
@@ -47,13 +48,21 @@ const {
   transactionSplitUpdateMock: vi.fn(async () => ({})),
   emailVerificationTokenCreateMock: vi.fn(async () => ({ token: "generated-token" })),
   emailVerificationTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
-  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) =>
-    cb({
-      household: { delete: householdDeleteMock },
-      householdMember: { delete: householdMemberDeleteMock },
-      user: { delete: userDeleteMock },
-      transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
-    }),
+  pushSubscriptionDeleteManyMock: vi.fn(async () => ({ count: 0 })),
+  // Supports both $transaction forms this file's actions use: the
+  // interactive callback (deleteAccountAction) and the array of
+  // already-created promises (updatePasswordAction's SEC-5 atomic update —
+  // real Prisma just awaits them together, so a plain Promise.all mirrors
+  // it closely enough for a mock).
+  transactionMock: vi.fn(async (arg: ((tx: unknown) => unknown) | Promise<unknown>[]) =>
+    Array.isArray(arg)
+      ? Promise.all(arg)
+      : arg({
+          household: { delete: householdDeleteMock },
+          householdMember: { delete: householdMemberDeleteMock },
+          user: { delete: userDeleteMock },
+          transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
+        }),
   ),
   signOutMock: vi.fn(),
   bcryptCompareMock: vi.fn(),
@@ -83,6 +92,7 @@ vi.mock("@/lib/prisma", () => ({
       create: emailVerificationTokenCreateMock,
       deleteMany: emailVerificationTokenDeleteManyMock,
     },
+    pushSubscription: { deleteMany: pushSubscriptionDeleteManyMock },
     $transaction: transactionMock,
   },
 }));
@@ -375,6 +385,19 @@ describe("updatePasswordAction (re-authentication gate + forced sign-out)", () =
       data: { passwordHash: "hashed", passwordChangedAt: expect.any(Date) },
     });
     expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
+  });
+
+  // SEC-5: a password change often means someone else had the account —
+  // every push subscription for this user must stop receiving pushes too.
+  it("drops every push subscription for this user", async () => {
+    userFindUniqueOrThrowMock.mockResolvedValue({ id: "user-1", passwordHash: "old-hash" });
+    bcryptCompareMock.mockResolvedValue(true);
+    userUpdateMock.mockResolvedValue({});
+    signOutMock.mockResolvedValue(undefined);
+
+    await updatePasswordAction({}, formData(base));
+
+    expect(pushSubscriptionDeleteManyMock).toHaveBeenCalledWith({ where: { userId: "user-1" } });
   });
 });
 
