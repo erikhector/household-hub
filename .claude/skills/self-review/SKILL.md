@@ -37,6 +37,10 @@ Stop at the first real problem in a hunk, note it, move on.
       (seeded row in `e2e/seed.ts` if it has a dynamic segment).
 
 **Must fix before merge**
+- [ ] UI change (pages, `src/components/`, `globals.css`, user-facing
+      strings) ⇒ passes every item of DESIGN.md's "UI review checklist"
+      (the seven UX principles and Squirrel's design principles). Look at
+      the mobile screenshot of the changed page, not just the code.
 - [ ] Every user-facing string is in `en.ts` **and** `sv.ts`, none hardcoded
       in JSX. Plurals use `{ one, other }`.
 - [ ] Base UI composition uses `render`, never `asChild`. `SelectValue` with

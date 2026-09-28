@@ -40,11 +40,15 @@ eligible, parallel-safe items as fit under `max_open_autopilot_prs` and
 
 ## What the builder may pick
 
-Lowest phase first, then highest impact per effort (see BACKLOG.md's
-"Picking an item"). Allowed prefixes, in priority order:
+**`UX-` items first.** While any eligible `UX-` item exists, the builder
+fills its slots with `UX-` items (highest impact per effort first) before
+it considers any other prefix, whatever their phase. Only the slots left
+over go to other items: lowest phase first, then highest impact per effort
+(see BACKLOG.md's "Picking an item"). Fixing open autopilot PRs still
+comes before any new item. Allowed prefixes, in priority order:
 
 ```yaml
-allowed: [BUG, SEC, PERF, MAINT, UX, DEPS, AUTO, GAP, SCALE, BUDGET]
+allowed: [UX, BUG, SEC, PERF, MAINT, DEPS, AUTO, GAP, SCALE, BUDGET]
 ```
 
 Never pick an item that is:
