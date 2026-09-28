@@ -74,13 +74,59 @@ vi.mock("@/lib/shopping/default-list", () => ({
   revalidateAutoAdded: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+vi.mock("@/lib/i18n/get-dictionary", async () => {
+  const { en } = await import("@/lib/i18n/dictionaries/en");
+  return { getDictionary: vi.fn(async () => en) };
+});
 
 const { getShoppingListByShareToken, toggleItemViaShareTokenAction } = await import(
   "@/app/share/shopping-list/actions"
 );
 
+const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
+
 afterEach(() => {
   vi.clearAllMocks();
+  _resetRateLimitsForTests();
+});
+
+// SEC-13: both token-only endpoints are throttled per token, mirroring the
+// calendar feed's 120 an hour.
+describe("share-list rate limit", () => {
+  it("returns null past 120 reads in the window, without touching the database", async () => {
+    shareLinkFindUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 120; i++) expect(await getShoppingListByShareToken("busy-token")).toBeNull();
+    expect(shareLinkFindUniqueMock).toHaveBeenCalledTimes(120);
+
+    expect(await getShoppingListByShareToken("busy-token")).toBeNull();
+    expect(shareLinkFindUniqueMock).toHaveBeenCalledTimes(120);
+
+    // A different token has its own budget.
+    await getShoppingListByShareToken("other-token");
+    expect(shareLinkFindUniqueMock).toHaveBeenCalledTimes(121);
+  });
+
+  it("rejects the 121st toggle in the window, without touching the database", async () => {
+    shareLinkFindUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 120; i++) {
+      expect(await toggleItemViaShareTokenAction("busy-token", "item-1")).toEqual({
+        error: "This share link is invalid or has been revoked",
+      });
+    }
+
+    const limited = await toggleItemViaShareTokenAction("busy-token", "item-1");
+    expect(limited.error).toBe("Too many changes to this list. Please wait a while and try again.");
+    expect(shareLinkFindUniqueMock).toHaveBeenCalledTimes(120);
+  });
+
+  it("keeps reads and toggles in separate buckets", async () => {
+    shareLinkFindUniqueMock.mockResolvedValue(null);
+    for (let i = 0; i < 120; i++) await getShoppingListByShareToken("busy-token");
+
+    // Reads are used up, but a toggle still reaches the token lookup.
+    await toggleItemViaShareTokenAction("busy-token", "item-1");
+    expect(shareLinkFindUniqueMock).toHaveBeenCalledTimes(121);
+  });
 });
 
 describe("getShoppingListByShareToken", () => {

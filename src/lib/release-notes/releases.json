@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.46.7",
+    "date": "2026-09-28",
+    "pr": 114,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "\"Export my data\" on your Profile now includes your settings, the notes you've written, your tasks, and your share of split bills and repayments.",
+      "sv": "\"Exportera mina data\" på din profil innehåller nu dina inställningar, anteckningar du har skrivit, dina uppgifter och din andel av delade utgifter och återbetalningar."
+    }
+  },
+  {
+    "version": "0.46.6",
+    "date": "2026-09-28",
+    "pr": 113,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Shared shopping-list links are now protected against abuse: a single link can only be used a limited number of times per hour, far more than any real shopping trip needs.",
+      "sv": "Delade inköpslistelänkar skyddas nu mot missbruk: en länk kan bara användas ett begränsat antal gånger per timme, långt mer än någon riktig inköpsrunda behöver."
+    }
+  },
+  {
+    "version": "0.46.5",
+    "date": "2026-09-28",
+    "pr": 112,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Scanning a receipt or a shelf with AI no longer keeps the full AI reply in the server logs when something goes wrong. Only a short excerpt is kept, so card and loyalty numbers from the bottom of a receipt stay out of the logs.",
+      "sv": "När en AI-skanning av ett kvitto eller en hylla misslyckas sparas inte längre hela AI-svaret i serverloggarna. Bara ett kort utdrag sparas, så kort- och bonusnummer längst ner på kvittot hamnar inte i loggarna."
+    }
+  },
+  {
+    "version": "0.46.4",
+    "date": "2026-09-28",
+    "pr": 109,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Bulk actions like registering a receipt, updating many pantry items at once, or adding a recipe's missing ingredients to a shopping list now have sensible size limits, closing a few edge cases that could otherwise slow the app down.",
+      "sv": "Massåtgärder som att registrera ett kvitto, uppdatera många skafferivaror på en gång eller lägga till ett recepts saknade ingredienser i en inköpslista har nu rimliga gränser, vilket täpper till några specialfall som annars kunde sakta ner appen."
+    }
+  },
+  {
     "version": "0.46.3",
     "date": "2026-09-28",
     "pr": 110,

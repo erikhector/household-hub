@@ -1325,6 +1325,7 @@ export const sv = {
     componentQuantityError: "Delreceptets mängd måste vara större än 0",
     componentNotFoundError: "Ett av de valda delrecepten kunde inte hittas.",
     componentCycleError: "Det skulle skapa en cirkulär referens mellan recept.",
+    componentRowLimitError: "Ett recept kan ha högst {max} delrecept.",
     ingredientRowLimitError: "Ett recept kan ha högst {max} ingredienser.",
     ingredientItemNotFoundError: "En av de valda varorna finns inte längre. Gå tillbaka och välj igen.",
     ingredientReview: {
@@ -2348,7 +2349,7 @@ export const sv = {
     dataExport: {
       title: "Exportera ditt kontos data",
       description:
-        "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
+        "Ladda ner en kopia av dina personliga uppgifter som en JSON-fil: profiluppgifter och inställningar, hushållsmedlemskap, din personliga budget och din egen del av delade funktioner (anteckningar du skrivit, dina uppgifter, din andel av delade utgifter och återbetalningar).",
       button: "Exportera mina data",
     },
     installApp: {
@@ -2591,6 +2592,7 @@ export const sv = {
     purchased: "Köpt",
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",
+    rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
   },
   cookieNotice: {
     title: "Information om cookies",

@@ -1390,6 +1390,7 @@ export const en = {
     componentQuantityError: "Sub-recipe amounts must be greater than 0",
     componentNotFoundError: "One of the selected sub-recipes could not be found.",
     componentCycleError: "That would create a circular reference between recipes.",
+    componentRowLimitError: "A recipe can have at most {max} sub-recipes.",
     ingredientRowLimitError: "A recipe can have at most {max} ingredients.",
     ingredientItemNotFoundError: "One of the chosen pantry items no longer exists. Go back and pick again.",
     // MATCH-1: the "Match ingredients" step of RecipeFormDialog.
@@ -2436,7 +2437,7 @@ export const en = {
     dataExport: {
       title: "Export your account data",
       description:
-        "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
+        "Download a copy of your personal data as a JSON file: profile details and settings, household memberships, your personal budget, and your own part of shared features (notes you wrote, your tasks, your share of split bills and repayments).",
       button: "Export my data",
     },
     installApp: {
@@ -2691,6 +2692,7 @@ export const en = {
     purchased: "Purchased",
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",
+    rateLimited: "Too many changes to this list. Please wait a while and try again.",
   },
   cookieNotice: {
     title: "Cookie notice",

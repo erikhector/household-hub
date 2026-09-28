@@ -1934,6 +1934,37 @@ describe("registerReceiptAction", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
+  // SEC-7: nothing below the 6 MB action body limit caps a receipt, so the
+  // schema has to — one over the cap is rejected before any write.
+  it("rejects more than 300 receipt lines", async () => {
+    const items = Array.from({ length: 301 }, (_, i) => ({
+      name: `Item ${i}`,
+      quantity: 1,
+      unit: "pcs",
+      price: 10,
+    }));
+
+    const result = await registerReceiptAction("My receipt", "SEK", items);
+
+    expect(result.error).toBe("Too many items");
+    expect(shoppingListCreateMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a line whose quantity or price is absurdly large", async () => {
+    const tooMuchQuantity = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Milk", quantity: 100_001, unit: "l", price: 15 },
+    ]);
+    const tooHighPrice = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Milk", quantity: 1, unit: "l", price: 1_000_001 },
+    ]);
+
+    expect(tooMuchQuantity.error).toBeTruthy();
+    expect(tooHighPrice.error).toBe("Price is too large");
+    expect(shoppingListCreateMock).not.toHaveBeenCalled();
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
   it("creates a completed list with items auto-linked by exact name match, updates inventory and logs a Groceries expense", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });

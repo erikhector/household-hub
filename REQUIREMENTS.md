@@ -1208,6 +1208,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     token, or a real item from the wrong list) all resolve to the same
     generic "not found"/"invalid or revoked" errors — nothing here
     distinguishes *why* a token or pairing failed.
+    **Rate limit (SEC-13)**: both are throttled per token with
+    `checkRateLimit`, 120 an hour each, the same constants and the same
+    reason as the calendar feed (a leaked or guessed link mustn't become a
+    cheap way to hammer the database or churn inventory stock). Reads
+    (`share-list:<token>`) and toggles (`share-list-toggle:<token>`) have
+    separate buckets, because every toggle's `revalidatePath` re-renders
+    the page and so costs a read too; one shared bucket would halve how many
+    items a shopper can tick in an hour. Over the cap, the read returns
+    `null` (the page shows its one "not found or revoked" state) and the
+    toggle returns a "too many changes" error, both before any database
+    lookup.
 
   UI: `/dashboard/shopping-list/[id]`'s `ShoppingListClient` renders a
   "Share" button (`ShareListButton`, mirroring `InviteButton`'s show-
@@ -2348,8 +2359,36 @@ that reuses the same component for a `.json` (not `.csv`) download of just
 the signed-in user's own data (profile fields, household memberships, and
 personal-budget data — deliberately excluding household-*shared* data like
 `InventoryItem`/`Transaction`, which the three CSV exports below already
-make reachable to anyone with household access). That export isn't detailed
-further here, as it isn't part of this section's original CSV-export scope.
+make reachable to anyone with household access).
+
+**"Export my data" contents** (SEC-10). The JSON has these top-level keys,
+pinned by a key-path inline snapshot in `route.test.ts` so any change to the
+shape is deliberate:
+- `profile` (email, display name, created/verified dates, Swish number) and
+  `preferences` (`locale`, `theme`, `weeklyDigestEnabled`,
+  `inventoryViewPrefs`). Never `passwordHash` or `passwordChangedAt`.
+- `householdMemberships`: household name, role, joined date.
+- `pushSubscriptions`: one per browser with the push service's origin
+  (e.g. `https://fcm.googleapis.com`), created date, quiet hours and time
+  zone. The full `endpoint` URL and the `p256dh`/`auth` keys are left out:
+  together they let anyone push to that device, an export file tends to
+  get emailed and synced, and they're random browser-minted values rather
+  than information about the user.
+- `personalBudgetCategories` (with `id`), `personalTransactions`,
+  `personalRecurringTemplates` (with `id` and acknowledgements). The ids are
+  there so `categoryId` and `recurringTemplateId` references resolve.
+- The user's own part of shared features, each with the household name and
+  just enough of the parent row to be readable: `householdNotes` they
+  wrote; `householdTasks` assigned to or last completed by them
+  (`assignedToMe`/`completedByMe`, no rotation list, since a task keeps only
+  its latest completion this is all the task history there is);
+  `transactionSplits` and `recurringTemplateSplits` (their share of a split
+  bill plus the bill's description/name, amount and date);
+  `memberSettlements` they paid or received (`direction`, the other
+  member's display name, amount, date). Other members' shares and the
+  household's full transaction list stay out.
+- The response sends `Cache-Control: private, no-store`, so no shared or
+  browser cache keeps a copy.
 
 - **Route Handlers**: `src/app/dashboard/inventory/export/route.ts`,
   `src/app/dashboard/shopping-list/[id]/export/route.ts`, and
@@ -2764,6 +2803,12 @@ below.
   anywhere. Either way, the server only ever receives the extracted item
   names, prices, and currency the user has already reviewed — never the
   photo itself.
+- **No raw model output in logs (SEC-11)**: when a provider's reply isn't
+  valid JSON, both this action and AI shelf scan log only its length and
+  first 200 characters (`excerptForLog`, `src/lib/logger.ts`), never the
+  whole reply — a receipt's payment block (masked card number, loyalty
+  number) sits at the bottom, past what's kept. Regression tests in
+  `receipt-scan.test.ts` and `inventory-scan.test.ts`.
 - **i18n**: all new strings live under `shoppingList.receiptScan`/
   `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
 
@@ -4959,6 +5004,20 @@ approximating them, so the email never disagrees with the app.
   and re-throw everything else (see `src/lib/actions/auth.ts`).
 - All new user-facing text goes through the `dict` prop (English + Swedish)
   — see "Internationalization". Don't hardcode strings in JSX.
+- **Every action input is bounded (SEC-7).** `next.config.ts`'s 6 MB
+  `bodySizeLimit` applies to *every* Server Action, not only the photo
+  scans it was raised for, so it's a backstop rather than a limit: each
+  action caps its own input. Arrays of rows are capped at 300 — list
+  import/paste, templates (`MAX_TEMPLATE_ITEMS`), bulk item create,
+  `registerReceiptAction`'s lines and the meal-plan bridge's ingredient
+  rows — and sub-recipe rows at 50, since each unique one costs its own
+  `wouldCreateCycle` graph walk. `bulkUpdateFieldAction`'s ids are capped
+  looser, at 1 000: the inventory table's header checkbox selects every
+  item the household has, so that cap has to clear a whole pantry. Every
+  free-text field and number has a `.max()` too (120 for names, 20 for
+  units, 1 000 000 for prices). A payload over a row-count cap is rejected
+  outright; a single row over a per-field cap is dropped where the
+  surrounding code already filters invalid rows.
 - Base UI's `<Select.Value>` (`SelectValue` in `src/components/ui/select.tsx`)
   renders the raw selected `value` as text by default — it does **not** look
   up the matching `SelectItem`'s label. Any `Select` whose `value`s aren't
