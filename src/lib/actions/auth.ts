@@ -294,10 +294,12 @@ export async function loginAction(
 // someone who briefly had the account — a shared computer, a borrowed
 // phone — kept receiving household pushes on that device after signing out.
 // The endpoint is only known client-side (see src/lib/push-client.ts's
-// logOut, the only caller), so it's optional here and a no-op when absent —
-// no regression for a browser with no active subscription or no JS.
+// useLogout, the only caller), so it's optional here and a no-op when
+// absent or not a string — no regression for a browser with no active
+// subscription, and this is a public Server Action, so a malformed or
+// tampered call must degrade to a plain sign-out rather than a 500.
 export async function logoutAction(endpoint?: string) {
-  if (endpoint) {
+  if (typeof endpoint === "string" && endpoint) {
     const userId = await requireUserId();
     await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
   }

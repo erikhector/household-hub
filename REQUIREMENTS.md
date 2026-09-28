@@ -4211,12 +4211,17 @@ intruder out. The fix is a password "version" stamped into the token:
 - This revocation doesn't reach `PushSubscription` (Web Push, not a
   session cookie), so `resetPasswordAction` and `updatePasswordAction` also
   `deleteMany` every `PushSubscription` row for the user in the same
-  update, alongside the `passwordChangedAt` stamp (SEC-5). `logoutAction`
-  drops just this device's subscription: the endpoint is only known
-  client-side (`src/lib/push-client.ts`'s `logOut`, called instead of
-  `logoutAction` directly from every logout entry point — the sidebar and
-  bottom-nav menus, and the no-household page's `LogoutButton`), so it's a
-  no-op when there's no subscription or no JS, same as before this existed.
+  transaction as the `passwordChangedAt` stamp (SEC-5). `logoutAction`
+  drops just this device's subscription, on both the server (its DB row)
+  and the browser (`subscription.unsubscribe()`), since only client-side
+  JS knows which subscription is this device's — every logout entry point
+  (the sidebar and bottom-nav menus, and the no-household page's
+  `LogoutButton`) calls `src/lib/push-client.ts`'s `useLogout()` hook
+  instead of `logoutAction` directly, which also exposes a `pending` flag
+  so the button disables itself during the lookup. This makes logout
+  require JavaScript (it no longer degrades to a plain form submit), which
+  matches the rest of the sidebar/bottom-nav's other buttons (theme,
+  locale) — none of them work without JS either.
 
 ### Login rate limiting (SEC-1)
 

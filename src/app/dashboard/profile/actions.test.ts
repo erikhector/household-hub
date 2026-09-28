@@ -49,13 +49,20 @@ const {
   emailVerificationTokenCreateMock: vi.fn(async () => ({ token: "generated-token" })),
   emailVerificationTokenDeleteManyMock: vi.fn(async () => ({ count: 0 })),
   pushSubscriptionDeleteManyMock: vi.fn(async () => ({ count: 0 })),
-  transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) =>
-    cb({
-      household: { delete: householdDeleteMock },
-      householdMember: { delete: householdMemberDeleteMock },
-      user: { delete: userDeleteMock },
-      transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
-    }),
+  // Supports both $transaction forms this file's actions use: the
+  // interactive callback (deleteAccountAction) and the array of
+  // already-created promises (updatePasswordAction's SEC-5 atomic update —
+  // real Prisma just awaits them together, so a plain Promise.all mirrors
+  // it closely enough for a mock).
+  transactionMock: vi.fn(async (arg: ((tx: unknown) => unknown) | Promise<unknown>[]) =>
+    Array.isArray(arg)
+      ? Promise.all(arg)
+      : arg({
+          household: { delete: householdDeleteMock },
+          householdMember: { delete: householdMemberDeleteMock },
+          user: { delete: userDeleteMock },
+          transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
+        }),
   ),
   signOutMock: vi.fn(),
   bcryptCompareMock: vi.fn(),

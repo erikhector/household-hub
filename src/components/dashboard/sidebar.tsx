@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
-import { logOut } from "@/lib/push-client";
+import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
@@ -62,6 +62,7 @@ export function Sidebar({
   // than the active one) instead of the currently active theme.
   const nextTheme = THEME_CHOICES[(THEME_CHOICES.indexOf(themeChoice) + 1) % THEME_CHOICES.length];
   const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
+  const { logOut, pending: loggingOut } = useLogout();
 
   function toggle() {
     const next = !expanded;
@@ -177,7 +178,8 @@ export function Sidebar({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => void logOut()}
+          onClick={logOut}
+          disabled={loggingOut}
           className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
           title={expanded ? undefined : dict.nav.logOut}
         >

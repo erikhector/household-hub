@@ -636,6 +636,17 @@ describe("logoutAction", () => {
     });
     expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
   });
+
+  // logoutAction is a public Server Action, so a tampered/malformed client
+  // call could hand it anything, not just a string — this must degrade to
+  // a plain sign-out instead of Prisma throwing on a non-string `where`.
+  it("treats a non-string endpoint as absent rather than erroring", async () => {
+    // @ts-expect-error deliberately calling with the wrong type
+    await logoutAction({ malicious: true });
+
+    expect(pushSubscriptionDeleteManyMock).not.toHaveBeenCalled();
+    expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
+  });
 });
 
 describe("resetPasswordAction rate limiting", () => {

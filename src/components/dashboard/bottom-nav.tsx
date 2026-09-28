@@ -18,7 +18,7 @@ import {
   isNavItemActive,
   NAV_ICON_TILE_CLASSES,
 } from "@/components/dashboard/nav-items";
-import { logOut } from "@/lib/push-client";
+import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
@@ -71,6 +71,7 @@ export function BottomNav({
   // than the active one) instead of the currently active theme.
   const nextTheme = THEME_CHOICES[(THEME_CHOICES.indexOf(themeChoice) + 1) % THEME_CHOICES.length];
   const { next: nextLocale, toggle: toggleLocale } = useLocaleToggle(locale);
+  const { logOut, pending: loggingOut } = useLogout();
 
   const totalItems = primaryMobileNavItems.length + 1;
   const primaryActiveIndex = primaryMobileNavItems.findIndex((item) => isNavItemActive(pathname, item.href));
@@ -186,7 +187,7 @@ export function BottomNav({
               {dict.theme[nextTheme]}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => void logOut()}>
+            <DropdownMenuItem variant="destructive" disabled={loggingOut} onClick={logOut}>
               <LogOut className="size-4" />
               {dict.nav.logOut}
             </DropdownMenuItem>

@@ -145,6 +145,19 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
       …)` call to both, mirroring the calendar feed's constants. Test: the
       Nth request in a window past the cap is rejected.
+- [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
+      follow-up from SEC-5's review. A password reset/change drops every
+      `PushSubscription` row for a user, but only for the device that
+      triggered it — every *other* signed-in device keeps whatever
+      `pushManager.getSubscription()` returns client-side, with no
+      server-side row behind it. `push-notifications-card.tsx`'s
+      `subscriptionState` trusts that browser-side result alone (see its
+      `useEffect`), so those devices' Profile pages keep showing
+      "Subscribed" for a subscription that silently receives nothing. On
+      mount (or the next time the card checks), confirm the endpoint still
+      has a matching row — reuse `subscribeToPushAction`'s upsert to
+      self-heal (recreate the row) or fall back to showing "Unsubscribed"
+      if it doesn't.
 
 ### Performance (2026-09-26 audit)
 
