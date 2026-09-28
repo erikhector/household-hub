@@ -112,10 +112,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       history, splits and settlements; exports `categoryId` without the
       categories; and sends no `Cache-Control: private, no-store`.
       Snapshot-test the export's keys.
-- [ ] **SEC-11. Don't log raw AI output** (low) — on a JSON parse failure
-      `receipt-scan.ts:211` and `inventory-scan.ts:291` log the whole model
-      response, which for receipts can include card/loyalty details. Log
-      length + first ~200 chars. (Lands naturally with MAINT-8.)
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to
@@ -772,6 +768,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.3 | #110 fix: count recurring income not yet logged as expected income | 2026-09-28 | #110 |
       | v0.46.2 | #108 fix: keep hand-split shared bills on the personal budget in future months | 2026-09-28 | #108 |
       | v0.46.4 | #109 fix: cap the action inputs that had no upper bound (SEC-7) | 2026-09-28 | #109 |
+      | v0.46.5 | #112 fix: log only an excerpt of unparseable AI scan replies (SEC-11) | 2026-09-28 | #112 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
