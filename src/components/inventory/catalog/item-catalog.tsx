@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
 import { dismissDuplicatesAction } from "@/app/dashboard/inventory/items/actions";
-import { CATALOG_FILTERS, filterCatalogRows, type CatalogFilter, type CatalogRow } from "@/lib/inventory/catalog";
+import {
+  CATALOG_FILTERS,
+  filterCatalogRows,
+  parseCatalogFilter,
+  type CatalogFilter,
+  type CatalogRow,
+} from "@/lib/inventory/catalog";
 import type { DuplicateGroup, DuplicateMember } from "@/lib/inventory/duplicates";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
@@ -26,24 +33,23 @@ type CatalogDict = Dictionary["inventory"]["catalog"];
 export function ItemCatalog({
   rows,
   groups,
-  initialFilter,
   dict,
   locale,
 }: {
   rows: CatalogRow[];
   groups: DuplicateGroup[];
-  initialFilter: CatalogFilter;
   dict: CatalogDict;
   locale: Locale;
 }) {
-  const [filter, setFilter] = useState(initialFilter);
-  // The chip also goes into the URL (replaced, not pushed, so chips don't
-  // pile up history), so the browser's own back button from an item page
-  // lands on the same filter as the page's back arrow does.
-  const selectFilter = (key: CatalogFilter) => {
-    setFilter(key);
-    window.history.replaceState(null, "", catalogHref(key));
-  };
+  // The chip lives in `?filter=` (replaced, not pushed, so chips don't pile
+  // up history), so the browser's own back button from an item page lands
+  // on the same filter as the page's back arrow does. It's read back from
+  // useSearchParams, not kept in useState seeded from the server: on a
+  // browser back, Next restores the page from its router cache, rendered
+  // for the URL as first loaded, so a server-seeded state would reset to
+  // that filter. useSearchParams follows replaceState and back/forward.
+  const filter = parseCatalogFilter(useSearchParams().get("filter"));
+  const selectFilter = (key: CatalogFilter) => window.history.replaceState(null, "", catalogHref(key));
   const counts: Record<CatalogFilter, number> = {
     all: rows.length,
     duplicates: groups.length,
