@@ -588,7 +588,7 @@ export function RecipeFormDialog({
               so they get a louder, explicit "review before saving" notice
               instead of the plain success line. */}
           {!importState.error && importState.recipe && importState.recipe.source === "jsonld" && (
-            <p className="text-sm text-chart-5">{dict.importSuccess}</p>
+            <p className="text-sm text-success">{dict.importSuccess}</p>
           )}
           {!importState.error && importState.recipe && importState.recipe.source !== "jsonld" && (
             <p

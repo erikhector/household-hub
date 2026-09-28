@@ -170,7 +170,7 @@ export function CostAnalyzer({
                   <span className="min-w-0 flex-1 truncate font-medium">{c.name}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {format(dict.cheapestStoreLabel, { store: c.cheapestStore })}{" "}
-                    <span className="tabular-nums text-chart-5">
+                    <span className="tabular-nums text-success">
                       {numberFormat.format(c.cheapestPrice)}
                     </span>
                   </span>
@@ -291,7 +291,7 @@ function BasketComparisonCard({
                       {" · "}
                       <span
                         className={`tabular-nums ${
-                          showCheapestBadge && i === 0 ? "text-chart-5" : "text-foreground"
+                          showCheapestBadge && i === 0 ? "text-success" : "text-foreground"
                         }`}
                       >
                         {numberFormat.format(s.total)}
@@ -430,7 +430,7 @@ function ItemTrendCard({
     item.changePercent > 0
       ? "text-destructive"
       : item.changePercent < 0
-        ? "text-chart-5"
+        ? "text-success"
         : "text-muted-foreground";
   const changeSign = item.changePercent > 0 ? "+" : "";
 

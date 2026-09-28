@@ -33,7 +33,7 @@ export function DigestUnsubscribeClient({
     const Icon = done ? CheckCircle2 : XCircle;
     return (
       <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <Icon className={`size-10 ${done ? "text-chart-5" : "text-destructive"}`} />
+        <Icon className={`size-10 ${done ? "text-success" : "text-destructive"}`} />
         <p className="text-sm text-muted-foreground">{done ? dict.done : dict.invalid}</p>
         <Link href="/dashboard/profile" className="text-sm font-medium text-primary underline underline-offset-4">
           {dict.profileLink}

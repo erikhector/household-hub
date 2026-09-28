@@ -131,7 +131,7 @@ function NotificationRow({ item, dict }: { item: NotificationItem; dict: Diction
             existing component apart from a freshly defined one when it's
             assigned to a capitalized variable and used as a JSX tag; this
             sidesteps that false positive without changing behavior. */}
-        {createElement(notificationIcon(item.kind), { className: cn("size-4 shrink-0", isGoodNews && "text-chart-5") })}
+        {createElement(notificationIcon(item.kind), { className: cn("size-4 shrink-0", isGoodNews && "text-success") })}
         <span className="truncate">{notificationLabel(item, dict)}</span>
       </DropdownMenuItem>
       <DropdownMenuItem

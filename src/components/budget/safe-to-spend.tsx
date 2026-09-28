@@ -28,7 +28,7 @@ import { createMoneyFormat } from "@/lib/currency";
 // number, so "$4 left" doesn't read as either as fine as "$400 left" or as
 // alarming as actually being over.
 const STATUS_COLOR: Record<SafeToSpendStatus, string> = {
-  healthy: "text-chart-5",
+  healthy: "text-success",
   tight: "text-warning",
   over: "text-destructive",
 };
@@ -169,7 +169,7 @@ export function SafeToSpend({
                         <span className="min-w-0 truncate">
                           {household ? format(dict.owedToYouIn, { household }) : dict.owedToYou}
                         </span>
-                        <span className="shrink-0 tabular-nums text-chart-5">
+                        <span className="shrink-0 tabular-nums text-success">
                           {numberFormat.format(-debt.owedToMembers)}
                         </span>
                       </span>

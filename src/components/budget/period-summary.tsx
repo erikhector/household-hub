@@ -59,7 +59,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-chart-5">{numberFormat.format(income)}</p>
+            <p className="text-3xl font-semibold text-success">{numberFormat.format(income)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -81,7 +81,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={"text-3xl font-semibold " + (remaining >= 0 ? "text-chart-5" : "text-destructive")}>
+            <p className={"text-3xl font-semibold " + (remaining >= 0 ? "text-success" : "text-destructive")}>
               {remaining >= 0 ? "+" : ""}
               {numberFormat.format(remaining)}
             </p>

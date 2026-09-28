@@ -67,7 +67,7 @@ export function GettingStarted({
                 <span
                   className={cn(
                     "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
-                    isDone ? "bg-chart-5/15 text-chart-5" : "bg-primary/15 text-primary",
+                    isDone ? "bg-success/15 text-success" : "bg-primary/15 text-primary",
                   )}
                 >
                   {step.done ? (

@@ -69,7 +69,7 @@ export type SharedPostedRow = {
 type Row = { kind: "own"; row: TransactionListRow } | { kind: "shared"; row: SharedPostedRow };
 
 function amountColor(type: "INCOME" | "EXPENSE" | "SAVINGS") {
-  if (type === "INCOME") return "text-chart-5";
+  if (type === "INCOME") return "text-success";
   if (type === "SAVINGS") return "text-chart-2";
   return "text-destructive";
 }
@@ -81,7 +81,7 @@ function amountSign(type: "INCOME" | "EXPENSE" | "SAVINGS") {
 }
 
 function categoryBadgeClass(type: "INCOME" | "EXPENSE" | "SAVINGS") {
-  if (type === "INCOME") return "border-chart-5/30 text-chart-5";
+  if (type === "INCOME") return "border-success/30 text-success";
   if (type === "SAVINGS") return "border-chart-2/30 text-chart-2";
   return "border-destructive/30 text-destructive";
 }

@@ -77,7 +77,7 @@ export function NotificationsHistory({
                     isUnread && "bg-primary/5",
                   )}
                 >
-                  <Icon className={cn("size-4 shrink-0", isGoodNews && "text-chart-5")} />
+                  <Icon className={cn("size-4 shrink-0", isGoodNews && "text-success")} />
                   <span className="min-w-0 flex-1 truncate text-sm">{notificationLabel(item, dict)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatTimestamp(item.createdAt, locale)}

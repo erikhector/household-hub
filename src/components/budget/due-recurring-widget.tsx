@@ -148,7 +148,7 @@ export function DueRecurringWidget({
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
         ) : templates.length === 0 && sharedDueRows.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="size-4 text-chart-5" />
+            <CheckCircle2 className="size-4 text-success" />
             <span>
               <span className="font-medium text-foreground">{dict.dueWidget.allCaughtUpTitle}</span>
               {" — "}
