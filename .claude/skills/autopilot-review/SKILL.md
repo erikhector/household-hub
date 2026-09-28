@@ -41,7 +41,11 @@ this skill pushes itself (step 4) don't count as a moved head.
 1. Read `AUTOPILOT.md`. Stop if `enabled` or `reviewer_enabled` is false.
 2. List open PRs, oldest first: number, title, author, labels, draft flag,
    head SHA, mergeable state (one list call, no bodies). All authors are
-   in scope. Skip drafts and anything labelled `hold`.
+   in scope. Skip drafts and anything labelled `hold`. The number of PRs
+   this leaves is this run's merge cap (`max_merges_per_review_run` in
+   AUTOPILOT.md isn't a fixed number — it's however many are open right
+   now), so the run never carries a PR over just because of an arbitrary
+   limit.
 3. `git fetch origin` once, here. Sub-agents share this clone's object
    store and read `origin/<branch>` without fetching, so they never race
    on git's lock files.
@@ -141,8 +145,10 @@ A PR merges only if **all** hold:
   labels). Such a PR still gets reviewed; say in the review that a human
   merges it, and add the `needs-human` label.
 
-Merge at most `max_merges_per_review_run` per run, oldest first. At most
-one PR that adds a migration per run, so each lands on a known schema.
+Merge at most `max_merges_per_review_run` per run (the number of open PRs
+found in step 0's gate, not a fixed number — see AUTOPILOT.md), oldest
+first. At most one PR that adds a migration per run, so each lands on a
+known schema.
 Start merging only once every review sub-agent has reported and been
 validated, so no review is still reading a branch that a merge moves.
 

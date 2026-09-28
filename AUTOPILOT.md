@@ -31,7 +31,7 @@ retro_enabled: true
 max_open_autopilot_prs: 10     # builder does nothing while this many are open
 max_new_items_per_scout_run: 3
 max_parallel_subagents: 4      # builder/reviewer sub-agents running at once (4-CPU container)
-max_merges_per_review_run: 3   # each merge re-runs ci:local on top of the new master
+max_merges_per_review_run: open   # not a fixed number: the count of open PRs when the run starts (see autopilot-review's Gate step). Each merge re-runs ci:local on top of the new master.
 ```
 
 The builder's count per run is not a separate limit: it is as many
