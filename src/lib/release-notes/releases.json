@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.3",
+    "date": "2026-09-28",
+    "pr": 110,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Recurring income, like your salary, now counts in the budget for months where it hasn't been logged yet, so future months show what you expect to earn alongside your expected bills and savings.",
+      "sv": "Återkommande inkomster, som din lön, räknas nu med i budgeten för månader där de inte har loggats än, så att kommande månader visar vad du förväntar dig att tjäna bredvid förväntade räkningar och sparande."
+    }
+  },
+  {
     "version": "0.46.2",
     "date": "2026-09-28",
     "pr": 108,
