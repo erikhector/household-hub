@@ -1,7 +1,7 @@
 "use client";
 
 // Step 2 of RecipeFormDialog, "Match ingredients" (MATCH-1, design
-// docs/RECIPE_INGREDIENT_MATCHING.md §3.1). Built from the receipt review's
+// docs/archive/RECIPE_INGREDIENT_MATCHING.md §3.1). Built from the receipt review's
 // pieces (AUTO-11): rows the matcher is confident about are collapsed into
 // an AutoMatchedSection, and only the rest are open, each with the same
 // "Use existing / Create new" choice as ResolveMappingsDialog, plus "Don't
@@ -89,15 +89,20 @@ export function IngredientReviewStep({
   dict,
   attempted,
   onRowChange,
+  expandMatched = false,
 }: {
   review: ReviewState;
   dict: MealPlanningDict;
   /** Save was pressed once, so incomplete rows show why. */
   attempted: boolean;
   onRowChange: (uid: string, patch: Partial<ReviewRow>) => void;
+  /** Start with the matched rows shown: "Review ingredient matches"
+   * (MATCH-5) opens this step to look at every link, not just the open
+   * ones. */
+  expandMatched?: boolean;
 }) {
   const t = dict.ingredientReview;
-  const [showMatched, setShowMatched] = useState(false);
+  const [showMatched, setShowMatched] = useState(expandMatched);
   const matched = review.rows.filter((row) => !row.needsReview);
   const needsLook = review.rows.filter((row) => row.needsReview);
   // The batch helpers only flip rows the matcher had no confident answer

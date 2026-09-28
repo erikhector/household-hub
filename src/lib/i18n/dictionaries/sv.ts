@@ -1383,6 +1383,7 @@ export const sv = {
     includesLabel: "Innehåller:",
     deleteRecipeInUseError: 'Kan inte tas bort — används som delrecept i "{recipeName}".',
     editAriaLabel: "Redigera recept",
+    reviewMatchesAriaLabel: "Granska ingredienskopplingar",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {

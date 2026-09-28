@@ -35,4 +35,39 @@ describe("createInventoryLinker", () => {
   it("returns null over an empty inventory", () => {
     expect(createInventoryLinker([])("Milk")).toBeNull();
   });
+
+  describe("learned aliases (MATCH-5)", () => {
+    const egg = { id: "egg", name: "Egg" };
+    const benedictMix = { id: "mix", name: "Eggs benedict mix" };
+
+    it("links a name through the household's alias", () => {
+      const link = createInventoryLinker([milk, egg], [{ normalizedName: "eggs", inventoryItemId: egg.id }]);
+      expect(link("Eggs")).toBe(egg);
+    });
+
+    it("prefers an exact name over an alias", () => {
+      const eggs = { id: "eggs", name: "Eggs" };
+      const link = createInventoryLinker([egg, eggs], [{ normalizedName: "eggs", inventoryItemId: egg.id }]);
+      expect(link("eggs")).toBe(eggs);
+    });
+
+    it("prefers the alias over a fuzzy match", () => {
+      // Without the alias, "Eggs bene" fuzzily matches the mix.
+      expect(createInventoryLinker([egg, benedictMix])("Eggs bene")?.id).toBe(benedictMix.id);
+      const link = createInventoryLinker([egg, benedictMix], [{ normalizedName: "eggs bene", inventoryItemId: egg.id }]);
+      expect(link("Eggs bene")).toBe(egg);
+    });
+
+    it("doesn't link through an untracked alias, and still tries fuzzy", () => {
+      const water = { id: "water", name: "Watter" };
+      expect(createInventoryLinker([milk], [{ normalizedName: "water", inventoryItemId: null }])("water")).toBeNull();
+      const link = createInventoryLinker([water], [{ normalizedName: "water", inventoryItemId: null }]);
+      expect(link("water")?.id).toBe(water.id);
+    });
+
+    it("ignores an alias whose item isn't in the inventory", () => {
+      const link = createInventoryLinker([milk], [{ normalizedName: "eggs", inventoryItemId: "gone" }]);
+      expect(link("eggs")).toBeNull();
+    });
+  });
 });

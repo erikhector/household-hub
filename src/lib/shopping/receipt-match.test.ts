@@ -112,3 +112,55 @@ describe("matchReceiptLines", () => {
     expect(matches.map(isAutoAccepted)).toEqual([true, false]);
   });
 });
+
+describe("learned aliases (MATCH-5)", () => {
+  // Inventory items (RegisterReceiptDialog): the candidate's own id is the item.
+  const items = [
+    { id: "egg", name: "Egg" },
+    { id: "milk", name: "Mellanmjölk" },
+  ];
+  const aliases = [
+    { normalizedName: "ägg 12p", inventoryItemId: "egg" },
+    { normalizedName: "mjolk", inventoryItemId: "milk" },
+    { normalizedName: "vatten", inventoryItemId: null },
+  ];
+
+  it("auto-accepts a line through the household's alias", () => {
+    // Without the alias, "ÄGG 12P" is nowhere near "Egg".
+    expect(matchReceiptLines([{ name: "ÄGG 12P" }], items)[0].confidence).toBe("none");
+    expect(matchReceiptLines([{ name: "ÄGG 12P" }], items, { aliases })).toEqual([
+      { matchId: "egg", confidence: "confident" },
+    ]);
+  });
+
+  it("ignores an untracked alias", () => {
+    const [match] = matchReceiptLines([{ name: "Vatten" }], items, { aliases });
+    expect(match.confidence).toBe("none");
+  });
+
+  it("lets a candidate named exactly like the line win over the alias", () => {
+    const withMjolk = [...items, { id: "other", name: "Mjolk" }];
+    expect(matchReceiptLines([{ name: "MJOLK" }], withMjolk, { aliases })[0].matchId).toBe("other");
+  });
+
+  it("matches list rows by their linked item, and leaves two rows for it open", () => {
+    // Shopping-list rows (ReceiptScanDialog): matched through inventoryItemId.
+    const rows = [
+      { id: "row-1", name: "eggs", inventoryItemId: "egg" },
+      { id: "row-2", name: "Mjölk", inventoryItemId: "milk" },
+      { id: "row-3", name: "Mjölk (extra)", inventoryItemId: "milk" },
+      { id: "row-4", name: "Something", inventoryItemId: null },
+    ];
+    expect(matchReceiptLines([{ name: "Ägg 12p" }, { name: "mjolk" }], rows, { exclusive: true, aliases })).toEqual([
+      { matchId: "row-1", confidence: "confident" },
+      { matchId: "row-2", confidence: "suggested" },
+    ]);
+  });
+
+  it("still demotes two lines claiming the same row when exclusive", () => {
+    const rows = [{ id: "row-1", name: "Hen fruit", inventoryItemId: "egg" }];
+    const matches = matchReceiptLines([{ name: "ÄGG 12P" }, { name: "Ägg 12p" }], rows, { exclusive: true, aliases });
+    expect(matches.map((match) => match.confidence)).toEqual(["suggested", "suggested"]);
+    expect(matches.every((match) => !isAutoAccepted(match))).toBe(true);
+  });
+});

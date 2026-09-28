@@ -46,6 +46,7 @@ import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { applyReceiptScanAction, quickAddShoppingListItemAction } from "@/app/dashboard/shopping-list/actions";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
+import type { ItemAliasLike } from "@/lib/item-alias";
 import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
@@ -53,8 +54,10 @@ import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-/** `barcode` is the linked inventory item's (AUTO-6), for exact matching. */
-type PendingItem = { id: string; name: string; barcode?: string | null };
+/** `barcode` is the linked inventory item's (AUTO-6), for exact matching,
+ * and `inventoryItemId` the item itself, for the household's learned
+ * aliases (MATCH-5). */
+type PendingItem = { id: string; name: string; barcode?: string | null; inventoryItemId?: string | null };
 type InventoryItemOption = { id: string; name: string; category: string; unit?: string };
 
 type ReviewRow = {
@@ -91,6 +94,7 @@ export function ReceiptScanDialog({
   units,
   dict,
   onApplied,
+  aliases = [],
 }: {
   listId: string;
   /** Rows a receipt line may be matched to — unticked ones, plus (in
@@ -104,6 +108,8 @@ export function ReceiptScanDialog({
   /** Runs after a successful apply — the list page uses it to offer the
    * put-away dialog when the receipt only priced the rows. */
   onApplied?: () => void;
+  /** MATCH-5: the household's learned item names (see matchReceiptLines). */
+  aliases?: ItemAliasLike[];
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -152,7 +158,7 @@ export function ReceiptScanDialog({
     // Exclusive: each pending row is bought once per receipt, so two lines
     // confidently claiming the same row means one of them is wrong — both
     // stay open for review instead (see matchReceiptLines).
-    const matches = matchReceiptLines(lines, pendingItems, { exclusive: true });
+    const matches = matchReceiptLines(lines, pendingItems, { exclusive: true, aliases });
     return lines.map((line, index) => {
       const match = matches[index];
       return {

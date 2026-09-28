@@ -50,6 +50,7 @@ import { registerReceiptAction } from "@/app/dashboard/shopping-list/actions";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { isAutoAccepted, matchReceiptLines } from "@/lib/shopping/receipt-match";
+import type { ItemAliasLike } from "@/lib/item-alias";
 import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
@@ -94,11 +95,14 @@ export function RegisterReceiptDialog({
   units,
   categories,
   dict,
+  aliases = [],
 }: {
   inventoryItems: InventoryItemOption[];
   units: string[];
   categories: string[];
   dict: Dictionary["shoppingList"]["registerReceipt"];
+  /** MATCH-5: the household's learned item names (see matchReceiptLines). */
+  aliases?: ItemAliasLike[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -130,7 +134,7 @@ export function RegisterReceiptDialog({
   }
 
   function buildRows(lines: { name: string; quantity: number; price: number; barcode?: string }[]): ReviewRow[] {
-    const matches = matchReceiptLines(lines, inventoryItems);
+    const matches = matchReceiptLines(lines, inventoryItems, { aliases });
     return lines.map((line, index) => {
       const match = matches[index];
       return {

@@ -25,19 +25,36 @@
 // signal there is, so it's accepted regardless of how differently the
 // receipt abbreviates the name ("MJÖLK 3% 1L" vs "Mellanmjölk").
 //
+// The household's learned aliases (ItemAlias, MATCH-5) come next: a line
+// whose name the household already taught ("eggs" → Egg, in a recipe review
+// or by linking a shopping-list row) counts as an exact name match, so it
+// auto-accepts on the same terms — one candidate for that item, and under
+// `exclusive`, no other line claiming it. A candidate whose own name is the
+// line's name still wins over the alias, and untracked aliases (Don't
+// track) are ignored, the same as in createInventoryLinker.
+//
 // Kept dependency-free (bar the other pure matchers) so it can run in the
 // client dialogs and be unit-tested without mocks.
 
 import { receiptLineBarcode } from "@/lib/barcode";
+import { createAliasLookup, type ItemAliasLike } from "@/lib/item-alias";
 import {
   findInventoryMatches,
   MATCH_AUTO_ACCEPT_MIN_MARGIN,
   MATCH_AUTO_ACCEPT_MIN_SCORE,
   MATCH_PRESELECT_MIN_SCORE,
+  normalizeItemName,
   type InventoryMatchCandidate,
 } from "@/lib/item-matching";
 
-export type ReceiptMatchCandidate = InventoryMatchCandidate & { barcode?: string | null };
+/** `inventoryItemId` is the inventory item a shopping-list row candidate
+ * is linked to (null when unlinked); leave it out when the candidates are
+ * inventory items themselves, and their own id is used. Only the alias
+ * step reads it. */
+export type ReceiptMatchCandidate = InventoryMatchCandidate & {
+  barcode?: string | null;
+  inventoryItemId?: string | null;
+};
 
 export type ReceiptLineInput = { name: string; barcode?: string | null };
 
@@ -56,8 +73,13 @@ export function isAutoAccepted(match: ReceiptLineMatch): boolean {
 }
 
 /** Matches one receipt line against the candidates — see the file comment
- * for what each confidence level means. */
-export function matchReceiptLine(line: ReceiptLineInput, candidates: ReceiptMatchCandidate[]): ReceiptLineMatch {
+ * for what each confidence level means. `aliasItemId` is
+ * createAliasLookup over the household's aliases. */
+export function matchReceiptLine(
+  line: ReceiptLineInput,
+  candidates: ReceiptMatchCandidate[],
+  aliasItemId: (name: string) => string | null = () => null,
+): ReceiptLineMatch {
   const barcode = receiptLineBarcode(line.barcode);
   if (barcode) {
     const byBarcode = candidates.filter((candidate) => candidate.barcode === barcode);
@@ -66,6 +88,17 @@ export function matchReceiptLine(line: ReceiptLineInput, candidates: ReceiptMatc
     // row is a guess, so pre-select the first and leave it open.
     if (byBarcode.length === 1) return { matchId: byBarcode[0].id, confidence: "barcode" };
     if (byBarcode.length > 1) return { matchId: byBarcode[0].id, confidence: "suggested" };
+  }
+
+  const aliasTarget = aliasItemId(line.name);
+  const normalized = normalizeItemName(line.name);
+  if (aliasTarget && !candidates.some((candidate) => normalizeItemName(candidate.name) === normalized)) {
+    const byAlias = candidates.filter(
+      (candidate) => (candidate.inventoryItemId === undefined ? candidate.id : candidate.inventoryItemId) === aliasTarget,
+    );
+    // Same as two barcode hits: two list rows for the item.
+    if (byAlias.length === 1) return { matchId: byAlias[0].id, confidence: "confident" };
+    if (byAlias.length > 1) return { matchId: byAlias[0].id, confidence: "suggested" };
   }
 
   const [best, runnerUp] = findInventoryMatches(line.name, candidates, {
@@ -92,9 +125,10 @@ export function matchReceiptLine(line: ReceiptLineInput, candidates: ReceiptMatc
 export function matchReceiptLines(
   lines: ReceiptLineInput[],
   candidates: ReceiptMatchCandidate[],
-  { exclusive = false }: { exclusive?: boolean } = {},
+  { exclusive = false, aliases = [] }: { exclusive?: boolean; aliases?: readonly ItemAliasLike[] } = {},
 ): ReceiptLineMatch[] {
-  const matches = lines.map((line) => matchReceiptLine(line, candidates));
+  const aliasItemId = createAliasLookup(aliases);
+  const matches = lines.map((line) => matchReceiptLine(line, candidates, aliasItemId));
   if (!exclusive) return matches;
 
   const acceptedCount = new Map<string, number>();

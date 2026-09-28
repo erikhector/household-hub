@@ -33,7 +33,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 | `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 | `UX-`, `BUG-`, `DEPS-` | UX problems, production errors, dependency upgrades | Autopilot scouts (see AUTOPILOT.md); `SEC-`/`PERF-`/`MAINT-`/`GAP-` scouts reuse those prefixes |
-| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/RECIPE_INGREDIENT_MATCHING.md`](./docs/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
+| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/archive/RECIPE_INGREDIENT_MATCHING.md`](./docs/archive/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -468,12 +468,7 @@ order below is a suggestion, not a dependency, unless noted.
 
 ## Phase 3 — larger items, own PR each
 
-### Shopping list & inventory automation
-
-- [ ] **MATCH-5. Learned aliases in every linker** (medium, M; after MATCH-2) —
-      `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
-      consult `ItemAlias`. Add "Review ingredient matches" per recipe.
-      Design §3.5, §6.3.
+Nothing open right now.
 
 ---
 
@@ -781,6 +776,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.45.0 | #98 feat: find and merge duplicate pantry items (MATCH-7) | 2026-09-27 | #98 |
       | v0.45.1 | #101 fix: drop push subscriptions on logout/password change (SEC-5) | 2026-09-28 | #101 |
       | v0.45.2 | #102 fix: item page back arrow returns to where you came from | 2026-09-28 | #102 |
+      | v0.46.0 | #103 feat: remembered item names also link shopping lists and receipts (MATCH-5) | 2026-09-28 | #103 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

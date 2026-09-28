@@ -276,7 +276,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `<datalist>` (see Conventions) rather than a fixed enum, so it stays
   freeform but self-suggesting.
   - **Item page (MATCH-6)**: `/dashboard/inventory/items/[id]`
-    (design `docs/RECIPE_INGREDIENT_MATCHING.md` §6.1), a Server Component
+    (design `docs/archive/RECIPE_INGREDIENT_MATCHING.md` §6.1), a Server Component
     that loads the item (with its `ItemUnitConversion`s and `ItemAlias`es),
     its linked `RecipeIngredient`s, its pending rows (not purchased, on an
     `ACTIVE` list), its template rows and the household's other items (for
@@ -1041,8 +1041,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     nested write, then opens it. `resolveTemplateRows` keeps a saved
     inventory link while that item still exists in the household. Any other
     row is re-linked by name through `createInventoryLinker`
-    (`src/lib/shopping/inventory-link.ts`), the same exact-then-single-fuzzy
-    resolver `importShoppingListItemsAction` uses, so a template behaves
+    (`src/lib/shopping/inventory-link.ts`), the same exact, then learned
+    alias (MATCH-5), then single-fuzzy resolver
+    `importShoppingListItemsAction` uses, so a template behaves
     like re-pasting the list and needs no linking logic of its own. Like
     import, it never creates inventory items: an unmatched row stays
     unlinked for "Resolve mappings", and `completeShoppingListAction`'s
@@ -1091,7 +1092,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     (`src/app/dashboard/shopping-list/actions.ts`), up to 50 rows,
     `ACTIVE` list only. Unlike the paste import, every row ends up linked:
     a picked suggestion's id (ignored unless it's this household's), else
-    `matchSmartAddInventoryItem`: an exact normalized name, else the one
+    `matchSmartAddInventoryItem`: an exact normalized name, else the
+    household's learned alias for it (MATCH-5, tracked aliases only), else
+    the one
     item that is the typed words plus only size/strength tokens (words
     with a digit, so "mjölk" converges on "Mjölk 3%" but "milk" never
     becomes "Milk chocolate"), else a single `findInventoryMatches` hit
@@ -2657,7 +2660,7 @@ below.
   Apply button and nothing is written before it — review is shorter, not
   gone, which is what keeps this inside the Guardrails' "suggest, don't
   silently mutate". A row never moves between the two sections while it's
-  being edited. Two more rules keep auto-accept conservative:
+  being edited. Three more rules keep auto-accept conservative:
   - **Barcode**: when a receipt line prints an EAN/UPC that equals exactly
     one candidate's `InventoryItem.barcode` (AUTO-6), that's an exact match
     whatever the receipt's abbreviated name says. The vision model reports
@@ -2670,6 +2673,17 @@ below.
     UPC-A → GTIN-13). For `ReceiptScanDialog`, a list row's code is its
     linked inventory item's. Two candidates sharing a code (the same item on
     a list twice) leaves the line open.
+  - **Learned aliases (MATCH-5)**: after the barcode, a line whose name
+    is one of the household's `ItemAlias` names ("ÄGG 12P" taught as Egg,
+    in a recipe review or by linking a shopping-list row) counts as an
+    exact name match for the alias's item, unless some candidate is named
+    exactly like the line (that one wins, through the fuzzy step). It
+    auto-accepts when exactly one candidate is that item (for
+    `ReceiptScanDialog`, a list row is its linked item), and the
+    exclusive rule below still applies; two rows for the item leave it
+    open with the first pre-selected. Untracked aliases are ignored. Both
+    list pages load the household's tracked aliases next to their
+    inventory query and pass them to the dialogs as data.
   - **Exclusive on a list**: in `ReceiptScanDialog` each pending row is
     bought once per receipt, so if two lines would both auto-accept the
     same row, both stay open instead. `RegisterReceiptDialog` doesn't apply
@@ -2859,9 +2873,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   `RecipeFormDialog` before submit. Editing replaces every ingredient row in
   a `$transaction` (delete-all then recreate) rather than diffing, which is
   simpler and fine at this scale (a handful of ingredients per recipe).
-- **Ingredient → inventory linking (MATCH-1, MATCH-2, MATCH-3)**: saving a recipe never
+- **Ingredient → inventory linking (MATCH-1, MATCH-2, MATCH-3, MATCH-5)**: saving a recipe never
   creates an inventory item on its own; design in
-  `docs/RECIPE_INGREDIENT_MATCHING.md` §3.
+  `docs/archive/RECIPE_INGREDIENT_MATCHING.md` §3.
   - **Matcher** (`src/lib/recipes/ingredient-match.ts`, pure): per row, in
     order: the row's existing link or Don't-track state (edit only, name
     unchanged), an exact `normalizeItemName` match, a learned alias
@@ -2953,6 +2967,45 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     row in the dialog and after the name on the recipe card, and the
     original line is dropped once the row is edited. A name typed by hand
     keeps its "(…)", which matching still ignores.
+  - **Aliases outside recipes (MATCH-5)**: the same `ItemAlias` rows link
+    shopping lists and receipts, so fixing "eggs → Egg" once fixes it
+    everywhere. `src/lib/item-alias.ts` holds the pure lookup
+    (`createAliasLookup`, keyed by `normalizeItemName` of the whole name,
+    tracked aliases only) and `learnItemAlias`. Every caller loads the
+    household's aliases once per request next to the inventory query it
+    already runs and passes them in as data: `createInventoryLinker`
+    (pasted/CSV import, templates, the meal-plan bridge) resolves exact
+    name → alias → single confident fuzzy match; the smart add line checks
+    the alias right after its exact name; the receipt matcher treats an
+    alias as an exact match (see "Receipt scanning"); and
+    `ResolveMappingsDialog` pre-selects the alias's item and lists it first
+    (`mappingSuggestions`, `src/lib/shopping/mapping-suggestions.ts`),
+    else the best fuzzy match as before. An **untracked** alias (Don't
+    track) is a recipe answer, not a shopping link: it links nothing, the
+    row stays unlinked for "Resolve mappings", and it doesn't block the
+    fuzzy step either, so a row gets exactly what it got before aliases.
+    An alias whose item isn't in the household's inventory is skipped.
+    Learning also runs the other way: linking an **unlinked** shopping-list
+    row to an existing item whose normalized name differs, through
+    `resolveShoppingListMappingsAction` (the batch dialog) or
+    `linkShoppingListItemAction` (the row's edit dialog), upserts an alias
+    in the same transaction with `learnItemAlias` (household-scoped, the
+    item already checked against the household, INSERT … ON CONFLICT so
+    concurrent teaches don't collide; the latest answer wins). Re-pointing
+    an already linked row and "Create new" teach nothing.
+  - **Review ingredient matches (MATCH-5)**: a button on each recipe card
+    (hidden for a recipe with no ingredients) opens `RecipeFormDialog`
+    (`startAtReview`) straight at the "Match ingredients" step for that
+    recipe, with the matched rows expanded. It runs the same read-only
+    `previewIngredientMatchesAction` over the rows as saved, sending each
+    row's link and Don't-track state, so a linked row comes back as "Use
+    existing" with its item, an untracked one as "Don't track", and only a
+    row with neither (its item was deleted) goes through the matcher.
+    Save is disabled until the preview has loaded. Saving is the normal
+    `updateRecipeAction` with a decision for every row, so a moved link is
+    saved and learned as an alias exactly as in an edit, and a row the
+    user didn't touch is saved with the link it had. Back leads to the
+    recipe's fields.
   - **Unit conversions (MATCH-3)**: `ItemUnitConversion`
     (`inventoryItemId`, `fromUnit` stored as `canonicalUnit`, `factor` > 0,
     unique per item and unit, cascade on item delete) means "1 `fromUnit`
@@ -3519,8 +3572,9 @@ uses — but it can cover any date range up to 31 days (GAP-32):
 - **Committing**: `addMissingIngredientsToShoppingListAction` (same file)
   creates the new list if requested (defaulting its name the same way
   `createShoppingListAction` does), then links every checked ingredient
-  with `createInventoryLinker` (exact name, else one clear fuzzy match —
-  the same rule as a pasted list or template) over one inventory fetch,
+  with `createInventoryLinker` (exact name, else the household's learned
+  alias (MATCH-5), else one clear fuzzy match — the same rule as a pasted
+  list or template) over one inventory and one alias fetch,
   and writes every row in a single `shoppingListItem.createMany`. A row
   with no match is added **unlinked** for "Resolve mappings" on the list;
   it never creates an inventory item (MATCH-1). Items (or unlinked names)
