@@ -36,10 +36,16 @@ import {
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
-// Mirrors recipe-actions.ts's identical bound on ingredient rows — kept as
-// its own copy here (rather than imported) to keep this feature's action
-// files self-contained.
+// Mirrors recipe-actions.ts's identical bounds on an ingredient's quantity,
+// name and unit — kept as its own copies here (rather than imported) to keep
+// this feature's action files self-contained.
 const MAX_INGREDIENT_QUANTITY = 1_000_000;
+const MAX_MISSING_INGREDIENT_NAME_LENGTH = 120;
+const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
+// The row cap follows the shopping-list side's 300 rather than a recipe's
+// own 100: this submits a whole range's shortfall (up to
+// MAX_MISSING_INGREDIENTS_RANGE_DAYS of meals), not one recipe's ingredients.
+const MAX_MISSING_INGREDIENT_ROWS = 300;
 
 // Inventory quantities are stored to at most 2 decimal places (matches the
 // precision cooked-ingredients.ts already suggests in the confirm dialog).
@@ -203,12 +209,23 @@ export async function addMissingIngredientsToShoppingListAction(
   }
 
   const names = formData.getAll("itemName").map((v) => String(v).trim());
+  if (names.length > MAX_MISSING_INGREDIENT_ROWS) {
+    return { error: `Select at most ${MAX_MISSING_INGREDIENT_ROWS} ingredients at once` };
+  }
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
   const units = formData.getAll("itemUnit").map((v) => String(v).trim());
 
   const rows = names
     .map((name, i) => ({ name, quantity: quantities[i], unit: units[i] || "pcs" }))
-    .filter((row) => row.name && Number.isFinite(row.quantity) && row.quantity > 0);
+    .filter(
+      (row) =>
+        row.name &&
+        row.name.length <= MAX_MISSING_INGREDIENT_NAME_LENGTH &&
+        row.unit.length <= MAX_MISSING_INGREDIENT_UNIT_LENGTH &&
+        Number.isFinite(row.quantity) &&
+        row.quantity > 0 &&
+        row.quantity <= MAX_INGREDIENT_QUANTITY,
+    );
 
   if (rows.length === 0) {
     return { error: "Select at least one ingredient to add" };
