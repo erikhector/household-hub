@@ -214,7 +214,7 @@ describe("loadPersonalBudgetPosition", () => {
     settlementFindManyMock.mockResolvedValue([]);
     templateSplitFindManyMock.mockResolvedValue([]);
     templateAckFindManyMock.mockResolvedValue([]);
-    const template = (id: string, name: string, amount: number) => ({
+    const template = (id: string, name: string, amount: number, latestBillId: string) => ({
       id,
       householdId: "h1",
       categoryId: `cat-${id}`,
@@ -225,11 +225,12 @@ describe("loadPersonalBudgetPosition", () => {
       frequency: "MONTHLY",
       active: true,
       createdAt: new Date(2026, 0, 1),
+      transactions: [{ id: latestBillId }],
     });
     // Rent went up to 13000 since September.
     templateFindManyMock.mockResolvedValue([
-      template("tpl-rent", "Rent", 13000),
-      template("tpl-power", "Power", 800),
+      template("tpl-rent", "Rent", 13000, "sep-rent"),
+      template("tpl-power", "Power", 800, "sep-power"),
     ]);
 
     const position = await loadPersonalBudgetPosition({
@@ -254,6 +255,56 @@ describe("loadPersonalBudgetPosition", () => {
       }),
     ]);
     expect(position.safeToSpendBreakdown.duePayments).toBe(6500);
+  });
+
+  it("drops a hand-split bill once a later one is logged without the user", async () => {
+    // Rent was split with me in August, but September's was logged unsplit
+    // (it never reaches the split-bill query). October must not show it.
+    personalTransactionFindManyMock.mockResolvedValue([]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([
+      { id: "m-me", household: { id: "h1", name: "Home" } },
+    ]);
+    transactionFindManyMock.mockResolvedValue([
+      {
+        id: "aug-rent",
+        amount: 12000,
+        type: "EXPENSE",
+        date: new Date(2026, 7, 1),
+        recurringTemplateId: "tpl-rent",
+        category: { name: "Rent" },
+        splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+      },
+    ]);
+    settlementFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+    templateAckFindManyMock.mockResolvedValue([]);
+    templateFindManyMock.mockResolvedValue([
+      {
+        id: "tpl-rent",
+        householdId: "h1",
+        categoryId: "cat-rent",
+        category: { name: "Rent" },
+        name: "Rent",
+        amount: 12000,
+        type: "EXPENSE",
+        frequency: "MONTHLY",
+        active: true,
+        createdAt: new Date(2026, 0, 1),
+        transactions: [{ id: "sep-rent-unsplit" }],
+      },
+    ]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: new Date(2026, 9, 1),
+      monthEnd: new Date(2026, 10, 1),
+      sharedLabel: "Shared",
+    });
+
+    expect(position.sharedDueRows).toEqual([]);
+    expect(position.safeToSpendBreakdown.duePayments).toBe(0);
   });
 
   it("works with no household at all", async () => {

@@ -247,12 +247,24 @@ export async function loadPersonalBudgetPosition({
             id: { in: [...latestSplitBillByTemplate.keys()] },
             householdId: { in: memberships.map((m) => m.household.id) },
           },
-          include: { category: { select: { name: true } } },
+          include: {
+            category: { select: { name: true } },
+            // The template's latest bill overall, split or not. Bills the
+            // user has no split row in never reach sharedTransactions, so
+            // without this a household that split rent once and then
+            // stopped would keep the user owing half of it every month.
+            transactions: {
+              where: { date: { lt: monthEnd } },
+              orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+              take: 1,
+              select: { id: true },
+            },
+          },
         })
       : [];
 
   type SharedTemplate = {
-    template: (typeof inferredTemplates)[number];
+    template: Omit<(typeof inferredTemplates)[number], "transactions">;
     householdMemberId: string;
     amountOwed: number;
     splits: { householdMemberId: string; amountOwed: number }[];
@@ -265,6 +277,8 @@ export async function loadPersonalBudgetPosition({
   }));
   for (const template of inferredTemplates) {
     const bill = latestSplitBillByTemplate.get(template.id)!;
+    // A later bill wasn't split with the user: they're no longer sharing it.
+    if (template.transactions[0]?.id !== bill.id) continue;
     const memberId = myMemberIdIn(bill)!;
     // Scaled to the template's amount, in case the bill's differed (a
     // variable electricity bill, say): same proportions, today's total.
