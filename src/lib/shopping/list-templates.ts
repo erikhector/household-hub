@@ -2,6 +2,7 @@
 // src/app/dashboard/shopping-list/template-actions.ts). Kept dependency-free
 // apart from the shared inventory linker so the row-building rules can be
 // unit-tested without mocking Prisma.
+import type { ItemAliasLike } from "@/lib/item-alias";
 import { createInventoryLinker } from "@/lib/shopping/inventory-link";
 
 // Same cap importShoppingListItemsAction puts on a pasted list — a template
@@ -58,16 +59,18 @@ type LinkableInventoryItem = { id: string; name: string; unit: string; lastKnown
  * The saved inventory link wins while that item still exists in the
  * household (it was an explicit choice at the time); otherwise — never
  * linked, or the item was deleted and the link SetNull'd — the row goes
- * through the same exact/fuzzy resolver importShoppingListItemsAction uses,
+ * through the same exact/alias/fuzzy resolver importShoppingListItemsAction
+ * uses,
  * so a template behaves exactly like re-pasting the list would. Price comes
  * from the linked item's lastKnownPrice (AUTO-4), not from the template.
  */
 export function resolveTemplateRows(
   templateItems: { name: string; quantity: number; unit: string; inventoryItemId: string | null }[],
   inventoryItems: LinkableInventoryItem[],
+  aliases: readonly ItemAliasLike[] = [],
 ) {
   const byId = new Map(inventoryItems.map((item) => [item.id, item]));
-  const linkInventoryItem = createInventoryLinker(inventoryItems);
+  const linkInventoryItem = createInventoryLinker(inventoryItems, aliases);
   return templateItems.map((item) => {
     const inventoryItem =
       (item.inventoryItemId ? byId.get(item.inventoryItemId) : undefined) ?? linkInventoryItem(item.name);

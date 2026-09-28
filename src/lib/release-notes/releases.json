@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.0",
+    "date": "2026-09-28",
+    "pr": 103,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "A name you've matched once, like \"eggs\" for your pantry's \"Egg\", now links on its own everywhere: pasted shopping lists, templates, receipts and \"Resolve mappings\". Linking a shopping-list item teaches the name too. Recipes also have a new \"Review ingredient matches\" button to check or change which pantry item each ingredient uses.",
+      "sv": "Ett namn du har matchat en gång, som ”ägg” mot skafferiets ”Ägg”, kopplas nu automatiskt överallt: inklistrade inköpslistor, mallar, kvitton och ”Koppla varor till lagret”. När du kopplar en vara på inköpslistan lär sig appen namnet också. Recept har dessutom en ny knapp, ”Granska ingredienskopplingar”, där du ser och ändrar vilken vara i skafferiet varje ingrediens använder."
+    }
+  },
+  {
     "version": "0.45.2",
     "date": "2026-09-28",
     "pr": 102,

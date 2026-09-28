@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const {
   requireHouseholdMock,
   inventoryItemFindManyMock,
+  itemAliasFindManyMock,
   inventoryItemCreateManyAndReturnMock,
   inventoryItemUpdateMock,
   inventoryItemFindFirstMock,
@@ -29,6 +30,7 @@ const {
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
+  itemAliasFindManyMock: vi.fn(async () => [] as { normalizedName: string; inventoryItemId: string | null }[]),
   inventoryItemCreateManyAndReturnMock: vi.fn(),
   inventoryItemUpdateMock: vi.fn(),
   inventoryItemFindFirstMock: vi.fn(),
@@ -67,6 +69,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: inventoryItemFindManyMock,
       createManyAndReturn: inventoryItemCreateManyAndReturnMock,
     },
+    itemAlias: { findMany: itemAliasFindManyMock },
     recipe: { findMany: recipeFindManyMock },
     mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock, findMany: mealPlanEntryFindManyMock },
     shoppingList: { create: shoppingListCreateMock, findFirst: shoppingListFindFirstMock },
@@ -479,6 +482,27 @@ describe("addMissingIngredientsToShoppingListAction", () => {
         expect.objectContaining({ inventoryItemId: "inv-carrot", name: "Carrot", estimatedPrice: 4 }),
         expect.objectContaining({ inventoryItemId: null, name: "Kale" }),
       ],
+    });
+  });
+
+  it("links a row through the household's learned alias (MATCH-5)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg", name: "Egg", lastKnownPrice: null }]);
+    itemAliasFindManyMock.mockResolvedValueOnce([{ normalizedName: "ägg", inventoryItemId: "inv-egg" }]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "Ägg");
+    fd.append("itemQuantity", "6");
+    fd.append("itemUnit", "pcs");
+
+    await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(itemAliasFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { householdId: "household-1" } }),
+    );
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ inventoryItemId: "inv-egg", name: "Ägg" })],
     });
   });
 

@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
-import { findInventoryMatches } from "@/lib/item-matching";
+import type { ItemAliasLike } from "@/lib/item-alias";
+import { mappingSuggestions } from "@/lib/shopping/mapping-suggestions";
 import { format, plural } from "@/lib/i18n/format";
 import {
   resolveShoppingListMappingsAction,
@@ -33,13 +34,19 @@ type RowState = {
   newCategory: string;
 };
 
-function buildRow(item: UnresolvedItem, inventoryItems: InventoryItemOption[]): RowState {
-  const [suggestion] = findInventoryMatches(item.name, inventoryItems, { limit: 1, minScore: 0.35 });
+// The pre-selected item is the household's learned alias for the name
+// (MATCH-5), else the best fuzzy match — see mappingSuggestions.
+function buildRow(
+  item: UnresolvedItem,
+  inventoryItems: InventoryItemOption[],
+  aliases: readonly ItemAliasLike[],
+): RowState {
+  const { preselectedId } = mappingSuggestions(item.name, inventoryItems, aliases);
   return {
     itemId: item.id,
     name: item.name,
-    mode: suggestion ? "existing" : inventoryItems.length > 0 ? "existing" : "new",
-    selectedId: suggestion?.id ?? "",
+    mode: inventoryItems.length > 0 ? "existing" : "new",
+    selectedId: preselectedId ?? "",
     newCategory: "",
   };
 }
@@ -59,6 +66,7 @@ export function ResolveMappingsDialog({
   dict,
   triggerLabel,
   handle,
+  aliases = [],
 }: {
   items: UnresolvedItem[];
   inventoryItems: InventoryItemOption[];
@@ -68,17 +76,20 @@ export function ResolveMappingsDialog({
   /** When set, the dialog opens through the handle (e.g. from a menu item,
    * which shows `triggerLabel` itself) and renders no button of its own. */
   handle?: DialogHandle;
+  /** MATCH-5: the household's learned item names. Linking a row here also
+   * teaches one (resolveShoppingListMappingsAction). */
+  aliases?: ItemAliasLike[];
 }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [attemptedApply, setAttemptedApply] = useState(false);
-  const [rows, setRows] = useState<RowState[]>(() => items.map((item) => buildRow(item, inventoryItems)));
+  const [rows, setRows] = useState<RowState[]>(() => items.map((item) => buildRow(item, inventoryItems, aliases)));
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
-      setRows(items.map((item) => buildRow(item, inventoryItems)));
+      setRows(items.map((item) => buildRow(item, inventoryItems, aliases)));
       setError(null);
       setAttemptedApply(false);
     }
@@ -142,7 +153,7 @@ export function ResolveMappingsDialog({
           <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
           <div className="flex flex-col gap-2">
             {rows.map((row) => {
-              const suggestions = findInventoryMatches(row.name, inventoryItems);
+              const { suggestions } = mappingSuggestions(row.name, inventoryItems, aliases);
               const suggestedIds = new Set(suggestions.map((s) => s.id));
               const otherItems = [...inventoryItems]
                 .filter((i) => !suggestedIds.has(i.id))

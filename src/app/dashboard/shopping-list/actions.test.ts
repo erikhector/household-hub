@@ -47,7 +47,12 @@ const {
   notificationUpdateManyMock,
   txShoppingListItemUpdateManyMock,
   txShoppingListItemFindUniqueMock,
+  itemAliasFindManyMock,
+  itemAliasUpsertMock,
 } = vi.hoisted(() => ({
+  // MATCH-5: no learned aliases unless a test sets some.
+  itemAliasFindManyMock: vi.fn(async () => [] as { normalizedName: string; inventoryItemId: string | null }[]),
+  itemAliasUpsertMock: vi.fn(async () => ({})),
   requireHouseholdMock: vi.fn(),
   shoppingListCreateMock: vi.fn(),
   shoppingListFindFirstMock: vi.fn(),
@@ -107,6 +112,7 @@ const {
         create: inventoryItemCreateMock,
       },
       priceHistory: { create: priceHistoryCreateMock },
+      itemAlias: { upsert: itemAliasUpsertMock },
       notification: {
         findFirst: notificationFindFirstMock,
         create: notificationCreateMock,
@@ -178,6 +184,7 @@ vi.mock("@/lib/prisma", () => ({
     priceHistory: { create: priceHistoryCreateMock },
     transaction: { create: transactionCreateMock },
     household: { update: householdUpdateMock },
+    itemAlias: { findMany: itemAliasFindManyMock, upsert: itemAliasUpsertMock },
     $transaction: transactionMock,
   },
 }));
@@ -590,6 +597,31 @@ describe("importShoppingListItemsAction", () => {
     expect(result).toEqual({ added: 2 });
   });
 
+  it("links a row through the household's learned alias, but not an untracked one (MATCH-5)", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-egg", name: "Egg", unit: "pcs" }]);
+    itemAliasFindManyMock.mockResolvedValueOnce([
+      { normalizedName: "eggs", inventoryItemId: "inv-egg" },
+      { normalizedName: "water", inventoryItemId: null },
+    ]);
+    shoppingListItemCreateManyMock.mockResolvedValue({ count: 2 });
+
+    await importShoppingListItemsAction("list-1", [
+      { name: "eggs", quantity: 6 },
+      { name: "Water", quantity: 1 },
+    ]);
+
+    expect(itemAliasFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { householdId: "household-1" } }),
+    );
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ inventoryItemId: "inv-egg", name: "eggs" }),
+        expect.objectContaining({ inventoryItemId: null, name: "Water" }),
+      ],
+    });
+  });
+
   it("leaves a row unlinked when two candidates both score above the fuzzy match threshold", async () => {
     shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
     inventoryItemFindManyMock.mockResolvedValue([
@@ -804,7 +836,7 @@ describe("linkShoppingListItemAction", () => {
 
   it("links the item when both belong to the caller's household", async () => {
     shoppingListItemFindFirstMock.mockResolvedValue({ id: "item-1", shoppingListId: "list-1" });
-    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "Milk" });
     shoppingListItemUpdateMock.mockResolvedValue({});
 
     const result = await linkShoppingListItemAction("item-1", "inv-1");
@@ -814,6 +846,64 @@ describe("linkShoppingListItemAction", () => {
       where: { id: "item-1" },
       data: { inventoryItemId: "inv-1" },
     });
+  });
+});
+
+describe("linkShoppingListItemAction alias learning (MATCH-5)", () => {
+  it("teaches an alias when an unlinked row is linked to a differently named item", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      name: "Eggs",
+      inventoryItemId: null,
+    });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-egg", name: "Egg" });
+
+    const result = await linkShoppingListItemAction("item-1", "inv-egg");
+
+    expect(result).toEqual({});
+    expect(inventoryItemFindFirstMock).toHaveBeenCalledWith({ where: { id: "inv-egg", householdId: "household-1" } });
+    expect(itemAliasUpsertMock).toHaveBeenCalledWith({
+      where: { householdId_normalizedName: { householdId: "household-1", normalizedName: "eggs" } },
+      create: { householdId: "household-1", normalizedName: "eggs", inventoryItemId: "inv-egg" },
+      update: { inventoryItemId: "inv-egg" },
+    });
+  });
+
+  it("learns nothing when the names already match, or when the row was linked before", async () => {
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-egg", name: "Egg" });
+    shoppingListItemFindFirstMock.mockResolvedValueOnce({
+      id: "item-1",
+      shoppingListId: "list-1",
+      name: "egg.",
+      inventoryItemId: null,
+    });
+    await linkShoppingListItemAction("item-1", "inv-egg");
+    shoppingListItemFindFirstMock.mockResolvedValueOnce({
+      id: "item-2",
+      shoppingListId: "list-1",
+      name: "Eggs",
+      inventoryItemId: "inv-other",
+    });
+    await linkShoppingListItemAction("item-2", "inv-egg");
+
+    expect(shoppingListItemUpdateMock).toHaveBeenCalledTimes(2);
+    expect(itemAliasUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it("learns nothing for an item outside the caller's household", async () => {
+    shoppingListItemFindFirstMock.mockResolvedValue({
+      id: "item-1",
+      shoppingListId: "list-1",
+      name: "Eggs",
+      inventoryItemId: null,
+    });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+
+    const result = await linkShoppingListItemAction("item-1", "someone-elses-egg");
+
+    expect(result.error).toBe("Inventory item not found");
+    expect(itemAliasUpsertMock).not.toHaveBeenCalled();
   });
 });
 
@@ -1106,7 +1196,7 @@ describe("resolveShoppingListMappingsAction", () => {
       { id: "item-1", shoppingListId: "list-1", name: "Milk", inventoryItemId: null },
       { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: null },
     ]);
-    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", name: "Milk" });
     inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
     shoppingListItemUpdateMock.mockResolvedValue({});
 
@@ -1127,6 +1217,42 @@ describe("resolveShoppingListMappingsAction", () => {
       where: { id: "item-2" },
       data: { inventoryItemId: "inv-new" },
     });
+  });
+
+  it("teaches an alias for an 'existing' link whose name differs, never for a 'new' one (MATCH-5)", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-1", shoppingListId: "list-1", name: "Mjölk", inventoryItemId: null },
+      { id: "item-2", shoppingListId: "list-1", name: "Eggs", inventoryItemId: null },
+    ]);
+    inventoryItemCreateMock.mockResolvedValue({ id: "inv-new", name: "Eggs" });
+
+    await resolveShoppingListMappingsAction([
+      { itemId: "item-1", kind: "existing", inventoryItemId: "inv-1" },
+      { itemId: "item-2", kind: "new", category: "Dairy" },
+    ]);
+
+    expect(itemAliasUpsertMock).toHaveBeenCalledTimes(1);
+    expect(itemAliasUpsertMock).toHaveBeenCalledWith({
+      where: { householdId_normalizedName: { householdId: "household-1", normalizedName: "mjölk" } },
+      create: { householdId: "household-1", normalizedName: "mjölk", inventoryItemId: "inv-1" },
+      update: { inventoryItemId: "inv-1" },
+    });
+  });
+
+  it("teaches no alias for a foreign item id", async () => {
+    shoppingListItemFindManyMock.mockResolvedValue([
+      { id: "item-1", shoppingListId: "list-1", name: "Mjölk", inventoryItemId: null },
+    ]);
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+
+    await resolveShoppingListMappingsAction([
+      { itemId: "item-1", kind: "existing", inventoryItemId: "someone-elses-inventory-item" },
+    ]);
+
+    expect(inventoryItemFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "someone-elses-inventory-item", householdId: "household-1" },
+    });
+    expect(itemAliasUpsertMock).not.toHaveBeenCalled();
   });
 
   it("skips a resolution naming an inventory item outside the caller's household", async () => {
@@ -1153,7 +1279,7 @@ describe("resolveShoppingListMappingsAction", () => {
     // inventory item doesn't exist (attempted but not resolved); item-3 is
     // a "new" resolution.
     inventoryItemFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) =>
-      where.id === "inv-1" ? { id: "inv-1" } : null,
+      where.id === "inv-1" ? { id: "inv-1", name: "Milk" } : null,
     );
     inventoryItemCreateMock.mockResolvedValue({ id: "inv-new" });
     shoppingListItemUpdateMock.mockResolvedValue({});

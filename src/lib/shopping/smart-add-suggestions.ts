@@ -7,6 +7,7 @@
 // its transcript through exactly the same parse → rows path.
 
 import { parsePastedList, type ParsedItem } from "@/lib/inventory/parse-pasted-list";
+import { createAliasLookup, type ItemAliasLike } from "@/lib/item-alias";
 import { findInventoryMatches, normalizeItemName, type InventoryMatchCandidate } from "@/lib/item-matching";
 import type { StockStatus } from "@/lib/stock-status";
 
@@ -147,6 +148,9 @@ export const SMART_ADD_FUZZY_MIN_SCORE = 0.8;
  * create a new one — cheapest and surest first:
  *
  *   1. the same name, normalized ("mjölk" = "Mjölk");
+ *   1b. the household's learned alias for the name (MATCH-5: "eggs" once
+ *      linked to Egg in a recipe or a shopping list). An untracked alias
+ *      isn't a link and doesn't stop the steps below;
  *   2. the one item that is the typed words plus only size/strength tokens
  *      (any word with a digit: "mjölk" → "Mjölk 3%", "milk" → "Milk 1L"),
  *      so a variant converges on the item the household already has.
@@ -162,12 +166,20 @@ export const SMART_ADD_FUZZY_MIN_SCORE = 0.8;
  * clears step 3 — the autocomplete (which shows "Mjölk" as you type) and the
  * row's edit dialog are the ways out.
  */
-export function matchSmartAddInventoryItem<T extends InventoryMatchCandidate>(name: string, candidates: T[]): T | null {
+export function matchSmartAddInventoryItem<T extends InventoryMatchCandidate>(
+  name: string,
+  candidates: T[],
+  aliases: readonly ItemAliasLike[] = [],
+): T | null {
   const normalized = normalizeItemName(name);
   if (!normalized) return null;
 
   const exact = candidates.find((candidate) => normalizeItemName(candidate.name) === normalized);
   if (exact) return exact;
+
+  const aliasItemId = createAliasLookup(aliases)(name);
+  const aliased = aliasItemId ? candidates.find((candidate) => candidate.id === aliasItemId) : undefined;
+  if (aliased) return aliased;
 
   const typedWords = new Set(normalized.split(" "));
   const byWords = candidates.filter((candidate) => {

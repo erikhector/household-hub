@@ -72,6 +72,7 @@ import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
+import type { ItemAliasLike } from "@/lib/item-alias";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -144,6 +145,7 @@ export function ShoppingListClient({
   repurchaseSuggestions,
   defersToPutAway = false,
   locations = [],
+  aliases = [],
 }: {
   list: ShoppingListData;
   inventoryItems: InventoryItemOption[];
@@ -170,6 +172,9 @@ export function ShoppingListClient({
   defersToPutAway?: boolean;
   /** The household's inventory locations, for the put-away dialog. */
   locations?: string[];
+  /** MATCH-5: the household's learned item names, so a receipt line or an
+   * unlinked row's suggestion links the way the household taught it. */
+  aliases?: ItemAliasLike[];
 }) {
   const [isPending, startTransition] = useTransition();
   // Same formatter as the budget page's amounts (SafeToSpend,
@@ -404,8 +409,14 @@ export function ShoppingListClient({
           {isActive && (
             <ReceiptScanDialog
               listId={list.id}
-              pendingItems={receiptMatchable.map((item) => ({ id: item.id, name: item.name, barcode: item.barcode }))}
+              pendingItems={receiptMatchable.map((item) => ({
+                id: item.id,
+                name: item.name,
+                barcode: item.barcode,
+                inventoryItemId: item.inventoryItemId,
+              }))}
               inventoryItems={inventoryItems}
+              aliases={aliases}
               categories={categories}
               units={units}
               dict={dict.receiptScan}
@@ -577,6 +588,7 @@ export function ShoppingListClient({
             <ResolveMappingsDialog
               items={unresolvedItems.map((item) => ({ id: item.id, name: item.name }))}
               inventoryItems={inventoryItems}
+              aliases={aliases}
               categories={categories}
               dict={dict.resolveMappings}
               triggerLabel={resolveMappingsLabel}

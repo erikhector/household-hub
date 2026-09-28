@@ -1449,6 +1449,8 @@ export const en = {
     includesLabel: "Includes:",
     deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
     editAriaLabel: "Edit recipe",
+    // MATCH-5: opens the recipe straight at "Match ingredients".
+    reviewMatchesAriaLabel: "Review ingredient matches",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.

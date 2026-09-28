@@ -141,6 +141,19 @@ describe("matchSmartAddInventoryItem", () => {
     expect(match("MJÖL")).toBe("flour");
   });
 
+  it("links a learned alias after the exact name (MATCH-5)", () => {
+    const aliases = [
+      { normalizedName: "mellanmjölk", inventoryItemId: "milk" },
+      { normalizedName: "mjöl", inventoryItemId: "oat" },
+      { normalizedName: "mjölk", inventoryItemId: null },
+    ];
+    const withAliases = (name: string) => matchSmartAddInventoryItem(name, items, aliases)?.id ?? null;
+    expect(withAliases("Mellanmjölk")).toBe("milk");
+    expect(withAliases("mjöl")).toBe("flour");
+    // An untracked alias links nothing and leaves the fuzzy step to it.
+    expect(withAliases("mjölk")).toBe("milk");
+  });
+
   it("converges a bare name on the one item that only adds a size/strength", () => {
     // Bigram overlap alone would pick Mjöl (0.86) over Mjölk 3% (0.8).
     expect(match("mjölk")).toBe("milk");

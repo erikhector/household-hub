@@ -209,6 +209,7 @@ export function RecipeFormDialog({
   ingredientNames,
   ingredientUnits,
   trigger,
+  startAtReview = false,
 }: {
   dict: MealPlanningDict;
   mode: "create" | "edit";
@@ -217,6 +218,9 @@ export function RecipeFormDialog({
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
   trigger: ReactElement;
+  /** "Review ingredient matches" (MATCH-5): open an existing recipe
+   * straight at step 2, with every row's current link as its decision. */
+  startAtReview?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -428,8 +432,41 @@ export function RecipeFormDialog({
     return result;
   }, initialImportState);
 
+  // MATCH-5: "Review ingredient matches" runs the same read-only preview
+  // Save does, over the rows as saved. A linked row is sent with its link
+  // and a Don't-track row as untracked, so the matcher keeps both exactly
+  // as they are (source "linked") and only a row with no link at all (its
+  // item was deleted) is matched afresh. Saving then goes through the
+  // normal save with these decisions, so a moved link is saved and learned
+  // as in any edit, and an untouched row is saved as it was. `loadId`
+  // drops a preview that returns after the dialog was closed or reopened.
+  const loadId = useRef(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const openAtReview = async (rows: IngredientRow[]) => {
+    const id = ++loadId.current;
+    const filledRows = rows.filter((row) => row.name.trim());
+    setStep("review");
+    setLoadError(null);
+    const preview = await previewIngredientMatchesAction(
+      filledRows.map((row) => ({
+        name: row.name.trim(),
+        unit: row.unit.trim(),
+        linkedItemId: row.linkedItemId,
+        untracked: row.untracked,
+      })),
+    );
+    if (id !== loadId.current) return;
+    if ("error" in preview) {
+      setLoadError(preview.error);
+      return;
+    }
+    setReview(buildReview(filledRows, preview, null));
+    requestFocus("title");
+  };
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
+    loadId.current++;
     if (next) {
       resetReview();
       setName(recipe?.name ?? "");
@@ -448,6 +485,7 @@ export function RecipeFormDialog({
         recipe?.carbsGramsPerServing != null ? String(recipe.carbsGramsPerServing) : "",
       );
       setFatGramsPerServing(recipe?.fatGramsPerServing != null ? String(recipe.fatGramsPerServing) : "");
+      if (startAtReview && recipe) void openAtReview(rowsFromRecipe(recipe));
     }
   };
 
@@ -579,7 +617,13 @@ export function RecipeFormDialog({
               dict={dict}
               attempted={reviewAttempted}
               onRowChange={updateReviewRow}
+              expandMatched={startAtReview}
             />
+          )}
+          {step === "review" && !review && (
+            <p role={loadError ? "alert" : "status"} className={loadError ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+              {loadError ?? dict.ingredientReview.checking}
+            </p>
           )}
 
           {/* Step 1 stays mounted (only hidden) while step 2 shows, so its
@@ -879,7 +923,9 @@ export function RecipeFormDialog({
                 {dict.ingredientReview.back}
               </Button>
             )}
-            <Button type="submit" disabled={pending}>
+            {/* Nothing to save until the review has loaded: without its
+                decisions the save would treat every row as undecided. */}
+            <Button type="submit" disabled={pending || (step === "review" && !review)}>
               {pending
                 ? checking
                   ? dict.ingredientReview.checking

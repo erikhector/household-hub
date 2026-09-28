@@ -122,15 +122,23 @@ export async function createListFromTemplateAction(templateId: string): Promise<
 
   let list;
   try {
-    const inventoryItems = await prisma.inventoryItem.findMany({
-      where: { householdId: household.id },
-      select: { id: true, name: true, unit: true, lastKnownPrice: true },
-    });
+    // MATCH-5: the learned aliases ride along, so "eggs" linked to Egg in
+    // a recipe links the template's "eggs" row too.
+    const [inventoryItems, aliases] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { householdId: household.id },
+        select: { id: true, name: true, unit: true, lastKnownPrice: true },
+      }),
+      prisma.itemAlias.findMany({
+        where: { householdId: household.id },
+        select: { normalizedName: true, inventoryItemId: true },
+      }),
+    ]);
     list = await prisma.shoppingList.create({
       data: {
         householdId: household.id,
         name: template.name,
-        items: { create: resolveTemplateRows(template.items, inventoryItems) },
+        items: { create: resolveTemplateRows(template.items, inventoryItems, aliases) },
       },
     });
   } catch (error) {
