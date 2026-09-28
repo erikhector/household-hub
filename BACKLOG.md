@@ -98,12 +98,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-5. Drop push subscriptions on password reset/change and logout** (low-medium) —
-      SCALE-H's session revocation doesn't cover `PushSubscription`, so
-      someone who briefly had the account keeps receiving household pushes.
-      `deleteMany({ where: { userId } })` inside the reset
-      (`auth.ts:425-446`) and change-password (`profile/actions.ts:238-249`)
-      transactions; unsubscribe the current endpoint in `logoutAction`.
 - [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
       (`next.config.ts:122`) applies to every action, not only photo scans,
       and several schemas have no caps (recipe ingredient rows are capped

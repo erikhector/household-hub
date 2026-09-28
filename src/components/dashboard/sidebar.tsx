@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
-import { logoutAction } from "@/lib/actions/auth";
+import { logOut } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
@@ -173,18 +173,17 @@ export function Sidebar({
           <ThemeIcon className="size-4" />
           {expanded && dict.theme[nextTheme]}
         </Button>
-        <form action={logoutAction}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-            title={expanded ? undefined : dict.nav.logOut}
-          >
-            <LogOut className="size-4" />
-            {expanded && dict.nav.logOut}
-          </Button>
-        </form>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => void logOut()}
+          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
+          title={expanded ? undefined : dict.nav.logOut}
+        >
+          <LogOut className="size-4" />
+          {expanded && dict.nav.logOut}
+        </Button>
         <Button
           type="button"
           variant="ghost"

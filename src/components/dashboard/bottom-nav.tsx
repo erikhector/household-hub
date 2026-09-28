@@ -18,7 +18,7 @@ import {
   isNavItemActive,
   NAV_ICON_TILE_CLASSES,
 } from "@/components/dashboard/nav-items";
-import { logoutAction } from "@/lib/actions/auth";
+import { logOut } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { THEME_CHOICES } from "@/components/theme/theme-choice";
 import { useLocaleToggle } from "@/components/language/use-locale-toggle";
@@ -186,7 +186,7 @@ export function BottomNav({
               {dict.theme[nextTheme]}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => logoutAction()}>
+            <DropdownMenuItem variant="destructive" onClick={() => void logOut()}>
               <LogOut className="size-4" />
               {dict.nav.logOut}
             </DropdownMenuItem>

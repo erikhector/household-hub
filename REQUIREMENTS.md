@@ -4208,6 +4208,15 @@ intruder out. The fix is a password "version" stamped into the token:
   covered — none of it exposes account or household data. Everything under
   `/dashboard` and every data-touching Server Action goes through one of
   the two guards.
+- This revocation doesn't reach `PushSubscription` (Web Push, not a
+  session cookie), so `resetPasswordAction` and `updatePasswordAction` also
+  `deleteMany` every `PushSubscription` row for the user in the same
+  update, alongside the `passwordChangedAt` stamp (SEC-5). `logoutAction`
+  drops just this device's subscription: the endpoint is only known
+  client-side (`src/lib/push-client.ts`'s `logOut`, called instead of
+  `logoutAction` directly from every logout entry point — the sidebar and
+  bottom-nav menus, and the no-household page's `LogoutButton`), so it's a
+  no-op when there's no subscription or no JS, same as before this existed.
 
 ### Login rate limiting (SEC-1)
 

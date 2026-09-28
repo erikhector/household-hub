@@ -1,8 +1,7 @@
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateFirstHouseholdForm } from "@/components/household/create-first-household-form";
 import { LegalFooter } from "@/components/legal-footer";
-import { logoutAction } from "@/lib/actions/auth";
+import { LogoutButton } from "@/components/logout-button";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { requireUserWithoutHousehold } from "@/lib/session";
 
@@ -32,11 +31,7 @@ export default async function NoHouseholdPage() {
             <h2 className="text-sm font-semibold">{t.joinHeading}</h2>
             <p className="text-sm text-muted-foreground">{t.joinDescription}</p>
           </section>
-          <form action={logoutAction}>
-            <Button type="submit" variant="outline" className="w-full">
-              {t.logOut}
-            </Button>
-          </form>
+          <LogoutButton className="w-full">{t.logOut}</LogoutButton>
         </CardContent>
       </Card>
       <LegalFooter dict={dict.legal} />

@@ -290,7 +290,17 @@ export async function loginAction(
   return {};
 }
 
-export async function logoutAction() {
+// SEC-5: session revocation (SCALE-H) never touched PushSubscription, so
+// someone who briefly had the account — a shared computer, a borrowed
+// phone — kept receiving household pushes on that device after signing out.
+// The endpoint is only known client-side (see src/lib/push-client.ts's
+// logOut, the only caller), so it's optional here and a no-op when absent —
+// no regression for a browser with no active subscription or no JS.
+export async function logoutAction(endpoint?: string) {
+  if (endpoint) {
+    const userId = await requireUserId();
+    await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } });
+  }
   await signOut({ redirectTo: "/login" });
 }
 
@@ -446,6 +456,10 @@ export async function resetPasswordAction(
       await tx.passwordResetToken.deleteMany({
         where: { userId: resetToken.userId, usedAt: null, id: { not: resetToken.id } },
       });
+      // SEC-5: a reset often means someone else had the account — drop every
+      // push subscription for this user so they stop receiving household
+      // pushes on whatever device(s) they subscribed from.
+      await tx.pushSubscription.deleteMany({ where: { userId: resetToken.userId } });
     });
   } catch (error) {
     return toFriendlyError(error);

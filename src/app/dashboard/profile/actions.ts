@@ -267,6 +267,11 @@ export async function updatePasswordAction(
     data: { passwordHash, passwordChangedAt: new Date() },
   });
 
+  // SEC-5: a password change often means someone else had the account —
+  // drop every push subscription for this user so they stop receiving
+  // household pushes on whatever device(s) they subscribed from.
+  await prisma.pushSubscription.deleteMany({ where: { userId } });
+
   // Rotating the password credential should invalidate the current session
   // too, the same way changing a password anywhere else typically forces
   // re-authentication. signOut's redirect propagates out of this action,

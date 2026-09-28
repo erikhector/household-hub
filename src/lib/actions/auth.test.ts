@@ -46,6 +46,7 @@ const {
   headersMock,
   redirectMock,
   getLocaleMock,
+  pushSubscriptionDeleteManyMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
@@ -63,6 +64,7 @@ const {
       update: vi.fn(async () => ({})),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
+    pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
   })),
   signInMock: vi.fn(),
   signOutMock: vi.fn(),
@@ -83,6 +85,7 @@ const {
     throw new Error(`REDIRECT:${path}`);
   }),
   getLocaleMock: vi.fn(async () => "en"),
+  pushSubscriptionDeleteManyMock: vi.fn(async () => ({ count: 0 })),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -98,6 +101,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: emailVerificationTokenDeleteManyMock,
       create: emailVerificationTokenCreateMock,
     },
+    pushSubscription: { deleteMany: pushSubscriptionDeleteManyMock },
     $transaction: transactionMock,
   },
 }));
@@ -130,6 +134,7 @@ vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 const {
   signupAction,
   loginAction,
+  logoutAction,
   requestPasswordResetAction,
   resetPasswordAction,
   verifyEmailAction,
@@ -562,6 +567,7 @@ describe("resetPasswordAction behavior", () => {
           update: vi.fn(async () => ({})),
           deleteMany: vi.fn(async () => ({ count: 0 })),
         },
+        pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
       }),
     );
     const before = Date.now();
@@ -578,6 +584,57 @@ describe("resetPasswordAction behavior", () => {
       [{ data: { passwordChangedAt: Date } }],
     ];
     expect(data.passwordChangedAt.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
+  // SEC-5: a reset often means someone else had the account — every push
+  // subscription for this user must stop receiving household pushes too,
+  // not just get its session revoked.
+  it("drops every push subscription for this user on a successful reset", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+    const txPushSubscriptionDeleteMany = vi.fn(async () => ({ count: 0 }));
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: vi.fn(async () => ({})) },
+        passwordResetToken: {
+          update: vi.fn(async () => ({})),
+          deleteMany: vi.fn(async () => ({ count: 0 })),
+        },
+        pushSubscription: { deleteMany: txPushSubscriptionDeleteMany },
+      }),
+    );
+
+    await expect(resetPasswordAction({}, formData(validReset))).rejects.toThrow(
+      "REDIRECT:/login?reset=success",
+    );
+
+    expect(txPushSubscriptionDeleteMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
+  });
+});
+
+describe("logoutAction", () => {
+  it("signs out without touching push subscriptions when no endpoint is given", async () => {
+    await logoutAction();
+
+    expect(pushSubscriptionDeleteManyMock).not.toHaveBeenCalled();
+    expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
+  });
+
+  // SEC-5: logging out on a device drops that device's push subscription too,
+  // scoped to the signed-in user so a stale or foreign endpoint can't be used
+  // to delete someone else's row.
+  it("drops only the given endpoint for the signed-in user", async () => {
+    await logoutAction("https://fcm.googleapis.com/fcm/send/abc");
+
+    expect(requireUserIdMock).toHaveBeenCalled();
+    expect(pushSubscriptionDeleteManyMock).toHaveBeenCalledWith({
+      where: { endpoint: "https://fcm.googleapis.com/fcm/send/abc", userId: "user-1" },
+    });
+    expect(signOutMock).toHaveBeenCalledWith({ redirectTo: "/login" });
   });
 });
 
