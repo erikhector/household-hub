@@ -115,12 +115,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `count === 0`. Store reset/verification tokens as `sha256(token)` so a
       read-only DB leak isn't an account takeover (invalidates tokens in
       flight — fine, they live an hour).
-- [ ] **SEC-10. Complete the personal data export** (low) —
-      `src/app/dashboard/profile/export-data/route.ts` omits push
-      subscriptions, `locale`/`theme`/`weeklyDigestEnabled`, notes, task
-      history, splits and settlements; exports `categoryId` without the
-      categories; and sends no `Cache-Control: private, no-store`.
-      Snapshot-test the export's keys.
 - [ ] **SEC-11. Don't log raw AI output** (low) — on a JSON parse failure
       `receipt-scan.ts:211` and `inventory-scan.ts:291` log the whole model
       response, which for receipts can include card/loyalty details. Log

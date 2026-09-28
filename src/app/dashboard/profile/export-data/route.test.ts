@@ -15,6 +15,12 @@ const {
   personalBudgetCategoryFindManyMock,
   personalTransactionFindManyMock,
   personalRecurringTemplateFindManyMock,
+  pushSubscriptionFindManyMock,
+  householdNoteFindManyMock,
+  householdTaskFindManyMock,
+  transactionSplitFindManyMock,
+  recurringTemplateSplitFindManyMock,
+  memberSettlementFindManyMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(async () => "user-1"),
   userFindUniqueOrThrowMock: vi.fn(),
@@ -22,6 +28,12 @@ const {
   personalBudgetCategoryFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   personalTransactionFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   personalRecurringTemplateFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  pushSubscriptionFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  householdNoteFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  householdTaskFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  transactionSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  recurringTemplateSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  memberSettlementFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -31,6 +43,12 @@ vi.mock("@/lib/prisma", () => ({
     personalBudgetCategory: { findMany: personalBudgetCategoryFindManyMock },
     personalTransaction: { findMany: personalTransactionFindManyMock },
     personalRecurringTemplate: { findMany: personalRecurringTemplateFindManyMock },
+    pushSubscription: { findMany: pushSubscriptionFindManyMock },
+    householdNote: { findMany: householdNoteFindManyMock },
+    householdTask: { findMany: householdTaskFindManyMock },
+    transactionSplit: { findMany: transactionSplitFindManyMock },
+    recurringTemplateSplit: { findMany: recurringTemplateSplitFindManyMock },
+    memberSettlement: { findMany: memberSettlementFindManyMock },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
@@ -106,6 +124,8 @@ describe("GET /dashboard/profile/export-data", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("application/json; charset=utf-8");
     expect(response.headers.get("Content-Disposition")).toContain("attachment");
+    // SEC-10: one person's full data must never sit in a shared cache.
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
 
     // Own data present.
     expect(body.profile).toEqual({
@@ -162,5 +182,321 @@ describe("GET /dashboard/profile/export-data", () => {
 
     expect(requireUserIdMock).toHaveBeenCalledTimes(1);
     expect(userFindUniqueOrThrowMock).toHaveBeenCalledWith({ where: { id: "user-1" } });
+  });
+
+  // SEC-10: the export's shape is a contract with the user (and with the
+  // privacy page's promise that "Export my data" gives them a copy), so any
+  // key added or dropped has to show up here on purpose. Fills every
+  // collection with one row so nested keys are covered too.
+  describe("with one row in every collection", () => {
+    const member = (userId: string, displayName: string) => ({ userId, user: { displayName } });
+
+    function seedEverything() {
+      userFindUniqueOrThrowMock.mockResolvedValue({
+        id: "user-1",
+        email: "erik@example.com",
+        displayName: "Erik",
+        passwordHash: "super-secret-hash",
+        passwordChangedAt: fixedNow,
+        createdAt: fixedNow,
+        emailVerifiedAt: verifiedAt,
+        swishNumber: null,
+        locale: "sv",
+        theme: "light",
+        weeklyDigestEnabled: true,
+        inventoryViewPrefs: { groupBy: "location" },
+      });
+      householdMemberFindManyMock.mockResolvedValue([
+        { id: "m-1", role: "OWNER", createdAt: fixedNow, household: { name: "The Hectors" } },
+      ]);
+      pushSubscriptionFindManyMock.mockResolvedValue([
+        {
+          id: "push-1",
+          userId: "user-1",
+          endpoint: "https://fcm.googleapis.com/fcm/send/device-secret-path",
+          p256dh: "p256dh-public-key",
+          auth: "auth-secret-key",
+          createdAt: fixedNow,
+          quietHoursStart: 22,
+          quietHoursEnd: 7,
+          timeZone: "Europe/Stockholm",
+        },
+      ]);
+      personalBudgetCategoryFindManyMock.mockResolvedValue([
+        { id: "cat-1", userId: "user-1", name: "Groceries", type: "EXPENSE", createdAt: fixedNow },
+      ]);
+      personalTransactionFindManyMock.mockResolvedValue([
+        {
+          id: "txn-1",
+          categoryId: "cat-1",
+          amount: 42.5,
+          type: "EXPENSE",
+          description: "Weekly shop",
+          date: fixedNow,
+          isRecurring: false,
+          recurrenceFrequency: null,
+          recurringTemplateId: "template-1",
+          createdAt: fixedNow,
+        },
+      ]);
+      personalRecurringTemplateFindManyMock.mockResolvedValue([
+        {
+          id: "template-1",
+          categoryId: "cat-1",
+          name: "Rent",
+          amount: 1000,
+          type: "EXPENSE",
+          frequency: "MONTHLY",
+          dayOfMonth: 1,
+          active: true,
+          createdAt: fixedNow,
+          acknowledgements: [{ id: "ack-1", periodKey: "2026-01", createdAt: fixedNow }],
+        },
+      ]);
+      householdNoteFindManyMock.mockResolvedValue([
+        { id: "note-1", body: "Plumber on Thursday", createdAt: fixedNow, household: { name: "The Hectors" } },
+      ]);
+      householdTaskFindManyMock.mockResolvedValue([
+        {
+          id: "task-1",
+          title: "Take out the bins",
+          completedAt: fixedNow,
+          recurrenceIntervalDays: 7,
+          rotationMemberIds: ["m-1", "m-2"],
+          createdAt: fixedNow,
+          household: { name: "The Hectors" },
+          assignedToMember: { userId: "user-2" },
+          completedByMember: { userId: "user-1" },
+        },
+      ]);
+      transactionSplitFindManyMock.mockResolvedValue([
+        {
+          id: "split-1",
+          amountOwed: 150,
+          amountPaid: 0,
+          createdAt: fixedNow,
+          transaction: {
+            description: "Electricity",
+            amount: 300,
+            type: "EXPENSE",
+            date: fixedNow,
+            household: { name: "The Hectors" },
+          },
+        },
+      ]);
+      recurringTemplateSplitFindManyMock.mockResolvedValue([
+        {
+          id: "rsplit-1",
+          amountOwed: 5000,
+          createdAt: fixedNow,
+          recurringTemplate: {
+            name: "Rent",
+            amount: 10000,
+            type: "EXPENSE",
+            frequency: "MONTHLY",
+            household: { name: "The Hectors" },
+          },
+        },
+      ]);
+      memberSettlementFindManyMock.mockResolvedValue([
+        {
+          id: "settle-1",
+          amount: 200,
+          date: fixedNow,
+          createdAt: fixedNow,
+          household: { name: "The Hectors" },
+          fromMember: member("user-1", "Erik"),
+          toMember: member("user-2", "Anna"),
+        },
+        {
+          id: "settle-2",
+          amount: 50,
+          date: fixedNow,
+          createdAt: fixedNow,
+          household: { name: "The Hectors" },
+          fromMember: member("user-2", "Anna"),
+          toMember: member("user-1", "Erik"),
+        },
+      ]);
+    }
+
+    // Every key path in the payload, arrays collapsed to their first item.
+    function keyPaths(value: unknown, prefix = ""): string[] {
+      if (Array.isArray(value)) return value.length ? keyPaths(value[0], `${prefix}[]`) : [];
+      if (value === null || typeof value !== "object") return [];
+      return Object.entries(value).flatMap(([key, child]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        // Opaque user-controlled JSON: its inner keys aren't the export's shape.
+        if (key === "inventoryViewPrefs") return [path];
+        return [path, ...keyPaths(child, path)];
+      });
+    }
+
+    it("has exactly the documented keys", async () => {
+      seedEverything();
+      const body = await (await GET()).json();
+
+      expect(keyPaths(body)).toMatchInlineSnapshot(`
+        [
+          "exportedAt",
+          "profile",
+          "profile.email",
+          "profile.displayName",
+          "profile.createdAt",
+          "profile.emailVerifiedAt",
+          "profile.swishNumber",
+          "preferences",
+          "preferences.locale",
+          "preferences.theme",
+          "preferences.weeklyDigestEnabled",
+          "preferences.inventoryViewPrefs",
+          "householdMemberships",
+          "householdMemberships[].householdName",
+          "householdMemberships[].role",
+          "householdMemberships[].joinedAt",
+          "pushSubscriptions",
+          "pushSubscriptions[].pushService",
+          "pushSubscriptions[].createdAt",
+          "pushSubscriptions[].quietHoursStart",
+          "pushSubscriptions[].quietHoursEnd",
+          "pushSubscriptions[].timeZone",
+          "personalBudgetCategories",
+          "personalBudgetCategories[].id",
+          "personalBudgetCategories[].name",
+          "personalBudgetCategories[].type",
+          "personalBudgetCategories[].createdAt",
+          "personalTransactions",
+          "personalTransactions[].categoryId",
+          "personalTransactions[].amount",
+          "personalTransactions[].type",
+          "personalTransactions[].description",
+          "personalTransactions[].date",
+          "personalTransactions[].isRecurring",
+          "personalTransactions[].recurrenceFrequency",
+          "personalTransactions[].recurringTemplateId",
+          "personalTransactions[].createdAt",
+          "personalRecurringTemplates",
+          "personalRecurringTemplates[].id",
+          "personalRecurringTemplates[].categoryId",
+          "personalRecurringTemplates[].name",
+          "personalRecurringTemplates[].amount",
+          "personalRecurringTemplates[].type",
+          "personalRecurringTemplates[].frequency",
+          "personalRecurringTemplates[].dayOfMonth",
+          "personalRecurringTemplates[].active",
+          "personalRecurringTemplates[].createdAt",
+          "personalRecurringTemplates[].acknowledgements",
+          "personalRecurringTemplates[].acknowledgements[].periodKey",
+          "personalRecurringTemplates[].acknowledgements[].createdAt",
+          "householdNotes",
+          "householdNotes[].householdName",
+          "householdNotes[].body",
+          "householdNotes[].createdAt",
+          "householdTasks",
+          "householdTasks[].householdName",
+          "householdTasks[].title",
+          "householdTasks[].assignedToMe",
+          "householdTasks[].completedByMe",
+          "householdTasks[].completedAt",
+          "householdTasks[].recurrenceIntervalDays",
+          "householdTasks[].createdAt",
+          "transactionSplits",
+          "transactionSplits[].householdName",
+          "transactionSplits[].transactionDescription",
+          "transactionSplits[].transactionAmount",
+          "transactionSplits[].transactionType",
+          "transactionSplits[].transactionDate",
+          "transactionSplits[].amountOwed",
+          "transactionSplits[].amountPaid",
+          "transactionSplits[].createdAt",
+          "recurringTemplateSplits",
+          "recurringTemplateSplits[].householdName",
+          "recurringTemplateSplits[].templateName",
+          "recurringTemplateSplits[].templateAmount",
+          "recurringTemplateSplits[].templateType",
+          "recurringTemplateSplits[].frequency",
+          "recurringTemplateSplits[].amountOwed",
+          "recurringTemplateSplits[].createdAt",
+          "memberSettlements",
+          "memberSettlements[].householdName",
+          "memberSettlements[].direction",
+          "memberSettlements[].counterpartyName",
+          "memberSettlements[].amount",
+          "memberSettlements[].date",
+          "memberSettlements[].createdAt",
+        ]
+      `);
+    });
+
+    it("leaves out push credentials and keeps only the push service's origin", async () => {
+      seedEverything();
+      const bodyText = await (await GET()).text();
+      const body = JSON.parse(bodyText);
+
+      expect(body.pushSubscriptions).toEqual([
+        {
+          pushService: "https://fcm.googleapis.com",
+          createdAt: fixedNow.toISOString(),
+          quietHoursStart: 22,
+          quietHoursEnd: 7,
+          timeZone: "Europe/Stockholm",
+        },
+      ]);
+      expect(bodyText).not.toContain("device-secret-path");
+      expect(bodyText).not.toContain("auth-secret-key");
+      expect(bodyText).not.toContain("p256dh-public-key");
+    });
+
+    it("exports preferences, and category/template ids so references resolve", async () => {
+      seedEverything();
+      const body = await (await GET()).json();
+
+      expect(body.preferences).toEqual({
+        locale: "sv",
+        theme: "light",
+        weeklyDigestEnabled: true,
+        inventoryViewPrefs: { groupBy: "location" },
+      });
+      expect(body.personalTransactions[0].categoryId).toBe(body.personalBudgetCategories[0].id);
+      expect(body.personalTransactions[0].recurringTemplateId).toBe(body.personalRecurringTemplates[0].id);
+      expect(body.personalRecurringTemplates[0].categoryId).toBe(body.personalBudgetCategories[0].id);
+    });
+
+    it("marks tasks and settlements from the caller's side", async () => {
+      seedEverything();
+      const body = await (await GET()).json();
+
+      expect(body.householdTasks[0]).toMatchObject({ assignedToMe: false, completedByMe: true });
+      const settlements = body.memberSettlements as { direction: string; counterpartyName: string }[];
+      expect(settlements.map((s) => [s.direction, s.counterpartyName])).toEqual([
+        ["paid", "Anna"],
+        ["received", "Anna"],
+      ]);
+      // The rotation lists other members' ids: household schedule, not mine.
+      expect(JSON.stringify(body)).not.toContain("m-2");
+    });
+
+    it("scopes every per-member query to the caller's own memberships", async () => {
+      seedEverything();
+      await GET();
+
+      const mine = { userId: "user-1" };
+      expect(pushSubscriptionFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: mine }));
+      expect(householdNoteFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { authorMember: mine } }),
+      );
+      expect(householdTaskFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { OR: [{ assignedToMember: mine }, { completedByMember: mine }] } }),
+      );
+      expect(transactionSplitFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { householdMember: mine } }),
+      );
+      expect(recurringTemplateSplitFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { householdMember: mine } }),
+      );
+      expect(memberSettlementFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { OR: [{ fromMember: mine }, { toMember: mine }] } }),
+      );
+    });
   });
 });

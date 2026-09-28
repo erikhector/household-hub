@@ -13,25 +13,101 @@ import { requireUserId } from "@/lib/session";
 // included. User (not household) is derived server-side via
 // requireUserId(), never from a query param, same trust posture as
 // src/app/dashboard/inventory/export/route.ts.
+//
+// SEC-10: "this user's own" also covers the rows inside shared features that
+// are *about* this user — the notes they wrote, the tasks assigned to or
+// completed by them, their share of split bills and the repayments they made
+// or received — since those are what a household member's data trail in the
+// app actually is. Each is exported as the user's row plus just enough of
+// the parent (household name, bill description) to make it readable, never
+// the whole shared transaction list or task board.
 export async function GET() {
   const userId = await requireUserId();
+  // Every per-member row (splits, tasks, notes, settlements) hangs off a
+  // HouseholdMember, so "mine" is always "a membership whose user is me".
+  const mine = { userId };
 
-  const [user, memberships, personalBudgetCategories, personalTransactions, personalRecurringTemplates] =
-    await Promise.all([
-      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      prisma.householdMember.findMany({
-        where: { userId },
-        include: { household: { select: { name: true } } },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.personalBudgetCategory.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-      prisma.personalTransaction.findMany({ where: { userId }, orderBy: { date: "asc" } }),
-      prisma.personalRecurringTemplate.findMany({
-        where: { userId },
-        include: { acknowledgements: true },
-        orderBy: { createdAt: "asc" },
-      }),
-    ]);
+  const [
+    user,
+    memberships,
+    pushSubscriptions,
+    personalBudgetCategories,
+    personalTransactions,
+    personalRecurringTemplates,
+    notes,
+    tasks,
+    transactionSplits,
+    recurringTemplateSplits,
+    settlements,
+  ] = await Promise.all([
+    prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+    prisma.householdMember.findMany({
+      where: { userId },
+      include: { household: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.pushSubscription.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+    prisma.personalBudgetCategory.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+    prisma.personalTransaction.findMany({ where: { userId }, orderBy: { date: "asc" } }),
+    prisma.personalRecurringTemplate.findMany({
+      where: { userId },
+      include: { acknowledgements: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.householdNote.findMany({
+      where: { authorMember: mine },
+      include: { household: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.householdTask.findMany({
+      where: { OR: [{ assignedToMember: mine }, { completedByMember: mine }] },
+      include: {
+        household: { select: { name: true } },
+        assignedToMember: { select: { userId: true } },
+        completedByMember: { select: { userId: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.transactionSplit.findMany({
+      where: { householdMember: mine },
+      include: {
+        transaction: {
+          select: {
+            description: true,
+            amount: true,
+            type: true,
+            date: true,
+            household: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.recurringTemplateSplit.findMany({
+      where: { householdMember: mine },
+      include: {
+        recurringTemplate: {
+          select: {
+            name: true,
+            amount: true,
+            type: true,
+            frequency: true,
+            household: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.memberSettlement.findMany({
+      where: { OR: [{ fromMember: mine }, { toMember: mine }] },
+      include: {
+        household: { select: { name: true } },
+        fromMember: { select: { userId: true, user: { select: { displayName: true } } } },
+        toMember: { select: { userId: true, user: { select: { displayName: true } } } },
+      },
+      orderBy: { date: "asc" },
+    }),
+  ]);
 
   const data = {
     exportedAt: new Date().toISOString(),
@@ -44,6 +120,14 @@ export async function GET() {
       // personal data this export must include. Null when not set.
       swishNumber: user.swishNumber,
     },
+    // Account-level settings synced across devices (src/lib/preferences.ts)
+    // plus the weekly digest opt-in — choices the user made, so theirs.
+    preferences: {
+      locale: user.locale,
+      theme: user.theme,
+      weeklyDigestEnabled: user.weeklyDigestEnabled,
+      inventoryViewPrefs: user.inventoryViewPrefs,
+    },
     // Just the membership record — household name, role, joined date. Not
     // the household's inventory/shopping/budget contents (see doc comment
     // above): those belong to every member, not just this one.
@@ -52,7 +136,26 @@ export async function GET() {
       role: membership.role,
       joinedAt: membership.createdAt,
     })),
+    // One per browser that has push turned on. The push service's origin
+    // says which browser/vendor it is; the full `endpoint` URL and the
+    // `p256dh`/`auth` keys are deliberately left out. Together they are a
+    // bearer credential: anyone holding them can push notifications to that
+    // device, and an export file tends to get emailed, synced and forgotten.
+    // They're random values minted by the browser, not information about the
+    // user, so dropping them costs the user nothing they could read.
+    pushSubscriptions: pushSubscriptions.map((subscription) => ({
+      pushService: originOf(subscription.endpoint),
+      createdAt: subscription.createdAt,
+      quietHoursStart: subscription.quietHoursStart,
+      quietHoursEnd: subscription.quietHoursEnd,
+      timeZone: subscription.timeZone,
+    })),
+    // `id` is included because personalTransactions and
+    // personalRecurringTemplates refer to categories by `categoryId`, and
+    // transactions to templates by `recurringTemplateId` — without it those
+    // references can't be resolved.
     personalBudgetCategories: personalBudgetCategories.map((category) => ({
+      id: category.id,
       name: category.name,
       type: category.type,
       createdAt: category.createdAt,
@@ -69,6 +172,7 @@ export async function GET() {
       createdAt: transaction.createdAt,
     })),
     personalRecurringTemplates: personalRecurringTemplates.map((template) => ({
+      id: template.id,
       categoryId: template.categoryId,
       name: template.name,
       amount: template.amount,
@@ -82,6 +186,61 @@ export async function GET() {
         createdAt: ack.createdAt,
       })),
     })),
+    // Notes on the household board this user wrote.
+    householdNotes: notes.map((note) => ({
+      householdName: note.household.name,
+      body: note.body,
+      createdAt: note.createdAt,
+    })),
+    // Tasks assigned to or last completed by this user. A task only keeps
+    // its latest completion (see HouseholdTask's doc comment), so this is
+    // all the task history there is. The rotation's other members are left
+    // out: that's the household's schedule, not this user's data.
+    householdTasks: tasks.map((task) => ({
+      householdName: task.household.name,
+      title: task.title,
+      assignedToMe: task.assignedToMember?.userId === userId,
+      completedByMe: task.completedByMember?.userId === userId,
+      completedAt: task.completedAt,
+      recurrenceIntervalDays: task.recurrenceIntervalDays,
+      createdAt: task.createdAt,
+    })),
+    // This user's share of split household bills, with the bill it belongs
+    // to so the amounts mean something. Other members' shares stay out.
+    transactionSplits: transactionSplits.map((split) => ({
+      householdName: split.transaction.household.name,
+      transactionDescription: split.transaction.description,
+      transactionAmount: split.transaction.amount,
+      transactionType: split.transaction.type,
+      transactionDate: split.transaction.date,
+      amountOwed: split.amountOwed,
+      amountPaid: split.amountPaid,
+      createdAt: split.createdAt,
+    })),
+    recurringTemplateSplits: recurringTemplateSplits.map((split) => ({
+      householdName: split.recurringTemplate.household.name,
+      templateName: split.recurringTemplate.name,
+      templateAmount: split.recurringTemplate.amount,
+      templateType: split.recurringTemplate.type,
+      frequency: split.recurringTemplate.frequency,
+      amountOwed: split.amountOwed,
+      createdAt: split.createdAt,
+    })),
+    // Repayments this user made or received. The other member's display
+    // name is what the Budget page already shows this user for the same
+    // repayment, and without it "received 200" is unreadable.
+    memberSettlements: settlements.map((settlement) => {
+      const paid = settlement.fromMember.userId === userId;
+      const counterparty = paid ? settlement.toMember : settlement.fromMember;
+      return {
+        householdName: settlement.household.name,
+        direction: paid ? "paid" : "received",
+        counterpartyName: counterparty.user.displayName,
+        amount: settlement.amount,
+        date: settlement.date,
+        createdAt: settlement.createdAt,
+      };
+    }),
   };
 
   const json = JSON.stringify(data, null, 2);
@@ -91,6 +250,20 @@ export async function GET() {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": `attachment; filename="household-hub-my-data-${date}.json"`,
+      // A full copy of one person's data: never let a shared proxy or the
+      // browser's back/forward cache keep it.
+      "Cache-Control": "private, no-store",
     },
   });
+}
+
+// The push service's origin (e.g. https://fcm.googleapis.com) without the
+// per-device path that makes the endpoint a credential. Null if a stored
+// endpoint somehow isn't a URL, rather than failing the whole export.
+function originOf(endpoint: string): string | null {
+  try {
+    return new URL(endpoint).origin;
+  } catch {
+    return null;
+  }
 }
