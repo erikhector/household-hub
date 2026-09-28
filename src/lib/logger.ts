@@ -87,3 +87,18 @@ export const logger = {
     write("error", message, meta);
   },
 };
+
+// How much of a free-text value excerptForLog keeps. Enough to tell "the
+// model wrapped its JSON in a ```json fence" or "it answered in prose" apart
+// when debugging, without copying the rest of the value into the logs.
+const EXCERPT_MAX_CHARS = 200;
+
+/** Shrinks free text we don't control (an AI model's raw reply, say) to its
+ * length plus the first EXCERPT_MAX_CHARS characters before it goes into log
+ * `meta`. Key-name redaction above can't help here: the sensitive part is the
+ * *content* — a receipt scan's reply can echo card digits or a loyalty
+ * number printed further down the receipt — so the safe default is to not
+ * log the whole thing at all (BACKLOG SEC-11). */
+export function excerptForLog(text: string): { length: number; head: string } {
+  return { length: text.length, head: text.slice(0, EXCERPT_MAX_CHARS) };
+}

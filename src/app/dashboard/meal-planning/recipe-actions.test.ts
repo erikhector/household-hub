@@ -100,6 +100,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
         componentQuantityError: "Sub-recipe amounts must be greater than 0",
         componentNotFoundError: "One of the selected sub-recipes could not be found.",
         componentCycleError: "That would create a circular reference between recipes.",
+        componentRowLimitError: en.mealPlanning.componentRowLimitError,
         deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
         ingredientRowLimitError: en.mealPlanning.ingredientRowLimitError,
         ingredientItemNotFoundError: en.mealPlanning.ingredientItemNotFoundError,
@@ -996,6 +997,23 @@ describe("createRecipeAction", () => {
     const result = await createRecipeAction({}, fd);
 
     expect(result.error).toBe("One of the selected sub-recipes could not be found.");
+    expect(recipeCreateMock).not.toHaveBeenCalled();
+  });
+
+  // SEC-7: each unique candidate runs its own wouldCreateCycle graph walk,
+  // so an uncapped payload is a cheap way to make one request do a lot of
+  // database work.
+  it("rejects more than 50 sub-recipe rows before looking any of them up", async () => {
+    const fd = formData({ name: "Lasagna" });
+    for (let i = 0; i < 51; i++) {
+      fd.append("componentRecipeId", `component-${i}`);
+      fd.append("componentQuantity", "1");
+    }
+
+    const result = await createRecipeAction({}, fd);
+
+    expect(result.error).toBe("A recipe can have at most 50 sub-recipes.");
+    expect(recipeFindManyMock).not.toHaveBeenCalled();
     expect(recipeCreateMock).not.toHaveBeenCalled();
   });
 

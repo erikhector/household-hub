@@ -1325,6 +1325,7 @@ export const sv = {
     componentQuantityError: "Delreceptets mängd måste vara större än 0",
     componentNotFoundError: "Ett av de valda delrecepten kunde inte hittas.",
     componentCycleError: "Det skulle skapa en cirkulär referens mellan recept.",
+    componentRowLimitError: "Ett recept kan ha högst {max} delrecept.",
     ingredientRowLimitError: "Ett recept kan ha högst {max} ingredienser.",
     ingredientItemNotFoundError: "En av de valda varorna finns inte längre. Gå tillbaka och välj igen.",
     ingredientReview: {

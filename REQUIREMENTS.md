@@ -2775,6 +2775,12 @@ below.
   anywhere. Either way, the server only ever receives the extracted item
   names, prices, and currency the user has already reviewed — never the
   photo itself.
+- **No raw model output in logs (SEC-11)**: when a provider's reply isn't
+  valid JSON, both this action and AI shelf scan log only its length and
+  first 200 characters (`excerptForLog`, `src/lib/logger.ts`), never the
+  whole reply — a receipt's payment block (masked card number, loyalty
+  number) sits at the bottom, past what's kept. Regression tests in
+  `receipt-scan.test.ts` and `inventory-scan.test.ts`.
 - **i18n**: all new strings live under `shoppingList.receiptScan`/
   `shoppingList.registerReceipt` in `en.ts`/`sv.ts`.
 
@@ -4970,6 +4976,20 @@ approximating them, so the email never disagrees with the app.
   and re-throw everything else (see `src/lib/actions/auth.ts`).
 - All new user-facing text goes through the `dict` prop (English + Swedish)
   — see "Internationalization". Don't hardcode strings in JSX.
+- **Every action input is bounded (SEC-7).** `next.config.ts`'s 6 MB
+  `bodySizeLimit` applies to *every* Server Action, not only the photo
+  scans it was raised for, so it's a backstop rather than a limit: each
+  action caps its own input. Arrays of rows are capped at 300 — list
+  import/paste, templates (`MAX_TEMPLATE_ITEMS`), bulk item create,
+  `registerReceiptAction`'s lines and the meal-plan bridge's ingredient
+  rows — and sub-recipe rows at 50, since each unique one costs its own
+  `wouldCreateCycle` graph walk. `bulkUpdateFieldAction`'s ids are capped
+  looser, at 1 000: the inventory table's header checkbox selects every
+  item the household has, so that cap has to clear a whole pantry. Every
+  free-text field and number has a `.max()` too (120 for names, 20 for
+  units, 1 000 000 for prices). A payload over a row-count cap is rejected
+  outright; a single row over a per-field cap is dropped where the
+  surrounding code already filters invalid rows.
 - Base UI's `<Select.Value>` (`SelectValue` in `src/components/ui/select.tsx`)
   renders the raw selected `value` as text by default — it does **not** look
   up the matching `SelectItem`'s label. Any `Select` whose `value`s aren't

@@ -39,7 +39,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { logger } from "@/lib/logger";
+import { excerptForLog, logger } from "@/lib/logger";
 
 // A live test against Gemini's free-tier gemini-flash-latest took ~41s for
 // one successful call (thinking + image tokens both add latency there) —
@@ -288,7 +288,7 @@ async function callGemini(
   try {
     json = JSON.parse(text);
   } catch {
-    logger.error("AI shelf scan (Gemini) returned non-JSON text", { model, text });
+    logger.error("AI shelf scan (Gemini) returned non-JSON text", { model, text: excerptForLog(text) });
     throw new ScanError("analysis_failed");
   }
 

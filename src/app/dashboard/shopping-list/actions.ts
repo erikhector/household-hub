@@ -1533,9 +1533,11 @@ export type ReceiptRegistrationItem = {
 
 const registerReceiptItemSchema = z.object({
   name: z.string().trim().min(1).max(120),
-  quantity: z.coerce.number().min(0.01),
+  // Mirrors importItemsSchema/updateItemPriceSchema's caps — a hand-typed
+  // receipt line has no legitimate reason to be this large.
+  quantity: z.coerce.number().min(0.01).max(100_000),
   unit: z.string().trim().max(20).optional(),
-  price: z.coerce.number().min(0.01),
+  price: z.coerce.number().min(0.01).max(1_000_000, "Price is too large"),
   inventoryItemId: z.string().trim().min(1).optional(),
   newItemCategory: z.string().trim().max(60).optional(),
 });
@@ -1546,7 +1548,8 @@ const registerReceiptSchema = z.object({
   // GAP-6: optional, one store for the whole receipt — see
   // applyReceiptScanAction's doc comment for why this is per-receipt.
   store: z.string().trim().max(120).optional(),
-  items: z.array(registerReceiptItemSchema).min(1, "Add at least one item"),
+  // 300 mirrors importItemsSchema/bulkCreateSchema's cap on bulk item rows.
+  items: z.array(registerReceiptItemSchema).min(1, "Add at least one item").max(300, "Too many items"),
 });
 
 /**
