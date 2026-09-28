@@ -122,6 +122,45 @@ test("adding a conversion from a ⚠ recipe row makes it convert", async ({ page
   await expect(page.getByTestId("try-it-result")).toHaveText("= 0.15 pcs");
 });
 
+test("the back arrow returns to the catalog filter or recipe tab the item was opened from", async ({ page }) => {
+  const flour = await seedFlour();
+  const unitProblems = page.getByRole("button", { name: /^Unit problems/ });
+  const flourRow = page.getByRole("link", { name: new RegExp(`^${flour.name}\\b`) });
+
+  // The pancakes' dl doesn't convert, so the flour is on "Unit problems".
+  await page.goto("/dashboard/inventory/items");
+  await unitProblems.click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory\/items\?filter=unitProblems$/);
+  await flourRow.click();
+  await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
+
+  // The browser's own back lands on the same filter.
+  await page.goBack();
+  await expect(unitProblems).toHaveAttribute("aria-pressed", "true");
+  await flourRow.click();
+
+  // Fix it, then the back arrow goes to the list, where it's gone.
+  await recipeRow(page, flour.recipes.pancakes).getByRole("button", { name: "Add dl…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add conversion" });
+  await dialog.getByRole("textbox", { name: "Amount" }).fill("20");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("link", { name: "Manage items", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory\/items\?filter=unitProblems$/);
+  await expect(unitProblems).toHaveAttribute("aria-pressed", "true");
+  await expect(flourRow).toHaveCount(0);
+
+  // From a recipe's ingredient link, it goes back to the Recipes tab.
+  await page.goto("/dashboard/meal-planning?tab=recipes");
+  const search = page.getByPlaceholder("Search recipes…").filter({ visible: true });
+  await search.fill(flour.recipes.buns);
+  await page.getByRole("link", { name: "flour", exact: true }).click();
+  await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Recipes", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/meal-planning\?tab=recipes$/);
+  await expect(page.getByPlaceholder("Search recipes…").filter({ visible: true })).toBeVisible();
+});
+
 test("changing the unit converts the stock and keeps the old unit as a conversion", async ({ page }) => {
   const flour = await seedFlour();
   await page.goto(`/dashboard/inventory/items/${flour.id}`);

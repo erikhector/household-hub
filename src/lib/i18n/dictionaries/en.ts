@@ -1088,6 +1088,8 @@ export const en = {
     // MATCH-6: /dashboard/inventory/items/[id] (design §6.1).
     itemPage: {
       back: "Inventory",
+      backToCatalog: "Manage items",
+      backToRecipes: "Recipes",
       inStock: "In stock: {amount}",
       lowStockAt: "low stock at {amount}",
       changeUnit: "Change unit…",

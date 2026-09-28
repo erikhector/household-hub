@@ -37,6 +37,16 @@ export function MealPlanningView({
   initialTab?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  // The tab also goes into `?tab=` (replaced, not pushed, and keeping
+  // `?week=`), so coming back to this page — the browser's back button
+  // from a recipe's ingredient page, or a reload — reopens the same tab.
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "planner") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  };
 
   const tabItems: TabItem<Tab>[] = [
     { value: "planner", label: dict.tabPlanner },
@@ -49,7 +59,7 @@ export function MealPlanningView({
       {varietyRecap}
       {nutritionRecap}
 
-      <Tabs tabs={tabItems} value={tab} onChange={setTab} />
+      <Tabs tabs={tabItems} value={tab} onChange={selectTab} />
 
       <div hidden={tab !== "planner"}>{plannerTab}</div>
       <div hidden={tab !== "recipes"}>{recipesTab}</div>

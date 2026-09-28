@@ -1030,6 +1030,8 @@ export const sv = {
     details: "Detaljer",
     itemPage: {
       back: "Lager",
+      backToCatalog: "Hantera varor",
+      backToRecipes: "Recept",
       inStock: "I lager: {amount}",
       lowStockAt: "lågt vid {amount}",
       changeUnit: "Byt enhet…",
