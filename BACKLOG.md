@@ -767,6 +767,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.43.0 | #95 feat: per-item unit conversions (MATCH-3) | 2026-09-27 | #95 |
       | v0.44.0 | #96 feat: item page (MATCH-6) | 2026-09-27 | #96 |
       | v0.45.0 | #98 feat: find and merge duplicate pantry items (MATCH-7) | 2026-09-27 | #98 |
+      | v0.46.0 | #103 feat: remembered item names also link shopping lists and receipts (MATCH-5) | (pending) | #103 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
