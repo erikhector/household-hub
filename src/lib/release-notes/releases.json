@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.7",
+    "date": "2026-09-28",
+    "pr": 114,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "\"Export my data\" on your Profile now includes your settings, the notes you've written, your tasks, and your share of split bills and repayments.",
+      "sv": "\"Exportera mina data\" på din profil innehåller nu dina inställningar, anteckningar du har skrivit, dina uppgifter och din andel av delade utgifter och återbetalningar."
+    }
+  },
+  {
     "version": "0.46.6",
     "date": "2026-09-28",
     "pr": 113,

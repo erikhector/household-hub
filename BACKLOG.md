@@ -106,12 +106,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `count === 0`. Store reset/verification tokens as `sha256(token)` so a
       read-only DB leak isn't an account takeover (invalidates tokens in
       flight — fine, they live an hour).
-- [ ] **SEC-10. Complete the personal data export** (low) —
-      `src/app/dashboard/profile/export-data/route.ts` omits push
-      subscriptions, `locale`/`theme`/`weeklyDigestEnabled`, notes, task
-      history, splits and settlements; exports `categoryId` without the
-      categories; and sends no `Cache-Control: private, no-store`.
-      Snapshot-test the export's keys.
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to
@@ -757,6 +751,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.4 | #109 fix: cap the action inputs that had no upper bound (SEC-7) | 2026-09-28 | #109 |
       | v0.46.5 | #112 fix: log only an excerpt of unparseable AI scan replies (SEC-11) | 2026-09-28 | #112 |
       | v0.46.6 | #113 fix: rate-limit the shopping-list share-token endpoints (SEC-13) | 2026-09-28 | #113 |
+      | v0.46.7 | #114 fix: include notes, tasks, splits and settings in "Export my data" (SEC-10) | 2026-09-28 | #114 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

@@ -2359,8 +2359,36 @@ that reuses the same component for a `.json` (not `.csv`) download of just
 the signed-in user's own data (profile fields, household memberships, and
 personal-budget data — deliberately excluding household-*shared* data like
 `InventoryItem`/`Transaction`, which the three CSV exports below already
-make reachable to anyone with household access). That export isn't detailed
-further here, as it isn't part of this section's original CSV-export scope.
+make reachable to anyone with household access).
+
+**"Export my data" contents** (SEC-10). The JSON has these top-level keys,
+pinned by a key-path inline snapshot in `route.test.ts` so any change to the
+shape is deliberate:
+- `profile` (email, display name, created/verified dates, Swish number) and
+  `preferences` (`locale`, `theme`, `weeklyDigestEnabled`,
+  `inventoryViewPrefs`). Never `passwordHash` or `passwordChangedAt`.
+- `householdMemberships`: household name, role, joined date.
+- `pushSubscriptions`: one per browser with the push service's origin
+  (e.g. `https://fcm.googleapis.com`), created date, quiet hours and time
+  zone. The full `endpoint` URL and the `p256dh`/`auth` keys are left out:
+  together they let anyone push to that device, an export file tends to
+  get emailed and synced, and they're random browser-minted values rather
+  than information about the user.
+- `personalBudgetCategories` (with `id`), `personalTransactions`,
+  `personalRecurringTemplates` (with `id` and acknowledgements). The ids are
+  there so `categoryId` and `recurringTemplateId` references resolve.
+- The user's own part of shared features, each with the household name and
+  just enough of the parent row to be readable: `householdNotes` they
+  wrote; `householdTasks` assigned to or last completed by them
+  (`assignedToMe`/`completedByMe`, no rotation list, since a task keeps only
+  its latest completion this is all the task history there is);
+  `transactionSplits` and `recurringTemplateSplits` (their share of a split
+  bill plus the bill's description/name, amount and date);
+  `memberSettlements` they paid or received (`direction`, the other
+  member's display name, amount, date). Other members' shares and the
+  household's full transaction list stay out.
+- The response sends `Cache-Control: private, no-store`, so no shared or
+  browser cache keeps a copy.
 
 - **Route Handlers**: `src/app/dashboard/inventory/export/route.ts`,
   `src/app/dashboard/shopping-list/[id]/export/route.ts`, and

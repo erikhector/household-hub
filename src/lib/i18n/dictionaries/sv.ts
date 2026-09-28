@@ -2349,7 +2349,7 @@ export const sv = {
     dataExport: {
       title: "Exportera ditt kontos data",
       description:
-        "Ladda ner en kopia av dina personliga uppgifter — profiluppgifter, hushållsmedlemskap och din personliga budget — som en JSON-fil.",
+        "Ladda ner en kopia av dina personliga uppgifter som en JSON-fil: profiluppgifter och inställningar, hushållsmedlemskap, din personliga budget och din egen del av delade funktioner (anteckningar du skrivit, dina uppgifter, din andel av delade utgifter och återbetalningar).",
       button: "Exportera mina data",
     },
     installApp: {

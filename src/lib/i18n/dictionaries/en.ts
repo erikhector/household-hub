@@ -2437,7 +2437,7 @@ export const en = {
     dataExport: {
       title: "Export your account data",
       description:
-        "Download a copy of your personal data — profile details, household memberships, and your personal budget — as a JSON file.",
+        "Download a copy of your personal data as a JSON file: profile details and settings, household memberships, your personal budget, and your own part of shared features (notes you wrote, your tasks, your share of split bills and repayments).",
       button: "Export my data",
     },
     installApp: {
