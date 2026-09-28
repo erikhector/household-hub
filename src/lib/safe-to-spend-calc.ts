@@ -29,9 +29,11 @@ export type ExpectedRecurringExpense = {
   categoryName: string;
   amount: number;
   /** "SAVINGS" for a recurring saving that hasn't been put aside yet ("due
-   * savings"); anything else is a due payment. Unset means "EXPENSE", which
-   * is all the transaction-based estimate below ever produces. */
-  type?: "EXPENSE" | "SAVINGS";
+   * savings"), "INCOME" for a recurring income that hasn't come in yet
+   * ("expected income" — added to the number rather than subtracted);
+   * anything else is a due payment. Unset means "EXPENSE", which is all the
+   * transaction-based estimate below ever produces. */
+  type?: "EXPENSE" | "SAVINGS" | "INCOME";
   /** The unpaid part of the user's share of a shared bill that's already
    * logged — see settle-up-calc.ts's computeBillPositions — rather than a
    * recurring item that hasn't been logged at all. Display only. */
@@ -69,10 +71,12 @@ const TIGHT_THRESHOLD_RATIO = 0.1;
 export type SafeToSpendStatus = "over" | "tight" | "healthy";
 
 /** Each term of the headline number, for the breakdown under it. All
- * non-negative; `safeToSpend = income - expense - savings - owedFromEarlier
- * - duePayments - dueSavings`. */
+ * non-negative; `safeToSpend = income + dueIncome - expense - savings
+ * - owedFromEarlier - duePayments - dueSavings`. */
 export type SafeToSpendBreakdown = {
   income: number;
+  /** Recurring income still due this month — see computeSafeToSpend. */
+  dueIncome: number;
   expense: number;
   savings: number;
   owedFromEarlier: number;
@@ -130,17 +134,23 @@ export function deriveSafeToSpend({
 }): { safeToSpend: number; status: SafeToSpendStatus; breakdown: SafeToSpendBreakdown } {
   let duePayments = 0;
   let dueSavings = 0;
+  let dueIncome = 0;
   for (const e of expectedRecurring) {
     if (e.type === "SAVINGS") dueSavings += e.amount;
+    else if (e.type === "INCOME") dueIncome += e.amount;
     else duePayments += e.amount;
   }
   const safeToSpend =
-    incomeSoFar - expenseSoFar - savingsSoFar - owedFromEarlier - duePayments - dueSavings;
+    incomeSoFar + dueIncome - expenseSoFar - savingsSoFar - owedFromEarlier - duePayments - dueSavings;
 
+  // "Tight" is judged against the month's whole expected income, due
+  // salary included — otherwise a future month (nothing logged yet) would
+  // never have an income to compare against.
+  const expectedIncome = incomeSoFar + dueIncome;
   const status: SafeToSpendStatus =
     safeToSpend < 0
       ? "over"
-      : incomeSoFar > 0 && safeToSpend <= incomeSoFar * TIGHT_THRESHOLD_RATIO
+      : expectedIncome > 0 && safeToSpend <= expectedIncome * TIGHT_THRESHOLD_RATIO
         ? "tight"
         : "healthy";
 
@@ -149,6 +159,7 @@ export function deriveSafeToSpend({
     status,
     breakdown: {
       income: incomeSoFar,
+      dueIncome,
       expense: expenseSoFar,
       savings: savingsSoFar,
       owedFromEarlier,
@@ -175,7 +186,11 @@ export type SafeToSpendTemplate = {
  * spend" number from it.
  *
  * Recurring items (`templates`) come first: every active one still "due"
- * this month is subtracted at its full amount, payments and savings alike.
+ * this month is subtracted at its full amount, payments and savings alike,
+ * and a due income item (a salary not logged yet) is added at its full
+ * amount as "expected income". Without that, any month the salary hadn't
+ * been logged in yet — every future month — showed the recurring bills and
+ * savings but none of the income paying for them.
  * One that's "posted" (a transaction was logged from it) counts only through
  * that transaction, even when it was logged for less than the item says — a
  * 5000 saving logged as 3000 means 3000 was saved, not that 2000 is still
@@ -253,7 +268,7 @@ export function computeSafeToSpend({
   }
 
   for (const t of templates) {
-    if (t.status !== "due" || t.type === "INCOME") continue;
+    if (t.status !== "due") continue;
     expectedRecurring.push({
       categoryId: t.id,
       categoryName: t.name,

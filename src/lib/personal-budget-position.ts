@@ -443,18 +443,18 @@ export async function loadPersonalBudgetPosition({
   // share of Rent, not just list it separately. Tagged with a `source` so
   // SafeToSpend's breakdown can badge shared rows distinctly from the user's
   // own personal estimate — see docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md.
+  // A split *income* template's share is expected income, the same way a
+  // posted split income already counts toward `income` above.
   const expectedRecurring: ExpectedRecurringExpense[] = [
     ...personalExpectedRecurring.map((e) => ({ ...e, source: "personal" as const })),
-    ...sharedDueRows
-      .filter((row) => row.type !== "INCOME")
-      .map((row) => ({
-        categoryId: row.id,
-        categoryName: row.name,
-        amount: row.amount,
-        type: row.type === "SAVINGS" ? ("SAVINGS" as const) : ("EXPENSE" as const),
-        source: "shared" as const,
-        householdName: showHouseholdName ? row.householdName : undefined,
-      })),
+    ...sharedDueRows.map((row) => ({
+      categoryId: row.id,
+      categoryName: row.name,
+      amount: row.amount,
+      type: row.type,
+      source: "shared" as const,
+      householdName: showHouseholdName ? row.householdName : undefined,
+    })),
   ].sort((a, b) => b.amount - a.amount);
 
   const {
