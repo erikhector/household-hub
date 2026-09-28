@@ -1325,6 +1325,7 @@ export const sv = {
     componentQuantityError: "Delreceptets mängd måste vara större än 0",
     componentNotFoundError: "Ett av de valda delrecepten kunde inte hittas.",
     componentCycleError: "Det skulle skapa en cirkulär referens mellan recept.",
+    componentRowLimitError: "Ett recept kan ha högst {max} delrecept.",
     ingredientRowLimitError: "Ett recept kan ha högst {max} ingredienser.",
     ingredientItemNotFoundError: "En av de valda varorna finns inte längre. Gå tillbaka och välj igen.",
     ingredientReview: {
@@ -2591,6 +2592,7 @@ export const sv = {
     purchased: "Köpt",
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",
+    rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
   },
   cookieNotice: {
     title: "Information om cookies",

@@ -424,6 +424,49 @@ describe("addMissingIngredientsToShoppingListAction", () => {
     expect(result.error).toBe("Select at least one ingredient to add");
   });
 
+  // SEC-7: the rows are a raw FormData payload, so nothing but these caps
+  // stops a client from posting an arbitrarily long or wide one.
+  it("rejects more than 300 ingredient rows", async () => {
+    const fd = formData({ targetListId: "list-1" });
+    for (let i = 0; i < 301; i++) {
+      fd.append("itemName", `Carrot ${i}`);
+      fd.append("itemQuantity", "1");
+      fd.append("itemUnit", "pcs");
+    }
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result.error).toBe("Select at most 300 ingredients at once");
+    expect(shoppingListItemCreateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("drops a row with an over-long name or unit, or an absurd quantity", async () => {
+    shoppingListFindFirstMock.mockResolvedValue({ id: "list-1" });
+    shoppingListItemFindManyMock.mockResolvedValue([]);
+    inventoryItemFindManyMock.mockResolvedValue([]);
+    shoppingListItemCreateManyMock.mockResolvedValue({});
+    const fd = formData({ targetListId: "list-1" });
+    fd.append("itemName", "C".repeat(121));
+    fd.append("itemQuantity", "1");
+    fd.append("itemUnit", "pcs");
+    fd.append("itemName", "Kale");
+    fd.append("itemQuantity", "1");
+    fd.append("itemUnit", "u".repeat(21));
+    fd.append("itemName", "Milk");
+    fd.append("itemQuantity", "1000001");
+    fd.append("itemUnit", "l");
+    fd.append("itemName", "Carrot");
+    fd.append("itemQuantity", "2");
+    fd.append("itemUnit", "pcs");
+
+    const result = await addMissingIngredientsToShoppingListAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(shoppingListItemCreateManyMock).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ name: "Carrot", quantity: 2 })],
+    });
+  });
+
   it("returns 'Shopping list not found' for a list outside the caller's household (IDOR guard)", async () => {
     shoppingListFindFirstMock.mockResolvedValue(null);
     const fd = formData({ targetListId: "someone-elses-list" });

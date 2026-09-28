@@ -98,15 +98,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
-      (`next.config.ts:122`) applies to every action, not only photo scans,
-      and several schemas have no caps (recipe ingredient rows are capped
-      since MATCH-1): `registerReceipt` items/quantity/price
-      (`shopping-list/actions.ts:1505-1520`), cooked-ingredient name/unit/
-      quantity (`cooking-actions.ts:190-196`), `bulkUpdateFieldAction` ids
-      (`inventory/actions.ts:723`), `componentRecipeId` rows. Add `.max()`
-      and count caps mirroring existing constants (`MAX_TEMPLATE_ITEMS`).
-      Test: 1,001 ingredient rows are rejected.
 - [ ] **SEC-8. Single-use tokens that are actually single-use, and hashed** (low) —
       invite accept (`household.ts:169,245`) and password reset
       (`auth.ts:435`) check the token, then update by `id`, so two
@@ -115,10 +106,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `count === 0`. Store reset/verification tokens as `sha256(token)` so a
       read-only DB leak isn't an account takeover (invalidates tokens in
       flight — fine, they live an hour).
-- [ ] **SEC-11. Don't log raw AI output** (low) — on a JSON parse failure
-      `receipt-scan.ts:211` and `inventory-scan.ts:291` log the whole model
-      response, which for receipts can include card/loyalty details. Log
-      length + first ~200 chars. (Lands naturally with MAINT-8.)
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to
@@ -126,19 +113,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `migrate deploy` (check Vercel installs devDeps at build), else wait
       for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
       advisories. Pairs with MAINT-12's Dependabot config.
-- [ ] **SEC-13. Rate-limit the shopping-list share-token endpoints** (low) —
-      `getShoppingListByShareToken` and `toggleItemViaShareTokenAction`
-      (`share/shopping-list/actions.ts:58,98`) take no session at all by
-      design (the token is the credential) and never call
-      `checkRateLimit`, unlike every other unauthenticated token endpoint:
-      the calendar feed (`api/calendar/[token]/route.ts:28,54`) added
-      `checkRateLimit` keyed on the token specifically so "a leaked link"
-      couldn't become "a cheap way to hammer the database." A leaked or
-      guessed share-list token has the identical exposure today with no
-      throttle on either the read or the write (item toggle, which also
-      moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
-      …)` call to both, mirroring the calendar feed's constants. Test: the
-      Nth request in a window past the cap is rejected.
 - [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
       follow-up from SEC-5's review. A password reset/change drops every
       `PushSubscription` row for a user, but only for the device that
@@ -774,6 +748,9 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.1 | #107 fix: meet WCAG contrast in both themes and colour outcome toasts | 2026-09-28 | #107 |
       | v0.46.3 | #110 fix: count recurring income not yet logged as expected income | 2026-09-28 | #110 |
       | v0.46.2 | #108 fix: keep hand-split shared bills on the personal budget in future months | 2026-09-28 | #108 |
+      | v0.46.4 | #109 fix: cap the action inputs that had no upper bound (SEC-7) | 2026-09-28 | #109 |
+      | v0.46.5 | #112 fix: log only an excerpt of unparseable AI scan replies (SEC-11) | 2026-09-28 | #112 |
+      | v0.46.6 | #113 fix: rate-limit the shopping-list share-token endpoints (SEC-13) | 2026-09-28 | #113 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

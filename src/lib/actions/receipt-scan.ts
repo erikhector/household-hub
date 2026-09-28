@@ -32,7 +32,7 @@
 import { z } from "zod";
 import { requireHousehold } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { logger } from "@/lib/logger";
+import { excerptForLog, logger } from "@/lib/logger";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
 import { receiptLineBarcode } from "@/lib/barcode";
 
@@ -208,7 +208,7 @@ async function callGemini(
   try {
     json = JSON.parse(text);
   } catch {
-    logger.error("AI receipt scan (Gemini) returned non-JSON text", { model, text });
+    logger.error("AI receipt scan (Gemini) returned non-JSON text", { model, text: excerptForLog(text) });
     throw new ScanError("analysis_failed");
   }
 
