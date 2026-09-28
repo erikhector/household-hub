@@ -15,6 +15,7 @@ const {
   settlementFindManyMock,
   templateSplitFindManyMock,
   templateAckFindManyMock,
+  templateFindManyMock,
 } = vi.hoisted(() => ({
   personalTransactionFindManyMock: vi.fn(),
   personalTemplateFindManyMock: vi.fn(),
@@ -24,6 +25,7 @@ const {
   settlementFindManyMock: vi.fn(),
   templateSplitFindManyMock: vi.fn(),
   templateAckFindManyMock: vi.fn(),
+  templateFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -36,6 +38,7 @@ vi.mock("@/lib/prisma", () => ({
     memberSettlement: { findMany: settlementFindManyMock },
     recurringTemplateSplit: { findMany: templateSplitFindManyMock },
     recurringTemplateAck: { findMany: templateAckFindManyMock },
+    recurringTemplate: { findMany: templateFindManyMock },
   },
 }));
 
@@ -164,6 +167,93 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.householdDebts).toEqual([
       { householdId: "h1", householdName: "Home", owedToMembers: 600, owedToBills: 0 },
     ]);
+  });
+
+  it("keeps a bill split by hand each month due in the months it isn't logged yet", async () => {
+    // Viewing October: the household's rent and electricity templates have
+    // no template split — September's bills were split by hand when logged.
+    const octoberStart = new Date(2026, 9, 1);
+    const octoberEnd = new Date(2026, 10, 1);
+    personalTransactionFindManyMock.mockResolvedValue([]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([
+      { id: "m-me", household: { id: "h1", name: "Home" } },
+    ]);
+    transactionFindManyMock.mockResolvedValue([
+      {
+        id: "sep-rent",
+        amount: 12000,
+        type: "EXPENSE",
+        date: new Date(2026, 8, 1),
+        recurringTemplateId: "tpl-rent",
+        category: { name: "Rent" },
+        splits: [split("m-me", "Me", 6000, 6000), split("m-p", "Partner", 6000, 6000)],
+      },
+      // An older, differently split rent bill — only the latest one counts.
+      {
+        id: "aug-rent",
+        amount: 12000,
+        type: "EXPENSE",
+        date: new Date(2026, 7, 1),
+        recurringTemplateId: "tpl-rent",
+        category: { name: "Rent" },
+        splits: [split("m-me", "Me", 3000, 3000), split("m-p", "Partner", 9000, 9000)],
+      },
+      // I only paid it, my partner's share: not a cost of mine.
+      {
+        id: "sep-power",
+        amount: 800,
+        type: "EXPENSE",
+        date: new Date(2026, 8, 3),
+        recurringTemplateId: "tpl-power",
+        category: { name: "Power" },
+        splits: [split("m-me", "Me", 0, 800), split("m-p", "Partner", 800, 0)],
+      },
+    ]);
+    settlementFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+    templateAckFindManyMock.mockResolvedValue([]);
+    const template = (id: string, name: string, amount: number) => ({
+      id,
+      householdId: "h1",
+      categoryId: `cat-${id}`,
+      category: { name },
+      name,
+      amount,
+      type: "EXPENSE",
+      frequency: "MONTHLY",
+      active: true,
+      createdAt: new Date(2026, 0, 1),
+    });
+    // Rent went up to 13000 since September.
+    templateFindManyMock.mockResolvedValue([
+      template("tpl-rent", "Rent", 13000),
+      template("tpl-power", "Power", 800),
+    ]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: octoberStart,
+      monthEnd: octoberEnd,
+      sharedLabel: "Shared",
+    });
+
+    // Scoped to the user's own households.
+    expect(templateFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ["tpl-rent", "tpl-power"] }, householdId: { in: ["h1"] } },
+      }),
+    );
+    expect(position.sharedDueRows).toEqual([
+      expect.objectContaining({
+        id: "tpl-rent",
+        amount: 6500,
+        householdName: "Home",
+        logPrefill: expect.objectContaining({ amount: 13000, splits: { "m-me": 6500, "m-p": 6500 } }),
+      }),
+    ]);
+    expect(position.safeToSpendBreakdown.duePayments).toBe(6500);
   });
 
   it("works with no household at all", async () => {

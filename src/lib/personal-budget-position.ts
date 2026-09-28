@@ -202,9 +202,18 @@ export async function loadPersonalBudgetPosition({
   }
 
   // 3b: due-but-not-yet-posted shared RecurringTemplates — the literal "Rent
-  // pops up" case. Only templates a household member has explicitly opted
-  // into a split show up here; every other template stays completely
-  // invisible (no retroactive backfill).
+  // pops up" case. A template counts as shared with the user when either
+  // - it has an explicit split (RecurringTemplateSplit) with a row for them, or
+  // - it has none, but the latest bill logged from it was split with them.
+  //   Splitting the bill by hand each month (TransactionDialog's "Split this
+  //   expense") never writes a template split, so before this fallback such
+  //   a bill showed in every month it had been logged and vanished from every
+  //   month it hadn't yet — flip to next month and the household's shared
+  //   rent was gone from the personal budget. The latest split is the best
+  //   guess of how the next one will be divided, the same way "Log payment"
+  //   pre-fills a split from the template's.
+  // A template that has never been split with the user stays invisible (no
+  // retroactive backfill).
   const sharedTemplateSplits =
     householdMemberIds.length > 0
       ? await prisma.recurringTemplateSplit.findMany({
@@ -221,7 +230,55 @@ export async function loadPersonalBudgetPosition({
           },
         })
       : [];
-  const sharedTemplateIds = [...new Set(sharedTemplateSplits.map((s) => s.recurringTemplateId))];
+  const explicitTemplateIds = new Set(sharedTemplateSplits.map((s) => s.recurringTemplateId));
+  // sharedTransactions is newest first, so the first bill seen per template
+  // is its latest one (up to the end of the viewed month).
+  const latestSplitBillByTemplate = new Map<string, (typeof sharedTransactions)[number]>();
+  for (const tx of sharedTransactions) {
+    if (!tx.recurringTemplateId || explicitTemplateIds.has(tx.recurringTemplateId)) continue;
+    if (!latestSplitBillByTemplate.has(tx.recurringTemplateId)) {
+      latestSplitBillByTemplate.set(tx.recurringTemplateId, tx);
+    }
+  }
+  const inferredTemplates =
+    latestSplitBillByTemplate.size > 0
+      ? await prisma.recurringTemplate.findMany({
+          where: {
+            id: { in: [...latestSplitBillByTemplate.keys()] },
+            householdId: { in: memberships.map((m) => m.household.id) },
+          },
+          include: { category: { select: { name: true } } },
+        })
+      : [];
+
+  type SharedTemplate = {
+    template: (typeof inferredTemplates)[number];
+    householdMemberId: string;
+    amountOwed: number;
+    splits: { householdMemberId: string; amountOwed: number }[];
+  };
+  const sharedTemplates: SharedTemplate[] = sharedTemplateSplits.map((s) => ({
+    template: s.recurringTemplate,
+    householdMemberId: s.householdMemberId,
+    amountOwed: s.amountOwed,
+    splits: s.recurringTemplate.splits,
+  }));
+  for (const template of inferredTemplates) {
+    const bill = latestSplitBillByTemplate.get(template.id)!;
+    const memberId = myMemberIdIn(bill)!;
+    // Scaled to the template's amount, in case the bill's differed (a
+    // variable electricity bill, say): same proportions, today's total.
+    const scale = bill.amount > 0 ? template.amount / bill.amount : 1;
+    const splits = bill.splits.map((s) => ({
+      householdMemberId: s.householdMemberId,
+      amountOwed: Math.round(s.amountOwed * scale * 100) / 100,
+    }));
+    const mine = splits.find((s) => s.householdMemberId === memberId)!;
+    // Payer-only on the last bill — not a cost for this user, same as 3a.
+    if (mine.amountOwed <= 0) continue;
+    sharedTemplates.push({ template, householdMemberId: memberId, amountOwed: mine.amountOwed, splits });
+  }
+  const sharedTemplateIds = sharedTemplates.map((s) => s.template.id);
   const [sharedTemplateTransactions, sharedTemplateAcks] = await Promise.all([
     sharedTemplateIds.length > 0
       ? prisma.transaction.findMany({
@@ -242,7 +299,7 @@ export async function loadPersonalBudgetPosition({
   // membership is unique per household+user, and a template belongs to one
   // household), so there's exactly one row per template here.
   const sharedTemplateStatusRows = computeTemplateStatuses({
-    templates: sharedTemplateSplits.map((s) => s.recurringTemplate),
+    templates: sharedTemplates.map((s) => s.template),
     transactions: sharedTemplateTransactions,
     acks: sharedTemplateAcks,
     referenceDate: monthStart,
@@ -251,7 +308,7 @@ export async function loadPersonalBudgetPosition({
   const sharedDueRows: SharedDueRow[] = sharedTemplateStatusRows
     .filter((row) => row.status === "due")
     .map((row) => {
-      const split = sharedTemplateSplits.find((s) => s.recurringTemplateId === row.template.id)!;
+      const split = sharedTemplates.find((s) => s.template.id === row.template.id)!;
       return {
         id: row.template.id,
         name: row.template.name,
@@ -266,9 +323,7 @@ export async function loadPersonalBudgetPosition({
           amount: row.template.amount,
           description: row.template.name,
           frequency: row.template.frequency,
-          splits: Object.fromEntries(
-            row.template.splits.map((s) => [s.householdMemberId, s.amountOwed]),
-          ),
+          splits: Object.fromEntries(split.splits.map((s) => [s.householdMemberId, s.amountOwed])),
         },
       };
     });
