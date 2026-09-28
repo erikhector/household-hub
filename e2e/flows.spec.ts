@@ -17,9 +17,14 @@ test("add a task and mark it done", async ({ page }) => {
   await done.click();
 
   // A done task moves to "Completed" and its checkbox flips to "not done".
-  // Checked after a reload, so it really reached the database.
+  // The toggle isn't optimistic: the label comes from the server-rendered
+  // task, so it only flips once the action has saved and revalidated. Wait
+  // for that before reloading, or the reload can race the Server Action.
+  const notDone = page.getByRole("checkbox", { name: `Mark ${title} as not done` });
+  await expect(notDone).toBeChecked();
+  // Checked again after a reload, so it really reached the database.
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
+  await expect(notDone).toBeChecked();
 });
 
 test("create a shopping list and add items to it", async ({ page }) => {
