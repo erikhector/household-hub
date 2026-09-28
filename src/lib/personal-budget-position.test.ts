@@ -66,7 +66,7 @@ function personalTx(
   };
 }
 
-function personalTemplate(id: string, type: "EXPENSE" | "SAVINGS", amount: number) {
+function personalTemplate(id: string, type: "INCOME" | "EXPENSE" | "SAVINGS", amount: number) {
   return {
     id,
     name: id,
@@ -147,6 +147,7 @@ describe("loadPersonalBudgetPosition", () => {
 
     expect(position.safeToSpendBreakdown).toEqual({
       income: 30000,
+      dueIncome: 0,
       // Own groceries + my 6000 share of the rent (whoever paid it).
       expense: 8000,
       savings: 3000,
@@ -305,6 +306,63 @@ describe("loadPersonalBudgetPosition", () => {
 
     expect(position.sharedDueRows).toEqual([]);
     expect(position.safeToSpendBreakdown.duePayments).toBe(0);
+  });
+
+  it("counts recurring income not logged yet in a future month, own and shared", async () => {
+    // Viewing October with nothing logged: the salary template and my share
+    // of a household's split income template (a rented-out room, say) are
+    // both still due, alongside the gym bill.
+    personalTransactionFindManyMock.mockResolvedValue([]);
+    personalTemplateFindManyMock.mockResolvedValue([
+      personalTemplate("Salary", "INCOME", 30000),
+      personalTemplate("Gym", "EXPENSE", 300),
+    ]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([
+      { id: "m-me", household: { id: "h1", name: "Home" } },
+    ]);
+    transactionFindManyMock.mockResolvedValue([]);
+    settlementFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([
+      {
+        recurringTemplateId: "tpl-room",
+        householdMemberId: "m-me",
+        amountOwed: 2000,
+        recurringTemplate: {
+          id: "tpl-room",
+          householdId: "h1",
+          categoryId: "cat-room",
+          category: { name: "Room rental" },
+          name: "Room rental",
+          amount: 4000,
+          type: "INCOME",
+          frequency: "MONTHLY",
+          active: true,
+          createdAt: new Date(2026, 0, 1),
+          splits: [
+            { householdMemberId: "m-me", amountOwed: 2000 },
+            { householdMemberId: "m-p", amountOwed: 2000 },
+          ],
+        },
+      },
+    ]);
+    templateAckFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart: new Date(2026, 9, 1),
+      monthEnd: new Date(2026, 10, 1),
+      sharedLabel: "Shared",
+    });
+
+    expect(position.safeToSpendBreakdown).toMatchObject({ income: 0, dueIncome: 32000, duePayments: 300 });
+    expect(position.safeToSpend).toBe(32000 - 300);
+    expect(position.expectedRecurring).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ categoryName: "Salary", type: "INCOME", source: "personal" }),
+        expect.objectContaining({ categoryName: "Room rental", type: "INCOME", source: "shared", amount: 2000 }),
+      ]),
+    );
   });
 
   it("works with no household at all", async () => {

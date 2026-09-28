@@ -4,12 +4,13 @@
 // Personal Budget and the dashboard), this component just renders the
 // result. See REQUIREMENTS.md's "Safe to spend" subsection.
 //
-// The number is broken down line by line underneath — income, what's been
-// spent and saved, what's still owed from earlier months, what's still due
-// — so it's never a black box: every term that went into it is on screen.
+// The number is broken down line by line underneath — income (logged and
+// still expected), what's been spent and saved, what's still owed from
+// earlier months, what's still due — so it's never a black box: every term
+// that went into it is on screen.
 
 import Link from "next/link";
-import { PiggyBank, Users } from "lucide-react";
+import { Banknote, PiggyBank, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
@@ -71,6 +72,7 @@ export function SafeToSpend({
   // expenses and savings always show so the arithmetic stays readable.
   const lines: { label: string; value: number; sign: "+" | "–"; alwaysShow?: boolean }[] = [
     { label: dict.lineIncome, value: breakdown.income, sign: "+", alwaysShow: true },
+    { label: dict.lineExpectedIncome, value: breakdown.dueIncome, sign: "+" },
     { label: dict.lineExpenses, value: breakdown.expense, sign: "–", alwaysShow: true },
     { label: dict.lineSavings, value: breakdown.savings, sign: "–", alwaysShow: true },
     { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
@@ -123,6 +125,12 @@ export function SafeToSpend({
                         {dict.savingBadge}
                       </Badge>
                     )}
+                    {item.type === "INCOME" && (
+                      <Badge variant="outline" className="shrink-0 gap-1 border-success/30 text-success">
+                        <Banknote className="size-3" />
+                        {dict.incomeBadge}
+                      </Badge>
+                    )}
                     {item.source === "shared" && (
                       <Badge
                         variant="secondary"
@@ -136,10 +144,16 @@ export function SafeToSpend({
                   </span>
                   <span
                     className={
-                      "shrink-0 tabular-nums " + (item.type === "SAVINGS" ? "text-chart-2" : "text-destructive")
+                      "shrink-0 tabular-nums " +
+                      (item.type === "INCOME"
+                        ? "text-success"
+                        : item.type === "SAVINGS"
+                          ? "text-chart-2"
+                          : "text-destructive")
                     }
                   >
-                    –{numberFormat.format(item.amount)}
+                    {item.type === "INCOME" ? "+" : "–"}
+                    {numberFormat.format(item.amount)}
                   </span>
                 </li>
               ))}

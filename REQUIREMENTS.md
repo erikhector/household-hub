@@ -1863,13 +1863,19 @@ Component page function can't itself be unit-tested.
   the month's recurring items with their status (`templates`, from
   `computeTemplateStatuses` — see "Recurring budget templates" above).
   Every active item still `"due"` is subtracted at its full amount: an
-  `EXPENSE` item as a *due payment*, a `SAVINGS` item as a *due saving*
-  (income items are ignored). A `"posted"` item counts only through the
-  transaction logged from it, even when that was for less than the item
-  says: a 5000 saving logged as 3000 means 3000 was saved and the other
-  2000 is spendable, not still owed. `"acknowledged"` counts as handled.
+  `EXPENSE` item as a *due payment*, a `SAVINGS` item as a *due saving*.
+  A due `INCOME` item (a salary not logged yet) is *added* at its full
+  amount as *expected income* (`breakdown.dueIncome`). Income items used to
+  be ignored, so every future month showed its recurring bills and savings
+  but none of the income paying for them. A `"posted"` item counts only
+  through the transaction logged from it, even when that was for less than
+  the item says: a 5000 saving logged as 3000 means 3000 was saved and the
+  other 2000 is spendable, not still owed (likewise a salary logged lower
+  than planned counts at what came in). `"acknowledged"` counts as handled.
   Before this, only expense categories were estimated, so a recurring
-  saving was never subtracted until it was logged.
+  saving was never subtracted until it was logged. The "tight" status is
+  judged against income so far plus expected income, so a future month
+  with nothing logged still gets one.
 - **Fallback estimate for categories without a recurring item**: for every
   `EXPENSE` category with at least one `isRecurring` transaction dated
   before the selected month and *no* active recurring item, check whether
@@ -1913,20 +1919,23 @@ Component page function can't itself be unit-tested.
     second case covers bills split by hand each time they're logged, which
     used to vanish from every month they hadn't been logged in yet. Their
     share is that bill's split scaled to the template's current amount,
-    and a payer-only share (0 owed) doesn't count.
+    and a payer-only share (0 owed) doesn't count. A shared recurring
+    `INCOME` item's share counts as expected income, the same way a posted
+    split income already counts as income.
   - Under the number, "Your household balance" shows where the user stands
     per household at the end of the month (`householdDebts`): what they owe
     other members or are owed, and their unpaid share of bills, with a
     "Settle up" link to that household's budget, Insights tab
     (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
 - **The breakdown**: beneath the headline number, one line per term
-  (income, expenses, savings, and — only when non-zero — owed from earlier
-  months, due payments, due savings) adding up to "Remaining after
-  expenses and savings", then a "Still due this month" list of every item
-  counted as due (name + amount; savings tinted `text-chart-2` with a
-  "Saving" badge, payments `text-destructive`, shared items badged
-  "Shared") — so the number is never a black box. The list is hidden when
-  nothing is due.
+  (income, expenses, savings, and — only when non-zero — expected income,
+  owed from earlier months, due payments, due savings) adding up to
+  "Remaining after expenses and savings", then a "Still due this month"
+  list of every item counted as due (name + amount; savings tinted
+  `text-chart-2` with a "Saving" badge, expected income `+` in
+  `text-success` with an "Income" badge, payments `text-destructive`,
+  shared items badged "Shared") — so the number is never a black box. The
+  list is hidden when nothing is due.
 - Same `createMoneyFormat` display-currency convention as the rest of
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
