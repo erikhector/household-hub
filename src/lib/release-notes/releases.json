@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.45.2",
+    "date": "2026-09-28",
+    "pr": 102,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The back arrow on an item's page now takes you back to where you came from, such as the \"Unit problems\" list or your recipes, instead of always to the inventory.",
+      "sv": "Bakåtpilen på en varas sida tar dig nu tillbaka dit du kom ifrån, till exempel listan \"Enhetsproblem\" eller dina recept, i stället för alltid till lagret."
+    }
+  },
+  {
     "version": "0.45.1",
     "date": "2026-09-28",
     "pr": 101,

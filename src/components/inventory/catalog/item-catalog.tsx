@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,16 +11,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
 import { dismissDuplicatesAction } from "@/app/dashboard/inventory/items/actions";
-import { CATALOG_FILTERS, filterCatalogRows, type CatalogFilter, type CatalogRow } from "@/lib/inventory/catalog";
+import {
+  CATALOG_FILTERS,
+  filterCatalogRows,
+  parseCatalogFilter,
+  type CatalogFilter,
+  type CatalogRow,
+} from "@/lib/inventory/catalog";
 import type { DuplicateGroup, DuplicateMember } from "@/lib/inventory/duplicates";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
+import { catalogHref, itemPageHref } from "@/lib/inventory/item-page-origin";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
-
-const itemHref = (id: string) => `/dashboard/inventory/items/${id}`;
 
 // The item catalog (MATCH-7, design §6.2): every item behind filter chips,
 // and the possible-duplicate groups with merge and "Not duplicates". Rows
@@ -27,17 +33,23 @@ const itemHref = (id: string) => `/dashboard/inventory/items/${id}`;
 export function ItemCatalog({
   rows,
   groups,
-  initialFilter,
   dict,
   locale,
 }: {
   rows: CatalogRow[];
   groups: DuplicateGroup[];
-  initialFilter: CatalogFilter;
   dict: CatalogDict;
   locale: Locale;
 }) {
-  const [filter, setFilter] = useState(initialFilter);
+  // The chip lives in `?filter=` (replaced, not pushed, so chips don't pile
+  // up history), so the browser's own back button from an item page lands
+  // on the same filter as the page's back arrow does. It's read back from
+  // useSearchParams, not kept in useState seeded from the server: on a
+  // browser back, Next restores the page from its router cache, rendered
+  // for the URL as first loaded, so a server-seeded state would reset to
+  // that filter. useSearchParams follows replaceState and back/forward.
+  const filter = parseCatalogFilter(useSearchParams().get("filter"));
+  const selectFilter = (key: CatalogFilter) => window.history.replaceState(null, "", catalogHref(key));
   const counts: Record<CatalogFilter, number> = {
     all: rows.length,
     duplicates: groups.length,
@@ -53,7 +65,7 @@ export function ItemCatalog({
             key={key}
             type="button"
             aria-pressed={filter === key}
-            onClick={() => setFilter(key)}
+            onClick={() => selectFilter(key)}
             className={cn(
               "rounded-full border px-3 py-1 text-sm transition-colors",
               filter === key
@@ -82,13 +94,23 @@ export function ItemCatalog({
           </ul>
         )
       ) : (
-        <CatalogRows rows={filterCatalogRows(rows, filter)} emptyText={dict.empty[filter]} dict={dict} />
+        <CatalogRows rows={filterCatalogRows(rows, filter)} filter={filter} emptyText={dict.empty[filter]} dict={dict} />
       )}
     </div>
   );
 }
 
-function CatalogRows({ rows, emptyText, dict }: { rows: CatalogRow[]; emptyText: string; dict: CatalogDict }) {
+function CatalogRows({
+  rows,
+  filter,
+  emptyText,
+  dict,
+}: {
+  rows: CatalogRow[];
+  filter: CatalogFilter;
+  emptyText: string;
+  dict: CatalogDict;
+}) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   const grid = "sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-4";
   return (
@@ -103,7 +125,7 @@ function CatalogRows({ rows, emptyText, dict }: { rows: CatalogRow[]; emptyText:
         {rows.map((row) => (
           <li key={row.id} className="rounded-lg border sm:rounded-none sm:border-0">
             <Link
-              href={itemHref(row.id)}
+              href={itemPageHref(row.id, { kind: "catalog", filter })}
               className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50", grid)}
             >
               <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -199,7 +221,10 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
                 aria-label={format(dict.mergeLabel, { name: member.name })}
               />
               <div className="flex min-w-0 flex-1 flex-col">
-                <Link href={itemHref(member.id)} className="font-medium break-words underline-offset-4 hover:underline">
+                <Link
+                  href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}
+                  className="font-medium break-words underline-offset-4 hover:underline"
+                >
                   {member.name}
                 </Link>
                 <span className="text-muted-foreground">{memberDetails(member, dict)}</span>

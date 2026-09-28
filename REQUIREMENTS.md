@@ -286,6 +286,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     cluster (desktop table and phone card), from a linked ingredient name
     on a recipe card, and from the item form's "Units, recipes and
     details" link. Sections, stacked on phones:
+    - **Back arrow**: goes one step back, to wherever the page was opened
+      from, carried as `?from=` (`src/lib/inventory/item-page-origin.ts`,
+      a fixed set of values, so never an open redirect): the catalog on
+      the filter it was showing ("Manage items", e.g.
+      `?filter=unitProblems`, so fixing unit problems is a loop through
+      one list), the Recipes tab from a recipe card's ingredient link
+      ("Recipes"), else the inventory ("Inventory"). "Merge into another
+      item…" keeps the origin on the kept item's page. The catalog's
+      chips and the meal-planning tabs also write `?filter=` / `?tab=`
+      with `history.replaceState`, so the browser's back button lands on
+      the same filter or tab.
     - **Header**: name, category · location, "In stock: 1 pcs · low stock
       at 0.5 pcs" and "Change unit…".
     - **Units**: "Counted in {unit}" and each conversion, written the way

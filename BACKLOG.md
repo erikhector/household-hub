@@ -780,6 +780,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.44.0 | #96 feat: item page (MATCH-6) | 2026-09-27 | #96 |
       | v0.45.0 | #98 feat: find and merge duplicate pantry items (MATCH-7) | 2026-09-27 | #98 |
       | v0.45.1 | #101 fix: drop push subscriptions on logout/password change (SEC-5) | 2026-09-28 | #101 |
+      | v0.45.2 | #102 fix: item page back arrow returns to where you came from | 2026-09-28 | #102 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

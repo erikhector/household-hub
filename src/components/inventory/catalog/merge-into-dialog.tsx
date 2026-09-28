@@ -17,18 +17,22 @@ import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { format } from "@/lib/i18n/format";
+import { itemPageHref, type ItemPageOrigin } from "@/lib/inventory/item-page-origin";
 
 // "Merge into another item…" on the item page (MATCH-7, design §6.1 and
 // §6.3): pick the item to keep, then the same preview and confirm as the
 // catalog's duplicate groups. This item is the one that goes, so a merge
-// ends on the kept item's page.
+// ends on the kept item's page, carrying this page's origin along so its
+// back arrow still goes where this one's did.
 export function MergeIntoDialog({
   item,
+  origin,
   targets,
   dict,
   locale,
 }: {
   item: { id: string; name: string };
+  origin: ItemPageOrigin;
   targets: { id: string; label: string }[];
   dict: Dictionary["inventory"]["catalog"];
   locale: Locale;
@@ -78,7 +82,7 @@ export function MergeIntoDialog({
             onCancel={() => setOpen(false)}
             onMerged={() => {
               setOpen(false);
-              router.replace(`/dashboard/inventory/items/${target.id}`);
+              router.replace(itemPageHref(target.id, origin));
             }}
           />
         )}

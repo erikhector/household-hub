@@ -3,19 +3,13 @@ import { ArrowLeft } from "lucide-react";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { loadCatalog } from "@/lib/inventory/catalog-data";
-import { parseCatalogFilter } from "@/lib/inventory/catalog";
 import { ItemCatalog } from "@/components/inventory/catalog/item-catalog";
 
 // MATCH-7 (design §6.2): every item in the household, with the filters and
 // the possible-duplicate groups. Reached from "Manage items" on the
 // inventory page; `?filter=duplicates` opens on the groups.
-export default async function ItemCatalogPage(props: PageProps<"/dashboard/inventory/items">) {
-  const [{ household }, fullDict, locale, searchParams] = await Promise.all([
-    requireHousehold(),
-    getDictionary(),
-    getLocale(),
-    props.searchParams,
-  ]);
+export default async function ItemCatalogPage() {
+  const [{ household }, fullDict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
   const dict = fullDict.inventory.catalog;
   const { rows, groups } = await loadCatalog(household.id);
 
@@ -35,7 +29,6 @@ export default async function ItemCatalogPage(props: PageProps<"/dashboard/inven
       <ItemCatalog
         rows={rows}
         groups={groups}
-        initialFilter={parseCatalogFilter(searchParams.filter)}
         dict={dict}
         locale={locale}
       />

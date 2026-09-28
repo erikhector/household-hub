@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -25,7 +26,6 @@ export function MealPlanningView({
   plannerTab,
   recipesTab,
   cookTab,
-  initialTab = "planner",
 }: {
   dict: Dictionary["mealPlanning"];
   varietyRecap: ReactNode;
@@ -33,10 +33,21 @@ export function MealPlanningView({
   plannerTab: ReactNode;
   recipesTab: ReactNode;
   cookTab: ReactNode;
-  /** `?tab=` on the page URL (MATCH-6's recipe links). */
-  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+  // The tab lives in `?tab=` (MATCH-6's recipe links; replaced, not pushed,
+  // and keeping `?week=`), so coming back to this page — the browser's back
+  // button from a recipe's ingredient page, or a reload — reopens the same
+  // tab. Read from useSearchParams rather than useState seeded by the
+  // server, since a browser back restores Next's cached render of the URL
+  // as first loaded (see item-catalog.tsx).
+  const tabParam = useSearchParams().get("tab");
+  const tab: Tab = tabParam === "recipes" || tabParam === "cook" ? tabParam : "planner";
+  const selectTab = (next: Tab) => {
+    const url = new URL(window.location.href);
+    if (next === "planner") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  };
 
   const tabItems: TabItem<Tab>[] = [
     { value: "planner", label: dict.tabPlanner },
@@ -49,7 +60,7 @@ export function MealPlanningView({
       {varietyRecap}
       {nutritionRecap}
 
-      <Tabs tabs={tabItems} value={tab} onChange={setTab} />
+      <Tabs tabs={tabItems} value={tab} onChange={selectTab} />
 
       <div hidden={tab !== "planner"}>{plannerTab}</div>
       <div hidden={tab !== "recipes"}>{recipesTab}</div>
