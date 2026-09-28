@@ -1906,7 +1906,14 @@ Component page function can't itself be unit-tested.
     isn't dated, so paying off an old bill's remainder counts as if it had
     been paid on time.
   - Due payments and due savings include the user's share of shared
-    recurring items that are still due (the "Rent pops up" rows).
+    recurring items that are still due (the "Rent pops up" rows). A
+    household `RecurringTemplate` is shared with the user when it has a
+    `RecurringTemplateSplit` row for them or, failing that, when the latest
+    bill logged from it (up to the viewed month) was split with them. The
+    second case covers bills split by hand each time they're logged, which
+    used to vanish from every month they hadn't been logged in yet. Their
+    share is that bill's split scaled to the template's current amount,
+    and a payer-only share (0 owed) doesn't count.
   - Under the number, "Your household balance" shows where the user stands
     per household at the end of the month (`householdDebts`): what they owe
     other members or are owed, and their unpaid share of bills, with a
