@@ -132,19 +132,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `migrate deploy` (check Vercel installs devDeps at build), else wait
       for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
       advisories. Pairs with MAINT-12's Dependabot config.
-- [ ] **SEC-13. Rate-limit the shopping-list share-token endpoints** (low) —
-      `getShoppingListByShareToken` and `toggleItemViaShareTokenAction`
-      (`share/shopping-list/actions.ts:58,98`) take no session at all by
-      design (the token is the credential) and never call
-      `checkRateLimit`, unlike every other unauthenticated token endpoint:
-      the calendar feed (`api/calendar/[token]/route.ts:28,54`) added
-      `checkRateLimit` keyed on the token specifically so "a leaked link"
-      couldn't become "a cheap way to hammer the database." A leaked or
-      guessed share-list token has the identical exposure today with no
-      throttle on either the read or the write (item toggle, which also
-      moves inventory stock). Add a `checkRateLimit(`share-list:${token}`,
-      …)` call to both, mirroring the calendar feed's constants. Test: the
-      Nth request in a window past the cap is rejected.
 - [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
       follow-up from SEC-5's review. A password reset/change drops every
       `PushSubscription` row for a user, but only for the device that

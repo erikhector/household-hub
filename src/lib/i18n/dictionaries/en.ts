@@ -2691,6 +2691,7 @@ export const en = {
     purchased: "Purchased",
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",
+    rateLimited: "Too many changes to this list. Please wait a while and try again.",
   },
   cookieNotice: {
     title: "Cookie notice",
