@@ -607,6 +607,10 @@ type ComponentRow = { componentRecipeId: string; quantity: number };
 // be anyone's descendant yet, so the cycle check is skipped entirely rather
 // than trivially passing on every candidate.
 const MAX_COMPONENT_QUANTITY = 1_000;
+// Caps both the payload size and, since each unique candidate below runs
+// its own wouldCreateCycle graph walk, the number of those walks a single
+// request can trigger — a recipe realistically has a handful of sub-recipes.
+const MAX_COMPONENT_ROWS = 50;
 
 async function parseComponentRows(
   formData: FormData,
@@ -616,6 +620,9 @@ async function parseComponentRows(
 ): Promise<{ data: ComponentRow[] } | { error: string }> {
   const ids = formData.getAll("componentRecipeId").map((v) => String(v).trim());
   const quantities = formData.getAll("componentQuantity").map((v) => String(v).trim());
+  if (ids.length > MAX_COMPONENT_ROWS) {
+    return { error: format(dict.componentRowLimitError, { max: MAX_COMPONENT_ROWS }) };
+  }
 
   const seen = new Set<string>();
   const candidates: ComponentRow[] = [];

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.4",
+    "date": "2026-09-28",
+    "pr": 109,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Bulk actions like registering a receipt, updating many pantry items at once, or adding a recipe's missing ingredients to a shopping list now have sensible size limits, closing a few edge cases that could otherwise slow the app down.",
+      "sv": "Massåtgärder som att registrera ett kvitto, uppdatera många skafferivaror på en gång eller lägga till ett recepts saknade ingredienser i en inköpslista har nu rimliga gränser, vilket täpper till några specialfall som annars kunde sakta ner appen."
+    }
+  },
+  {
     "version": "0.46.3",
     "date": "2026-09-28",
     "pr": 110,
