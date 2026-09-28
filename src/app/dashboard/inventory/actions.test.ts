@@ -114,6 +114,7 @@ const {
   markItemOpenedAction,
   undoMarkItemOpenedAction,
   deleteInventoryItemAction,
+  bulkUpdateFieldAction,
 } = await import("@/app/dashboard/inventory/actions");
 
 function formData(fields: Record<string, string>) {
@@ -863,6 +864,52 @@ describe("remembering a scanned barcode on create (AUTO-6)", () => {
     expect(updateManyMock).toHaveBeenCalledWith({
       where: { householdId: "household-1", barcode: "7310865004703" },
       data: { barcode: null },
+    });
+  });
+});
+
+describe("bulkUpdateFieldAction", () => {
+  it("scopes the update to the caller's household (IDOR guard)", async () => {
+    updateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await bulkUpdateFieldAction(["item-1", "item-2"], "location", "Fridge");
+
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["item-1", "item-2"] }, householdId: "household-1" },
+      data: { location: "Fridge", updatedByUserId: "user-1" },
+    });
+    expect(result.updated).toBe(2);
+  });
+
+  // SEC-7: the id list comes straight from the client, so without a cap one
+  // request can build an arbitrarily large `IN (…)` query. The cap clears
+  // "select all" on any realistic pantry — 500 ids still go through.
+  it("rejects more than 1000 ids but allows a whole large pantry", async () => {
+    updateManyMock.mockResolvedValue({ count: 500 });
+    const wholePantry = Array.from({ length: 500 }, (_, i) => `item-${i}`);
+    expect(await bulkUpdateFieldAction(wholePantry, "location", "Fridge")).toEqual(
+      expect.objectContaining({ updated: 500 }),
+    );
+
+    updateManyMock.mockClear();
+    const ids = Array.from({ length: 1001 }, (_, i) => `item-${i}`);
+
+    const result = await bulkUpdateFieldAction(ids, "location", "Fridge");
+
+    expect(result.error).toBe("You can update at most 1000 items at once");
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("counts the cap after de-duplicating ids", async () => {
+    updateManyMock.mockResolvedValue({ count: 1 });
+    const ids = Array.from({ length: 1200 }, () => "item-1");
+
+    const result = await bulkUpdateFieldAction(ids, "location", "Fridge");
+
+    expect(result.error).toBeUndefined();
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["item-1"] }, householdId: "household-1" },
+      data: { location: "Fridge", updatedByUserId: "user-1" },
     });
   });
 });

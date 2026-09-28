@@ -98,15 +98,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-7. Cap input sizes** (low) — the 6 MB `bodySizeLimit`
-      (`next.config.ts:122`) applies to every action, not only photo scans,
-      and several schemas have no caps (recipe ingredient rows are capped
-      since MATCH-1): `registerReceipt` items/quantity/price
-      (`shopping-list/actions.ts:1505-1520`), cooked-ingredient name/unit/
-      quantity (`cooking-actions.ts:190-196`), `bulkUpdateFieldAction` ids
-      (`inventory/actions.ts:723`), `componentRecipeId` rows. Add `.max()`
-      and count caps mirroring existing constants (`MAX_TEMPLATE_ITEMS`).
-      Test: 1,001 ingredient rows are rejected.
 - [ ] **SEC-8. Single-use tokens that are actually single-use, and hashed** (low) —
       invite accept (`household.ts:169,245`) and password reset
       (`auth.ts:435`) check the token, then update by `id`, so two

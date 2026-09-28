@@ -718,6 +718,12 @@ export async function undoMarkItemOpenedAction(
   return {};
 }
 
+// Deliberately looser than bulkCreateSchema's 300-row cap on *new* items:
+// the inventory table loads every item the household has and its header
+// checkbox selects all of them at once, so this has to clear any realistic
+// pantry while still bounding the `IN (…)` list a single request can build.
+const MAX_BULK_FIELD_ITEM_IDS = 1_000;
+
 const bulkFieldSchemas = {
   category: itemSchema.shape.category,
   location: itemSchema.shape.location,
@@ -741,6 +747,9 @@ export async function bulkUpdateFieldAction(
 
   const ids = [...new Set(itemIds)].filter(Boolean);
   if (ids.length === 0) return { error: "No items selected" };
+  if (ids.length > MAX_BULK_FIELD_ITEM_IDS) {
+    return { error: `You can update at most ${MAX_BULK_FIELD_ITEM_IDS} items at once` };
+  }
 
   if (!bulkEditableFields.includes(field)) {
     return { error: "Invalid field" };
