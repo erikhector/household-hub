@@ -1,5 +1,5 @@
 // Pure recipe-ingredient → inventory-item matching (MATCH-1, design
-// docs/RECIPE_INGREDIENT_MATCHING.md §3.2). Saving a recipe used to
+// docs/archive/RECIPE_INGREDIENT_MATCHING.md §3.2). Saving a recipe used to
 // find-or-create an InventoryItem for every ingredient name that didn't
 // match exactly, so "3 eggs" quietly became a zero-stock "eggs" next to the
 // household's "Egg". This decides, per row, how sure we are about which

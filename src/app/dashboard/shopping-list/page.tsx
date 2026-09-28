@@ -72,13 +72,21 @@ async function ShoppingListsSection({
 export default async function ShoppingListPage() {
   const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
 
-  const inventoryItems = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-    // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
-    // prints an EAN exactly — see matchReceiptLines.
-    select: { id: true, name: true, category: true, unit: true, barcode: true },
-    orderBy: { name: "asc" },
-  });
+  const [inventoryItems, aliases] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      // barcode (AUTO-6) lets RegisterReceiptDialog match a receipt line that
+      // prints an EAN exactly — see matchReceiptLines.
+      select: { id: true, name: true, category: true, unit: true, barcode: true },
+      orderBy: { name: "asc" },
+    }),
+    // MATCH-5: the learned names a receipt line links through. Only the
+    // tracked ones: an untracked alias is never a receipt match.
+    prisma.itemAlias.findMany({
+      where: { householdId: household.id, inventoryItemId: { not: null } },
+      select: { normalizedName: true, inventoryItemId: true },
+    }),
+  ]);
 
   const units = [...new Set(inventoryItems.map((item) => item.unit))].sort();
   const categories = [...new Set(inventoryItems.map((item) => item.category))].sort();
@@ -96,6 +104,7 @@ export default async function ShoppingListPage() {
             units={units}
             categories={categories}
             dict={dict.shoppingList.registerReceipt}
+            aliases={aliases}
           />
           <NewListDialog dict={dict.shoppingList} />
         </div>

@@ -248,15 +248,22 @@ export async function addMissingIngredientsToShoppingListAction(
   );
 
   // MATCH-1: link each row the same way a pasted list or template does
-  // (exact name, else one clear fuzzy match) over one inventory fetch, and
+  // (exact name, the household's learned alias for it (MATCH-5), else one
+  // clear fuzzy match) over one inventory fetch, and
   // leave the rest unlinked for "Resolve mappings" on the list. This used
   // to find-or-create an inventory item for every unmatched name, which
   // filled the pantry with zero-stock phantoms.
-  const inventoryItems = await prisma.inventoryItem.findMany({
-    where: { householdId: household.id },
-    select: { id: true, name: true, lastKnownPrice: true },
-  });
-  const linkInventoryItem = createInventoryLinker(inventoryItems);
+  const [inventoryItems, aliases] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { id: true, name: true, lastKnownPrice: true },
+    }),
+    prisma.itemAlias.findMany({
+      where: { householdId: household.id },
+      select: { normalizedName: true, inventoryItemId: true },
+    }),
+  ]);
+  const linkInventoryItem = createInventoryLinker(inventoryItems, aliases);
 
   const itemsToCreate: {
     shoppingListId: string;

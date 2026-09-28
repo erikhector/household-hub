@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChefHat, Layers, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ChefHat, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -346,6 +346,28 @@ function RecipeRow({
             </Button>
           }
         />
+        {recipe.ingredients.length > 0 && (
+          <RecipeFormDialog
+            dict={dict}
+            mode="edit"
+            recipe={recipe}
+            allRecipes={allRecipes}
+            ingredientNames={ingredientNames}
+            ingredientUnits={ingredientUnits}
+            startAtReview
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={dict.reviewMatchesAriaLabel}
+                title={dict.reviewMatchesAriaLabel}
+              >
+                <ListChecks className="size-3.5" />
+              </Button>
+            }
+          />
+        )}
         <ConfirmDialog
           trigger={
             <Button

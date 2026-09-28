@@ -1,6 +1,6 @@
 # Recipe ingredient matching: design and implementation plan
 
-Status: **proposed**. Tracked in BACKLOG.md as `MATCH-1` … `MATCH-7`. When an
+Status: **shipped** (all items, 2026-09-28). Tracked in BACKLOG.md as `MATCH-1` … `MATCH-7`. When an
 item ships, document the behaviour in REQUIREMENTS.md ("Meal planning" →
 "Ingredient → inventory linking" and "Recipe import from URL"), delete the
 backlog item, and move this file to `docs/archive/` once every item is done.
@@ -490,7 +490,7 @@ MATCH-3 each add one migration (Phase 2 rules: one at a time).
 | **MATCH-3** (shipped) | `ItemUnitConversion`, `convertForItem`, unit choices in review, density hints (§3.3). The conversions UI lives on the item page (MATCH-6) | 1 migration | M |
 | **MATCH-6** (shipped) | Item page: used in recipes/lists, conversions CRUD + calculator, "Change unit…", aliases list (§6.1) | none (uses MATCH-2/3 tables) | M |
 | **MATCH-7** (shipped) | Catalog page with filters, duplicate groups, "Not duplicates", merge preview + merge (§6.2, 6.3) | 1 migration (`InventoryDuplicateDismissal`) | L |
-| **MATCH-5** | Aliases in shopping/receipt linkers, per-recipe "Review ingredient matches" (§3.5 last bullet, §6.3 end) | none | M |
+| **MATCH-5** (shipped) | Aliases in shopping/receipt linkers, per-recipe "Review ingredient matches" (§3.5 last bullet, §6.3 end) | none | M |
 
 Build order: MATCH-4 → MATCH-1 → MATCH-2 → MATCH-3 → MATCH-6 → MATCH-7 →
 MATCH-5. MATCH-6 and MATCH-7 each add a page, so each must also add its

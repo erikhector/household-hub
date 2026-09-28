@@ -13,6 +13,7 @@ import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
+import { learnItemAlias } from "@/lib/item-alias";
 import { findInventoryMatches } from "@/lib/item-matching";
 import { getStockStatus } from "@/lib/stock-status";
 import { createCategoryResolver, scheduleAiCategoryFallback } from "@/lib/inventory/category-resolver";
@@ -487,6 +488,12 @@ export async function updateShoppingListItemPriceAction(
  * match (see findExactInventoryItem above) to an existing inventory item the
  * user picked themselves — the "choose an existing item" half of the
  * mapping dialog (ShoppingItemFormDialog's edit mode).
+ *
+ * Linking a row that had no link also teaches the household an alias
+ * (MATCH-5) when the row's name differs from the item's, so the next
+ * pasted list, template or receipt with that name links on its own — the
+ * same learning the recipe review does. Re-pointing an already linked row
+ * doesn't: only a "needs mapping" row is the matcher's miss.
  */
 export async function linkShoppingListItemAction(
   itemId: string,
@@ -504,10 +511,17 @@ export async function linkShoppingListItemAction(
   });
   if (!inventoryItem) return { error: "Inventory item not found" };
 
-  await prisma.shoppingListItem.update({
-    where: { id: item.id },
-    data: { inventoryItemId: inventoryItem.id },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.shoppingListItem.update({
+        where: { id: item.id },
+        data: { inventoryItemId: inventoryItem.id },
+      });
+      if (item.inventoryItemId === null) await learnItemAlias(tx, household.id, item.name, inventoryItem);
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   return {};
@@ -681,8 +695,16 @@ export async function importShoppingListItemsAction(
 
   let added = 0;
   try {
-    const inventoryItems = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
-    const linkInventoryItem = createInventoryLinker(inventoryItems);
+    // MATCH-5: with the household's learned aliases, so a name fixed once
+    // in a recipe review ("eggs" → Egg) links here too.
+    const [inventoryItems, aliases] = await Promise.all([
+      prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
+      prisma.itemAlias.findMany({
+        where: { householdId: household.id },
+        select: { normalizedName: true, inventoryItemId: true },
+      }),
+    ]);
+    const linkInventoryItem = createInventoryLinker(inventoryItems, aliases);
 
     const rows = parsed.data.items.map((item) => {
       const inventoryItem = linkInventoryItem(item.name);
@@ -733,7 +755,8 @@ const smartAddSchema = z.object({
  *   1. a picked suggestion's `inventoryItemId` (only if it's this
  *      household's — anything else is ignored, not trusted);
  *   2. otherwise matchSmartAddInventoryItem's pick — an exact (normalized)
- *      name, the one item containing every typed word ("mjölk" →
+ *      name, the household's learned alias for it (MATCH-5), the one item
+ *      containing every typed word ("mjölk" →
  *      "Mjölk 3%"), or a single confident findInventoryMatches hit;
  *   3. otherwise a new InventoryItem (quantity 0, category guessed by AUTO-2's
  *      createCategoryResolver), shared by any later row in the same batch
@@ -765,8 +788,12 @@ export async function smartAddShoppingListItemsAction(
   const alreadyOnList: string[] = [];
   let createdInventory = false;
   try {
-    const [inventoryItems, pending] = await Promise.all([
+    const [inventoryItems, aliases, pending] = await Promise.all([
       prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
+      prisma.itemAlias.findMany({
+        where: { householdId: household.id },
+        select: { normalizedName: true, inventoryItemId: true },
+      }),
       prisma.shoppingListItem.findMany({
         where: { shoppingListId: list.id, purchased: false, inventoryItemId: { not: null } },
         select: { inventoryItemId: true },
@@ -796,7 +823,7 @@ export async function smartAddShoppingListItemsAction(
 
     for (const row of parsed.data.items) {
       let existing = row.inventoryItemId ? inventoryById.get(row.inventoryItemId) : undefined;
-      existing ??= matchSmartAddInventoryItem(row.name, inventoryItems) ?? undefined;
+      existing ??= matchSmartAddInventoryItem(row.name, inventoryItems, aliases) ?? undefined;
 
       if (existing) {
         if (onList.has(existing.id)) {
@@ -884,7 +911,8 @@ export type MappingResolution =
  * tedious. Silently skips any resolution whose item doesn't belong to the
  * caller's household, is already linked, or names an inventory item outside
  * the household — rather than failing the whole batch over one stale/bad
- * row — and reports back how many actually resolved.
+ * row — and reports back how many actually resolved. An "existing" link
+ * teaches an alias the same way linkShoppingListItemAction does (MATCH-5).
  */
 export async function resolveShoppingListMappingsAction(
   resolutions: MappingResolution[],
@@ -946,6 +974,7 @@ export async function resolveShoppingListMappingsAction(
               where: { id: item.id },
               data: { inventoryItemId: inventoryItem.id },
             });
+            await learnItemAlias(tx, household.id, item.name, inventoryItem);
             return { shoppingListId: item.shoppingListId, resolved: true };
           }
 

@@ -33,7 +33,7 @@ IDs are prefixed by area so they stay stable as items move between phases:
 | `GAP-` | Feature gaps vs. competing household/grocery/budget apps (AnyList, Bring!, Grocy, Listonic, Splitwise, Cozi, …) | recurring daily competitive scan, logged as dated entries below |
 | `SEC-`, `PERF-`, `MAINT-` | Security, performance and maintainability | Three-way code audit, 2026-09-26 (this file is the only record) |
 | `UX-`, `BUG-`, `DEPS-` | UX problems, production errors, dependency upgrades | Autopilot scouts (see AUTOPILOT.md); `SEC-`/`PERF-`/`MAINT-`/`GAP-` scouts reuse those prefixes |
-| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/RECIPE_INGREDIENT_MATCHING.md`](./docs/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
+| `MATCH-` | Recipe ingredient → inventory matching review, aliases, unit conversions | [`docs/archive/RECIPE_INGREDIENT_MATCHING.md`](./docs/archive/RECIPE_INGREDIENT_MATCHING.md) (design, 2026-09-27) |
 
 Before any item: run lint → typegen → tsc → test → build (see AGENTS.md)
 before calling it done, and add every new user-facing string to both
@@ -461,12 +461,7 @@ order below is a suggestion, not a dependency, unless noted.
 
 ## Phase 3 — larger items, own PR each
 
-### Shopping list & inventory automation
-
-- [ ] **MATCH-5. Learned aliases in every linker** (medium, M; after MATCH-2) —
-      `createInventoryLinker`, the receipt matcher and `ResolveMappingsDialog`
-      consult `ItemAlias`. Add "Review ingredient matches" per recipe.
-      Design §3.5, §6.3.
+Nothing open right now.
 
 ---
 

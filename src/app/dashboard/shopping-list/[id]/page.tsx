@@ -78,7 +78,7 @@ export default async function ShoppingListDetailPage(
   //
   // The repurchase chips (AUTO-10), the heaviest read here, don't gate the
   // page at all any more — see RepurchaseSuggestionsSection above.
-  const [list, items, inventoryItems, lastPurchased] = await Promise.all([
+  const [list, items, inventoryItems, lastPurchased, aliases] = await Promise.all([
     prisma.shoppingList.findFirst({ where: { id, householdId: household.id } }),
     prisma.shoppingListItem.findMany({
       where: { shoppingListId: id, shoppingList: { householdId: household.id } },
@@ -113,6 +113,13 @@ export default async function ShoppingListDetailPage(
       by: ["inventoryItemId"],
       where: { purchased: true, inventoryItemId: { not: null }, shoppingList: { householdId: household.id } },
       _max: { createdAt: true },
+    }),
+    // MATCH-5: the household's learned names, for ReceiptScanDialog's line
+    // matching and ResolveMappingsDialog's suggestions. Untracked ones never
+    // link a list row, so they stay on the server.
+    prisma.itemAlias.findMany({
+      where: { householdId: household.id, inventoryItemId: { not: null } },
+      select: { normalizedName: true, inventoryItemId: true },
     }),
   ]);
   if (!list) notFound();
@@ -178,6 +185,7 @@ export default async function ShoppingListDetailPage(
       }
       currencyCode={household.currencyCode}
       defersToPutAway={defersToPutAway(household)}
+      aliases={aliases}
       locations={locations}
     />
   );

@@ -13,6 +13,7 @@ const m = vi.hoisted(() => ({
   templateCreate: vi.fn(),
   templateDeleteMany: vi.fn(),
   inventoryFindMany: vi.fn(),
+  aliasFindMany: vi.fn(async () => [] as { normalizedName: string; inventoryItemId: string | null }[]),
   revalidatePath: vi.fn(),
   redirect: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -28,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: m.templateDeleteMany,
     },
     inventoryItem: { findMany: m.inventoryFindMany },
+    itemAlias: { findMany: m.aliasFindMany },
   },
 }));
 vi.mock("@/lib/session", () => ({ requireHousehold: m.requireHousehold }));
@@ -177,14 +179,25 @@ describe("createListFromTemplateAction", () => {
       items: [
         { name: "Sausages", quantity: 3, unit: "pcs", inventoryItemId: "gone" },
         { name: "Charcoal", quantity: 1, unit: "bag", inventoryItemId: null },
+        { name: "Lighter fluid", quantity: 1, unit: "bottle", inventoryItemId: null },
       ],
     });
-    m.inventoryFindMany.mockResolvedValue([{ id: "inv-9", name: "Sausages", unit: "pcs", lastKnownPrice: 40 }]);
+    m.inventoryFindMany.mockResolvedValue([
+      { id: "inv-9", name: "Sausages", unit: "pcs", lastKnownPrice: 40 },
+      { id: "inv-coal", name: "Grillkol", unit: "bag", lastKnownPrice: null },
+    ]);
+    // MATCH-5: "Charcoal" was learned as Grillkol, but an untracked alias
+    // links nothing.
+    m.aliasFindMany.mockResolvedValueOnce([
+      { normalizedName: "charcoal", inventoryItemId: "inv-coal" },
+      { normalizedName: "lighter fluid", inventoryItemId: null },
+    ]);
     m.listCreate.mockResolvedValue({ id: "list-new" });
 
     await expect(createListFromTemplateAction("t-1")).rejects.toThrow("REDIRECT:/dashboard/shopping-list/list-new");
 
     expect(m.inventoryFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { householdId: "household-1" } }));
+    expect(m.aliasFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { householdId: "household-1" } }));
     const { data } = m.listCreate.mock.calls[0][0];
     expect(data.householdId).toBe("household-1");
     expect(data.name).toBe("BBQ");
@@ -193,7 +206,8 @@ describe("createListFromTemplateAction", () => {
     expect(data.isDefault).toBeUndefined();
     expect(data.items.create).toEqual([
       { inventoryItemId: "inv-9", name: "Sausages", quantity: 3, unit: "pcs", estimatedPrice: 40 },
-      { inventoryItemId: null, name: "Charcoal", quantity: 1, unit: "bag", estimatedPrice: undefined },
+      { inventoryItemId: "inv-coal", name: "Charcoal", quantity: 1, unit: "bag", estimatedPrice: undefined },
+      { inventoryItemId: null, name: "Lighter fluid", quantity: 1, unit: "bottle", estimatedPrice: undefined },
     ]);
   });
 
