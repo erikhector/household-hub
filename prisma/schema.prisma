@@ -187,6 +187,7 @@ model Household {
   tasks              HouseholdTask[]
   notes              HouseholdNote[]
   weeklyDigestSends  WeeklyDigestSend[]
+  duplicateDismissals InventoryDuplicateDismissal[]
 }
 
 // See Household.inventorySyncMode.
@@ -369,6 +370,9 @@ model InventoryItem {
   aliases           ItemAlias[]
   unitConversions   ItemUnitConversion[]
   notifications     Notification[]
+  // MATCH-7: "Not duplicates" answers this item is part of, on either side.
+  dismissalsAsA     InventoryDuplicateDismissal[] @relation("DismissalItemA")
+  dismissalsAsB     InventoryDuplicateDismissal[] @relation("DismissalItemB")
 
   @@index([householdId])
   // The "expiring soon" notification sync (syncExpiringSoonNotifications in
@@ -821,6 +825,29 @@ model ItemUnitConversion {
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
 
   @@unique([inventoryItemId, fromUnit])
+}
+
+// MATCH-7: "Not duplicates" on the item catalog. One row per pair of items
+// the household said are different things, so findDuplicateGroups
+// (src/lib/inventory/duplicates.ts) never pairs them again. Stored in the
+// database rather than the browser so the answer holds for every member.
+// The ids are stored sorted (itemAId < itemBId), so a pair has exactly one
+// row and the unique index refuses a second. Goes with either item and with
+// the household.
+model InventoryDuplicateDismissal {
+  id          String   @id @default(cuid())
+  householdId String
+  itemAId     String
+  itemBId     String
+  createdAt   DateTime @default(now())
+
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  itemA     InventoryItem @relation("DismissalItemA", fields: [itemAId], references: [id], onDelete: Cascade)
+  itemB     InventoryItem @relation("DismissalItemB", fields: [itemBId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, itemAId, itemBId])
+  @@index([itemAId])
+  @@index([itemBId])
 }
 
 model MealPlan {

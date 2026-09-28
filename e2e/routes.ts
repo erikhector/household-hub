@@ -25,6 +25,7 @@ export type UiRoute = {
 export const DASHBOARD_ROUTES: UiRoute[] = [
   { pattern: "/dashboard", path: "/dashboard" },
   { pattern: "/dashboard/inventory", path: "/dashboard/inventory" },
+  { pattern: "/dashboard/inventory/items", path: "/dashboard/inventory/items?filter=duplicates" },
   { pattern: "/dashboard/inventory/items/[id]", path: `/dashboard/inventory/items/${E2E_ITEM.id}` },
   { pattern: "/dashboard/shopping-list", path: "/dashboard/shopping-list" },
   {

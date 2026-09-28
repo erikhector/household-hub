@@ -489,7 +489,7 @@ MATCH-3 each add one migration (Phase 2 rules: one at a time).
 | **MATCH-2** (shipped) | "Don't track" + `rawText`/`note` + `ItemAlias` learning and lookup (§3.4 learning, §4) | 1 migration | M |
 | **MATCH-3** (shipped) | `ItemUnitConversion`, `convertForItem`, unit choices in review, density hints (§3.3). The conversions UI lives on the item page (MATCH-6) | 1 migration | M |
 | **MATCH-6** (shipped) | Item page: used in recipes/lists, conversions CRUD + calculator, "Change unit…", aliases list (§6.1) | none (uses MATCH-2/3 tables) | M |
-| **MATCH-7** | Catalog page with filters, duplicate groups, "Not duplicates", merge preview + merge (§6.2, 6.3) | 1 migration (`InventoryDuplicateDismissal`) | L |
+| **MATCH-7** (shipped) | Catalog page with filters, duplicate groups, "Not duplicates", merge preview + merge (§6.2, 6.3) | 1 migration (`InventoryDuplicateDismissal`) | L |
 | **MATCH-5** | Aliases in shopping/receipt linkers, per-recipe "Review ingredient matches" (§3.5 last bullet, §6.3 end) | none | M |
 
 Build order: MATCH-4 → MATCH-1 → MATCH-2 → MATCH-3 → MATCH-6 → MATCH-7 →

@@ -279,7 +279,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     (design `docs/RECIPE_INGREDIENT_MATCHING.md` §6.1), a Server Component
     that loads the item (with its `ItemUnitConversion`s and `ItemAlias`es),
     its linked `RecipeIngredient`s, its pending rows (not purchased, on an
-    `ACTIVE` list) and its template rows in four household-scoped queries
+    `ACTIVE` list), its template rows and the household's other items (for
+    "Merge into another item…", MATCH-7) in five household-scoped queries
     run together, and `notFound()`s an item of another household. Opened
     from the ⓘ "Details for {name}" link in each inventory row's action
     cluster (desktop table and phone card), from a linked ingredient name
@@ -331,6 +332,93 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       nothing is measured in the old unit. `updateInventoryItemAction`
       refuses a unit change (other than a respelling like st → pcs) on an
       item with stock or saved conversions and points to "Change unit…".
+    - **Merge into another item…** (MATCH-7): picks the item to keep with
+      `ItemCombobox`, then the catalog's merge preview and confirm (below).
+      This item is the one that goes, so a merge ends on the kept item's
+      page.
+  - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
+    §6.3), reached from "Manage items" in the inventory page's header
+    actions (decision 5: no bottom-nav tab). That link carries a badge
+    with the number of open duplicate groups (`countDuplicateGroups`,
+    which reuses the page's item query and adds only the alias and
+    dismissal queries) and, when there are any, opens on
+    `?filter=duplicates`. The page loads everything in six
+    household-scoped queries run together (`loadCatalog` in
+    `src/lib/inventory/catalog-data.ts`: items with `_count`s of recipe,
+    list, template and price rows; bought list rows per item; distinct
+    recipe units per item; conversions; aliases; dismissals), then the
+    pure `buildCatalog` (`src/lib/inventory/catalog.ts`). Filter chips,
+    each with its count:
+    - **All**: name (with "never stocked" and "Can't convert {units}"
+      tags), category, stock + unit, "N recipes". Each row links to the
+      item page. A grid on wider screens, stacked cards on phones.
+    - **Possible duplicates**: the groups below.
+    - **Never stocked**: quantity 0, no `PriceHistory`, never on a bought
+      list row (`isNeverStocked`).
+    - **Unit problems**: some recipe uses the item in a unit that
+      `convertForItem` can't turn into the item's unit.
+  - **Duplicate groups**: `findDuplicateGroups(items, aliases, dismissals)`
+    (`src/lib/inventory/duplicates.ts`, pure). A pair is a candidate when
+    the normalized names are equal (strength 1), equal after the recipe
+    matcher's plural fold (`foldedForms`, 0.95), one's name is an alias of
+    the other (0.9), or the bigram score (`itemNameSimilarity`'s Dice
+    coefficient) is ≥ 0.8 (the score). Dismissed pairs are skipped, pairs
+    join into groups by union-find, and groups sort by their strongest
+    pair. The fuzzy pass compares only names sharing a bigram (an
+    inverted index), which keeps 2,000 items well under a second (a test
+    guards it); beyond `FUZZY_MAX_ITEMS` (3,000) only the other rules
+    run. Members are tagged with unit, stock, recipe count, barcode and
+    "never stocked", and sorted by `compareKeeper`: stock first, then the
+    most recipe/list/template/price rows, then the oldest. In each group a
+    radio picks the keeper (the suggested one to start with) and a
+    checkbox each item to merge (all ticked).
+    - **Not duplicates** (`dismissDuplicatesAction`) stores every pair in
+      the group as an `InventoryDuplicateDismissal` (`householdId`,
+      `itemAId`, `itemBId`, ids sorted, unique, cascading with either item
+      and the household), so the group doesn't come back for anyone.
+  - **Merge** (decision 4: confirm with a preview, no undo).
+    `previewMergeAction(keeperId, mergeIds)` is read-only: one
+    household-scoped `findMany` returns the keeper and each merged item
+    with its conversions and the counts that would move (recipes, list
+    rows, templates, prices, learned names, conversions). The dialog runs
+    the pure `planMerge` (`src/lib/inventory/merge.ts`) over it, the same
+    one the merge runs, so it shows exactly what happens: each item's
+    stock converted into the keeper's unit, the stock before → after, a
+    taken or removed barcode, filled-in fields, conversions saved, names
+    learned and items deleted. A unit that can't be converted
+    (`mergeUnitFactor`: the generic table or the keeper's conversions,
+    else the merged item's own conversion from the keeper's unit read
+    backwards) asks "How many {other} is 1 {lead}?" inline, and Merge
+    stays disabled until every one is answered. Merge is the only button
+    that writes. `mergeInventoryItemsAction({ keeperId, merge: [{ id,
+    factor? }] })` is Zod-validated, takes at most 10 items, refuses the
+    keeper among the merged, checks every id in one household-scoped
+    `findMany`, and does all of this in one `$transaction`:
+    - the keeper's stock gets each item's stock converted (by the table, a
+      conversion or the typed factor), with an `updateMany` guarded on the
+      keeper's quantity and unit, and the merged items are deleted with a
+      guard on theirs, so a +/- in between fails with "The stock
+      changed…";
+    - a factor the keeper didn't already have is saved as an
+      `ItemUnitConversion` on it, and the merged items' conversions are
+      re-expressed through it (the keeper's own row wins, and pointless
+      or out-of-range ones are dropped);
+    - pending list rows of a merged item on a list where the keeper (or
+      another merged item) also has one are added into that row when the
+      units convert (`planListRowMerges`; prices add up), otherwise both
+      stay;
+    - `RecipeIngredient`, `ShoppingListItem`, `ShoppingListTemplateItem`,
+      `PriceHistory` and `ItemAlias` rows are re-pointed to the keeper, and
+      each merged name (normalized, unless it equals the keeper's) is
+      upserted as an alias of the keeper;
+    - the barcode is cleared on the merged items first
+      (`@@unique([householdId, barcode])`) and given to the keeper only if
+      it has none;
+    - threshold, `lastKnownPrice`, category and expiry are the keeper's,
+      except that an empty one takes a merged item's (the earliest expiry
+      of a merged item that has stock);
+    - the merged items' `Notification`s are deleted, then the items
+      (their own conversions and dismissals cascade).
   - **Expiry/best-before tracking**: an optional `expiresAt` (`DateTime?`),
     set from a native date input on the single-item add/edit form
     (`ItemFormDialog`), or estimated automatically (AUTO-7, below) — never
