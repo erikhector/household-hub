@@ -370,12 +370,63 @@ describe("computeSafeToSpend with recurring items", () => {
       templates: [
         { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "due" },
         { id: "t2", name: "Buffer", categoryId: "sav", type: "SAVINGS", amount: 5000, status: "due" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(17000);
+    expect(result.breakdown).toMatchObject({ duePayments: 8000, dueSavings: 5000, dueIncome: 0 });
+    expect(result.expectedRecurring.map((e) => e.categoryName)).toEqual(["Rent", "Buffer"]);
+  });
+
+  it("adds a recurring income that hasn't come in yet as expected income", () => {
+    // A future month: nothing logged, so only the recurring items speak.
+    // Before, the salary was ignored and the month read -13000.
+    const result = computeSafeToSpend({
+      ...base,
+      incomeSoFar: 0,
+      transactions: [],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 8000, status: "due" },
+        { id: "t2", name: "Buffer", categoryId: "sav", type: "SAVINGS", amount: 5000, status: "due" },
         { id: "t3", name: "Salary", categoryId: "sal", type: "INCOME", amount: 30000, status: "due" },
       ],
     });
     expect(result.safeToSpend).toBe(17000);
-    expect(result.breakdown).toMatchObject({ duePayments: 8000, dueSavings: 5000 });
-    expect(result.expectedRecurring.map((e) => e.categoryName)).toEqual(["Rent", "Buffer"]);
+    expect(result.status).toBe("healthy");
+    expect(result.breakdown).toMatchObject({ income: 0, dueIncome: 30000, duePayments: 8000, dueSavings: 5000 });
+    expect(result.expectedRecurring).toContainEqual({
+      categoryId: "t3",
+      categoryName: "Salary",
+      amount: 30000,
+      type: "INCOME",
+    });
+  });
+
+  it("counts a logged salary only through its transaction, not again as expected", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      incomeSoFar: 28000,
+      transactions: [],
+      templates: [
+        { id: "t3", name: "Salary", categoryId: "sal", type: "INCOME", amount: 30000, status: "posted" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(28000);
+    expect(result.breakdown.dueIncome).toBe(0);
+    expect(result.expectedRecurring).toEqual([]);
+  });
+
+  it("judges 'tight' against expected income too", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      incomeSoFar: 0,
+      transactions: [],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE", amount: 9500, status: "due" },
+        { id: "t3", name: "Salary", categoryId: "sal", type: "INCOME", amount: 10000, status: "due" },
+      ],
+    });
+    expect(result.safeToSpend).toBe(500);
+    expect(result.status).toBe("tight");
   });
 
   it("counts only what was actually saved once a saving is logged for less than planned", () => {

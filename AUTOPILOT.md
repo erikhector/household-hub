@@ -7,6 +7,12 @@ and obeys it. Edit it on `master` to steer or stop the loop; no routine
 needs changing.
 
 The skills that do the work are in `.claude/skills/autopilot-*/SKILL.md`.
+The builder and reviewer run as a coordinator plus sub-agents: the
+top-level session only picks the work, delegates one backlog item or one
+PR to each sub-agent, tracks them, validates what they hand back and
+reports. The builder builds every item it can within the limits below,
+each in parallel in its own worktree; its heavy `npm run ci:local` runs
+queue on a shared lock.
 Routine prompts live in REQUIREMENTS.md, "Autonomous improvement loop".
 
 ## Switch
@@ -24,9 +30,13 @@ retro_enabled: true
 ```yaml
 max_open_autopilot_prs: 10     # builder does nothing while this many are open
 max_new_items_per_scout_run: 3
-max_items_per_build_run: 1
+max_parallel_subagents: 4      # builder/reviewer sub-agents running at once (4-CPU container)
 max_merges_per_review_run: 3   # each merge re-runs ci:local on top of the new master
 ```
+
+The builder's count per run is not a separate limit: it is as many
+eligible, parallel-safe items as fit under `max_open_autopilot_prs` and
+`max_parallel_subagents`, after the sub-agents fixing open PRs.
 
 ## What the builder may pick
 
@@ -42,6 +52,10 @@ Never pick an item that is:
   "Needs a decision before building";
 - already the subject of an open PR (search open PRs for its ID);
 - a Phase 2 (schema) item while another open PR adds a migration.
+
+Items built in the same run must also be parallel-safe: at most one
+Phase 2 and one Phase 3 item, and no two in the same feature area (see the
+`autopilot-build` skill).
 
 ## Human-only areas
 

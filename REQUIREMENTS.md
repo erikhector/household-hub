@@ -1863,13 +1863,19 @@ Component page function can't itself be unit-tested.
   the month's recurring items with their status (`templates`, from
   `computeTemplateStatuses` — see "Recurring budget templates" above).
   Every active item still `"due"` is subtracted at its full amount: an
-  `EXPENSE` item as a *due payment*, a `SAVINGS` item as a *due saving*
-  (income items are ignored). A `"posted"` item counts only through the
-  transaction logged from it, even when that was for less than the item
-  says: a 5000 saving logged as 3000 means 3000 was saved and the other
-  2000 is spendable, not still owed. `"acknowledged"` counts as handled.
+  `EXPENSE` item as a *due payment*, a `SAVINGS` item as a *due saving*.
+  A due `INCOME` item (a salary not logged yet) is *added* at its full
+  amount as *expected income* (`breakdown.dueIncome`). Income items used to
+  be ignored, so every future month showed its recurring bills and savings
+  but none of the income paying for them. A `"posted"` item counts only
+  through the transaction logged from it, even when that was for less than
+  the item says: a 5000 saving logged as 3000 means 3000 was saved and the
+  other 2000 is spendable, not still owed (likewise a salary logged lower
+  than planned counts at what came in). `"acknowledged"` counts as handled.
   Before this, only expense categories were estimated, so a recurring
-  saving was never subtracted until it was logged.
+  saving was never subtracted until it was logged. The "tight" status is
+  judged against income so far plus expected income, so a future month
+  with nothing logged still gets one.
 - **Fallback estimate for categories without a recurring item**: for every
   `EXPENSE` category with at least one `isRecurring` transaction dated
   before the selected month and *no* active recurring item, check whether
@@ -1913,20 +1919,23 @@ Component page function can't itself be unit-tested.
     second case covers bills split by hand each time they're logged, which
     used to vanish from every month they hadn't been logged in yet. Their
     share is that bill's split scaled to the template's current amount,
-    and a payer-only share (0 owed) doesn't count.
+    and a payer-only share (0 owed) doesn't count. A shared recurring
+    `INCOME` item's share counts as expected income, the same way a posted
+    split income already counts as income.
   - Under the number, "Your household balance" shows where the user stands
     per household at the end of the month (`householdDebts`): what they owe
     other members or are owed, and their unpaid share of bills, with a
     "Settle up" link to that household's budget, Insights tab
     (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
 - **The breakdown**: beneath the headline number, one line per term
-  (income, expenses, savings, and — only when non-zero — owed from earlier
-  months, due payments, due savings) adding up to "Remaining after
-  expenses and savings", then a "Still due this month" list of every item
-  counted as due (name + amount; savings tinted `text-chart-2` with a
-  "Saving" badge, payments `text-destructive`, shared items badged
-  "Shared") — so the number is never a black box. The list is hidden when
-  nothing is due.
+  (income, expenses, savings, and — only when non-zero — expected income,
+  owed from earlier months, due payments, due savings) adding up to
+  "Remaining after expenses and savings", then a "Still due this month"
+  list of every item counted as due (name + amount; savings tinted
+  `text-chart-2` with a "Saving" badge, expected income `+` in
+  `text-success` with an "Income" badge, payments `text-destructive`,
+  shared items badged "Shared") — so the number is never a black box. The
+  list is hidden when nothing is due.
 - Same `createMoneyFormat` display-currency convention as the rest of
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
@@ -5130,14 +5139,31 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
   few scoped items with acceptance criteria to BACKLOG.md, via a
   `docs(backlog)` PR, and never touch app code.
-- **Builder** (`autopilot-build`) takes one eligible item per run,
-  implements it per AGENTS.md's workflow with unit and e2e tests, opens a
-  PR (ID in the title, label `autopilot`, release note in both languages)
-  and drives it to green. Before starting anything new it finishes its own
-  red or reviewed PRs, and it stops when `max_open_autopilot_prs` are open.
+- **Builder** (`autopilot-build`) is a coordinator with sub-agents. The
+  top-level session picks every eligible item that can be built in
+  parallel (as many as fit under `max_open_autopilot_prs` and
+  `max_parallel_subagents`; at most one migration and one large item, no
+  two in the same feature area) and starts one sub-agent per item in its
+  own git worktree, with its own `node_modules` and database. Each
+  sub-agent implements its item per AGENTS.md's workflow with unit and
+  e2e tests, runs `npm run ci:local` under a shared lock (one build and
+  e2e run at a time on the machine), and opens a PR (ID in the title,
+  label `autopilot`, release note in both languages). The coordinator
+  writes no code: it tracks the sub-agents and validates each PR against
+  GitHub and the sub-agent's `ci:local` log (head SHA, gate passed on it,
+  title, label, release note, human-only flag, diff scope), sending
+  failures back to the sub-agent and drafting the PR after a second
+  failed round. Before building anything new it gives each of its own red
+  or reviewed PRs a fix sub-agent, and it builds nothing when
+  `max_open_autopilot_prs` are open.
 - **Reviewer** (`autopilot-review`, daily after the last builder run)
   reviews every open PR, whoever opened it, as inline comments marked
-  `🤖 autopilot-review`. On later runs it checks each finding against the
+  `🤖 autopilot-review`. The top-level session delegates each PR's review
+  round to its own sub-agent (in parallel, up to
+  `max_parallel_subagents`), then each merge to a merge sub-agent, one at
+  a time since each merge moves `master`; it checks every result against
+  GitHub (review marker and SHA, verdict consistent with open threads, PR
+  actually merged) before accepting it. On later runs it checks each finding against the
   new head and resolves the thread once it's fixed; the builder (or the
   PR's author) does the fixing. A PR whose latest verdict is approved, with
   no open threads, gets `master` merged in, conflicting migrations
@@ -5176,8 +5202,8 @@ runs don't queue behind everyone else's.
 | Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: review every open PR, resolve addressed review threads, and merge the PRs that pass. Follow AUTOPILOT.md; stop if it disables you. |
+| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, and merge the PRs that pass, one merge sub-agent at a time. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
 The existing daily competitive-scan routine is replaced by "Scout:
