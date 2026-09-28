@@ -5180,13 +5180,14 @@ under human control. Four roles, each a skill in `.claude/skills/`:
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
   weekly), `ux` (`UX-`, from screenshots of every route on phone and
-  desktop in both languages), `production` (`BUG-`, from Sentry, only when
+  desktop in both languages, reviewed against DESIGN.md's UX and design
+  principles), `production` (`BUG-`, from Sentry, only when
   a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
   few scoped items with acceptance criteria to BACKLOG.md, via a
   `docs(backlog)` PR, and never touch app code.
 - **Builder** (`autopilot-build`) is a coordinator with sub-agents. The
   top-level session picks every eligible item that can be built in
-  parallel (as many as fit under `max_open_autopilot_prs` and
+  parallel, `UX-` items before any other (as many as fit under `max_open_autopilot_prs` and
   `max_parallel_subagents`; at most one migration and one large item, no
   two in the same feature area) and starts one sub-agent per item in its
   own git worktree, with its own `node_modules` and database. Each

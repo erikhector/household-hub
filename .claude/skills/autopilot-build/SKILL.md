@@ -47,8 +47,10 @@ write it.
 
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
-Apply AUTOPILOT.md's allowed prefixes and exclusions, lowest phase first,
-then best impact/effort. Confirm no open PR mentions each ID. Read only the
+Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
+`UX-` item comes first** (best impact/effort among them); only the slots
+left after those go to other items, lowest phase first, then best
+impact/effort. Confirm no open PR mentions each ID. Read only the
 chosen items' text, not the REQUIREMENTS.md sections: that's the
 sub-agent's job.
 
@@ -162,7 +164,8 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
   change, add or extend a spec in `e2e/` that asserts the item's
   Acceptance line through the UI, following AGENTS.md "UI tests". It
   runs on the `desktop` and `mobile` projects, so it must pass on both;
-  a new page goes in `e2e/routes.ts`. For a `UX-` item, compare
+  a new page goes in `e2e/routes.ts`. Any UI change follows DESIGN.md
+  and passes its "UI review checklist". For a `UX-` item, compare
   `npm run test:e2e:screenshots` before and after (under the lock). A bug
   fix gets a test that fails first.
 - **Verify**: focused `npx vitest run <path>` while iterating. The full

@@ -6,7 +6,8 @@ yet**; everything already shipped is documented in
 are kept for their design rationale in [`docs/archive/`](./docs/archive/)
 (code comments still cite them by item).
 
-**Picking an item:** take the lowest phase you can. Within Phase 1, anything
+**Picking an item:** `UX-` items go first, whatever their phase (see
+AUTOPILOT.md, "What the builder may pick"). Otherwise take the lowest phase you can. Within Phase 1, anything
 can run in parallel except the file conflicts listed at the top of that phase. Phase 2
 items each add a Prisma migration, so land them **one at a time**, each
 rebased on the previous one's merge, to avoid migration-ordering conflicts.

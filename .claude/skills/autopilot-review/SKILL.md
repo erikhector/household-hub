@@ -105,7 +105,9 @@ don't merge. Follow Markers above, then:
    every day.
 3. Check it against AGENTS.md "Code review" and the `self-review`
    checklist (`.claude/skills/self-review/SKILL.md`), in that priority
-   order, plus: Conventional Commit title, release note in both languages
+   order; a diff that touches the UI is also checked against DESIGN.md's
+   "UI review checklist", and each UX finding names the principle it
+   breaks. Plus: Conventional Commit title, release note in both languages
    for a releasing type, Verification section filled in. Read
    surrounding code only where a hunk is ambiguous.
 4. **Human-only areas** (AUTOPILOT.md) get a deeper pass, not a pass-by:

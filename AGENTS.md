@@ -4,7 +4,10 @@ Guidance for AI coding agents working in this repo. The product is
 **Squirrel**, a household app covering inventory, shopping lists, meal
 planning, tasks, and household and personal budgets. The full spec, data
 model and conventions are in [REQUIREMENTS.md](./REQUIREMENTS.md). Read the
-section for the feature you're touching before you change it.
+section for the feature you're touching before you change it. Anything
+that touches the UI follows [DESIGN.md](./DESIGN.md): the seven UX
+principles and Squirrel's own design principles, with the checklist every
+UI change is reviewed against.
 
 Open work is in [BACKLOG.md](./BACKLOG.md), grouped by phase with stable IDs
 (`AUTO-3`, `SCALE-H`, …). When you finish an item, document it in
@@ -113,7 +116,8 @@ change, but don't skip one.
 1. **Orient.** Find the BACKLOG.md item (if any) and the REQUIREMENTS.md
    section for the feature. Read the files you'll change and one existing
    neighbour to copy the pattern from (an `actions.ts` + `actions.test.ts`
-   pair, a sibling component). For anything touching more than ~3 files or
+   pair, a sibling component). If the change touches the UI, read
+   DESIGN.md (it's short) and design to its principles and checklist. For anything touching more than ~3 files or
    the schema, write a short plan first and check it against the
    Conventions above.
 2. **Branch.** Work on a feature branch, never `master`.
@@ -188,12 +192,15 @@ priority order:
    not swallowed.
 2. **Tests**: new logic has tests, bug fixes have a regression test, mocks
    follow the existing pattern (no real DB).
-3. **Conventions**: i18n in both `en.ts` and `sv.ts`, no hardcoded JSX
+3. **UX and design**: any UI change passes DESIGN.md's "UI review
+   checklist" (UX principles plus Squirrel's design principles). Name the
+   principle a finding breaks.
+4. **Conventions**: i18n in both `en.ts` and `sv.ts`, no hardcoded JSX
    strings, `render` not `asChild`, browser storage in
    `cookie-inventory.ts`, migration committed with any schema change.
-4. **Docs**: REQUIREMENTS.md updated, BACKLOG.md item removed, PR template
+5. **Docs**: REQUIREMENTS.md updated, BACKLOG.md item removed, PR template
    filled in.
-5. **Simplicity**: no dead code, no speculative abstractions, no unrelated
+6. **Simplicity**: no dead code, no speculative abstractions, no unrelated
    changes.
 
 Report findings most-severe first, each with file:line and a concrete fix.
