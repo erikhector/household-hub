@@ -598,6 +598,43 @@ out to be a product-scope question rather than a scoped task should move to
       has a dinner planned, and whether it's opt-in per meal or a household
       setting.
 
+### 2026-09-28 scan
+
+- [ ] **GAP-40. Current pantry value snapshot** (impact: low-medium, effort: S) —
+      Grocy shows a running "stock value" for everything currently on the
+      shelf, not just spending history. Squirrel already records
+      `InventoryItem.lastKnownPrice` (`prisma/schema.prisma:297`, filled in
+      by `togglePurchasedAction`/receipt scanning), but nothing sums it: the
+      Cost analyzer tab (REQUIREMENTS.md, "Cost analyzer") only shows
+      spending-over-time and GAP-17's expired-waste value, both about money
+      already spent, never what's presently in stock. A household has no
+      single number for "what's my pantry worth right now" — useful for
+      insurance/moving estimates and just satisfying to see. No schema
+      change needed. Acceptance: a card (inventory page or Cost analyzer)
+      showing `Σ quantity × lastKnownPrice` across current stock, with a
+      note distinguishing items with no recorded price rather than silently
+      treating them as free; an e2e test asserts the figure renders and
+      updates after an item's quantity changes.
+
+- [ ] **GAP-41. Itemized expense splitting (assign receipt lines, not just the total)** `[!]` —
+      needs a product decision. Splitwise's itemization lets a group split
+      a bill by who actually had which line item, not just an even or
+      fixed-share split of the total. `TransactionSplit`
+      (`prisma/schema.prisma`) only ever divides one flat
+      `Transaction.amount` per member (`amountOwed`/`amountPaid`) — there's
+      no link from a split row to the individual `PriceHistory` rows or
+      shopping-list items a receipt produced, so `SplitEditor`
+      (`src/components/budget/split-editor.tsx`) can't offer "Alex had the
+      wine, Sam had the snacks" today. This touches the money-computing
+      surface AUTOPILOT.md flags as human-only (`*split*`, `*transaction*`),
+      and needs decisions the flat-split feature didn't: whether
+      itemization only makes sense off the receipt-scan flow
+      (`applyReceiptScanAction`) where line items already exist, how it
+      reconciles with tax/fees that aren't tied to one item, and whether
+      per-item assignment replaces or layers on top of the existing
+      share/paid model — a schema and UX design question, not a routine
+      slice.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
