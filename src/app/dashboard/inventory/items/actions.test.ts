@@ -452,7 +452,10 @@ describe("mergeInventoryItemsAction", () => {
       where: { ...moved, template: { householdId: household.id } },
       ...toKeeper,
     });
-    expect(db.priceHistory.updateMany).toHaveBeenCalledWith({ where: moved, ...toKeeper });
+    expect(db.priceHistory.updateMany).toHaveBeenCalledWith({
+      where: { ...moved, inventoryItem: { householdId: household.id } },
+      ...toKeeper,
+    });
     expect(db.itemAlias.updateMany).toHaveBeenCalledWith({ where: { ...moved, householdId: household.id }, ...toKeeper });
     expect(db.notification.deleteMany).toHaveBeenCalledWith({ where: { ...moved, householdId: household.id } });
     expect(db.inventoryItem.deleteMany).toHaveBeenCalledWith({

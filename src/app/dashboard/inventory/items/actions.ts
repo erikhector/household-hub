@@ -490,7 +490,10 @@ export async function mergeInventoryItemsAction(input: {
         where: { ...moved, template: { householdId: household.id } },
         data: toKeeper,
       });
-      await tx.priceHistory.updateMany({ where: moved, data: toKeeper });
+      await tx.priceHistory.updateMany({
+        where: { ...moved, inventoryItem: { householdId: household.id } },
+        data: toKeeper,
+      });
       await tx.itemAlias.updateMany({ where: { ...moved, householdId: household.id }, data: toKeeper });
       // The merged names, so the next import matches the keeper. A name
       // already learned (even as "Don't track") now means the keeper.
