@@ -29,6 +29,7 @@
   --color-destructive: var(--destructive);
   --color-warning: var(--warning);
   --color-attention: var(--attention);
+  --color-success: var(--success);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -66,11 +67,20 @@
   --muted-foreground: oklch(0.48 0.03 290);
   --accent: oklch(0.91 0.05 300);
   --accent-foreground: oklch(0.3 0.06 300);
-  --destructive: oklch(0.577 0.245 27.325);
-  --warning: oklch(0.55 0.15 78);
-  --attention: oklch(0.58 0.19 45);
+  /* Status colours are text on a 10% tint of themselves (Badge, the
+     destructive Button, toasts), so each is dark enough to hold 4.5:1 on
+     that tint over background/card, not just on a plain surface. */
+  --destructive: oklch(0.5 0.245 27.325);
+  --warning: oklch(0.52 0.15 78);
+  --attention: oklch(0.53 0.19 45);
+  /* Good news as text (healthy budget, done, saved). chart-5 is the same
+     green but tuned for chart marks, and is only 3.2:1 as text here. */
+  --success: oklch(0.49 0.16 145);
   --border: oklch(0.88 0.02 290);
-  --input: oklch(0.88 0.02 290);
+  /* Field outlines need 3:1 against the page to read as fields (WCAG
+     1.4.11); the hairline --border stays light since it's decorative.
+     Disabled fields fill with bg-input/15, not /50, to stay pale. */
+  --input: oklch(0.65 0.02 290);
   --ring: oklch(0.58 0.19 300);
   --chart-1: oklch(0.65 0.19 340);
   --chart-2: oklch(0.68 0.15 70);
@@ -86,6 +96,8 @@
   --sidebar-accent-foreground: oklch(0.3 0.06 300);
   --sidebar-border: oklch(0.88 0.02 290);
   --sidebar-ring: oklch(0.58 0.19 300);
+  /* How much of a status colour tints its own background (toasts). */
+  --status-tint: 10%;
   --gradient-start: #f3ecfb;
   --gradient-end: #fefcff;
 }
@@ -98,18 +110,24 @@
   --popover: oklch(0.225 0.025 290);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.66 0.22 300);
-  --primary-foreground: oklch(0.99 0.01 300);
+  /* The lighter dark-theme purple needs dark ink on it: near-white text
+     was 3.3:1. */
+  --primary-foreground: oklch(0.22 0.05 300);
   --secondary: oklch(0.32 0.05 290);
   --secondary-foreground: oklch(0.97 0.01 290);
   --muted: oklch(0.3 0.04 290);
   --muted-foreground: oklch(0.72 0.03 290);
   --accent: oklch(0.36 0.1 300);
   --accent-foreground: oklch(0.98 0.01 300);
-  --destructive: oklch(0.704 0.191 22.216);
+  --destructive: oklch(0.735 0.191 22.216);
   --warning: oklch(0.78 0.15 75);
   --attention: oklch(0.75 0.18 45);
+  --success: oklch(0.75 0.16 145);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  /* 35% for a 3:1 field outline. The dark field fills in components/ui
+     (bg-input/13, hover /20, disabled /35) are scaled down to match, so
+     fields look as they did at 15% and only the outline got stronger. */
+  --input: oklch(1 0 0 / 35%);
   --ring: oklch(0.72 0.19 300);
   --chart-1: oklch(0.75 0.19 340);
   --chart-2: oklch(0.78 0.15 70);
@@ -119,11 +137,12 @@
   --sidebar: oklch(0.205 0.02 290);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.66 0.22 300);
-  --sidebar-primary-foreground: oklch(0.99 0.01 300);
+  --sidebar-primary-foreground: oklch(0.22 0.05 300);
   --sidebar-accent: oklch(0.32 0.07 300);
   --sidebar-accent-foreground: oklch(0.98 0.01 300);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.72 0.19 300);
+  --status-tint: 20%;
   --gradient-start: #180828;
   --gradient-end: #0a0414;
 }

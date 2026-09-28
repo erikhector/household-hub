@@ -64,7 +64,7 @@ export function InstallAppCard({ dict }: { dict: Dictionary["profile"]["installA
       <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
       {isStandalone ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Check className="size-4 text-chart-5" />
+          <Check className="size-4 text-success" />
           {dict.installedDescription}
         </p>
       ) : isIOS ? (

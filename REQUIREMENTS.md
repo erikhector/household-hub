@@ -1352,7 +1352,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   that id from its own `requireHousehold()` call first, never from
   client input.
 - **Transactions**: `TransactionList` shows date, category (badge tinted
-  `text-chart-5`/`text-destructive` for income/expense — the same two
+  `text-success`/`text-destructive` for income/expense — the same two
   tokens the summary and amounts use, so the income/expense meaning stays
   visually consistent everywhere on the page), description, and a signed,
   colored amount, with edit/delete per row. Add/edit share one
@@ -1526,7 +1526,7 @@ item is marked purchased with an estimated price
   a trend line would be noise, not signal. Each qualifying item's card shows
   a small hand-rolled inline SVG polyline (a sparkline, not a library
   chart), its latest recorded price and date, and the percent change from
-  its first to its latest recorded price (colored `text-chart-5` when the
+  its first to its latest recorded price (colored `text-success` when the
   price has gone down, `text-destructive` when it's gone up — the same
   green/red semantic the rest of the budget page uses for income/expense).
 - Both charts use only the existing `--chart-1..5` tokens — the monthly bars
@@ -1918,7 +1918,7 @@ Component page function can't itself be unit-tested.
   "Shared") — so the number is never a black box. The list is hidden when
   nothing is due.
 - Same `createMoneyFormat` display-currency convention as the rest of
-  Budgeting (GAP-13); the headline number is colored `text-chart-5` (safe/positive)
+  Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
 
@@ -4150,6 +4150,33 @@ flat grayscale:
   inherits them automatically, so don't override with one-off `shadow-none`
   or `border` tweaks unless a specific screen genuinely needs a quieter
   control.
+- **Contrast**: every text colour holds 4.5:1 on the surfaces it's painted
+  on, and field outlines (`--input`) and the focus ring hold 3:1, in both
+  themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
+  `npm test` when a token change breaks a pair, naming the pair and ratio.
+  The status colours (`--destructive`, `--warning`, `--attention`,
+  `--success`) are tuned to be text on a `--status-tint` (10% light, 20%
+  dark) mix of themselves — that's how Badge, the destructive Button and
+  toasts use them — not only on a plain surface. Dark `--primary-foreground`
+  is a deep purple ink, not white: the lighter dark-theme purple can't hold
+  4.5:1 with white text. Because dark `--input` is white at 35% (for the 3:1
+  outline), the dark field fills in `components/ui/*` use it at small
+  fractions (`bg-input/13`, hover `/20`, disabled `/35`) so fields look as
+  they did at 15%; light disabled fields use `bg-input/15`.
+- **Success colour**: green text and icons that mean good news (a healthy
+  or balanced budget, income, done, saved, "enabled") use `text-success`,
+  not `text-chart-5`. `chart-5` is the same green tuned for chart marks and
+  is only 3.2:1 as text on a light card; it stays for chart bars, legend
+  dots and avatar fills.
+- **Toasts**: `src/components/ui/sonner.tsx` turns on Sonner's `richColors`
+  and points each outcome type at the app's tokens: `toast.success` green
+  (`--success`), `toast.error` red (`--destructive`), `toast.warning` amber
+  (`--warning`), each as its colour on a `--status-tint` of it over the
+  popover with a 30% border (mixed `in oklab`: an `oklch` mix swings the
+  hue through the popover's violet, turning green blue). `toast.info` and plain `toast()` stay neutral
+  (popover) — they're news, not an outcome. The variables have to be set
+  inline on the Toaster, since Sonner's stylesheet sets the same ones on
+  that element per theme.
 
 ## Access control (landing / auth pages vs. the app)
 

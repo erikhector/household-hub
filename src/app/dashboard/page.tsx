@@ -118,7 +118,7 @@ export default async function DashboardOverviewPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-chart-5/15 text-chart-5">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-success/15 text-success">
                 <ListChecks className="size-4 shrink-0" />
               </span>
               {dict.dashboard.yourTasksTitle}

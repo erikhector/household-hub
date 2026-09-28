@@ -24,7 +24,7 @@ export type FixedMonthlyTotals = { month: string; income: number; expense: numbe
 // gets its own amber tone rather than being lumped in with either a
 // comfortably balanced or a truly in-deficit budget.
 const STATUS_COLOR: Record<BudgetBalanceStatus, string> = {
-  balanced: "text-chart-5",
+  balanced: "text-success",
   tight: "text-warning",
   deficit: "text-destructive",
 };
@@ -97,7 +97,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-chart-5">
+            <p className="text-3xl font-semibold text-success">
               {numberFormat.format(monthlyIncome)}
             </p>
           </CardContent>
