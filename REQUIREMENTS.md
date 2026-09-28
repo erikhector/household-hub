@@ -5063,7 +5063,7 @@ runs don't queue behind everyone else's.
 | Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * 1-5` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: finish or fix any open autopilot PR first, otherwise build exactly one eligible backlog item and open a PR. Follow AUTOPILOT.md; stop if it disables you. |
 | Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: review every open PR, resolve addressed review threads, and merge the PRs that pass. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
