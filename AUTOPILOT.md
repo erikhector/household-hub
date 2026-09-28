@@ -1,8 +1,8 @@
 # AUTOPILOT.md
 
 Control file for the autonomous improvement loop: scheduled Claude Code
-sessions that find work (scouts), build it (builder), and improve the
-process itself (retro). Every autopilot session reads this file **first**
+sessions that find work (scouts), build it (builder), review and merge it
+(reviewer), and improve the process itself (retro). Every autopilot session reads this file **first**
 and obeys it. Edit it on `master` to steer or stop the loop; no routine
 needs changing.
 
@@ -15,6 +15,7 @@ Routine prompts live in REQUIREMENTS.md, "Autonomous improvement loop".
 enabled: true            # false = every autopilot session exits immediately
 scouts_enabled: true
 builder_enabled: true
+reviewer_enabled: true
 retro_enabled: true
 ```
 
@@ -24,6 +25,7 @@ retro_enabled: true
 max_open_autopilot_prs: 10     # builder does nothing while this many are open
 max_new_items_per_scout_run: 3
 max_items_per_build_run: 1
+max_merges_per_review_run: 3   # each merge re-runs ci:local on top of the new master
 ```
 
 ## What the builder may pick
@@ -44,7 +46,8 @@ Never pick an item that is:
 ## Human-only areas
 
 An autopilot PR touching any of these must say so in its Summary under
-"⚠️ Needs careful review", and is never a candidate for auto-merge:
+"⚠️ Needs careful review". The reviewer gives them a deeper pass (see the
+`autopilot-review` skill) before merging:
 
 - `prisma/schema.prisma`, `prisma/migrations/`
 - `src/lib/auth.ts`, `src/lib/auth.config.ts`, `src/proxy.ts`, `src/lib/session.ts`
@@ -73,10 +76,16 @@ push/PR again and must be green, as in the `steward` skill.
 ## Merge policy
 
 ```yaml
-auto_merge: false        # phase 1: a human merges every autopilot PR
-# Later, once the retro shows a clean record, e.g.:
-# auto_merge_types: [docs, test, chore]   # never feat/fix touching human-only areas
+auto_merge: reviewer     # false = a human merges every PR
+never_merge_paths: [AUTOPILOT.md, .github/workflows/]
 ```
+
+`reviewer`: the daily `autopilot-review` routine merges any open PR (any
+author) it has reviewed as approved, with no open threads, after bringing
+it up to date with `master` and passing `npm run ci:local`. Drafts and
+PRs labelled `hold` are never merged. Nor is a PR touching
+`never_merge_paths`: the loop doesn't loosen its own limits or CI, so a
+human merges those. The builder never merges.
 
 ## Metrics
 

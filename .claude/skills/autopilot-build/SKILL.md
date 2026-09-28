@@ -70,8 +70,8 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
   `npm run ci:local` (test counts, pass/fail) for the pushed commit.
 - Label `autopilot`. Subscribe to the PR and drive it to mergeable with the
   `steward` skill (review comments, conflicts, and CI per `ci_gate`).
-  Never merge it yourself unless AUTOPILOT.md's merge
-  policy explicitly allows this PR's type and it touches no human-only area.
+  Never merge it yourself: the `autopilot-review` routine reviews and
+  merges every PR.
 
 ## 4. Report
 
