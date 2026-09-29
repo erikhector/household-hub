@@ -76,7 +76,7 @@ import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
 import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
 import { selectPutAwayReminders } from "@/lib/shopping/put-away-calc";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
-import { loadIncomingQuantity } from "@/lib/incoming-stock";
+import { loadIncomingByItem, loadIncomingQuantity } from "@/lib/incoming-stock";
 import { logger } from "@/lib/logger";
 import {
   PRICE_SPIKE_COOLDOWN_DAYS,
@@ -300,6 +300,55 @@ export async function recordOutOfStockTransition(
       actingUserId,
     );
   }
+}
+
+// Batch sibling of recordOutOfStockTransition for the AI shelf scan's "take
+// stock" (bulkSetInventoryQuantitiesAction), which can set up to 300
+// quantities at once. Calling the single-item version per row cost 2-4
+// sequential queries each, so the cost grew with the batch. This judges every
+// change with the same rules (in stock -> 0, nothing incoming, no undismissed
+// alert already) but in a fixed number of queries: one incoming-stock read,
+// one read of existing alerts, one createMany. `name` comes with each change
+// because the caller has already loaded the rows.
+//
+// Push: one item pushes exactly what the single-item version does; several
+// crossing in one scan collapse into a single "N items are out of stock" push
+// rather than one buzz (and one subscription lookup) per item.
+export async function recordOutOfStockTransitions(
+  db: DbClient,
+  householdId: string,
+  changes: readonly { itemId: string; name: string; previousQuantity: number; nextQuantity: number }[],
+  actingUserId?: string,
+): Promise<void> {
+  const candidates = changes.filter((c) => c.previousQuantity > 0 && c.nextQuantity <= 0);
+  if (candidates.length === 0) return;
+
+  const ids = candidates.map((c) => c.itemId);
+  const [incoming, existing] = await Promise.all([
+    loadIncomingByItem(db, householdId, new Date(), ids),
+    db.notification.findMany({
+      where: { householdId, inventoryItemId: { in: ids }, kind: "OUT_OF_STOCK", dismissedAt: null },
+      select: { inventoryItemId: true },
+    }),
+  ]);
+  const alreadyAlerted = new Set(existing.map((n) => n.inventoryItemId));
+  const fresh = candidates.filter((c) => (incoming.get(c.itemId) ?? 0) <= 0 && !alreadyAlerted.has(c.itemId));
+  if (fresh.length === 0) return;
+
+  await db.notification.createMany({
+    data: fresh.map((c) => ({ householdId, kind: "OUT_OF_STOCK" as const, inventoryItemId: c.itemId })),
+  });
+
+  // Fire-and-forget, like recordOutOfStockTransition.
+  void sendPushToHousehold(
+    householdId,
+    {
+      title: "Out of stock",
+      body: fresh.length === 1 ? `${fresh[0].name} is out of stock` : `${fresh.length} items are out of stock`,
+      url: "/dashboard/inventory?status=out",
+    },
+    actingUserId,
+  );
 }
 
 // Fires when a ShoppingList's unpurchased item count crosses from >0 to 0 —

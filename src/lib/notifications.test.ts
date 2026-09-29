@@ -19,6 +19,7 @@ const {
   notificationFindFirstMock,
   notificationCreateMock,
   notificationFindManyMock,
+  notificationCreateManyMock,
   mealPlanEntryFindManyMock,
   inventoryItemFindUniqueMock,
   inventoryItemFindManyMock,
@@ -33,6 +34,7 @@ const {
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
   notificationFindManyMock: vi.fn(),
+  notificationCreateManyMock: vi.fn(),
   mealPlanEntryFindManyMock: vi.fn(),
   inventoryItemFindUniqueMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
@@ -51,6 +53,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: notificationFindFirstMock,
       create: notificationCreateMock,
       findMany: notificationFindManyMock,
+      createMany: notificationCreateManyMock,
     },
     mealPlanEntry: { findMany: mealPlanEntryFindManyMock },
     inventoryItem: { findUnique: inventoryItemFindUniqueMock, findMany: inventoryItemFindManyMock },
@@ -91,6 +94,7 @@ function pendingPush() {
 
 const {
   recordOutOfStockTransition,
+  recordOutOfStockTransitions,
   recordListClearedTransition,
   recordPriceSpikes,
   syncMealNotLoggedNotifications,
@@ -107,6 +111,7 @@ beforeEach(() => {
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
   notificationFindManyMock.mockResolvedValue([]);
+  notificationCreateManyMock.mockResolvedValue({ count: 0 });
   mealPlanEntryFindManyMock.mockResolvedValue([]);
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Eggs" });
   inventoryItemFindManyMock.mockResolvedValue([]);
@@ -219,6 +224,71 @@ describe("recordOutOfStockTransition — incoming stock (put-away flow)", () => 
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
 
     expect(notificationCreateMock).toHaveBeenCalled();
+  });
+});
+
+describe("recordOutOfStockTransitions (batch)", () => {
+  const change = (itemId: string, previousQuantity: number, nextQuantity: number) => ({
+    itemId,
+    name: `Item ${itemId}`,
+    previousQuantity,
+    nextQuantity,
+  });
+
+  it("does nothing, and queries nothing, when no item crossed to zero", async () => {
+    await recordOutOfStockTransitions(prisma, "household-1", [change("a", 3, 1), change("b", 0, 0), change("c", 1, 4)]);
+
+    expect(notificationFindManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateManyMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+  });
+
+  it("alerts once per crossing item in one createMany, skipping incoming-covered and already-alerted ones", async () => {
+    // "b" has a ticked-off row on its way home, "c" already has an alert.
+    shoppingListItemFindManyMock.mockResolvedValue([
+      {
+        inventoryItemId: "b",
+        quantity: 2,
+        purchased: true,
+        putAwayAt: null,
+        checkedOffAt: new Date("2026-09-05T10:00:00.000Z"),
+        priceRecordedAt: null,
+        shoppingList: { status: "ACTIVE", completedAt: null },
+      },
+    ]);
+    notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "c" }]);
+
+    await recordOutOfStockTransitions(
+      prisma,
+      "household-1",
+      [change("a", 3, 0), change("b", 1, 0), change("c", 2, 0), change("d", 2, 0)],
+      "user-1",
+    );
+
+    expect(notificationCreateManyMock).toHaveBeenCalledTimes(1);
+    expect(notificationCreateManyMock).toHaveBeenCalledWith({
+      data: [
+        { householdId: "household-1", kind: "OUT_OF_STOCK", inventoryItemId: "a" },
+        { householdId: "household-1", kind: "OUT_OF_STOCK", inventoryItemId: "d" },
+      ],
+    });
+    // Several at once collapse into one push, still excluding the actor.
+    expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      expect.objectContaining({ body: "2 items are out of stock" }),
+      "user-1",
+    );
+  });
+
+  it("pushes the single-item wording when only one item crossed", async () => {
+    await recordOutOfStockTransitions(prisma, "household-1", [change("a", 3, 0)]);
+
+    expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
+      "household-1",
+      expect.objectContaining({ body: "Item a is out of stock" }),
+      undefined,
+    );
   });
 });
 

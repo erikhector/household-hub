@@ -175,19 +175,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       `personal-budget/page.tsx:138-158` (two queries per membership — batch
       with `householdId: { in }`); `meal-planning/page.tsx:57`
       (`include: { recipe: true }` pulls instructions — `select`).
-- [ ] **PERF-15. Batch the bulk "take stock" quantity update** (impact: high,
-      effort: M) — `inventory/actions.ts:464-475`
-      (`bulkSetInventoryQuantitiesAction`, accepts up to 300 updates per
-      `bulkSetQuantitySchema`) awaits, per item: `inventoryItem.update`
-      (:467), `recordOutOfStockTransition` (:471, itself 2-4 sequential
-      queries), then `addToDefaultListOnLowStock` (:472, itself 3-4
-      sequential queries) — roughly 6-9 sequential round trips per item, up
-      to ~2,700 for a full batch. Slows the AI shelf-scan restock flow and
-      gets worse with batch size. Acceptance: the loop issues a small,
-      bounded number of queries regardless of batch size (e.g. `updateMany`
-      plus precomputed out-of-stock/low-stock crossings from the
-      already-fetched `items` map, run with `Promise.all`), verified by a
-      test asserting query count doesn't scale with `updates.length`.
 - [ ] **PERF-16. Stop re-fetching the whole inventory table per unmatched
       receipt line** (impact: high, effort: S) —
       `shopping-list/actions.ts:1605-1628` (`registerReceiptAction`) awaits

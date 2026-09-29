@@ -25,8 +25,12 @@ const {
   transactionMock,
   revalidatePathMock,
   addToDefaultListOnLowStockMock,
+  addToDefaultListOnLowStockBatchMock,
   addItemToDefaultListMock,
   unitConversionCountMock,
+  executeRawMock,
+  notificationFindManyMock,
+  notificationCreateManyMock,
 } = vi.hoisted(() => ({
   requireHouseholdMock: vi.fn(),
   createMock: vi.fn(),
@@ -46,8 +50,12 @@ const {
   transactionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   addToDefaultListOnLowStockMock: vi.fn(),
+  addToDefaultListOnLowStockBatchMock: vi.fn(),
   addItemToDefaultListMock: vi.fn(),
   unitConversionCountMock: vi.fn(),
+  executeRawMock: vi.fn(),
+  notificationFindManyMock: vi.fn(),
+  notificationCreateManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -55,6 +63,7 @@ vi.mock("@/lib/prisma", () => {
     // Interactive transactions run against the same mocked client, so
     // assertions see every write regardless of which client made it.
     $transaction: transactionMock,
+    $executeRaw: executeRawMock,
     inventoryItem: {
       create: createMock,
       createMany: createManyMock,
@@ -73,7 +82,12 @@ vi.mock("@/lib/prisma", () => {
       // (src/lib/incoming-stock.ts): nothing ticked and waiting here.
       findMany: vi.fn(async () => []),
     },
-    notification: { findFirst: notificationFindFirstMock, create: notificationCreateMock },
+    notification: {
+      findFirst: notificationFindFirstMock,
+      create: notificationCreateMock,
+      findMany: notificationFindManyMock,
+      createMany: notificationCreateManyMock,
+    },
     itemUnitConversion: { count: unitConversionCountMock },
   };
   transactionMock.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
@@ -99,6 +113,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 // with what, and that its result reaches the client.
 vi.mock("@/lib/shopping/default-list", () => ({
   addToDefaultListOnLowStock: addToDefaultListOnLowStockMock,
+  addToDefaultListOnLowStockBatch: addToDefaultListOnLowStockBatchMock,
   addItemToDefaultList: addItemToDefaultListMock,
   revalidateAutoAdded: vi.fn(),
 }));
@@ -115,6 +130,7 @@ const {
   undoMarkItemOpenedAction,
   deleteInventoryItemAction,
   bulkUpdateFieldAction,
+  bulkSetInventoryQuantitiesAction,
 } = await import("@/app/dashboard/inventory/actions");
 
 function formData(fields: Record<string, string>) {
@@ -132,6 +148,9 @@ afterEach(() => {
   findManyMock.mockResolvedValue([]);
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
+  notificationFindManyMock.mockResolvedValue([]);
+  notificationCreateManyMock.mockResolvedValue({ count: 0 });
+  addToDefaultListOnLowStockBatchMock.mockResolvedValue([]);
   inventoryItemFindUniqueMock.mockResolvedValue({ name: "Flour" });
 });
 requireHouseholdMock.mockResolvedValue({ household, userId });
@@ -911,5 +930,104 @@ describe("bulkUpdateFieldAction", () => {
       where: { id: { in: ["item-1"] }, householdId: "household-1" },
       data: { location: "Fridge", updatedByUserId: "user-1" },
     });
+  });
+});
+
+describe("bulkSetInventoryQuantitiesAction (PERF-15)", () => {
+  const row = (id: string, quantity: number) => ({
+    id,
+    name: `Item ${id}`,
+    unit: "pcs",
+    quantity,
+    lowStockThreshold: 1,
+    lastKnownPrice: null,
+  });
+
+  // Every query the action can issue through the mocked client, so the count
+  // below is the number of database round trips (the default-list helper is
+  // mocked separately and asserted on its own).
+  const queryCount = () =>
+    findManyMock.mock.calls.length +
+    updateMock.mock.calls.length +
+    executeRawMock.mock.calls.length +
+    notificationFindManyMock.mock.calls.length +
+    notificationCreateManyMock.mock.calls.length +
+    notificationFindFirstMock.mock.calls.length +
+    notificationCreateMock.mock.calls.length;
+
+  async function runBatch(size: number) {
+    // Every item goes from 5 to 0: the most expensive path (out-of-stock
+    // alert and auto-add for each).
+    const ids = Array.from({ length: size }, (_, i) => `i${i}`);
+    findManyMock.mockResolvedValue(ids.map((id) => row(id, 5)));
+    vi.clearAllMocks();
+    findManyMock.mockResolvedValue(ids.map((id) => row(id, 5)));
+    notificationFindManyMock.mockResolvedValue([]);
+    addToDefaultListOnLowStockBatchMock.mockResolvedValue([]);
+    const result = await bulkSetInventoryQuantitiesAction(ids.map((itemId) => ({ itemId, quantity: 0 })));
+    return { result, queries: queryCount() };
+  }
+
+  it("issues the same number of queries however many items are updated", async () => {
+    const small = await runBatch(2);
+    const large = await runBatch(300);
+
+    expect(small.result.updated).toBe(2);
+    expect(large.result.updated).toBe(300);
+    expect(large.queries).toBe(small.queries);
+    // Never one update per row.
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    expect(addToDefaultListOnLowStockBatchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("scopes the read to the household and skips ids that are not its items", async () => {
+    findManyMock.mockResolvedValue([row("mine", 3)]);
+
+    const result = await bulkSetInventoryQuantitiesAction([
+      { itemId: "mine", quantity: 1 },
+      { itemId: "someone-elses", quantity: 1 },
+    ]);
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: { householdId: "household-1", id: { in: ["mine", "someone-elses"] } },
+    });
+    expect(result.updated).toBe(1);
+    // The write is also household-filtered and only carries the found id.
+    const sqlArgs = executeRawMock.mock.calls[0].slice(1);
+    expect(sqlArgs).toContain("household-1");
+    expect(sqlArgs).toContainEqual(["mine"]);
+  });
+
+  it("creates one out-of-stock alert for each item that hit zero and none for the rest", async () => {
+    findManyMock.mockResolvedValue([row("a", 2), row("b", 2), row("c", 0)]);
+    notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "b" }]);
+
+    await bulkSetInventoryQuantitiesAction([
+      { itemId: "a", quantity: 0 },
+      { itemId: "b", quantity: 0 },
+      { itemId: "c", quantity: 0 },
+    ]);
+
+    // b already has an undismissed alert, c was already out.
+    expect(notificationCreateManyMock).toHaveBeenCalledWith({
+      data: [{ householdId: "household-1", kind: "OUT_OF_STOCK", inventoryItemId: "a" }],
+    });
+  });
+
+  it("returns what the batch auto-add put on the list", async () => {
+    const added = { shoppingListItemId: "s1", listId: "l1", listName: "Next shop", itemName: "Item a" };
+    findManyMock.mockResolvedValue([row("a", 2)]);
+    addToDefaultListOnLowStockBatchMock.mockResolvedValue([added]);
+
+    const result = await bulkSetInventoryQuantitiesAction([{ itemId: "a", quantity: 0 }]);
+
+    expect(result).toEqual({ updated: 1, autoAdded: [added] });
+  });
+
+  it("rejects an empty batch without touching the database", async () => {
+    const result = await bulkSetInventoryQuantitiesAction([]);
+    expect(result.error).toBeDefined();
+    expect(findManyMock).not.toHaveBeenCalled();
   });
 });

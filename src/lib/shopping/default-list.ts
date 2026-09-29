@@ -21,7 +21,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getStockStatus } from "@/lib/stock-status";
-import { coveredQuantity, loadIncomingQuantity } from "@/lib/incoming-stock";
+import { coveredQuantity, loadIncomingByItem, loadIncomingQuantity } from "@/lib/incoming-stock";
 
 type DbClient = typeof prisma | Prisma.TransactionClient;
 
@@ -179,6 +179,73 @@ export async function addToDefaultListOnLowStock(
 
   const { created } = await addItemToDefaultList(db, householdId, item, true);
   return created;
+}
+
+/**
+ * Batch sibling of addToDefaultListOnLowStock for the AI shelf scan's "take
+ * stock" (bulkSetInventoryQuantitiesAction). Same crossing rule (in stock ->
+ * low/out, judged on stock plus what's on its way), but a fixed number of
+ * queries however many items changed: one incoming-stock read, the household
+ * flag, the default list (get-or-create), one read of what's already pending
+ * and one createManyAndReturn. Nothing is queried when no item decreased.
+ *
+ * Callers pass the rows they already loaded (threshold, unit, price) rather
+ * than this re-reading them, and `quantity` on each is the *previous* count;
+ * the list quantity is topped up from `nextQuantity` exactly as the
+ * single-item version does after the caller's update. Results come back in
+ * input order, one per item actually added.
+ */
+export async function addToDefaultListOnLowStockBatch(
+  db: DbClient,
+  householdId: string,
+  changes: readonly { item: ListableItem; previousQuantity: number; nextQuantity: number }[],
+): Promise<AutoAddedItem[]> {
+  const decreased = changes.filter((c) => c.nextQuantity < c.previousQuantity);
+  if (decreased.length === 0) return [];
+
+  const [incoming, household] = await Promise.all([
+    loadIncomingByItem(db, householdId, new Date(), decreased.map((c) => c.item.id)),
+    db.household.findUnique({ where: { id: householdId }, select: { autoAddLowStockToList: true } }),
+  ]);
+  if (!household?.autoAddLowStockToList) return [];
+
+  const crossed = decreased.filter((c) => {
+    const covered = incoming.get(c.item.id) ?? 0;
+    return (
+      getStockStatus(coveredQuantity(c.previousQuantity, covered), c.item.lowStockThreshold) === "in" &&
+      getStockStatus(coveredQuantity(c.nextQuantity, covered), c.item.lowStockThreshold) !== "in"
+    );
+  });
+  if (crossed.length === 0) return [];
+
+  const list = await getOrCreateDefaultShoppingList(db, householdId);
+  const pending = await db.shoppingListItem.findMany({
+    where: { shoppingListId: list.id, purchased: false, inventoryItemId: { in: crossed.map((c) => c.item.id) } },
+    select: { inventoryItemId: true },
+  });
+  const alreadyPending = new Set(pending.map((row) => row.inventoryItemId));
+  const toAdd = crossed.filter((c) => !alreadyPending.has(c.item.id));
+  if (toAdd.length === 0) return [];
+
+  const rows = await db.shoppingListItem.createManyAndReturn({
+    data: toAdd.map(({ item, nextQuantity }) => ({
+      shoppingListId: list.id,
+      inventoryItemId: item.id,
+      name: item.name,
+      quantity: Math.max(1, item.lowStockThreshold - nextQuantity),
+      unit: item.unit,
+      addedAutomatically: true,
+      estimatedPrice: item.lastKnownPrice ?? undefined,
+    })),
+    select: { id: true, inventoryItemId: true },
+  });
+  const rowByItem = new Map(rows.map((row) => [row.inventoryItemId, row.id]));
+  return toAdd.flatMap(({ item }) => {
+    const shoppingListItemId = rowByItem.get(item.id);
+    return shoppingListItemId
+      ? [{ shoppingListItemId, listId: list.id, listName: list.name, itemName: item.name }]
+      : [];
+  });
 }
 
 // Every caller revalidates its own pages already; this adds the list pages

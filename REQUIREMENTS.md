@@ -850,7 +850,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     call sites (see "Notification center" → Out of stock:
     `adjustQuantityAction`, `markItemEmptyAction`,
     `updateInventoryItemAction`, `bulkUpdateFieldAction`,
-    `bulkSetInventoryQuantitiesAction` (AI shelf scan restock),
+    `bulkSetInventoryQuantitiesAction` (AI shelf scan restock; through the
+    batch siblings `recordOutOfStockTransitions` and
+    `addToDefaultListOnLowStockBatch`, see below),
     `markMealEntryCookedAction`, and every shopping arrival/reversal via
     `applyStockArrival`/`reverseStockArrival` in
     `src/lib/shopping/put-away.ts`: `togglePurchasedAction`, the share-link
@@ -869,6 +871,19 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     `max(1, threshold − quantity)`, carries the item's `lastKnownPrice`
     (AUTO-4) and is flagged `addedAutomatically` (the existing "Low stock"
     badge on the row).
+  - **Take stock runs in a fixed number of queries (PERF-15).**
+    `bulkSetInventoryQuantitiesAction` (up to 300 updates) writes every
+    new quantity in one `UPDATE … FROM unnest(…)` (household-filtered in
+    the statement) and judges the whole batch with
+    `recordOutOfStockTransitions` (src/lib/notifications.ts) and
+    `addToDefaultListOnLowStockBatch` (src/lib/shopping/default-list.ts):
+    one read of incoming stock, one of existing alerts/pending rows, one
+    `createMany`/`createManyAndReturn`, whatever the batch size. The rules
+    are the single-item ones. Differences: several items going out of stock
+    in one scan send one "N items are out of stock" push instead of one
+    per item, and an itemId repeated in a batch counts once (last
+    quantity wins). Unit tests assert the query count does not grow with
+    `updates.length`.
   - **Undo, not confirm.** Each of those actions returns
     `autoAdded: AutoAddedItem[]` (the created row ids plus list/item
     names), and `showAutoAddedToast`
