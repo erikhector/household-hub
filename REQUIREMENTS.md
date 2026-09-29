@@ -534,6 +534,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
+  - **Quick-add row (UX-1)**: the empty inventory's `QuickAddBar` (name,
+    quantity, unit, category) gives the unit `ComboField` a `w-32` column
+    (128px), because the field also holds its clear (×) and chevron
+    buttons and the old `w-20` left the input a few pixels, so the default
+    "pcs" showed as a single letter. `e2e/quick-add-unit.spec.ts` guards it
+    at 390px in `en` and `sv` (its own empty household, since the seeded
+    one has items).
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already
@@ -3917,7 +3924,7 @@ everywhere.
   switching language relabels every recipe and the filter compares exact
   keys, not free text. Not free-form on purpose: "veg", "veggie" and
   "vegetarian" typed on three recipes would split one filter three ways.
-- **Validation**: `parseRecipeTags` (Zod `z.enum(RECIPE_TAGS)`) dedupes,
+- **Validation**: `parseRecipeTags` (a plain membership check against `RECIPE_TAGS`) dedupes,
   sorts into canonical order and **drops** unknown values rather than
   rejecting the save, so a stale tab offering a since-removed tag can't make
   a recipe unsaveable. `createRecipeAction`/`updateRecipeAction` run the
@@ -3929,6 +3936,10 @@ everywhere.
   enum or join table: the set is tiny, filtering happens client-side over
   the already-loaded list, and growing it needs only a key plus two labels,
   no migration.
+  *Bundle size (PERF-7)*: `recipe-tags.ts` is imported by the client
+  `recipe-manager.tsx` and `recipe-form-dialog.tsx`, so it must stay
+  free of `zod` (which put a ~99 KB gz chunk into the meal-planning page).
+  `isRecipeTag` is a `Set` lookup for that reason.
 - **Form**: `RecipeFormDialog` (create and edit) shows every tag as a
   toggle chip (`aria-pressed`, the starter-picker look) under
   instructions, posted as one hidden `tags` input per selected tag.
@@ -4768,7 +4779,11 @@ places — and a "Mark all as read" button that calls
 household-scoped `updateMany` sibling to `dismissNotificationAction` that
 clears every currently-active alert in one go. Clicking an individual
 still-unread row dismisses just that one (same as the bell) before letting
-the link navigate; an already-read row is just a link.
+the link navigate; an already-read row is just a link. With no rows at all
+(UX-3) the page says "No notifications yet." plus one sentence naming what
+produces one (an item running out of stock, or about to expire), so a new
+household doesn't read the empty page as broken. Only triggers from the
+list above are named, so it never promises task or invite notifications.
 
 ## PWA install & push notifications
 

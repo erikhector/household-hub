@@ -14,10 +14,11 @@
 // path runs through parseRecipeTags below. Removing one is also safe: a
 // stored key that's no longer in the set is silently dropped on read.
 //
-// Pure and dependency-light (just zod) so it's shared by the Server
-// Actions, the recipe-import parser and the client-side filter alike.
-
-import { z } from "zod";
+// Pure and dependency-free so it's shared by the Server Actions, the
+// recipe-import parser and the client-side filter alike. Deliberately no
+// zod (PERF-7): recipe-manager.tsx and recipe-form-dialog.tsx import this
+// file, and a zod import here pulled a ~99 KB gz chunk into the
+// meal-planning client bundle for what is only a closed-set membership check.
 
 // Order is display order — in the form's chips, the filter's options and a
 // recipe card's badges — roughly strictest diet first, "quick" (not a diet
@@ -40,10 +41,10 @@ export type RecipeTag = (typeof RECIPE_TAGS)[number];
 // request can make the server iterate over before the enum check drops it.
 const MAX_RAW_TAG_VALUES = 100;
 
-const recipeTagSchema = z.enum(RECIPE_TAGS);
+const RECIPE_TAG_SET: ReadonlySet<unknown> = new Set(RECIPE_TAGS);
 
 export function isRecipeTag(value: unknown): value is RecipeTag {
-  return recipeTagSchema.safeParse(value).success;
+  return RECIPE_TAG_SET.has(value);
 }
 
 /**
@@ -59,8 +60,8 @@ export function parseRecipeTags(values: Iterable<unknown>): RecipeTag[] {
   let seen = 0;
   for (const value of values) {
     if (++seen > MAX_RAW_TAG_VALUES) break;
-    const parsed = recipeTagSchema.safeParse(typeof value === "string" ? value.trim() : value);
-    if (parsed.success) found.add(parsed.data);
+    const candidate = typeof value === "string" ? value.trim() : value;
+    if (isRecipeTag(candidate)) found.add(candidate);
   }
   return RECIPE_TAGS.filter((tag) => found.has(tag));
 }

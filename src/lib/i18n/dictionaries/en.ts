@@ -65,7 +65,10 @@ export const en = {
       title: "Notifications",
       subtitle: "Everything sent to your household, read or not.",
       markAllRead: "Mark all as read",
-      empty: "No notifications yet.",
+      // UX-3: names real triggers only (out of stock, expiring soon; see
+      // "Notification center" in REQUIREMENTS.md). There are no task or
+      // invite notifications, so they're deliberately not promised here.
+      empty: "No notifications yet. You'll see one here when an item runs out of stock or is about to expire.",
       unread: "Unread",
     },
   },

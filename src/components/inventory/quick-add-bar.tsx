@@ -107,7 +107,10 @@ export function QuickAddBar({
             disabled={isPending}
           />
         </div>
-        <div className="flex w-20 flex-col gap-1">
+        {/* w-32, not w-20: the combobox also holds its clear (×) and chevron
+            buttons plus padding and border (~74px), so 80px left the input
+            about 6px and "pcs" showed as a single letter (UX-1). */}
+        <div className="flex w-32 flex-col gap-1">
           <Label htmlFor="quick-add-unit" className="text-[11px] font-normal text-muted-foreground">
             {dict.unitLabel}
           </Label>

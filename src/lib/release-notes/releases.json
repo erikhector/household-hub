@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.46.10",
+    "date": "2026-09-29",
+    "pr": 120,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The Unit field in the quick-add row on an empty inventory now shows the whole unit (like \"pcs\") instead of a single letter.",
+      "sv": "Fältet Enhet i snabbtilläggsraden på ett tomt förråd visar nu hela enheten (till exempel \"pcs\") i stället för en enda bokstav."
+    }
+  },
+  {
+    "version": "0.46.9",
+    "date": "2026-09-29",
+    "pr": 119,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The empty Notifications page now explains what shows up there: an item running out of stock or about to expire.",
+      "sv": "Den tomma aviseringssidan förklarar nu vad som dyker upp där: en vara som tar slut eller snart går ut."
+    }
+  },
+  {
+    "version": "0.46.8",
+    "date": "2026-09-29",
+    "pr": 118,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The recipes page loads faster.",
+      "sv": "Receptsidan laddas snabbare."
+    }
+  },
+  {
     "version": "0.46.7",
     "date": "2026-09-28",
     "pr": 114,
