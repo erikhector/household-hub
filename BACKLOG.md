@@ -221,16 +221,6 @@ tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
 touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
-- [ ] **MAINT-2. No `householdId`-taking exports from `"use server"` files** (high, S) —
-      `findOrCreateGroceriesCategory(householdId)`
-      (`dashboard/budget/actions.ts:39`) and
-      `isHouseholdStepSkipped(householdId)` (`lib/actions/household.ts:303`)
-      are exported from `"use server"` modules, so they're potential
-      client-callable endpoints that take a household id — the one thing
-      AGENTS.md says never to accept from the client. Move them to plain
-      server modules, and add a test that every `"use server"` export ends
-      in `Action` or is on a small allowlist (the token-gated
-      `getShoppingListByShareToken`, `getInvitationForDisplay`).
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,

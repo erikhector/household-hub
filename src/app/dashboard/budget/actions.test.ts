@@ -100,7 +100,6 @@ vi.mock("@/lib/session", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
 const {
-  findOrCreateGroceriesCategory,
   createCategoryAction,
   createStarterCategoriesAction,
   updateCategoryAction,
@@ -137,28 +136,6 @@ afterEach(() => {
 requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
 requireUserIdMock.mockResolvedValue("user-1");
 transactionFindManyMock.mockResolvedValue([]);
-
-describe("findOrCreateGroceriesCategory", () => {
-  it("returns the existing category scoped to the given household when present", async () => {
-    categoryFindFirstMock.mockResolvedValue({ id: "cat-1", name: "Groceries" });
-
-    const result = await findOrCreateGroceriesCategory("household-1");
-
-    expect(result).toEqual({ id: "cat-1", name: "Groceries" });
-    expect(categoryCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("creates it when missing", async () => {
-    categoryFindFirstMock.mockResolvedValue(null);
-    categoryCreateMock.mockResolvedValue({ id: "new-cat" });
-
-    await findOrCreateGroceriesCategory("household-1");
-
-    expect(categoryCreateMock).toHaveBeenCalledWith({
-      data: { householdId: "household-1", name: "Groceries", type: "EXPENSE" },
-    });
-  });
-});
 
 describe("createCategoryAction", () => {
   it("rejects an empty name", async () => {

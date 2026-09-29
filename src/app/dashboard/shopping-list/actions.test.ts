@@ -214,7 +214,7 @@ vi.mock("@/lib/i18n/format", () => ({
     template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? "")),
   plural: (count: number, forms: { one: string; other: string }) => (count === 1 ? forms.one : forms.other),
 }));
-vi.mock("@/app/dashboard/budget/actions", () => ({
+vi.mock("@/lib/budget-groceries-category", () => ({
   findOrCreateGroceriesCategory: findOrCreateGroceriesCategoryMock,
 }));
 vi.mock("@/lib/exchange-rate", () => ({ fetchExchangeRate: fetchExchangeRateMock }));

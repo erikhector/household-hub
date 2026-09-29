@@ -6,7 +6,7 @@ import { GettingStarted, type GettingStartedStep } from "@/components/dashboard/
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { isHouseholdStepSkipped } from "@/lib/actions/household";
+import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
