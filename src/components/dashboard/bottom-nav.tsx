@@ -17,6 +17,7 @@ import {
   overflowMobileNavItems,
   isNavItemActive,
   NAV_ICON_TILE_CLASSES,
+  type ShellDictionary,
 } from "@/components/dashboard/nav-items";
 import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
@@ -58,7 +59,7 @@ export function BottomNav({
   notifications,
   unseenRelease,
 }: {
-  dict: Dictionary;
+  dict: ShellDictionary;
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
   unseenRelease: boolean;

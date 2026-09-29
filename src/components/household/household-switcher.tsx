@@ -75,10 +75,10 @@ export function HouseholdSwitcher({
 }: {
   current: HouseholdOption;
   households: HouseholdOption[];
-  dict: Dictionary;
+  dict: Dictionary["household"]["switcher"];
 }) {
   const [isPending, startTransition] = useTransition();
-  const switcherDict = dict.household.switcher;
+  const switcherDict = dict;
 
   return (
     <div className="flex min-w-0 items-center gap-1">

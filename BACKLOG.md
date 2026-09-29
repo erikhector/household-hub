@@ -134,12 +134,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
-      `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
-      the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use
-      ~7.6 KB of it; it's inlined into every dashboard document and
-      layout-re-rendering action response. Pass `Pick<Dictionary, …>`
-      sub-objects (AGENTS.md already asks for this).
 - [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
       import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
       page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`

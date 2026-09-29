@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Languages, LogOut, Sparkles } from "lucide-r
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
-import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
+import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
 import { useLogout } from "@/lib/push-client";
 import { useThemeCycle } from "@/components/theme/use-theme-cycle";
 import { THEME_CHOICES } from "@/components/theme/theme-choice";
@@ -42,6 +42,7 @@ export function Sidebar({
   current,
   households,
   dict,
+  switcherDict,
   locale,
   notifications,
   unseenRelease,
@@ -49,7 +50,8 @@ export function Sidebar({
   defaultExpanded: boolean;
   current: HouseholdOption;
   households: HouseholdOption[];
-  dict: Dictionary;
+  dict: ShellDictionary;
+  switcherDict: Dictionary["household"]["switcher"];
   locale: Locale;
   notifications: Promise<NotificationItem[]>;
   unseenRelease: boolean;
@@ -79,7 +81,7 @@ export function Sidebar({
     >
       <div className={cn("flex items-center border-b px-2 py-3", !expanded && "justify-center")}>
         {expanded ? (
-          <HouseholdSwitcher current={current} households={households} dict={dict} />
+          <HouseholdSwitcher current={current} households={households} dict={switcherDict} />
         ) : (
           <span
             className="flex size-8 items-center justify-center rounded-md bg-muted text-xs font-semibold"
