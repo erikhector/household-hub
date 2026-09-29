@@ -17,6 +17,9 @@ test("empty notification history names what generates a notification", async ({ 
   }
 
   await page.goto("/dashboard/notifications");
-  await expect(page.getByText("No notifications yet.")).toBeVisible();
-  await expect(page.getByText(/runs out of stock or is about to expire/)).toBeVisible();
+  // Scoped to <main>: on the phone layout the same text also turns up
+  // outside it (a hidden duplicate), which trips getByText's strict mode.
+  const empty = page.getByRole("main").getByText("No notifications yet.");
+  await expect(empty).toBeVisible();
+  await expect(empty).toContainText("runs out of stock or is about to expire");
 });
