@@ -635,6 +635,38 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
+### 2026-09-29 scan
+
+- [ ] **GAP-42. Cook mode on a recipe (screen stays on, tick off steps)** (impact: med, effort: M) —
+      Paprika's "Cook" view keeps the screen awake, lets you cross off
+      ingredients and highlight the current step; Mealie and Tandoor have
+      the same. Squirrel shows a recipe's `instructions` (one step per line,
+      see REQUIREMENTS.md "Recipe import from URL") only in the edit form
+      (`src/components/meal-planning/recipe-form-dialog.tsx`), so cooking
+      from a phone means an editing dialog that dims and locks mid-recipe.
+      The screen-wake-lock hook already exists for shopping
+      (`src/lib/shopping/use-screen-wake-lock.ts`, AUTO-3) and can be
+      reused. No schema change; component state only, nothing stored in the
+      browser (no `cookie-inventory.ts` entry). Acceptance: a "Cook" button on
+      a recipe with instructions opens a full-screen read view with large
+      step text, the ingredients (scaled to the meal entry's portions when
+      opened from the plan) and tappable steps that dim when done; it
+      requests the wake lock while open and releases it on close; an e2e test
+      opens it on desktop and mobile, ticks a step and asserts it is marked
+      done and that closing returns to the recipe list.
+
+- [ ] **GAP-43. Share a recipe with someone outside the household via a link** `[!]` —
+      needs a product decision. Paprika, Mealie and Tandoor let you send a
+      recipe to a friend or family member. Squirrel's only sharing is inside
+      a household, and every read is scoped by `requireHousehold()`, so a
+      public link would be the app's first unauthenticated data read: it
+      needs decisions on token format and revocation (see SEC-8 on
+      single-use tokens), whether the link shows a snapshot or the live
+      recipe, and whether the receiver can import it into their own
+      household, which would also cross the tenancy boundary in
+      `src/lib/session.ts`. A plain "copy as text" would avoid all of that
+      and could be the smaller first step.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
