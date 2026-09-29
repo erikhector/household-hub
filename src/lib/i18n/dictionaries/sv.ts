@@ -55,7 +55,7 @@ export const sv = {
       title: "Aviseringar",
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
       markAllRead: "Markera alla som lästa",
-      empty: "Inga aviseringar än.",
+      empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
       unread: "Oläst",
     },
   },
