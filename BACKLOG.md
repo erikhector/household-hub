@@ -353,21 +353,6 @@ no broken empty states — the issues below are all clipped/illegible text.
       this field. Acceptance: an e2e assertion that the quick-add unit
       field's visible text matches its selected value (not truncated to one
       character) at 390px width.
-- [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
-      (impact: medium, effort: S) — the inventory filter row's `Select`s
-      (`src/components/inventory/inventory-client.tsx:262-282`) sit in
-      narrow grid columns, and the shared `SelectTrigger`/`SelectValue`
-      (`src/components/ui/select.tsx:20-42`) only sets `whitespace-nowrap` +
-      `line-clamp-1`, not `truncate` — so a label longer than its column is
-      hard-clipped instead of ellipsized. Visible on the Inventory page at
-      1280px in **both** locales: English clips "Group by: No groupin[g]",
-      Swedish clips "Senast uppdaterad: Ny[aste först]". Since
-      `SelectValue`/`SelectTrigger` are shared UI primitives, likely affects
-      any other narrow `Select` too. Fix in `select.tsx` (swap the
-      clamp/nowrap combo for `truncate`, or add `text-ellipsis overflow-hidden`
-      to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
-      or visual check that a long option's label ends in an ellipsis, not a
-      mid-word cut, at 1280px.
 - [ ] **UX-3. Notifications empty state gives no next step** (impact: low,
       effort: S) — every other feature's empty state explains what to do
       next ("Add a few items to start tracking what's in stock.", "No tasks

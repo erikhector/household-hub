@@ -5025,6 +5025,11 @@ approximating them, so the email never disagrees with the app.
   categories") needs an explicit `children` render function on `SelectValue`
   mapping value → label (see `InventoryClient`'s filter selects), or it'll
   silently render the sentinel/id instead of the intended text.
+- `SelectValue` is a `block truncate` element (UX-2): a selected label wider
+  than its trigger ends in an ellipsis instead of being clipped mid-word.
+  `text-overflow` only works on a block box, so don't put `flex` back on
+  it; if a value ever needs an icon next to the text, wrap the text in its
+  own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
 
 ## Testing
 
