@@ -72,6 +72,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { after } from "next/server";
 import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
 import { INCOMING_MAX_AGE_DAYS } from "@/lib/incoming-stock";
 import { selectPutAwayReminders } from "@/lib/shopping/put-away-calc";
@@ -284,20 +285,24 @@ export async function recordOutOfStockTransition(
     data: { householdId, kind: "OUT_OF_STOCK", inventoryItemId: itemId },
   });
 
-  // Fire-and-forget: some callers run this inside a $transaction (see this
-  // function's doc comment above), and awaiting a push network call there
-  // would hold it open. See sendPushToHousehold's doc comment in
-  // src/lib/push.ts for why that's an acceptable trade.
+  // Deferred with after() (PERF-9): some callers run this inside a
+  // $transaction (see this function's doc comment above), and awaiting a push
+  // network call there would hold it open. after() runs the send once the
+  // response has gone out, while still keeping the serverless invocation
+  // alive until it finishes, which a bare `void` promise doesn't. See
+  // sendPushToHousehold's doc comment in src/lib/push.ts.
   const item = await db.inventoryItem.findUnique({ where: { id: itemId }, select: { name: true } });
   if (item) {
-    void sendPushToHousehold(
-      householdId,
-      {
-        title: "Out of stock",
-        body: `${item.name} is out of stock`,
-        url: "/dashboard/inventory?status=out",
-      },
-      actingUserId,
+    after(() =>
+      sendPushToHousehold(
+        householdId,
+        {
+          title: "Out of stock",
+          body: `${item.name} is out of stock`,
+          url: "/dashboard/inventory?status=out",
+        },
+        actingUserId,
+      ),
     );
   }
 }
@@ -378,18 +383,20 @@ export async function recordListClearedTransition(
     data: { householdId, kind: "LIST_CLEARED", shoppingListId },
   });
 
-  // Fire-and-forget — see recordOutOfStockTransition's matching comment
+  // Deferred with after() — see recordOutOfStockTransition's matching comment
   // above and sendPushToHousehold's doc comment in src/lib/push.ts.
   const list = await db.shoppingList.findUnique({ where: { id: shoppingListId }, select: { name: true } });
   if (list) {
-    void sendPushToHousehold(
-      householdId,
-      {
-        title: "Shopping list cleared",
-        body: `${list.name} is all checked off`,
-        url: `/dashboard/shopping-list/${shoppingListId}`,
-      },
-      actingUserId,
+    after(() =>
+      sendPushToHousehold(
+        householdId,
+        {
+          title: "Shopping list cleared",
+          body: `${list.name} is all checked off`,
+          url: `/dashboard/shopping-list/${shoppingListId}`,
+        },
+        actingUserId,
+      ),
     );
   }
 }
@@ -429,21 +436,26 @@ export type RecordedPrice = {
  *
  * Never throws — the prices are already saved, so a failure here is logged
  * and swallowed rather than turned into an error for a purchase that
- * actually succeeded. The push is awaited, like the cron syncs' (there's no
- * transaction left to hold open, and awaiting means a serverless platform
- * can't freeze the invocation before the send goes out).
+ * actually succeeded. The whole check (three queries plus the push) runs in
+ * `after()` (PERF-9), so the check-off response no longer waits on it, yet
+ * the invocation is kept alive until it finishes. That also means it returns
+ * void, not a promise: callers must not await it.
  *
  * Callers must resolve `householdId` from their own requireHousehold() (or,
  * for the share link, from the list the token resolved) — the item lookup
  * below is scoped to it, so a foreign item id is silently skipped.
  */
-export async function recordPriceSpikes(
+export function recordPriceSpikes(householdId: string, recorded: RecordedPrice[], actingUserId?: string): void {
+  if (recorded.length === 0) return;
+
+  after(() => detectAndNotifyPriceSpikes(householdId, recorded, actingUserId));
+}
+
+async function detectAndNotifyPriceSpikes(
   householdId: string,
   recorded: RecordedPrice[],
   actingUserId?: string,
 ): Promise<void> {
-  if (recorded.length === 0) return;
-
   try {
     const now = new Date();
     const itemIds = [...new Set(recorded.map((row) => row.inventoryItemId))];
@@ -565,7 +577,7 @@ export async function syncMealNotLoggedNotifications(householdId: string): Promi
       }
 
       // Awaited — unlike recordOutOfStockTransition/recordListClearedTransition
-      // (which fire-and-forget because some of their callers run inside a
+      // (which defer to after() because some of their callers run inside a
       // Prisma $transaction; see sendPushToHousehold's doc comment in
       // src/lib/push.ts), this function only ever runs from
       // `/api/cron/sync-notifications`, outside any transaction. A Route
@@ -632,7 +644,7 @@ export async function syncExpiringSoonNotifications(householdId: string): Promis
     toAlert.map(async (item) => {
       await prisma.notification.create({ data: { householdId, kind: "EXPIRING_SOON", inventoryItemId: item.id } });
 
-      // Awaited, not fire-and-forget — see syncMealNotLoggedNotifications's
+      // Awaited, not deferred — see syncMealNotLoggedNotifications's
       // matching comment above: this function only ever runs from
       // `/api/cron/sync-notifications`, outside any transaction, so there's
       // no reason not to wait for the send before the cron run reports

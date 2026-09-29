@@ -134,26 +134,12 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
-      `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
-      the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use
-      ~7.6 KB of it; it's inlined into every dashboard document and
-      layout-re-rendering action response. Pass `Pick<Dictionary, …>`
-      sub-objects (AGENTS.md already asks for this).
 - [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
       import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
       page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
       (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
       and the replay excludes) to `withSentryConfig`, or `import()` it
       behind the DSN check.
-- [ ] **PERF-9. Move pushes and price-spike checks into `after()`** (medium, S) —
-      `void sendPushToHousehold(...)` (`notifications.ts:293,336`) can be
-      dropped when Vercel freezes the function after the response (the
-      comment in `push.ts:35-48` admits it), while `recordPriceSpikes`
-      (3 queries + awaited push) is *awaited* on the check-off path
-      (`shopping-list/actions.ts:1095,1286,1480,1742`,
-      `share/shopping-list/actions.ts:196`). Use `after()` from
-      `next/server` for both, as `category-resolver.ts:79` already does.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
@@ -208,16 +194,6 @@ tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
 touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
-- [ ] **MAINT-2. No `householdId`-taking exports from `"use server"` files** (high, S) —
-      `findOrCreateGroceriesCategory(householdId)`
-      (`dashboard/budget/actions.ts:39`) and
-      `isHouseholdStepSkipped(householdId)` (`lib/actions/household.ts:303`)
-      are exported from `"use server"` modules, so they're potential
-      client-callable endpoints that take a household id — the one thing
-      AGENTS.md says never to accept from the client. Move them to plain
-      server modules, and add a test that every `"use server"` export ends
-      in `Action` or is on a small allowlist (the token-gated
-      `getShoppingListByShareToken`, `getInvitationForDisplay`).
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
       lines / 29 exports, test file 2,850 lines. Follow the meal-planning
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
@@ -731,6 +707,8 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.9 | #119 fix: tell a new household what produces a notification (UX-3) | 2026-09-29 | #119 |
       | v0.46.10 | #120 fix: show the whole unit in the empty inventory's quick-add row (UX-1) | 2026-09-29 | #120 |
       | v0.46.11 | #121 fix: ellipsize Select trigger labels instead of clipping mid-word (UX-2) | 2026-09-29 | #121 |
+      | v0.46.12 | #122 perf: move pushes and price-spike checks into after() (PERF-9) | 2026-09-29 | #122 |
+      | v0.46.13 | #124 perf: pass only the used dictionary slices to the dashboard shell (PERF-5) | 2026-09-29 | #124 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

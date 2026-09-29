@@ -82,11 +82,15 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   to thread through layouts, so `cache()` is what dedupes the repeated
   `cookies()` read within one request instead.
 - **Passing translations to Client Components**: the convention is to pass
-  the **whole `Dictionary`** (or a named sub-object, e.g.
-  `dict.household.invite`) as a `dict` prop — not to hand-pick individual
-  translated strings as separate props. This keeps every component's prop
-  signature simple and consistent; the payload is trivial (it's just
-  strings). `src/lib/i18n/format.ts` exports `format(template, vars)`
+  a named sub-object (e.g. `dict.household.invite`) as a `dict` prop, or a
+  `Pick<Dictionary, …>` slice when a component reads several namespaces —
+  not the **whole `Dictionary`** and not hand-picked individual strings. A
+  client prop is serialized into the document and every
+  layout-re-rendering action response, and the full dictionary is ~87 KB.
+  The dashboard layout follows this (PERF-5): `Sidebar` and `BottomNav`
+  take `ShellDictionary` (`nav`, `notifications`, `language`, `theme`,
+  defined in `nav-items.ts`) and `HouseholdSwitcher` takes
+  `dict.household.switcher`. `src/lib/i18n/format.ts` exports `format(template, vars)`
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.
@@ -1371,8 +1375,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   state (a passed date is simply stated), no streaks, and it never blocks
   or affects a transaction, safe to spend or any total.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
-  (householdId: string)`, exported from
-  `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
+  (householdId: string)`, exported from the plain server module
+  `src/lib/budget-groceries-category.ts` (not a `"use server"` file, where
+  it would be a client-callable endpoint taking a household id — see
+  MAINT-2 below), is the intended lookup for the
   shopping-list → budget expense link (completing a shopping list should
   create/reuse a "Groceries" expense category and log a `Transaction`
   against it). Lookup key: name `"Groceries"` (case-insensitive match),
@@ -1380,8 +1386,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `findOrCreateInventoryItem` in
   `src/app/dashboard/shopping-list/actions.ts` exactly (find first, create
   if missing). The category name itself (`GROCERIES_CATEGORY_NAME`) is a
-  module-private constant, not exported, because a `"use server"` file may
-  only export async functions — callers that need the name read it off the
+  module-private constant, not exported — callers that need the name read it off the
   returned category (`category.name`) rather than importing the constant.
   Like `findOrCreateInventoryItem`, this helper trusts its `householdId`
   argument and does no auth check of its own; every caller must resolve
@@ -4677,7 +4682,12 @@ Exactly six triggers exist — nothing else creates a notification:
     reads committed history; as one batch, because receipt scans write
     their rows in parallel and a per-row check-then-create could let two
     lines for the same item both pass the dedupe. It never throws — the
-    prices are already saved, so a failure is logged and swallowed.
+    prices are already saved, so a failure is logged and swallowed. The
+    whole check (its three queries plus the push) is scheduled with
+    `after()` (`next/server`, PERF-9), so the check-off response doesn't wait
+    on it and the invocation still stays alive until it finishes. That makes
+    `recordPriceSpikes` a synchronous scheduler returning `void`: callers
+    don't `await` it.
   - **What "materially above" means** — the pure, unit-tested
     `detectPriceSpike` (`src/lib/price-spike.ts`), every constant exported
     from there:
@@ -4883,12 +4893,14 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     `recordListClearedTransition`, `recordPriceSpikes`,
     `syncMealNotLoggedNotifications` and
     `syncExpiringSoonNotifications` in `src/lib/notifications.ts`), and
-    nothing else sends a push. `recordPriceSpikes` awaits it, since it
-    runs after its caller's transaction has committed and has nothing to
-    hold open. The other two action-driven triggers fire it
-    without awaiting (`void sendPushToHousehold(...)`) since some of their
-    call sites run inside a Prisma `$transaction`, and holding that open for
-    a network call isn't worth it — Push API delivery has no delivery
+    nothing else sends a push. The three action-driven triggers
+    (`recordOutOfStockTransition`, `recordListClearedTransition` and
+    `recordPriceSpikes`) run the send inside `after()` (`next/server`,
+    PERF-9): it starts once the response has gone out and the platform keeps
+    the invocation alive until it settles, which a bare
+    `void sendPushToHousehold(...)` did not guarantee. It is not awaited
+    because some call sites run inside a Prisma `$transaction`, and holding
+    that open for a network call isn't worth it — Push API delivery has no delivery
     guarantee either way, so losing a send if the surrounding write later
     rolls back is an acceptable trade. The two cron-driven syncs **await**
     it instead: they have no surrounding transaction, and the cron route
@@ -5024,7 +5036,13 @@ approximating them, so the email never disagrees with the app.
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the
   household from the session via `requireHousehold()` — never accepts a
-  household id from the client.
+  household id from the client. Every export of a `"use server"` file is a
+  client-callable endpoint, so each must be named `…Action` or be one of the
+  token-gated readers allowlisted in `src/lib/use-server-exports.test.ts`
+  (`getShoppingListByShareToken`, `getInvitationForDisplay`); helpers that
+  take a household id (`findOrCreateGroceriesCategory`,
+  `isHouseholdStepSkipped`) live in plain server modules under `src/lib/`.
+  That test fails `npm test` otherwise.
 - Actions bound to a `<form>` follow the `(prevState, formData) =>
   Promise<ActionState>` shape (`ActionState = { error?: string }`) for use
   with `useActionState`. Actions triggered by a plain click (toggle, delete,

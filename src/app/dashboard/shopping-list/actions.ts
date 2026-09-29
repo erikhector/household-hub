@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
-import { findOrCreateGroceriesCategory } from "@/app/dashboard/budget/actions";
+import { findOrCreateGroceriesCategory } from "@/lib/budget-groceries-category";
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
@@ -1121,7 +1121,7 @@ export async function togglePurchasedAction(
   } catch (error) {
     return toFriendlyError(error);
   }
-  await recordPriceSpikes(household.id, recordedPrices, userId);
+  recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);
   revalidatePath("/dashboard/inventory");
@@ -1312,7 +1312,7 @@ export async function putAwayItemsAction(
   } catch (error) {
     return toFriendlyError(error);
   }
-  await recordPriceSpikes(household.id, recordedPrices, userId);
+  recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/shopping-list");
@@ -1506,7 +1506,7 @@ export async function applyReceiptScanAction(
       if (arrival.recordedPrice) recordedPrices.push(arrival.recordedPrice);
     }
   });
-  await recordPriceSpikes(household.id, recordedPrices, userId);
+  recordPriceSpikes(household.id, recordedPrices, userId);
 
   revalidatePath(`/dashboard/shopping-list/${list.id}`);
   revalidatePath("/dashboard/inventory");
@@ -1771,7 +1771,7 @@ export async function registerReceiptAction(
   } catch (error) {
     return toFriendlyError(error);
   }
-  await recordPriceSpikes(household.id, recordedPrices, userId);
+  recordPriceSpikes(household.id, recordedPrices, userId);
 
   let expenseLoggedMessage: string | undefined;
   if (totalAmount > 0) {

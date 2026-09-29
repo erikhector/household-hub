@@ -15,42 +15,6 @@ import {
 } from "@/lib/budget-category-limit";
 import { goalAmountField, goalDateField, goalForType } from "@/lib/savings-goal-calc";
 
-// The category name/lookup key the shopping-list → budget link (Wave 2,
-// Task 8) is expected to use via findOrCreateGroceriesCategory below — see
-// REQUIREMENTS.md's "Budgeting" section for the documented contract.
-//
-// Not exported: a "use server" file may only export async functions, so
-// this stays a module-private constant — callers get it indirectly through
-// the category `findOrCreateGroceriesCategory` returns (`category.name`).
-const GROCERIES_CATEGORY_NAME = "Groceries";
-
-/**
- * Find-or-create the household's "Groceries" expense category, mirroring
- * `findOrCreateInventoryItem` in `src/app/dashboard/shopping-list/actions.ts`
- * (case-insensitive name match scoped to the household; creates it if
- * missing). Exported for the shopping-list → budget expense link (Wave 2,
- * Task 8) to reuse instead of duplicating this lookup.
- *
- * Like `findOrCreateInventoryItem`, this trusts its `householdId` argument
- * and performs no auth check of its own — every caller must already have
- * resolved that id from its own `requireHousehold()` call (never pass a
- * client-supplied household id through to this function).
- */
-export async function findOrCreateGroceriesCategory(householdId: string) {
-  const existing = await prisma.budgetCategory.findFirst({
-    where: {
-      householdId,
-      type: "EXPENSE",
-      name: { equals: GROCERIES_CATEGORY_NAME, mode: "insensitive" },
-    },
-  });
-  if (existing) return existing;
-
-  return prisma.budgetCategory.create({
-    data: { householdId, name: GROCERIES_CATEGORY_NAME, type: "EXPENSE" },
-  });
-}
-
 // --- Categories --------------------------------------------------------
 
 const categorySchema = z.object({

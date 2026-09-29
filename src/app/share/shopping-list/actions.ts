@@ -222,7 +222,7 @@ export async function toggleItemViaShareTokenAction(
   } catch (error) {
     return toFriendlyError(error);
   }
-  if (householdId) await recordPriceSpikes(householdId, recordedPrices);
+  if (householdId) recordPriceSpikes(householdId, recordedPrices);
 
   revalidatePath(`/share/shopping-list/${token}`);
   revalidatePath(`/dashboard/shopping-list/${item.shoppingListId}`);

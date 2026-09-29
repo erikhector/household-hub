@@ -11,6 +11,15 @@ import {
   ListChecks,
 } from "lucide-react";
 
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
+
+// The slice of the dictionary the dashboard shell (Sidebar, BottomNav) reads.
+// The layout passes only these sub-objects across the server/client boundary:
+// a client prop is serialized into every dashboard document and every
+// layout-re-rendering action response, and the full dictionary is ~87 KB
+// against ~7 KB actually used here (PERF-5).
+export type ShellDictionary = Pick<Dictionary, "nav" | "notifications" | "language" | "theme">;
+
 export const SIDEBAR_COOKIE = "sidebar_expanded";
 
 export type NavKey =

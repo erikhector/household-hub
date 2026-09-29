@@ -76,6 +76,21 @@ vi.mock("@/lib/push", () => ({
   sendPushToHouseholdMembers: sendPushToHouseholdMembersMock,
 }));
 
+// PERF-9: the push sends and the price-spike check are handed to `after()`.
+// Outside a real request there is no post-response lifecycle, so capture the
+// callbacks and let each test run them explicitly with runScheduled() -- which
+// also proves nothing ran before the "response".
+const { scheduled } = vi.hoisted(() => ({ scheduled: [] as Array<() => unknown> }));
+vi.mock("next/server", () => ({
+  after: vi.fn((callback: () => unknown) => {
+    scheduled.push(callback);
+  }),
+}));
+
+async function runScheduled() {
+  await Promise.all(scheduled.splice(0).map((callback) => callback()));
+}
+
 // Lets pending promise callbacks run without advancing (fake) timers — used
 // to check a sync hasn't resolved while its push send is still pending.
 async function flushMicrotasks() {
@@ -106,6 +121,7 @@ const { prisma } = await import("@/lib/prisma");
 const { Prisma } = await import("@/generated/prisma/client");
 
 beforeEach(() => {
+  scheduled.length = 0;
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-05T12:00:00.000Z"));
   notificationFindFirstMock.mockResolvedValue(null);
@@ -138,9 +154,17 @@ describe("recordOutOfStockTransition", () => {
     });
   });
 
+  it("defers the push to after() so it isn't dropped when the function freezes", async () => {
+    await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
+
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(1);
+  });
+
   it("sends a push notification for the newly out-of-stock item", async () => {
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
 
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       {
@@ -155,6 +179,7 @@ describe("recordOutOfStockTransition", () => {
   it("excludes the acting user from the push notification", async () => {
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0, "user-1");
 
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       expect.objectContaining({ title: "Out of stock" }),
@@ -167,6 +192,7 @@ describe("recordOutOfStockTransition", () => {
 
     expect(notificationFindFirstMock).not.toHaveBeenCalled();
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -174,6 +200,7 @@ describe("recordOutOfStockTransition", () => {
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 5, 2);
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -186,6 +213,7 @@ describe("recordOutOfStockTransition", () => {
       where: { inventoryItemId: "item-1", kind: "OUT_OF_STOCK", dismissedAt: null },
     });
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 });
@@ -206,6 +234,7 @@ describe("recordOutOfStockTransition — incoming stock (put-away flow)", () => 
     await recordOutOfStockTransition(prisma, "household-1", "item-1", 3, 0);
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -304,6 +333,7 @@ describe("recordListClearedTransition", () => {
   it("sends a push notification for the newly cleared list", async () => {
     await recordListClearedTransition(prisma, "household-1", "list-1", 1, 0);
 
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       {
@@ -318,6 +348,7 @@ describe("recordListClearedTransition", () => {
   it("excludes the acting user from the push notification", async () => {
     await recordListClearedTransition(prisma, "household-1", "list-1", 1, 0, "user-1");
 
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       expect.objectContaining({ title: "Shopping list cleared" }),
@@ -330,6 +361,7 @@ describe("recordListClearedTransition", () => {
 
     expect(notificationFindFirstMock).not.toHaveBeenCalled();
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -337,6 +369,7 @@ describe("recordListClearedTransition", () => {
     await recordListClearedTransition(prisma, "household-1", "list-1", 3, 1);
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -349,6 +382,7 @@ describe("recordListClearedTransition", () => {
       where: { shoppingListId: "list-1", kind: "LIST_CLEARED", dismissedAt: null },
     });
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 });
@@ -380,12 +414,38 @@ describe("recordPriceSpikes", () => {
     priceHistoryFindManyMock.mockResolvedValue(history);
   });
 
+  // Schedules the check, then runs what it handed to after().
+  async function record(...args: Parameters<typeof recordPriceSpikes>) {
+    recordPriceSpikes(...args);
+    await runScheduled();
+  }
+
+  it("defers the whole check to after(): no query, alert or push runs before the response is sent", async () => {
+    recordPriceSpikes("household-1", [recorded(35)], "user-1");
+
+    expect(scheduled).toHaveLength(1);
+    expect(priceHistoryFindManyMock).not.toHaveBeenCalled();
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+
+    await runScheduled();
+    expect(notificationCreateMock).toHaveBeenCalled();
+    expect(sendPushToHouseholdMock).toHaveBeenCalled();
+  });
+
+  it("schedules nothing when no price was recorded", () => {
+    recordPriceSpikes("household-1", []);
+
+    expect(scheduled).toHaveLength(0);
+  });
+
   it("creates a PRICE_SPIKE alert with the percentage and pushes it, excluding the acting user", async () => {
-    await recordPriceSpikes("household-1", [recorded(35)], "user-1");
+    await record("household-1", [recorded(35)], "user-1");
 
     expect(notificationCreateMock).toHaveBeenCalledWith({
       data: { householdId: "household-1", kind: "PRICE_SPIKE", inventoryItemId: "item-1", priceIncreasePercent: 75 },
     });
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       { title: "Price jump", body: "Milk cost 75% more than usual", url: "/dashboard/budget?tab=insights" },
@@ -394,21 +454,22 @@ describe("recordPriceSpikes", () => {
   });
 
   it("does nothing for an ordinary price", async () => {
-    await recordPriceSpikes("household-1", [recorded(21)]);
+    await record("household-1", [recorded(21)]);
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
   it("does nothing, without querying, when no price was recorded", async () => {
-    await recordPriceSpikes("household-1", []);
+    await record("household-1", []);
 
     expect(priceHistoryFindManyMock).not.toHaveBeenCalled();
     expect(notificationCreateMock).not.toHaveBeenCalled();
   });
 
   it("compares against the item's prior, per-unit-comparable history only, never the rows just written", async () => {
-    await recordPriceSpikes("household-1", [recorded(35, { priceHistoryId: "ph-a" }), recorded(35, { priceHistoryId: "ph-b" })]);
+    await record("household-1", [recorded(35, { priceHistoryId: "ph-a" }), recorded(35, { priceHistoryId: "ph-b" })]);
 
     const where = priceHistoryFindManyMock.mock.calls[0][0].where;
     expect(where.inventoryItemId).toEqual({ in: ["item-1"] });
@@ -421,7 +482,7 @@ describe("recordPriceSpikes", () => {
   it("scopes the item lookup to the household, skipping a foreign item", async () => {
     inventoryItemFindManyMock.mockResolvedValue([]);
 
-    await recordPriceSpikes("household-1", [recorded(35)]);
+    await record("household-1", [recorded(35)]);
 
     expect(inventoryItemFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { in: ["item-1"] }, householdId: "household-1" } }),
@@ -430,17 +491,18 @@ describe("recordPriceSpikes", () => {
   });
 
   it("raises one alert when the same item is on the receipt twice", async () => {
-    await recordPriceSpikes("household-1", [
+    await record("household-1", [
       recorded(35, { priceHistoryId: "ph-a" }),
       recorded(35, { priceHistoryId: "ph-b" }),
     ]);
 
     expect(notificationCreateMock).toHaveBeenCalledTimes(1);
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
   });
 
   it("doesn't treat buying two cartons at the usual price as a jump", async () => {
-    await recordPriceSpikes("household-1", [recorded(40, { quantity: 2 })]);
+    await record("household-1", [recorded(40, { quantity: 2 })]);
 
     expect(notificationCreateMock).not.toHaveBeenCalled();
   });
@@ -448,7 +510,7 @@ describe("recordPriceSpikes", () => {
   it("skips an item with an active or recently-created PRICE_SPIKE alert", async () => {
     notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "item-1" }]);
 
-    await recordPriceSpikes("household-1", [recorded(35)]);
+    await record("household-1", [recorded(35)]);
 
     const where = notificationFindManyMock.mock.calls[0][0].where;
     expect(where).toMatchObject({ householdId: "household-1", kind: "PRICE_SPIKE", inventoryItemId: { in: ["item-1"] } });
@@ -458,6 +520,7 @@ describe("recordPriceSpikes", () => {
       { createdAt: { gte: new Date("2026-08-22T12:00:00.000Z") } },
     ]);
     expect(notificationCreateMock).not.toHaveBeenCalled();
+    await runScheduled();
     expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
   });
 
@@ -472,7 +535,7 @@ describe("recordPriceSpikes", () => {
     ]);
     notificationFindManyMock.mockResolvedValue([{ inventoryItemId: "item-1" }]);
 
-    await recordPriceSpikes("household-1", [recorded(35), recorded(35, { inventoryItemId: "item-2", priceHistoryId: "ph-2" })]);
+    await record("household-1", [recorded(35), recorded(35, { inventoryItemId: "item-2", priceHistoryId: "ph-2" })]);
 
     expect(notificationCreateMock).toHaveBeenCalledTimes(1);
     expect(notificationCreateMock).toHaveBeenCalledWith({
@@ -484,7 +547,7 @@ describe("recordPriceSpikes", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     priceHistoryFindManyMock.mockRejectedValue(new Error("db down"));
 
-    await expect(recordPriceSpikes("household-1", [recorded(35)])).resolves.toBeUndefined();
+    await expect(record("household-1", [recorded(35)])).resolves.toBeUndefined();
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
@@ -492,7 +555,7 @@ describe("recordPriceSpikes", () => {
   it("waits for the push send before resolving", async () => {
     const release = pendingPush();
     let settled = false;
-    const promise = recordPriceSpikes("household-1", [recorded(35)]).then(() => {
+    const promise = record("household-1", [recorded(35)]).then(() => {
       settled = true;
     });
 
