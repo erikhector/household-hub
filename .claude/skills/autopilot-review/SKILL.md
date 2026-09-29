@@ -1,6 +1,6 @@
 ---
 name: autopilot-review
-description: Daily PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (master merges, migration clashes, releases) and squash-merges it. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
+description: Daily PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (master merges, migration clashes, releases) and squash-merges it. It stays subscribed to PRs it sent back for changes and re-reviews when the author pushes a fix. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
 ---
 
 # Autopilot reviewer
@@ -16,7 +16,9 @@ gates, triages, starts one sub-agent per PR that needs a review round
 (the `Agent` tool, `general-purpose`, in the background, several at
 once), and one merge sub-agent per merge candidate (strictly one at a
 time, since each merge moves `master`). It keeps track of them, validates
-what each hands back against GitHub, and reports. It never reviews a diff
+what each hands back against GitHub, stays subscribed to the PRs it sent
+back for changes so the author's fix is re-reviewed the same day, and
+reports. It never reviews a diff
 or resolves a conflict itself. Each **sub-agent** handles exactly one PR:
 a whole diff in a fresh context gets a better review than the fifth PR in
 a crowded one.
@@ -88,6 +90,9 @@ A mismatch goes back to that sub-agent with `SendMessage`, naming it.
 After a second bad round, record the PR as `blocked: review failed
 validation`, add the `needs-human` label, and move on. PRs whose
 validated verdict is `approved` join the merge candidates (step 3).
+A validated `changes` verdict: subscribe to that PR's activity
+(`subscribe_pr_activity`) so the author's fix gets its re-review this
+run instead of tomorrow (step 5).
 
 ## Sub-agent: review one PR
 
@@ -203,8 +208,55 @@ The merge sub-agent's steps:
    title, delete the branch, and `git fetch origin master` so the
    coordinator and the next merge sub-agent start from the new master.
 
-## 5. Report (coordinator)
+## 5. Listen for fixes and re-review (coordinator)
+
+The builder is subscribed to the PRs it opened and pushes a fix round as
+soon as a `changes` review lands. Rather than leave that fix waiting a day,
+the coordinator stays subscribed to every PR it gave `changes` (step 2)
+and re-reviews when the author responds. Events wake the coordinator, not
+a sub-agent; don't poll between them.
+
+**What triggers a re-review** (triage each event as in step 1, cheaply):
+
+- a push that moves the head to a SHA other than the last verdict's,
+  **except** commits this skill pushed itself (a merge sub-agent's
+  master merge or release commit; the coordinator knows their SHAs);
+- a reply in an `autopilot-review` thread, or a new human comment or
+  review.
+
+Ignore everything else: CI check runs (while `ci_gate` is `local`),
+label changes, and this skill's own reviews and replies (they carry the
+`🤖 autopilot-review` marker).
+
+**One round at a time per PR.** The builder pushes once per fix round and
+replies to threads alongside it, so several events usually arrive
+together. If a review sub-agent is already running for that PR, don't
+start another: note that the PR moved, and once the running one is
+validated, start one more round if the head is still ahead of its
+verdict. Otherwise start a fresh **review sub-agent** exactly as in step
+2 (same prompt, with the new head and the last verdict's SHA, so it
+checks the earlier threads and reviews only what changed), counted
+against `max_parallel_subagents`, and validate its report the same way.
+
+**Afterwards:**
+
+- `approved` (validated): unsubscribe from the PR; it's a merge candidate.
+  Merge it per steps 3–4 once no review sub-agent is running, within the
+  same `max_merges_per_review_run` and one-migration limits as the rest
+  of the run.
+- `changes` again: stay subscribed and wait for the next round.
+- `max_review_rounds_per_run` (AUTOPILOT.md) reached on a PR: unsubscribe,
+  leave its last review standing, and record it as `still changes after
+  N rounds`. The next daily run picks it up again. A PR that ping-pongs
+  like this is what the retro should look at.
+
+**Stop listening** once no subscribed PR is left, or when the first event
+after `review_listen_hours` since the run started arrives: then unsubscribe
+from everything and report. Nothing is lost by stopping: the next daily
+run's triage (step 1) notices every head that moved.
+
+## 6. Report (coordinator)
 
 Final message, one line per PR touched: number, what happened (N
-findings / N threads resolved / merged as vX.Y.Z / blocked: why). Nothing
-else.
+findings / N threads resolved / N review rounds / merged as vX.Y.Z /
+blocked: why). Nothing else.
