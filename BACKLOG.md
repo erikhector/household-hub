@@ -146,14 +146,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
       and the replay excludes) to `withSentryConfig`, or `import()` it
       behind the DSN check.
-- [ ] **PERF-9. Move pushes and price-spike checks into `after()`** (medium, S) —
-      `void sendPushToHousehold(...)` (`notifications.ts:293,336`) can be
-      dropped when Vercel freezes the function after the response (the
-      comment in `push.ts:35-48` admits it), while `recordPriceSpikes`
-      (3 queries + awaited push) is *awaited* on the check-off path
-      (`shopping-list/actions.ts:1095,1286,1480,1742`,
-      `share/shopping-list/actions.ts:196`). Use `after()` from
-      `next/server` for both, as `category-resolver.ts:79` already does.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;

@@ -33,11 +33,14 @@ type PushPayload = {
 // household's members. Never throws.
 //
 // recordOutOfStockTransition/recordListClearedTransition (src/lib/notifications.ts)
-// fire this without awaiting it, since some of their call sites run inside a
-// Prisma $transaction and awaiting a network call there would hold the
-// transaction open. Push delivery has no guarantee from the Push API itself
-// either way, so losing a send if the surrounding write later rolls back is
-// an acceptable trade for not blocking on network I/O mid-transaction.
+// hand this to `after()` (next/server) rather than awaiting it, since some of
+// their call sites run inside a Prisma $transaction and awaiting a network
+// call there would hold the transaction open. after() runs it once the
+// response is sent and keeps the invocation alive until it settles (PERF-9),
+// which a bare `void` promise did not. Push delivery has no guarantee from
+// the Push API itself either way, so losing a send if the surrounding write
+// later rolls back is an acceptable trade for not blocking on network I/O
+// mid-transaction.
 //
 // syncMealNotLoggedNotifications/syncExpiringSoonNotifications (also in
 // notifications.ts), by contrast, DO await this — they only ever run from
@@ -45,7 +48,7 @@ type PushPayload = {
 // transaction to hold open, and awaiting is what guarantees the send is
 // attempted before that Route Handler's response goes out (a serverless
 // invocation can be frozen/killed right after the response is sent, which
-// would otherwise silently drop an in-flight fire-and-forget send).
+// would otherwise silently drop an in-flight send that nothing kept alive).
 //
 // `excludeUserId`, when given, drops that user's own subscriptions from the
 // fan-out — by product decision, the household member who just performed
