@@ -140,12 +140,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       ~7.6 KB of it; it's inlined into every dashboard document and
       layout-re-rendering action response. Pass `Pick<Dictionary, …>`
       sub-objects (AGENTS.md already asks for this).
-- [ ] **PERF-7. Keep zod out of the meal-planning client bundle** (medium, S) —
-      `src/lib/recipe-tags.ts:20,43` imports `zod` for one `z.enum`, pulling a
-      99 KB gz chunk into `recipe-manager.tsx`/`recipe-form-dialog.tsx`.
-      Split the zod-free helpers (`RECIPE_TAGS`, `isRecipeTag`,
-      `recipeMatchesTag`) from the server-side schema. Expect meal-planning
-      ~472 → ~375 KB gz.
 - [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
       import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
       page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
@@ -785,6 +779,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.5 | #112 fix: log only an excerpt of unparseable AI scan replies (SEC-11) | 2026-09-28 | #112 |
       | v0.46.6 | #113 fix: rate-limit the shopping-list share-token endpoints (SEC-13) | 2026-09-28 | #113 |
       | v0.46.7 | #114 fix: include notes, tasks, splits and settings in "Export my data" (SEC-10) | 2026-09-28 | #114 |
+      | v0.46.8 | #118 perf: keep zod out of the meal-planning client bundle (PERF-7) | 2026-09-29 | #118 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

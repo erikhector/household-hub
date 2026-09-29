@@ -3917,7 +3917,7 @@ everywhere.
   switching language relabels every recipe and the filter compares exact
   keys, not free text. Not free-form on purpose: "veg", "veggie" and
   "vegetarian" typed on three recipes would split one filter three ways.
-- **Validation**: `parseRecipeTags` (Zod `z.enum(RECIPE_TAGS)`) dedupes,
+- **Validation**: `parseRecipeTags` (a plain membership check against `RECIPE_TAGS`) dedupes,
   sorts into canonical order and **drops** unknown values rather than
   rejecting the save, so a stale tab offering a since-removed tag can't make
   a recipe unsaveable. `createRecipeAction`/`updateRecipeAction` run the
@@ -3929,6 +3929,10 @@ everywhere.
   enum or join table: the set is tiny, filtering happens client-side over
   the already-loaded list, and growing it needs only a key plus two labels,
   no migration.
+  *Bundle size (PERF-7)*: `recipe-tags.ts` is imported by the client
+  `recipe-manager.tsx` and `recipe-form-dialog.tsx`, so it must stay
+  free of `zod` (which put a ~99 KB gz chunk into the meal-planning page).
+  `isRecipeTag` is a `Set` lookup for that reason.
 - **Form**: `RecipeFormDialog` (create and edit) shows every tag as a
   toggle chip (`aria-pressed`, the starter-picker look) under
   instructions, posted as one hidden `tags` input per selected tag.

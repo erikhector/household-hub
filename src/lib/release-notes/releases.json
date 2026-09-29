@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.8",
+    "date": "2026-09-29",
+    "pr": 118,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The recipes page loads faster.",
+      "sv": "Receptsidan laddas snabbare."
+    }
+  },
+  {
     "version": "0.46.7",
     "date": "2026-09-28",
     "pr": 114,
