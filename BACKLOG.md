@@ -340,19 +340,6 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 `get-dictionary.ts`'s comment). No console errors, no untranslated strings,
 no broken empty states — the issues below are all clipped/illegible text.
 
-- [ ] **UX-1. Quick-add's Unit field hides its own value** (impact: high,
-      effort: S) — `src/components/inventory/quick-add-bar.tsx:110` wraps the
-      unit `ComboField` in a fixed `w-20` (80px) column, but the field also
-      has to fit a clear (`×`) button and a dropdown chevron
-      (`combo-field.tsx`'s `AutocompleteClear`/`AutocompleteTrigger`). The
-      default value "pcs" (or a Swedish unit) is clipped down to a single
-      character — the row shows "p ×" with no way to tell what unit is
-      selected without opening the dropdown. Reproduces on the empty
-      inventory state at both 390px and 1280px, `en` and `sv`. Widen the
-      column (e.g. `w-28`/`w-32`) or drop one of the two trailing icons for
-      this field. Acceptance: an e2e assertion that the quick-add unit
-      field's visible text matches its selected value (not truncated to one
-      character) at 390px width.
 - [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
       (impact: medium, effort: S) — the inventory filter row's `Select`s
       (`src/components/inventory/inventory-client.tsx:262-282`) sit in
