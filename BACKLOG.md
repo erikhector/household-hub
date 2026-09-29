@@ -368,17 +368,6 @@ no broken empty states — the issues below are all clipped/illegible text.
       to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
       or visual check that a long option's label ends in an ellipsis, not a
       mid-word cut, at 1280px.
-- [ ] **UX-3. Notifications empty state gives no next step** (impact: low,
-      effort: S) — every other feature's empty state explains what to do
-      next ("Add a few items to start tracking what's in stock.", "No tasks
-      yet — use the + button above to add one."), but
-      `dictionaries/en.ts:68`'s notifications `empty: "No notifications
-      yet."` (and its `sv.ts` counterpart) doesn't say what would ever
-      produce one. Add a second sentence naming a couple of triggers (low
-      stock, a task assigned to you, a household invite) so a first-time
-      user knows the page isn't broken. Acceptance: the empty-state copy in
-      both dictionaries includes an example of what generates a
-      notification.
 
 ### Budget component unification
 

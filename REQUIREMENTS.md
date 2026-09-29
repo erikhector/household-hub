@@ -4768,7 +4768,11 @@ places — and a "Mark all as read" button that calls
 household-scoped `updateMany` sibling to `dismissNotificationAction` that
 clears every currently-active alert in one go. Clicking an individual
 still-unread row dismisses just that one (same as the bell) before letting
-the link navigate; an already-read row is just a link.
+the link navigate; an already-read row is just a link. With no rows at all
+(UX-3) the page says "No notifications yet." plus one sentence naming what
+produces one (an item running out of stock, or about to expire), so a new
+household doesn't read the empty page as broken. Only triggers from the
+list above are named, so it never promises task or invite notifications.
 
 ## PWA install & push notifications
 
