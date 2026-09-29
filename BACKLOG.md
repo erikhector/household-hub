@@ -334,21 +334,6 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 `get-dictionary.ts`'s comment). No console errors, no untranslated strings,
 no broken empty states — the issues below are all clipped/illegible text.
 
-- [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
-      (impact: medium, effort: S) — the inventory filter row's `Select`s
-      (`src/components/inventory/inventory-client.tsx:262-282`) sit in
-      narrow grid columns, and the shared `SelectTrigger`/`SelectValue`
-      (`src/components/ui/select.tsx:20-42`) only sets `whitespace-nowrap` +
-      `line-clamp-1`, not `truncate` — so a label longer than its column is
-      hard-clipped instead of ellipsized. Visible on the Inventory page at
-      1280px in **both** locales: English clips "Group by: No groupin[g]",
-      Swedish clips "Senast uppdaterad: Ny[aste först]". Since
-      `SelectValue`/`SelectTrigger` are shared UI primitives, likely affects
-      any other narrow `Select` too. Fix in `select.tsx` (swap the
-      clamp/nowrap combo for `truncate`, or add `text-ellipsis overflow-hidden`
-      to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
-      or visual check that a long option's label ends in an ellipsis, not a
-      mid-word cut, at 1280px.
 
 ### Budget component unification
 
@@ -758,6 +743,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.8 | #118 perf: keep zod out of the meal-planning client bundle (PERF-7) | 2026-09-29 | #118 |
       | v0.46.9 | #119 fix: tell a new household what produces a notification (UX-3) | 2026-09-29 | #119 |
       | v0.46.10 | #120 fix: show the whole unit in the empty inventory's quick-add row (UX-1) | 2026-09-29 | #120 |
+      | v0.46.11 | #121 fix: ellipsize Select trigger labels instead of clipping mid-word (UX-2) | 2026-09-29 | #121 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
