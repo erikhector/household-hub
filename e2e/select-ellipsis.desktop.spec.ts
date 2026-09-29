@@ -35,9 +35,17 @@ for (const locale of LOCALES) {
       // box at 1280px, then the ellipsis is what the user sees.
       await updated.click();
       await page.getByRole("option").last().click();
-      await expect(updated).toBeVisible();
-      const clipped = await updated.evaluate((el) => el.scrollWidth > el.clientWidth);
-      expect(clipped, "the 'Last updated' label should overflow its trigger").toBe(true);
+      try {
+        await expect(updated).toBeVisible();
+        const clipped = await updated.evaluate((el) => el.scrollWidth > el.clientWidth);
+        expect(clipped, "the 'Last updated' label should overflow its trigger").toBe(true);
+      } finally {
+        // The filter is remembered for the signed-in user, and the other
+        // inventory specs share that user (they'd start with "Filters 1"
+        // active and find nothing), so put it back to "any time".
+        await updated.click();
+        await page.getByRole("option").first().click();
+      }
     });
   });
 }
