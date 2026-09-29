@@ -161,19 +161,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       `personal-budget/page.tsx:138-158` (two queries per membership — batch
       with `householdId: { in }`); `meal-planning/page.tsx:57`
       (`include: { recipe: true }` pulls instructions — `select`).
-- [ ] **PERF-15. Batch the bulk "take stock" quantity update** (impact: high,
-      effort: M) — `inventory/actions.ts:464-475`
-      (`bulkSetInventoryQuantitiesAction`, accepts up to 300 updates per
-      `bulkSetQuantitySchema`) awaits, per item: `inventoryItem.update`
-      (:467), `recordOutOfStockTransition` (:471, itself 2-4 sequential
-      queries), then `addToDefaultListOnLowStock` (:472, itself 3-4
-      sequential queries) — roughly 6-9 sequential round trips per item, up
-      to ~2,700 for a full batch. Slows the AI shelf-scan restock flow and
-      gets worse with batch size. Acceptance: the loop issues a small,
-      bounded number of queries regardless of batch size (e.g. `updateMany`
-      plus precomputed out-of-stock/low-stock crossings from the
-      already-fetched `items` map, run with `Promise.all`), verified by a
-      test asserting query count doesn't scale with `updates.length`.
 - [ ] **PERF-16. Stop re-fetching the whole inventory table per unmatched
       receipt line** (impact: high, effort: S) —
       `shopping-list/actions.ts:1605-1628` (`registerReceiptAction`) awaits
@@ -722,6 +709,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.11 | #121 fix: ellipsize Select trigger labels instead of clipping mid-word (UX-2) | 2026-09-29 | #121 |
       | v0.46.12 | #122 perf: move pushes and price-spike checks into after() (PERF-9) | 2026-09-29 | #122 |
       | v0.46.13 | #124 perf: pass only the used dictionary slices to the dashboard shell (PERF-5) | 2026-09-29 | #124 |
+| v0.46.14 | #125 perf: batch the take-stock quantity update into a fixed number of queries (PERF-15) | 2026-09-29 | #125 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

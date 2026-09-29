@@ -14,7 +14,7 @@ vi.mock("@/lib/i18n/get-dictionary", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-const { addItemToDefaultList, addToDefaultListOnLowStock, getOrCreateDefaultShoppingList, revalidateAutoAdded } =
+const { addItemToDefaultList, addToDefaultListOnLowStock, addToDefaultListOnLowStockBatch, getOrCreateDefaultShoppingList, revalidateAutoAdded } =
   await import("@/lib/shopping/default-list");
 
 const defaultList = { id: "default-list", name: "Next shop" };
@@ -22,7 +22,7 @@ const defaultList = { id: "default-list", name: "Next shop" };
 function makeDb() {
   return {
     shoppingList: { findFirst: vi.fn(), createMany: vi.fn() },
-    shoppingListItem: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+    shoppingListItem: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn(), createManyAndReturn: vi.fn() },
     inventoryItem: { findFirst: vi.fn() },
     household: { findUnique: vi.fn() },
   };
@@ -254,6 +254,90 @@ describe("addToDefaultListOnLowStock", () => {
 
     expect(await addToDefaultListOnLowStock(asDb(), "household-1", "other-inv", 3, 2)).toBeNull();
     expect(db.shoppingListItem.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("addToDefaultListOnLowStockBatch", () => {
+  const listable = (id: string, threshold = 3) => ({
+    id,
+    name: `Item ${id}`,
+    unit: "pcs",
+    quantity: 3,
+    lowStockThreshold: threshold,
+    lastKnownPrice: null,
+  });
+
+  it("queries nothing when no item decreased", async () => {
+    const result = await addToDefaultListOnLowStockBatch(asDb(), "household-1", [
+      { item: listable("a"), previousQuantity: 1, nextQuantity: 5 },
+    ]);
+
+    expect(result).toEqual([]);
+    expect(db.household.findUnique).not.toHaveBeenCalled();
+    expect(db.shoppingListItem.findMany).not.toHaveBeenCalled();
+  });
+
+  it("adds every crossing item in one createManyAndReturn, skipping ones already low or pending", async () => {
+    // "pending" is already on the list; "already-low" was low before the drop.
+    db.shoppingListItem.findMany
+      .mockResolvedValueOnce([]) // incoming-stock read
+      .mockResolvedValueOnce([{ inventoryItemId: "pending" }]); // pending on the list
+    db.shoppingListItem.createManyAndReturn.mockResolvedValue([
+      { id: "row-a", inventoryItemId: "a" },
+      { id: "row-b", inventoryItemId: "b" },
+    ]);
+
+    const result = await addToDefaultListOnLowStockBatch(asDb(), "household-1", [
+      { item: listable("a"), previousQuantity: 3, nextQuantity: 0 },
+      { item: listable("pending"), previousQuantity: 3, nextQuantity: 0 },
+      { item: listable("already-low"), previousQuantity: 2, nextQuantity: 0 },
+      { item: listable("b"), previousQuantity: 5, nextQuantity: 2 },
+    ]);
+
+    expect(db.shoppingListItem.createManyAndReturn).toHaveBeenCalledTimes(1);
+    expect(db.shoppingListItem.createManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({ inventoryItemId: "a", quantity: 3, addedAutomatically: true }),
+          expect.objectContaining({ inventoryItemId: "b", quantity: 1, addedAutomatically: true }),
+        ],
+      }),
+    );
+    expect(result).toEqual([
+      { shoppingListItemId: "row-a", listId: "default-list", listName: "Next shop", itemName: "Item a" },
+      { shoppingListItemId: "row-b", listId: "default-list", listName: "Next shop", itemName: "Item b" },
+    ]);
+  });
+
+  it("does nothing when the household turned auto-add off", async () => {
+    db.household.findUnique.mockResolvedValue({ autoAddLowStockToList: false });
+
+    const result = await addToDefaultListOnLowStockBatch(asDb(), "household-1", [
+      { item: listable("a"), previousQuantity: 3, nextQuantity: 0 },
+    ]);
+
+    expect(result).toEqual([]);
+    expect(db.shoppingListItem.createManyAndReturn).not.toHaveBeenCalled();
+  });
+
+  it("uses a fixed number of queries whatever the batch size", async () => {
+    const count = async (size: number) => {
+      vi.clearAllMocks();
+      db.shoppingListItem.findMany.mockResolvedValue([]);
+      db.shoppingListItem.createManyAndReturn.mockResolvedValue([]);
+      await addToDefaultListOnLowStockBatch(
+        asDb(),
+        "household-1",
+        Array.from({ length: size }, (_, i) => ({ item: listable(`i${i}`), previousQuantity: 3, nextQuantity: 0 })),
+      );
+      return (
+        db.shoppingListItem.findMany.mock.calls.length +
+        db.shoppingListItem.createManyAndReturn.mock.calls.length +
+        db.shoppingList.findFirst.mock.calls.length +
+        db.household.findUnique.mock.calls.length
+      );
+    };
+    expect(await count(300)).toBe(await count(1));
   });
 });
 

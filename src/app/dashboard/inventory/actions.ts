@@ -8,10 +8,11 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
-import { recordOutOfStockTransition } from "@/lib/notifications";
+import { recordOutOfStockTransition, recordOutOfStockTransitions } from "@/lib/notifications";
 import {
   addItemToDefaultList,
   addToDefaultListOnLowStock,
+  addToDefaultListOnLowStockBatch,
   revalidateAutoAdded,
   type AutoAddedItem,
 } from "@/lib/shopping/default-list";
@@ -456,23 +457,49 @@ export async function bulkSetInventoryQuantitiesAction(
   let updated = 0;
   const autoAdded: AutoAddedItem[] = [];
   try {
+    // A repeated itemId keeps its last count (what the old per-row loop
+    // ended up with), and is judged once against the row as it was before.
+    const newQuantityById = new Map(parsed.data.updates.map((u) => [u.itemId, u.quantity]));
     const items = await prisma.inventoryItem.findMany({
-      where: { householdId: household.id, id: { in: parsed.data.updates.map((u) => u.itemId) } },
+      where: { householdId: household.id, id: { in: [...newQuantityById.keys()] } },
     });
-    const itemsById = new Map(items.map((item) => [item.id, item]));
-
-    for (const update of parsed.data.updates) {
-      const item = itemsById.get(update.itemId);
-      if (!item) continue;
-      await prisma.inventoryItem.update({
-        where: { id: item.id },
-        data: { quantity: update.quantity, updatedByUserId: userId },
-      });
-      await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, update.quantity, userId);
-      const added = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, update.quantity);
-      if (added) autoAdded.push(added);
-      updated += 1;
+    // Everything below runs in a fixed number of queries however big the
+    // batch is (PERF-15): a scan of 300 shelves used to cost 6-9 sequential
+    // round trips per item. `quantity` differs per row, so it's one
+    // UPDATE ... FROM (unnest) rather than updateMany; the household filter
+    // stays in the statement so an id from another household can't match.
+    if (items.length > 0) {
+      await prisma.$executeRaw`
+        UPDATE "InventoryItem" AS i
+        SET "quantity" = v."quantity", "updatedByUserId" = ${userId}, "updatedAt" = NOW()
+        FROM unnest(${items.map((item) => item.id)}::text[], ${items.map((item) => newQuantityById.get(item.id)!)}::double precision[])
+          AS v("id", "quantity")
+        WHERE i."id" = v."id" AND i."householdId" = ${household.id}`;
     }
+    updated = items.length;
+
+    const changes = items.map((item) => ({
+      item,
+      previousQuantity: item.quantity,
+      nextQuantity: newQuantityById.get(item.id)!,
+    }));
+    // The alert rows and the auto-add touch different tables, so they can
+    // overlap.
+    const [, added] = await Promise.all([
+      recordOutOfStockTransitions(
+        prisma,
+        household.id,
+        changes.map(({ item, previousQuantity, nextQuantity }) => ({
+          itemId: item.id,
+          name: item.name,
+          previousQuantity,
+          nextQuantity,
+        })),
+        userId,
+      ),
+      addToDefaultListOnLowStockBatch(prisma, household.id, changes),
+    ]);
+    autoAdded.push(...added);
   } catch (error) {
     return toFriendlyError(error);
   }

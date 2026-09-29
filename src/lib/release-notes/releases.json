@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.14",
+    "date": "2026-09-29",
+    "pr": 125,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Scanning your shelves to restock now saves much faster, even with a large batch. If several items run out at once you get a single notification instead of one per item.",
+      "sv": "Att skanna hyllorna för att fylla på lagret sparas nu betydligt snabbare, även med många varor. Om flera varor tar slut samtidigt får du en enda avisering i stället för en per vara."
+    }
+  },
+  {
     "version": "0.46.13",
     "date": "2026-09-29",
     "pr": 124,
