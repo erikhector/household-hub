@@ -344,15 +344,19 @@ export async function recordOutOfStockTransitions(
     data: fresh.map((c) => ({ householdId, kind: "OUT_OF_STOCK" as const, inventoryItemId: c.itemId })),
   });
 
-  // Fire-and-forget, like recordOutOfStockTransition.
-  void sendPushToHousehold(
-    householdId,
-    {
-      title: "Out of stock",
-      body: fresh.length === 1 ? `${fresh[0].name} is out of stock` : `${fresh.length} items are out of stock`,
-      url: "/dashboard/inventory?status=out",
-    },
-    actingUserId,
+  // Deferred with after() (PERF-9), exactly as recordOutOfStockTransition
+  // does: the send runs once the response has gone out and the invocation is
+  // kept alive until it finishes, which a bare `void` promise doesn't.
+  after(() =>
+    sendPushToHousehold(
+      householdId,
+      {
+        title: "Out of stock",
+        body: fresh.length === 1 ? `${fresh[0].name} is out of stock` : `${fresh.length} items are out of stock`,
+        url: "/dashboard/inventory?status=out",
+      },
+      actingUserId,
+    ),
   );
 }
 

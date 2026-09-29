@@ -302,6 +302,7 @@ describe("recordOutOfStockTransitions (batch)", () => {
       ],
     });
     // Several at once collapse into one push, still excluding the actor.
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledTimes(1);
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
@@ -310,9 +311,17 @@ describe("recordOutOfStockTransitions (batch)", () => {
     );
   });
 
+  it("defers the push to after() so it isn't dropped when the function freezes", async () => {
+    await recordOutOfStockTransitions(prisma, "household-1", [change("a", 3, 0), change("b", 2, 0)]);
+
+    expect(sendPushToHouseholdMock).not.toHaveBeenCalled();
+    expect(scheduled).toHaveLength(1);
+  });
+
   it("pushes the single-item wording when only one item crossed", async () => {
     await recordOutOfStockTransitions(prisma, "household-1", [change("a", 3, 0)]);
 
+    await runScheduled();
     expect(sendPushToHouseholdMock).toHaveBeenCalledWith(
       "household-1",
       expect.objectContaining({ body: "Item a is out of stock" }),
