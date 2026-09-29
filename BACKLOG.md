@@ -362,17 +362,6 @@ no broken empty states — the issues below are all clipped/illegible text.
       to `SelectValue`) so it's fixed everywhere at once. Acceptance: an e2e
       or visual check that a long option's label ends in an ellipsis, not a
       mid-word cut, at 1280px.
-- [ ] **UX-3. Notifications empty state gives no next step** (impact: low,
-      effort: S) — every other feature's empty state explains what to do
-      next ("Add a few items to start tracking what's in stock.", "No tasks
-      yet — use the + button above to add one."), but
-      `dictionaries/en.ts:68`'s notifications `empty: "No notifications
-      yet."` (and its `sv.ts` counterpart) doesn't say what would ever
-      produce one. Add a second sentence naming a couple of triggers (low
-      stock, a task assigned to you, a household invite) so a first-time
-      user knows the page isn't broken. Acceptance: the empty-state copy in
-      both dictionaries includes an example of what generates a
-      notification.
 
 ### Budget component unification
 
@@ -780,6 +769,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.6 | #113 fix: rate-limit the shopping-list share-token endpoints (SEC-13) | 2026-09-28 | #113 |
       | v0.46.7 | #114 fix: include notes, tasks, splits and settings in "Export my data" (SEC-10) | 2026-09-28 | #114 |
       | v0.46.8 | #118 perf: keep zod out of the meal-planning client bundle (PERF-7) | 2026-09-29 | #118 |
+      | v0.46.9 | #119 fix: tell a new household what produces a notification (UX-3) | 2026-09-29 | #119 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
