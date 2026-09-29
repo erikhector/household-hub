@@ -140,12 +140,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       ~7.6 KB of it; it's inlined into every dashboard document and
       layout-re-rendering action response. Pass `Pick<Dictionary, …>`
       sub-objects (AGENTS.md already asks for this).
-- [ ] **PERF-7. Keep zod out of the meal-planning client bundle** (medium, S) —
-      `src/lib/recipe-tags.ts:20,43` imports `zod` for one `z.enum`, pulling a
-      99 KB gz chunk into `recipe-manager.tsx`/`recipe-form-dialog.tsx`.
-      Split the zod-free helpers (`RECIPE_TAGS`, `isRecipeTag`,
-      `recipeMatchesTag`) from the server-side schema. Expect meal-planning
-      ~472 → ~375 KB gz.
 - [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
       import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
       page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
@@ -624,6 +618,38 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
+### 2026-09-29 scan
+
+- [ ] **GAP-42. Cook mode on a recipe (screen stays on, tick off steps)** (impact: med, effort: M) —
+      Paprika's "Cook" view keeps the screen awake, lets you cross off
+      ingredients and highlight the current step; Mealie and Tandoor have
+      the same. Squirrel shows a recipe's `instructions` (one step per line,
+      see REQUIREMENTS.md "Recipe import from URL") only in the edit form
+      (`src/components/meal-planning/recipe-form-dialog.tsx`), so cooking
+      from a phone means an editing dialog that dims and locks mid-recipe.
+      The screen-wake-lock hook already exists for shopping
+      (`src/lib/shopping/use-screen-wake-lock.ts`, AUTO-3) and can be
+      reused. No schema change; component state only, nothing stored in the
+      browser (no `cookie-inventory.ts` entry). Acceptance: a "Cook" button on
+      a recipe with instructions opens a full-screen read view with large
+      step text, the ingredients (scaled to the meal entry's portions when
+      opened from the plan) and tappable steps that dim when done; it
+      requests the wake lock while open and releases it on close; an e2e test
+      opens it on desktop and mobile, ticks a step and asserts it is marked
+      done and that closing returns to the recipe list.
+
+- [ ] **GAP-43. Share a recipe with someone outside the household via a link** `[!]` —
+      needs a product decision. Paprika, Mealie and Tandoor let you send a
+      recipe to a friend or family member. Squirrel's only sharing is inside
+      a household, and every read is scoped by `requireHousehold()`, so a
+      public link would be the app's first unauthenticated data read: it
+      needs decisions on token format and revocation (see SEC-8 on
+      single-use tokens), whether the link shows a snapshot or the live
+      recipe, and whether the receiver can import it into their own
+      household, which would also cross the tenancy boundary in
+      `src/lib/session.ts`. A plain "copy as text" would avoid all of that
+      and could be the smaller first step.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
@@ -742,6 +768,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.5 | #112 fix: log only an excerpt of unparseable AI scan replies (SEC-11) | 2026-09-28 | #112 |
       | v0.46.6 | #113 fix: rate-limit the shopping-list share-token endpoints (SEC-13) | 2026-09-28 | #113 |
       | v0.46.7 | #114 fix: include notes, tasks, splits and settings in "Export my data" (SEC-10) | 2026-09-28 | #114 |
+      | v0.46.8 | #118 perf: keep zod out of the meal-planning client bundle (PERF-7) | 2026-09-29 | #118 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
