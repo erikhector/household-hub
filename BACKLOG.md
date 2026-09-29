@@ -146,14 +146,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
       and the replay excludes) to `withSentryConfig`, or `import()` it
       behind the DSN check.
-- [ ] **PERF-9. Move pushes and price-spike checks into `after()`** (medium, S) —
-      `void sendPushToHousehold(...)` (`notifications.ts:293,336`) can be
-      dropped when Vercel freezes the function after the response (the
-      comment in `push.ts:35-48` admits it), while `recordPriceSpikes`
-      (3 queries + awaited push) is *awaited* on the check-off path
-      (`shopping-list/actions.ts:1095,1286,1480,1742`,
-      `share/shopping-list/actions.ts:196`). Use `after()` from
-      `next/server` for both, as `category-resolver.ts:79` already does.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
@@ -744,6 +736,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.9 | #119 fix: tell a new household what produces a notification (UX-3) | 2026-09-29 | #119 |
       | v0.46.10 | #120 fix: show the whole unit in the empty inventory's quick-add row (UX-1) | 2026-09-29 | #120 |
       | v0.46.11 | #121 fix: ellipsize Select trigger labels instead of clipping mid-word (UX-2) | 2026-09-29 | #121 |
+      | v0.46.12 | #122 perf: move pushes and price-spike checks into after() (PERF-9) | 2026-09-29 | #122 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

@@ -4662,7 +4662,12 @@ Exactly six triggers exist — nothing else creates a notification:
     reads committed history; as one batch, because receipt scans write
     their rows in parallel and a per-row check-then-create could let two
     lines for the same item both pass the dedupe. It never throws — the
-    prices are already saved, so a failure is logged and swallowed.
+    prices are already saved, so a failure is logged and swallowed. The
+    whole check (its three queries plus the push) is scheduled with
+    `after()` (`next/server`, PERF-9), so the check-off response doesn't wait
+    on it and the invocation still stays alive until it finishes. That makes
+    `recordPriceSpikes` a synchronous scheduler returning `void`: callers
+    don't `await` it.
   - **What "materially above" means** — the pure, unit-tested
     `detectPriceSpike` (`src/lib/price-spike.ts`), every constant exported
     from there:
@@ -4868,12 +4873,14 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     `recordListClearedTransition`, `recordPriceSpikes`,
     `syncMealNotLoggedNotifications` and
     `syncExpiringSoonNotifications` in `src/lib/notifications.ts`), and
-    nothing else sends a push. `recordPriceSpikes` awaits it, since it
-    runs after its caller's transaction has committed and has nothing to
-    hold open. The other two action-driven triggers fire it
-    without awaiting (`void sendPushToHousehold(...)`) since some of their
-    call sites run inside a Prisma `$transaction`, and holding that open for
-    a network call isn't worth it — Push API delivery has no delivery
+    nothing else sends a push. The three action-driven triggers
+    (`recordOutOfStockTransition`, `recordListClearedTransition` and
+    `recordPriceSpikes`) run the send inside `after()` (`next/server`,
+    PERF-9): it starts once the response has gone out and the platform keeps
+    the invocation alive until it settles, which a bare
+    `void sendPushToHousehold(...)` did not guarantee. It is not awaited
+    because some call sites run inside a Prisma `$transaction`, and holding
+    that open for a network call isn't worth it — Push API delivery has no delivery
     guarantee either way, so losing a send if the surrounding write later
     rolls back is an acceptable trade. The two cron-driven syncs **await**
     it instead: they have no surrounding transaction, and the cron route
