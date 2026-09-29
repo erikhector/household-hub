@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.10",
+    "date": "2026-09-29",
+    "pr": 120,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The Unit field in the quick-add row on an empty inventory now shows the whole unit (like \"pcs\") instead of a single letter.",
+      "sv": "Fältet Enhet i snabbtilläggsraden på ett tomt förråd visar nu hela enheten (till exempel \"pcs\") i stället för en enda bokstav."
+    }
+  },
+  {
     "version": "0.46.9",
     "date": "2026-09-29",
     "pr": 119,

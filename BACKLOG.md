@@ -334,19 +334,6 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 `get-dictionary.ts`'s comment). No console errors, no untranslated strings,
 no broken empty states — the issues below are all clipped/illegible text.
 
-- [ ] **UX-1. Quick-add's Unit field hides its own value** (impact: high,
-      effort: S) — `src/components/inventory/quick-add-bar.tsx:110` wraps the
-      unit `ComboField` in a fixed `w-20` (80px) column, but the field also
-      has to fit a clear (`×`) button and a dropdown chevron
-      (`combo-field.tsx`'s `AutocompleteClear`/`AutocompleteTrigger`). The
-      default value "pcs" (or a Swedish unit) is clipped down to a single
-      character — the row shows "p ×" with no way to tell what unit is
-      selected without opening the dropdown. Reproduces on the empty
-      inventory state at both 390px and 1280px, `en` and `sv`. Widen the
-      column (e.g. `w-28`/`w-32`) or drop one of the two trailing icons for
-      this field. Acceptance: an e2e assertion that the quick-add unit
-      field's visible text matches its selected value (not truncated to one
-      character) at 390px width.
 - [ ] **UX-2. Select trigger labels clip mid-word with no ellipsis**
       (impact: medium, effort: S) — the inventory filter row's `Select`s
       (`src/components/inventory/inventory-client.tsx:262-282`) sit in
@@ -770,6 +757,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.7 | #114 fix: include notes, tasks, splits and settings in "Export my data" (SEC-10) | 2026-09-28 | #114 |
       | v0.46.8 | #118 perf: keep zod out of the meal-planning client bundle (PERF-7) | 2026-09-29 | #118 |
       | v0.46.9 | #119 fix: tell a new household what produces a notification (UX-3) | 2026-09-29 | #119 |
+      | v0.46.10 | #120 fix: show the whole unit in the empty inventory's quick-add row (UX-1) | 2026-09-29 | #120 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

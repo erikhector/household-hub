@@ -534,6 +534,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
+  - **Quick-add row (UX-1)**: the empty inventory's `QuickAddBar` (name,
+    quantity, unit, category) gives the unit `ComboField` a `w-32` column
+    (128px), because the field also holds its clear (×) and chevron
+    buttons and the old `w-20` left the input a few pixels, so the default
+    "pcs" showed as a single letter. `e2e/quick-add-unit.spec.ts` guards it
+    at 390px in `en` and `sv` (its own empty household, since the seeded
+    one has items).
   - **Auto-categorization (AUTO-2)**: a new item created without a
     category is filed under a guessed one instead of `"Uncategorized"`, so
     things added from a list, receipt, paste or quick-add arrive already
