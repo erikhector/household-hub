@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   RECIPE_TAGS,
@@ -83,5 +84,14 @@ describe("dictionary labels", () => {
       expect(en.mealPlanning.recipeTags[tag]).toBeTruthy();
       expect(sv.mealPlanning.recipeTags[tag]).toBeTruthy();
     }
+  });
+});
+
+// PERF-7: client components import this module, so a zod import would drag
+// a ~99 KB gz chunk into the meal-planning bundle.
+describe("recipe-tags bundle hygiene", () => {
+  it("does not import zod", () => {
+    const source = readFileSync(new URL("./recipe-tags.ts", import.meta.url), "utf8");
+    expect(source).not.toMatch(/from\s+["']zod["']/);
   });
 });
