@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.11",
+    "date": "2026-09-29",
+    "pr": 121,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Long choices in dropdowns now end in \"…\" instead of being cut off in the middle of a word.",
+      "sv": "Långa val i rullgardinsmenyer slutar nu med \"…\" i stället för att klippas mitt i ett ord."
+    }
+  },
+  {
     "version": "0.46.10",
     "date": "2026-09-29",
     "pr": 120,
