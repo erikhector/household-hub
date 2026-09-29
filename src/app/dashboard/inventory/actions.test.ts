@@ -94,6 +94,9 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
   };
 });
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// recordOutOfStockTransition (real here) hands its push to after(), which
+// throws outside a request; the push itself is covered in notifications.test.ts.
+vi.mock("next/server", () => ({ after: vi.fn() }));
 // The default-list helpers have their own unit (src/lib/shopping/
 // default-list.test.ts) — here we only check which one each action calls,
 // with what, and that its result reaches the client.

@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.46.12",
+    "date": "2026-09-29",
+    "pr": 122,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Checking off shopping items feels snappier, and push notifications for out-of-stock items and finished lists are more reliably delivered.",
+      "sv": "Att bocka av varor i inköpslistan går snabbare, och pushnotiser om slutna varor och färdiga listor kommer fram mer pålitligt."
+    }
+  },
+  {
     "version": "0.46.11",
     "date": "2026-09-29",
     "pr": 121,
