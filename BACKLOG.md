@@ -134,12 +134,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-5. Stop sending the whole dictionary through the dashboard layout** (medium, S) —
-      `dashboard/layout.tsx:95-106` passes the full `dict` (87 KB JSON) to
-      the client `Sidebar`, `HouseholdSwitcher` and `BottomNav`, which use
-      ~7.6 KB of it; it's inlined into every dashboard document and
-      layout-re-rendering action response. Pass `Pick<Dictionary, …>`
-      sub-objects (AGENTS.md already asks for this).
 - [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
       import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
       page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
@@ -727,6 +721,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.10 | #120 fix: show the whole unit in the empty inventory's quick-add row (UX-1) | 2026-09-29 | #120 |
       | v0.46.11 | #121 fix: ellipsize Select trigger labels instead of clipping mid-word (UX-2) | 2026-09-29 | #121 |
       | v0.46.12 | #122 perf: move pushes and price-spike checks into after() (PERF-9) | 2026-09-29 | #122 |
+      | v0.46.13 | #124 perf: pass only the used dictionary slices to the dashboard shell (PERF-5) | 2026-09-29 | #124 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

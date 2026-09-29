@@ -82,11 +82,15 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   to thread through layouts, so `cache()` is what dedupes the repeated
   `cookies()` read within one request instead.
 - **Passing translations to Client Components**: the convention is to pass
-  the **whole `Dictionary`** (or a named sub-object, e.g.
-  `dict.household.invite`) as a `dict` prop — not to hand-pick individual
-  translated strings as separate props. This keeps every component's prop
-  signature simple and consistent; the payload is trivial (it's just
-  strings). `src/lib/i18n/format.ts` exports `format(template, vars)`
+  a named sub-object (e.g. `dict.household.invite`) as a `dict` prop, or a
+  `Pick<Dictionary, …>` slice when a component reads several namespaces —
+  not the **whole `Dictionary`** and not hand-picked individual strings. A
+  client prop is serialized into the document and every
+  layout-re-rendering action response, and the full dictionary is ~87 KB.
+  The dashboard layout follows this (PERF-5): `Sidebar` and `BottomNav`
+  take `ShellDictionary` (`nav`, `notifications`, `language`, `theme`,
+  defined in `nav-items.ts`) and `HouseholdSwitcher` takes
+  `dict.household.switcher`. `src/lib/i18n/format.ts` exports `format(template, vars)`
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
-import { SIDEBAR_COOKIE } from "@/components/dashboard/nav-items";
+import { SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import {
   EmailVerificationBanner,
@@ -49,6 +49,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
   const sidebarExpanded = cookieStore.get(SIDEBAR_COOKIE)?.value !== "0";
   const emailVerificationDismissed = cookieStore.get(EMAIL_VERIFICATION_DISMISSED_COOKIE)?.value === "1";
   const unseenRelease = hasUnseenRelease(cookieStore.get(LAST_SEEN_RELEASE_COOKIE)?.value);
+  // Only the slices the client shell reads: passing `dict` whole would
+  // serialize all ~87 KB of it into every dashboard document and every
+  // layout-re-rendering action response (PERF-5).
+  const shellDict: ShellDictionary = {
+    nav: dict.nav,
+    notifications: dict.notifications,
+    language: dict.language,
+    theme: dict.theme,
+  };
   const current = { id: household.id, name: household.name, role };
 
   return (
@@ -92,14 +101,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         defaultExpanded={sidebarExpanded}
         current={current}
         households={households}
-        dict={dict}
+        dict={shellDict}
+        switcherDict={dict.household.switcher}
         locale={locale}
         notifications={notifications}
         unseenRelease={unseenRelease}
       />
       <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
         <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
-          <HouseholdSwitcher current={current} households={households} dict={dict} />
+          <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
         </header>
         {/* Below the header, not above it: the header is what carries the
             safe-area-inset-top padding, so anything rendered before it
@@ -129,7 +139,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
           {children}
         </main>
       </div>
-      <BottomNav dict={dict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />
+      <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />
     </div>
   );
 }
