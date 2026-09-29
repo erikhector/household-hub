@@ -1356,8 +1356,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   state (a passed date is simply stated), no streaks, and it never blocks
   or affects a transaction, safe to spend or any total.
 - **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
-  (householdId: string)`, exported from
-  `src/app/dashboard/budget/actions.ts`, is the intended lookup for the
+  (householdId: string)`, exported from the plain server module
+  `src/lib/budget-groceries-category.ts` (not a `"use server"` file, where
+  it would be a client-callable endpoint taking a household id — see
+  MAINT-2 below), is the intended lookup for the
   shopping-list → budget expense link (completing a shopping list should
   create/reuse a "Groceries" expense category and log a `Transaction`
   against it). Lookup key: name `"Groceries"` (case-insensitive match),
@@ -1365,8 +1367,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `findOrCreateInventoryItem` in
   `src/app/dashboard/shopping-list/actions.ts` exactly (find first, create
   if missing). The category name itself (`GROCERIES_CATEGORY_NAME`) is a
-  module-private constant, not exported, because a `"use server"` file may
-  only export async functions — callers that need the name read it off the
+  module-private constant, not exported — callers that need the name read it off the
   returned category (`category.name`) rather than importing the constant.
   Like `findOrCreateInventoryItem`, this helper trusts its `householdId`
   argument and does no auth check of its own; every caller must resolve
@@ -5016,7 +5017,13 @@ approximating them, so the email never disagrees with the app.
   (`src/app/dashboard/<feature>/actions.ts`) or in `src/lib/actions/` when
   shared across routes (auth, household). Every action re-derives the
   household from the session via `requireHousehold()` — never accepts a
-  household id from the client.
+  household id from the client. Every export of a `"use server"` file is a
+  client-callable endpoint, so each must be named `…Action` or be one of the
+  token-gated readers allowlisted in `src/lib/use-server-exports.test.ts`
+  (`getShoppingListByShareToken`, `getInvitationForDisplay`); helpers that
+  take a household id (`findOrCreateGroceriesCategory`,
+  `isHouseholdStepSkipped`) live in plain server modules under `src/lib/`.
+  That test fails `npm test` otherwise.
 - Actions bound to a `<form>` follow the `(prevState, formData) =>
   Promise<ActionState>` shape (`ActionState = { error?: string }`) for use
   with `useActionState`. Actions triggered by a plain click (toggle, delete,

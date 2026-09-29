@@ -16,6 +16,7 @@ import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
 import { parseHouseholdCurrency } from "@/lib/currency";
+import { HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX } from "@/lib/household-step-skip";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -297,13 +298,7 @@ export async function joinViaInviteSignupAction(
 // belong to more than one household and skipping the nudge for one solo
 // household shouldn't hide it for a different, genuinely-just-getting-set-up
 // one.
-const HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX = "household_step_skipped_";
 const HOUSEHOLD_STEP_SKIP_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
-export async function isHouseholdStepSkipped(householdId: string): Promise<boolean> {
-  const cookieStore = await cookies();
-  return cookieStore.get(`${HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX}${householdId}`)?.value === "1";
-}
 
 export async function skipHouseholdStepAction(): Promise<void> {
   const { household } = await requireHousehold();
