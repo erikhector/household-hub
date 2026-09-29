@@ -5262,9 +5262,12 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   `max_parallel_subagents`), then each merge to a merge sub-agent, one at
   a time since each merge moves `master`; it checks every result against
   GitHub (review marker and SHA, verdict consistent with open threads, PR
-  actually merged) before accepting it. On later runs it checks each finding against the
-  new head and resolves the thread once it's fixed; the builder (or the
-  PR's author) does the fixing. A PR whose latest verdict is approved, with
+  actually merged) before accepting it. It stays subscribed to every PR
+  it sent back for changes: when the author pushes a fix or replies to a
+  thread, it re-reviews in the same run (one round at a time per PR, at
+  most `max_review_rounds_per_run`, for up to `review_listen_hours`),
+  checking each finding against the new head and resolving the thread
+  once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
   no open threads, gets `master` merged in, conflicting migrations
   regenerated on top of master's, its release cut, and `npm run ci:local`
   run, then it is squash-merged. At most `max_merges_per_review_run` per
