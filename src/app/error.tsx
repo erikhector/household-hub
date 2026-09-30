@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import * as Sentry from "@sentry/nextjs";
 import { RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClientLocale } from "@/lib/i18n/client-locale";
 import { logger } from "@/lib/logger";
+import { captureClientException } from "@/lib/sentry-client";
 
 const COPY = {
   en: {
@@ -46,9 +46,9 @@ export default function ErrorBoundary({
   // the same tradeoff RootLayout already makes for the theme class.
   useEffect(() => {
     logger.error("Unhandled error boundary", { error });
-    // No-op without a prior Sentry.init() call, i.e. without
-    // NEXT_PUBLIC_SENTRY_DSN set — see src/instrumentation-client.ts.
-    Sentry.captureException(error);
+    // No-op without NEXT_PUBLIC_SENTRY_DSN set, and the SDK is only loaded
+    // when it is — see src/lib/sentry-client.ts.
+    void captureClientException(error);
   }, [error]);
 
   const copy = COPY[getClientLocale()];

@@ -113,12 +113,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
-      import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
-      page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
-      (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
-      and the replay excludes) to `withSentryConfig`, or `import()` it
-      behind the DSN check.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
