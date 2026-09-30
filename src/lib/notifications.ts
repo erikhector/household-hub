@@ -60,7 +60,7 @@
 //
 // Callers must resolve `householdId` from their own `requireHousehold()`
 // call first — this trusts its argument the same way
-// `findOrCreateInventoryItem`/`findOrCreateGroceriesCategory` do.
+// `findOrCreateInventoryItem`/`resolveShoppingExpenseCategory` do.
 //
 // Every trigger below that stems from a specific user action (as opposed to
 // the lazy background syncs, which have no single actor) takes an optional

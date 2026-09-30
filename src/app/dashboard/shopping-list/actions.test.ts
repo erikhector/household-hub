@@ -35,7 +35,7 @@ const {
   notificationFindFirstMock,
   notificationCreateMock,
   inventoryItemFindUniqueMock,
-  findOrCreateGroceriesCategoryMock,
+  resolveShoppingExpenseCategoryMock,
   fetchExchangeRateMock,
   redirectMock,
   revalidatePathMock,
@@ -77,7 +77,10 @@ const {
     id: `ph-${args.data.inventoryItemId}`,
   })),
   recordPriceSpikesMock: vi.fn(async () => {}),
-  transactionCreateMock: vi.fn(),
+  // Defaults so every receipt/completion test gets a well-formed expense row
+  // (MAINT-5 logs it inside the transaction, where a malformed one would
+  // roll the whole thing back); tests override with mock*Once.
+  transactionCreateMock: vi.fn(async (): Promise<{ id?: string }> => ({ id: "txn-1" })),
   transactionDeleteManyMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
@@ -104,7 +107,8 @@ const {
         findUnique: shoppingListFindUniqueMock,
         update: shoppingListUpdateMock,
       },
-      transaction: { deleteMany: transactionDeleteManyMock },
+      // MAINT-5: the shopping expense is logged inside the transaction.
+      transaction: { create: transactionCreateMock, deleteMany: transactionDeleteManyMock },
       inventoryItem: {
         update: inventoryItemUpdateMock,
         findUnique: inventoryItemFindUniqueMock,
@@ -121,7 +125,7 @@ const {
     };
     return cb(tx);
   }),
-  findOrCreateGroceriesCategoryMock: vi.fn(),
+  resolveShoppingExpenseCategoryMock: vi.fn(async (): Promise<{ id: string; name?: string }> => ({ id: "cat-groceries", name: "Groceries" })),
   fetchExchangeRateMock: vi.fn(),
   redirectMock: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
@@ -197,7 +201,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => ({
     shoppingList: {
       defaultNamePrefix: "Shopping list",
       expenseDescription: "Groceries: {name}",
-      expenseLogged: "Logged a {amount} expense",
+      expenseLogged: "Logged {amount} to {category}",
       unresolvedNotice: {
         one: "{count} item wasn't linked",
         other: "{count} items weren't linked",
@@ -215,7 +219,7 @@ vi.mock("@/lib/i18n/format", () => ({
   plural: (count: number, forms: { one: string; other: string }) => (count === 1 ? forms.one : forms.other),
 }));
 vi.mock("@/lib/budget-groceries-category", () => ({
-  findOrCreateGroceriesCategory: findOrCreateGroceriesCategoryMock,
+  resolveShoppingExpenseCategory: resolveShoppingExpenseCategoryMock,
 }));
 vi.mock("@/lib/exchange-rate", () => ({ fetchExchangeRate: fetchExchangeRateMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
@@ -1969,7 +1973,7 @@ describe("registerReceiptAction", () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });
     shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
-    findOrCreateGroceriesCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    resolveShoppingExpenseCategoryMock.mockResolvedValue({ id: "cat-groceries" });
     transactionCreateMock.mockResolvedValue({});
 
     const result = await registerReceiptAction("My receipt", "SEK", [
@@ -2021,6 +2025,28 @@ describe("registerReceiptAction", () => {
     expect(result).toEqual(
       expect.objectContaining({ listId: "list-1", itemsAdded: 1, totalAmount: 15 }),
     );
+  });
+
+  it("logs the expense inside the receipt's transaction and returns a friendly error when it can't be written (MAINT-5)", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 2, unit: "l" });
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+    transactionCreateMock.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Milk", quantity: 2, unit: "l", price: 15 },
+    ]);
+
+    // One transaction for stock and expense alike, so the failed insert
+    // rolls the stock back too: retrying can't count the milk twice.
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(resolveShoppingExpenseCategoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shoppingList: expect.anything() }),
+      "household-1",
+    );
+    expect(result).toEqual({ error: expect.any(String) });
+    expect(recordPriceSpikesMock).not.toHaveBeenCalled();
   });
 
   // AUTO-7
@@ -2253,7 +2279,7 @@ describe("completeShoppingListAction", () => {
       ],
     });
     shoppingListUpdateMock.mockResolvedValue({});
-    findOrCreateGroceriesCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    resolveShoppingExpenseCategoryMock.mockResolvedValue({ id: "cat-groceries" });
     transactionCreateMock.mockResolvedValue({});
 
     const result = await completeShoppingListAction("list-1");
@@ -2318,6 +2344,47 @@ describe("completeShoppingListAction", () => {
   });
 });
 
+describe("completeShoppingListAction → shopping expense (MAINT-5)", () => {
+  const pricedList = {
+    id: "list-1",
+    name: "This week",
+    items: [{ inventoryItemId: "inv-1", purchased: true, estimatedPrice: 20 }],
+  };
+
+  it("logs the expense inside the completion transaction, to the resolved category, and names it in the toast", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(pricedList);
+    shoppingListUpdateMock.mockResolvedValue({});
+    resolveShoppingExpenseCategoryMock.mockResolvedValueOnce({ id: "cat-food", name: "Mat" });
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    // Handed the transaction client, not the global prisma.
+    expect(resolveShoppingExpenseCategoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ shoppingList: expect.anything() }),
+      "household-1",
+    );
+    expect(transactionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ categoryId: "cat-food", amount: 20 }) }),
+    );
+    expect(result.expenseLoggedMessage).toBe("Logged 20.00 to Mat");
+  });
+
+  it("returns a friendly error instead of throwing when the expense can't be written", async () => {
+    shoppingListFindFirstMock.mockResolvedValue(pricedList);
+    shoppingListUpdateMock.mockResolvedValue({});
+    transactionCreateMock.mockRejectedValueOnce(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await completeShoppingListAction("list-1");
+
+    expect(result.error).toBeTruthy();
+    expect(result.transactionId).toBeUndefined();
+    // Nothing learned from a completion that rolled back.
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("completeShoppingListAction → transactionId", () => {
   it("returns the id of the Groceries expense it logged, so Undo can target exactly that row", async () => {
     shoppingListFindFirstMock.mockResolvedValue({
@@ -2326,7 +2393,7 @@ describe("completeShoppingListAction → transactionId", () => {
       items: [{ inventoryItemId: "inv-1", purchased: true, estimatedPrice: 20 }],
     });
     shoppingListUpdateMock.mockResolvedValue({});
-    findOrCreateGroceriesCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+    resolveShoppingExpenseCategoryMock.mockResolvedValue({ id: "cat-groceries" });
     transactionCreateMock.mockResolvedValue({ id: "txn-1" });
 
     const result = await completeShoppingListAction("list-1");

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
-import { findOrCreateGroceriesCategory } from "@/lib/budget-groceries-category";
+import { resolveShoppingExpenseCategory } from "@/lib/budget-groceries-category";
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
@@ -33,7 +33,7 @@ import { openedResetOnArrival } from "@/lib/inventory/expiry";
 import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
 import { awaitsReceiptPrice, defersToPutAway } from "@/lib/shopping/put-away-calc";
 import { loadIncomingByItem, coveredQuantity } from "@/lib/incoming-stock";
-import type { InventoryItem } from "@/generated/prisma/client";
+import type { InventoryItem, Prisma } from "@/generated/prisma/client";
 
 /**
  * Case-insensitive exact-name lookup only — never creates. Used wherever a
@@ -1552,6 +1552,49 @@ const registerReceiptSchema = z.object({
   items: z.array(registerReceiptItemSchema).min(1, "Add at least one item").max(300, "Too many items"),
 });
 
+type LoggedExpense = { transactionId: string; amount: number; categoryName: string };
+
+/**
+ * MAINT-5: the one place a shopping trip's total becomes a budget expense,
+ * shared by registerReceiptAction and completeShoppingListAction. Runs on
+ * the caller's transaction client, inside the same `$transaction` as the
+ * stock/status writes it accounts for: logging it afterwards (as both used
+ * to) meant a failed insert surfaced as a crash after stock had already
+ * moved, and retrying re-applied the stock. Never estimates — a zero total
+ * logs nothing and returns null. Module-private, so not a client-callable
+ * endpoint despite living in a `"use server"` file.
+ */
+async function logGroceriesExpense(
+  tx: Prisma.TransactionClient,
+  { householdId, userId, amount, description }: { householdId: string; userId: string; amount: number; description: string },
+): Promise<LoggedExpense | null> {
+  if (amount <= 0) return null;
+  const category = await resolveShoppingExpenseCategory(tx, householdId);
+  const transaction = await tx.transaction.create({
+    data: {
+      householdId,
+      categoryId: category.id,
+      amount,
+      type: "EXPENSE",
+      description,
+      date: new Date(),
+      createdByUserId: userId,
+    },
+    select: { id: true },
+  });
+  return { transactionId: transaction.id, amount, categoryName: category.name };
+}
+
+// The "Logged 123 kr to Groceries" toast. Names the category the expense
+// actually went to, since that's now the household's choice (and may have
+// been renamed) rather than always "Groceries".
+async function formatExpenseLogged(template: string, currencyCode: string | null, expense: LoggedExpense) {
+  const locale = await getLocale();
+  // GAP-13: the household's display currency, like the list itself.
+  const amountLabel = createMoneyFormat(locale, currencyCode).format(expense.amount);
+  return format(template, { amount: amountLabel, category: expense.categoryName });
+}
+
 /**
  * "Register receipt" — the alternative entry point to ReceiptScanDialog /
  * applyReceiptScanAction above for when there's no shopping list yet to
@@ -1701,9 +1744,9 @@ export async function registerReceiptAction(
 
   // GAP-9: see applyReceiptScanAction's matching comment.
   const recordedPrices: RecordedPrice[] = [];
-  let listId: string;
+  let registered: { listId: string; expense: LoggedExpense | null };
   try {
-    listId = await prisma.$transaction(async (tx) => {
+    registered = await prisma.$transaction(async (tx) => {
       const registeredAt = new Date();
       const list = await tx.shoppingList.create({
         data: {
@@ -1766,33 +1809,24 @@ export async function registerReceiptAction(
         });
       }
 
-      return list.id;
+      const expense = await logGroceriesExpense(tx, {
+        householdId: household.id,
+        userId,
+        amount: totalAmount,
+        description: format(dict.shoppingList.expenseDescription, { name: finalListName }),
+      });
+
+      return { listId: list.id, expense };
     });
   } catch (error) {
     return toFriendlyError(error);
   }
+  const { listId } = registered;
   recordPriceSpikes(household.id, recordedPrices, userId);
 
-  let expenseLoggedMessage: string | undefined;
-  if (totalAmount > 0) {
-    const category = await findOrCreateGroceriesCategory(household.id);
-    await prisma.transaction.create({
-      data: {
-        householdId: household.id,
-        categoryId: category.id,
-        amount: totalAmount,
-        type: "EXPENSE",
-        description: format(dict.shoppingList.expenseDescription, { name: finalListName }),
-        date: new Date(),
-        createdByUserId: userId,
-      },
-    });
-
-    const locale = await getLocale();
-    // GAP-13: the household's display currency, like the list itself.
-    const amountLabel = createMoneyFormat(locale, household.currencyCode).format(totalAmount);
-    expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
-  }
+  const expenseLoggedMessage = registered.expense
+    ? await formatExpenseLogged(dict.shoppingList.expenseLogged, household.currencyCode, registered.expense)
+    : undefined;
 
   const unresolvedNotice =
     unresolvedCount > 0
@@ -2030,27 +2064,8 @@ export async function completeShoppingListAction(
   // made. `isDefault` is cleared on the completed list first (same
   // transaction) so the partial unique index never sees two ACTIVE defaults
   // and a later un-archive can't resurrect a second one.
-  if (list.isDefault) {
-    await prisma.$transaction(async (tx) => {
-      await tx.shoppingList.update({
-        where: { id: list.id },
-        data: { status: "COMPLETED", completedAt: new Date(), isDefault: false },
-      });
-      await getOrCreateDefaultShoppingList(tx, household.id);
-    });
-  } else {
-    await prisma.shoppingList.update({
-      where: { id: list.id },
-      data: { status: "COMPLETED", completedAt: new Date() },
-    });
-  }
-
-  await learnStoreOrder(household.id, household.categoryOrderLearned, list.items);
-
-  // Log a "Groceries" expense for whatever purchased items actually have an
-  // estimated price set — never invent/estimate a price for items that
-  // don't. Reuses Task 2's find-or-create category helper rather than
-  // duplicating that lookup here.
+  // Log an expense for whatever purchased items actually have an estimated
+  // price set — never invent/estimate a price for items that don't.
   let groceriesTotal = 0;
   for (const item of list.items) {
     if (item.purchased && item.estimatedPrice != null) {
@@ -2058,30 +2073,34 @@ export async function completeShoppingListAction(
     }
   }
 
-  let expenseLoggedMessage: string | undefined;
-  let transactionId: string | undefined;
+  // Status change and expense commit together (MAINT-5), so a list is never
+  // COMPLETED without the expense its prices add up to, or the other way round.
+  let expense: LoggedExpense | null;
+  try {
+    expense = await prisma.$transaction(async (tx) => {
+      await tx.shoppingList.update({
+        where: { id: list.id },
+        data: { status: "COMPLETED", completedAt: new Date(), ...(list.isDefault ? { isDefault: false } : {}) },
+      });
+      if (list.isDefault) await getOrCreateDefaultShoppingList(tx, household.id);
 
-  if (groceriesTotal > 0) {
-    const category = await findOrCreateGroceriesCategory(household.id);
-    const transaction = await prisma.transaction.create({
-      data: {
+      return logGroceriesExpense(tx, {
         householdId: household.id,
-        categoryId: category.id,
+        userId,
         amount: groceriesTotal,
-        type: "EXPENSE",
         description: format(dict.shoppingList.expenseDescription, { name: list.name }),
-        date: new Date(),
-        createdByUserId: userId,
-      },
-      select: { id: true },
+      });
     });
-    transactionId = transaction.id;
-
-    const locale = await getLocale();
-    // GAP-13: the household's display currency, like the list itself.
-    const amountLabel = createMoneyFormat(locale, household.currencyCode).format(groceriesTotal);
-    expenseLoggedMessage = format(dict.shoppingList.expenseLogged, { amount: amountLabel });
+  } catch (error) {
+    return toFriendlyError(error);
   }
+
+  await learnStoreOrder(household.id, household.categoryOrderLearned, list.items);
+
+  const transactionId = expense?.transactionId;
+  const expenseLoggedMessage = expense
+    ? await formatExpenseLogged(dict.shoppingList.expenseLogged, household.currencyCode, expense)
+    : undefined;
 
   const unresolvedNotice =
     unresolvedCount > 0

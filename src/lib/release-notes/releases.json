@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.0",
+    "date": "2026-09-30",
+    "pr": 129,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now choose which budget category your shopping trips are logged to, from the Household page. Renaming the category no longer starts a new \"Groceries\" one.",
+      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny \"Groceries\"."
+    }
+  },
+  {
     "version": "0.46.14",
     "date": "2026-09-29",
     "pr": 125,

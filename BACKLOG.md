@@ -190,8 +190,8 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 ### Maintainability (2026-09-26 audit)
 
 Baseline at audit time: lint clean, `tsc` clean, 104 test files / 1,860
-tests passing, no `any`/`@ts-ignore` in app code. Items 3, 5, 6 and 7 all
-touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-5 → MAINT-6 → MAINT-3,
+tests passing, no `any`/`@ts-ignore` in app code. Items 3, 6 and 7 all
+touch `shopping-list/actions.ts` — land MAINT-2 → MAINT-6 → MAINT-3,
 then MAINT-7 per feature, to avoid churn.
 
 - [ ] **MAINT-3. Split `shopping-list/actions.ts`** (medium, L) — 2,114
@@ -208,13 +208,6 @@ then MAINT-7 per feature, to avoid churn.
       three `normalizeUnit` copies in `meal-planning/` → one each; rename
       `normalizeItemName` in `inventory-scan.ts:141`, which shadows the
       different one in `lib/item-matching.ts:9`.
-- [ ] **MAINT-5. Log the groceries expense in one place, inside the transaction** (medium, S) —
-      two copy-pasted blocks (`shopping-list/actions.ts:1744-1763` and
-      `2029-2053`) run `prisma.transaction.create` *after* the stock
-      transaction and outside any try/catch, so a DB error surfaces as a
-      crash after stock already moved, and a retry double-applies. Extract
-      `logGroceriesExpense(...)`, run it via `tx` inside the same
-      `$transaction`, wrap with `toFriendlyError`.
 - [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
       ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
       error hits the error boundary: `planner-actions.ts` (add/update/move/
@@ -770,6 +763,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.12 | #122 perf: move pushes and price-spike checks into after() (PERF-9) | 2026-09-29 | #122 |
       | v0.46.13 | #124 perf: pass only the used dictionary slices to the dashboard shell (PERF-5) | 2026-09-29 | #124 |
 | v0.46.14 | #125 perf: batch the take-stock quantity update into a fixed number of queries (PERF-15) | 2026-09-29 | #125 |
+      | v0.47.0 | #129 feat: choose the budget category shopping trips log to | 2026-09-30 | #129 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
