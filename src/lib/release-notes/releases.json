@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.4",
+    "date": "2026-09-30",
+    "pr": 133,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Password reset and email verification links are now stored more securely, and a link can only ever be used once, even if it's opened twice at the same moment. Reset or verification links requested before this update no longer work; request a new one if needed.",
+      "sv": "Länkar för återställning av lösenord och verifiering av e-post lagras nu säkrare, och en länk kan bara användas en gång, även om den öppnas två gånger samtidigt. Länkar som begärdes före den här uppdateringen fungerar inte längre; begär en ny vid behov."
+    }
+  },
+  {
     "version": "0.47.3",
     "date": "2026-09-30",
     "pr": 132,

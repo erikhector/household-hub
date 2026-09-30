@@ -99,14 +99,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-8. Single-use tokens that are actually single-use, and hashed** (low) —
-      invite accept (`household.ts:169,245`) and password reset
-      (`auth.ts:435`) check the token, then update by `id`, so two
-      concurrent requests can both redeem it. Use
-      `updateMany({ where: { id, usedAt: null } })` and abort on
-      `count === 0`. Store reset/verification tokens as `sha256(token)` so a
-      read-only DB leak isn't an account takeover (invalidates tokens in
-      flight — fine, they live an hour).
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to
@@ -729,6 +721,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.1 | #130 fix: show push as off when the server dropped this browser's subscription (SEC-14) | 2026-09-30 | #130 |
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
+      | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

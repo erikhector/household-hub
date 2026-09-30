@@ -8,6 +8,7 @@
 // see its doc comment), so unlike auth.test.ts this file needs no next-auth
 // stand-in.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hashToken } from "@/lib/token-hash";
 import { computeBillPositions } from "@/lib/settle-up-calc";
 
 const {
@@ -18,6 +19,7 @@ const {
   userFindUniqueMock,
   invitationFindUniqueMock,
   invitationFindFirstMock,
+  invitationUpdateManyMock,
   householdMemberFindFirstMock,
   householdMemberFindUniqueMock,
   householdMemberDeleteMock,
@@ -44,6 +46,7 @@ const {
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
   invitationFindFirstMock: vi.fn(),
+  invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
   householdMemberFindFirstMock: vi.fn(),
   householdMemberFindUniqueMock: vi.fn(),
   householdMemberDeleteMock: vi.fn(),
@@ -72,7 +75,7 @@ const {
     return (arg as (tx: unknown) => unknown)({
       user: { create: vi.fn(async () => ({ id: "new-user" })) },
       householdMember: { create: vi.fn(async () => ({})), delete: householdMemberDeleteMock },
-      invitation: { update: vi.fn(async () => ({})) },
+      invitation: { updateMany: invitationUpdateManyMock },
       transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
     });
   }),
@@ -218,6 +221,25 @@ describe("createHouseholdAction validation (createHouseholdSchema)", () => {
 });
 
 describe("acceptInviteAction", () => {
+  // SEC-8: the loser of a concurrent double-accept must not become a member.
+  it("rejects when the invite was redeemed concurrently", async () => {
+    requireUserIdMock.mockResolvedValue("user-1");
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      household: { id: "household-1", name: "The Hectors" },
+    });
+    householdMemberFindUniqueMock.mockResolvedValue(null);
+    invitationUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+    const result = await acceptInviteAction({}, formData({ token: "invite-token" }));
+
+    expect(result).toEqual({ error: "This invite link is invalid or has expired" });
+    expect(cookieSetMock).not.toHaveBeenCalled();
+  });
+
   it("lets a signed-in user with no household join via the invite", async () => {
     requireUserIdMock.mockResolvedValue("user-1");
     invitationFindUniqueMock.mockResolvedValue({
@@ -314,14 +336,44 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
       "household-1",
       expect.objectContaining({ path: "/" }),
     );
+    expect(invitationUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "invite-1", acceptedAt: null },
+      data: { acceptedAt: expect.any(Date) },
+    });
+    // SEC-8: the emailed link carries the raw token, the row only its hash.
+    const stored = (emailVerificationTokenCreateMock.mock.calls as unknown as Array<[{ data: { token: string } }]>)[0][0];
     expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "new-user" }),
     });
+    const emailed = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
+    const raw = emailed.verifyUrl.slice(emailed.verifyUrl.lastIndexOf("/") + 1);
+    expect(stored.data.token).toBe(hashToken(raw));
+    expect(stored.data.token).not.toBe(raw);
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: validInput.email,
-      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      verifyUrl: expect.stringMatching(/^http:\/\/localhost:3000\/verify-email\/[0-9a-f-]{36}$/),
       locale: "en",
     });
+  });
+
+  // SEC-8: a concurrent request already redeemed the invite between
+  // getValidInvitation and the transaction — no account may be created.
+  it("creates no account when the invite was redeemed concurrently", async () => {
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      household: { name: "The Hectors" },
+    });
+    userFindUniqueMock.mockResolvedValue(null);
+    invitationUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+    const result = await joinViaInviteSignupAction({}, formData(validInput));
+
+    expect(result).toEqual({ error: "This invite link is invalid or has expired" });
+    expect(emailVerificationTokenCreateMock).not.toHaveBeenCalled();
+    expect(cookieSetMock).not.toHaveBeenCalled();
   });
 
   // Additive, not a hard dependency (mirrors signupAction) — the account and

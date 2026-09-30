@@ -14,6 +14,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { requireUserId } from "@/lib/session";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { logger } from "@/lib/logger";
+import { hashToken } from "@/lib/token-hash";
 
 export type ActionState = { error?: string };
 
@@ -202,14 +203,15 @@ export async function signupAction(
   // see A1 in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
   let emailError = false;
   try {
-    const verificationToken = await prisma.emailVerificationToken.create({
+    const rawToken = randomUUID();
+    await prisma.emailVerificationToken.create({
       data: {
         userId,
-        token: randomUUID(),
+        token: hashToken(rawToken),
         expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
       },
     });
-    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
     // No account row's own locale to read yet at this point in signup (see
     // requestPasswordResetAction/resendVerificationEmailAction, which use
     // the target account's stored `locale` instead) — getLocale() falls
@@ -368,14 +370,15 @@ export async function requestPasswordResetAction(
       // working the moment a new one is requested — deleting rather than
       // just superseding, since a used-up row has no further purpose.
       await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
-      const resetToken = await prisma.passwordResetToken.create({
+      const rawToken = randomUUID();
+      await prisma.passwordResetToken.create({
         data: {
           userId: user.id,
-          token: randomUUID(),
+          token: hashToken(rawToken),
           expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
         },
       });
-      const resetUrl = await absoluteAppUrl(`/reset-password/${resetToken.token}`);
+      const resetUrl = await absoluteAppUrl(`/reset-password/${rawToken}`);
       // Deliberately not awaited-into-the-response: whether this succeeds or
       // fails must never change what the caller sees (see doc comment above).
       // The account's own stored locale, not the requester's — this action
@@ -432,24 +435,30 @@ export async function resetPasswordAction(
     return { error: "Too many attempts. Please wait a few minutes and try again." };
   }
 
-  const resetToken = await prisma.passwordResetToken.findUnique({ where: { token } });
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { token: hashToken(token) },
+  });
   if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
     return { error: "This password reset link is invalid or has expired. Request a new one." };
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
   try {
-    await prisma.$transaction(async (tx) => {
+    const redeemed = await prisma.$transaction(async (tx) => {
+      // SEC-8: claim the token first, atomically. The findUnique above is
+      // only a fast pre-check; two concurrent requests can both pass it, but
+      // only one updateMany matches `usedAt: null` and flips it.
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: resetToken.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      if (claimed.count === 0) return false;
       // passwordChangedAt revokes every session issued before now — the
       // point of a reset is often that someone else has the account (SCALE-H;
       // see src/lib/session.ts).
       await tx.user.update({
         where: { id: resetToken.userId },
         data: { passwordHash, passwordChangedAt: new Date() },
-      });
-      await tx.passwordResetToken.update({
-        where: { id: resetToken.id },
-        data: { usedAt: new Date() },
       });
       // Invalidate any other outstanding reset tokens for this user too —
       // same reasoning as requestPasswordResetAction invalidating old ones
@@ -462,7 +471,11 @@ export async function resetPasswordAction(
       // push subscription for this user so they stop receiving household
       // pushes on whatever device(s) they subscribed from.
       await tx.pushSubscription.deleteMany({ where: { userId: resetToken.userId } });
+      return true;
     });
+    if (!redeemed) {
+      return { error: "This password reset link is invalid or has expired. Request a new one." };
+    }
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -508,7 +521,7 @@ export async function verifyEmailAction(
   }
 
   const verificationToken = await prisma.emailVerificationToken.findUnique({
-    where: { token },
+    where: { token: hashToken(token) },
     include: { user: true },
   });
   if (!verificationToken) {
@@ -524,14 +537,16 @@ export async function verifyEmailAction(
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const redeemed = await prisma.$transaction(async (tx) => {
+      // SEC-8: claim the token atomically (see resetPasswordAction).
+      const claimed = await tx.emailVerificationToken.updateMany({
+        where: { id: verificationToken.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      if (claimed.count === 0) return false;
       await tx.user.update({
         where: { id: verificationToken.userId },
         data: { emailVerifiedAt: new Date() },
-      });
-      await tx.emailVerificationToken.update({
-        where: { id: verificationToken.id },
-        data: { usedAt: new Date() },
       });
       // Same reasoning as resetPasswordAction invalidating other reset
       // tokens on success: an older leaked/unused link for this user should
@@ -543,7 +558,9 @@ export async function verifyEmailAction(
           id: { not: verificationToken.id },
         },
       });
+      return true;
     });
+    if (!redeemed) return { error: INVALID_VERIFICATION_LINK_MESSAGE };
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -597,14 +614,15 @@ export async function resendVerificationEmailAction(
     // requestPasswordResetAction, so a stale link stops working once a
     // fresh one is issued.
     await prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
-    const verificationToken = await prisma.emailVerificationToken.create({
+    const rawToken = randomUUID();
+    await prisma.emailVerificationToken.create({
       data: {
         userId,
-        token: randomUUID(),
+        token: hashToken(rawToken),
         expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
       },
     });
-    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
     const { error } = await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
     if (error) {
       return { error: "Couldn't send the verification email. Please try again later." };
@@ -656,14 +674,15 @@ export async function resendVerificationEmailForLoginAction(
   if (user && !user.emailVerifiedAt) {
     try {
       await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id, usedAt: null } });
-      const verificationToken = await prisma.emailVerificationToken.create({
+      const rawToken = randomUUID();
+      await prisma.emailVerificationToken.create({
         data: {
           userId: user.id,
-          token: randomUUID(),
+          token: hashToken(rawToken),
           expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
         },
       });
-      const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+      const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
       const { error } = await sendVerificationEmail({ to: user.email, verifyUrl, locale: user.locale });
       // Logged, not surfaced: unlike signupAction above, the caller here
       // isn't known to own this email address yet, so this keeps the exact
