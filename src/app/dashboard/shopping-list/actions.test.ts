@@ -2074,6 +2074,27 @@ describe("registerReceiptAction", () => {
     expect(result.unresolvedNotice).toBe("1 item wasn't linked");
   });
 
+  // PERF-16
+  it("loads the household's inventory once for a receipt with several unmatched lines, and still fuzzy-matches in memory", async () => {
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemFindManyMock.mockResolvedValue([
+      { id: "inv-1", name: "Whole milk", category: "Dairy & eggs", quantity: 1, unit: "l" },
+    ]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Whole milk 1l", quantity: 1, unit: "l", price: 15 },
+      { name: "Zzzq", quantity: 1, price: 10 },
+      { name: "Xxyw", quantity: 1, price: 10 },
+      { name: "Qqvv", quantity: 1, price: 10 },
+    ]);
+
+    expect(inventoryItemFindManyMock.mock.calls.filter(([args]) => args?.where?.householdId === "household-1"))
+      .toHaveLength(1);
+    expect(result.unresolvedNotice).toBe("3 items weren't linked");
+  });
+
   it("sums quantity across two lines matching the same inventory item instead of overwriting each other", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });

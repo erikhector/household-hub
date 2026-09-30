@@ -2818,7 +2818,10 @@ below.
   (`inventoryItemId` or `newItemCategory` per line) instead of the action
   re-guessing server-side — it only falls back to the old silent
   exact-name-then-fuzzy auto-match when neither is sent, kept for backward
-  compatibility rather than as the primary path. A registered receipt is
+  compatibility rather than as the primary path. That fallback reads the
+  household's inventory once per receipt (PERF-16), on the first line that
+  needs a fuzzy match, and matches every later line in memory (including
+  items the same receipt just created). A registered receipt is
   after the shop by definition, so it updates inventory immediately in
   either `inventorySyncMode` and stamps every row `putAwayAt` (and
   `priceRecordedAt` when linked) — there's nothing left to put away.
