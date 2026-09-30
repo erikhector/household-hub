@@ -4896,6 +4896,18 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     existence check and the eviction run inside the same `$transaction` as
     the upsert, so concurrent subscribes from the same user can't both
     slip past the count.
+  - **Stale browser subscriptions (SEC-14)**: `pushManager.getSubscription()`
+    only proves the *browser* still holds a subscription. A password
+    reset/change (SEC-5) deletes the user's `PushSubscription` rows, but
+    every other signed-in device keeps its browser-side subscription, which
+    then receives nothing. The card therefore reconciles the browser's
+    endpoint against the `subscriptions` rows the profile page loads
+    (`resolveSubscriptionState`, `src/lib/push-subscription-state.ts`): no
+    matching row shows "Unsubscribed" with the Enable button, and one tap
+    re-subscribes (the browser hands back its existing subscription and
+    `subscribeToPushAction` upserts the row). It doesn't silently recreate
+    the row, since the reset deliberately revoked push. A subscription this
+    card saved itself counts as confirmed until the refreshed rows arrive.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
     household. It's called from the same triggers as the in-app

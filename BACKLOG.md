@@ -114,19 +114,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `migrate deploy` (check Vercel installs devDeps at build), else wait
       for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
       advisories. Pairs with MAINT-12's Dependabot config.
-- [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
-      follow-up from SEC-5's review. A password reset/change drops every
-      `PushSubscription` row for a user, but only for the device that
-      triggered it — every *other* signed-in device keeps whatever
-      `pushManager.getSubscription()` returns client-side, with no
-      server-side row behind it. `push-notifications-card.tsx`'s
-      `subscriptionState` trusts that browser-side result alone (see its
-      `useEffect`), so those devices' Profile pages keep showing
-      "Subscribed" for a subscription that silently receives nothing. On
-      mount (or the next time the card checks), confirm the endpoint still
-      has a matching row — reuse `subscribeToPushAction`'s upsert to
-      self-heal (recreate the row) or fall back to showing "Unsubscribed"
-      if it doesn't.
 
 ### Performance (2026-09-26 audit)
 
@@ -764,6 +751,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.46.13 | #124 perf: pass only the used dictionary slices to the dashboard shell (PERF-5) | 2026-09-29 | #124 |
 | v0.46.14 | #125 perf: batch the take-stock quantity update into a fixed number of queries (PERF-15) | 2026-09-29 | #125 |
       | v0.47.0 | #129 feat: choose the budget category shopping trips log to | 2026-09-30 | #129 |
+      | v0.47.1 | #130 fix: show push as off when the server dropped this browser's subscription (SEC-14) | 2026-09-30 | #130 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

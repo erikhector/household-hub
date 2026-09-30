@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { PushQuietHoursForm } from "@/components/profile/push-quiet-hours-form";
 import { subscribeToPushAction, unsubscribeFromPushAction } from "@/lib/actions/push";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { resolveSubscriptionState, type SubscriptionState } from "@/lib/push-subscription-state";
 
 // Inlined by Next at build time (NEXT_PUBLIC_-prefixed vars are readable
 // from the browser bundle). Unset in an environment that hasn't generated
@@ -43,8 +44,6 @@ function getSupportSnapshot(): Support {
 }
 const getSupportServerSnapshot = (): Support => "unsupported";
 
-type SubscriptionState = "checking" | "subscribed" | "unsubscribed";
-
 // The signed-in user's stored subscriptions, loaded by the profile page. The
 // server can't know which one is *this* browser — only the browser's own
 // pushManager knows its endpoint — so the card matches on that client-side.
@@ -64,7 +63,11 @@ export function PushNotificationsCard({
   dict: Dictionary["profile"]["pushNotifications"];
 }) {
   const support = useSyncExternalStore(noSubscription, getSupportSnapshot, getSupportServerSnapshot);
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>("checking");
+  // What the browser itself reports; reconciled against the server's rows
+  // below (SEC-14).
+  const [browserState, setSubscriptionState] = useState<SubscriptionState>("checking");
+  // True once this card has saved the subscription itself (SEC-14).
+  const [confirmedLocally, setConfirmedLocally] = useState(false);
   const [endpoint, setEndpoint] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
@@ -101,6 +104,7 @@ export function PushNotificationsCard({
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       setEndpoint(sub.endpoint);
+      setConfirmedLocally(true);
       setSubscriptionState("subscribed");
     } catch {
       setError(true);
@@ -120,6 +124,7 @@ export function PushNotificationsCard({
         await unsubscribeFromPushAction(sub.endpoint);
       }
       setEndpoint(null);
+      setConfirmedLocally(false);
       setSubscriptionState("unsubscribed");
     } catch {
       setError(true);
@@ -127,6 +132,15 @@ export function PushNotificationsCard({
       setPending(false);
     }
   }
+
+  // A browser subscription with no server row (dropped by a password reset
+  // on another device, SEC-5) shows as unsubscribed, not "Subscribed".
+  const subscriptionState = resolveSubscriptionState({
+    browserState,
+    endpoint,
+    storedEndpoints: subscriptions.map((s) => s.endpoint),
+    confirmedLocally,
+  });
 
   const status = !VAPID_PUBLIC_KEY
     ? "notConfigured"
