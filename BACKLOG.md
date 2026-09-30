@@ -114,19 +114,6 @@ Tenancy held up everywhere the audit traced it (every client id is scoped by
       `migrate deploy` (check Vercel installs devDeps at build), else wait
       for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
       advisories. Pairs with MAINT-12's Dependabot config.
-- [ ] **SEC-14. Push-notifications card can't tell a stale browser subscription from a live one** (low) —
-      follow-up from SEC-5's review. A password reset/change drops every
-      `PushSubscription` row for a user, but only for the device that
-      triggered it — every *other* signed-in device keeps whatever
-      `pushManager.getSubscription()` returns client-side, with no
-      server-side row behind it. `push-notifications-card.tsx`'s
-      `subscriptionState` trusts that browser-side result alone (see its
-      `useEffect`), so those devices' Profile pages keep showing
-      "Subscribed" for a subscription that silently receives nothing. On
-      mount (or the next time the card checks), confirm the endpoint still
-      has a matching row — reuse `subscribeToPushAction`'s upsert to
-      self-heal (recreate the row) or fall back to showing "Unsubscribed"
-      if it doesn't.
 
 ### Performance (2026-09-26 audit)
 
