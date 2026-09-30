@@ -13,6 +13,7 @@ import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
 import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
+import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
 import { calendarFeedPath } from "@/lib/calendar-feed";
 
 // GAP-3. APP_URL first, request headers only as the local-dev fallback: the
@@ -138,9 +139,16 @@ export default async function HouseholdPage() {
     getLocale(),
   ]);
   const isOwner = role === "OWNER";
-  const feedUrl = household.calendarFeedToken
-    ? await calendarFeedUrl(calendarFeedPath(household.calendarFeedToken, locale))
-    : null;
+  const [feedUrl, expenseCategories] = await Promise.all([
+    household.calendarFeedToken
+      ? calendarFeedUrl(calendarFeedPath(household.calendarFeedToken, locale))
+      : null,
+    prisma.budgetCategory.findMany({
+      where: { householdId: household.id, type: "EXPENSE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -175,6 +183,12 @@ export default async function HouseholdPage() {
         mode={household.inventorySyncMode}
         isOwner={isOwner}
         dict={dict.household.inventorySync}
+      />
+      {/* Not owner-gated (see setShoppingExpenseCategoryAction). */}
+      <ShoppingExpenseSetting
+        categoryId={household.shoppingExpenseCategoryId}
+        categories={expenseCategories}
+        dict={dict.household.shoppingExpense}
       />
       {/* Owner-gated inside (see setHouseholdCurrencyAction); contributors
           see the current value read-only. */}
