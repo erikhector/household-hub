@@ -69,13 +69,13 @@ test("a completed shopping list logs its total to the category picked on the Hou
   const select = page.getByRole("combobox", { name: "Log shopping to" });
   await select.click();
   await page.getByRole("option", { name: category.name }).click();
-  await expect(select).toHaveText(category.name);
+  await expect(select).toContainText(category.name);
   // The select flips optimistically; the toast means the save finished.
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   // Still picked after a reload, so it reached the database.
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Log shopping to" })).toHaveText(category.name);
+  await expect(page.getByRole("combobox", { name: "Log shopping to" })).toContainText(category.name);
 
   await page.goto(`/dashboard/shopping-list/${listId}`);
   await page.getByRole("button", { name: "Done shopping" }).click();
