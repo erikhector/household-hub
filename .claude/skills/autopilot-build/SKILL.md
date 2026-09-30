@@ -165,7 +165,9 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
   Acceptance line through the UI, following AGENTS.md "UI tests". It
   runs on the `desktop` and `mobile` projects, so it must pass on both;
   a new page goes in `e2e/routes.ts`. Any UI change follows DESIGN.md
-  and passes its "UI review checklist". For a `UX-` item, compare
+  and passes its "UI review checklist", including the hard Mobile UX
+  rules (M1–M10) for the component or page it touches, existing parts
+  included. For a `UX-` item, compare
   `npm run test:e2e:screenshots` before and after (under the lock). A bug
   fix gets a test that fails first.
 - **Verify**: focused `npx vitest run <path>` while iterating. The full

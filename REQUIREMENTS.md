@@ -5275,7 +5275,7 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
   weekly), `ux` (`UX-`, from screenshots of every route on phone and
   desktop in both languages, reviewed against DESIGN.md's UX and design
-  principles), `production` (`BUG-`, from Sentry, only when
+  principles and its hard Mobile UX rules), `production` (`BUG-`, from Sentry, only when
   a Sentry connector is available) and `deps` (`DEPS-`). They add at most a
   few scoped items with acceptance criteria to BACKLOG.md, via a
   `docs(backlog)` PR, and never touch app code.
