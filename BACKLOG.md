@@ -260,15 +260,6 @@ judgement calls, not failures.
       the visible text "Add task" (en) / its Swedish equivalent, and an e2e
       spec asserts `getByRole("button", { name: "Add task" })` has non-empty
       visible text on mobile.
-- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
-      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
-      with "Nothing planned" (28 identical lines, a ~7,200 px page in
-      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
-      distinguishable and the real content is buried. Breaks *hierarchy* and
-      *context*. Acceptance: on mobile, empty slots collapse to a single
-      compact "+ Add meal" row per day (or a single-line slot), so an empty
-      week is well under half its current height; an e2e spec asserts an
-      empty day shows one add affordance per slot without repeated
       "Nothing planned" text, and that adding a meal still works.
 
 ### Budget component unification

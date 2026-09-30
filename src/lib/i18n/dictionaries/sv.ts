@@ -1248,7 +1248,6 @@ export const sv = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Middag",
     mealTypeSnack: "Mellanmål",
-    emptyDay: "Inget planerat",
     addMeal: "Lägg till måltid",
     addMealDialogTitle: "Lägg till en måltid",
     editMealAriaLabel: "Redigera måltid",

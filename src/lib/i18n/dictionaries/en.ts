@@ -1317,7 +1317,6 @@ export const en = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Dinner",
     mealTypeSnack: "Snack",
-    emptyDay: "Nothing planned",
     addMeal: "Add meal",
     addMealDialogTitle: "Add a meal",
     editMealAriaLabel: "Edit meal",
