@@ -6,6 +6,7 @@
 // is mocked — no database or real auth session is touched. See
 // REQUIREMENTS.md's "Testing" section.
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { hashToken } from "@/lib/token-hash";
 
 // The real "next-auth" package's index imports "next/server", which Vitest's
 // Node environment can't resolve outside a Next.js build — mock it with a
@@ -57,11 +58,11 @@ const {
     household: { create: vi.fn(async () => ({ id: "new-household" })) },
     householdMember: { create: vi.fn(async () => ({})) },
     passwordResetToken: {
-      update: vi.fn(async () => ({})),
+      updateMany: vi.fn(async () => ({ count: 1 })),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
     emailVerificationToken: {
-      update: vi.fn(async () => ({})),
+      updateMany: vi.fn(async () => ({ count: 1 })),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },
     pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
@@ -130,6 +131,11 @@ vi.mock("@/lib/session", () => ({ requireUserId: requireUserIdMock }));
 vi.mock("@/lib/i18n/get-dictionary", () => ({ getLocale: getLocaleMock }));
 vi.mock("next/headers", () => ({ headers: headersMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+
+// The emailed link carries the raw token; the DB row must hold only its hash.
+function rawTokenFrom(url: string): string {
+  return url.slice(url.lastIndexOf("/") + 1);
+}
 
 const {
   signupAction,
@@ -243,9 +249,13 @@ describe("signupAction behavior", () => {
     expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "new-user" }),
     });
+    const stored = emailVerificationTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
+    const emailed = sendVerificationEmailMock.mock.calls[0][0] as { verifyUrl: string };
+    expect(stored.data.token).toBe(hashToken(rawTokenFrom(emailed.verifyUrl)));
+    expect(stored.data.token).not.toBe(rawTokenFrom(emailed.verifyUrl));
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: validSignup.email,
-      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      verifyUrl: expect.stringMatching(/^http:\/\/localhost:3000\/verify-email\/[0-9a-f-]{36}$/),
       locale: "en",
     });
   });
@@ -400,9 +410,13 @@ describe("requestPasswordResetAction behavior", () => {
     expect(passwordResetTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "user-1" }),
     });
+    const stored = passwordResetTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
+    const emailed = sendPasswordResetEmailMock.mock.calls[0][0] as { resetUrl: string };
+    expect(stored.data.token).toBe(hashToken(rawTokenFrom(emailed.resetUrl)));
+    expect(stored.data.token).not.toBe(rawTokenFrom(emailed.resetUrl));
     expect(sendPasswordResetEmailMock).toHaveBeenCalledWith({
       to: "erik@example.com",
-      resetUrl: "http://localhost:3000/reset-password/generated-token",
+      resetUrl: expect.stringMatching(/^http:\/\/localhost:3000\/reset-password\/[0-9a-f-]{36}$/),
       locale: "en",
     });
   });
@@ -500,6 +514,47 @@ describe("resetPasswordAction behavior", () => {
     confirmPassword: "newsupersecret",
   };
 
+  it("looks the token up by its sha256 hash, never the raw value", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue(null);
+
+    await resetPasswordAction({}, formData(validReset));
+
+    expect(passwordResetTokenFindUniqueMock).toHaveBeenCalledWith({
+      where: { token: hashToken("reset-token") },
+    });
+    expect(hashToken("reset-token")).not.toBe("reset-token");
+  });
+
+  // SEC-8: two concurrent requests can both pass the findUnique pre-check;
+  // the loser's updateMany matches nothing and must abort before changing
+  // the password.
+  it("aborts without touching the password when another request already redeemed the token", async () => {
+    passwordResetTokenFindUniqueMock.mockResolvedValue({
+      id: "token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+    });
+    const txUserUpdate = vi.fn(async () => ({}));
+    const txUpdateMany = vi.fn(async () => ({ count: 0 }));
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: txUserUpdate },
+        passwordResetToken: { updateMany: txUpdateMany, deleteMany: vi.fn() },
+        pushSubscription: { deleteMany: vi.fn() },
+      }),
+    );
+
+    const result = await resetPasswordAction({}, formData(validReset));
+
+    expect(txUpdateMany).toHaveBeenCalledWith({
+      where: { id: "token-row", usedAt: null },
+      data: { usedAt: expect.any(Date) },
+    });
+    expect(txUserUpdate).not.toHaveBeenCalled();
+    expect(result.error).toBe("This password reset link is invalid or has expired. Request a new one.");
+  });
+
   it("rejects an unknown token", async () => {
     passwordResetTokenFindUniqueMock.mockResolvedValue(null);
 
@@ -564,7 +619,7 @@ describe("resetPasswordAction behavior", () => {
       cb({
         user: { update: txUserUpdate },
         passwordResetToken: {
-          update: vi.fn(async () => ({})),
+          updateMany: vi.fn(async () => ({ count: 1 })),
           deleteMany: vi.fn(async () => ({ count: 0 })),
         },
         pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
@@ -601,7 +656,7 @@ describe("resetPasswordAction behavior", () => {
       cb({
         user: { update: vi.fn(async () => ({})) },
         passwordResetToken: {
-          update: vi.fn(async () => ({})),
+          updateMany: vi.fn(async () => ({ count: 1 })),
           deleteMany: vi.fn(async () => ({ count: 0 })),
         },
         pushSubscription: { deleteMany: txPushSubscriptionDeleteMany },
@@ -731,6 +786,43 @@ describe("verifyEmailAction", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
+  it("looks the token up by its sha256 hash, never the raw value", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue(null);
+
+    await verifyEmailAction({}, formData(validVerify));
+
+    expect(emailVerificationTokenFindUniqueMock).toHaveBeenCalledWith({
+      where: { token: hashToken("verify-token") },
+      include: { user: true },
+    });
+  });
+
+  // SEC-8: same single-use guarantee as the password reset.
+  it("aborts without verifying when another request already redeemed the token", async () => {
+    emailVerificationTokenFindUniqueMock.mockResolvedValue({
+      id: "verify-token-row",
+      userId: "user-1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      user: { emailVerifiedAt: null },
+    });
+    const txUserUpdate = vi.fn(async () => ({}));
+    transactionMock.mockImplementationOnce(async (cb: (tx: unknown) => unknown) =>
+      cb({
+        user: { update: txUserUpdate },
+        emailVerificationToken: {
+          updateMany: vi.fn(async () => ({ count: 0 })),
+          deleteMany: vi.fn(),
+        },
+      }),
+    );
+
+    const result = await verifyEmailAction({}, formData(validVerify));
+
+    expect(txUserUpdate).not.toHaveBeenCalled();
+    expect(result.error).toBeDefined();
+  });
+
   it("marks the user verified and consumes the token on a valid token", async () => {
     emailVerificationTokenFindUniqueMock.mockResolvedValue({
       id: "verify-token-row",
@@ -786,7 +878,7 @@ describe("resendVerificationEmailAction", () => {
     });
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: "erik@example.com",
-      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      verifyUrl: expect.stringMatching(/^http:\/\/localhost:3000\/verify-email\/[0-9a-f-]{36}$/),
       locale: "en",
     });
   });
@@ -925,7 +1017,7 @@ describe("resendVerificationEmailForLoginAction", () => {
     });
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: "erik@example.com",
-      verifyUrl: "http://localhost:3000/verify-email/generated-verify-token",
+      verifyUrl: expect.stringMatching(/^http:\/\/localhost:3000\/verify-email\/[0-9a-f-]{36}$/),
       locale: "en",
     });
   });

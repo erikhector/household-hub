@@ -99,14 +99,6 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-8. Single-use tokens that are actually single-use, and hashed** (low) —
-      invite accept (`household.ts:169,245`) and password reset
-      (`auth.ts:435`) check the token, then update by `id`, so two
-      concurrent requests can both redeem it. Use
-      `updateMany({ where: { id, usedAt: null } })` and abort on
-      `count === 0`. Store reset/verification tokens as `sha256(token)` so a
-      read-only DB leak isn't an account takeover (invalidates tokens in
-      flight — fine, they live an hour).
 - [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
       high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
       through `@prisma/config`), not reachable at runtime. Move `prisma` to

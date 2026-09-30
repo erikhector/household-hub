@@ -6,6 +6,7 @@
 // sign-out afterward. All I/O (Prisma, bcrypt, requireHousehold, signOut,
 // next/cache) is mocked — no database is touched.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { hashToken } from "@/lib/token-hash";
 
 const {
   requireHouseholdMock,
@@ -277,12 +278,18 @@ describe("updateEmailAction (re-authentication gate)", () => {
     expect(emailVerificationTokenDeleteManyMock).toHaveBeenCalledWith({
       where: { userId: "user-1", usedAt: null },
     });
+    // SEC-8: the emailed link carries the raw token, the row only its hash.
+    const stored = emailVerificationTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
     expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "user-1" }),
     });
+    const emailed = sendVerificationEmailMock.mock.calls[0][0] as { verifyUrl: string };
+    const raw = emailed.verifyUrl.slice(emailed.verifyUrl.lastIndexOf("/") + 1);
+    expect(stored.data.token).toBe(hashToken(raw));
+    expect(stored.data.token).not.toBe(raw);
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
       to: "new@example.com",
-      verifyUrl: expect.stringContaining("/verify-email/generated-token"),
+      verifyUrl: expect.stringContaining("/verify-email/"),
       locale: "sv",
     });
   });

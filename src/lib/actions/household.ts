@@ -11,6 +11,7 @@ import { ACTIVE_HOUSEHOLD_COOKIE, requireHousehold, requireUserId } from "@/lib/
 import { sendHouseholdInviteEmail, sendVerificationEmail } from "@/lib/email";
 import type { ActionState, SignupState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { hashToken } from "@/lib/token-hash";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLocale } from "@/lib/i18n/get-dictionary";
 import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
@@ -163,15 +164,20 @@ export async function acceptInviteAction(
 
   if (!alreadyMember) {
     try {
-      await prisma.$transaction([
-        prisma.householdMember.create({
-          data: { householdId: invitation.householdId, userId, role: "CONTRIBUTOR" },
-        }),
-        prisma.invitation.update({
-          where: { id: invitation.id },
+      const redeemed = await prisma.$transaction(async (tx) => {
+        // SEC-8: claim the invite atomically; a concurrent accept that
+        // passed getValidInvitation gets count 0 and joins nobody.
+        const claimed = await tx.invitation.updateMany({
+          where: { id: invitation.id, acceptedAt: null },
           data: { acceptedAt: new Date() },
-        }),
-      ]);
+        });
+        if (claimed.count === 0) return false;
+        await tx.householdMember.create({
+          data: { householdId: invitation.householdId, userId, role: "CONTRIBUTOR" },
+        });
+        return true;
+      });
+      if (!redeemed) return { error: "This invite link is invalid or has expired" };
     } catch (error) {
       return toFriendlyError(error);
     }
@@ -238,14 +244,21 @@ export async function joinViaInviteSignupAction(
   const passwordHash = await bcrypt.hash(password, 12);
   let userId: string;
   try {
-    userId = await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
+      // SEC-8: claim the invite first, atomically (see acceptInviteAction).
+      const claimed = await tx.invitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (claimed.count === 0) return null;
       const user = await tx.user.create({ data: { email, passwordHash, displayName } });
       await tx.householdMember.create({
         data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
       });
-      await tx.invitation.update({ where: { id: invitation.id }, data: { acceptedAt: new Date() } });
       return user.id;
     });
+    if (!created) return { error: "This invite link is invalid or has expired" };
+    userId = created;
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -267,14 +280,15 @@ export async function joinViaInviteSignupAction(
   // in docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md).
   let emailError = false;
   try {
-    const verificationToken = await prisma.emailVerificationToken.create({
+    const rawToken = randomUUID();
+    await prisma.emailVerificationToken.create({
       data: {
         userId,
-        token: randomUUID(),
+        token: hashToken(rawToken),
         expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
       },
     });
-    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
     const locale = await getLocale();
     const { error } = await sendVerificationEmail({ to: email, verifyUrl, locale });
     if (error) emailError = true;

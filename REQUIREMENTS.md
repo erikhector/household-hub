@@ -5066,6 +5066,18 @@ approximating them, so the email never disagrees with the app.
   units, 1 000 000 for prices). A payload over a row-count cap is rejected
   outright; a single row over a per-field cap is dropped where the
   surrounding code already filters invalid rows.
+- **Single-use tokens are single-use, and hashed (SEC-8).** Redeeming an
+  invite (`acceptInviteAction`, `joinViaInviteSignupAction`), a password
+  reset or an email verification claims the row with
+  `updateMany({ where: { id, usedAt/acceptedAt: null } })` as the first
+  statement of its transaction and aborts on `count === 0`, so two
+  concurrent requests can't both redeem it. Reset and verification tokens
+  are stored as `sha256(token)` (`hashToken` in `src/lib/token-hash.ts`) in
+  the existing `token` column; only the emailed link carries the raw UUID,
+  so a read-only DB leak can't be turned into a reset URL. Invitation tokens
+  stay in the clear because the owner's invite dialog must show the link
+  again. Tokens issued before this change stopped working (they lived an
+  hour, 36 hours for verification; users just request a new link).
 - Base UI's `<Select.Value>` (`SelectValue` in `src/components/ui/select.tsx`)
   renders the raw selected `value` as text by default — it does **not** look
   up the matching `SelectItem`'s label. Any `Select` whose `value`s aren't

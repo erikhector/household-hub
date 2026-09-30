@@ -11,6 +11,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { hashToken } from "@/lib/token-hash";
 import { sendVerificationEmail } from "@/lib/email";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -198,14 +199,15 @@ export async function updateEmailAction(
     // resendVerificationEmailAction, so a stale link (e.g. from before a
     // previous email change) stops working once a fresh one is issued.
     await prisma.emailVerificationToken.deleteMany({ where: { userId, usedAt: null } });
-    const verificationToken = await prisma.emailVerificationToken.create({
+    const rawToken = randomUUID();
+    await prisma.emailVerificationToken.create({
       data: {
         userId,
-        token: randomUUID(),
+        token: hashToken(rawToken),
         expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS),
       },
     });
-    const verifyUrl = await absoluteAppUrl(`/verify-email/${verificationToken.token}`);
+    const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
     await sendVerificationEmail({ to: newEmail, verifyUrl, locale: user.locale });
   } catch {
     // Swallowed deliberately — see the comment above this block.
