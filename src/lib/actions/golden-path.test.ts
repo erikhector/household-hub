@@ -382,7 +382,7 @@ describe("golden path: signup -> verify email -> log in -> household actions", (
     // --- Step 2: verifyEmailAction, using the real token from the emailed ---
     // link (never a hardcoded string — see task brief). SEC-8: the store only
     // holds sha256(token), so the raw value has to come from the email.
-    const { verifyUrl } = sendVerificationEmailMock.mock.calls[0][0] as { verifyUrl: string };
+    const { verifyUrl } = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
     const rawToken = verifyUrl.slice(verifyUrl.lastIndexOf("/") + 1);
     expect(verificationToken.token).not.toBe(rawToken);
     const verifyResult = await verifyEmailAction({}, formData({ token: rawToken }));

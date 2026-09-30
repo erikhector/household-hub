@@ -249,8 +249,8 @@ describe("signupAction behavior", () => {
     expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "new-user" }),
     });
-    const stored = emailVerificationTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
-    const emailed = sendVerificationEmailMock.mock.calls[0][0] as { verifyUrl: string };
+    const stored = (emailVerificationTokenCreateMock.mock.calls as unknown as Array<[{ data: { token: string } }]>)[0][0];
+    const emailed = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
     expect(stored.data.token).toBe(hashToken(rawTokenFrom(emailed.verifyUrl)));
     expect(stored.data.token).not.toBe(rawTokenFrom(emailed.verifyUrl));
     expect(sendVerificationEmailMock).toHaveBeenCalledWith({
@@ -410,8 +410,8 @@ describe("requestPasswordResetAction behavior", () => {
     expect(passwordResetTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "user-1" }),
     });
-    const stored = passwordResetTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
-    const emailed = sendPasswordResetEmailMock.mock.calls[0][0] as { resetUrl: string };
+    const stored = (passwordResetTokenCreateMock.mock.calls as unknown as Array<[{ data: { token: string } }]>)[0][0];
+    const emailed = (sendPasswordResetEmailMock.mock.calls as unknown as Array<[{ resetUrl: string }]>)[0][0];
     expect(stored.data.token).toBe(hashToken(rawTokenFrom(emailed.resetUrl)));
     expect(stored.data.token).not.toBe(rawTokenFrom(emailed.resetUrl));
     expect(sendPasswordResetEmailMock).toHaveBeenCalledWith({

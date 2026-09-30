@@ -279,11 +279,11 @@ describe("updateEmailAction (re-authentication gate)", () => {
       where: { userId: "user-1", usedAt: null },
     });
     // SEC-8: the emailed link carries the raw token, the row only its hash.
-    const stored = emailVerificationTokenCreateMock.mock.calls[0][0] as { data: { token: string } };
+    const stored = (emailVerificationTokenCreateMock.mock.calls as unknown as Array<[{ data: { token: string } }]>)[0][0];
     expect(emailVerificationTokenCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "user-1" }),
     });
-    const emailed = sendVerificationEmailMock.mock.calls[0][0] as { verifyUrl: string };
+    const emailed = (sendVerificationEmailMock.mock.calls as unknown as Array<[{ verifyUrl: string }]>)[0][0];
     const raw = emailed.verifyUrl.slice(emailed.verifyUrl.lastIndexOf("/") + 1);
     expect(stored.data.token).toBe(hashToken(raw));
     expect(stored.data.token).not.toBe(raw);
