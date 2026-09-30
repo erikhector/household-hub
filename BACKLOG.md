@@ -270,6 +270,28 @@ judgement calls, not failures.
       week is well under half its current height; an e2e spec asserts an
       empty day shows one add affordance per slot without repeated
       "Nothing planned" text, and that adding a meal still works.
+- [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
+      DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
+      phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
+      36 px (default, `sm`) and 40 px (`icon`), with `xs`/`icon-xs`/`icon-sm`
+      at 32–36 px; checkboxes, switches and the `+`/`-` steppers are smaller
+      still. Breaks *M3* and *accessibility*. Acceptance: every button,
+      checkbox, switch and stepper has a hit area of at least 44 × 44 px
+      below `sm`; a new `expectTouchTargets(page)` helper in `e2e/ui.ts`
+      (every visible `button`, `a` outside running text, `input`,
+      `[role=checkbox|switch|tab|menuitem]` measures ≥ 44 × 44, or the
+      element's clickable row does) runs in `smoke.spec.ts` on the `mobile`
+      project for every route, and passes.
+- [ ] **UX-7. Right keyboard and autofill on every form field** (impact: med, effort: S) —
+      DESIGN.md rule M4: 22 files use `type="number"` but only 14
+      `inputMode` and 1 `enterKeyHint` exist in `src/`, so money and
+      quantity fields open the wrong phone keyboard and forms lack a "Go"
+      key. Breaks *M4* and *usability*. Acceptance: money and quantity
+      fields use `inputMode="decimal"`, whole counts `numeric`; auth
+      fields carry `autoComplete` (`email`, `current-password`,
+      `new-password`, `name`); the last field of each dialog form has
+      `enterKeyHint`; an e2e spec asserts the `inputMode` of the add-item
+      quantity and a budget amount field on mobile.
 
 ### Budget component unification
 
