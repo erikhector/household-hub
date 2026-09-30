@@ -174,18 +174,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       `createCategoryResolver`'s pattern for categories) and matched in
       memory per line; a test with several unmatched lines asserts
       `inventoryItem.findMany` is called at most once.
-- [ ] **PERF-17. Narrow the recurring-template duplicate-period check to the
-      current period** (impact: med, effort: S) — `budget/actions.ts:342-356`
-      (`assertNoDuplicateTemplatePeriod`) runs
-      `prisma.transaction.findMany({ where: { recurringTemplateId }, select:
-      { date: true } })` — every transaction ever logged against that
-      template, since it was created — then loops in JS to check whether one
-      falls in the current period. Called on every transaction-creation
-      entry point for a recurring item, so it slows down every period a
-      template stays active. Acceptance: the query is bounded to the
-      current period's date range (from `getPeriodKey`'s bounds) instead of
-      all-time, with a test covering a template with transactions spanning
-      many periods.
 
 ### Maintainability (2026-09-26 audit)
 

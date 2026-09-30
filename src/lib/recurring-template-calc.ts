@@ -46,6 +46,32 @@ export function getPeriodKey(date: Date, frequency: TemplateFrequency): string {
 }
 
 /**
+ * The half-open local-time range `[start, end)` covering the period that
+ * `getPeriodKey(date, frequency)` puts `date` in: a date `d` satisfies
+ * `start <= d < end` iff it shares that period key (for dates built from
+ * local components, as the rest of this file assumes). Lets a caller bound a
+ * database query to the current period instead of loading a template's whole
+ * history and comparing keys in JS.
+ */
+export function getPeriodBounds(
+  date: Date,
+  frequency: TemplateFrequency,
+): { start: Date; end: Date } {
+  const y = date.getFullYear();
+  const m = date.getMonth();
+  const day = date.getDate();
+  if (frequency === "YEARLY") return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) };
+  if (frequency === "MONTHLY") return { start: new Date(y, m, 1), end: new Date(y, m + 1, 1) };
+  // ISO weeks start Monday. Built from calendar components (not +7*24h) so a
+  // DST change inside the week doesn't shift the boundary off midnight.
+  const daysSinceMonday = (date.getDay() + 6) % 7;
+  return {
+    start: new Date(y, m, day - daysSinceMonday),
+    end: new Date(y, m, day - daysSinceMonday + 7),
+  };
+}
+
+/**
  * A template's amount converted to its per-month equivalent, so
  * WEEKLY/MONTHLY/YEARLY templates can be summed on one scale (see
  * computeFixedMonthlySummary below): a WEEKLY amount is scaled by 52/12
