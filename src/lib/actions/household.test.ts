@@ -37,6 +37,7 @@ const {
   sendHouseholdInviteEmailMock,
   sendVerificationEmailMock,
   getLocaleMock,
+  budgetCategoryFindFirstMock,
 } = vi.hoisted(() => ({
   householdCreateMock: vi.fn(),
   householdDeleteMock: vi.fn(),
@@ -89,6 +90,7 @@ const {
   sendHouseholdInviteEmailMock: vi.fn(async () => ({})),
   sendVerificationEmailMock: vi.fn(async () => ({})),
   getLocaleMock: vi.fn(async () => "en"),
+  budgetCategoryFindFirstMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -113,6 +115,7 @@ vi.mock("@/lib/prisma", () => ({
       update: householdMemberUpdateMock,
     },
     emailVerificationToken: { create: emailVerificationTokenCreateMock },
+    budgetCategory: { findFirst: budgetCategoryFindFirstMock },
     $transaction: transactionMock,
   },
 }));
@@ -153,6 +156,7 @@ const {
   disableCalendarFeedAction,
   setHouseholdCurrencyAction,
   setInventorySyncModeAction,
+  setShoppingExpenseCategoryAction,
 } = await import("@/lib/actions/household");
 const { _resetRateLimitsForTests } = await import("@/lib/rate-limit");
 
@@ -984,6 +988,62 @@ describe("setAutoAddLowStockToListAction (AUTO-8)", () => {
     requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
 
     const result = await setAutoAddLowStockToListAction("false" as unknown as boolean);
+
+    expect(result.error).toBeDefined();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("setShoppingExpenseCategoryAction", () => {
+  it("points shopping at one of the session household's expense categories, for any member", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+    budgetCategoryFindFirstMock.mockResolvedValue({ id: "cat-food" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setShoppingExpenseCategoryAction("cat-food");
+
+    expect(result).toEqual({});
+    expect(budgetCategoryFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "cat-food", householdId: "household-1", type: "EXPENSE" },
+      select: { id: true },
+    });
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { shoppingExpenseCategoryId: "cat-food" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/household");
+  });
+
+  it("refuses a category that isn't one of this household's expense categories", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    // Another household's category, or an income/savings one: the scoped
+    // lookup finds nothing either way.
+    budgetCategoryFindFirstMock.mockResolvedValue(null);
+
+    const result = await setShoppingExpenseCategoryAction("cat-elsewhere");
+
+    expect(result.error).toBe("Category not found");
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("clears the pick with null, going back to the automatic Groceries", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await setShoppingExpenseCategoryAction(null);
+
+    expect(result).toEqual({});
+    expect(budgetCategoryFindFirstMock).not.toHaveBeenCalled();
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { shoppingExpenseCategoryId: null },
+    });
+  });
+
+  it("rejects a malformed value from a hand-crafted request", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await setShoppingExpenseCategoryAction(42 as unknown as string);
 
     expect(result.error).toBeDefined();
     expect(householdUpdateMock).not.toHaveBeenCalled();

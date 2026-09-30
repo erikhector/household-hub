@@ -580,6 +580,41 @@ export async function setAutoAddLowStockToListAction(enabled: boolean): Promise<
   return {};
 }
 
+// Which expense category completed shopping lists and registered receipts
+// log to (Household.shoppingExpenseCategory, read by
+// resolveShoppingExpenseCategory in src/lib/budget-groceries-category.ts).
+// Open to every member like the auto-add switch above: budget categories
+// themselves aren't role-gated either. `null` goes back to the automatic
+// "Groceries" default. A click action (the Household page's select saves on
+// change); the category must be one of the session household's EXPENSE
+// categories — its id comes from the client, so it's looked up scoped to
+// that household rather than trusted.
+export async function setShoppingExpenseCategoryAction(categoryId: string | null): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = z.string().trim().min(1).max(100).nullable().safeParse(categoryId);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  try {
+    if (parsed.data !== null) {
+      const category = await prisma.budgetCategory.findFirst({
+        where: { id: parsed.data, householdId: household.id, type: "EXPENSE" },
+        select: { id: true },
+      });
+      if (!category) return { error: "Category not found" };
+    }
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { shoppingExpenseCategoryId: parsed.data },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/household");
+  return {};
+}
+
 // --- Calendar feed (GAP-3) ----------------------------------------------
 
 // Owner-only, unlike the auto-add switch above and the per-list shopping

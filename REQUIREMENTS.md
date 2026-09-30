@@ -1374,24 +1374,35 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   with the Guardrails on money: there's no notification, no red or warning
   state (a passed date is simply stated), no streaks, and it never blocks
   or affects a transaction, safe to spend or any total.
-- **Groceries category hook for Task 8**: `findOrCreateGroceriesCategory
-  (householdId: string)`, exported from the plain server module
+- **Shopping expense category**: `resolveShoppingExpenseCategory(tx,
+  householdId)`, exported from the plain server module
   `src/lib/budget-groceries-category.ts` (not a `"use server"` file, where
   it would be a client-callable endpoint taking a household id — see
-  MAINT-2 below), is the intended lookup for the
-  shopping-list → budget expense link (completing a shopping list should
-  create/reuse a "Groceries" expense category and log a `Transaction`
-  against it). Lookup key: name `"Groceries"` (case-insensitive match),
-  `type: "EXPENSE"`, scoped to the household — mirrors
-  `findOrCreateInventoryItem` in
-  `src/app/dashboard/shopping-list/actions.ts` exactly (find first, create
-  if missing). The category name itself (`GROCERIES_CATEGORY_NAME`) is a
-  module-private constant, not exported — callers that need the name read it off the
-  returned category (`category.name`) rather than importing the constant.
-  Like `findOrCreateInventoryItem`, this helper trusts its `householdId`
-  argument and does no auth check of its own; every caller must resolve
-  that id from its own `requireHousehold()` call first, never from
-  client input.
+  MAINT-2 below), picks the category the shopping-list → budget expense
+  link logs to. It returns `Household.shoppingExpenseCategory` when that is
+  set, still an `EXPENSE` category and in this household. Otherwise it finds
+  the household's `"Groceries"` `EXPENSE` category (case-insensitive name
+  match) or creates it, and **stores its id as the household's pick**, so
+  later trips look it up by id: renaming "Groceries" to "Mat" keeps the
+  link instead of a second "Groceries" appearing on the next trip. It runs
+  on the caller's transaction client. The fallback name
+  (`GROCERIES_CATEGORY_NAME`) is module-private; callers read
+  `category.name`. Like `findOrCreateInventoryItem`, it trusts its
+  `householdId` argument and does no auth check of its own; every caller
+  must resolve that id from its own `requireHousehold()` call first, never
+  from client input.
+- **Choosing the category**: a "Shopping in the budget" card on the
+  Household page (`ShoppingExpenseSetting`,
+  `src/components/household/shopping-expense-setting.tsx`) lists the
+  household's expense categories and saves on change via
+  `setShoppingExpenseCategoryAction(categoryId | null)` in
+  `src/lib/actions/household.ts`. Open to every member (budget categories
+  aren't role-gated either). The action looks the id up scoped to the
+  session's household and `type: "EXPENSE"` and refuses anything else;
+  `null` goes back to the automatic "Groceries". That automatic option only
+  shows while nothing is picked, since the first priced trip pins a real
+  category. The column is `onDelete: SetNull`, so deleting the picked
+  category (only possible once it has no transactions) falls back too.
 - **Transactions**: `TransactionList` shows date, category (badge tinted
   `text-success`/`text-destructive` for income/expense — the same two
   tokens the summary and amounts use, so the income/expense meaning stays
@@ -1437,7 +1448,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   still not an auto-generating scheduler — nothing ever creates a
   `Transaction` on its own — but it is a genuine per-period due/posted/
   acknowledged tracker, meaningfully more than the display-only
-  `isRecurring` flag above. Mirrored for the separate, user-scoped personal
+  `isRecurring` flag above. Logging a template twice in one period is
+  rejected at write time (`assertNoDuplicateTemplatePeriod`, and its
+  personal-budget twin): the check reads only the transactions inside
+  the period's `[start, end)` range (`getPeriodBounds`), so its cost
+  doesn't grow with a template's history. Mirrored for the separate, user-scoped personal
   budget (`prisma/schema.prisma`'s `PersonalBudgetCategory`/
   `PersonalTransaction`) as `PersonalRecurringTemplate`/
   `PersonalRecurringTemplateAck` — not documented further here, as it isn't
@@ -1653,7 +1668,9 @@ item is marked purchased with an estimated price
 
 Completing a shopping list (`completeShoppingListAction` in
 `src/app/dashboard/shopping-list/actions.ts`) automatically logs a single
-"Groceries" expense `Transaction` for that list, on top of its existing
+expense `Transaction` for that list, in the household's chosen shopping
+category ("Groceries" unless changed, see "Shopping expense category"
+above), on top of its existing
 job of link-fixing unlinked items and flipping the list to `COMPLETED`:
 
 - **What gets summed**: every item on the list where `purchased` is true
@@ -1713,33 +1730,30 @@ the budget page (`createMoneyFormat`: locale-aware decimals, plus the
 household's currency symbol once GAP-13's setting is chosen). The summation
 itself is a pure, unit-tested helper
 (`sumEstimatedPendingTotal`, `src/lib/shopping/estimated-total.ts`).
-- **Category lookup**: reuses `findOrCreateGroceriesCategory` (see
-  "Groceries category hook for Task 8" above) rather than duplicating that
-  find-or-create logic — the two features share one household-scoped
-  "Groceries" `EXPENSE` category.
+- **Category lookup**: `resolveShoppingExpenseCategory` (see "Shopping
+  expense category" above), shared with `registerReceiptAction`.
 - **The `Transaction` created**: `amount` = the summed total, `type` =
   `"EXPENSE"`, `date` = the moment the list was completed (not any
   per-item purchase date, since `ShoppingListItem` doesn't track one),
   `description` = `From "{list name}"` (translated, built with
   `format()`), `createdByUserId` = the household member who clicked
-  "Complete list". Not run inside the same `$transaction` as the list's
-  `status` update to `COMPLETED`, since `findOrCreateGroceriesCategory`
-  takes a plain `prisma` client rather than a transaction client and
-  duplicating its lookup just to fit inside one transaction would violate
-  the point of reusing it — matches this file's existing style of doing
-  find-or-create lookups (e.g. `findOrCreateInventoryItem` in
-  `addAdHocItemAction`) as plain sequential calls, not wrapped.
+  "Complete list". Both actions log it through one module-private helper,
+  `logGroceriesExpense(tx, …)` (MAINT-5), **inside the same `$transaction`**
+  as the list's `status` update (or, for a receipt, the stock and price
+  writes), wrapped in `toFriendlyError`. So a failed insert rolls the whole
+  completion back and shows a friendly error, instead of crashing after
+  stock had already moved and double-applying it on retry.
 - **Feedback**: `completeShoppingListAction` returns
   `{ expenseLoggedMessage?: string }` (a change from its previous `void`
   return) built server-side from the `shoppingList` dictionary
-  (`expenseLogged`, interpolating a locale-formatted amount via
+  (`expenseLogged`, interpolating the category's name and a
+  locale-formatted amount via
   `createMoneyFormat` with the household's display currency — same convention as the rest of
   Budgeting) so the client stays dumb. `ShoppingListClient`
   (`src/components/shopping/shopping-list-client.tsx`) awaits the action
   inside its existing `useTransition` click handler and shows a `sonner`
   toast when a message comes back; nothing is shown when the total was 0.
-  No new settings/toggle to disable this — it's the intended default
-  behavior, not optional. It also returns `transactionId`, the id of the
+  There's no toggle to turn this off; only the category is configurable. It also returns `transactionId`, the id of the
   expense it logged (if any), for the Undo below.
 
 #### Store name and cheapest-store comparison (GAP-6)
@@ -2818,7 +2832,10 @@ below.
   (`inventoryItemId` or `newItemCategory` per line) instead of the action
   re-guessing server-side — it only falls back to the old silent
   exact-name-then-fuzzy auto-match when neither is sent, kept for backward
-  compatibility rather than as the primary path. A registered receipt is
+  compatibility rather than as the primary path. That fallback reads the
+  household's inventory once per receipt (PERF-16), on the first line that
+  needs a fuzzy match, and matches every later line in memory (including
+  items the same receipt just created). A registered receipt is
   after the shop by definition, so it updates inventory immediately in
   either `inventorySyncMode` and stamps every row `putAwayAt` (and
   `priceRecordedAt` when linked) — there's nothing left to put away.
@@ -4886,6 +4903,18 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
     existence check and the eviction run inside the same `$transaction` as
     the upsert, so concurrent subscribes from the same user can't both
     slip past the count.
+  - **Stale browser subscriptions (SEC-14)**: `pushManager.getSubscription()`
+    only proves the *browser* still holds a subscription. A password
+    reset/change (SEC-5) deletes the user's `PushSubscription` rows, but
+    every other signed-in device keeps its browser-side subscription, which
+    then receives nothing. The card therefore reconciles the browser's
+    endpoint against the `subscriptions` rows the profile page loads
+    (`resolveSubscriptionState`, `src/lib/push-subscription-state.ts`): no
+    matching row shows "Unsubscribed" with the Enable button, and one tap
+    re-subscribes (the browser hands back its existing subscription and
+    `subscribeToPushAction` upserts the row). It doesn't silently recreate
+    the row, since the reset deliberately revoked push. A subscription this
+    card saved itself counts as confirmed until the refreshed rows arrive.
   - **Delivery**: `sendPushToHousehold` (`src/lib/push.ts`) fans a payload
     out to every push subscription belonging to every member of a
     household. It's called from the same triggers as the in-app
@@ -5040,7 +5069,7 @@ approximating them, so the email never disagrees with the app.
   client-callable endpoint, so each must be named `…Action` or be one of the
   token-gated readers allowlisted in `src/lib/use-server-exports.test.ts`
   (`getShoppingListByShareToken`, `getInvitationForDisplay`); helpers that
-  take a household id (`findOrCreateGroceriesCategory`,
+  take a household id (`resolveShoppingExpenseCategory`,
   `isHouseholdStepSkipped`) live in plain server modules under `src/lib/`.
   That test fails `npm test` otherwise.
 - Actions bound to a `<form>` follow the `(prevState, formData) =>

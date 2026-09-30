@@ -151,6 +151,15 @@ export const en = {
       ownerOnlyHint: "Only the household owner can change this.",
       savedToast: "Saved",
     },
+    // ShoppingExpenseSetting — Household.shoppingExpenseCategory.
+    shoppingExpense: {
+      title: "Shopping in the budget",
+      label: "Log shopping to",
+      description:
+        "When a shopping list with prices is completed, or a receipt is registered, the total is logged as an expense in this budget category.",
+      defaultOption: "Groceries (created on the first trip)",
+      savedToast: "Saved",
+    },
     // GAP-13: the display currency (CurrencySetting). Currency names come
     // from Intl.DisplayNames in the viewer's locale, so only the "none"
     // option and the surrounding copy live here.
@@ -545,7 +554,7 @@ export const en = {
       },
     },
     lowStockBadge: "Low stock",
-    expenseLogged: "Logged {amount} to your Groceries budget",
+    expenseLogged: "Logged {amount} to {category} in your budget",
     expenseDescription: 'From "{name}"',
     categoryChip: {
       ariaLabel: "Category of {name}: {category}. Change category",

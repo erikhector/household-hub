@@ -6,6 +6,7 @@ import {
   computeRecurringMonthlyTotals,
   computeTemplateStatuses,
   expandMonthlyDueDates,
+  getPeriodBounds,
   getPeriodKey,
   monthlyEquivalentAmount,
 } from "@/lib/recurring-template-calc";
@@ -37,6 +38,49 @@ describe("getPeriodKey", () => {
     const monday = getPeriodKey(new Date(2026, 8, 7), "WEEKLY");
     const sunday = getPeriodKey(new Date(2026, 8, 13), "WEEKLY");
     expect(monday).toBe(sunday);
+  });
+});
+
+describe("getPeriodBounds", () => {
+  it("bounds a MONTHLY period to the calendar month", () => {
+    expect(getPeriodBounds(new Date(2026, 8, 30, 23, 59), "MONTHLY")).toEqual({
+      start: new Date(2026, 8, 1),
+      end: new Date(2026, 9, 1),
+    });
+    expect(getPeriodBounds(new Date(2026, 11, 15), "MONTHLY").end).toEqual(new Date(2027, 0, 1));
+  });
+
+  it("bounds a YEARLY period to the calendar year", () => {
+    expect(getPeriodBounds(new Date(2026, 5, 1), "YEARLY")).toEqual({
+      start: new Date(2026, 0, 1),
+      end: new Date(2027, 0, 1),
+    });
+  });
+
+  it("bounds a WEEKLY period Monday to next Monday, including across a year boundary", () => {
+    // Sunday 2026-09-06 is in the week starting Monday 2026-08-31.
+    expect(getPeriodBounds(new Date(2026, 8, 6), "WEEKLY")).toEqual({
+      start: new Date(2026, 7, 31),
+      end: new Date(2026, 8, 7),
+    });
+    // Friday 2027-01-01 belongs to the week starting Monday 2026-12-28.
+    expect(getPeriodBounds(new Date(2027, 0, 1), "WEEKLY")).toEqual({
+      start: new Date(2026, 11, 28),
+      end: new Date(2027, 0, 4),
+    });
+  });
+
+  it("agrees with getPeriodKey on both edges for every frequency", () => {
+    for (const frequency of ["WEEKLY", "MONTHLY", "YEARLY"] as const) {
+      for (let d = 0; d < 400; d += 3) {
+        const date = new Date(2026, 0, 1 + d, 13);
+        const { start, end } = getPeriodBounds(date, frequency);
+        const key = getPeriodKey(date, frequency);
+        expect(getPeriodKey(start, frequency)).toBe(key);
+        expect(getPeriodKey(new Date(end.getTime() - 1), frequency)).toBe(key);
+        expect(getPeriodKey(end, frequency)).not.toBe(key);
+      }
+    }
   });
 });
 

@@ -1104,6 +1104,50 @@ describe("recurring templates", () => {
         }),
       });
     });
+
+    it("only reads the current period's transactions, however many periods the template spans (PERF-17)", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date(2026, 8, 30, 12));
+        recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1", categoryId: "cat-1", amount: 1000, type: "EXPENSE", name: "Rent", frequency: "MONTHLY", splits: [] });
+        // The DB filter bounds the read; what comes back is one August row
+        // at most, which must not block a September log.
+        transactionFindManyMock.mockResolvedValue([{ date: new Date(2026, 7, 31) }]);
+        transactionCreateMock.mockResolvedValue({});
+
+        const result = await logRecurringTemplateAction("template-1");
+
+        expect(result).toEqual({});
+        expect(transactionFindManyMock).toHaveBeenCalledWith({
+          where: {
+            recurringTemplateId: "template-1",
+            date: { gte: new Date(2026, 8, 1), lt: new Date(2026, 9, 1) },
+          },
+          select: { date: true },
+        });
+        expect(transactionCreateMock).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("rejects a second log when a row already sits in the current period", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date(2026, 8, 30, 12));
+        recurringTemplateFindFirstMock.mockResolvedValue({ id: "template-1", categoryId: "cat-1", amount: 1000, type: "EXPENSE", name: "Rent", frequency: "MONTHLY", splits: [] });
+        transactionFindManyMock.mockResolvedValue([{ date: new Date(2026, 8, 3) }]);
+
+        const result = await logRecurringTemplateAction("template-1");
+
+        expect(result.error).toBe(
+          "A transaction for this recurring item already exists for this period",
+        );
+        expect(transactionCreateMock).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
 
