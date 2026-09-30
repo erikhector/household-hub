@@ -298,6 +298,32 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 no broken empty states — the issues below are all clipped/illegible text.
 
 
+### UX (2026-09-30 scout)
+
+Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
+`npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
+judgement calls, not failures.
+
+- [ ] **UX-4. Show the "Add task" label on phones** (impact: med, effort: S) —
+      `tasks/page.tsx:89-90` hides the label below `sm` (`sr-only sm:not-sr-only`),
+      so on mobile the page's one primary action is a full-width purple bar
+      holding a lone "+", and the empty state has to say "use the + button
+      above". Breaks *usability* and *user-centricity*: an icon-only primary
+      action with no visible words. Acceptance: at 412 px the button shows
+      the visible text "Add task" (en) / its Swedish equivalent, and an e2e
+      spec asserts `getByRole("button", { name: "Add task" })` has non-empty
+      visible text on mobile.
+- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
+      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
+      with "Nothing planned" (28 identical lines, a ~7,200 px page in
+      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
+      distinguishable and the real content is buried. Breaks *hierarchy* and
+      *context*. Acceptance: on mobile, empty slots collapse to a single
+      compact "+ Add meal" row per day (or a single-line slot), so an empty
+      week is well under half its current height; an e2e spec asserts an
+      empty day shows one add affordance per slot without repeated
+      "Nothing planned" text, and that adding a meal still works.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
