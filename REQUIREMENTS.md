@@ -4029,6 +4029,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Add task button (UX-4)**: the header button always shows its "Add task"
+  label. It used to collapse to a lone "+" below `sm`, leaving the page's one
+  primary action with no visible words on phones. `flows.spec.ts` asserts the
+  visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
   weekday schedule, just "reopen N days after it was last completed".
