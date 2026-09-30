@@ -148,19 +148,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       `personal-budget/page.tsx:138-158` (two queries per membership — batch
       with `householdId: { in }`); `meal-planning/page.tsx:57`
       (`include: { recipe: true }` pulls instructions — `select`).
-- [ ] **PERF-16. Stop re-fetching the whole inventory table per unmatched
-      receipt line** (impact: high, effort: S) —
-      `shopping-list/actions.ts:1605-1628` (`registerReceiptAction`) awaits
-      each line sequentially, and any line that doesn't match on
-      `inventoryItemId` or an exact name falls into `findFuzzyInventoryItem`
-      (`actions.ts:58-62`), which runs `prisma.inventoryItem.findMany({
-      where: { householdId } })` — the entire household inventory table —
-      once per unmatched line. A 20-line receipt with 15 new items pulls the
-      whole table 15 times in one request. Acceptance: the household's
-      inventory is loaded once before the loop (mirroring
-      `createCategoryResolver`'s pattern for categories) and matched in
-      memory per line; a test with several unmatched lines asserts
-      `inventoryItem.findMany` is called at most once.
 - [ ] **PERF-17. Narrow the recurring-template duplicate-period check to the
       current period** (impact: med, effort: S) — `budget/actions.ts:342-356`
       (`assertNoDuplicateTemplatePeriod`) runs
@@ -752,6 +739,7 @@ credentials only the product owner can provision, or an architecture call.
 | v0.46.14 | #125 perf: batch the take-stock quantity update into a fixed number of queries (PERF-15) | 2026-09-29 | #125 |
       | v0.47.0 | #129 feat: choose the budget category shopping trips log to | 2026-09-30 | #129 |
       | v0.47.1 | #130 fix: show push as off when the server dropped this browser's subscription (SEC-14) | 2026-09-30 | #130 |
+      | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

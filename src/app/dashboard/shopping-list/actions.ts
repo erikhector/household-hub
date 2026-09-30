@@ -55,9 +55,12 @@ async function findExactInventoryItem(householdId: string, name: string) {
  * when exactly one candidate scores above AUTO_FUZZY_MATCH_MIN_SCORE. With
  * two candidates both scoring above it, guessing wrong is worse than leaving
  * the item unlinked, so that case is left alone too.
+ *
+ * A batch caller (registerReceiptAction) passes the household's items as
+ * `preloaded` so N unmatched lines cost one table read, not N.
  */
-async function findFuzzyInventoryItem(householdId: string, name: string) {
-  const candidates = await prisma.inventoryItem.findMany({ where: { householdId } });
+async function findFuzzyInventoryItem(householdId: string, name: string, preloaded?: InventoryItem[]) {
+  const candidates = preloaded ?? (await prisma.inventoryItem.findMany({ where: { householdId } }));
   const matches = findInventoryMatches(name, candidates, { minScore: AUTO_FUZZY_MATCH_MIN_SCORE, limit: 2 });
   return matches.length === 1 ? matches[0] : null;
 }
@@ -1672,6 +1675,16 @@ export async function registerReceiptAction(
   let totalAmount = 0;
   let unresolvedCount = 0;
   const resolveCategory = createCategoryResolver(household.id);
+  // PERF-16: the household's inventory, loaded on the first line that needs
+  // a fuzzy match (a receipt whose lines are all linked or explicitly new
+  // costs no read) and matched in memory after that. Items this receipt
+  // creates are added so a later line can still fuzzy-match them, as it did
+  // when each line re-read the table. Keyed by id: a line that created an
+  // item *before* the lazy load is already in the read's result, and a
+  // duplicate candidate would make a single confident match look ambiguous
+  // (findFuzzyInventoryItem leaves a two-way tie unlinked).
+  let fuzzyCandidates: Map<string, InventoryItem> | null = null;
+  const createdThisReceipt: InventoryItem[] = [];
   // AUTO-2b(a): every "add as new item" line whose guess misses is a
   // candidate for the AI fallback, scheduled (batched) once every line has
   // been processed below.
@@ -1697,9 +1710,17 @@ export async function registerReceiptAction(
           lowStockThreshold: 0,
         },
       });
+      createdThisReceipt.push(inventoryItem);
+      fuzzyCandidates?.set(inventoryItem.id, inventoryItem);
     } else {
       inventoryItem = await findExactInventoryItem(household.id, line.name);
-      if (!inventoryItem) inventoryItem = await findFuzzyInventoryItem(household.id, line.name);
+      if (!inventoryItem) {
+        if (!fuzzyCandidates) {
+          const loaded = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
+          fuzzyCandidates = new Map([...loaded, ...createdThisReceipt].map((item) => [item.id, item]));
+        }
+        inventoryItem = await findFuzzyInventoryItem(household.id, line.name, [...fuzzyCandidates.values()]);
+      }
     }
     if (!inventoryItem) unresolvedCount++;
 
