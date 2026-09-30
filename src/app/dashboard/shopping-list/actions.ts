@@ -1635,9 +1635,12 @@ export async function registerReceiptAction(
   // PERF-16: the household's inventory, loaded on the first line that needs
   // a fuzzy match (a receipt whose lines are all linked or explicitly new
   // costs no read) and matched in memory after that. Items this receipt
-  // creates are appended so a later line can still fuzzy-match them, as it
-  // did when each line re-read the table.
-  let fuzzyCandidates: Promise<InventoryItem[]> | null = null;
+  // creates are added so a later line can still fuzzy-match them, as it did
+  // when each line re-read the table. Keyed by id: a line that created an
+  // item *before* the lazy load is already in the read's result, and a
+  // duplicate candidate would make a single confident match look ambiguous
+  // (findFuzzyInventoryItem leaves a two-way tie unlinked).
+  let fuzzyCandidates: Map<string, InventoryItem> | null = null;
   const createdThisReceipt: InventoryItem[] = [];
   // AUTO-2b(a): every "add as new item" line whose guess misses is a
   // candidate for the AI fallback, scheduled (batched) once every line has
@@ -1665,14 +1668,15 @@ export async function registerReceiptAction(
         },
       });
       createdThisReceipt.push(inventoryItem);
+      fuzzyCandidates?.set(inventoryItem.id, inventoryItem);
     } else {
       inventoryItem = await findExactInventoryItem(household.id, line.name);
       if (!inventoryItem) {
-        fuzzyCandidates ??= prisma.inventoryItem.findMany({ where: { householdId: household.id } });
-        inventoryItem = await findFuzzyInventoryItem(household.id, line.name, [
-          ...(await fuzzyCandidates),
-          ...createdThisReceipt,
-        ]);
+        if (!fuzzyCandidates) {
+          const loaded = await prisma.inventoryItem.findMany({ where: { householdId: household.id } });
+          fuzzyCandidates = new Map([...loaded, ...createdThisReceipt].map((item) => [item.id, item]));
+        }
+        inventoryItem = await findFuzzyInventoryItem(household.id, line.name, [...fuzzyCandidates.values()]);
       }
     }
     if (!inventoryItem) unresolvedCount++;

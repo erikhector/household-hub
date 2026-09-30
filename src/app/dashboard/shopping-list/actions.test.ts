@@ -2095,6 +2095,27 @@ describe("registerReceiptAction", () => {
     expect(result.unresolvedNotice).toBe("3 items weren't linked");
   });
 
+  // PERF-16: the lazy read runs after line 1 already created its item, so
+  // the read returns that row; it must not be counted twice or the single
+  // confident fuzzy match looks like a tie and the line is left unlinked.
+  it("still links a later line to an item an earlier line of the same receipt created, with one inventory read", async () => {
+    const created = { id: "inv-new", name: "Whole milk", category: "Dairy & eggs", quantity: 0, unit: "pcs" };
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
+    inventoryItemFindFirstMock.mockResolvedValue(null);
+    inventoryItemCreateMock.mockResolvedValue(created);
+    inventoryItemFindManyMock.mockResolvedValue([created]);
+    shoppingListItemCreateMock.mockResolvedValue({ id: "item-1" });
+
+    const result = await registerReceiptAction("My receipt", "SEK", [
+      { name: "Whole milk", quantity: 1, price: 15, newItemCategory: "Dairy & eggs" },
+      { name: "Whole milk 1l", quantity: 1, price: 15 },
+    ]);
+
+    expect(inventoryItemFindManyMock.mock.calls.filter(([args]) => args?.where?.householdId === "household-1"))
+      .toHaveLength(1);
+    expect(result.unresolvedNotice).toBeUndefined();
+  });
+
   it("sums quantity across two lines matching the same inventory item instead of overwriting each other", async () => {
     shoppingListCreateMock.mockResolvedValue({ id: "list-1", name: "My receipt" });
     inventoryItemFindFirstMock.mockResolvedValue({ id: "inv-1", quantity: 10, unit: "pcs" });
