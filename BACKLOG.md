@@ -148,18 +148,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       `personal-budget/page.tsx:138-158` (two queries per membership — batch
       with `householdId: { in }`); `meal-planning/page.tsx:57`
       (`include: { recipe: true }` pulls instructions — `select`).
-- [ ] **PERF-17. Narrow the recurring-template duplicate-period check to the
-      current period** (impact: med, effort: S) — `budget/actions.ts:342-356`
-      (`assertNoDuplicateTemplatePeriod`) runs
-      `prisma.transaction.findMany({ where: { recurringTemplateId }, select:
-      { date: true } })` — every transaction ever logged against that
-      template, since it was created — then loops in JS to check whether one
-      falls in the current period. Called on every transaction-creation
-      entry point for a recurring item, so it slows down every period a
-      template stays active. Acceptance: the query is bounded to the
-      current period's date range (from `getPeriodKey`'s bounds) instead of
-      all-time, with a test covering a template with transactions spanning
-      many periods.
 
 ### Maintainability (2026-09-26 audit)
 
@@ -740,6 +728,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.0 | #129 feat: choose the budget category shopping trips log to | 2026-09-30 | #129 |
       | v0.47.1 | #130 fix: show push as off when the server dropped this browser's subscription (SEC-14) | 2026-09-30 | #130 |
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
+      | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

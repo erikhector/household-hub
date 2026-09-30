@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.3",
+    "date": "2026-09-30",
+    "pr": 132,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Logging a recurring bill or income now stays fast, however long it has been running.",
+      "sv": "Att logga en återkommande räkning eller inkomst går nu lika snabbt, oavsett hur länge den har funnits."
+    }
+  },
+  {
     "version": "0.47.2",
     "date": "2026-09-30",
     "pr": 131,

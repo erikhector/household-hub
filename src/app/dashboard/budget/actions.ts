@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold, requireUserId } from "@/lib/session";
-import { getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
+import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import {
@@ -309,8 +309,12 @@ async function assertNoDuplicateTemplatePeriod(
   date: Date,
 ): Promise<{ error: string } | null> {
   const periodKey = getPeriodKey(date, frequency);
+  // Bounded to the period's date range so the read doesn't grow with every
+  // period the template has ever been logged in (PERF-17). The key check
+  // below stays as the exact definition of "same period".
+  const { start, end } = getPeriodBounds(date, frequency);
   const existing = await prisma.transaction.findMany({
-    where: { recurringTemplateId },
+    where: { recurringTemplateId, date: { gte: start, lt: end } },
     select: { date: true },
   });
   const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);

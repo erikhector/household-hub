@@ -1448,7 +1448,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   still not an auto-generating scheduler — nothing ever creates a
   `Transaction` on its own — but it is a genuine per-period due/posted/
   acknowledged tracker, meaningfully more than the display-only
-  `isRecurring` flag above. Mirrored for the separate, user-scoped personal
+  `isRecurring` flag above. Logging a template twice in one period is
+  rejected at write time (`assertNoDuplicateTemplatePeriod`, and its
+  personal-budget twin): the check reads only the transactions inside
+  the period's `[start, end)` range (`getPeriodBounds`), so its cost
+  doesn't grow with a template's history. Mirrored for the separate, user-scoped personal
   budget (`prisma/schema.prisma`'s `PersonalBudgetCategory`/
   `PersonalTransaction`) as `PersonalRecurringTemplate`/
   `PersonalRecurringTemplateAck` — not documented further here, as it isn't

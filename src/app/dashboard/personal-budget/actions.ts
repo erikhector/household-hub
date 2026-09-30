@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
-import { getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
+import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
 import {
@@ -222,8 +222,10 @@ async function assertNoDuplicatePersonalTemplatePeriod(
   date: Date,
 ): Promise<{ error: string } | null> {
   const periodKey = getPeriodKey(date, frequency);
+  // Bounded to the period's date range — see budget/actions.ts (PERF-17).
+  const { start, end } = getPeriodBounds(date, frequency);
   const existing = await prisma.personalTransaction.findMany({
-    where: { recurringTemplateId },
+    where: { recurringTemplateId, date: { gte: start, lt: end } },
     select: { date: true },
   });
   const alreadyLogged = existing.some((t) => getPeriodKey(t.date, frequency) === periodKey);
