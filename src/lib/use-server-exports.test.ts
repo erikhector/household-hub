@@ -1,5 +1,5 @@
 // Every export of a "use server" file becomes a client-callable endpoint, so
-// a helper like `findOrCreateGroceriesCategory(householdId)` exported from
+// a helper like `resolveShoppingExpenseCategory(tx, householdId)` exported from
 // one is a way to hand the server a household id — the one thing AGENTS.md
 // says never to accept from the client. This guard keeps such helpers in
 // plain server modules: each value export of a "use server" file must be

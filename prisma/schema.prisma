@@ -170,6 +170,18 @@ model Household {
   // household that already existed ON_CHECK so nobody's habit changed under
   // them. Owner-editable from the Household page (setInventorySyncModeAction).
   inventorySyncMode     InventorySyncMode @default(ON_PUT_AWAY)
+  // The expense category a completed shopping list (or a registered
+  // receipt) logs its total to — see resolveShoppingExpenseCategory in
+  // src/lib/budget-groceries-category.ts. Null until the first priced trip,
+  // which find-or-creates "Groceries" and stores its id here, so renaming
+  // that category afterwards (say to "Mat") keeps the link instead of a
+  // fresh "Groceries" appearing next trip. Any member can point it at
+  // another expense category from the Household page
+  // (setShoppingExpenseCategoryAction). SetNull on delete falls back to the
+  // "Groceries" default; the budget page won't delete a category that has
+  // transactions anyway.
+  shoppingExpenseCategoryId String?
+  shoppingExpenseCategory   BudgetCategory? @relation("ShoppingExpenseCategory", fields: [shoppingExpenseCategoryId], references: [id], onDelete: SetNull)
 
   members            HouseholdMember[]
   invitations        Invitation[]
@@ -954,6 +966,8 @@ model BudgetCategory {
   household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  // Back-relation of Household.shoppingExpenseCategory.
+  shoppingExpenseFor Household[]         @relation("ShoppingExpenseCategory")
 
   @@index([householdId])
 }
