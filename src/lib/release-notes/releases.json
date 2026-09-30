@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.2",
+    "date": "2026-09-30",
+    "pr": 131,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Registering a receipt with many new items is faster.",
+      "sv": "Att registrera ett kvitto med många nya varor går snabbare."
+    }
+  },
+  {
     "version": "0.47.1",
     "date": "2026-09-30",
     "pr": 130,
