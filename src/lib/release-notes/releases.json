@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.47.1",
+    "date": "2026-09-30",
+    "pr": 130,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Notifications settings no longer say \"Subscribed\" on a device that stopped receiving notifications after a password change. It now shows the Enable button so you can turn them back on.",
+      "sv": "Aviseringsinställningarna visar inte längre \"Prenumererar\" på en enhet som slutade få aviseringar efter ett lösenordsbyte. Nu visas knappen för att aktivera, så att du kan slå på dem igen."
+    }
+  },
+  {
+    "version": "0.47.0",
+    "date": "2026-09-30",
+    "pr": 129,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now choose which budget category your shopping trips are logged to, from the Household page. Renaming the category no longer starts a new \"Groceries\" one.",
+      "sv": "Nu kan du välja vilken budgetkategori dina inköp loggas på, under Hushåll. Byter du namn på kategorin skapas inte längre en ny \"Groceries\"."
+    }
+  },
+  {
     "version": "0.46.14",
     "date": "2026-09-29",
     "pr": 125,

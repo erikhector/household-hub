@@ -132,6 +132,14 @@ export const sv = {
       ownerOnlyHint: "Bara hushållets ägare kan ändra det här.",
       savedToast: "Sparat",
     },
+    shoppingExpense: {
+      title: "Inköp i budgeten",
+      label: "Logga inköp på",
+      description:
+        "När en inköpslista med priser slutförs, eller ett kvitto registreras, loggas summan som en utgift i den här budgetkategorin.",
+      defaultOption: "Groceries (skapas vid första inköpet)",
+      savedToast: "Sparat",
+    },
     currency: {
       title: "Valuta",
       label: "Visa belopp i",
@@ -511,7 +519,7 @@ export const sv = {
       },
     },
     lowStockBadge: "Lågt lager",
-    expenseLogged: "Loggade {amount} i din budget för Livsmedel",
+    expenseLogged: "Loggade {amount} på {category} i din budget",
     expenseDescription: 'Från "{name}"',
     categoryChip: {
       ariaLabel: "Kategori för {name}: {category}. Byt kategori",
