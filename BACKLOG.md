@@ -291,6 +291,32 @@ and Swedish (which needed the seeded user's `locale` set in the DB — the
 no broken empty states — the issues below are all clipped/illegible text.
 
 
+### UX (2026-09-30 scout)
+
+Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
+`npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
+judgement calls, not failures.
+
+- [ ] **UX-4. Show the "Add task" label on phones** (impact: med, effort: S) —
+      `tasks/page.tsx:89-90` hides the label below `sm` (`sr-only sm:not-sr-only`),
+      so on mobile the page's one primary action is a full-width purple bar
+      holding a lone "+", and the empty state has to say "use the + button
+      above". Breaks *usability* and *user-centricity*: an icon-only primary
+      action with no visible words. Acceptance: at 412 px the button shows
+      the visible text "Add task" (en) / its Swedish equivalent, and an e2e
+      spec asserts `getByRole("button", { name: "Add task" })` has non-empty
+      visible text on mobile.
+- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
+      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
+      with "Nothing planned" (28 identical lines, a ~7,200 px page in
+      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
+      distinguishable and the real content is buried. Breaks *hierarchy* and
+      *context*. Acceptance: on mobile, empty slots collapse to a single
+      compact "+ Add meal" row per day (or a single-line slot), so an empty
+      week is well under half its current height; an e2e spec asserts an
+      empty day shows one add affordance per slot without repeated
+      "Nothing planned" text, and that adding a meal still works.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -577,6 +603,40 @@ out to be a product-scope question rather than a scoped task should move to
       household, which would also cross the tenancy boundary in
       `src/lib/session.ts`. A plain "copy as text" would avoid all of that
       and could be the smaller first step.
+
+### 2026-09-30 scan
+
+- [ ] **GAP-44. "Freeze it" on an inventory item (extends the expiry clock)** (impact: med, effort: M) —
+      Grocy tracks freezing as a stock state with its own "days until due
+      once frozen"; Squirrel has the mirror image for opening (`openedAt` +
+      `useWithinDaysOpened`, REQUIREMENTS.md "Expiry/best-before tracking",
+      `prisma/schema.prisma:326-336`) but nothing for the most common way
+      households avoid waste: freezing what would otherwise expire this
+      week. Today the only choice is to edit `expiresAt` by hand, which
+      loses the original date and looks like a real user-entered date.
+      Needs a small schema change (`frozenAt DateTime?`,
+      `useWithinDaysFrozen Int?`, one migration, so a Phase 2 item) and a
+      pure `frozenExpiryUpdate` beside `openedExpiryUpdate`
+      (`src/lib/inventory/expiry.ts`). Acceptance: an expiring item's row
+      offers "Freeze"; it sets `expiresAt = now + useWithinDaysFrozen`
+      (default 90 days, estimated flag per the existing ≈ rule), shows a
+      "Frozen" tag, drops out of EXPIRING_SOON, and has the same undo toast
+      as "Mark opened"; a unit test covers the pure helper and an e2e test
+      freezes an item, reloads and asserts the tag and later date.
+
+- [ ] **GAP-45. "Fill empty days" on the meal planner from favorites** (impact: low-med, effort: S) —
+      Mealie's meal-plan rules and Mealime's auto-planned week fill a
+      week with no effort; Squirrel has "Copy last week" (GAP-23) but an
+      empty first week, or one that only copies last week's repeats, still
+      means adding every dinner by hand. Recipe favorites exist
+      (REQUIREMENTS.md "Recipe favorites") and "Use it up" suggestions
+      already rank by stock, so the ingredients for a suggestion exist. No
+      schema change. Acceptance: a planner-header button proposes a
+      dinner for each empty day from favorites (not repeating within the
+      week), shown as a preview the user can accept, swap per day or
+      cancel, with an undo toast after accepting; nothing is written
+      until accepted; an e2e test accepts a proposal and asserts the
+      entries appear after reload.
 
 ## Needs a decision before building
 
