@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.48.1",
+    "date": "2026-10-04",
+    "pr": 138,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Number fields now open the number pad on your phone, and the Enter key on forms shows \"Done\" or \"Go\".",
+      "sv": "Sifferfält öppnar nu sifferknappsatsen på mobilen, och Enter-tangenten i formulär visar \"Klar\" eller \"Kör\"."
+    }
+  },
+  {
     "version": "0.48.0",
     "date": "2026-10-04",
     "pr": 136,
