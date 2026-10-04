@@ -1556,7 +1556,7 @@ export const sv = {
     unassignedOption: "Ingen tilldelad",
     add: "Lägg till",
     adding: "Lägger till…",
-    emptyState: "Inga uppgifter än — använd knappen ovan för att lägga till en.",
+    emptyState: "Inga uppgifter än — använd knappen Lägg till uppgift ovan för att lägga till en.",
     completedSectionLabel: "Klara",
     unassignedBadge: "Ingen tilldelad",
     completedByLabel: "Klar av {name}",

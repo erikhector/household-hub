@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.7",
+    "date": "2026-10-04",
+    "pr": 134,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Add task\" button on the Tasks page now shows its name on phones instead of just a \"+\".",
+      "sv": "Knappen \"Lägg till uppgift\" på sidan Uppgifter visar nu sitt namn på mobilen i stället för bara ett \"+\"."
+    }
+  },
+  {
     "version": "0.47.6",
     "date": "2026-10-04",
     "pr": 135,
