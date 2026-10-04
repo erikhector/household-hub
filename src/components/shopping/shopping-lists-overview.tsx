@@ -68,6 +68,7 @@ export function NewListDialog({ dict }: { dict: ShoppingListDict }) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-list-name">{dict.nameLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="new-list-name"
               name="name"
               placeholder={`${dict.defaultNamePrefix} — ${new Date().toLocaleDateString()}`}

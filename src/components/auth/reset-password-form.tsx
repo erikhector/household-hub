@@ -40,6 +40,7 @@ export function ResetPasswordForm({
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">{dict.confirmPassword}</Label>
         <PasswordInput
+          enterKeyHint="go"
           id="confirmPassword"
           name="confirmPassword"
           icon={Lock}

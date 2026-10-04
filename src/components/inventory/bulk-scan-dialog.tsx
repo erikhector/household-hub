@@ -278,6 +278,7 @@ export function BulkScanDialog({
                   />
                   <Input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     step="any"
                     value={row.quantity}
