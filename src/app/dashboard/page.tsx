@@ -33,7 +33,7 @@ export default async function DashboardOverviewPage() {
 
   const [
     user,
-    myMembership,
+    myTasks,
     items,
     activeLists,
     memberCount,
@@ -44,8 +44,18 @@ export default async function DashboardOverviewPage() {
     householdStepSkipped,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
-    prisma.householdMember.findFirst({ where: { householdId: household.id, userId } }),
-    prisma.inventoryItem.findMany({ where: { householdId: household.id } }),
+    // Filtered by the assignee's user rather than a membership id looked up
+    // first, so it runs in parallel with everything else instead of after it.
+    prisma.householdTask.findMany({
+      where: { householdId: household.id, assignedToMember: { userId } },
+      orderBy: { createdAt: "asc" },
+    }),
+    // Only the two columns the low-stock filter reads (the card also counts
+    // the rows) — not every inventory column for every item.
+    prisma.inventoryItem.findMany({
+      where: { householdId: household.id },
+      select: { quantity: true, lowStockThreshold: true },
+    }),
     prisma.shoppingList.findMany({
       where: { householdId: household.id, status: "ACTIVE" },
       include: { _count: { select: { items: { where: { purchased: false } } } } },
@@ -69,12 +79,6 @@ export default async function DashboardOverviewPage() {
     isHouseholdStepSkipped(household.id),
   ]);
 
-  const myTasks = myMembership
-    ? await prisma.householdTask.findMany({
-        where: { householdId: household.id, assignedToMemberId: myMembership.id },
-        orderBy: { createdAt: "asc" },
-      })
-    : [];
   const myOpenTasks = myTasks.filter((t) => isTaskOpen(t, now));
 
   const pendingShoppingItems = activeLists.reduce((sum, list) => sum + list._count.items, 0);

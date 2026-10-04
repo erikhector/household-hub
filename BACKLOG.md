@@ -127,13 +127,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       sequential batches of 10, with no `maxDuration`. Pre-select only
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
-- [ ] **PERF-14. Small sequential-await and over-fetch fixes** (low, S) —
-      `dashboard/page.tsx:72-77` (`myTasks` waits on the `Promise.all`; filter
-      by `assignedTo.userId` and run it in parallel); `dashboard/page.tsx:52`
-      (full inventory rows just to count them — `select`);
-      `personal-budget/page.tsx:138-158` (two queries per membership — batch
-      with `householdId: { in }`); `meal-planning/page.tsx:57`
-      (`include: { recipe: true }` pulls instructions — `select`).
 
 ### Maintainability (2026-09-26 audit)
 
