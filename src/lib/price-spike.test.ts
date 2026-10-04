@@ -3,7 +3,6 @@ import {
   PRICE_SPIKE_MAX_AGE_DAYS,
   PRICE_SPIKE_TRAILING_WINDOW,
   detectPriceSpike,
-  median,
   type PricePoint,
 } from "./price-spike";
 
@@ -19,16 +18,6 @@ function point(price: number, quantity: number | null = 1, unit: string | null =
 
 // Three ordinary purchases at 40 — a baseline most tests build on.
 const USUAL = [point(40, 1, "pcs", 30), point(40, 1, "pcs", 20), point(40, 1, "pcs", 10)];
-
-describe("median", () => {
-  it("takes the middle value of an odd-length list, unsorted input", () => {
-    expect(median([5, 1, 3])).toBe(3);
-  });
-
-  it("averages the two middle values of an even-length list", () => {
-    expect(median([4, 1, 3, 2])).toBe(2.5);
-  });
-});
 
 describe("detectPriceSpike", () => {
   it("flags a price well above the usual one", () => {

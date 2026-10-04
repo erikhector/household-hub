@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import { logger } from "@/lib/logger";
 import { emailLogoUrl, sendWeeklyDigestEmail } from "@/lib/email";
 import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
@@ -242,7 +242,7 @@ export async function sendHouseholdDigest({
         data: { userId: recipient.userId, householdId: household.id, weekKey },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
+      if (isUniqueViolation(error)) continue;
       throw error;
     }
 
