@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.6",
+    "date": "2026-10-04",
+    "pr": 135,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Pages load a bit faster, especially on slow connections, because error-reporting code is no longer downloaded unless it is switched on.",
+      "sv": "Sidorna laddas lite snabbare, särskilt på långsamma anslutningar, eftersom felrapporteringskoden inte längre hämtas om den inte är påslagen."
+    }
+  },
+  {
     "version": "0.47.5",
     "date": "2026-10-04",
     "pr": 135,
