@@ -5343,7 +5343,7 @@ approximating them, so the email never disagrees with the app.
 ## Autonomous improvement loop
 
 Scheduled Claude Code sessions ("routines") improve the app continuously,
-under human control. Four roles, each a skill in `.claude/skills/`:
+under human control. Five roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
