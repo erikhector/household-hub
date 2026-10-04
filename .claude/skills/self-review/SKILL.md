@@ -35,6 +35,10 @@ Stop at the first real problem in a hunk, note it, move on.
 - [ ] User-visible change ⇒ an `e2e/` spec asserts it, passing on both the
       `desktop` and `mobile` projects. New page ⇒ listed in `e2e/routes.ts`
       (seeded row in `e2e/seed.ts` if it has a dynamic segment).
+- [ ] e2e text locators are scoped (`page.getByRole("main").getByText(...)`,
+      or the `dialog`) because a phone/desktop layout can render the same
+      text twice and a bare `getByText` then fails strict mode (blocked
+      #134 and #138 at merge).
 
 **Must fix before merge**
 - [ ] UI change (pages, `src/components/`, `globals.css`, user-facing

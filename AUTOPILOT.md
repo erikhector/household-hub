@@ -124,3 +124,4 @@ the right way.
 | Week | Merged | Reverted | Review rounds/PR | Unit tests | E2E tests | Lint warnings | Open backlog |
 |---|---|---|---|---|---|---|---|
 | 2026-09-27 | 3 | 0 | 0 | 2170 | 20 | 0 | 57 |
+| 2026-10-04 | 23 | 0 | 1 | 2451 | 44 | 0 | 44 |
