@@ -1,4 +1,5 @@
 import { unsubscribeFromDigestByToken } from "@/lib/digest-unsubscribe";
+import { reportError } from "@/lib/report-error";
 
 // GAP-27: the URL in the weekly digest's `List-Unsubscribe` header.
 //
@@ -23,7 +24,7 @@ export async function POST(_request: Request, ctx: RouteContext<"/api/digest/uns
     }
     return Response.json({ status: "ok" }, { status: 200 });
   } catch (error) {
-    console.error("Digest unsubscribe failed:", error);
+    reportError("Digest unsubscribe failed", error);
     return Response.json({ status: "error" }, { status: 500 });
   }
 }

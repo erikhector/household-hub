@@ -1,4 +1,6 @@
 import { Redis } from "@upstash/redis";
+import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 
 // Rate limiter with two backends:
 //
@@ -75,7 +77,7 @@ function warnIfNoRedisConfigured() {
   warnedAboutMemoryFallback = true;
   if (process.env.NODE_ENV !== "production") return;
 
-  console.warn(
+  logger.warn(
     "[rate-limit] UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are not set — " +
       "falling back to the in-memory rate limiter. That limiter resets on every " +
       "restart and does NOT share state across instances, so on any multi-instance " +
@@ -126,7 +128,7 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
   try {
     return await checkRateLimitRedis(key, limit, windowMs);
   } catch (error) {
-    console.error(
+    reportError(
       "[rate-limit] Upstash Redis call failed; falling back to the in-memory limiter for this attempt",
       error,
     );

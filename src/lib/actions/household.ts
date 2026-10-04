@@ -1,7 +1,8 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -52,24 +53,6 @@ export async function createInviteAction(): Promise<{ url?: string; token?: stri
   return { url: `/join/${invitation.token}`, token: invitation.token };
 }
 
-// Building this from the request's Host/X-Forwarded-Host header would let
-// anyone who can shape their own HTTP request (trivial with curl — the
-// browser's address bar plays no part in it) get this app to mail a
-// household invite link that points at an attacker-controlled domain, while
-// the token embedded in it is entirely real. That's a phishing primer
-// disguised as a legitimate invite, so the base URL must come from a value
-// only the deployer controls. APP_URL is checked first; the header-derived
-// guess only remains as a local-dev convenience when it's unset (so
-// `npm run dev` keeps working with no setup).
-async function absoluteAppUrl(path: string): Promise<string> {
-  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  if (configured) return `${configured}${path}`;
-
-  const headerList = await headers();
-  const host = headerList.get("host") ?? "localhost:3000";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  return `${proto}://${host}${path}`;
-}
 
 const sendInviteEmailSchema = z.object({
   token: z.string().min(1),
