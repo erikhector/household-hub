@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.47.5",
+    "date": "2026-10-04",
+    "pr": 135,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Load Sentry's browser SDK lazily behind the DSN check (PERF-8)",
+      "sv": null
+    }
+  },
+  {
     "version": "0.47.4",
     "date": "2026-09-30",
     "pr": 133,
