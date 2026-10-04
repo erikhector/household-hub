@@ -5343,7 +5343,7 @@ approximating them, so the email never disagrees with the app.
 ## Autonomous improvement loop
 
 Scheduled Claude Code sessions ("routines") improve the app continuously,
-under human control. Four roles, each a skill in `.claude/skills/`:
+under human control. Five roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
@@ -5388,6 +5388,18 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   pushed and squash-merged once GitHub CI is green on that head
   (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
+- **Product owner** (`autopilot-product`, weekly) makes the product
+  decisions `[!]` items wait on, within the authority AUTOPILOT.md's
+  "Product decisions" section delegates (`may_decide` / `never_decide`:
+  never money, credentials, new personal data, deletion or the loop's
+  own limits). Each decided item becomes a normal buildable item with
+  acceptance criteria and a "Decided … by autopilot-product" line; the
+  rest get a recommendation in PRODUCT.md's "Owner inbox". It also keeps
+  PRODUCT.md's "Direction" and "Focus" current; the builder takes Focus
+  IDs right after `UX-` items, and scouts don't re-add what its Decision
+  log turned down. Output is one `docs(backlog): product decisions` PR
+  (BACKLOG.md and PRODUCT.md only) that the reviewer merges unless the
+  owner labels it `hold`.
 - **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
@@ -5401,8 +5413,8 @@ PRs touching human-only areas get a deeper review rather than a human
 merge, except those changing AUTOPILOT.md or `.github/workflows/`
 (`never_merge_paths`), which a human merges so the loop can't loosen its
 own limits. Items marked `[!]` or under "Needs a decision
-before building" are never built autonomously: product direction stays
-with the owner.
+before building" are never built until decided: by the product owner
+routine where AUTOPILOT.md allows it, otherwise by the owner.
 
 ### Routine prompts
 
@@ -5422,6 +5434,7 @@ runs don't queue behind everyone else's.
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
 | Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
 | Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, and merge the PRs that pass, one merge sub-agent at a time. Follow AUTOPILOT.md; stop if it disables you. |
+| Product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
 The existing daily competitive-scan routine is replaced by "Scout:
