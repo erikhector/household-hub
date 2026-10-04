@@ -32,7 +32,7 @@ function AutocompleteInputGroup({
     <AutocompletePrimitive.InputGroup
       data-slot="autocomplete-input-group"
       className={cn(
-        "flex h-9 max-sm:h-11 w-full min-w-0 items-center gap-1 rounded-lg border-2 border-input bg-transparent py-1 pr-1 pl-2.5 transition-colors has-[input:hover]:border-ring/40 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50 dark:bg-input/13",
+        "flex h-9 max-sm:h-11 w-full min-w-0 items-center gap-1 rounded-lg border-2 border-input bg-transparent py-1 max-sm:py-0 pr-1 pl-2.5 transition-colors has-[input:hover]:border-ring/40 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50 dark:bg-input/13",
         className
       )}
       {...props}
@@ -45,7 +45,7 @@ function AutocompleteInput({ className, ...props }: AutocompleteInputProps) {
     <AutocompletePrimitive.Input
       data-slot="autocomplete-input"
       className={cn(
-        "h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "h-full max-sm:h-11 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         className
       )}
       {...props}
