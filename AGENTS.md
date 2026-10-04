@@ -212,10 +212,11 @@ Skip style nits the linter would catch.
 
 ## Autonomous loop
 
-Scheduled sessions (scouts, builder, reviewer, retro) improve the app on their own,
+Scheduled sessions (scouts, builder, reviewer, product, retro) improve the app on their own,
 steered by [AUTOPILOT.md](./AUTOPILOT.md). If you are one of them, read
 AUTOPILOT.md first and obey it. Human-only areas listed there always get
-flagged for careful review. See REQUIREMENTS.md, "Autonomous improvement
+flagged for careful review. Product direction and the decisions taken
+for the owner are in [PRODUCT.md](./PRODUCT.md). See REQUIREMENTS.md, "Autonomous improvement
 loop".
 
 ## Pull requests and releases

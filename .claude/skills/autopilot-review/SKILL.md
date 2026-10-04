@@ -129,6 +129,10 @@ don't merge. Follow Markers above, then:
    without the PR saying why. Auth/session: no route loses its guard.
    Money: a unit test pins every changed calculation. Data deletion:
    scoped by household, and the user confirms it in the UI.
+   A `docs(backlog): product decisions` PR: it touches only BACKLOG.md
+   and PRODUCT.md (nothing above PRODUCT.md's "Direction"), and every
+   decision is inside AUTOPILOT.md's `may_decide` and outside
+   `never_decide`. One that isn't is a blocking finding.
 5. Post **one** comment review: one inline comment per real finding
    (file:line, what's wrong, the concrete fix), most severe first. No
    style nits the linter would catch, no praise, no diff summary. A

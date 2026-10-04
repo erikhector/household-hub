@@ -2,7 +2,8 @@
 
 Control file for the autonomous improvement loop: scheduled Claude Code
 sessions that find work (scouts), build it (builder), review and merge it
-(reviewer), and improve the process itself (retro). Every autopilot session reads this file **first**
+(reviewer), decide what's blocked on a product call and set direction
+(product), and improve the process itself (retro). Every autopilot session reads this file **first**
 and obeys it. Edit it on `master` to steer or stop the loop; no routine
 needs changing.
 
@@ -23,6 +24,7 @@ scouts_enabled: true
 builder_enabled: true
 reviewer_enabled: true
 retro_enabled: true
+product_enabled: true
 ```
 
 ## Limits
@@ -47,7 +49,8 @@ fills its slots with `UX-` items (highest impact per effort first) before
 it considers any other prefix, whatever their phase. Only the slots left
 over go to other items: lowest phase first, then highest impact per effort
 (see BACKLOG.md's "Picking an item"). Fixing open autopilot PRs still
-comes before any new item. Allowed prefixes, in priority order:
+comes before any new item. Right after the `UX-` items come the IDs in
+PRODUCT.md's "Focus" list, in its order. Allowed prefixes, in priority order:
 
 ```yaml
 allowed: [UX, BUG, SEC, PERF, MAINT, DEPS, AUTO, GAP, SCALE, BUDGET]
@@ -62,6 +65,38 @@ Never pick an item that is:
 Items built in the same run must also be parallel-safe: at most one
 Phase 2 and one Phase 3 item, and no two in the same feature area (see the
 `autopilot-build` skill).
+
+## Product decisions
+
+The `autopilot-product` routine may make product decisions on the
+owner's behalf, but only these. It turns a decided `[!]` item into a
+normal buildable one, logs it in PRODUCT.md, and keeps PRODUCT.md's
+direction and focus list current. Anything in `never_decide` stays `[!]`
+with a recommendation in PRODUCT.md's "Owner inbox".
+
+```yaml
+max_decisions_per_product_run: 3
+max_focus_items: 5
+may_decide:
+  - scope and first version of a feature the app already has an area for
+  - whether to build a backlog item at all, including "keep not doing it"
+  - promoting or dropping GAP- items from the competitive scans
+  - UX trade-offs within DESIGN.md and BACKLOG.md's Guardrails
+  - ordering of the builder's Focus list
+never_decide:
+  - anything needing a paid service, a third-party account or credentials
+    (INFRA-*, voice assistants, bank sync, app stores, OAuth, blob storage)
+  - collecting new personal data, or sending data to a new third party
+  - deleting or removing a feature or user data
+  - pricing, monetisation, legal or privacy-policy text
+  - infrastructure settings only the owner can see (regions, dashboards)
+  - AUTOPILOT.md, the skills, or the loop's own limits
+```
+
+Its PRs are `docs(backlog): product decisions <date>` touching only
+BACKLOG.md and PRODUCT.md, and the reviewer merges them like any other.
+The owner vetoes by labelling the PR `hold`, or later by reverting it or
+editing PRODUCT.md.
 
 ## Human-only areas
 

@@ -12,7 +12,9 @@ can run in parallel except the file conflicts listed at the top of that phase. P
 items each add a Prisma migration, so land them **one at a time**, each
 rebased on the previous one's merge, to avoid migration-ordering conflicts.
 Phase 3 items are large enough to deserve their own PR. The last section
-needs a human decision before anyone builds anything.
+needs a product decision before anyone builds anything: the
+`autopilot-product` routine takes the ones AUTOPILOT.md delegates to it
+and leaves the rest for the owner (see PRODUCT.md).
 
 **Finishing an item:** document what shipped in the relevant REQUIREMENTS.md
 section (as every feature so far has), then **delete the item from this

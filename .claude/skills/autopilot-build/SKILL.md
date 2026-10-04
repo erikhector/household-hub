@@ -48,7 +48,8 @@ write it.
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
 Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
-`UX-` item comes first** (best impact/effort among them); only the slots
+`UX-` item comes first** (best impact/effort among them), then the
+eligible IDs in PRODUCT.md's "Focus" list in its order; only the slots
 left after those go to other items, lowest phase first, then best
 impact/effort. Confirm no open PR mentions each ID. Read only the
 chosen items' text, not the REQUIREMENTS.md sections: that's the
