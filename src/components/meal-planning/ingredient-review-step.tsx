@@ -17,6 +17,7 @@ import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Radio } from "@/components/ui/radio";
 import { ComboField } from "@/components/inventory/combo-field";
 import { ItemCombobox } from "@/components/inventory/item-combobox";
 import { AutoMatchedSection } from "@/components/shopping/auto-matched-section";
@@ -363,14 +364,12 @@ function UnitChoiceFields({
   const t = dict.ingredientReview;
   const group = `ingredient-review-${row.uid}-unit`;
   const option = (value: UnitChoiceAction, label: string) => (
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="radio"
+    <label className="flex items-center gap-2 text-sm max-sm:min-h-11">
+      <Radio
         name={group}
         value={value}
         checked={choice.action === value}
         onChange={() => onChange({ unitAction: value })}
-        className="size-4 accent-primary"
       />
       {label}
     </label>

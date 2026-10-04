@@ -86,7 +86,7 @@ export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) 
             <p className="text-xs font-medium uppercase text-muted-foreground">
               {typeLabel(group.type)}
             </p>
-            <div className="flex flex-wrap justify-center gap-1.5">
+            <div className="flex flex-wrap justify-center gap-2">
               {group.items.map((item) => {
                 const isSelected = selected.has(item.id);
                 return (
@@ -96,7 +96,7 @@ export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) 
                     aria-pressed={isSelected}
                     onClick={() => toggleItem(item.id)}
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors",
+                      "rounded-full border px-3 py-1 text-xs transition-colors max-sm:min-h-11",
                       isSelected
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-input text-muted-foreground hover:border-primary/50",

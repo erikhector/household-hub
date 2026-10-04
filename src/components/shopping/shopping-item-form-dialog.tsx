@@ -277,7 +277,7 @@ export function ShoppingItemFormDialog({
               render={
                 <Badge
                   variant="outline"
-                  className="shrink-0 cursor-pointer border-dashed text-warning hover:bg-warning/10"
+                  className="touch-target shrink-0 cursor-pointer justify-center border-dashed text-warning hover:bg-warning/10"
                 >
                   {matchItemLabel}
                 </Badge>

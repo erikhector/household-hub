@@ -5249,6 +5249,19 @@ approximating them, so the email never disagrees with the app.
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
   `npm run test:e2e:desktop` / `:mobile` run one project.
+- **Touch targets (UX-6, DESIGN.md rule M3)**: below `sm` every button,
+  link outside running text, input, checkbox, radio, tab and menu item
+  has a 44 x 44 px hit area. `Button` (all sizes), `Input`, the select and
+  combobox triggers and menu items grow with `max-sm:` classes; `Checkbox`
+  and `Radio` are drawn by hand so a `::after` can extend their hit area
+  past the 20 px control; links and chips use the `touch-target` utility
+  (`globals.css`) or a `max-sm:min-h-11` row. Desktop keeps its denser
+  sizing. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
+  element (passing if its own box, an enclosing label, link or button, or
+  an absolutely positioned `::before`/`::after` reaches 44 px) and runs
+  in `smoke.spec.ts` on the `mobile` project for every page. It checks
+  each page's closed state, so menus and dialogs opened later rely on the
+  component classes above.
 - **Screenshots for review and the UX scout**: with
   `E2E_SCREENSHOT_DIR` set (`npm run test:e2e:screenshots` defaults it to
   `test-results/screenshots/`), the smoke and public specs also save a

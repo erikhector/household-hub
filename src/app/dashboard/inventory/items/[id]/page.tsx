@@ -102,7 +102,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       <div className="flex flex-col gap-2">
         <Link
           href={itemPageBackHref(origin)}
-          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="touch-target w-fit gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
           {backLabel}
@@ -150,10 +150,10 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         {listRows.length === 0 && templateRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.notOnLists}</p>
         ) : (
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             {listRows.map((row) => (
               <li key={row.id}>
-                <Link href={`/dashboard/shopping-list/${row.shoppingList.id}`} className="underline-offset-4 hover:underline">
+                <Link href={`/dashboard/shopping-list/${row.shoppingList.id}`} className="touch-target underline-offset-4 hover:underline">
                   {row.shoppingList.name}
                 </Link>{" "}
                 <span className="text-muted-foreground">
@@ -163,7 +163,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
             ))}
             {templateRows.map((row) => (
               <li key={row.id}>
-                <Link href="/dashboard/shopping-list" className="underline-offset-4 hover:underline">
+                <Link href="/dashboard/shopping-list" className="touch-target underline-offset-4 hover:underline">
                   {format(dict.template, { name: row.template.name })}
                 </Link>
               </li>

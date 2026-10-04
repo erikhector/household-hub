@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -276,10 +277,8 @@ export function MissingIngredientsDialog({
             <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
               {items.map((item) => (
                 <div key={item.key} className="flex flex-col gap-0.5 rounded-md bg-muted px-2 py-1.5 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-primary"
+                  <label className="flex items-center gap-2 max-sm:min-h-11">
+                    <Checkbox
                       checked={item.included}
                       onChange={() => toggleItem(item.key)}
                     />
