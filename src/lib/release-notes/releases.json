@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.48.0",
+    "date": "2026-10-04",
+    "pr": 136,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Empty meal slots in the weekly planner are now a single \"Add meal\" row, so an empty week is much shorter on your phone.",
+      "sv": "Tomma måltidsplatser i veckoplaneringen är nu en enda rad, \"Lägg till måltid\", så en tom vecka blir mycket kortare på mobilen."
+    }
+  },
+  {
     "version": "0.47.8",
     "date": "2026-10-04",
     "pr": 134,
