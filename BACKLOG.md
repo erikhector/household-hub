@@ -730,6 +730,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
       | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
+      | v0.47.7 | #134 fix: show the Add task label on phones (UX-4) | 2026-10-04 | #134 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
