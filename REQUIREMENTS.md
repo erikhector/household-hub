@@ -49,6 +49,19 @@ easy for AI coding agents to work in correctly:
   leak past a suspended Fluid compute instance (a documented no-op off
   Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
   interacts with the pooler `DATABASE_URL` must point at in production.
+- **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
+  only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
+  `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
+  (`init` and `onRouterTransitionStart`) and `src/lib/sentry-client.ts`
+  (`captureClientException`, used by `error.tsx` and `global-error.tsx`).
+  The DSN is inlined at build time, so with none set no Sentry chunk is
+  emitted and `/login` etc. no longer carry ~130 KB gzipped of it. Never add
+  a static `@sentry/nextjs` import to client code. With a DSN set, the SDK
+  loads async, so an error in the first moments before the chunk arrives
+  isn't captured. `withSentryConfig` (applied only when `SENTRY_DSN` is set)
+  also passes `bundleSizeOptimizations` (debug statements, tracing and
+  Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
+  enabled).
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and

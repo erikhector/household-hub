@@ -149,5 +149,16 @@ export default process.env.SENTRY_DSN
       sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
       silent: true,
       telemetry: false,
+      // Client-bundle trimming (PERF-8) for the deployments that do set a
+      // DSN. Tracing is off (tracesSampleRate: 0 in instrumentation-client.ts)
+      // and Session Replay is never enabled, so its code, iframe/shadow-DOM
+      // handling and compression worker are dead weight.
+      bundleSizeOptimizations: {
+        excludeDebugStatements: true,
+        excludeTracing: true,
+        excludeReplayIframe: true,
+        excludeReplayShadowDom: true,
+        excludeReplayWorker: true,
+      },
     })
   : nextConfig;
