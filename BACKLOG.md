@@ -183,12 +183,6 @@ then MAINT-7 per feature, to avoid churn.
       tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
       and response schema; unit-test fallback, busy and deadline paths with
       mocked `fetch`.
-- [ ] **MAINT-9. One `useDismissedLocalStorage(key)` hook** (low, S) — the
-      same `useSyncExternalStore` + localStorage code is in
-      `meal-nutrition-recap.tsx`, `meal-variety-recap.tsx`,
-      `use-it-up-suggestions.tsx` and `tasks-weekly-recap.tsx`. Put it in
-      `src/components/shared/`, taking keys from `cookie-inventory.ts` so
-      MAINT-1 can't regress. After MAINT-1.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
