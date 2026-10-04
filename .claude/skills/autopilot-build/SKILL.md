@@ -182,8 +182,9 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
   ```
 
   Run it on the exact commit you push (commit first), and again after
-  every later commit. All green, no skipped tests. While AUTOPILOT.md
-  says `ci_gate: local` this *is* CI: ignore GitHub check runs.
+  every later commit. All green, no skipped tests. It's the pre-push
+  check: with `ci_gate: github` the PR's GitHub CI must also go green,
+  and the coordinator's fix sub-agents handle it if it doesn't.
 - **Self-review**: run the `self-review` skill, then re-read the diff once
   more asking "what would a careful reviewer reject?". Fix it.
 

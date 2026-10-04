@@ -173,15 +173,16 @@ next (`run_in_background: false` is right here: nothing else can proceed).
 The prompt names the PR, its head SHA, and tells it to follow steps 4.1–4.6
 below from `.claude/skills/autopilot-review/SKILL.md` in the main checkout,
 then report: PR number, outcome (merged as vX.Y.Z / blocked: why), the
-squash commit SHA, and the `npm run ci:local` summary lines (or "docs
-only").
+squash commit SHA, and the `npm run ci:local` summary lines plus the
+GitHub CI conclusion on the pushed head (or "docs only").
 
 **Validate** before the next candidate: the PR is `MERGED` on GitHub with
 the PR title as the commit title, `origin/master` (after `git fetch
 origin master`) has that commit, the branch is deleted, and for a
 releasing type `package.json` on master carries the reported version. A
 blocked report must match a `changes` review on the PR saying why, and
-stops further merges for this run if the cause was a failing `ci:local`.
+stops further merges for this run if the cause was a failing
+`ci:local` or red CI.
 A mismatch goes back to the sub-agent once with `SendMessage`; if it
 still doesn't hold, stop merging this run and report it.
 
@@ -201,19 +202,22 @@ The merge sub-agent's steps:
 3. **Judgment calls stop the merge.** A conflict in code both sides
    changed meaningfully: don't guess. Comment what conflicts, verdict
    `changes`, move on. The author resolves it.
-4. **Release.** Releasing type (`feat`, `fix`, `perf`, `revert`, `!`)
-   while `ci_gate` is `local`: cut its release as AGENTS.md "Pull
-   requests and releases" describes (`node scripts/release.ts apply`,
-   commit the three files, add the version to the INFRA-6 list in
-   BACKLOG.md).
+4. **Release.** Nothing to do: `release.yml` cuts the release after the
+   squash-merge. Never run `scripts/release.ts apply` on the branch
+   (that was the `ci_gate: local` stopgap, and with the workflow running
+   it releases the PR twice). Only if AUTOPILOT.md says `ci_gate: local`
+   again: cut it as that section describes.
 5. **Verify.** If the diff against master touches only `*.md` files, go
    to 6. Otherwise `npm run ci:local` must pass with no skipped tests.
-   While `ci_gate` is `local`, ignore GitHub check runs. On failure, don't
-   fix it: comment the failing step's last lines, verdict `changes`,
-   don't push, and stop merging for this run.
-6. **Merge.** Push, then squash-merge with the PR title as the commit
-   title, delete the branch, and `git fetch origin master` so the
-   coordinator and the next merge sub-agent start from the new master.
+   On failure, don't fix it: comment the failing step's last lines,
+   verdict `changes`, don't push, and stop merging for this run.
+6. **Merge.** Push, then wait for GitHub CI on the pushed head (both
+   `ci.yml` jobs; watch with a Monitor until-loop on the check runs,
+   up to 30 minutes, not bare `sleep`). Red: treat it like a failing
+   step 5. Green: squash-merge with the PR title as the commit title,
+   delete the branch, and `git fetch origin master` so the coordinator
+   and the next merge sub-agent start from the new master. While
+   `ci_gate` is `local`, skip the wait and ignore check runs.
 
 ## 5. Listen for fixes and re-review (coordinator)
 
@@ -231,7 +235,8 @@ a sub-agent; don't poll between them.
 - a reply in an `autopilot-review` thread, or a new human comment or
   review.
 
-Ignore everything else: CI check runs (while `ci_gate` is `local`),
+Ignore everything else: CI check runs (the builder fixes red CI on its
+own PRs),
 label changes, and this skill's own reviews and replies (they carry the
 `🤖 autopilot-review` marker).
 

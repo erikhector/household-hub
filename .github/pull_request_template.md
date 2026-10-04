@@ -13,8 +13,8 @@ The "Release preview" check comments on this PR with the exact version and note.
 
 ## Verification
 
-<!-- CI is local for now (see AUTOPILOT.md `ci_gate`): paste the summary
-lines of `npm run ci:local` for the pushed commit. -->
+<!-- What you ran locally before pushing (`npm run check`, e2e specs) and
+anything checked by hand. The CI checks on this PR are the gate. -->
 
 ## Release note
 

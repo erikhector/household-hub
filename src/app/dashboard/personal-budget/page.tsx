@@ -134,29 +134,34 @@ async function PersonalBudgetTabsSection({
   // ↔ household link, complementing the read-only mirror in the loader
   // above. Only households with more than one member qualify (nothing to
   // split otherwise), same gating TransactionDialog uses for its own split UI.
-  const sharedExpenseHouseholds: ShareableHousehold[] = (
-    await Promise.all(
-      memberships.map(async (m) => {
-        const [members, householdCategories] = await Promise.all([
-          prisma.householdMember.findMany({
-            where: { householdId: m.household.id },
-            include: { user: { select: { displayName: true } } },
-          }),
-          prisma.budgetCategory.findMany({
-            where: { householdId: m.household.id },
-            orderBy: [{ type: "asc" }, { name: "asc" }],
-          }),
-        ]);
-        return {
-          id: m.household.id,
-          name: m.household.name,
-          currentMemberId: m.id,
-          members: members.map((hm) => ({ id: hm.id, displayName: hm.user.displayName })),
-          categories: householdCategories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
-        };
-      }),
-    )
-  ).filter((h) => h.members.length > 1);
+  const sharedExpenseHouseholdIds = memberships.map((m) => m.household.id);
+  // One query per table for every household at once (not two per
+  // membership), grouped in memory below.
+  const [allHouseholdMembers, allHouseholdCategories] = sharedExpenseHouseholdIds.length
+    ? await Promise.all([
+        prisma.householdMember.findMany({
+          where: { householdId: { in: sharedExpenseHouseholdIds } },
+          include: { user: { select: { displayName: true } } },
+        }),
+        prisma.budgetCategory.findMany({
+          where: { householdId: { in: sharedExpenseHouseholdIds } },
+          orderBy: [{ type: "asc" }, { name: "asc" }],
+        }),
+      ])
+    : [[], []];
+  const sharedExpenseHouseholds: ShareableHousehold[] = memberships
+    .map((m) => ({
+      id: m.household.id,
+      name: m.household.name,
+      currentMemberId: m.id,
+      members: allHouseholdMembers
+        .filter((hm) => hm.householdId === m.household.id)
+        .map((hm) => ({ id: hm.id, displayName: hm.user.displayName })),
+      categories: allHouseholdCategories
+        .filter((c) => c.householdId === m.household.id)
+        .map((c) => ({ id: c.id, name: c.name, type: c.type })),
+    }))
+    .filter((h) => h.members.length > 1);
 
   const transactionRows = monthTransactions.map((t) => ({
     id: t.id,

@@ -1,7 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 import { emailLogoUrl, sendWeeklyDigestEmail } from "@/lib/email";
 import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
 import { defaultLocale, isLocale } from "@/lib/i18n/locales";
@@ -242,7 +243,7 @@ export async function sendHouseholdDigest({
         data: { userId: recipient.userId, householdId: household.id, weekKey },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") continue;
+      if (isUniqueViolation(error)) continue;
       throw error;
     }
 
@@ -325,7 +326,7 @@ export async function runWeeklyDigest({
     results.forEach((result, index) => {
       const householdId = batch[index].id;
       if (result.status === "rejected") {
-        console.error(`Weekly digest failed for household ${householdId}:`, result.reason);
+        reportError("Weekly digest failed for household", result.reason, { householdId });
         failedHouseholdIds.push(householdId);
         return;
       }

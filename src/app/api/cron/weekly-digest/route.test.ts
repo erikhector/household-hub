@@ -10,6 +10,9 @@ const { runWeeklyDigestMock, isEmailConfiguredMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/weekly-digest", () => ({ runWeeklyDigest: runWeeklyDigestMock }));
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 vi.mock("@/lib/email", () => ({ isEmailConfigured: isEmailConfiguredMock }));
 
 const { GET } = await import("@/app/api/cron/weekly-digest/route");
@@ -133,6 +136,7 @@ describe("GET /api/cron/weekly-digest", () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ status: "error" });
     expect(JSON.stringify(body)).not.toContain("secret-host");
+    expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("secret-host") }), expect.anything());
     consoleErrorSpy.mockRestore();
   });
 });

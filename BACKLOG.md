@@ -129,13 +129,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       sequential batches of 10, with no `maxDuration`. Pre-select only
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
-- [ ] **PERF-14. Small sequential-await and over-fetch fixes** (low, S) —
-      `dashboard/page.tsx:72-77` (`myTasks` waits on the `Promise.all`; filter
-      by `assignedTo.userId` and run it in parallel); `dashboard/page.tsx:52`
-      (full inventory rows just to count them — `select`);
-      `personal-budget/page.tsx:138-158` (two queries per membership — batch
-      with `householdId: { in }`); `meal-planning/page.tsx:57`
-      (`include: { recipe: true }` pulls instructions — `select`).
 
 ### Maintainability (2026-09-26 audit)
 
@@ -149,15 +142,6 @@ then MAINT-7 per feature, to avoid churn.
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
       same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-4. Deduplicate small server helpers** (medium, S) —
-      `absoluteAppUrl` ×4 (`lib/actions/auth.ts:304`,
-      `lib/actions/household.ts:62`, `profile/actions.ts:112`,
-      `shopping-list/share-actions.ts:24`; `lib/email.ts:40` re-derives it)
-      → `src/lib/app-url.ts`; the P2002 unique-violation check ×4 →
-      `src/lib/prisma-errors.ts`; `roundMoney`, `median`, `escapeHtml` and
-      three `normalizeUnit` copies in `meal-planning/` → one each; rename
-      `normalizeItemName` in `inventory-scan.ts:141`, which shadows the
-      different one in `lib/item-matching.ts:9`.
 - [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
       ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
       error hits the error boundary: `planner-actions.ts` (add/update/move/
@@ -185,12 +169,6 @@ then MAINT-7 per feature, to avoid churn.
       tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
       and response schema; unit-test fallback, busy and deadline paths with
       mocked `fetch`.
-- [ ] **MAINT-9. One `useDismissedLocalStorage(key)` hook** (low, S) — the
-      same `useSyncExternalStore` + localStorage code is in
-      `meal-nutrition-recap.tsx`, `meal-variety-recap.tsx`,
-      `use-it-up-suggestions.tsx` and `tasks-weekly-recap.tsx`. Put it in
-      `src/components/shared/`, taking keys from `cookie-inventory.ts` so
-      MAINT-1 can't regress. After MAINT-1.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
@@ -198,13 +176,6 @@ then MAINT-7 per feature, to avoid churn.
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-5/6.
-- [ ] **MAINT-11. Route cron/API errors through `logger` + Sentry** (medium, S) —
-      12 `console.error`/`warn` calls bypass redaction and Sentry, so caught
-      cron failures are invisible: `api/cron/sync-notifications/route.ts`,
-      `api/cron/weekly-digest/route.ts`, `api/digest/unsubscribe/[token]`,
-      `api/health`, `lib/weekly-digest.ts:328`, `lib/push.ts:124`,
-      `lib/rate-limit.ts:78,129`. Use `logger.error` + `Sentry.captureException`
-      tagged with `householdId`.
 - [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
       add a migration drift check to `.github/workflows/ci.yml` (Postgres
       service → `prisma validate` → `migrate deploy` → `prisma migrate diff
@@ -656,15 +627,19 @@ credentials only the product owner can provision, or an architecture call.
 - [ ] **INFRA-4. Social login (Google/Apple)** `[!]` — needs OAuth consent
       screens / developer credentials.
 - [ ] **INFRA-6. Backfill tags and GitHub Releases for versions cut
-      while CI was paused** `[!]` — blocked on GitHub Actions running
-      again (`ci_gate: github`). `release.yml` normally tags `vX.Y.Z`
+      while CI was paused** `[!]` — Actions runs again (`ci_gate:
+      github` since 2026-10-04, from v0.47.6 on), so this is unblocked
+      but needs someone with push access to tags. `release.yml` tags `vX.Y.Z`
       and creates a GitHub Release. Versions cut in-PR under the
       `ci_gate: local` stopgap got neither, so they exist only in
       `package.json` and `releases.json`. For each one below, tag the
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
-      Add every new in-PR release to this list, and delete the item once
-      all of them are tagged.
+      No new versions join this list. Delete the item once all of them
+      are tagged. v0.47.5, v0.47.7 and v0.48.3 are deliberately left
+      out: those PRs were released again by the workflow (v0.47.6,
+      v0.47.8, v0.48.4, already tagged), so tagging them would publish a
+      second Release for the same PR.
 
       | Version | PR | Merged | Cut in |
       |---|---|---|---|
@@ -698,8 +673,6 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
-      | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
-      | v0.47.7 | #134 fix: show the Add task label on phones (UX-4) | 2026-10-04 | #134 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

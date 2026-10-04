@@ -10,14 +10,15 @@ harness still apply; this file only adds what's specific to this repo.
 
 ## CI gate
 
-Read `ci_gate` in AUTOPILOT.md first. While it is `local`, GitHub Actions
-is paused (the account can't start runners) and GitHub check runs are
-**not** a signal: don't fix, re-run, comment on or wait for them, and
-don't treat "Release preview" failing as a blocker either. The gate is
-`npm run ci:local` in your session: run it before every push and put its
-summary in the PR body under "Verification". A PR is mergeable when that
-passes, there's no conflict and no review thread waits on you. The
-section below applies once `ci_gate` is `github` again.
+Read `ci_gate` in AUTOPILOT.md first. It is `github`: the `CI` checks
+(and "Release preview", which validates the title) must be green on the
+head commit, and the section below applies. Run `npm run check` (and
+the touched e2e specs) before every push so CI isn't the first to fail.
+Never run `scripts/release.ts apply` on a PR branch: `release.yml`
+releases after merge. Only if `ci_gate` is set back to `local` (Actions
+can't start runners): ignore check runs, gate on `npm run ci:local` in
+your session with its summary under "Verification", and cut releases
+in-PR as AUTOPILOT.md describes.
 
 ## CI failures
 

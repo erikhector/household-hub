@@ -11,6 +11,9 @@ const { findManyMock, deleteMock, sendNotificationMock, setVapidDetailsMock } = 
   setVapidDetailsMock: vi.fn(),
 }));
 
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     pushSubscription: { findMany: findManyMock, delete: deleteMock },
@@ -119,6 +122,7 @@ describe("sendPushToHousehold", () => {
     await expect(sendPushToHousehold("household-1", { title: "t", body: "b", url: "/dashboard" })).resolves.toBeUndefined();
 
     expect(deleteMock).not.toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message: "network blip" }), expect.anything());
   });
 
   describe("quiet hours (GAP-14)", () => {

@@ -62,6 +62,16 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Server-side errors go through `reportError` (MAINT-11).** Caught
+  failures in cron routes, `/api/health`, the digest unsubscribe route,
+  `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
+  call `reportError(message, error, { householdId? })`
+  (`src/lib/report-error.ts`): one redacted `logger.error` line plus
+  `Sentry.captureException`, tagged with `householdId` when the failure
+  belongs to one household. No server code calls `console.error`/`warn`
+  directly (only `logger.ts` does). Rejected cron requests and the
+  missing-`AUTH_SECRET` skip use `logger.error` alone, since they aren't
+  exceptions.
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and
@@ -1233,8 +1243,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     scoped exactly like the rest of this feature. `createShareLinkAction`
     builds the full share URL server-side from `APP_URL` (falling back to
     request headers only in local dev with `APP_URL` unset) — the same
-    header-spoofing trust boundary `sendInviteEmailAction`'s `absoluteAppUrl`
-    already guards against, applied here too.
+    header-spoofing trust boundary the shared `absoluteAppUrl`
+    (`src/lib/app-url.ts`, also used by the invite, verification, reset and
+    calendar-feed links) already guards against, applied here too.
   - `src/app/share/shopping-list/actions.ts` — `getShoppingListByShareToken`
     and `toggleItemViaShareTokenAction`, which take **no session at all**.
     **The critical security boundary**: `toggleItemViaShareTokenAction`
@@ -4560,14 +4571,19 @@ version or the notes by hand.
   bumping in each PR would make every pair of open PRs conflict on the
   version line. Concurrent merges retry from the newest `master` instead
   of using a concurrency group, which would cancel queued runs.
-- **While GitHub Actions is paused** (`ci_gate: local`, see AUTOPILOT.md)
-  `release.yml` can't run. Instead, each releasing PR runs the same
-  `scripts/release.ts apply` itself, as its last commit before merge, on
-  top of the latest `master` (see AGENTS.md, "Pull requests and
-  releases"). Versions cut this way have no git tag or GitHub Release
-  yet. BACKLOG.md's INFRA-6 lists them for a backfill once CI is back.
-  v0.39.9 to v0.42.0 (#81, #92, #91, #94) were merged before this
-  stopgap existed, and were cut together in #93 alongside its own v0.42.1.
+- **While GitHub Actions was paused** (`ci_gate: local`, 2026-09-26 to
+  2026-10-04, see AUTOPILOT.md) `release.yml` couldn't run, so each
+  releasing PR ran the same `scripts/release.ts apply` itself as its last
+  commit before merge. Those versions have no git tag or GitHub Release
+  yet; BACKLOG.md's INFRA-6 lists them for a backfill. v0.39.9 to
+  v0.42.0 (#81, #92, #91, #94) were merged before that stopgap existed
+  and were cut together in #93 alongside its own v0.42.1. Actions came
+  back while the stopgap was still in force, so #135, #134 and #140 were
+  each released twice: an in-PR version (v0.47.5, v0.47.7, v0.48.3)
+  and a workflow one (v0.47.6, v0.47.8, v0.48.4). Only the workflow
+  versions are tagged, and the in-PR ones aren't backfilled, since that
+  would publish a second Release for the same PR. Releases are back to
+  after-merge only.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports
   because `scripts/release.ts` runs it under Node's built-in type stripping
@@ -5238,6 +5254,17 @@ approximating them, so the email never disagrees with the app.
   cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
+- **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`
+  (`src/components/shared/use-dismissed-local-storage.ts`) is the one place
+  that reads/writes a "dismissed" value in localStorage, for the use-it-up
+  chips and the nutrition, variety and weekly-task recaps. It returns
+  `[value, setValue]`: `value` is null on the server and first render (no
+  hydration mismatch) and when storage is blocked, `setValue` hides the
+  card at once and persists best-effort. `key` is typed as
+  `DismissedStorageKey`, the `*_DISMISSED_STORAGE_KEY` constants exported
+  from `src/lib/cookie-inventory.ts`, so a new dismissal needs an inventory
+  entry first. `e2e/dismissed-recaps.spec.ts` covers the dismissal
+  surviving a reload.
 - **End-to-end tests** (`e2e/`, `playwright.config.ts`): Playwright drives
   a production build (`npm run build`, then `npm run test:e2e` starts
   `next start` itself) against a real Postgres, because the unit suite
@@ -5256,10 +5283,9 @@ approximating them, so the email never disagrees with the app.
   collide. `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, but GitHub CI is paused for now
-  (manual dispatch only, since the account can't start runners): the
-  gate is `npm run ci:local` (check + build + e2e) in the working
-  session, per `ci_gate` in AUTOPILOT.md. In
+  with a Postgres service container, running on every PR and push to
+  `master` (`ci_gate: github` in AUTOPILOT.md). `npm run ci:local`
+  (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
@@ -5335,7 +5361,7 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   own git worktree, with its own `node_modules` and database. Each
   sub-agent implements its item per AGENTS.md's workflow with unit and
   e2e tests, runs `npm run ci:local` under a shared lock (one build and
-  e2e run at a time on the machine), and opens a PR (ID in the title,
+  e2e run at a time on the machine) before pushing, and opens a PR (ID in the title,
   label `autopilot`, release note in both languages). The coordinator
   writes no code: it tracks the sub-agents and validates each PR against
   GitHub and the sub-agent's `ci:local` log (head SHA, gate passed on it,
@@ -5358,8 +5384,9 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   checking each finding against the new head and resolving the thread
   once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
   no open threads, gets `master` merged in, conflicting migrations
-  regenerated on top of master's, its release cut, and `npm run ci:local`
-  run, then it is squash-merged. At most `max_merges_per_review_run` per
+  regenerated on top of master's, and `npm run ci:local` run, then it is
+  pushed and squash-merged once GitHub CI is green on that head
+  (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
 - **Product owner** (`autopilot-product`, weekly) makes the product
   decisions `[!]` items wait on, within the authority AUTOPILOT.md's

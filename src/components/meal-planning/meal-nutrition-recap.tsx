@@ -21,33 +21,13 @@
 // (src/components/tasks/tasks-weekly-recap.tsx), just keyed off the
 // planner's own week param instead of recomputing "this week" client-side.
 
-import { useState, useSyncExternalStore } from "react";
 import { Flame, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDismissedLocalStorage } from "@/components/shared/use-dismissed-local-storage";
+import { NUTRITION_RECAP_DISMISSED_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { NutritionRecapTotals } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
-
-const DISMISSED_WEEK_STORAGE_KEY = "mealPlanning.nutritionRecapDismissedWeek";
-
-// No-op subscribe: nothing external notifies this of changes — a dismissal
-// made in this tab flows through the `justDismissed` state below instead,
-// same reasoning as MealVarietyRecap's identical no-op subscribe.
-function subscribe() {
-  return () => {};
-}
-
-function getSnapshot(): string | null {
-  try {
-    return localStorage.getItem(DISMISSED_WEEK_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function getServerSnapshot(): string | null {
-  return null;
-}
 
 export function MealNutritionRecap({
   totals,
@@ -58,14 +38,9 @@ export function MealNutritionRecap({
   weekStartKey: string;
   dict: Dictionary["mealPlanning"];
 }) {
-  // Same useSyncExternalStore convention as MealVarietyRecap: getServerSnapshot
-  // always returns null so SSR and the first client render agree (no
-  // hydration mismatch), and React reconciles the real, possibly-dismissed
-  // value right after hydration.
-  const dismissedWeek = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [justDismissed, setJustDismissed] = useState(false);
+  const [dismissedWeek, setDismissedWeek] = useDismissedLocalStorage(NUTRITION_RECAP_DISMISSED_STORAGE_KEY);
 
-  if (justDismissed || dismissedWeek === weekStartKey) return null;
+  if (dismissedWeek === weekStartKey) return null;
 
   // Reuses the same per-field value templates RecipeManager's nutrition line
   // uses (dict.nutritionCaloriesValue etc.) so the units read identically in
@@ -80,17 +55,6 @@ export function MealNutritionRecap({
     totals.totalFatGrams !== null ? format(dict.nutritionFatValue, { value: totals.totalFatGrams }) : null,
   ].filter((part): part is string => part !== null);
 
-  function handleDismiss() {
-    setJustDismissed(true);
-    try {
-      localStorage.setItem(DISMISSED_WEEK_STORAGE_KEY, weekStartKey);
-    } catch {
-      // localStorage unavailable (private browsing, blocked site data) —
-      // dismiss still works for this render via justDismissed, just won't
-      // persist across navigation.
-    }
-  }
-
   return (
     <div className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
       <Flame className="size-4 shrink-0" />
@@ -98,9 +62,9 @@ export function MealNutritionRecap({
       <Button
         variant="ghost"
         size="icon"
-        className="size-6 shrink-0 text-muted-foreground"
+        className="size-6 shrink-0 text-muted-foreground max-sm:size-11"
         aria-label={dict.nutritionRecapDismissAriaLabel}
-        onClick={handleDismiss}
+        onClick={() => setDismissedWeek(weekStartKey)}
       >
         <X className="size-3.5" />
       </Button>

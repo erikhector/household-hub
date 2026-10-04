@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { headers } from "next/headers";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
@@ -308,25 +308,6 @@ export async function logoutAction(endpoint?: string) {
   await signOut({ redirectTo: "/login" });
 }
 
-// Building this from the request's Host/X-Forwarded-Host header would let
-// anyone who can shape their own HTTP request (trivial with curl) get this
-// app to mail a password-reset link that points at an attacker-controlled
-// domain, while the token embedded in it is entirely real — a phishing
-// primer disguised as a legitimate reset email. So the base URL must come
-// from a value only the deployer controls. Mirrors
-// src/lib/actions/household.ts's identically-motivated `absoluteAppUrl` —
-// duplicated locally rather than imported so this file (and the sequential
-// Wave 2 tasks that follow it — see docs/archive/PRODUCTION_READINESS.md) doesn't pick up
-// a dependency on household.ts.
-async function absoluteAppUrl(path: string): Promise<string> {
-  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  if (configured) return `${configured}${path}`;
-
-  const headerList = await headers();
-  const host = headerList.get("host") ?? "localhost:3000";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  return `${proto}://${host}${path}`;
-}
 
 export type RequestPasswordResetState = { error?: string; message?: string };
 

@@ -20,6 +20,9 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { household: { findMany: householdFindManyMock } },
 }));
 
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 vi.mock("@/lib/notifications", () => ({
   syncMealNotLoggedNotifications: syncMealNotLoggedNotificationsMock,
   syncExpiringSoonNotifications: syncExpiringSoonNotificationsMock,
@@ -230,14 +233,13 @@ describe("GET /api/cron/sync-notifications", () => {
       householdsFailed: 1,
       failedHouseholdIds: ["household-1"],
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("household-1"),
-      expect.objectContaining({ message: "meal sync failed" }),
-    );
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining("household-1"),
-      expect.objectContaining({ message: "expiry sync failed" }),
-    );
+    // Each per-household failure reaches Sentry tagged with that household.
+    for (const message of ["meal sync failed", "expiry sync failed"]) {
+      expect(captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message }),
+        expect.objectContaining({ tags: { householdId: "household-1" } }),
+      );
+    }
 
     consoleErrorSpy.mockRestore();
   });
