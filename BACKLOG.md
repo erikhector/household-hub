@@ -245,16 +245,6 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
-- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
-      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
-      with "Nothing planned" (28 identical lines, a ~7,200 px page in
-      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
-      distinguishable and the real content is buried. Breaks *hierarchy* and
-      *context*. Acceptance: on mobile, empty slots collapse to a single
-      compact "+ Add meal" row per day (or a single-line slot), so an empty
-      week is well under half its current height; an e2e spec asserts an
-      empty day shows one add affordance per slot without repeated
-      "Nothing planned" text, and that adding a meal still works.
 - [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
       DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
       phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
