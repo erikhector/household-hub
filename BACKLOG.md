@@ -127,13 +127,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       sequential batches of 10, with no `maxDuration`. Pre-select only
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
-- [ ] **PERF-14. Small sequential-await and over-fetch fixes** (low, S) —
-      `dashboard/page.tsx:72-77` (`myTasks` waits on the `Promise.all`; filter
-      by `assignedTo.userId` and run it in parallel); `dashboard/page.tsx:52`
-      (full inventory rows just to count them — `select`);
-      `personal-budget/page.tsx:138-158` (two queries per membership — batch
-      with `householdId: { in }`); `meal-planning/page.tsx:57`
-      (`include: { recipe: true }` pulls instructions — `select`).
 
 ### Maintainability (2026-09-26 audit)
 
@@ -698,6 +691,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
       | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
       | v0.47.7 | #134 fix: show the Add task label on phones (UX-4) | 2026-10-04 | #134 |
+      | v0.48.3 | #140 perf: trim dashboard, meal-planning and personal-budget queries (PERF-14) | 2026-10-04 | #140 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
