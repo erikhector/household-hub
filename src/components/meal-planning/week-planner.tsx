@@ -220,7 +220,7 @@ export function WeekPlanner({
                 <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="flex flex-col gap-1">
               {MEAL_TYPES.map((mealType) => (
                 <MealTypeSlot
                   key={mealType}
@@ -255,12 +255,27 @@ function MealTypeSlot({
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
 }) {
+  const label = dict[mealTypeDictKey[mealType]];
+
+  // UX-5: an empty slot is a single tappable "<slot> + Add meal" row, so an
+  // empty week isn't 28 repeated "Nothing planned" lines with tiny "+" buttons.
+  if (entries.length === 0) {
+    return (
+      <MealEntryDialog
+        dict={dict}
+        weekStartKey={weekStartKey}
+        dateKey={dateKey}
+        mealType={mealType}
+        recipes={recipes}
+        slotLabel={label}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase text-muted-foreground">
-          {dict[mealTypeDictKey[mealType]]}
-        </p>
+        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
         <MealEntryDialog
           dict={dict}
           weekStartKey={weekStartKey}
@@ -269,21 +284,17 @@ function MealTypeSlot({
           recipes={recipes}
         />
       </div>
-      {entries.length === 0 ? (
-        <p className="text-xs text-muted-foreground/70">{dict.emptyDay}</p>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {entries.map((entry) => (
-            <MealEntryRow
-              key={entry.id}
-              dict={dict}
-              entry={entry}
-              recipes={recipes}
-              weekStartKey={weekStartKey}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-1">
+        {entries.map((entry) => (
+          <MealEntryRow
+            key={entry.id}
+            dict={dict}
+            entry={entry}
+            recipes={recipes}
+            weekStartKey={weekStartKey}
+          />
+        ))}
+      </div>
     </div>
   );
 }

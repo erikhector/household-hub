@@ -49,6 +49,19 @@ easy for AI coding agents to work in correctly:
   leak past a suspended Fluid compute instance (a documented no-op off
   Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
   interacts with the pooler `DATABASE_URL` must point at in production.
+- **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
+  only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
+  `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
+  (`init` and `onRouterTransitionStart`) and `src/lib/sentry-client.ts`
+  (`captureClientException`, used by `error.tsx` and `global-error.tsx`).
+  The DSN is inlined at build time, so with none set no Sentry chunk is
+  emitted and `/login` etc. no longer carry ~130 KB gzipped of it. Never add
+  a static `@sentry/nextjs` import to client code. With a DSN set, the SDK
+  loads async, so an error in the first moments before the chunk arrives
+  isn't captured. `withSentryConfig` (applied only when `SENTRY_DSN` is set)
+  also passes `bundleSizeOptimizations` (debug statements, tracing and
+  Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
+  enabled).
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and
@@ -3160,6 +3173,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
   constraint) the first time a meal is actually added to that week, not on
   page view, so browsing to an empty future/past week doesn't write rows.
+- **Empty slots (UX-5)**: a slot with no entries renders as one full-width
+  "<slot> + Add meal" row (`MealEntryDialog` with `slotLabel`, min height
+  36 px) instead of a label, a "Nothing planned" line and a small "+"
+  button, so an empty week is 28 single-line rows rather than a wall of
+  repeated text. A slot with entries keeps its label, the entries and the
+  small "+" that stacks another one. `e2e/meal-planner-empty-slots.spec.ts`
+  covers both.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
@@ -4029,6 +4049,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Add task button (UX-4)**: the header button always shows its "Add task"
+  label. It used to collapse to a lone "+" below `sm`, leaving the page's one
+  primary action with no visible words on phones. `flows.spec.ts` asserts the
+  visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
   weekday schedule, just "reopen N days after it was last completed".

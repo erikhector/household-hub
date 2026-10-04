@@ -113,12 +113,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
-      import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
-      page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
-      (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
-      and the replay excludes) to `withSentryConfig`, or `import()` it
-      behind the DSN check.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
@@ -251,25 +245,6 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
-- [ ] **UX-4. Show the "Add task" label on phones** (impact: med, effort: S) —
-      `tasks/page.tsx:89-90` hides the label below `sm` (`sr-only sm:not-sr-only`),
-      so on mobile the page's one primary action is a full-width purple bar
-      holding a lone "+", and the empty state has to say "use the + button
-      above". Breaks *usability* and *user-centricity*: an icon-only primary
-      action with no visible words. Acceptance: at 412 px the button shows
-      the visible text "Add task" (en) / its Swedish equivalent, and an e2e
-      spec asserts `getByRole("button", { name: "Add task" })` has non-empty
-      visible text on mobile.
-- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
-      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
-      with "Nothing planned" (28 identical lines, a ~7,200 px page in
-      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
-      distinguishable and the real content is buried. Breaks *hierarchy* and
-      *context*. Acceptance: on mobile, empty slots collapse to a single
-      compact "+ Add meal" row per day (or a single-line slot), so an empty
-      week is well under half its current height; an e2e spec asserts an
-      empty day shows one add affordance per slot without repeated
-      "Nothing planned" text, and that adding a meal still works.
 - [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
       DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
       phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
@@ -734,6 +709,8 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
+      | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
+      | v0.47.7 | #134 fix: show the Add task label on phones (UX-4) | 2026-10-04 | #134 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

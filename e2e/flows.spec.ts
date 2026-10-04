@@ -5,6 +5,16 @@ import { expect, test } from "@playwright/test";
 // seeded household don't trip over rows an earlier run left behind.
 const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
+// UX-4: the page's one primary action must carry visible words at every
+// width. It used to collapse to a lone "+" below `sm`. Runs on both
+// projects, so the mobile run checks the 412 px phone layout.
+test("the Add task button shows its label", async ({ page }) => {
+  await page.goto("/dashboard/tasks");
+  const button = page.getByRole("button", { name: "Add task" });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveText("Add task");
+});
+
 test("add a task and mark it done", async ({ page }) => {
   const title = unique("Take out the bins");
   await page.goto("/dashboard/tasks");
