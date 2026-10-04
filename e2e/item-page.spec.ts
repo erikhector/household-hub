@@ -74,7 +74,8 @@ test("an item's details open from the inventory list and show its recipes and le
   await page.getByRole("link", { name: `Details for ${flour.name}` }).filter({ visible: true }).click();
 
   await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
-  await expect(page.getByText("In stock: 1 pcs")).toBeVisible();
+  // Scoped to main, like after the reload in the next test: the page streams in.
+  await expect(page.getByRole("main").getByText("In stock: 1 pcs")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Used in 2 recipes" })).toBeVisible();
   // 750 g through the saved "1 pcs = 2000 g": converts.
   const buns = recipeRow(page, flour.recipes.buns);
@@ -87,7 +88,8 @@ test("an item's details open from the inventory list and show its recipes and le
   await page.getByRole("button", { name: `Stop mapping “${flour.alias}” here` }).click();
   await expect(page.getByText("No learned names.")).toBeVisible();
   await page.reload();
-  await expect(page.getByText("No learned names.")).toBeVisible();
+  // Scoped to main: see the reload in the next test.
+  await expect(page.getByRole("main").getByText("No learned names.")).toBeVisible();
 
   // The recipe name opens the recipe list, searched down to it.
   await recipeRow(page, flour.recipes.buns).getByRole("link", { name: flour.recipes.buns }).click();
@@ -181,8 +183,10 @@ test("changing the unit converts the stock and keeps the old unit as a conversio
   await expect(dialog).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByText("In stock: 2000 g")).toBeVisible();
-  await expect(page.getByText("Counted in g")).toBeVisible();
-  await expect(page.getByText("1 pcs = 2000 g")).toBeVisible();
+  // Scoped to main: see the reload in "adding a conversion from a ⚠ recipe row".
+  const main = page.getByRole("main");
+  await expect(main.getByText("In stock: 2000 g")).toBeVisible();
+  await expect(main.getByText("Counted in g")).toBeVisible();
+  await expect(main.getByText("1 pcs = 2000 g")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.buns)).toContainText("= 750 g");
 });

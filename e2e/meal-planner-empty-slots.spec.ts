@@ -46,5 +46,6 @@ test("adding a meal to an empty slot still works", async ({ page }, testInfo) =>
   // other 27 slots still are.
   await expect(page.getByRole("button", { name: /^(Breakfast|Lunch|Dinner|Snack) Add meal$/ })).toHaveCount(27);
   await page.reload();
-  await expect(page.getByText(name)).toBeVisible();
+  // Scoped to main: see the reload in item-page.spec.ts.
+  await expect(page.getByRole("main").getByText(name)).toBeVisible();
 });
