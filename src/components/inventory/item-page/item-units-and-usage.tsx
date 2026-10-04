@@ -230,7 +230,7 @@ function TryIt({
         onChange={(event) => setAmount(event.target.value)}
         aria-label={dict.tryItAmountLabel}
       />
-      <div className="w-28">
+      <div className="w-28 max-sm:w-44">
         <ComboField
           id="try-it-unit"
           items={units}
