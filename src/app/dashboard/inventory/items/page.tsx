@@ -18,7 +18,7 @@ export default async function ItemCatalogPage() {
       <div className="flex flex-col gap-2">
         <Link
           href="/dashboard/inventory"
-          className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="touch-target w-fit gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-3.5" />
           {dict.back}

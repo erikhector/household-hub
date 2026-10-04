@@ -153,7 +153,7 @@ export function ItemUnitsAndUsage({
               <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
                 <Link
                   href={`/dashboard/meal-planning?tab=recipes&recipe=${encodeURIComponent(row.recipeId)}`}
-                  className="min-w-0 flex-1 basis-32 font-medium break-words underline-offset-4 hover:underline"
+                  className="touch-target min-w-0 flex-1 basis-32 font-medium break-words underline-offset-4 hover:underline"
                 >
                   {row.recipeName}
                 </Link>
@@ -230,7 +230,7 @@ function TryIt({
         onChange={(event) => setAmount(event.target.value)}
         aria-label={dict.tryItAmountLabel}
       />
-      <div className="w-28">
+      <div className="w-28 max-sm:w-44">
         <ComboField
           id="try-it-unit"
           items={units}

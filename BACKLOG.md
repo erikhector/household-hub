@@ -245,19 +245,6 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
-- [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
-      DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
-      phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
-      36 px (default, `sm`) and 40 px (`icon`), with `xs`/`icon-xs`/`icon-sm`
-      at 32–36 px; checkboxes, switches and the `+`/`-` steppers are smaller
-      still. Breaks *M3* and *accessibility*. Acceptance: every button,
-      checkbox, switch and stepper has a hit area of at least 44 × 44 px
-      below `sm`; a new `expectTouchTargets(page)` helper in `e2e/ui.ts`
-      (every visible `button`, `a` outside running text, `input`,
-      `[role=checkbox|switch|tab|menuitem]` measures ≥ 44 × 44, or the
-      element's clickable row does) runs in `smoke.spec.ts` on the `mobile`
-      project for every route, and passes.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`

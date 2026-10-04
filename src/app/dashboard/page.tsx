@@ -212,7 +212,7 @@ export default async function DashboardOverviewPage() {
                 name: household.name,
               })}
             </span>
-            <Link href="/dashboard/household" className="ml-auto shrink-0 underline underline-offset-4">
+            <Link href="/dashboard/household" className="touch-target ml-auto shrink-0 justify-end underline underline-offset-4">
               {dict.dashboard.manage}
             </Link>
           </div>

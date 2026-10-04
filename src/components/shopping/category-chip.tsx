@@ -99,7 +99,7 @@ export function CategoryChip({
               disabled={disabled || isPending}
               aria-label={format(dict.ariaLabel, { name: itemName, category })}
               className={cn(
-                "inline-flex h-6 max-w-28 shrink-0 items-center rounded-full border px-2 text-xs text-muted-foreground transition-colors",
+                "inline-flex h-6 max-sm:h-11 max-w-28 shrink-0 items-center rounded-full border px-2 text-xs text-muted-foreground transition-colors",
                 "hover:border-primary/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 "disabled:pointer-events-none disabled:opacity-50 sm:max-w-40",
               )}
