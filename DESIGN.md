@@ -3,20 +3,25 @@
 How Squirrel should look, read and behave. **Every change that touches the
 UI is held to this file**: the builder follows it, `self-review` and the
 reviewer check diffs against it, and the `ux` scout reviews screenshots
-through it. It has three parts:
+through it. It has four parts:
 
 1. **UX principles**: the seven fundamental UX design principles from the
    UX Design Institute
    ([7 fundamental UX design principles in 2026](https://www.uxdesigninstitute.com/blog/ux-design-principles-2026/)),
    restated for this app.
-2. **Squirrel design principles**: our own design system (voice, colour,
+2. **Mobile UX rules**: hard, testable rules for the phone, adapted from
+   Toptal's
+   [Mobile UX design constraints and best practices](https://www.toptal.com/designers/ux/mobile-ux-design-best-practices).
+   Unlike the principles, these are not judgement calls: a UI change that
+   breaks one doesn't merge.
+3. **Squirrel design principles**: our own design system (voice, colour,
    type, layout, states, icons, accessibility). The living version, with
    token values and component previews, is the
    [Squirrel design system](https://claude.ai/artifact/2mkjwNXBcgqL1KK44jDZLj);
    the tokens themselves are the CSS custom properties in
    `src/app/globals.css`. When the two disagree, the code is what ships:
    fix whichever is wrong in the same PR.
-3. **UI review checklist**: the short list every UI diff and every
+4. **UI review checklist**: the short list every UI diff and every
    screenshot review is checked against.
 
 ## 1. UX principles
@@ -106,7 +111,7 @@ which is also what the European Accessibility Act expects.
   logical tab order, labelled controls (every icon-only button has an
   accessible name), real `<button>`/`<a>`/`<label>` elements.
 - Never rely on colour alone: status pairs a colour with a word or icon.
-- Touch targets at least 36 px (40 px for icon buttons) on phones.
+- Touch targets at least 44 × 44 px on phones (rule M3 below).
 - Respect the user's settings: text zoom to 200% without loss,
   `prefers-reduced-motion`, system theme.
 - If an e2e test can't find an element by role and name, it needs a label
@@ -133,7 +138,133 @@ show confidence where it's uncertain, let the user correct it before it
 changes data, and always offer a manual path that works without the camera
 or AI.
 
-## 2. Squirrel design principles
+## 2. Mobile UX rules (hard)
+
+Most Squirrel use is one-handed, on a phone, in a shop or a kitchen, with
+the user's attention somewhere else. These rules turn the "Context" and
+"Accessibility" principles into lines a reviewer can check without taste.
+
+**How they're enforced.**
+
+- **New UI** (a new page, component, dialog, form or flow) meets every
+  rule before it merges. A rule break is a blocking review finding, the
+  same as a missing `requireHousehold()`.
+- **Existing UI you touch** is brought up to the rules in the same PR, for
+  the component or page the diff changes. That is in scope, not a
+  drive-by refactor: a bug fix or feature in a component leaves that
+  component compliant. Keep it to what you touched; a sweep across
+  unrelated pages is its own `UX-` item.
+- **Existing UI nobody is touching** is found by the `ux` scout, which
+  reviews the mobile screenshots against these rules and files `UX-`
+  items. The builder takes `UX-` items first.
+- **An exception** needs a written reason in the PR Summary ("M3: the
+  calendar day cells are 40 px because seven must fit in 412 px; the
+  whole row is the tap target") and the reviewer's agreement. "It was
+  already like that" is not a reason.
+
+Measure at the `mobile` e2e project's viewport (Pixel 7, 412 px, touch),
+in Swedish as well as English.
+
+### M1. Mobile first
+
+Design and verify the phone layout first; desktop is the extension, not
+the other way round. Look at the mobile screenshot of every page a diff
+changes (`npm run test:e2e:screenshots`), not just the code. No
+horizontal page scroll at 412 px (`expectNoHorizontalOverflow`), and no
+table or row that only makes sense wider than the screen.
+
+### M2. Thumb zone
+
+The primary action lives where a thumb reaches it: the bottom half of the
+screen, or the bottom of a bottom sheet (sticky, above the safe area,
+never scrolled out of view in a long form). Top-level navigation is the
+bottom bar. Nothing a user does often sits only in a top corner.
+Destructive actions sit apart from the primary action, never next to it
+where a slip hits them.
+
+### M3. Touch targets
+
+Every tap target is at least **44 × 44 CSS px** on phones (Apple HIG's
+44 pt; Material's 48 dp is better where it fits), with at least **8 px**
+between neighbouring targets. The visible control can be smaller if its
+hit area isn't (padding, a pseudo-element, the whole row as the target).
+Inline links inside running text are exempt, as WCAG 2.5.8 allows.
+Checkboxes, switches, steppers (`+`/`-`), close buttons, row menus and
+chips count.
+
+### M4. Minimise typing
+
+Every field a phone user has to type into costs a lost user.
+
+- Don't ask for what we can default, remember or derive (last store,
+  last unit, today's date, the household's currency).
+- Pick, don't type, where the options are known: selects, steppers,
+  chips, date pickers.
+- Every text field sets the right keyboard and autofill: `type` (`email`,
+  `tel`, `url`, `password`), `inputMode` (`decimal` for money and
+  quantities, `numeric` for whole numbers), `autoComplete`
+  (`email`, `current-password`, `new-password`, `name`, or `off` for
+  household data), and `enterKeyHint` on the last field of a form.
+- Fields are 16 px on phones so iOS doesn't zoom (see Type), and the
+  focused field and its submit button are never hidden behind the
+  on-screen keyboard.
+
+### M5. Feedback on every touch
+
+Every tap shows a response at once: a pressed state on the control, then
+pending (`Loader2`, disabled) if the work takes time, then the result
+(updated row, toast). A user must never wonder whether a tap registered.
+Colour, motion or vibration is never the only signal; an optimistic update
+rolls back visibly when the server says no.
+
+### M6. One task per screen, most important first
+
+A phone screen does one job. The key number, status or next step is
+above the fold; secondary information and rare actions go behind a
+disclosure, a tab or a "More" menu, not stacked below it. Repeated empty
+placeholders collapse (one "Add" per group, not a "Nothing here" per
+slot). Long lists stay scannable: grouped, with the most relevant items
+first.
+
+### M7. Navigation and gestures
+
+- The user always knows where they are (active bottom-bar item, page
+  title) and can always go back: the browser/OS back gesture closes a
+  dialog or returns to the previous view, never leaves the app by
+  surprise.
+- Every gesture (swipe to delete, drag to reorder, pull to refresh) has a
+  visible button that does the same. Nothing is gesture-only.
+- A gesture that destroys data is undoable.
+- Don't take over system gestures: the screen edges belong to the OS back
+  swipe.
+
+### M8. Interruptions, slow networks and performance
+
+- A call, a notification or a locked screen mid-flow loses nothing: form
+  input survives a reload or backgrounding, and a half-done flow can be
+  picked up.
+- Every data view has a loading state (skeleton or spinner in place, no
+  layout jump when content arrives) and an error state that says what to
+  do, including "you're offline".
+- Pages stay fast on a mid-range phone on mobile data: no large
+  unoptimised images (`next/image`), no heavy client bundle for a mostly
+  static view.
+
+### M9. Readable and adaptable
+
+Body text at least 14 px and form fields 16 px on phones; text zoom to
+200% and landscape both work without clipping; content respects the
+safe-area insets (notch, home indicator). Swedish strings and long names
+wrap or truncate with the full value reachable, never overflow.
+
+### M10. Accessible on a phone
+
+About 15% of people live with some form of disability, and small screens
+make every barrier worse. Everything in principle 6 (Accessibility)
+applies at 412 px: screen-reader names (TalkBack/VoiceOver), visible focus
+with a hardware keyboard, contrast in sunlight-bright and dark themes.
+
+## 3. Squirrel design principles
 
 Squirrel is a shared household app: pantry inventory, shopping lists, meal
 planning, tasks and household and personal budgets. The system is soft,
@@ -218,8 +349,10 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   scrolls, and dialogs become bottom sheets flush with the screen edge
   (max 85dvh, safe-area padding). From `sm` (640px) dialogs are centred,
   384px wide.
-- Touch targets grow on phones: default buttons go from 32px to 36px, icon
-  buttons from 32px to 40px (`max-sm:` bumps).
+- Touch targets grow on phones (`max-sm:` bumps) and must reach 44px
+  (rule M3). Today default buttons go from 32px to 36px and icon buttons
+  from 32px to 40px, which is below M3; UX-6 in BACKLOG.md brings them up.
+  New controls meet 44px now.
 
 ### Depth, motion and states
 
@@ -264,7 +397,7 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 - `src/app/globals-contrast.test.ts` checks these pairs on every
   `npm test`. A new colour token or pair gets added there.
 
-## 3. UI review checklist
+## 4. UI review checklist
 
 Use it on every diff that touches `src/app/**/page.tsx`, `src/components/`,
 `globals.css` or user-facing strings, and on every screenshot review. A
@@ -276,6 +409,14 @@ failed item is a finding; name the principle it breaks.
       same words, icons and placement as sibling pages; sentence case.
 - [ ] **Hierarchy**: exactly one `primary` action per view; headings use
       the type scale; the key number or status is the first thing seen.
+- [ ] **Mobile rules M1–M10 (hard)**: every rule in section 2 holds for
+      what the diff adds *and* for the existing component or page it
+      touches: mobile screenshot reviewed, no overflow, primary action in
+      the thumb zone, targets ≥ 44 × 44 px with 8 px gaps, right keyboard
+      and autofill on fields, feedback on every tap, one task per screen,
+      no gesture-only action, loading and offline states, safe areas.
+      Any failure blocks merge unless the PR Summary gives an exception
+      the reviewer accepts.
 - [ ] **Context**: works at 412 px with thumb-reachable actions and no
       hover-only affordance; survives Swedish strings and long names
       without clipping or overflow.
@@ -285,7 +426,7 @@ failed item is a finding; name the principle it breaks.
 - [ ] **Accessibility**: labelled controls (icon buttons included),
       visible focus, keyboard reachable, colour never the only signal,
       contrast pairs covered by `globals-contrast.test.ts`, touch targets
-      ≥ 36/40 px on phones.
+      ≥ 44 × 44 px on phones.
 - [ ] **Usability**: sensible defaults; inline, actionable errors next to
       the field; empty, loading and error states designed.
 - [ ] **Design system**: tokens only (no raw hex, no ad-hoc shadows or

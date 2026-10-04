@@ -113,12 +113,6 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
-      import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
-      page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
-      (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
-      and the replay excludes) to `withSentryConfig`, or `import()` it
-      behind the DSN check.
 - [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
       `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
       `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
@@ -261,6 +255,28 @@ judgement calls, not failures.
       week is well under half its current height; an e2e spec asserts an
       empty day shows one add affordance per slot without repeated
       "Nothing planned" text, and that adding a meal still works.
+- [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
+      DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
+      phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
+      36 px (default, `sm`) and 40 px (`icon`), with `xs`/`icon-xs`/`icon-sm`
+      at 32–36 px; checkboxes, switches and the `+`/`-` steppers are smaller
+      still. Breaks *M3* and *accessibility*. Acceptance: every button,
+      checkbox, switch and stepper has a hit area of at least 44 × 44 px
+      below `sm`; a new `expectTouchTargets(page)` helper in `e2e/ui.ts`
+      (every visible `button`, `a` outside running text, `input`,
+      `[role=checkbox|switch|tab|menuitem]` measures ≥ 44 × 44, or the
+      element's clickable row does) runs in `smoke.spec.ts` on the `mobile`
+      project for every route, and passes.
+- [ ] **UX-7. Right keyboard and autofill on every form field** (impact: med, effort: S) —
+      DESIGN.md rule M4: 22 files use `type="number"` but only 14
+      `inputMode` and 1 `enterKeyHint` exist in `src/`, so money and
+      quantity fields open the wrong phone keyboard and forms lack a "Go"
+      key. Breaks *M4* and *usability*. Acceptance: money and quantity
+      fields use `inputMode="decimal"`, whole counts `numeric`; auth
+      fields carry `autoComplete` (`email`, `current-password`,
+      `new-password`, `name`); the last field of each dialog form has
+      `enterKeyHint`; an e2e spec asserts the `inputMode` of the add-item
+      quantity and a budget amount field on mobile.
 
 ### Budget component unification
 
@@ -713,6 +729,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
+      | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
