@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.48.4",
+    "date": "2026-10-04",
+    "pr": 140,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The dashboard, meal planner and personal budget pages load a little faster.",
+      "sv": "Startsidan, måltidsplaneringen och den personliga budgeten laddas lite snabbare."
+    }
+  },
+  {
+    "version": "0.48.3",
+    "date": "2026-10-04",
+    "pr": 140,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The dashboard, meal planner and personal budget pages load a little faster.",
+      "sv": "Startsidan, måltidsplaneringen och den personliga budgeten laddas lite snabbare."
+    }
+  },
+  {
     "version": "0.48.2",
     "date": "2026-10-04",
     "pr": 139,

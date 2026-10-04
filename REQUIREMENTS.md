@@ -1243,8 +1243,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     scoped exactly like the rest of this feature. `createShareLinkAction`
     builds the full share URL server-side from `APP_URL` (falling back to
     request headers only in local dev with `APP_URL` unset) — the same
-    header-spoofing trust boundary `sendInviteEmailAction`'s `absoluteAppUrl`
-    already guards against, applied here too.
+    header-spoofing trust boundary the shared `absoluteAppUrl`
+    (`src/lib/app-url.ts`, also used by the invite, verification, reset and
+    calendar-feed links) already guards against, applied here too.
   - `src/app/share/shopping-list/actions.ts` — `getShoppingListByShareToken`
     and `toggleItemViaShareTokenAction`, which take **no session at all**.
     **The critical security boundary**: `toggleItemViaShareTokenAction`
@@ -5248,6 +5249,17 @@ approximating them, so the email never disagrees with the app.
   cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
+- **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`
+  (`src/components/shared/use-dismissed-local-storage.ts`) is the one place
+  that reads/writes a "dismissed" value in localStorage, for the use-it-up
+  chips and the nutrition, variety and weekly-task recaps. It returns
+  `[value, setValue]`: `value` is null on the server and first render (no
+  hydration mismatch) and when storage is blocked, `setValue` hides the
+  card at once and persists best-effort. `key` is typed as
+  `DismissedStorageKey`, the `*_DISMISSED_STORAGE_KEY` constants exported
+  from `src/lib/cookie-inventory.ts`, so a new dismissal needs an inventory
+  entry first. `e2e/dismissed-recaps.spec.ts` covers the dismissal
+  surviving a reload.
 - **End-to-end tests** (`e2e/`, `playwright.config.ts`): Playwright drives
   a production build (`npm run build`, then `npm run test:e2e` starts
   `next start` itself) against a real Postgres, because the unit suite

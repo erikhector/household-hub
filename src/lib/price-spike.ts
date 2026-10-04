@@ -44,7 +44,8 @@
 // total quantity — so they produce one decision, not one per line, and a
 // discount line pulls the effective price down the way it did at the till.
 
-import { convertQuantity } from "@/lib/units";
+import { median } from "@/lib/math";
+import { convertQuantity, normalizeUnit } from "@/lib/units";
 
 export const PRICE_SPIKE_MIN_PRIOR_PRICES = 3;
 export const PRICE_SPIKE_TRAILING_WINDOW = 10;
@@ -96,14 +97,8 @@ function isValid(point: PricePoint): point is ValidPoint {
 // compared. Same-string units are compared directly (so "pcs"/"pack"/any
 // unit src/lib/units.ts doesn't know still matches itself).
 function quantityIn(point: ValidPoint, targetUnit: string): number | null {
-  if (point.unit.trim().toLowerCase() === targetUnit.trim().toLowerCase()) return point.quantity;
+  if (normalizeUnit(point.unit) === normalizeUnit(targetUnit)) return point.quantity;
   return convertQuantity(point.quantity, point.unit, targetUnit);
-}
-
-export function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
 
 /**

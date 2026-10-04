@@ -34,6 +34,7 @@
 // estimate is at least consistent with what inventory believes was bought.
 // That residual fuzziness is why the UI prints the result with a "~".
 
+import { round2 } from "@/lib/math";
 import { convertForItem, type ItemUnitConversionLike } from "@/lib/units";
 
 // A purchased shopping-list line linked to the inventory item: what was
@@ -77,8 +78,6 @@ export type RecipeCost = {
   pricedCount: number;
   skippedCount: number;
 };
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // The same reconciliation computeMissingIngredients uses for recipe vs.
 // on-hand units: the same unit, src/lib/units.ts's fixed table, then the

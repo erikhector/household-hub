@@ -71,6 +71,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { after } from "next/server";
 import { sendPushToHousehold, sendPushToHouseholdMembers } from "@/lib/push";
@@ -576,7 +577,7 @@ export async function syncMealNotLoggedNotifications(householdId: string): Promi
         });
       } catch (error) {
         // P2002: another concurrent sync already created it — fine, ignore.
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return;
+        if (isUniqueViolation(error)) return;
         throw error;
       }
 

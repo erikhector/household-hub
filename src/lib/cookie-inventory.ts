@@ -18,6 +18,22 @@
 export const COOKIE_NOTICE_COOKIE = "cookie_notice_ack";
 export const COOKIE_NOTICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
+// localStorage keys behind "dismissed" UI (recaps, suggestion chips). Declared
+// as *_STORAGE_KEY constants so cookie-inventory.test.ts's drift guard sees
+// them, and they are the only keys useDismissedLocalStorage
+// (src/components/shared/use-dismissed-local-storage.ts) accepts, so a
+// dismissal can't be persisted under a key the privacy page doesn't list.
+export const USE_IT_UP_DISMISSED_STORAGE_KEY = "mealPlanning.useItUpDismissed";
+export const NUTRITION_RECAP_DISMISSED_STORAGE_KEY = "mealPlanning.nutritionRecapDismissedWeek";
+export const VARIETY_RECAP_DISMISSED_STORAGE_KEY = "mealPlanning.varietyRecapDismissedCount";
+export const TASKS_RECAP_DISMISSED_STORAGE_KEY = "tasks.weeklyRecap.dismissedWeek";
+
+export type DismissedStorageKey =
+  | typeof USE_IT_UP_DISMISSED_STORAGE_KEY
+  | typeof NUTRITION_RECAP_DISMISSED_STORAGE_KEY
+  | typeof VARIETY_RECAP_DISMISSED_STORAGE_KEY
+  | typeof TASKS_RECAP_DISMISSED_STORAGE_KEY;
+
 export type StorageKind = "cookie" | "localStorage";
 export type StorageCategory = "necessary" | "preference";
 
@@ -118,28 +134,28 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "Until you clear site data",
   },
   {
-    name: "mealPlanning.useItUpDismissed",
+    name: USE_IT_UP_DISMISSED_STORAGE_KEY,
     kind: "localStorage",
     category: "preference",
     purpose: 'Remembers which "use it up" recipe suggestions you\'ve dismissed on the Recipes tab.',
     duration: "Until you clear site data",
   },
   {
-    name: "mealPlanning.nutritionRecapDismissedWeek",
+    name: NUTRITION_RECAP_DISMISSED_STORAGE_KEY,
     kind: "localStorage",
     category: "preference",
     purpose: "Remembers that you've dismissed the weekly nutrition recap for a given week on the Planner tab.",
     duration: "Until you clear site data",
   },
   {
-    name: "mealPlanning.varietyRecapDismissedCount",
+    name: VARIETY_RECAP_DISMISSED_STORAGE_KEY,
     kind: "localStorage",
     category: "preference",
     purpose: "Remembers that you've dismissed the recipe variety recap for a given count on the Planner tab.",
     duration: "Until you clear site data",
   },
   {
-    name: "tasks.weeklyRecap.dismissedWeek",
+    name: TASKS_RECAP_DISMISSED_STORAGE_KEY,
     kind: "localStorage",
     category: "preference",
     purpose: "Remembers that you've dismissed the weekly task recap for a given week on the Tasks tab.",
