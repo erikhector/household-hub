@@ -260,7 +260,6 @@ judgement calls, not failures.
       the visible text "Add task" (en) / its Swedish equivalent, and an e2e
       spec asserts `getByRole("button", { name: "Add task" })` has non-empty
       visible text on mobile.
-      "Nothing planned" text, and that adding a meal still works.
 
 ### Budget component unification
 
