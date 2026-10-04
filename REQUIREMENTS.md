@@ -4498,6 +4498,17 @@ components directly.
   (see "Internationalization" on why each Server Component fetches
   independently rather than prop-drilling from one root call).
 
+- **Phone keyboards (DESIGN.md M4)**: every `type="number"` input also sets
+  `inputMode`: `decimal` for money and fractional quantities (`step="any"`
+  or a cent step), `numeric` for whole counts (portions, servings, calories,
+  day-of-month). The last text, number or password field of a form carries
+  `enterKeyHint` (`go` for auth and password forms, `done` for dialogs and
+  settings forms), so the phone's Enter key submits instead of showing a
+  bare return key. Textareas and date inputs are left alone (Enter is a
+  newline, dates use the native picker). Auth and profile fields already
+  carry `autoComplete` (`email`, `current-password`, `new-password`,
+  `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+
 ## Releases & What's new
 
 Every change reaches `master` through a pull request, and every releasing PR

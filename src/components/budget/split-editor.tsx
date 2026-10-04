@@ -73,6 +73,7 @@ export function SplitEditor({
           <Input
             name="splitAmount"
             type="number"
+            inputMode="decimal"
             min={0}
             step="any"
             className="w-24 shrink-0"
@@ -83,6 +84,7 @@ export function SplitEditor({
           <Input
             name="splitPaid"
             type="number"
+            inputMode="decimal"
             min={0}
             step="any"
             className="w-24 shrink-0"

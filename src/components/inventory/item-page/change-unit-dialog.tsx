@@ -105,6 +105,7 @@ export function ChangeUnitDialog({
               {format(copy.factorLabel, { from: item.unit, to: unit.trim() || "…" })}
             </Label>
             <Input
+              enterKeyHint="done"
               id="change-unit-factor"
               name="factor"
               type="text"
