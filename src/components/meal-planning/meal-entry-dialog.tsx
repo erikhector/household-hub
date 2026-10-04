@@ -177,9 +177,11 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="portions">{dict.portionsLabel}</Label>
               <Input
+                enterKeyHint="done"
                 id="portions"
                 name="portions"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={1000}
                 step={1}

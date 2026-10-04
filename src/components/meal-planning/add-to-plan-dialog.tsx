@@ -145,9 +145,11 @@ export function AddToPlanDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-to-plan-portions">{dict.portionsLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="add-to-plan-portions"
               name="portions"
               type="number"
+              inputMode="numeric"
               min={1}
               max={1000}
               step={1}

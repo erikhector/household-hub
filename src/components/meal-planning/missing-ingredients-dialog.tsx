@@ -337,7 +337,7 @@ export function MissingIngredientsDialog({
             {targetListId === NEW_SHOPPING_LIST_SENTINEL && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="newListName">{dict.newListNameLabel}</Label>
-                <Input id="newListName" name="newListName" placeholder={dict.newListNamePlaceholder} />
+                <Input enterKeyHint="done" id="newListName" name="newListName" placeholder={dict.newListNamePlaceholder} />
               </div>
             )}
 

@@ -54,6 +54,7 @@ export function SwishNumberForm({
       <div className="flex flex-col gap-2">
         <Label htmlFor="swishNumber">{dict.label}</Label>
         <Input
+          enterKeyHint="done"
           key={displayValue}
           id="swishNumber"
           name="swishNumber"

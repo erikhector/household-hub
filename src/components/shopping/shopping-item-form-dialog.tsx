@@ -310,6 +310,7 @@ export function ShoppingItemFormDialog({
                 <Input
                   name="quantity"
                   type="number"
+                  inputMode="decimal"
                   min={0.01}
                   step="any"
                   defaultValue={1}
@@ -373,6 +374,7 @@ export function ShoppingItemFormDialog({
                     <Input
                       id="edit-item-quantity"
                       type="number"
+                      inputMode="decimal"
                       min={0.01}
                       step="any"
                       value={quantity}

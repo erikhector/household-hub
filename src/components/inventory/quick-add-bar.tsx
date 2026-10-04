@@ -97,8 +97,10 @@ export function QuickAddBar({
             {dict.quantityLabel}
           </Label>
           <Input
+            enterKeyHint="done"
             id="quick-add-quantity"
             type="number"
+            inputMode="decimal"
             min={0}
             step="any"
             value={quantity}

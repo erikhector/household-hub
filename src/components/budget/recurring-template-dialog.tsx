@@ -199,6 +199,7 @@ export function RecurringTemplateDialog({
                 id="rt-amount"
                 name="amount"
                 type="number"
+                inputMode="decimal"
                 min={0.01}
                 step="any"
                 value={amount}
@@ -212,6 +213,7 @@ export function RecurringTemplateDialog({
                 id="rt-day"
                 name="dayOfMonth"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={31}
                 step={1}
@@ -272,6 +274,7 @@ export function RecurringTemplateDialog({
                         <Input
                           name="splitAmount"
                           type="number"
+                          inputMode="decimal"
                           min={0}
                           step="any"
                           className="w-24 shrink-0"

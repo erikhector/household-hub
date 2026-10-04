@@ -179,6 +179,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                     <div className="flex items-center gap-2 pl-6">
                       <input
                         type="number"
+                        inputMode="decimal"
                         min={0}
                         step="0.01"
                         className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
@@ -216,6 +217,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                 {dict.leftoverServingsLabel}
               </label>
               <input
+                enterKeyHint="done"
                 id={`leftover-servings-${entry.id}`}
                 name="leftoverServings"
                 type="number"

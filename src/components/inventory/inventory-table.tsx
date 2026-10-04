@@ -302,6 +302,7 @@ export function InventoryTable({
           {bulkField === "quantity" || bulkField === "lowStockThreshold" ? (
             <Input
               type="number"
+              inputMode="decimal"
               min={0}
               step="any"
               value={bulkValue}

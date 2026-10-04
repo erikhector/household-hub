@@ -223,6 +223,7 @@ export function ItemFormDialog({
                 id="quantity"
                 name="quantity"
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="any"
                 defaultValue={item?.quantity ?? 1}
@@ -248,6 +249,7 @@ export function ItemFormDialog({
                 id="lowStockThreshold"
                 name="lowStockThreshold"
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="any"
                 defaultValue={item?.lowStockThreshold ?? 1}

@@ -294,6 +294,7 @@ export function LogSharedExpenseDialog({
                 id="shared-expense-amount"
                 name="amount"
                 type="number"
+                inputMode="decimal"
                 min={0.01}
                 step="any"
                 value={amount}
@@ -322,6 +323,7 @@ export function LogSharedExpenseDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="shared-expense-description">{dict.logShared.descriptionLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="shared-expense-description"
               name="description"
               maxLength={200}

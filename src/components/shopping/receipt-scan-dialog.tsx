@@ -345,6 +345,7 @@ export function ReceiptScanDialog({
           </div>
           <Input
             type="number"
+            inputMode="decimal"
             min={0}
             step="any"
             value={row.price}
@@ -403,6 +404,7 @@ export function ReceiptScanDialog({
                 <Input
                   id={`${row.key}-new-quantity`}
                   type="number"
+                  inputMode="decimal"
                   min={0.01}
                   step="any"
                   value={newItemDraft.quantity}
