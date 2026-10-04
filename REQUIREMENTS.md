@@ -4568,8 +4568,11 @@ version or the notes by hand.
   yet; BACKLOG.md's INFRA-6 lists them for a backfill. v0.39.9 to
   v0.42.0 (#81, #92, #91, #94) were merged before that stopgap existed
   and were cut together in #93 alongside its own v0.42.1. Actions came
-  back while the stopgap was still in force, so #140 was released twice
-  (v0.48.3 in-PR, v0.48.4 by the workflow). Releases are back to
+  back while the stopgap was still in force, so #135, #134 and #140 were
+  each released twice: an in-PR version (v0.47.5, v0.47.7, v0.48.3)
+  and a workflow one (v0.47.6, v0.47.8, v0.48.4). Only the workflow
+  versions are tagged, and the in-PR ones aren't backfilled, since that
+  would publish a second Release for the same PR. Releases are back to
   after-merge only.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports

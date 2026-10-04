@@ -98,8 +98,9 @@ in the session before every push with its summary in the PR body, GitHub
 check runs are ignored, and a releasing PR cuts its own release before
 merge (`node scripts/release.ts apply`), listing the version in INFRA-6
 for a tag backfill. Switch back the moment Actions runs again: with both
-active, `release.yml` releases the PR a second time (#140 got v0.48.3
-in-PR and v0.48.4 from the workflow).
+active, `release.yml` releases the PR a second time (#135, #134 and
+#140 each got an in-PR version and a workflow one: v0.47.5/6,
+v0.47.7/8, v0.48.3/4).
 
 ## Merge policy
 

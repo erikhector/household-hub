@@ -641,7 +641,10 @@ credentials only the product owner can provision, or an architecture call.
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
       No new versions join this list. Delete the item once all of them
-      are tagged.
+      are tagged. v0.47.5, v0.47.7 and v0.48.3 are deliberately left
+      out: those PRs were released again by the workflow (v0.47.6,
+      v0.47.8, v0.48.4, already tagged), so tagging them would publish a
+      second Release for the same PR.
 
       | Version | PR | Merged | Cut in |
       |---|---|---|---|
@@ -675,9 +678,6 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
-      | v0.47.5 | #135 perf: load Sentry's browser SDK lazily behind the DSN check (PERF-8) | 2026-10-04 | #135 |
-      | v0.47.7 | #134 fix: show the Add task label on phones (UX-4) | 2026-10-04 | #134 |
-      | v0.48.3 | #140 perf: trim dashboard, meal-planning and personal-budget queries (PERF-14) | 2026-10-04 | #140 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
