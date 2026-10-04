@@ -632,15 +632,16 @@ credentials only the product owner can provision, or an architecture call.
 - [ ] **INFRA-4. Social login (Google/Apple)** `[!]` — needs OAuth consent
       screens / developer credentials.
 - [ ] **INFRA-6. Backfill tags and GitHub Releases for versions cut
-      while CI was paused** `[!]` — blocked on GitHub Actions running
-      again (`ci_gate: github`). `release.yml` normally tags `vX.Y.Z`
+      while CI was paused** `[!]` — Actions runs again (`ci_gate:
+      github` since 2026-10-04, from v0.47.6 on), so this is unblocked
+      but needs someone with push access to tags. `release.yml` tags `vX.Y.Z`
       and creates a GitHub Release. Versions cut in-PR under the
       `ci_gate: local` stopgap got neither, so they exist only in
       `package.json` and `releases.json`. For each one below, tag the
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
-      Add every new in-PR release to this list, and delete the item once
-      all of them are tagged.
+      No new versions join this list. Delete the item once all of them
+      are tagged.
 
       | Version | PR | Merged | Cut in |
       |---|---|---|---|

@@ -4561,14 +4561,16 @@ version or the notes by hand.
   bumping in each PR would make every pair of open PRs conflict on the
   version line. Concurrent merges retry from the newest `master` instead
   of using a concurrency group, which would cancel queued runs.
-- **While GitHub Actions is paused** (`ci_gate: local`, see AUTOPILOT.md)
-  `release.yml` can't run. Instead, each releasing PR runs the same
-  `scripts/release.ts apply` itself, as its last commit before merge, on
-  top of the latest `master` (see AGENTS.md, "Pull requests and
-  releases"). Versions cut this way have no git tag or GitHub Release
-  yet. BACKLOG.md's INFRA-6 lists them for a backfill once CI is back.
-  v0.39.9 to v0.42.0 (#81, #92, #91, #94) were merged before this
-  stopgap existed, and were cut together in #93 alongside its own v0.42.1.
+- **While GitHub Actions was paused** (`ci_gate: local`, 2026-09-26 to
+  2026-10-04, see AUTOPILOT.md) `release.yml` couldn't run, so each
+  releasing PR ran the same `scripts/release.ts apply` itself as its last
+  commit before merge. Those versions have no git tag or GitHub Release
+  yet; BACKLOG.md's INFRA-6 lists them for a backfill. v0.39.9 to
+  v0.42.0 (#81, #92, #91, #94) were merged before that stopgap existed
+  and were cut together in #93 alongside its own v0.42.1. Actions came
+  back while the stopgap was still in force, so #140 was released twice
+  (v0.48.3 in-PR, v0.48.4 by the workflow). Releases are back to
+  after-merge only.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports
   because `scripts/release.ts` runs it under Node's built-in type stripping
@@ -5268,10 +5270,9 @@ approximating them, so the email never disagrees with the app.
   collide. `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, but GitHub CI is paused for now
-  (manual dispatch only, since the account can't start runners): the
-  gate is `npm run ci:local` (check + build + e2e) in the working
-  session, per `ci_gate` in AUTOPILOT.md. In
+  with a Postgres service container, running on every PR and push to
+  `master` (`ci_gate: github` in AUTOPILOT.md). `npm run ci:local`
+  (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
@@ -5347,7 +5348,7 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   own git worktree, with its own `node_modules` and database. Each
   sub-agent implements its item per AGENTS.md's workflow with unit and
   e2e tests, runs `npm run ci:local` under a shared lock (one build and
-  e2e run at a time on the machine), and opens a PR (ID in the title,
+  e2e run at a time on the machine) before pushing, and opens a PR (ID in the title,
   label `autopilot`, release note in both languages). The coordinator
   writes no code: it tracks the sub-agents and validates each PR against
   GitHub and the sub-agent's `ci:local` log (head SHA, gate passed on it,
@@ -5370,8 +5371,9 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   checking each finding against the new head and resolving the thread
   once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
   no open threads, gets `master` merged in, conflicting migrations
-  regenerated on top of master's, its release cut, and `npm run ci:local`
-  run, then it is squash-merged. At most `max_merges_per_review_run` per
+  regenerated on top of master's, and `npm run ci:local` run, then it is
+  pushed and squash-merged once GitHub CI is green on that head
+  (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
 - **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
