@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 import {
   syncExpiringSoonNotifications,
   syncMealNotLoggedNotifications,
@@ -59,7 +61,7 @@ export async function GET(request: Request) {
   // variable before merge as a hard deploy prerequisite,
   // not an optional follow-up.
   if (!secret || !authHeader || !timingSafeStringEqual(authHeader, `Bearer ${secret}`)) {
-    console.error("Notification sync cron rejected: missing or incorrect CRON_SECRET bearer token");
+    logger.error("Notification sync cron rejected: missing or incorrect CRON_SECRET bearer token");
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }
 
@@ -107,7 +109,7 @@ export async function GET(request: Request) {
         // see /api/health's matching principle) is all that goes back in
         // the response body below.
         for (const error of errors) {
-          console.error(`Notification sync failed for household ${householdId}:`, error);
+          reportError("Notification sync failed for household", error, { householdId });
         }
         failedHouseholdIds.push(householdId);
       });
@@ -126,7 +128,7 @@ export async function GET(request: Request) {
     // Reached only for a failure outside any single household's sync (e.g.
     // the household lookup itself failing) — same principle as /api/health:
     // log the real error server-side, don't leak internals in the response.
-    console.error("Notification sync cron failed:", error);
+    reportError("Notification sync cron failed", error);
 
     return Response.json({ status: "error" }, { status: 500 });
   }
