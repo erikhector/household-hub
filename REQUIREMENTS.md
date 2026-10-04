@@ -1233,8 +1233,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     scoped exactly like the rest of this feature. `createShareLinkAction`
     builds the full share URL server-side from `APP_URL` (falling back to
     request headers only in local dev with `APP_URL` unset) — the same
-    header-spoofing trust boundary `sendInviteEmailAction`'s `absoluteAppUrl`
-    already guards against, applied here too.
+    header-spoofing trust boundary the shared `absoluteAppUrl`
+    (`src/lib/app-url.ts`, also used by the invite, verification, reset and
+    calendar-feed links) already guards against, applied here too.
   - `src/app/share/shopping-list/actions.ts` — `getShoppingListByShareToken`
     and `toggleItemViaShareTokenAction`, which take **no session at all**.
     **The critical security boundary**: `toggleItemViaShareTokenAction`

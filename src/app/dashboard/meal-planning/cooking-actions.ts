@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
+import { round2 } from "@/lib/math";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { toFriendlyError } from "@/lib/actions/errors";
 import type { ActionState } from "@/lib/actions/auth";
@@ -49,10 +50,9 @@ const MAX_MISSING_INGREDIENT_ROWS = 300;
 
 // Inventory quantities are stored to at most 2 decimal places (matches the
 // precision cooked-ingredients.ts already suggests in the confirm dialog).
-// Rounding both the submitted decrement/increment amount and the resulting
-// stored quantity keeps float arithmetic (e.g. 0.1 - 0.03) from drifting
+// round2 (src/lib/math.ts) is applied to both the submitted decrement/increment amount and the resulting
+// stored quantity to keep float arithmetic (e.g. 0.1 - 0.03) from drifting
 // into long repeating decimals like 0.06999999999999999.
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // --- Meal-plan → shopping-list bridge ---------------------------------------
 //

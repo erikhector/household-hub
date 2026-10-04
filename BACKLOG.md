@@ -140,15 +140,6 @@ then MAINT-7 per feature, to avoid churn.
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
       same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-4. Deduplicate small server helpers** (medium, S) —
-      `absoluteAppUrl` ×4 (`lib/actions/auth.ts:304`,
-      `lib/actions/household.ts:62`, `profile/actions.ts:112`,
-      `shopping-list/share-actions.ts:24`; `lib/email.ts:40` re-derives it)
-      → `src/lib/app-url.ts`; the P2002 unique-violation check ×4 →
-      `src/lib/prisma-errors.ts`; `roundMoney`, `median`, `escapeHtml` and
-      three `normalizeUnit` copies in `meal-planning/` → one each; rename
-      `normalizeItemName` in `inventory-scan.ts:141`, which shadows the
-      different one in `lib/item-matching.ts:9`.
 - [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
       ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
       error hits the error boundary: `planner-actions.ts` (add/update/move/

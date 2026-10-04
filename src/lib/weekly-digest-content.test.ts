@@ -4,7 +4,6 @@
 import { describe, expect, it } from "vitest";
 import {
   DIGEST_MAX_LIST_ITEMS,
-  escapeHtml,
   renderWeeklyDigest,
   summarizeWeeklyDigest,
   type WeeklyDigestInput,
@@ -297,11 +296,5 @@ describe("renderWeeklyDigest", () => {
     expect(html).not.toContain(`x"onmouseover`);
     expect(html).toContain("x&quot;onmouseover=&quot;alert(1)");
     expect(html).toContain("icon.png&quot;x");
-  });
-});
-
-describe("escapeHtml", () => {
-  it("escapes the five HTML-significant characters", () => {
-    expect(escapeHtml(`&<>"'`)).toBe("&amp;&lt;&gt;&quot;&#39;");
   });
 });
