@@ -62,6 +62,16 @@ easy for AI coding agents to work in correctly:
   also passes `bundleSizeOptimizations` (debug statements, tracing and
   Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
   enabled).
+- **Server-side errors go through `reportError` (MAINT-11).** Caught
+  failures in cron routes, `/api/health`, the digest unsubscribe route,
+  `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
+  call `reportError(message, error, { householdId? })`
+  (`src/lib/report-error.ts`): one redacted `logger.error` line plus
+  `Sentry.captureException`, tagged with `householdId` when the failure
+  belongs to one household. No server code calls `console.error`/`warn`
+  directly (only `logger.ts` does). Rejected cron requests and the
+  missing-`AUTH_SECRET` skip use `logger.error` alone, since they aren't
+  exceptions.
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and

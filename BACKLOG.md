@@ -174,13 +174,6 @@ then MAINT-7 per feature, to avoid churn.
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-5/6.
-- [ ] **MAINT-11. Route cron/API errors through `logger` + Sentry** (medium, S) —
-      12 `console.error`/`warn` calls bypass redaction and Sentry, so caught
-      cron failures are invisible: `api/cron/sync-notifications/route.ts`,
-      `api/cron/weekly-digest/route.ts`, `api/digest/unsubscribe/[token]`,
-      `api/health`, `lib/weekly-digest.ts:328`, `lib/push.ts:124`,
-      `lib/rate-limit.ts:78,129`. Use `logger.error` + `Sentry.captureException`
-      tagged with `householdId`.
 - [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
       add a migration drift check to `.github/workflows/ci.yml` (Postgres
       service → `prisma validate` → `migrate deploy` → `prisma migrate diff

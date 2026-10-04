@@ -6,6 +6,7 @@
 
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { reportError } from "@/lib/report-error";
 import type { Prisma } from "@/generated/prisma/client";
 import { isWithinQuietHours } from "@/lib/quiet-hours";
 
@@ -133,7 +134,7 @@ async function deliver(where: Prisma.PushSubscriptionWhereInput, payload: PushPa
         if (statusCode === 404 || statusCode === 410) {
           await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
         } else {
-          console.error("Failed to send push notification:", error);
+          reportError("Failed to send push notification", error);
         }
       }
     }),
