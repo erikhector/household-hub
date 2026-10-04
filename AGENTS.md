@@ -117,7 +117,8 @@ change, but don't skip one.
    section for the feature. Read the files you'll change and one existing
    neighbour to copy the pattern from (an `actions.ts` + `actions.test.ts`
    pair, a sibling component). If the change touches the UI, read
-   DESIGN.md (it's short) and design to its principles and checklist. For anything touching more than ~3 files or
+   DESIGN.md (it's short) and design to its principles, its hard Mobile
+   UX rules and its checklist. For anything touching more than ~3 files or
    the schema, write a short plan first and check it against the
    Conventions above.
 2. **Branch.** Work on a feature branch, never `master`.
@@ -194,7 +195,10 @@ priority order:
    follow the existing pattern (no real DB).
 3. **UX and design**: any UI change passes DESIGN.md's "UI review
    checklist" (UX principles plus Squirrel's design principles). Name the
-   principle a finding breaks.
+   principle a finding breaks. DESIGN.md's **Mobile UX rules (M1–M10) are
+   hard**: they apply to new UI and to the existing component or page a
+   diff touches, and a break blocks merge. Bringing a touched component up
+   to them is in scope, not a drive-by refactor.
 4. **Conventions**: i18n in both `en.ts` and `sv.ts`, no hardcoded JSX
    strings, `render` not `asChild`, browser storage in
    `cookie-inventory.ts`, migration committed with any schema change.

@@ -116,7 +116,10 @@ don't merge. Follow Markers above, then:
    checklist (`.claude/skills/self-review/SKILL.md`), in that priority
    order; a diff that touches the UI is also checked against DESIGN.md's
    "UI review checklist", and each UX finding names the principle it
-   breaks. Plus: Conventional Commit title, release note in both languages
+   breaks. A break of a Mobile UX rule (DESIGN.md section 2, M1–M10), in
+   new UI or in an existing component the diff touches, is a blocking
+   finding: request changes, naming the rule, unless the PR Summary gives
+   an exception you accept. Plus: Conventional Commit title, release note in both languages
    for a releasing type, Verification section filled in. Read
    surrounding code only where a hunk is ambiguous.
 4. **Human-only areas** (AUTOPILOT.md) get a deeper pass, not a pass-by:
