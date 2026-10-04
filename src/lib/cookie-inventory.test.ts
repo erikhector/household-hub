@@ -6,7 +6,13 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
+import {
+  NUTRITION_RECAP_DISMISSED_STORAGE_KEY,
+  STORAGE_INVENTORY,
+  TASKS_RECAP_DISMISSED_STORAGE_KEY,
+  USE_IT_UP_DISMISSED_STORAGE_KEY,
+  VARIETY_RECAP_DISMISSED_STORAGE_KEY,
+} from "@/lib/cookie-inventory";
 
 const SRC = path.resolve(__dirname, "..");
 
@@ -44,5 +50,31 @@ describe("STORAGE_INVENTORY", () => {
   it("has no duplicate names", () => {
     const names = STORAGE_INVENTORY.map((entry) => entry.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe("dismissal keys", () => {
+  // useDismissedLocalStorage only accepts these (typed via DismissedStorageKey),
+  // so each must be a listed localStorage preference.
+  it("are each listed as a localStorage preference", () => {
+    for (const name of [
+      USE_IT_UP_DISMISSED_STORAGE_KEY,
+      NUTRITION_RECAP_DISMISSED_STORAGE_KEY,
+      VARIETY_RECAP_DISMISSED_STORAGE_KEY,
+      TASKS_RECAP_DISMISSED_STORAGE_KEY,
+    ]) {
+      const entry = STORAGE_INVENTORY.find((e) => e.name === name);
+      expect(entry, `${name} missing from STORAGE_INVENTORY`).toMatchObject({
+        kind: "localStorage",
+        category: "preference",
+      });
+    }
+  });
+
+  it("are only persisted through the shared hook, not hand-rolled in components", () => {
+    const offenders = sourceFiles(path.join(SRC, "components"))
+      .filter((file) => /localStorage\.(get|set)Item\(\s*[A-Z_]*DISMISSED/.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(SRC, file));
+    expect(offenders).toEqual([]);
   });
 });
