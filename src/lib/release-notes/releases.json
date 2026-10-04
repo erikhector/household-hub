@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.48.5",
+    "date": "2026-10-04",
+    "pr": 141,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes errors in scheduled jobs (notification sync, weekly digest emails) are now reported to the maintainer, so failures get fixed faster.",
+      "sv": "Fel i schemalagda jobb i bakgrunden (notissynk, veckosammanfattning) rapporteras nu till utvecklaren, så att problem åtgärdas snabbare."
+    }
+  },
+  {
     "version": "0.48.4",
     "date": "2026-10-04",
     "pr": 140,
