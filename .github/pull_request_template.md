@@ -39,5 +39,6 @@ English note to Swedish users too. Ignored for non-releasing PR types.
 - [ ] New or changed logic has colocated tests; bug fixes have a regression test
 - [ ] UI changes are covered in `e2e/` (new pages in `e2e/routes.ts`) and `npm run test:e2e` passes on desktop and mobile
 - [ ] Self-reviewed the diff (`.claude/skills/self-review/SKILL.md`)
+- [ ] UI changes meet DESIGN.md's Mobile UX rules (M1–M10) for new and touched UI, checked on the mobile screenshots (exceptions explained in the Summary)
 - [ ] New user-facing text is in both `en.ts` and `sv.ts`
 - [ ] Finished BACKLOG.md items are documented in REQUIREMENTS.md and removed from the backlog

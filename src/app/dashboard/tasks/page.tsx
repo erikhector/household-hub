@@ -87,7 +87,9 @@ async function AddTaskButton({ householdId, dict }: { householdId: string; dict:
       trigger={
         <Button className="gap-1.5">
           <Plus className="size-4" />
-          <span className="sr-only sm:not-sr-only">{dict.addTask}</span>
+          {/* Visible at every width: on a phone this is the page's one primary
+              action, and a lone "+" in a full-width bar names nothing (UX-4). */}
+          <span>{dict.addTask}</span>
         </Button>
       }
     />

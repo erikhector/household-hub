@@ -41,6 +41,13 @@ Stop at the first real problem in a hunk, note it, move on.
       strings) ⇒ passes every item of DESIGN.md's "UI review checklist"
       (the seven UX principles and Squirrel's design principles). Look at
       the mobile screenshot of the changed page, not just the code.
+- [ ] UI change ⇒ DESIGN.md's **Mobile UX rules M1–M10** hold, for the new
+      UI *and* for the existing component or page the diff touches (targets
+      ≥ 44 × 44 px with 8 px gaps, primary action in the thumb zone, right
+      `type`/`inputMode`/`autoComplete` on fields, feedback on every tap,
+      no gesture-only action, loading/offline states). Fix what you find in
+      the touched component in this PR; an exception needs a reason in the
+      PR Summary.
 - [ ] Every user-facing string is in `en.ts` **and** `sv.ts`, none hardcoded
       in JSX. Plurals use `{ one, other }`.
 - [ ] Base UI composition uses `render`, never `asChild`. `SelectValue` with

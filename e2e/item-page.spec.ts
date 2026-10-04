@@ -111,7 +111,10 @@ test("adding a conversion from a ⚠ recipe row makes it convert", async ({ page
   await expect(pancakes).toContainText("= 0.15 pcs");
   await expect(pancakes.getByRole("img", { name: "Converts" })).toBeVisible();
   await page.reload();
-  await expect(page.getByText("1 pcs = 20 dl")).toBeVisible();
+  // Scoped to main: while the reload streams in, Next.js parks the page in a
+  // hidden container outside main until the Suspense swap, so a page-wide
+  // getByText can briefly match two copies.
+  await expect(page.getByRole("main").getByText("1 pcs = 20 dl")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.pancakes).getByRole("img", { name: "Converts" })).toBeVisible();
 
   // "Try it" uses the same conversions, live.

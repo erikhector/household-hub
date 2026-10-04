@@ -1,5 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
-
 // Browser-side counterpart to src/instrumentation.ts, using the file
 // convention Next.js 16 uses in place of the older sentry.client.config.ts
 // (see node_modules/next/dist/docs/.../instrumentation-client.md --
@@ -13,15 +11,33 @@ import * as Sentry from "@sentry/nextjs";
 // Optional like the server side -- unset by default, so local dev/CI ship
 // no client-side Sentry initialization or network calls to a Sentry ingest
 // endpoint.
+//
+// The SDK is loaded with a dynamic import() behind that check (PERF-8): a
+// static import put ~130 KB gzipped of Sentry in the root bundle of every
+// page, /login included, even with no DSN. NEXT_PUBLIC_SENTRY_DSN is
+// inlined at build time, so with it unset the whole branch (and the import)
+// is dead code and no Sentry chunk is emitted. The trade-off with a DSN
+// set: the SDK loads async, so an error thrown in the first moments before
+// the chunk arrives isn't captured.
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-    tracesSampleRate: 0,
+  void import("@sentry/nextjs").then((Sentry) => {
+    Sentry.init({
+      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+      tracesSampleRate: 0,
+    });
   });
 }
 
 // Required export for App Router navigation instrumentation (breadcrumbs
-// for route changes) -- safe to export unconditionally: it's a no-op until
-// Sentry.init() has registered its router-transition handler above, which
-// only happens when NEXT_PUBLIC_SENTRY_DSN is set.
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+// for route changes). Forwards to the lazily loaded SDK and stays a no-op
+// without a DSN, where nothing was ever initialized to record it. If the
+// SDK hasn't finished loading yet, the import() just resolves once it has.
+export function onRouterTransitionStart(
+  ...args: Parameters<typeof import("@sentry/nextjs").captureRouterTransitionStart>
+) {
+  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    void import("@sentry/nextjs").then((Sentry) =>
+      Sentry.captureRouterTransitionStart(...args),
+    );
+  }
+}
