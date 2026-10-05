@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.50.2",
+    "date": "2026-10-05",
+    "pr": 156,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Toasts on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
+      "sv": "Notiser på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
+    }
+  },
+  {
     "version": "0.50.1",
     "date": "2026-10-05",
     "pr": 157,
