@@ -5253,9 +5253,20 @@ approximating them, so the email never disagrees with the app.
   a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
   and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
   (44 px) for the single-line ones, so don't override a field with
-  `text-sm` or a raw `<input>`. The add-item unit column is
-  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
+  `text-sm` or a raw `<input>`. Covered by
   `e2e/form-control-sizes.mobile.spec.ts`.
+- Comboboxes keep their value readable on phones. An autocomplete field
+  shows one 44 px button at a time below `sm`: the chevron while it's
+  empty, the clear (×) once it has a value (clearing brings the chevron
+  back). Form rows stack below `sm` so a combobox never shares a row with
+  more than a short number field: category and location (inventory add
+  and edit, the bulk-add review steps, the receipt's new-item draft) take
+  a row each, and quantity + unit become a `6rem` quantity beside a unit
+  that fills the row, with any third field wrapping under quantity
+  (inventory add/edit, shopping edit item, receipt rows). A recipe
+  ingredient's name gets its own row above quantity, unit and remove.
+  Desktop layouts are unchanged. `e2e/form-field-room.mobile.spec.ts`
+  fails if any combobox in those dialogs has under 120 px for its text.
 
 ## Testing
 
