@@ -5261,6 +5261,13 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- Form fields never go below 16 px on phones (UX-10): iOS zooms the page when
+  a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
+  and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
+  (44 px) for the single-line ones, so don't override a field with
+  `text-sm` or a raw `<input>`. The add-item unit column is
+  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
+  `e2e/form-control-sizes.mobile.spec.ts`.
 
 ## Testing
 

@@ -19,6 +19,7 @@ import {
   undoMarkMealEntryCookedAction,
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
+import { Input } from "@/components/ui/input";
 import { format, plural } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
@@ -177,12 +178,12 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                       </span>
                     </label>
                     <div className="flex items-center gap-2 pl-6">
-                      <input
+                      <Input
                         type="number"
                         inputMode="decimal"
                         min={0}
                         step="0.01"
-                        className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                        className="w-24"
                         value={item.quantity}
                         disabled={!item.included}
                         onChange={(e) => updateQuantity(item.key, e.target.value)}
@@ -216,7 +217,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
               <label htmlFor={`leftover-servings-${entry.id}`} className="text-sm font-medium">
                 {dict.leftoverServingsLabel}
               </label>
-              <input
+              <Input
                 enterKeyHint="done"
                 id={`leftover-servings-${entry.id}`}
                 name="leftoverServings"
@@ -228,7 +229,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                 placeholder="0"
                 value={leftoverServings}
                 onChange={(e) => setLeftoverServings(e.target.value)}
-                className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                className="w-24"
               />
               <p className="text-xs text-muted-foreground">{dict.leftoverServingsHint}</p>
             </div>
