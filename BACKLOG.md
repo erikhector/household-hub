@@ -101,13 +101,15 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
-      high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
-      through `@prisma/config`), not reachable at runtime. Move `prisma` to
-      devDependencies if `scripts/vercel-build.mjs` can still run
-      `migrate deploy` (check Vercel installs devDeps at build), else wait
-      for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
-      advisories. Pairs with MAINT-12's Dependabot config.
+- [ ] **SEC-12. Dependency hygiene** (low) `[!]` — blocked on upstream.
+      `prisma` is already a devDependency; `npm audit --omit=dev` still
+      shows 4 high findings (`mysql2`, `deepmerge-ts` via `@prisma/config`)
+      because `@prisma/client` lists `prisma` as an optional peer, which npm
+      installs and audits. Not reachable at runtime (details in
+      REQUIREMENTS.md, "Dependency audit findings (SEC-12)"). Nothing to do
+      until Prisma ships patched versions: re-audit on the next Prisma bump
+      and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
+      its advisories. Pairs with MAINT-12's Dependabot config.
 
 ### Performance (2026-09-26 audit)
 
