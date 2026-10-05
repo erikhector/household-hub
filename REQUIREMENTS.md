@@ -103,7 +103,15 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `cache()`) read the `locale` cookie. Every Server Component that needs
   translated text calls `getDictionary()` itself — there's no `[lang]` param
   to thread through layouts, so `cache()` is what dedupes the repeated
-  `cookies()` read within one request instead.
+  `cookies()` read within one request instead. Locale precedence: signed-in
+  account locale, then the `locale` cookie, then the browser's
+  `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
+  match, q-values honoured), then `en`.
+- **Public language toggle**: `LegalFooter` (rendered by every logged-out
+  page) carries a `PublicLanguageToggle` button, named after the language
+  it switches to, that calls `setLocaleAction` like the dashboard toggle.
+  The `locale` cookie is already in `cookie-inventory.ts` as a preference.
+  Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass
   a named sub-object (e.g. `dict.household.invite`) as a `dict` prop, or a
   `Pick<Dictionary, …>` slice when a component reads several namespaces —

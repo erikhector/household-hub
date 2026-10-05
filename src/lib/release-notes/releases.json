@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.50.0",
+    "date": "2026-10-05",
+    "pr": 155,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your browser is set to Swedish, Squirrel now opens in Swedish on the landing, login and invite pages, and there is a language switch at the bottom of every page you see before logging in.",
+      "sv": "Om din webbläsare är inställd på svenska öppnas Squirrel nu på svenska på startsidan, inloggningen och inbjudningssidorna, och längst ned på varje sida före inloggning finns en språkväxlare."
+    }
+  },
+  {
     "version": "0.49.0",
     "date": "2026-10-05",
     "pr": 154,
