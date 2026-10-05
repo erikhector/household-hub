@@ -452,19 +452,6 @@ don't build these in parallel:
       Acceptance: a unit test greps `actions.ts` files for string-literal
       `error:` values and fails on any.
 
-- [ ] **UX-17. Logged-out visitors can choose Swedish** (high, S) — The
-      language toggle is only inside the dashboard, and the locale falls
-      back to `en` with no Accept-Language
-      (`i18n/get-dictionary.ts:25`). A Swedish person opening an invite
-      link, the landing page or login gets English with no way to switch.
-
-      Fix: honour `Accept-Language` when there is no cookie, and add the
-      toggle to the public header or `LegalFooter`.
-
-      Acceptance: `public.spec.ts` opens `/join/<token>` with
-      `locale: "sv-SE"` and no cookie and sees Swedish, then switches to
-      English via the toggle.
-
 - [ ] **UX-18. Toasts clear the bottom bar and the home indicator** (medium,
       S) — `<Toaster />` (`app/layout.tsx:98`) uses Sonner's 16 px mobile
       offset. On dashboard pages every toast covers the bottom nav, and on
