@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.50.2",
+    "date": "2026-10-05",
+    "pr": 156,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Toasts on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
+      "sv": "Notiser på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
+    }
+  },
+  {
+    "version": "0.50.1",
+    "date": "2026-10-05",
+    "pr": 157,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Form fields on phones are now large enough that iOS no longer zooms in when you tap them.",
+      "sv": "Formulärfält på mobilen är nu tillräckligt stora för att iOS inte längre zoomar in när du trycker på dem."
+    }
+  },
+  {
+    "version": "0.50.0",
+    "date": "2026-10-05",
+    "pr": 155,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "If your browser is set to Swedish, Squirrel now opens in Swedish on the landing, login and invite pages, and there is a language switch at the bottom of every page you see before logging in.",
+      "sv": "Om din webbläsare är inställd på svenska öppnas Squirrel nu på svenska på startsidan, inloggningen och inbjudningssidorna, och längst ned på varje sida före inloggning finns en språkväxlare."
+    }
+  },
+  {
     "version": "0.49.0",
     "date": "2026-10-05",
     "pr": 154,

@@ -252,8 +252,7 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
-- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8,
-  UX-10
+- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
 - `dashboard/sidebar.tsx`, `dashboard/bottom-nav.tsx`,
   `dashboard/layout.tsx`: UX-7, UX-27
 
@@ -330,30 +329,6 @@ don't build these in parallel:
       Acceptance: a spec sets `html { font-size: 200% }` and runs
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
-
-- [ ] **UX-10. No sub-16 px fields and no clipped values in form controls**
-      (high, S) — These zoom the page on iOS when focused:
-      - `ui/combobox.tsx:39` is `text-sm` with no phone override. It is
-        used by the transaction category, recurring template, item
-        combobox, shared expense and merge target fields.
-      - The raw `<input>`s in `meal-planning/mark-cooked-dialog.tsx:180,219`
-        are ~30 px tall and 14 px.
-      - The price edit field is overridden to `text-sm`
-        (`shopping-list-client.tsx:1081`).
-      - The edit-item link field in the shopping row editor.
-
-      Fix:
-      - Use `text-base md:text-sm`, `border-2` and 44 px height on phones,
-        matching `input.tsx`.
-      - Replace the raw inputs with `Input`.
-      - In the add/edit item sheet, stop the unit field showing just "p"
-        for "pcs": the clear (×) button and chevron take its width, so
-        widen the column or hide the clear button below `sm`.
-
-      Acceptance: a mobile e2e check asserts every visible, focusable
-      `input`/`textarea`/`[role=combobox]` in each opened dialog has a
-      computed font-size ≥ 16 px. It must skip Base UI's
-      `aria-hidden` hidden inputs.
 
 - [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
       M7. Nothing in `src/` touches `history`, so Android's back button,
@@ -469,34 +444,6 @@ don't build these in parallel:
 
       Acceptance: a unit test greps `actions.ts` files for string-literal
       `error:` values and fails on any.
-
-- [ ] **UX-17. Logged-out visitors can choose Swedish** (high, S) — The
-      language toggle is only inside the dashboard, and the locale falls
-      back to `en` with no Accept-Language
-      (`i18n/get-dictionary.ts:25`). A Swedish person opening an invite
-      link, the landing page or login gets English with no way to switch.
-
-      Fix: honour `Accept-Language` when there is no cookie, and add the
-      toggle to the public header or `LegalFooter`.
-
-      Acceptance: `public.spec.ts` opens `/join/<token>` with
-      `locale: "sv-SE"` and no cookie and sees Swedish, then switches to
-      English via the toggle.
-
-- [ ] **UX-18. Toasts clear the bottom bar and the home indicator** (medium,
-      S) — `<Toaster />` (`app/layout.tsx:98`) uses Sonner's 16 px mobile
-      offset. On dashboard pages every toast covers the bottom nav, and on
-      iOS it reaches into the home-indicator strip, so its swipe competes
-      with the home gesture. The "Undo" action button is 24 px (M3).
-
-      Fix: `mobileOffset` with the bar height plus
-      `env(safe-area-inset-bottom)` on dashboard routes, and 44 px
-      `[data-button]` under `pointer: coarse`.
-
-      In the same PR, make the copy actions (`share-list-button.tsx:102`,
-      `invite-button.tsx:83`, `calendar-feed-setting.tsx:78`) await
-      `clipboard.writeText` and show an error toast when it fails. Offer
-      `navigator.share` on phones.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
@@ -714,7 +661,7 @@ don't build these in parallel:
       - `landscape`: 863×393 touch.
       - a 200% text pass.
 
-      Add the 16 px field assertion from UX-10. Keep the runtime in check
+      Add the 16 px field assertion (`e2e/form-control-sizes.mobile.spec.ts`). Keep the runtime in check
       by running only `smoke` on the extra projects.
 
 ### Product decisions (2026-10-05)
