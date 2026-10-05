@@ -43,12 +43,17 @@ test("a toast clears the bottom navigation bar on phones", async ({ page }) => {
   const toast = page.getByRole("listitem").filter({ hasText: t.saved });
   await expect(toast).toBeVisible();
 
-  const barBox = await page.locator("nav.fixed.bottom-0").boundingBox();
-  const toastBox = await toast.boundingBox();
-  if (!toastBox) throw new Error("toast has no box");
-  if (barBox) {
-    // Phone layout: the bar is shown, and the toast ends above its top edge.
-    expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(barBox.y);
+  // Phone layout: the bar is shown (it's absent from the desktop layout),
+  // and the toast ends above its top edge. Polled because the toast slides
+  // in from below the screen over ~400 ms.
+  const bar = page.locator("nav.fixed.bottom-0");
+  if (await bar.isVisible()) {
+    await expect
+      .poll(async () => {
+        const [barBox, toastBox] = await Promise.all([bar.boundingBox(), toast.boundingBox()]);
+        return barBox && toastBox ? barBox.y - (toastBox.y + toastBox.height) : -1;
+      })
+      .toBeGreaterThanOrEqual(0);
   }
 });
 
