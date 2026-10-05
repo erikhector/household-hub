@@ -55,9 +55,12 @@ test("balances list open split bills and leave out settled ones", async ({ page 
   await page.goto("/dashboard/budget?tab=insights");
   const main = page.getByRole("main");
   await expect(main.getByText("Still due on bills")).toBeVisible();
-  const row = main.getByRole("listitem").filter({ hasText: open });
+  // The "Still due" list itself (the transactions list on another tab
+  // also names every bill, settled or not).
+  const dueList = main.getByText("Still due on bills").locator("xpath=following-sibling::ul");
+  const row = dueList.getByRole("listitem").filter({ hasText: open });
   await expect(row).toBeVisible();
   await expect(row).toContainText(/777/);
-  await expect(main.getByText(settled)).toHaveCount(0);
+  await expect(dueList).not.toContainText(settled);
   await expectNoHorizontalOverflow(page);
 });
