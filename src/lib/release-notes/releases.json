@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.50.1",
+    "date": "2026-10-05",
+    "pr": 157,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Form fields on phones are now large enough that iOS no longer zooms in when you tap them.",
+      "sv": "Formulärfält på mobilen är nu tillräckligt stora för att iOS inte längre zoomar in när du trycker på dem."
+    }
+  },
+  {
     "version": "0.50.0",
     "date": "2026-10-05",
     "pr": 155,
