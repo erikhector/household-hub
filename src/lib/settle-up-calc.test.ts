@@ -3,7 +3,9 @@ import {
   computeBillPositions,
   computeMemberPosition,
   computeNetBalances,
+  isSettledBill,
   remainingDue,
+  sumTransfersByPair,
   simplifyDebts,
   type SplitTransaction,
 } from "./settle-up-calc";
@@ -336,5 +338,88 @@ describe("computeMemberPosition", () => {
     expect(
       computeMemberPosition({ memberId: "partner", transactions: [halfPaid], transfers: [], asOf: sep }),
     ).toEqual({ memberBalance: 0, owedToBills: 3000 });
+  });
+});
+
+// PERF-12: the budget page no longer loads every split bill and repayment the
+// household has ever logged. These pin that what it loads instead (unsettled
+// bills only, repayments summed per pair) yields the same balances,
+// settle-up transfers and "left due" list as the full history did.
+describe("PERF-12 bounded inputs match the full history", () => {
+  const evenSplit = (
+    id: string,
+    amount: number,
+    paid: Record<string, number>,
+  ): SplitTransaction & { id: string } => ({
+    id,
+    amount,
+    splits: [
+      { householdMemberId: "a", amountOwed: amount / 2, amountPaid: paid.a ?? 0 },
+      { householdMemberId: "b", amountOwed: amount / 2, amountPaid: paid.b ?? 0 },
+    ],
+  });
+  const bills = [
+    evenSplit("settled-1", 1000, { a: 500, b: 500 }),
+    evenSplit("settled-2", 300, { a: 150, b: 150 }),
+    evenSplit("a-paid-all", 6000, { a: 6000 }),
+    evenSplit("half-paid", 4000, { a: 1000, b: 500 }),
+    evenSplit("unpaid", 800, {}),
+    evenSplit("settled-3", 90, { a: 45, b: 45 }),
+  ];
+  const transfers = [
+    { fromMemberId: "b", toMemberId: "a", amount: 1000 },
+    { fromMemberId: "b", toMemberId: "a", amount: 250.5 },
+    { fromMemberId: "a", toMemberId: "b", amount: 75 },
+  ];
+
+  it("recognises only fully paid, exactly shared bills as settled", () => {
+    expect(bills.filter(isSettledBill).map((b) => b.id)).toEqual(["settled-1", "settled-2", "settled-3"]);
+    // Right total, wrong payer: balances move, so it is not settled.
+    expect(isSettledBill(evenSplit("x", 100, { a: 100 }))).toBe(false);
+    // Shares paid in full but the bill's amount exceeds them: money is still left due.
+    expect(
+      isSettledBill({ amount: 100, splits: [{ householdMemberId: "a", amountOwed: 40, amountPaid: 40 }] }),
+    ).toBe(false);
+    // A sub-cent difference still counts (exact comparison, no EPSILON).
+    expect(isSettledBill(evenSplit("y", 100, { a: 50.001, b: 50 }))).toBe(false);
+  });
+
+  it("gives settled bills a zero position", () => {
+    for (const bill of bills.filter(isSettledBill)) {
+      for (const p of computeBillPositions(bill).values()) {
+        expect(p.memberBalance).toBe(0);
+        expect(p.owedToBill).toBe(0);
+      }
+      expect(remainingDue(bill)).toBe(0);
+    }
+  });
+
+  it("produces identical balances and settle-up transfers", () => {
+    const full = computeNetBalances(bills, transfers);
+    const bounded = computeNetBalances(bills.filter((b) => !isSettledBill(b)), sumTransfersByPair(transfers));
+    expect(bounded).toEqual(full);
+    expect(simplifyDebts(bounded)).toEqual(simplifyDebts(full));
+  });
+
+  it("keeps the unpaid-bills list identical", () => {
+    const leftDue = (list: typeof bills) =>
+      list.map((b) => ({ id: b.id, due: remainingDue(b) })).filter((b) => b.due > 0);
+    expect(leftDue(bills.filter((b) => !isSettledBill(b)))).toEqual(leftDue(bills));
+  });
+
+  it("handles a household with only settled bills", () => {
+    const settled = bills.filter(isSettledBill);
+    expect(computeNetBalances(settled)).toEqual([]);
+    expect(computeNetBalances([])).toEqual([]);
+  });
+
+  it("sums repayments per pair without mixing directions or mutating the input", () => {
+    const input = transfers.map((t) => ({ ...t }));
+    expect(sumTransfersByPair(input)).toEqual([
+      { fromMemberId: "b", toMemberId: "a", amount: 1250.5 },
+      { fromMemberId: "a", toMemberId: "b", amount: 75 },
+    ]);
+    expect(input).toEqual(transfers);
+    expect(sumTransfersByPair([])).toEqual([]);
   });
 });

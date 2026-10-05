@@ -119,15 +119,6 @@ shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
       (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
       and the replay excludes) to `withSentryConfig`, or `import()` it
       behind the DSN check.
-- [ ] **PERF-12. Bound the budget page's all-time queries** (medium, M) —
-      `CostAnalyzerSection` (`budget/page.tsx:144-148`) reads all-time
-      `PriceHistory` though it shows only `MAX_SPENDING_MONTHS`;
-      `splitTransactions` and `memberSettlement.findMany` (`:406-418`) are
-      all-time too, and the Insights tab renders on every visit. Window
-      PriceHistory (or SQL `groupBy` per month), compute settle-up balances
-      with `transactionSplit.groupBy({ by: householdMemberId, _sum })`, and
-      optionally render Insights only when it's the active tab. Conflicts
-      with MAINT-10 (`budget/page.tsx`).
 - [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
       `api/cron/sync-notifications/route.ts:41-65` walks every household in
       sequential batches of 10, with no `maxDuration`. Pre-select only
