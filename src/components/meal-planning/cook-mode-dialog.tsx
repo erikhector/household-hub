@@ -39,9 +39,9 @@ export function CookModeDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      {/* Mounted only while open (Base UI unmounts a closed popup), so the
-          wake lock and the ticked steps both end with the view. */}
-      <CookModeContent dict={dict} locale={locale} recipe={recipe} portions={portions} open={open} />
+      {/* Rendered only while open, so the wake lock is released and the
+          ticked steps are dropped the moment the view closes. */}
+      {open && <CookModeContent dict={dict} locale={locale} recipe={recipe} portions={portions} />}
     </Dialog>
   );
 }
@@ -51,17 +51,15 @@ function CookModeContent({
   locale,
   recipe,
   portions,
-  open,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
   recipe: RecipeData;
   portions: number | null;
-  open: boolean;
 }) {
-  // Reuses the shopping list's hook (AUTO-3): the screen stays on while this
-  // is open and the lock is released when it closes.
-  useScreenWakeLock(open);
+  // Reuses the shopping list's hook (AUTO-3): the lock is requested when this
+  // mounts (the view opens) and released when it unmounts (it closes).
+  useScreenWakeLock(true);
 
   const steps = splitSteps(recipe.instructions);
   const [done, setDone] = useState<ReadonlySet<number>>(new Set());

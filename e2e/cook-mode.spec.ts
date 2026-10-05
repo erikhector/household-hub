@@ -14,7 +14,7 @@ test("cook mode opens, ticks a step off and closes back to the recipe list", asy
 
   // A recipe without steps has nothing to cook from.
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Cinnamon buns");
-  await expect(page.getByText("Cinnamon buns", { exact: true })).toBeVisible();
+  await expect(page.getByText("Cinnamon buns", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Cook", exact: true })).toHaveCount(0);
 
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
