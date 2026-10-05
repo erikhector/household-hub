@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.49.0",
+    "date": "2026-10-05",
+    "pr": 154,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Recipes with instructions now have a Cook button that opens a full-screen view with big, tappable steps and your ingredients. The screen stays on while you cook.",
+      "sv": "Recept med instruktioner har nu en Laga-knapp som öppnar en helskärmsvy med stora steg att bocka av och dina ingredienser. Skärmen förblir tänd medan du lagar mat."
+    }
+  },
+  {
     "version": "0.48.6",
     "date": "2026-10-05",
     "pr": 153,
