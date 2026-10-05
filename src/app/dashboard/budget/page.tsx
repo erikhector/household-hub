@@ -79,6 +79,9 @@ const MIN_PRICE_POINTS_FOR_TREND = 3;
 // Cap the monthly spending chart to the most recent N months so it stays
 // readable once a household has years of price history.
 const MAX_SPENDING_MONTHS = 12;
+// PERF-12: how far back the cost analyzer reads PriceHistory — the current
+// month plus the 11 before it, which is exactly the spending chart's span.
+const PRICE_HISTORY_WINDOW_MONTHS = MAX_SPENDING_MONTHS;
 // Same cap, for the "Fixed income & costs" trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
 // How many recorded repayments the Balances card lists (newest first) — enough
@@ -140,9 +143,15 @@ async function CostAnalyzerSection({
   const now = new Date();
   const thisMonthStart = getMonthStart(now);
   const lastMonthStart = addMonths(thisMonthStart, -1);
+  const priceHistoryWindowStart = addMonths(thisMonthStart, -(PRICE_HISTORY_WINDOW_MONTHS - 1));
   const [priceHistoryRows, expiredCandidates, inStockItems, pendingListItems] = await Promise.all([
+    // PERF-12: only the trailing PRICE_HISTORY_WINDOW_MONTHS, not every
+    // purchase since the household started. Every figure below is "recent"
+    // by definition (the spending bars show 12 months, a trend is first →
+    // latest price, a store comparison the last price per store), so older
+    // rows only made this query, and the JS passes over it, grow forever.
     prisma.priceHistory.findMany({
-      where: { inventoryItem: { householdId } },
+      where: { inventoryItem: { householdId }, date: { gte: priceHistoryWindowStart } },
       include: { inventoryItem: { select: { id: true, name: true } } },
       orderBy: { date: "asc" },
     }),
@@ -263,6 +272,41 @@ function CostAnalyzerSkeleton() {
   );
 }
 
+// PERF-12: the split bills the Balances card and "left due" list can still
+// need — every bill that isn't settled. One grouped query finds their ids,
+// then a plain findMany loads them (with the fields the settle-up calc
+// needs) newest first, so the work scales with bills still open rather than
+// with every bill the household ever split. The HAVING clause is the exact
+// negation of isSettledBill (src/lib/settle-up-calc.ts), which is unit-tested
+// to prove leaving settled bills out can't change a balance: some member's
+// payment differs from their share, or the bill's amount isn't covered by the
+// payments by more than the calc's 0.005 EPSILON. Scoped by the household id
+// from the session, bound as a parameter.
+async function loadUnsettledSplitBills(householdId: string) {
+  const unsettled = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT t."id"
+    FROM "Transaction" t
+    JOIN "TransactionSplit" s ON s."transactionId" = t."id"
+    WHERE t."householdId" = ${householdId}
+    GROUP BY t."id", t."amount"
+    HAVING bool_or(s."amountPaid" <> s."amountOwed")
+        OR t."amount" - sum(s."amountPaid") > 0.005
+  `;
+  if (unsettled.length === 0) return [];
+  return prisma.transaction.findMany({
+    where: { householdId, id: { in: unsettled.map((row) => row.id) } },
+    select: {
+      id: true,
+      amount: true,
+      date: true,
+      description: true,
+      category: { select: { name: true } },
+      splits: { select: { householdMemberId: true, amountOwed: true, amountPaid: true } },
+    },
+    orderBy: { date: "desc" },
+  });
+}
+
 // SCALE-J: everything else on this page — Overview's Safe to spend/due
 // widget, Manage's recurring templates + categories, the Transactions tab
 // and Insights' period summary/fixed-cost trend/balances — funnels into one
@@ -322,6 +366,7 @@ async function BudgetTabsSection({
     recurringTemplateAcks,
     splitTransactions,
     memberSettlements,
+    memberSettlementSums,
     savingsTotals,
   ] = await Promise.all([
       prisma.budgetCategory.findMany({
@@ -398,26 +443,26 @@ async function BudgetTabsSection({
       prisma.recurringTemplateAck.findMany({
         where: { recurringTemplate: { householdId } },
       }),
-      // Every split transaction the household has ever logged, for the
-      // Balances card: debts carry over between months until a repayment
-      // clears them, so this can't be limited to the viewed month the way
-      // monthTransactions is. Only split rows and the fields the settle-up
-      // calc needs, which keeps it small next to a full transaction fetch.
-      prisma.transaction.findMany({
-        where: { householdId, splits: { some: {} } },
-        select: {
-          id: true,
-          amount: true,
-          date: true,
-          description: true,
-          category: { select: { name: true } },
-          splits: { select: { householdMemberId: true, amountOwed: true, amountPaid: true } },
-        },
-        orderBy: { date: "desc" },
-      }),
+      // Every split bill that can still matter, for the Balances card and
+      // the "left due" list: debts carry over between months until a
+      // repayment clears them, so this can't be limited to the viewed month
+      // the way monthTransactions is. PERF-12: but a bill that is fully
+      // settled (see isSettledBill) contributes nothing to either, so only
+      // the others are loaded, however many bills the household has ever
+      // split. See loadUnsettledSplitBills.
+      loadUnsettledSplitBills(householdId),
+      // PERF-12: only the newest few repayments are listed; the balances
+      // need every one but only as a sum per (payer, receiver) pair, so that
+      // comes from a groupBy (≤ members² rows) instead of every row.
       prisma.memberSettlement.findMany({
         where: { householdId },
         orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+        take: MAX_REPAYMENTS_SHOWN,
+      }),
+      prisma.memberSettlement.groupBy({
+        by: ["fromMemberId", "toMemberId"],
+        where: { householdId },
+        _sum: { amount: true },
       }),
       // GAP-22: each category's all-time savings, for the Savings goals
       // card. A goal is a running total towards a destination, so unlike
@@ -480,10 +525,10 @@ async function BudgetTabsSection({
     ? simplifyDebts(
         computeNetBalances(
           splitTransactions.map((t) => ({ amount: t.amount, splits: t.splits })),
-          memberSettlements.map((m) => ({
+          memberSettlementSums.map((m) => ({
             fromMemberId: m.fromMemberId,
             toMemberId: m.toMemberId,
-            amount: m.amount,
+            amount: m._sum.amount ?? 0,
           })),
         ),
       )
@@ -507,7 +552,7 @@ async function BudgetTabsSection({
       leftDue: remainingDue({ amount: t.amount, splits: t.splits }),
     }))
     .filter((t) => t.leftDue > 0);
-  const repayments: RepaymentRow[] = memberSettlements.slice(0, MAX_REPAYMENTS_SHOWN).map((m) => ({
+  const repayments: RepaymentRow[] = memberSettlements.map((m) => ({
     id: m.id,
     fromMemberId: m.fromMemberId,
     toMemberId: m.toMemberId,

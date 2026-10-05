@@ -1511,9 +1511,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   Safe to spend and the recurring-template status checks each read from
   their own wider trailing window instead (see those subsections) since
   they need to see further back than just the month on screen. The
-  settle-up balances read every split transaction the household has (split
-  rows only), since debts carry over until they're cleared — see
-  "Household expense splitting".
+  settle-up balances count every split bill and repayment the household
+  has, since debts carry over until they're cleared, but load only the
+  bills that aren't settled yet and repayments summed per pair (PERF-12) —
+  see "Household expense splitting".
 - **Viewing another household (`?household=`)**: "View in {household}
   Budget" links on shared rows in Personal Budget (F1) open
   `/dashboard/budget?month=…&household=<id>`, so the page shows the bill's
@@ -1600,6 +1601,14 @@ item is marked purchased with an estimated price
   anything), so this is a hand-rolled CSS bar chart — the same
   proportional-`<div>`-bar technique `PeriodSummary`'s category breakdown
   already uses — rather than a new dependency.
+- **Window (PERF-12)**: the analyzer reads only the trailing 12 calendar
+  months of `PriceHistory` (this month and the 11 before,
+  `PRICE_HISTORY_WINDOW_MONTHS`), not the household's whole history, so
+  the query stops growing with every purchase. The spending bars were
+  already limited to 12 months; per-item trends, "cheapest store" and the
+  basket comparison now also reflect that window (a price older than a
+  year no longer counts as an item's "first" price or a store's "last"
+  price).
 - **Price trend per item**: grouped by `inventoryItemId`, an item needs at
   least 3 recorded `PriceHistory` points before it's considered to have
   "enough history to be meaningful" and gets a card — fewer than that and
@@ -2099,7 +2108,16 @@ Insights tab, shown only when the household has more than one member.
 Covers every split bill and repayment the household has, not just the
 month on screen: a debt carries over until it's cleared. (It used to be
 scoped to the selected month, so an unpaid August debt silently vanished
-in September.) All netting and debt-simplification logic is pure and
+in September.) That is a statement about the numbers, not the queries
+(PERF-12): a bill where every member paid exactly their share and nothing
+is left unpaid has an all-zero position, so `loadUnsettledSplitBills`
+(`budget/page.tsx`) skips it in SQL (`isSettledBill` is the tested
+definition its `HAVING` clause negates), and repayments arrive as one
+`groupBy` sum per payer/receiver pair (`sumTransfersByPair` is the same
+reduction, tested), with only the newest 10 rows fetched for the list. The
+balances, suggested transfers and "left due" list are identical to
+summing the full history; the work scales with open bills, not every bill
+ever split. All netting and debt-simplification logic is pure and
 unit-tested in `src/lib/settle-up-calc.ts` (moved from
 `src/app/dashboard/budget/` since Personal Budget uses it too):
 
