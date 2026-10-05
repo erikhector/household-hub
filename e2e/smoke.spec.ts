@@ -32,3 +32,30 @@ for (const locale of LOCALES) {
     }
   });
 }
+
+// UX-15: dates are written in the viewer's language, not the runtime's
+// default locale. Pinned to a fixed month and week so the check doesn't
+// depend on today's date. collectErrors also catches a hydration mismatch
+// between the server's and the browser's formatting.
+test.describe("dates in Swedish (sv)", () => {
+  test.use({ storageState: STORAGE_STATE_SV });
+  test.beforeEach(async ({ context, baseURL }) => {
+    await dismissCookieNotice(context, baseURL!);
+  });
+
+  for (const path of ["/dashboard/budget", "/dashboard/personal-budget"]) {
+    test(`${path} names the month in Swedish`, async ({ page }) => {
+      const errors = collectErrors(page);
+      await page.goto(`${path}?month=2026-10`);
+      await expect(page.locator("main").getByText("oktober 2026", { exact: true })).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("the meal planner shows a Swedish week range", async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.goto("/dashboard/meal-planning?week=2026-09-28");
+    await expect(page.locator("main").getByText("28 sep.–4 okt. 2026", { exact: true })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});

@@ -117,6 +117,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.
+- **Dates and numbers follow the locale too (UX-15)**: anything formatted
+  for display takes the viewer's `locale` (from `getLocale()`, passed down
+  as a prop) and goes through `Intl.DateTimeFormat`/`Intl.NumberFormat` or
+  `createMoneyFormat` — never `toLocaleDateString()` with no locale (the
+  runtime's default, which is English on the server) and never
+  `toFixed(2)` for on-screen text. So the budget month reads
+  "oktober 2026", the meal planner's week "28 sep.–4 okt. 2026"
+  (`formatRange`, in UTC since week keys are UTC dates, so server and
+  browser agree), split warnings and "Your share" use the household's
+  money format, and the cost analyzer's price change is a locale percent
+  ("+12,5 %"). A list the user didn't name is called
+  `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
+  "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
+  name placeholders use the same helper so they match what gets saved.
+  Number *inputs* stay `type="number"` with dot-decimal values. Units are
+  still shown as stored (UX-44).
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)

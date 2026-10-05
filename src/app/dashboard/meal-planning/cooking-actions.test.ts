@@ -89,6 +89,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
       // Backs createCategoryResolver's dictionary tier (AUTO-2b).
       inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
     })),
+    getLocale: vi.fn(async () => "en"),
   };
 });
 vi.mock("@/lib/notifications", () => ({
