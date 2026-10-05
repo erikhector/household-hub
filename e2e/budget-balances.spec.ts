@@ -53,10 +53,11 @@ test("balances list open split bills and leave out settled ones", async ({ page 
   const { open, settled } = await seedBills();
 
   await page.goto("/dashboard/budget?tab=insights");
-  await expect(page.getByText("Still due on bills")).toBeVisible();
-  const row = page.getByRole("listitem").filter({ hasText: open });
+  const main = page.getByRole("main");
+  await expect(main.getByText("Still due on bills")).toBeVisible();
+  const row = main.getByRole("listitem").filter({ hasText: open });
   await expect(row).toBeVisible();
   await expect(row).toContainText(/777/);
-  await expect(page.getByText(settled)).toHaveCount(0);
+  await expect(main.getByText(settled)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
