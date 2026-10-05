@@ -530,6 +530,25 @@ out to be a product-scope question rather than a scoped task should move to
       until accepted; an e2e test accepts a proposal and asserts the
       entries appear after reload.
 
+### 2026-10-05 scan
+
+- [ ] **GAP-46. "Last cooked / cooked N times" on each recipe** (impact: med, effort: S) —
+      Plan to Eat and Paprika show when a recipe was last made and how
+      often, so a household can see what has dropped out of rotation and
+      stop cooking the same five dinners. Squirrel records the data
+      already: `MealPlanEntry.consumedAt` (`prisma/schema.prisma:906`) is
+      set by "Mark as cooked" (REQUIREMENTS.md, "Mark meal as cooked →
+      inventory decrement"), but nothing reads it back per recipe. The
+      Recipes list (`RecipeManager`) shows only the favorite star and stays
+      alphabetical (REQUIREMENTS.md, "Recipe favorites"). No schema change:
+      a household-scoped `groupBy recipeId` over cooked entries, plus a
+      pure helper for the label. Acceptance: each recipe row shows "Cooked
+      3 times, last 12 Sep" (or nothing for a never-cooked recipe, not
+      "0 times"), localized in `en.ts` and `sv.ts` with a `{ one, other }`
+      plural; the query is scoped by `requireHousehold()` and has a unit
+      test for count and latest date; an e2e test marks a seeded entry
+      cooked, opens Recipes and asserts the line, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
