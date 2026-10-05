@@ -25,3 +25,25 @@ for (const locale of LOCALES) {
     }
   });
 }
+
+// UX-17: a visitor with no cookie gets the browser's language, and can
+// switch from the public footer without an account.
+test.describe("public language toggle", () => {
+  test.use({ locale: "sv-SE" });
+
+  test("/join/<token> follows Accept-Language, then switches to English", async ({ page, context, baseURL }) => {
+    await dismissCookieNotice(context, baseURL!);
+    await page.goto("/join/e2e-invalid-token");
+    await expect(page.getByText("Ogiltig inbjudan")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "sv");
+
+    await page.getByRole("button", { name: "Byt språk: Engelska" }).click();
+    await expect(page.getByText("Invalid invite")).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    // The choice is stored (locale cookie), so it survives a reload even
+    // though the browser still asks for Swedish.
+    await page.reload();
+    await expect(page.getByText("Invalid invite")).toBeVisible();
+  });
+});
