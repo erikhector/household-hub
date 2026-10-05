@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChefHat, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ChefHat, CookingPot, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
 import { deleteRecipeAction, toggleRecipeFavoriteAction } from "@/app/dashboard/meal-planning/recipe-actions";
@@ -151,6 +152,7 @@ export function RecipeManager({
                 <RecipeRow
                   key={recipe.id}
                   dict={dict}
+                  locale={locale}
                   recipe={recipe}
                   cost={recipeCosts[recipe.id] ?? null}
                   numberFormat={numberFormat}
@@ -169,6 +171,7 @@ export function RecipeManager({
 
 function RecipeRow({
   dict,
+  locale,
   recipe,
   cost,
   numberFormat,
@@ -177,6 +180,7 @@ function RecipeRow({
   ingredientUnits,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   recipe: RecipeData;
   cost: RecipeCost | null;
   numberFormat: Intl.NumberFormat;
@@ -310,6 +314,22 @@ function RecipeRow({
           <p className="truncate text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
             {costSummary}
           </p>
+        )}
+        {/* GAP-42: only a recipe with steps has anything to cook from. Under
+            the details, not among the icon buttons, so the row's name keeps
+            its width on a phone. */}
+        {recipe.instructions?.trim() && (
+          <CookModeDialog
+            dict={dict}
+            locale={locale}
+            recipe={recipe}
+            trigger={
+              <Button type="button" variant="outline" size="sm" className="mt-2">
+                <CookingPot className="size-3.5" />
+                {dict.cookModeButton}
+              </Button>
+            }
+          />
         )}
       </div>
       <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">

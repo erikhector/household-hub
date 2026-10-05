@@ -111,7 +111,7 @@ export async function seed() {
       [E2E_HOUSEHOLD.id, E2E_ITEM.id],
     );
     await client.query(
-      `INSERT INTO "Recipe" (id, "householdId", name) VALUES ('e2e-recipe-buns', $1, 'Cinnamon buns'), ('e2e-recipe-pancakes', $1, 'Pancakes')`,
+      `INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ('e2e-recipe-buns', $1, 'Cinnamon buns', NULL), ('e2e-recipe-pancakes', $1, 'Pancakes', E'Whisk the batter\nFry the pancakes')`,
       [E2E_HOUSEHOLD.id],
     );
     await client.query(

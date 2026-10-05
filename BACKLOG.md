@@ -1109,26 +1109,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-09-29 scan
-
-- [ ] **GAP-42. Cook mode on a recipe (screen stays on, tick off steps)** (impact: med, effort: M) —
-      Paprika's "Cook" view keeps the screen awake, lets you cross off
-      ingredients and highlight the current step; Mealie and Tandoor have
-      the same. Squirrel shows a recipe's `instructions` (one step per line,
-      see REQUIREMENTS.md "Recipe import from URL") only in the edit form
-      (`src/components/meal-planning/recipe-form-dialog.tsx`), so cooking
-      from a phone means an editing dialog that dims and locks mid-recipe.
-      The screen-wake-lock hook already exists for shopping
-      (`src/lib/shopping/use-screen-wake-lock.ts`, AUTO-3) and can be
-      reused. No schema change; component state only, nothing stored in the
-      browser (no `cookie-inventory.ts` entry). Acceptance: a "Cook" button on
-      a recipe with instructions opens a full-screen read view with large
-      step text, the ingredients (scaled to the meal entry's portions when
-      opened from the plan) and tappable steps that dim when done; it
-      requests the wake lock while open and releases it on close; an e2e test
-      opens it on desktop and mobile, ticks a step and asserts it is marked
-      done and that closing returns to the recipe list.
-
 ### 2026-09-30 scan
 
 - [ ] **GAP-44. "Freeze it" on an inventory item (extends the expiry clock)** (impact: med, effort: M) —

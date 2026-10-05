@@ -1463,6 +1463,13 @@ export const en = {
     editAriaLabel: "Edit recipe",
     // MATCH-5: opens the recipe straight at "Match ingredients".
     reviewMatchesAriaLabel: "Review ingredient matches",
+    // GAP-42: the full-screen cook view.
+    cookModeButton: "Cook",
+    cookModeFromPlanAriaLabel: "Cook {meal}",
+    cookModeTitle: "Cooking {name}",
+    cookModeIngredients: "Ingredients",
+    cookModeSteps: "Steps",
+    cookModeClose: "Close",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
