@@ -4631,8 +4631,9 @@ components directly.
   leaving the page and losing the form. Closing it from the UI (X,
   Cancel, Escape, a submit) calls `history.back()` when its entry is still
   the current one, so no extra back step is left behind. The mechanics
-  are in `src/components/ui/dialog-history.ts`: one capture-phase
-  `popstate` listener keeps the stack of open dialogs (a back closes only
+  are in `src/components/ui/dialog-history.ts`: one `popstate`
+  listener, added before the router's own (the root layout renders
+  `DialogHistoryListener` so the module loads with every page), keeps the stack of open dialogs (a back closes only
   the top one), stops Next.js's router from seeing a pop that stays on the
   same URL, keeps its marker through the router's same-URL state
   replaces, and steps forward again if the app navigated (e.g. the merge

@@ -9,6 +9,7 @@ import { isThemeChoice } from "@/components/theme/theme-choice";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { CookieNotice } from "@/components/legal/cookie-notice";
+import { DialogHistoryListener } from "@/components/ui/dialog-history-listener";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import "./globals.css";
 
@@ -93,6 +94,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <PwaSplashScreen />
         <ServiceWorkerRegistration />
+        <DialogHistoryListener />
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
           {children}
           <Toaster />

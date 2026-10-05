@@ -9,12 +9,16 @@
 // a nested dialog closes only the top one: everything above the entry the
 // browser landed on closes, everything at or below it stays.
 //
-// The listener is registered in the capture phase. Listeners on the target
-// (window) run capture-first, so it runs before Next.js's own popstate
-// handler and can stop it. A pop that only closed a dialog (or undid our
-// own back()) lands on the same URL, so there's nothing for the router to
-// restore, and letting it run would dispatch a restore that discards a
-// navigation already in flight.
+// The listener has to run before Next.js's own popstate handler so it can
+// stop it: a pop that only closed a dialog (or undid our own back()) lands
+// on the same URL, so there's nothing for the router to restore, and
+// letting it run dispatches a restore that discards a navigation already
+// in flight (the merge dialog closes, then router.replace()s to the kept
+// item, which never happened). Listeners on window run in the order they
+// were added, whatever the capture flag says, and the router adds its own
+// in an effect after hydration. So this module installs itself as soon as
+// it's evaluated, and the root layout renders DialogHistoryListener so
+// it's evaluated on first load, before that effect, on every page.
 
 // Our marker inside history.state. Spread onto Next's own state (which
 // carries __NA and the router tree), so its pushState patch passes the
@@ -62,9 +66,9 @@ function onPopState(event: PopStateEvent) {
 }
 
 function install() {
-  if (installed) return;
+  if (installed || typeof window === "undefined") return;
   installed = true;
-  window.addEventListener("popstate", onPopState, { capture: true });
+  window.addEventListener("popstate", onPopState);
   // Wraps whatever pushState/replaceState are by now (Next.js's patched
   // ones). The router replaces the current entry's state on every commit,
   // URL unchanged, without our marker, so that's put back: otherwise an
@@ -88,6 +92,8 @@ function install() {
     return originalReplace(data, unused, url);
   };
 }
+
+install();
 
 /**
  * Pushes a history entry for a dialog that just opened. `close` runs when
