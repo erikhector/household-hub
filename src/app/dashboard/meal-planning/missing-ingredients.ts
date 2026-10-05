@@ -9,7 +9,14 @@
 
 import { z } from "zod";
 import type { MissingIngredientData } from "@/components/meal-planning/types";
-import { convertForItem, convertQuantity, unitsAreComparable, type ItemUnitConversionLike } from "@/lib/units";
+import { round2 } from "@/lib/math";
+import {
+  convertForItem,
+  convertQuantity,
+  normalizeUnit,
+  unitsAreComparable,
+  type ItemUnitConversionLike,
+} from "@/lib/units";
 import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
 // --- Date range (GAP-32) -----------------------------------------------------
@@ -84,9 +91,6 @@ export type IngredientNeed = {
   // for a recipe unit the generic table can't turn into `onHandUnit`.
   conversions?: readonly ItemUnitConversionLike[];
 };
-
-const normalizeUnit = (unit: string) => unit.trim().toLowerCase();
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // Sums `quantity` per ingredient (key), then splits that total across one
 // or more "unit clusters" — groups of requirements whose units are either

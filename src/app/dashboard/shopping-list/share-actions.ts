@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { headers } from "next/headers";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
@@ -16,20 +16,6 @@ import { toFriendlyError } from "@/lib/actions/errors";
 // permissions model (no login, manual revoke only, member-not-owner scoped —
 // same convention as deleteShoppingListAction and the rest of this feature).
 
-// Same header-derived-base-URL approach as household.ts's absoluteAppUrl —
-// see its doc comment for why a client-supplied origin can never be trusted
-// here: a forged Host/X-Forwarded-Host header would let anyone get this app
-// to hand back a share URL pointing at an attacker-controlled domain, with a
-// real, working token embedded in it.
-async function absoluteAppUrl(path: string): Promise<string> {
-  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  if (configured) return `${configured}${path}`;
-
-  const headerList = await headers();
-  const host = headerList.get("host") ?? "localhost:3000";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  return `${proto}://${host}${path}`;
-}
 
 /**
  * Any household member (not owner-gated — matches deleteShoppingListAction's

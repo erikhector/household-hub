@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { reportError } from "@/lib/report-error";
 
 // Unauthenticated liveness/readiness probe for uptime monitors (UptimeRobot,
 // Better Uptime, a host's built-in health check, etc.) — see DEPLOYMENT.md's
@@ -20,7 +21,7 @@ export async function GET() {
     // (connection strings, stack traces, etc.) in the response body — this
     // route is unauthenticated, same principle as toFriendlyError in
     // src/lib/actions/errors.ts.
-    console.error("Health check failed:", error);
+    reportError("Health check failed", error);
 
     return Response.json({ status: "error" }, { status: 503 });
   }

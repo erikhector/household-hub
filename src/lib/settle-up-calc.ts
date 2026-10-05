@@ -57,6 +57,40 @@ export function remainingDue(tx: SplitTransaction): number {
   return remaining > EPSILON ? remaining : 0;
 }
 
+/**
+ * True when a bill can no longer move anyone's balance or show up as
+ * "left due": every member paid exactly their share, and nothing is left
+ * unpaid on the bill. computeBillPositions gives such a bill an all-zero
+ * position (no shortfall, no overpayment), so leaving it out of
+ * computeNetBalances changes nothing. PERF-12: the budget page's query uses
+ * this to skip settled bills in the database instead of loading every split
+ * bill the household ever logged — keep its raw SQL (in
+ * loadUnsettledSplitBills, budget/page.tsx) the exact negation of this predicate. The comparison is
+ * deliberately exact (`===`, not EPSILON): a bill with any non-zero
+ * difference, however small, stays in so the totals match bit for bit.
+ */
+export function isSettledBill(tx: SplitTransaction): boolean {
+  return tx.splits.every((s) => s.amountPaid === s.amountOwed) && remainingDue(tx) === 0;
+}
+
+/**
+ * Sums repayments per (payer, receiver) pair. computeNetBalances only ever
+ * adds each repayment to the payer and subtracts it from the receiver, so
+ * feeding it one summed transfer per pair gives the same balances as one per
+ * row (PERF-12: a database `groupBy` returns exactly this shape, bounded by
+ * members² however many repayments the household has logged).
+ */
+export function sumTransfersByPair(transfers: MemberTransfer[]): MemberTransfer[] {
+  const sums = new Map<string, MemberTransfer>();
+  for (const t of transfers) {
+    const key = `${t.fromMemberId}\u0000${t.toMemberId}`;
+    const existing = sums.get(key);
+    if (existing) existing.amount += t.amount;
+    else sums.set(key, { ...t });
+  }
+  return [...sums.values()];
+}
+
 export type MemberBillPosition = {
   owed: number;
   paid: number;

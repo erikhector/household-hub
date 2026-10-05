@@ -76,6 +76,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
             </Link>
           </div>
           <PasswordInput
+            enterKeyHint="go"
             id="password"
             name="password"
             icon={Lock}

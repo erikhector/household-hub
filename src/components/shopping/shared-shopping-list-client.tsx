@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
 import { toggleItemViaShareTokenAction } from "@/app/share/shopping-list/actions";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { SharedShoppingList } from "@/app/share/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -90,13 +91,11 @@ function SharedRow({
   onToggle: (itemId: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-3 rounded-md border px-3 py-2">
-      <input
-        type="checkbox"
+    <label className="flex items-center gap-3 rounded-md border px-3 py-2 max-sm:min-h-11">
+      <Checkbox
         checked={item.purchased}
         disabled={isPending}
         onChange={() => onToggle(item.id)}
-        className="size-4 shrink-0"
       />
       {/* GAP-5: name line plus the note (when set) as a muted second line,
           same treatment as ShoppingListClient's rows. */}

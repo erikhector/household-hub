@@ -138,7 +138,7 @@ function buildSystemPrompt(existingNames: string[]): string {
   );
 }
 
-function normalizeItemName(name: string): string {
+function exactNameKey(name: string): string {
   return name.trim().toLowerCase();
 }
 
@@ -150,7 +150,7 @@ function resolveMatches(
   existingByName: Map<string, { id: string; name: string; quantity: number; unit: string }>,
 ): ScannedShelfItem[] {
   return items.map(({ matchedExistingItem, ...item }) => {
-    const match = matchedExistingItem ? existingByName.get(normalizeItemName(matchedExistingItem)) : undefined;
+    const match = matchedExistingItem ? existingByName.get(exactNameKey(matchedExistingItem)) : undefined;
     if (!match) return item;
     return {
       ...item,
@@ -540,7 +540,7 @@ export async function scanShelfPhotoAction(
           take: MAX_EXISTING_ITEMS_IN_PROMPT,
         })
       : [];
-  const existingByName = new Map(existingItems.map((item) => [normalizeItemName(item.name), item]));
+  const existingByName = new Map(existingItems.map((item) => [exactNameKey(item.name), item]));
   const systemPrompt = buildSystemPrompt([...existingByName.values()].map((item) => item.name));
 
   const deadlineAt = Date.now() + REQUEST_TIMEOUT_MS;

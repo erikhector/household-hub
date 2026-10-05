@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DASHBOARD_ROUTES } from "./routes";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, LOCALES, saveScreenshot } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, saveScreenshot } from "./ui";
 
 // Every dashboard page, in both languages, on both the desktop and the
 // mobile project: it must render without hitting an error boundary or
@@ -25,6 +25,8 @@ for (const locale of LOCALES) {
         await expect(page.locator("main")).toBeVisible();
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
         await saveScreenshot(page, testInfo, locale, route);
+        // M3 is a phone rule; desktop is deliberately denser.
+        if (testInfo.project.name === "mobile") await expectTouchTargets(page);
         expect(errors, `console/page errors on ${route.path}`).toEqual([]);
       });
     }

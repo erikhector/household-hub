@@ -4,6 +4,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* DESIGN.md rule M3: a tap target is at least 44 x 44 px on phones. For a
+   link or bare control whose visible text is smaller, this grows the box
+   (and so the hit area) below `sm` and vertically centres the label. From
+   `sm` up the original compact sizing is untouched. e2e/ui.ts
+   `expectTouchTargets` guards it. */
+@utility touch-target {
+  @media (width < 40rem) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -1,5 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
+import { configuredAppUrl } from "@/lib/app-url";
+import { escapeHtml } from "@/lib/escape-html";
 import { logger } from "@/lib/logger";
 import { getDictionaryForLocale } from "@/lib/i18n/dictionaries";
 import { isLocale, defaultLocale } from "@/lib/i18n/locales";
@@ -31,13 +33,13 @@ const DEFAULT_FROM = "Squirrel <onboarding@resend.dev>";
 const BRAND_COLOR = "#a855f7";
 
 // APP_URL is the same "deployer-controlled base URL" env var absoluteAppUrl()
-// in auth.ts/household.ts builds links from — reused here (rather than
+// (src/lib/app-url.ts) builds links from — reused here (rather than
 // threading a resolved origin through every send call) purely to point the
 // logo <img> at a real, publicly-reachable URL. Left out entirely in local
 // dev without APP_URL set, since a bare-hostname/localhost logo URL
 // wouldn't load in an email client anyway; the text wordmark alone still
 // reads fine.
-const APP_URL = process.env.APP_URL?.trim().replace(/\/+$/, "");
+const APP_URL = configuredAppUrl();
 const LOGO_URL = APP_URL ? `${APP_URL}/icon-192.png` : undefined;
 
 function normalizeLocale(locale: string | undefined) {
@@ -328,11 +330,3 @@ export async function sendWeeklyDigestEmail({
   }
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}

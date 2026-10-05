@@ -62,6 +62,7 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
 test("budget transaction and recurring dialogs use 16px fields", async ({ page }) => {
   // The dialogs' triggers stay disabled until the household has a category.
   const categoryId = `e2e-fcs-cat-${Date.now().toString(36)}`;
+  // Removed in `finally` so specs sharing the seeded household stay isolated.
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -69,15 +70,16 @@ test("budget transaction and recurring dialogs use 16px fields", async ({ page }
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Groceries FCS', 'EXPENSE')`,
       [categoryId, E2E_HOUSEHOLD.id],
     );
+    await page.goto("/dashboard/budget");
+    await page.getByRole("button", { name: "Add transaction" }).first().click();
+    await expectFieldsAtLeast16px(page.getByRole("dialog"));
+    await page.keyboard.press("Escape");
+
+    await page.getByRole("button", { name: "Manage recurring items" }).click();
+    await page.getByRole("button", { name: "Add recurring item" }).click();
+    await expectFieldsAtLeast16px(page.getByRole("dialog"));
   } finally {
+    await client.query(`DELETE FROM "BudgetCategory" WHERE id = $1`, [categoryId]);
     await client.end();
   }
-  await page.goto("/dashboard/budget");
-  await page.getByRole("button", { name: "Add transaction" }).first().click();
-  await expectFieldsAtLeast16px(page.getByRole("dialog"));
-  await page.keyboard.press("Escape");
-
-  await page.getByRole("button", { name: "Manage recurring items" }).click();
-  await page.getByRole("button", { name: "Add recurring item" }).click();
-  await expectFieldsAtLeast16px(page.getByRole("dialog"));
 });

@@ -16,6 +16,8 @@
 // only ever hold one of those two values again, and deriving means every
 // list completed before this shipped already counts as history.
 
+import { median } from "@/lib/math";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Fewer purchases than this say nothing about a rhythm — two purchases are a
@@ -64,12 +66,6 @@ function dayNumber(date: Date, timeZone: string): number {
   }).formatToParts(date);
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
   return Date.UTC(get("year"), get("month") - 1, get("day")) / DAY_MS;
-}
-
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export type RepurchaseRhythm = {

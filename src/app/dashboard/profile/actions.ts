@@ -1,12 +1,12 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { headers } from "next/headers";
+import { absoluteAppUrl } from "@/lib/app-url";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import { requireHousehold, requireUserId } from "@/lib/session";
 import { signOut } from "@/lib/auth";
 import type { ActionState } from "@/lib/actions/auth";
@@ -124,18 +124,6 @@ const updateEmailSchema = z.object({
 // auth.ts's internals (same reasoning as household.ts's own copy).
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 36 * 60 * 60 * 1000;
 
-// Mirrors auth.ts's/household.ts's identically-motivated absoluteAppUrl —
-// duplicated locally for the same "no cross-file dependency" reason as
-// EMAIL_VERIFICATION_TOKEN_TTL_MS above.
-async function absoluteAppUrl(path: string): Promise<string> {
-  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  if (configured) return `${configured}${path}`;
-
-  const headerList = await headers();
-  const host = headerList.get("host") ?? "localhost:3000";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  return `${proto}://${host}${path}`;
-}
 
 export async function updateEmailAction(
   _prevState: ActionState,
@@ -183,7 +171,7 @@ export async function updateEmailAction(
       data: { email: newEmail, emailVerifiedAt: null },
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    if (isUniqueViolation(error)) {
       return { error: "An account with that email already exists" };
     }
     return toFriendlyError(error);

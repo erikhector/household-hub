@@ -50,10 +50,7 @@ export function ComboField({
     <Autocomplete items={items} name={name} value={value} onValueChange={onValueChange}>
       <AutocompleteInputGroup>
         <AutocompleteInput id={id} placeholder={placeholder} maxLength={maxLength} />
-        {/* Below sm the clear (×) and chevron together ate the narrow unit
-            column, leaving "p" for "pcs" (UX-10). The field stays clearable by
-            selecting its text, so the × goes on phones. */}
-        <AutocompleteClear className="max-sm:hidden" />
+        <AutocompleteClear />
         <AutocompleteTrigger />
       </AutocompleteInputGroup>
       <AutocompleteContent>

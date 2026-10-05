@@ -1317,7 +1317,6 @@ export const en = {
     mealTypeLunch: "Lunch",
     mealTypeDinner: "Dinner",
     mealTypeSnack: "Snack",
-    emptyDay: "Nothing planned",
     addMeal: "Add meal",
     addMealDialogTitle: "Add a meal",
     editMealAriaLabel: "Edit meal",
@@ -1464,6 +1463,13 @@ export const en = {
     editAriaLabel: "Edit recipe",
     // MATCH-5: opens the recipe straight at "Match ingredients".
     reviewMatchesAriaLabel: "Review ingredient matches",
+    // GAP-42: the full-screen cook view.
+    cookModeButton: "Cook",
+    cookModeFromPlanAriaLabel: "Cook {meal}",
+    cookModeTitle: "Cooking {name}",
+    cookModeIngredients: "Ingredients",
+    cookModeSteps: "Steps",
+    cookModeClose: "Close",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
@@ -1639,7 +1645,7 @@ export const en = {
     unassignedOption: "Unassigned",
     add: "Add",
     adding: "Adding…",
-    emptyState: "No tasks yet — use the + button above to add one.",
+    emptyState: "No tasks yet — use the Add task button above to add one.",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",

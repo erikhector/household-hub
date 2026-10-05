@@ -62,7 +62,8 @@ const WEIGHT_TO_G: Record<string, number> = {
   pounds: 453.6,
 };
 
-function normalize(unit: string): string {
+/** Trim + lowercase, so "KG " and "kg" compare equal even for units the alias table doesn't know. */
+export function normalizeUnit(unit: string): string {
   return unit.trim().toLowerCase();
 }
 
@@ -135,7 +136,7 @@ const SPOON_UNITS = new Set(["tsp", "tbsp", "krm", "pinch"]);
 /** The one spelling a unit is compared by: "st" → "pcs", "msk" → "tbsp",
  * "Liters" → "l". Unknown units come back lowercased and trimmed. */
 export function canonicalUnit(unit: string): string {
-  const key = normalize(unit);
+  const key = normalizeUnit(unit);
   return UNIT_SYNONYMS[key] ?? key;
 }
 

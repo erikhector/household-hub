@@ -118,6 +118,8 @@ vi.mock("@/lib/email", () => ({
 }));
 
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+const { reportErrorMock } = vi.hoisted(() => ({ reportErrorMock: vi.fn() }));
+vi.mock("@/lib/report-error", () => ({ reportError: reportErrorMock }));
 
 const { runWeeklyDigest, sendHouseholdDigest, digestWeekKey, DIGEST_BATCH_SIZE } = await import("@/lib/weekly-digest");
 
@@ -415,7 +417,6 @@ describe("batching and failure isolation", () => {
   });
 
   it("keeps going when one household throws", async () => {
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     addUser("u1");
     addUser("u2");
     addUser("u3");
@@ -431,7 +432,11 @@ describe("batching and failure isolation", () => {
 
     expect(sentTo().sort()).toEqual(["u1@example.com", "u3@example.com"]);
     expect(result).toEqual({ householdsProcessed: 2, emailsSent: 2, emailsFailed: 0, failedHouseholdIds: ["h2"] });
-    expect(consoleErrorSpy).toHaveBeenCalled();
-    consoleErrorSpy.mockRestore();
+    // Reported to Sentry with the household id, not just console-logged.
+    expect(reportErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("household"),
+      expect.objectContaining({ message: "boom" }),
+      { householdId: "h2" },
+    );
   });
 });

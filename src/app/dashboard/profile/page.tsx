@@ -74,7 +74,7 @@ export default async function ProfilePage() {
           <p className="text-sm text-muted-foreground tabular-nums">
             {format(dict.profile.about.version, { version: CURRENT_VERSION })}
           </p>
-          <Link href="/dashboard/whats-new" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/dashboard/whats-new" className="touch-target text-sm font-medium text-primary underline-offset-4 hover:underline">
             {dict.profile.about.whatsNewLink}
           </Link>
         </div>

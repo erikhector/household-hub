@@ -48,7 +48,24 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     }),
     prisma.mealPlan.findFirst({
       where: { householdId, weekStartDate: weekStart },
-      include: { entries: { include: { recipe: true }, orderBy: { date: "asc" } } },
+      include: {
+        entries: {
+          // Only what the planner and nutrition recap read — not the
+          // recipe's instructions and the rest of its columns, per entry.
+          include: {
+            recipe: {
+              select: {
+                name: true,
+                caloriesPerServing: true,
+                proteinGramsPerServing: true,
+                carbsGramsPerServing: true,
+                fatGramsPerServing: true,
+              },
+            },
+          },
+          orderBy: { date: "asc" },
+        },
+      },
     }),
     prisma.shoppingList.findMany({
       where: { householdId, status: "ACTIVE" },
@@ -189,10 +206,14 @@ async function PlannerTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const { recipeRows, entries, activeShoppingLists } = await getMealPlanningCoreData(householdId, weekStartKey);
+  const [{ recipeRows, entries, activeShoppingLists }, locale] = await Promise.all([
+    getMealPlanningCoreData(householdId, weekStartKey),
+    getLocale(),
+  ]);
   return (
     <WeekPlanner
       dict={dict}
+      locale={locale}
       weekStartKey={weekStartKey}
       recipes={recipeRows}
       entries={entries}

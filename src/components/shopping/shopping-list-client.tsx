@@ -374,7 +374,7 @@ export function ShoppingListClient({
       <PrintableList name={list.name} groups={pendingGroups} dict={dict} />
       <Link
         href="/dashboard/shopping-list"
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="touch-target gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         {dict.backToAll}
@@ -854,7 +854,7 @@ function ShoppingRow({
             // purchased — the label/input pairing (Checkbox is a native
             // <input type="checkbox">) already gives this keyboard and
             // screen-reader semantics for free, no extra handler needed.
-            editable && "cursor-pointer self-stretch",
+            editable && "cursor-pointer self-stretch max-sm:min-h-11",
           )}
         >
           <Checkbox
@@ -1025,7 +1025,7 @@ function PriceTag({
     return (
       <button
         type="button"
-        className="shrink-0 rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums"
+        className="touch-target shrink-0 justify-center rounded px-1 text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline tabular-nums"
         disabled={isPending}
         onClick={() => {
           setDraft(item.estimatedPrice != null ? String(item.estimatedPrice) : "");

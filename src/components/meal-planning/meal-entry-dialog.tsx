@@ -42,6 +42,11 @@ type CreateProps = CommonProps & {
   weekStartKey: string;
   dateKey: string;
   mealType: MealType;
+  // UX-5: an empty slot is one full-width row (this label on the left, "+ Add
+  // meal" on the right) instead of a label, a "Nothing planned" line and a
+  // tiny "+" button. Omitted, the trigger is the compact icon button that
+  // sits beside a slot's existing entries.
+  slotLabel?: string;
 };
 
 type EditProps = CommonProps & {
@@ -97,6 +102,18 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
         render={
           isEdit ? (
             props.trigger
+          ) : props.slotLabel ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 w-full justify-between px-2 text-xs font-medium uppercase text-muted-foreground"
+            >
+              <span>{props.slotLabel}</span>
+              <span className="flex items-center gap-1 font-normal normal-case">
+                <Plus className="size-3.5" aria-hidden="true" />
+                {dict.addMeal}
+              </span>
+            </Button>
           ) : (
             <Button type="button" variant="ghost" size="icon-xs" aria-label={dict.addMeal}>
               <Plus className="size-3.5" />
@@ -160,9 +177,11 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="portions">{dict.portionsLabel}</Label>
               <Input
+                enterKeyHint="done"
                 id="portions"
                 name="portions"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={1000}
                 step={1}

@@ -352,6 +352,7 @@ export function RegisterReceiptDialog({
             <Input
               id={`${row.key}-quantity`}
               type="number"
+              inputMode="decimal"
               min={0.01}
               step="any"
               value={row.quantity}
@@ -379,6 +380,7 @@ export function RegisterReceiptDialog({
             <Input
               id={`${row.key}-price`}
               type="number"
+              inputMode="decimal"
               min={0}
               step="any"
               value={row.price}

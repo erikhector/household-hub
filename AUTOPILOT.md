@@ -2,7 +2,8 @@
 
 Control file for the autonomous improvement loop: scheduled Claude Code
 sessions that find work (scouts), build it (builder), review and merge it
-(reviewer), and improve the process itself (retro). Every autopilot session reads this file **first**
+(reviewer), decide what's blocked on a product call and set direction
+(product), and improve the process itself (retro). Every autopilot session reads this file **first**
 and obeys it. Edit it on `master` to steer or stop the loop; no routine
 needs changing.
 
@@ -23,6 +24,7 @@ scouts_enabled: true
 builder_enabled: true
 reviewer_enabled: true
 retro_enabled: true
+product_enabled: true
 ```
 
 ## Limits
@@ -31,7 +33,7 @@ retro_enabled: true
 max_open_autopilot_prs: 10     # builder does nothing while this many are open
 max_new_items_per_scout_run: 3
 max_parallel_subagents: 4      # builder/reviewer sub-agents running at once (4-CPU container)
-max_merges_per_review_run: open   # not a fixed number: the count of open PRs when the run starts (see autopilot-review's Gate step). Each merge re-runs ci:local on top of the new master.
+max_merges_per_review_run: open   # not a fixed number: the count of open PRs when the run starts (see autopilot-review's Gate step). Each merge re-runs CI on top of the new master.
 max_review_rounds_per_run: 3   # reviewer re-reviews a PR at most this often per run as fixes land
 review_listen_hours: 4         # reviewer stops waiting for fixes after this long
 ```
@@ -47,7 +49,8 @@ fills its slots with `UX-` items (highest impact per effort first) before
 it considers any other prefix, whatever their phase. Only the slots left
 over go to other items: lowest phase first, then highest impact per effort
 (see BACKLOG.md's "Picking an item"). Fixing open autopilot PRs still
-comes before any new item. Allowed prefixes, in priority order:
+comes before any new item. Right after the `UX-` items come the IDs in
+PRODUCT.md's "Focus" list, in its order. Allowed prefixes, in priority order:
 
 ```yaml
 allowed: [UX, BUG, SEC, PERF, MAINT, DEPS, AUTO, GAP, SCALE, BUDGET]
@@ -62,6 +65,38 @@ Never pick an item that is:
 Items built in the same run must also be parallel-safe: at most one
 Phase 2 and one Phase 3 item, and no two in the same feature area (see the
 `autopilot-build` skill).
+
+## Product decisions
+
+The `autopilot-product` routine may make product decisions on the
+owner's behalf, but only these. It turns a decided `[!]` item into a
+normal buildable one, logs it in PRODUCT.md, and keeps PRODUCT.md's
+direction and focus list current. Anything in `never_decide` stays `[!]`
+with a recommendation in PRODUCT.md's "Owner inbox".
+
+```yaml
+max_decisions_per_product_run: 3
+max_focus_items: 5
+may_decide:
+  - scope and first version of a feature the app already has an area for
+  - whether to build a backlog item at all, including "keep not doing it"
+  - promoting or dropping GAP- items from the competitive scans
+  - UX trade-offs within DESIGN.md and BACKLOG.md's Guardrails
+  - ordering of the builder's Focus list
+never_decide:
+  - anything needing a paid service, a third-party account or credentials
+    (INFRA-*, voice assistants, bank sync, app stores, OAuth, blob storage)
+  - collecting new personal data, or sending data to a new third party
+  - deleting or removing a feature or user data
+  - pricing, monetisation, legal or privacy-policy text
+  - infrastructure settings only the owner can see (regions, dashboards)
+  - AUTOPILOT.md, the skills, or the loop's own limits
+```
+
+Its PRs are `docs(backlog): product decisions <date>` touching only
+BACKLOG.md and PRODUCT.md, and the reviewer merges them like any other.
+The owner vetoes by labelling the PR `hold`, or later by reverting it or
+editing PRODUCT.md.
 
 ## Human-only areas
 
@@ -80,18 +115,27 @@ An autopilot PR touching any of these must say so in its Summary under
 ## CI gate
 
 ```yaml
-ci_gate: local           # local | github
+ci_gate: github          # local | github
 ```
 
-`local` (current): GitHub Actions is paused (`ci.yml` runs only on manual
-dispatch) because the account can't start runners. The gate is
-`npm run ci:local` (lint, typecheck, unit tests, build, e2e), run in the
-session before every push. Paste its summary lines into the PR body under
-"Verification". Ignore GitHub check runs entirely: a red or missing check
-is not a failure to fix, comment on or wait for. The release workflow is
-paused too, so a releasing PR cuts its own release before merge (see
-AGENTS.md, "Pull requests and releases"). `github`: CI runs on
-push/PR again and must be green, as in the `steward` skill.
+`github` (current): `.github/workflows/ci.yml` runs on every PR and push
+to `master`, and its checks (`Lint, typecheck, test, build` and
+`End-to-end (Playwright)`) must be green on a PR's head commit before it
+merges, as in the `steward` skill. Run the fast local checks
+(`npm run check`, plus the touched e2e specs for UI work) before pushing
+so CI isn't the first to find a failure. `release.yml` cuts every release
+after merge, so a PR never bumps its own version.
+
+`local` is the stopgap for when GitHub Actions can't start runners
+(2026-09-26 to 2026-10-04): `ci.yml` goes back to manual dispatch, the
+gate becomes `npm run ci:local` (lint, typecheck, unit tests, build, e2e)
+in the session before every push with its summary in the PR body, GitHub
+check runs are ignored, and a releasing PR cuts its own release before
+merge (`node scripts/release.ts apply`), listing the version in INFRA-6
+for a tag backfill. Switch back the moment Actions runs again: with both
+active, `release.yml` releases the PR a second time (#135, #134 and
+#140 each got an in-PR version and a workflow one: v0.47.5/6,
+v0.47.7/8, v0.48.3/4).
 
 ## Merge policy
 
@@ -102,7 +146,7 @@ never_merge_paths: [AUTOPILOT.md, .github/workflows/]
 
 `reviewer`: the daily `autopilot-review` routine merges any open PR (any
 author) it has reviewed as approved, with no open threads, after bringing
-it up to date with `master` and passing `npm run ci:local`. Drafts and
+it up to date with `master` and seeing CI green on the new head. Drafts and
 PRs labelled `hold` are never merged. Nor is a PR touching
 `never_merge_paths`: the loop doesn't loosen its own limits or CI, so a
 human merges those. The builder never merges.
@@ -115,3 +159,4 @@ the right way.
 | Week | Merged | Reverted | Review rounds/PR | Unit tests | E2E tests | Lint warnings | Open backlog |
 |---|---|---|---|---|---|---|---|
 | 2026-09-27 | 3 | 0 | 0 | 2170 | 20 | 0 | 57 |
+| 2026-10-04 | 23 | 0 | 1 | 2451 | 44 | 0 | 44 |

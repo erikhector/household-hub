@@ -200,7 +200,7 @@ export function SafeToSpend({
                     )}
                     <Link
                       href={`/dashboard/budget?household=${debt.householdId}&tab=insights`}
-                      className="self-start text-xs font-medium text-primary hover:underline"
+                      className="inline-flex items-center self-start text-xs font-medium text-primary hover:underline max-sm:min-h-11"
                     >
                       {dict.settleUpLink}
                     </Link>

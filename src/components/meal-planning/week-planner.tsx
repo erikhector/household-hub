@@ -3,10 +3,11 @@
 import { type ReactNode, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
@@ -21,6 +22,7 @@ import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/
 import { format, plural } from "@/lib/i18n/format";
 import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -135,12 +137,14 @@ function CopyLastWeekButton({
 
 export function WeekPlanner({
   dict,
+  locale,
   weekStartKey,
   recipes,
   entries,
   activeShoppingLists,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
@@ -220,11 +224,12 @@ export function WeekPlanner({
                 <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="flex flex-col gap-1">
               {MEAL_TYPES.map((mealType) => (
                 <MealTypeSlot
                   key={mealType}
                   dict={dict}
+                  locale={locale}
                   mealType={mealType}
                   dateKey={day.dateKey}
                   weekStartKey={weekStartKey}
@@ -242,6 +247,7 @@ export function WeekPlanner({
 
 function MealTypeSlot({
   dict,
+  locale,
   mealType,
   dateKey,
   weekStartKey,
@@ -249,18 +255,34 @@ function MealTypeSlot({
   entries,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   mealType: MealType;
   dateKey: string;
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
 }) {
+  const label = dict[mealTypeDictKey[mealType]];
+
+  // UX-5: an empty slot is a single tappable "<slot> + Add meal" row, so an
+  // empty week isn't 28 repeated "Nothing planned" lines with tiny "+" buttons.
+  if (entries.length === 0) {
+    return (
+      <MealEntryDialog
+        dict={dict}
+        weekStartKey={weekStartKey}
+        dateKey={dateKey}
+        mealType={mealType}
+        recipes={recipes}
+        slotLabel={label}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase text-muted-foreground">
-          {dict[mealTypeDictKey[mealType]]}
-        </p>
+        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
         <MealEntryDialog
           dict={dict}
           weekStartKey={weekStartKey}
@@ -269,45 +291,48 @@ function MealTypeSlot({
           recipes={recipes}
         />
       </div>
-      {entries.length === 0 ? (
-        <p className="text-xs text-muted-foreground/70">{dict.emptyDay}</p>
-      ) : (
-        <div className="flex flex-col gap-1">
-          {entries.map((entry) => (
-            <MealEntryRow
-              key={entry.id}
-              dict={dict}
-              entry={entry}
-              recipes={recipes}
-              weekStartKey={weekStartKey}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-1">
+        {entries.map((entry) => (
+          <MealEntryRow
+            key={entry.id}
+            dict={dict}
+            locale={locale}
+            entry={entry}
+            recipes={recipes}
+            weekStartKey={weekStartKey}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
-// Every row reserves the same four fixed-width slots after the label (edit,
-// move, cooked-status, delete) — even when a slot has nothing to show — so the
-// icon column lines up across rows instead of shifting with each entry's
-// state (freeform vs. recipe-linked, cooked vs. not).
+// Every row reserves the same five fixed-width slots after the label (cook,
+// edit, move, cooked-status, delete) — even when a slot has nothing to show —
+// so the icon column lines up across rows instead of shifting with each
+// entry's state (freeform vs. recipe-linked, cooked vs. not). On phones the
+// icon buttons are 44px (DESIGN.md M3), so the slot grows with them instead of
+// letting neighbours overlap.
 function IconSlot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-6 shrink-0 items-center justify-center">{children}</span>;
+  return <span className="flex size-6 shrink-0 items-center justify-center max-sm:size-11">{children}</span>;
 }
 
 function MealEntryRow({
   dict,
+  locale,
   entry,
   recipes,
   weekStartKey,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   entry: MealPlanEntryData;
   recipes: RecipeData[];
   weekStartKey: string;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
+  const linkedRecipe = entry.recipeId ? recipes.find((recipe) => recipe.id === entry.recipeId) : undefined;
+  const cookRecipe = linkedRecipe?.instructions?.trim() ? linkedRecipe : null;
   // Portions only mean something next to a linked recipe — a freeform entry
   // has nothing to scale (see MealPlanEntryData.portions' doc comment).
   const portionsLabel = entry.recipeId
@@ -315,11 +340,35 @@ function MealEntryRow({
     : null;
 
   return (
-    <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-      <span className="min-w-0 flex-1 truncate" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
+    <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
+      <span className="min-w-0 flex-1 truncate max-sm:basis-full max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
+
+      {/* GAP-42: opens the cook view scaled to this entry's portions. Not
+          gated on consumedAt: reading a recipe again is harmless. */}
+      <IconSlot>
+        {cookRecipe && (
+          <CookModeDialog
+            dict={dict}
+            locale={locale}
+            recipe={cookRecipe}
+            portions={entry.portions}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={format(dict.cookModeFromPlanAriaLabel, { meal: label })}
+              >
+                <CookingPot className="size-3" />
+              </Button>
+            }
+          />
+        )}
+      </IconSlot>
 
       <IconSlot>
         {!entry.consumedAt && (

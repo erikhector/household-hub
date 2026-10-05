@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Radio } from "@/components/ui/radio";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MergePreviewBody } from "@/components/inventory/catalog/merge-preview";
 import { dismissDuplicatesAction } from "@/app/dashboard/inventory/items/actions";
@@ -59,7 +60,7 @@ export function ItemCatalog({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div role="group" aria-label={dict.filtersLabel} className="flex flex-wrap gap-1.5">
+      <div role="group" aria-label={dict.filtersLabel} className="flex flex-wrap gap-2">
         {CATALOG_FILTERS.map((key) => (
           <button
             key={key}
@@ -67,7 +68,7 @@ export function ItemCatalog({
             aria-pressed={filter === key}
             onClick={() => selectFilter(key)}
             className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
+              "rounded-full border px-3 py-1 text-sm transition-colors max-sm:min-h-11",
               filter === key
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-input text-muted-foreground hover:border-primary/50",
@@ -126,7 +127,7 @@ function CatalogRows({
           <li key={row.id} className="rounded-lg border sm:rounded-none sm:border-0">
             <Link
               href={itemPageHref(row.id, { kind: "catalog", filter })}
-              className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50", grid)}
+              className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11", grid)}
             >
               <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="font-medium break-words">{row.name}</span>
@@ -205,10 +206,9 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
           const isKeeper = member.id === keeperId;
           return (
             <li key={member.id} className="flex min-w-0 items-start gap-3 text-sm">
-              <input
-                type="radio"
+              <Radio
                 name={radioName}
-                className="mt-1 size-4 shrink-0 accent-primary"
+                className="mt-1"
                 checked={isKeeper}
                 onChange={() => setKeeperId(member.id)}
                 aria-label={format(dict.keepLabel, { name: member.name })}
@@ -223,7 +223,7 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
               <div className="flex min-w-0 flex-1 flex-col">
                 <Link
                   href={itemPageHref(member.id, { kind: "catalog", filter: "duplicates" })}
-                  className="font-medium break-words underline-offset-4 hover:underline"
+                  className="touch-target font-medium break-words underline-offset-4 hover:underline"
                 >
                   {member.name}
                 </Link>

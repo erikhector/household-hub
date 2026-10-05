@@ -125,6 +125,7 @@ function ClearDebtDialog({
                 id="settle-amount"
                 name="amount"
                 type="number"
+                inputMode="decimal"
                 min={0.01}
                 step="any"
                 defaultValue={settlement.amount.toFixed(2)}

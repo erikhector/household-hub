@@ -1,14 +1,14 @@
 name: CI
 
-# Paused: GitHub Actions currently can't start runners on this account
-# (every job fails in ~2s with no logs), so for now the gate is local:
-# `npm run ci:local` (see AUTOPILOT.md `ci_gate`). Still runnable by hand
-# from the Actions tab. To re-enable, restore:
-#   on:
-#     push:
-#     pull_request:
-# and set `ci_gate: github` in AUTOPILOT.md.
+# Runs on every PR and on every push to master (a PR branch's push is
+# covered by its pull_request run, so `push` is limited to master to avoid
+# running everything twice). The release commit release.yml pushes carries
+# `[skip ci]`. Also runnable by hand from the Actions tab. This is the gate
+# while AUTOPILOT.md says `ci_gate: github`.
 on:
+  push:
+    branches: [master]
+  pull_request:
   workflow_dispatch:
 
 # This is a small, single-maintainer app — one job running everything in
