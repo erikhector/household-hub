@@ -19,6 +19,7 @@ import { settleDepartingMemberSplits } from "@/lib/settle-departing-member";
 import { generateCalendarFeedToken } from "@/lib/calendar-feed";
 import { parseHouseholdCurrency } from "@/lib/currency";
 import { HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX } from "@/lib/household-step-skip";
+import { GETTING_STARTED_DISMISS_COOKIE_PREFIX } from "@/lib/getting-started-dismiss";
 
 const ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -302,6 +303,22 @@ export async function skipHouseholdStepAction(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(`${HOUSEHOLD_STEP_SKIP_COOKIE_PREFIX}${household.id}`, "1", {
     maxAge: HOUSEHOLD_STEP_SKIP_COOKIE_MAX_AGE,
+    path: "/",
+  });
+  revalidatePath("/dashboard");
+}
+
+// UX-26: the whole "Get set up" card can be hidden too, for someone who has
+// done the steps they care about and doesn't want the rest pushing today's
+// tasks below the fold. Same per-browser, per-household cookie as the
+// household step above, for the same reasons.
+const GETTING_STARTED_DISMISS_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+export async function dismissGettingStartedAction(): Promise<void> {
+  const { household } = await requireHousehold();
+  const cookieStore = await cookies();
+  cookieStore.set(`${GETTING_STARTED_DISMISS_COOKIE_PREFIX}${household.id}`, "1", {
+    maxAge: GETTING_STARTED_DISMISS_COOKIE_MAX_AGE,
     path: "/",
   });
   revalidatePath("/dashboard");
