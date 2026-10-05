@@ -79,7 +79,7 @@ function CookModeContent({
       showCloseButton={false}
       // Fills the screen on every size: overrides the bottom-sheet / centred
       // modal geometry. The dialog stays the one scroll container.
-      className="inset-0 h-dvh max-h-none content-start gap-6 rounded-none p-4 pt-5 sm:inset-0 sm:h-dvh sm:max-h-none sm:w-full sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:p-8 sm:pb-8"
+      className="inset-0 h-dvh max-h-none content-start gap-6 rounded-none p-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-0 sm:h-dvh sm:max-h-none sm:w-full sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:p-8 sm:pb-8"
     >
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <div>
@@ -152,10 +152,14 @@ function CookModeContent({
           </ol>
         </section>
 
-        {/* Bottom of the scroller, where a thumb is (M2): the one way out. */}
-        <DialogClose render={<Button type="button" size="lg" variant="outline" className="min-h-11 w-full" />}>
-          {dict.cookModeClose}
-        </DialogClose>
+        {/* Sticky at the bottom of the scroller, where a thumb is (M2): the
+            one way out stays reachable however long the recipe is, and clears
+            the home indicator (M9) because the bar pads itself by the inset. */}
+        <div className="sticky bottom-0 -mx-4 bg-popover px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
+          <DialogClose render={<Button type="button" size="lg" variant="outline" className="min-h-11 w-full" />}>
+            {dict.cookModeClose}
+          </DialogClose>
+        </div>
       </div>
     </DialogContent>
   );

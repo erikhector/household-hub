@@ -307,12 +307,14 @@ function MealTypeSlot({
   );
 }
 
-// Every row reserves the same four fixed-width slots after the label (edit,
-// move, cooked-status, delete) — even when a slot has nothing to show — so the
-// icon column lines up across rows instead of shifting with each entry's
-// state (freeform vs. recipe-linked, cooked vs. not).
+// Every row reserves the same five fixed-width slots after the label (cook,
+// edit, move, cooked-status, delete) — even when a slot has nothing to show —
+// so the icon column lines up across rows instead of shifting with each
+// entry's state (freeform vs. recipe-linked, cooked vs. not). On phones the
+// icon buttons are 44px (DESIGN.md M3), so the slot grows with them instead of
+// letting neighbours overlap.
 function IconSlot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-6 shrink-0 items-center justify-center">{children}</span>;
+  return <span className="flex size-6 shrink-0 items-center justify-center max-sm:size-11">{children}</span>;
 }
 
 function MealEntryRow({
@@ -338,8 +340,8 @@ function MealEntryRow({
     : null;
 
   return (
-    <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-      <span className="min-w-0 flex-1 truncate" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
+    <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
+      <span className="min-w-0 flex-1 truncate max-sm:basis-full max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
