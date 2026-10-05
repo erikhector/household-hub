@@ -112,6 +112,30 @@ test("“Not duplicates” hides a group for good", async ({ page }) => {
   await expect(page.getByRole("link", { name: new RegExp(`^${leeks.name}\\b`) })).toBeVisible();
 });
 
+test("“Merge into another item…” shows Cancel and Merge before a pick, and closes on Escape", async ({ page }) => {
+  const tag = suffix();
+  const jar = { id: `${tag}-jar`, name: `${tag} honey jar`, quantity: 1, unit: "pcs" };
+  await seedItems([jar]);
+
+  await page.goto(`/dashboard/inventory/items/${jar.id}`);
+  const open = page.getByRole("button", { name: "Merge into another item…" });
+  const dialog = page.getByRole("dialog", { name: `Merge ${jar.name} into another item` });
+
+  // UX-11: both actions are there from the start, Merge disabled until an
+  // item to keep is picked, and Cancel closes.
+  await open.click();
+  await expect(dialog.getByRole("button", { name: "Merge", exact: true })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  // Escape closes it too, with the item picker focused as it is on open.
+  await open.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/dashboard/inventory/items/${jar.id}$`));
+});
+
 test("“Merge into another item…” on the item page asks for a factor when the units don't convert", async ({ page }) => {
   const tag = suffix();
   const pot = { id: `${tag}-pot`, name: `${tag} cream pot`, quantity: 2, unit: "pcs" };

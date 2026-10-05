@@ -373,7 +373,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
-      page.
+      page. Cancel and a disabled Merge show before an item is picked, and
+      Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
+      as `null`, which lets Escape through to the dialog).
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
@@ -4614,6 +4616,23 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
+  (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
+  too) pushes a same-URL history entry while it's open, so Android's back
+  button, a back swipe or the browser's back closes the sheet instead of
+  leaving the page and losing the form. Closing it from the UI (X,
+  Cancel, Escape, a submit) calls `history.back()` when its entry is still
+  the current one, so no extra back step is left behind. The mechanics
+  are in `src/components/ui/dialog-history.ts`: one capture-phase
+  `popstate` listener keeps the stack of open dialogs (a back closes only
+  the top one), stops Next.js's router from seeing a pop that stays on the
+  same URL, keeps its marker through the router's same-URL state
+  replaces, and steps forward again if the app navigated (e.g. the merge
+  dialog's `router.replace`) before its own `back()` landed. A dialog
+  whose owner refuses to close (one that stays open while saving) gets a
+  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
+  `dialog-history.test.ts`.
 
 ## Releases & What's new
 
