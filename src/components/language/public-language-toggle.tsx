@@ -23,7 +23,6 @@ export function PublicLanguageToggle({
       type="button"
       onClick={toggle}
       disabled={isPending}
-      lang={next}
       aria-label={`${dict.toggleLabel}: ${label}`}
       className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-medium hover:text-foreground hover:underline"
     >
