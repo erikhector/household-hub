@@ -234,12 +234,6 @@
   }
 }
 
-/* GAP-24 (the shopping list's "Print"): paper is always plain white, even
-   from the dark theme. With "background graphics" ticked in the print
-   dialog, body's radial gradient above would otherwise print as a sheet of
-   toner. Sonner's toasts sit in their own portal outside anything a page
-   can hide, so they're dropped here instead of a mid-fade "List completed"
-   landing on the printout. */
 /* M3 (DESIGN.md): Sonner's "Undo" / action buttons are ~24 px tall, a
    fat-finger target on a phone where the toast is also timed. Coarse
    pointers only, so desktop keeps Sonner's compact button. */
@@ -251,6 +245,24 @@
   }
 }
 
+/* Sonner switches to its phone offsets at 600 px, but the BottomNav shows
+   until 640 px (`sm`), so between the two a toast would sit at the desktop
+   16 px offset over the bar. Reuse the phone bottom offset (set from
+   sonner.tsx) across that band. */
+@media (min-width: 601px) and (max-width: 639px) {
+  /* `body` raises specificity: Sonner injects its own stylesheet at runtime,
+     after this one, with the same selector. */
+  body [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: var(--mobile-offset-bottom);
+  }
+}
+
+/* GAP-24 (the shopping list's "Print"): paper is always plain white, even
+   from the dark theme. With "background graphics" ticked in the print
+   dialog, body's radial gradient above would otherwise print as a sheet of
+   toner. Sonner's toasts sit in their own portal outside anything a page
+   can hide, so they're dropped here instead of a mid-fade "List completed"
+   landing on the printout. */
 @media print {
   html,
   body {

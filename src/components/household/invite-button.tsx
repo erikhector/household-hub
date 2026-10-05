@@ -70,9 +70,10 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">{dict.description}</p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Input
                   readOnly
+                  className="min-w-[12rem] flex-1"
                   value={link}
                   onFocus={(e) => e.currentTarget.select()}
                   aria-label={dict.linkAriaLabel}

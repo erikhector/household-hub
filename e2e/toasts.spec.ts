@@ -75,3 +75,24 @@ test("a failed clipboard write shows an error toast, not a success", async ({ pa
   await expect(page.getByRole("listitem").filter({ hasText: t.copyFailedToast })).toBeVisible();
   await expect(page.getByText(t.copiedToast)).toHaveCount(0);
 });
+
+// UX-18: Sonner switches to its phone offsets at 600 px but the bottom bar
+// shows until 640 px, so a 601-639 px viewport (a large phone in landscape,
+// a small tablet) needs the CSS override in globals.css to clear the bar.
+test("a toast clears the bottom bar between Sonner's 600 px and the bar's 640 px", async ({ page }) => {
+  await page.setViewportSize({ width: 620, height: 900 });
+  const t = en.profile.swishForm;
+  await page.goto("/dashboard/profile");
+  const form = page.locator("form").filter({ has: page.getByRole("heading", { name: t.title }) });
+  await form.getByRole("button", { name: t.save, exact: true }).click();
+  const toast = page.getByRole("listitem").filter({ hasText: t.saved });
+  await expect(toast).toBeVisible();
+  const bar = page.locator("nav.fixed.bottom-0");
+  await expect(bar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [barBox, toastBox] = await Promise.all([bar.boundingBox(), toast.boundingBox()]);
+      return barBox && toastBox ? barBox.y - (toastBox.y + toastBox.height) : -1;
+    })
+    .toBeGreaterThanOrEqual(0);
+});

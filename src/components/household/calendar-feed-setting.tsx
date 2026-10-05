@@ -65,9 +65,10 @@ export function CalendarFeedSetting({
       </p>
       {feedUrl && webcalUrl ? (
         <>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Input
               readOnly
+              className="min-w-[12rem] flex-1"
               value={feedUrl}
               onFocus={(e) => e.currentTarget.select()}
               aria-label={dict.linkAriaLabel}
