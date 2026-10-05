@@ -72,6 +72,7 @@ export function SaveTemplateDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="template-name">{dict.nameLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="template-name"
               name="name"
               defaultValue={listName}

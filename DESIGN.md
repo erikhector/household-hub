@@ -349,10 +349,11 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   scrolls, and dialogs become bottom sheets flush with the screen edge
   (max 85dvh, safe-area padding). From `sm` (640px) dialogs are centred,
   384px wide.
-- Touch targets grow on phones (`max-sm:` bumps) and must reach 44px
-  (rule M3). Today default buttons go from 32px to 36px and icon buttons
-  from 32px to 40px, which is below M3; UX-6 in BACKLOG.md brings them up.
-  New controls meet 44px now.
+- Touch targets grow on phones (`max-sm:` bumps) and reach 44px (rule
+  M3): every `Button` size, `Input`, select and combobox trigger,
+  `Checkbox` and `Radio` (hit area extended by a pseudo-element). For a
+  link or custom control use the `touch-target` utility or `max-sm:min-h-11`.
+  `expectTouchTargets` in `e2e/ui.ts` fails the mobile smoke run on a miss.
 
 ### Depth, motion and states
 

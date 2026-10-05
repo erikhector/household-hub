@@ -649,6 +649,7 @@ export function RecipeFormDialog({
                 id="recipe-servings"
                 name="servings"
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={1000}
                 step={1}
@@ -733,6 +734,7 @@ export function RecipeFormDialog({
                     <Input
                       name="ingredientQuantity"
                       type="number"
+                      inputMode="decimal"
                       min={0.01}
                       max={1000000}
                       step="any"
@@ -810,6 +812,7 @@ export function RecipeFormDialog({
                     <Input
                       name="componentQuantity"
                       type="number"
+                      inputMode="decimal"
                       min={0.01}
                       max={1000}
                       step="any"
@@ -858,6 +861,7 @@ export function RecipeFormDialog({
                       id="recipe-calories"
                       name="caloriesPerServing"
                       type="number"
+                      inputMode="numeric"
                       min={0}
                       value={caloriesPerServing}
                       onChange={(e) => setCaloriesPerServing(e.target.value)}
@@ -871,6 +875,7 @@ export function RecipeFormDialog({
                       id="recipe-protein"
                       name="proteinGramsPerServing"
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="any"
                       value={proteinGramsPerServing}
@@ -885,6 +890,7 @@ export function RecipeFormDialog({
                       id="recipe-carbs"
                       name="carbsGramsPerServing"
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="any"
                       value={carbsGramsPerServing}
@@ -899,6 +905,7 @@ export function RecipeFormDialog({
                       id="recipe-fat"
                       name="fatGramsPerServing"
                       type="number"
+                      inputMode="decimal"
                       min={0}
                       step="any"
                       value={fatGramsPerServing}

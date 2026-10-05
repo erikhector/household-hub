@@ -17,6 +17,7 @@
 
 import { computeMealVarietyRecap, type MealVarietyEntry } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { computeWeeklyTaskRecap, type WeeklyRecapTask } from "@/app/dashboard/tasks/weekly-recap-calc";
+import { escapeHtml } from "@/lib/escape-html";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import type { SafeToSpendResult, SafeToSpendStatus } from "@/lib/safe-to-spend-calc";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
@@ -113,15 +114,6 @@ export function summarizeWeeklyDigest(input: WeeklyDigestInput): WeeklyDigestSum
 
   if (!meals && !tasks && !expiring && !budget) return null;
   return { meals, tasks, expiring, budget };
-}
-
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 // Mirrors src/lib/email.ts's BRAND_COLOR (manifest.ts's theme_color as hex —

@@ -52,12 +52,12 @@ npm run test:e2e:screenshots # every page × desktop/mobile × en/sv to test-res
 npm run ci:local            # the full gate: check + build + e2e
 ```
 
-**CI is local for now.** GitHub Actions is paused (the account can't start
-runners), so `.github/workflows/ci.yml` only runs on manual dispatch and
-GitHub check results are to be ignored. `npm run ci:local` (lint →
-typecheck → unit tests → build → e2e) is the gate: **run it and see it pass
-before every push**, and paste its summary into the PR body. See
-`ci_gate` in AUTOPILOT.md. In Claude Code on the web,
+**CI runs on GitHub.** `.github/workflows/ci.yml` runs lint → typecheck →
+unit tests → build and a separate e2e job on every PR and push to
+`master`, and a PR merges only with both green on its head commit (see
+`ci_gate` in AUTOPILOT.md). Don't make CI the first to find a failure:
+run `npm run check` (plus the e2e specs you touched, or the whole
+`npm run ci:local` for UI work) before you push. In Claude Code on the web,
 `.claude/hooks/session-start.sh` runs `npm ci` and starts a migrated local
 Postgres, so all of these work from the first turn.
 
@@ -212,10 +212,11 @@ Skip style nits the linter would catch.
 
 ## Autonomous loop
 
-Scheduled sessions (scouts, builder, reviewer, retro) improve the app on their own,
+Scheduled sessions (scouts, builder, reviewer, product, retro) improve the app on their own,
 steered by [AUTOPILOT.md](./AUTOPILOT.md). If you are one of them, read
 AUTOPILOT.md first and obey it. Human-only areas listed there always get
-flagged for careful review. See REQUIREMENTS.md, "Autonomous improvement
+flagged for careful review. Product direction and the decisions taken
+for the owner are in [PRODUCT.md](./PRODUCT.md). See REQUIREMENTS.md, "Autonomous improvement
 loop".
 
 ## Pull requests and releases
@@ -231,13 +232,9 @@ loop".
 - Never edit `version` in `package.json` or
   `src/lib/release-notes/releases.json` by hand. `.github/workflows/release.yml`
   writes both after merge. See REQUIREMENTS.md, "Releases & What's new".
-- **While CI is local** (`ci_gate: local` in AUTOPILOT.md) that workflow
-  can't run, so a releasing PR (`feat`, `fix`, `perf`, `revert` or `!`)
-  cuts its own release as the last step before merge. Merge the latest
-  `master` first, then run
-  `PR_NUMBER=<n> PR_TITLE="<title>" PR_BODY="$(cat <body.md>)" node scripts/release.ts apply`
-  and commit the three files it changes. Then add the version to the
-  INFRA-6 list in BACKLOG.md, so its tag and GitHub Release get backfilled.
+- Never run `scripts/release.ts apply` in a PR. That was the stopgap
+  while GitHub Actions was down (`ci_gate: local`); with the workflow
+  running, it releases the same PR twice.
 
 ## Testing
 

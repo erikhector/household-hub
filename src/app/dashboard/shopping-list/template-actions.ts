@@ -9,7 +9,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
-import { Prisma } from "@/generated/prisma/client";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import {
   buildTemplateItems,
   MAX_TEMPLATE_ITEMS,
@@ -43,10 +43,6 @@ async function templateNameTaken(householdId: string, name: string) {
     select: { id: true },
   });
   return existing !== null;
-}
-
-function isUniqueViolation(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
 
 /**

@@ -12,7 +12,9 @@ can run in parallel except the file conflicts listed at the top of that phase. P
 items each add a Prisma migration, so land them **one at a time**, each
 rebased on the previous one's merge, to avoid migration-ordering conflicts.
 Phase 3 items are large enough to deserve their own PR. The last section
-needs a human decision before anyone builds anything.
+needs a product decision before anyone builds anything: the
+`autopilot-product` routine takes the ones AUTOPILOT.md delegates to it
+and leaves the rest for the owner (see PRODUCT.md).
 
 **Finishing an item:** document what shipped in the relevant REQUIREMENTS.md
 section (as every feature so far has), then **delete the item from this
@@ -113,24 +115,11 @@ Bundle numbers are First Load JS gzipped, measured from a production build:
 shared root 206 KB; meal-planning 472 KB; shopping list 445 KB; inventory
 395 KB; budget 390 KB; home 335 KB; login 260 KB.
 
-- [ ] **PERF-8. Shrink Sentry in the root bundle** (medium, S) — the static
-      import in `src/instrumentation-client.ts:1` puts ~130 KB gz on every
-      page (incl. `/login`) even with no DSN. Add `bundleSizeOptimizations`
-      (`excludeDebugStatements`, `excludeTracing` — `tracesSampleRate` is 0 —
-      and the replay excludes) to `withSentryConfig`, or `import()` it
-      behind the DSN check.
 - [ ] **PERF-13. Make the notification-sync cron proportional to work, not households** (low now, M) —
       `api/cron/sync-notifications/route.ts:41-65` walks every household in
       sequential batches of 10, with no `maxDuration`. Pre-select only
       households with candidates (one query per trigger), export
       `maxDuration`, and log run duration.
-- [ ] **PERF-14. Small sequential-await and over-fetch fixes** (low, S) —
-      `dashboard/page.tsx:72-77` (`myTasks` waits on the `Promise.all`; filter
-      by `assignedTo.userId` and run it in parallel); `dashboard/page.tsx:52`
-      (full inventory rows just to count them — `select`);
-      `personal-budget/page.tsx:138-158` (two queries per membership — batch
-      with `householdId: { in }`); `meal-planning/page.tsx:57`
-      (`include: { recipe: true }` pulls instructions — `select`).
 
 ### Maintainability (2026-09-26 audit)
 
@@ -144,15 +133,6 @@ then MAINT-7 per feature, to avoid churn.
       precedent: `list-`, `item-`, `smart-add-`, `purchase-` (toggle,
       put-away), `receipt-` and `store-order-actions.ts`, tests split the
       same way. Do after MAINT-2/5/6.
-- [ ] **MAINT-4. Deduplicate small server helpers** (medium, S) —
-      `absoluteAppUrl` ×4 (`lib/actions/auth.ts:304`,
-      `lib/actions/household.ts:62`, `profile/actions.ts:112`,
-      `shopping-list/share-actions.ts:24`; `lib/email.ts:40` re-derives it)
-      → `src/lib/app-url.ts`; the P2002 unique-violation check ×4 →
-      `src/lib/prisma-errors.ts`; `roundMoney`, `median`, `escapeHtml` and
-      three `normalizeUnit` copies in `meal-planning/` → one each; rename
-      `normalizeItemName` in `inventory-scan.ts:141`, which shadows the
-      different one in `lib/item-matching.ts:9`.
 - [ ] **MAINT-6. Consistent error handling in Server Actions** (medium, M) —
       ~24 writing actions have no try/catch/`toFriendlyError`, so a raw
       error hits the error boundary: `planner-actions.ts` (add/update/move/
@@ -180,12 +160,6 @@ then MAINT-7 per feature, to avoid churn.
       tests. Extract `src/lib/ai/provider-chain.ts`, parameterised by prompt
       and response schema; unit-test fallback, busy and deadline paths with
       mocked `fetch`.
-- [ ] **MAINT-9. One `useDismissedLocalStorage(key)` hook** (low, S) — the
-      same `useSyncExternalStore` + localStorage code is in
-      `meal-nutrition-recap.tsx`, `meal-variety-recap.tsx`,
-      `use-it-up-suggestions.tsx` and `tasks-weekly-recap.tsx`. Put it in
-      `src/components/shared/`, taking keys from `cookie-inventory.ts` so
-      MAINT-1 can't regress. After MAINT-1.
 - [ ] **MAINT-10. Split oversized UI files** (low, M) —
       `components/shopping/shopping-list-client.tsx` (1,095 lines: move
       `ShoppingRow`, `PriceTag`, `PrintableList`, `ClearedState` out, pull
@@ -193,13 +167,6 @@ then MAINT-7 per feature, to avoid churn.
       `BudgetTabsSection` runs 10+ queries inline — extract a
       `loadBudgetTabsData()` into `src/lib/budget/`). Budget part conflicts
       with PERF-12 and BUDGET-5/6.
-- [ ] **MAINT-11. Route cron/API errors through `logger` + Sentry** (medium, S) —
-      12 `console.error`/`warn` calls bypass redaction and Sentry, so caught
-      cron failures are invisible: `api/cron/sync-notifications/route.ts`,
-      `api/cron/weekly-digest/route.ts`, `api/digest/unsubscribe/[token]`,
-      `api/health`, `lib/weekly-digest.ts:328`, `lib/push.ts:124`,
-      `lib/rate-limit.ts:78,129`. Use `logger.error` + `Sentry.captureException`
-      tagged with `householdId`.
 - [ ] **MAINT-12. CI and tooling gaps** (medium, M, own PR — touches `package.json`/lockfile) —
       add a migration drift check to `.github/workflows/ci.yml` (Postgres
       service → `prisma validate` → `migrate deploy` → `prisma migrate diff
@@ -241,48 +208,6 @@ no broken empty states — the issues below are all clipped/illegible text.
 Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
-
-- [ ] **UX-4. Show the "Add task" label on phones** (impact: med, effort: S) —
-      `tasks/page.tsx:89-90` hides the label below `sm` (`sr-only sm:not-sr-only`),
-      so on mobile the page's one primary action is a full-width purple bar
-      holding a lone "+", and the empty state has to say "use the + button
-      above". Breaks *usability* and *user-centricity*: an icon-only primary
-      action with no visible words. Acceptance: at 412 px the button shows
-      the visible text "Add task" (en) / its Swedish equivalent, and an e2e
-      spec asserts `getByRole("button", { name: "Add task" })` has non-empty
-      visible text on mobile.
-- [ ] **UX-5. Collapse empty meal slots in the planner on phones** (impact: med, effort: M) —
-      `/dashboard/meal-planning` on mobile renders 7 days × 4 slots, each
-      with "Nothing planned" (28 identical lines, a ~7,200 px page in
-      `mobile-sv-dashboard-meal-planning.png`). Today's card is barely
-      distinguishable and the real content is buried. Breaks *hierarchy* and
-      *context*. Acceptance: on mobile, empty slots collapse to a single
-      compact "+ Add meal" row per day (or a single-line slot), so an empty
-      week is well under half its current height; an e2e spec asserts an
-      empty day shows one add affordance per slot without repeated
-      "Nothing planned" text, and that adding a meal still works.
-- [ ] **UX-6. Raise every phone touch target to 44 px and guard it** (impact: high, effort: M) —
-      DESIGN.md rule M3 requires 44 × 44 px targets with 8 px gaps on
-      phones, but `src/components/ui/button.tsx`'s `max-sm:` bumps stop at
-      36 px (default, `sm`) and 40 px (`icon`), with `xs`/`icon-xs`/`icon-sm`
-      at 32–36 px; checkboxes, switches and the `+`/`-` steppers are smaller
-      still. Breaks *M3* and *accessibility*. Acceptance: every button,
-      checkbox, switch and stepper has a hit area of at least 44 × 44 px
-      below `sm`; a new `expectTouchTargets(page)` helper in `e2e/ui.ts`
-      (every visible `button`, `a` outside running text, `input`,
-      `[role=checkbox|switch|tab|menuitem]` measures ≥ 44 × 44, or the
-      element's clickable row does) runs in `smoke.spec.ts` on the `mobile`
-      project for every route, and passes.
-- [ ] **UX-7. Right keyboard and autofill on every form field** (impact: med, effort: S) —
-      DESIGN.md rule M4: 22 files use `type="number"` but only 14
-      `inputMode` and 1 `enterKeyHint` exist in `src/`, so money and
-      quantity fields open the wrong phone keyboard and forms lack a "Go"
-      key. Breaks *M4* and *usability*. Acceptance: money and quantity
-      fields use `inputMode="decimal"`, whole counts `numeric`; auth
-      fields carry `autoComplete` (`email`, `current-password`,
-      `new-password`, `name`); the last field of each dialog form has
-      `enterKeyHint`; an e2e spec asserts the `inputMode` of the add-item
-      quantity and a budget amount field on mobile.
 
 ### Budget component unification
 
@@ -693,15 +618,19 @@ credentials only the product owner can provision, or an architecture call.
 - [ ] **INFRA-4. Social login (Google/Apple)** `[!]` — needs OAuth consent
       screens / developer credentials.
 - [ ] **INFRA-6. Backfill tags and GitHub Releases for versions cut
-      while CI was paused** `[!]` — blocked on GitHub Actions running
-      again (`ci_gate: github`). `release.yml` normally tags `vX.Y.Z`
+      while CI was paused** `[!]` — Actions runs again (`ci_gate:
+      github` since 2026-10-04, from v0.47.6 on), so this is unblocked
+      but needs someone with push access to tags. `release.yml` tags `vX.Y.Z`
       and creates a GitHub Release. Versions cut in-PR under the
       `ci_gate: local` stopgap got neither, so they exist only in
       `package.json` and `releases.json`. For each one below, tag the
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
-      Add every new in-PR release to this list, and delete the item once
-      all of them are tagged.
+      No new versions join this list. Delete the item once all of them
+      are tagged. v0.47.5, v0.47.7 and v0.48.3 are deliberately left
+      out: those PRs were released again by the workflow (v0.47.6,
+      v0.47.8, v0.48.4, already tagged), so tagging them would publish a
+      second Release for the same PR.
 
       | Version | PR | Merged | Cut in |
       |---|---|---|---|

@@ -21,6 +21,7 @@ export function CreateFirstHouseholdForm({ dict }: { dict: Dictionary["auth"]["n
       <div className="flex flex-col gap-2">
         <Label htmlFor="first-household-name">{dict.householdName}</Label>
         <Input
+          enterKeyHint="done"
           id="first-household-name"
           name="name"
           required

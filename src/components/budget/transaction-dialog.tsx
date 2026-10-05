@@ -317,6 +317,7 @@ export function TransactionDialog({
                 id="tx-amount"
                 name="amount"
                 type="number"
+                inputMode="decimal"
                 min={0.01}
                 step="any"
                 value={amount}
@@ -339,6 +340,7 @@ export function TransactionDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-description">{dict.descriptionLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="tx-description"
               name="description"
               maxLength={200}

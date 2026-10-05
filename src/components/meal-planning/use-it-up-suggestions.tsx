@@ -20,41 +20,21 @@
 // "uses flour, sugar" nudge for the same recipe next week isn't suppressed
 // by yesterday's dismissal.
 
-import { useState, useSyncExternalStore } from "react";
 import { Recycle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDismissedLocalStorage } from "@/components/shared/use-dismissed-local-storage";
+import { USE_IT_UP_DISMISSED_STORAGE_KEY } from "@/lib/cookie-inventory";
 import { format, plural } from "@/lib/i18n/format";
 import type { UseItUpSuggestionData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
-const DISMISSED_STORAGE_KEY = "mealPlanning.useItUpDismissed";
-
 function signatureFor(suggestion: UseItUpSuggestionData): string {
   return suggestion.matches
     .map((match) => match.name)
     .sort()
     .join("|");
-}
-
-// No-op subscribe: nothing external notifies this of changes — a dismissal
-// made in this tab flows through the `justDismissed` state below instead,
-// same reasoning as MealVarietyRecap's identical no-op subscribe.
-function subscribe() {
-  return () => {};
-}
-
-function getSnapshot(): string | null {
-  try {
-    return localStorage.getItem(DISMISSED_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function getServerSnapshot(): string | null {
-  return null;
 }
 
 function parseDismissed(raw: string | null): Record<string, string> {
@@ -85,31 +65,15 @@ export function UseItUpSuggestions({
   suggestions: UseItUpSuggestionData[];
   dict: MealPlanningDict;
 }) {
-  // useSyncExternalStore (not useState+useEffect) is the React-recommended
-  // way to read an external, client-only value like localStorage during
-  // render — mirrors MealVarietyRecap's identical pattern. getServerSnapshot
-  // always returns null so SSR and the first client render agree.
-  const dismissedRaw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [justDismissed, setJustDismissed] = useState<ReadonlySet<string>>(new Set());
+  const [dismissedRaw, setDismissedRaw] = useDismissedLocalStorage(USE_IT_UP_DISMISSED_STORAGE_KEY);
 
   const dismissed = parseDismissed(dismissedRaw);
-  const visible = suggestions.filter(
-    (suggestion) =>
-      !justDismissed.has(suggestion.recipeId) && dismissed[suggestion.recipeId] !== signatureFor(suggestion),
-  );
+  const visible = suggestions.filter((suggestion) => dismissed[suggestion.recipeId] !== signatureFor(suggestion));
 
   if (visible.length === 0) return null;
 
   function handleDismiss(suggestion: UseItUpSuggestionData) {
-    setJustDismissed((prev) => new Set(prev).add(suggestion.recipeId));
-    try {
-      const next = { ...parseDismissed(getSnapshot()), [suggestion.recipeId]: signatureFor(suggestion) };
-      localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // localStorage unavailable (private browsing, blocked site data) —
-      // dismiss still works for this render via justDismissed, just won't
-      // persist across navigation.
-    }
+    setDismissedRaw(JSON.stringify({ ...dismissed, [suggestion.recipeId]: signatureFor(suggestion) }));
   }
 
   return (
@@ -132,7 +96,7 @@ export function UseItUpSuggestions({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-5 shrink-0 text-muted-foreground"
+              className="size-5 shrink-0 text-muted-foreground max-sm:size-11"
               aria-label={dict.useItUpDismissAriaLabel}
               onClick={() => handleDismiss(suggestion)}
             >

@@ -277,7 +277,7 @@ export function ShoppingItemFormDialog({
               render={
                 <Badge
                   variant="outline"
-                  className="shrink-0 cursor-pointer border-dashed text-warning hover:bg-warning/10"
+                  className="touch-target shrink-0 cursor-pointer justify-center border-dashed text-warning hover:bg-warning/10"
                 >
                   {matchItemLabel}
                 </Badge>
@@ -310,13 +310,14 @@ export function ShoppingItemFormDialog({
                 <Input
                   name="quantity"
                   type="number"
+                  inputMode="decimal"
                   min={0.01}
                   step="any"
                   defaultValue={1}
                   className="w-20"
                   aria-label={dict.addItemQuantityAriaLabel}
                 />
-                <div className="w-24">
+                <div className="w-24 max-sm:w-44">
                   <ComboField
                     id="add-item-unit"
                     name="unit"
@@ -373,6 +374,7 @@ export function ShoppingItemFormDialog({
                     <Input
                       id="edit-item-quantity"
                       type="number"
+                      inputMode="decimal"
                       min={0.01}
                       step="any"
                       value={quantity}

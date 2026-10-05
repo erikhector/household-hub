@@ -49,6 +49,29 @@ easy for AI coding agents to work in correctly:
   leak past a suspended Fluid compute instance (a documented no-op off
   Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
   interacts with the pooler `DATABASE_URL` must point at in production.
+- **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
+  only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
+  `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
+  (`init` and `onRouterTransitionStart`) and `src/lib/sentry-client.ts`
+  (`captureClientException`, used by `error.tsx` and `global-error.tsx`).
+  The DSN is inlined at build time, so with none set no Sentry chunk is
+  emitted and `/login` etc. no longer carry ~130 KB gzipped of it. Never add
+  a static `@sentry/nextjs` import to client code. With a DSN set, the SDK
+  loads async, so an error in the first moments before the chunk arrives
+  isn't captured. `withSentryConfig` (applied only when `SENTRY_DSN` is set)
+  also passes `bundleSizeOptimizations` (debug statements, tracing and
+  Session Replay code excluded; `tracesSampleRate` is 0 and Replay is never
+  enabled).
+- **Server-side errors go through `reportError` (MAINT-11).** Caught
+  failures in cron routes, `/api/health`, the digest unsubscribe route,
+  `weekly-digest.ts`, `push.ts` and the Redis fallback in `rate-limit.ts`
+  call `reportError(message, error, { householdId? })`
+  (`src/lib/report-error.ts`): one redacted `logger.error` line plus
+  `Sentry.captureException`, tagged with `householdId` when the failure
+  belongs to one household. No server code calls `console.error`/`warn`
+  directly (only `logger.ts` does). Rejected cron requests and the
+  missing-`AUTH_SECRET` skip use `logger.error` alone, since they aren't
+  exceptions.
 - **next-themes** drives the light/dark theme toggle; **a hand-rolled
   cookie + dictionary system** (not a routing library like `next-intl`)
   drives English/Swedish translation. See "Theming" and
@@ -1220,8 +1243,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     scoped exactly like the rest of this feature. `createShareLinkAction`
     builds the full share URL server-side from `APP_URL` (falling back to
     request headers only in local dev with `APP_URL` unset) — the same
-    header-spoofing trust boundary `sendInviteEmailAction`'s `absoluteAppUrl`
-    already guards against, applied here too.
+    header-spoofing trust boundary the shared `absoluteAppUrl`
+    (`src/lib/app-url.ts`, also used by the invite, verification, reset and
+    calendar-feed links) already guards against, applied here too.
   - `src/app/share/shopping-list/actions.ts` — `getShoppingListByShareToken`
     and `toggleItemViaShareTokenAction`, which take **no session at all**.
     **The critical security boundary**: `toggleItemViaShareTokenAction`
@@ -3178,6 +3202,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
   constraint) the first time a meal is actually added to that week, not on
   page view, so browsing to an empty future/past week doesn't write rows.
+- **Empty slots (UX-5)**: a slot with no entries renders as one full-width
+  "<slot> + Add meal" row (`MealEntryDialog` with `slotLabel`, min height
+  36 px) instead of a label, a "Nothing planned" line and a small "+"
+  button, so an empty week is 28 single-line rows rather than a wall of
+  repeated text. A slot with entries keeps its label, the entries and the
+  small "+" that stacks another one. `e2e/meal-planner-empty-slots.spec.ts`
+  covers both.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
@@ -4047,6 +4078,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Add task button (UX-4)**: the header button always shows its "Add task"
+  label. It used to collapse to a lone "+" below `sm`, leaving the page's one
+  primary action with no visible words on phones. `flows.spec.ts` asserts the
+  visible text on the mobile project.
 - **Recurrence**: `recurrenceIntervalDays` (1–90, the dialog offers every
   1, 2, 3 or 7 days; null = one-off) is the whole model — no rrule or
   weekday schedule, just "reopen N days after it was last completed".
@@ -4516,6 +4551,17 @@ components directly.
   (see "Internationalization" on why each Server Component fetches
   independently rather than prop-drilling from one root call).
 
+- **Phone keyboards (DESIGN.md M4)**: every `type="number"` input also sets
+  `inputMode`: `decimal` for money and fractional quantities (`step="any"`
+  or a cent step), `numeric` for whole counts (portions, servings, calories,
+  day-of-month). The last text, number or password field of a form carries
+  `enterKeyHint` (`go` for auth and password forms, `done` for dialogs and
+  settings forms), so the phone's Enter key submits instead of showing a
+  bare return key. Textareas and date inputs are left alone (Enter is a
+  newline, dates use the native picker). Auth and profile fields already
+  carry `autoComplete` (`email`, `current-password`, `new-password`,
+  `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+
 ## Releases & What's new
 
 Every change reaches `master` through a pull request, and every releasing PR
@@ -4543,14 +4589,19 @@ version or the notes by hand.
   bumping in each PR would make every pair of open PRs conflict on the
   version line. Concurrent merges retry from the newest `master` instead
   of using a concurrency group, which would cancel queued runs.
-- **While GitHub Actions is paused** (`ci_gate: local`, see AUTOPILOT.md)
-  `release.yml` can't run. Instead, each releasing PR runs the same
-  `scripts/release.ts apply` itself, as its last commit before merge, on
-  top of the latest `master` (see AGENTS.md, "Pull requests and
-  releases"). Versions cut this way have no git tag or GitHub Release
-  yet. BACKLOG.md's INFRA-6 lists them for a backfill once CI is back.
-  v0.39.9 to v0.42.0 (#81, #92, #91, #94) were merged before this
-  stopgap existed, and were cut together in #93 alongside its own v0.42.1.
+- **While GitHub Actions was paused** (`ci_gate: local`, 2026-09-26 to
+  2026-10-04, see AUTOPILOT.md) `release.yml` couldn't run, so each
+  releasing PR ran the same `scripts/release.ts apply` itself as its last
+  commit before merge. Those versions have no git tag or GitHub Release
+  yet; BACKLOG.md's INFRA-6 lists them for a backfill. v0.39.9 to
+  v0.42.0 (#81, #92, #91, #94) were merged before that stopgap existed
+  and were cut together in #93 alongside its own v0.42.1. Actions came
+  back while the stopgap was still in force, so #135, #134 and #140 were
+  each released twice: an in-PR version (v0.47.5, v0.47.7, v0.48.3)
+  and a workflow one (v0.47.6, v0.47.8, v0.48.4). Only the workflow
+  versions are tagged, and the in-PR ones aren't backfilled, since that
+  would publish a second Release for the same PR. Releases are back to
+  after-merge only.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports
   because `scripts/release.ts` runs it under Node's built-in type stripping
@@ -5221,6 +5272,17 @@ approximating them, so the email never disagrees with the app.
   cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
+- **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`
+  (`src/components/shared/use-dismissed-local-storage.ts`) is the one place
+  that reads/writes a "dismissed" value in localStorage, for the use-it-up
+  chips and the nutrition, variety and weekly-task recaps. It returns
+  `[value, setValue]`: `value` is null on the server and first render (no
+  hydration mismatch) and when storage is blocked, `setValue` hides the
+  card at once and persists best-effort. `key` is typed as
+  `DismissedStorageKey`, the `*_DISMISSED_STORAGE_KEY` constants exported
+  from `src/lib/cookie-inventory.ts`, so a new dismissal needs an inventory
+  entry first. `e2e/dismissed-recaps.spec.ts` covers the dismissal
+  surviving a reload.
 - **End-to-end tests** (`e2e/`, `playwright.config.ts`): Playwright drives
   a production build (`npm run build`, then `npm run test:e2e` starts
   `next start` itself) against a real Postgres, because the unit suite
@@ -5239,10 +5301,9 @@ approximating them, so the email never disagrees with the app.
   collide. `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, but GitHub CI is paused for now
-  (manual dispatch only, since the account can't start runners): the
-  gate is `npm run ci:local` (check + build + e2e) in the working
-  session, per `ci_gate` in AUTOPILOT.md. In
+  with a Postgres service container, running on every PR and push to
+  `master` (`ci_gate: github` in AUTOPILOT.md). `npm run ci:local`
+  (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
@@ -5267,6 +5328,19 @@ approximating them, so the email never disagrees with the app.
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
   `npm run test:e2e:desktop` / `:mobile` run one project.
+- **Touch targets (UX-6, DESIGN.md rule M3)**: below `sm` every button,
+  link outside running text, input, checkbox, radio, tab and menu item
+  has a 44 x 44 px hit area. `Button` (all sizes), `Input`, the select and
+  combobox triggers and menu items grow with `max-sm:` classes; `Checkbox`
+  and `Radio` are drawn by hand so a `::after` can extend their hit area
+  past the 20 px control; links and chips use the `touch-target` utility
+  (`globals.css`) or a `max-sm:min-h-11` row. Desktop keeps its denser
+  sizing. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
+  element (passing if its own box, an enclosing label, link or button, or
+  an absolutely positioned `::before`/`::after` reaches 44 px) and runs
+  in `smoke.spec.ts` on the `mobile` project for every page. It checks
+  each page's closed state, so menus and dialogs opened later rely on the
+  component classes above.
 - **Screenshots for review and the UX scout**: with
   `E2E_SCREENSHOT_DIR` set (`npm run test:e2e:screenshots` defaults it to
   `test-results/screenshots/`), the smoke and public specs also save a
@@ -5287,7 +5361,7 @@ approximating them, so the email never disagrees with the app.
 ## Autonomous improvement loop
 
 Scheduled Claude Code sessions ("routines") improve the app continuously,
-under human control. Four roles, each a skill in `.claude/skills/`:
+under human control. Five roles, each a skill in `.claude/skills/`:
 
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
@@ -5305,7 +5379,7 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   own git worktree, with its own `node_modules` and database. Each
   sub-agent implements its item per AGENTS.md's workflow with unit and
   e2e tests, runs `npm run ci:local` under a shared lock (one build and
-  e2e run at a time on the machine), and opens a PR (ID in the title,
+  e2e run at a time on the machine) before pushing, and opens a PR (ID in the title,
   label `autopilot`, release note in both languages). The coordinator
   writes no code: it tracks the sub-agents and validates each PR against
   GitHub and the sub-agent's `ci:local` log (head SHA, gate passed on it,
@@ -5328,9 +5402,22 @@ under human control. Four roles, each a skill in `.claude/skills/`:
   checking each finding against the new head and resolving the thread
   once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
   no open threads, gets `master` merged in, conflicting migrations
-  regenerated on top of master's, its release cut, and `npm run ci:local`
-  run, then it is squash-merged. At most `max_merges_per_review_run` per
+  regenerated on top of master's, and `npm run ci:local` run, then it is
+  pushed and squash-merged once GitHub CI is green on that head
+  (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
+- **Product owner** (`autopilot-product`, weekly) makes the product
+  decisions `[!]` items wait on, within the authority AUTOPILOT.md's
+  "Product decisions" section delegates (`may_decide` / `never_decide`:
+  never money, credentials, new personal data, deletion or the loop's
+  own limits). Each decided item becomes a normal buildable item with
+  acceptance criteria and a "Decided … by autopilot-product" line; the
+  rest get a recommendation in PRODUCT.md's "Owner inbox". It also keeps
+  PRODUCT.md's "Direction" and "Focus" current; the builder takes Focus
+  IDs right after `UX-` items, and scouts don't re-add what its Decision
+  log turned down. Output is one `docs(backlog): product decisions` PR
+  (BACKLOG.md and PRODUCT.md only) that the reviewer merges unless the
+  owner labels it `hold`.
 - **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
@@ -5344,8 +5431,8 @@ PRs touching human-only areas get a deeper review rather than a human
 merge, except those changing AUTOPILOT.md or `.github/workflows/`
 (`never_merge_paths`), which a human merges so the loop can't loosen its
 own limits. Items marked `[!]` or under "Needs a decision
-before building" are never built autonomously: product direction stays
-with the owner.
+before building" are never built until decided: by the product owner
+routine where AUTOPILOT.md allows it, otherwise by the owner.
 
 ### Routine prompts
 
@@ -5365,6 +5452,7 @@ runs don't queue behind everyone else's.
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
 | Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
 | Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, and merge the PRs that pass, one merge sub-agent at a time. Follow AUTOPILOT.md; stop if it disables you. |
+| Product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
 The existing daily competitive-scan routine is replaced by "Scout:

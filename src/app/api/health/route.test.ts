@@ -6,6 +6,9 @@ const { queryRawMock } = vi.hoisted(() => ({
   queryRawMock: vi.fn(),
 }));
 
+const { captureException } = vi.hoisted(() => ({ captureException: vi.fn() }));
+vi.mock("@sentry/nextjs", () => ({ captureException }));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: { $queryRaw: queryRawMock },
 }));
@@ -41,6 +44,7 @@ describe("GET /api/health", () => {
     expect(body).toEqual({ status: "error" });
     expect(bodyText).not.toContain("secret-host");
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining("connection refused") }), expect.anything());
 
     consoleErrorSpy.mockRestore();
   });

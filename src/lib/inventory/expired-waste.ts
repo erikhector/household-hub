@@ -41,6 +41,8 @@
 // (`estimatedValue`), which the UI shows as a softer "maybe" line rather
 // than folding a guess into a number that reads as money lost.
 
+import { round2 } from "@/lib/math";
+
 export type ExpiredWasteCandidate = {
   id: string;
   name: string;
@@ -85,10 +87,6 @@ export function isExpiredUnused(
   return item.updatedAt.getTime() >= t;
 }
 
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 export function computeExpiredWaste(
   candidates: ExpiredWasteCandidate[],
   monthStart: Date,
@@ -126,8 +124,8 @@ export function computeExpiredWaste(
 
   return {
     items,
-    confirmedValue: roundMoney(confirmedValue),
-    estimatedValue: roundMoney(estimatedValue),
+    confirmedValue: round2(confirmedValue),
+    estimatedValue: round2(estimatedValue),
     unpricedCount,
   };
 }

@@ -1,4 +1,6 @@
 import { isEmailConfigured } from "@/lib/email";
+import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/report-error";
 import { timingSafeStringEqual } from "@/lib/timing-safe-equal";
 import { runWeeklyDigest } from "@/lib/weekly-digest";
 
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
   // timing-safe-equal.ts) so a wrong guess can't be narrowed down from
   // response timing.
   if (!secret || !authHeader || !timingSafeStringEqual(authHeader, `Bearer ${secret}`)) {
-    console.error("Weekly digest cron rejected: missing or incorrect CRON_SECRET bearer token");
+    logger.error("Weekly digest cron rejected: missing or incorrect CRON_SECRET bearer token");
     return Response.json({ status: "error", message: "Unauthorized" }, { status: 401 });
   }
 
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
   // no email may go out, because every one must carry a working unsubscribe.
   const signingSecret = process.env.AUTH_SECRET;
   if (!signingSecret) {
-    console.error("Weekly digest cron skipped: AUTH_SECRET is not set, so unsubscribe links can't be signed");
+    logger.error("Weekly digest cron skipped: AUTH_SECRET is not set, so unsubscribe links can't be signed");
     return Response.json({ status: "skipped", reason: "auth_secret_missing" }, { status: 200 });
   }
 
@@ -62,7 +64,7 @@ export async function GET(request: Request) {
     // Only reached when the household lookup itself fails; per-household
     // failures are counted inside runWeeklyDigest. Log the real error, keep
     // internals out of the response.
-    console.error("Weekly digest cron failed:", error);
+    reportError("Weekly digest cron failed", error);
     return Response.json({ status: "error" }, { status: 500 });
   }
 }

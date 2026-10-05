@@ -34,6 +34,7 @@ export function DisplayNameForm({
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.label}</Label>
         <Input
+          enterKeyHint="done"
           key={displayName}
           id="displayName"
           name="displayName"

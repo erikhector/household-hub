@@ -70,6 +70,62 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow, "content wider than the viewport (horizontal scroll)").toEqual([]);
 }
 
+// DESIGN.md rule M3: every tap target is at least 44 x 44 CSS px on phones.
+// Measures every visible button, link, input and checkbox/switch/tab/menu
+// item. A control passes when its own box is big enough, or when the thing
+// a finger actually hits is: an enclosing <label> or link/button (the whole
+// row is the target), or an absolutely positioned ::before/::after that
+// extends the hit area past a smaller visible control. Links inside running
+// text are exempt (WCAG 2.5.8): an <a> whose parent block also holds text of
+// its own. Call on the mobile project only; desktop sizing is deliberately
+// denser. `min` is the 44px of M3, with 0.5px of slack for sub-pixel layout.
+export async function expectTouchTargets(page: Page, min = 44) {
+  const small = await page.evaluate((min) => {
+    const selector = 'button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="button"]';
+    const found: string[] = [];
+    const big = (w: number, h: number) => w >= min - 0.5 && h >= min - 0.5;
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+      // Not rendered, or visually hidden (sr-only inputs, skip links): not a
+      // target a finger can reach.
+      if (style.visibility === "hidden" || style.display === "none" || rect.width <= 1 || rect.height <= 1) continue;
+      if (el.closest("[hidden], [aria-hidden='true'], [inert]")) continue;
+      if (el.matches("input[disabled], button[disabled]")) continue;
+      if (big(rect.width, rect.height)) continue;
+
+      // Enclosing label or interactive ancestor: the whole row is the target.
+      const row = el.closest("label, a[href], button, [role='button'], [role='menuitem'], [role='tab']");
+      if (row && row !== el) {
+        const r = row.getBoundingClientRect();
+        if (big(r.width, r.height)) continue;
+      }
+      // Pseudo-element hit area (e.g. `after:absolute after:-inset-2`).
+      let extended = false;
+      for (const pseudo of ["::before", "::after"]) {
+        const ps = getComputedStyle(el, pseudo);
+        if (ps.content === "none" || ps.position !== "absolute") continue;
+        // A stretched pseudo (`inset-*`) can report `auto` for its size on
+        // an <input>, so fall back to the box the offsets imply.
+        const w = parseFloat(ps.width) || rect.width - parseFloat(ps.left) - parseFloat(ps.right);
+        const h = parseFloat(ps.height) || rect.height - parseFloat(ps.top) - parseFloat(ps.bottom);
+        if (big(w, h)) extended = true;
+      }
+      if (extended) continue;
+      // Link inside running text.
+      if (el.tagName === "A") {
+        const parent = el.parentElement;
+        const own = Array.from(parent?.childNodes ?? []).some((n) => n.nodeType === 3 && (n.textContent ?? "").trim().length > 0);
+        if (own) continue;
+      }
+      const name = el.getAttribute("aria-label") || (el.textContent ?? "").trim().slice(0, 30) || el.getAttribute("name") || "";
+      found.push(`<${el.tagName.toLowerCase()}${el.getAttribute("role") ? ` role=${el.getAttribute("role")}` : ""}> "${name}" ${Math.round(rect.width)}x${Math.round(rect.height)}`);
+    }
+    return found;
+  }, min);
+  expect(small, `tap targets under ${min}x${min}px (DESIGN.md M3)`).toEqual([]);
+}
+
 // Screenshots for humans and the UX scout (autopilot-scout `ux` lens).
 // Off unless E2E_SCREENSHOT_DIR is set, so normal runs stay fast and write
 // nothing. Named <project>-<locale>-<route>.png so a directory listing

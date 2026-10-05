@@ -28,6 +28,8 @@
 // the UI can say "based on N of M items with a known price" rather than
 // passing off a partial sum as the whole pantry.
 
+import { round2 } from "@/lib/math";
+
 export type StockValueCandidate = {
   quantity: number;
   lastKnownPrice: number | null;
@@ -43,10 +45,6 @@ export type StockValueSummary = {
   /** Every in-stock item: `pricedCount + unpricedCount`. */
   inStockCount: number;
 };
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 export function computeStockValue(items: StockValueCandidate[]): StockValueSummary {
   let value = 0;
@@ -64,7 +62,7 @@ export function computeStockValue(items: StockValueCandidate[]): StockValueSumma
   }
 
   return {
-    value: roundMoney(value),
+    value: round2(value),
     pricedCount,
     unpricedCount,
     inStockCount: pricedCount + unpricedCount,

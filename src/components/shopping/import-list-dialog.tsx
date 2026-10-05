@@ -238,6 +238,7 @@ export function ImportListDialog({
                   />
                   <Input
                     type="number"
+                    inputMode="decimal"
                     min={0}
                     step="any"
                     value={row.quantity}

@@ -20,7 +20,8 @@ most a handful of BACKLOG.md entries in one small `docs:` PR.
 `grep -n '\*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md` lists every open item in one
 call. Read nothing else from BACKLOG.md except the section you'll write to.
 Only add items not already covered there or in REQUIREMENTS.md's headings
-(`grep -n '^#' REQUIREMENTS.md`).
+(`grep -n '^#' REQUIREMENTS.md`), and none PRODUCT.md's "Decision log"
+already turned down.
 
 ## 2. Look through your lens
 

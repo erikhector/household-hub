@@ -48,7 +48,8 @@ write it.
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
 Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
-`UX-` item comes first** (best impact/effort among them); only the slots
+`UX-` item comes first** (best impact/effort among them), then the
+eligible IDs in PRODUCT.md's "Focus" list in its order; only the slots
 left after those go to other items, lowest phase first, then best
 impact/effort. Confirm no open PR mentions each ID. Read only the
 chosen items' text, not the REQUIREMENTS.md sections: that's the
@@ -181,8 +182,9 @@ Follow AGENTS.md's Development workflow exactly (orient → implement → test
   ```
 
   Run it on the exact commit you push (commit first), and again after
-  every later commit. All green, no skipped tests. While AUTOPILOT.md
-  says `ci_gate: local` this *is* CI: ignore GitHub check runs.
+  every later commit. All green, no skipped tests. It's the pre-push
+  check: with `ci_gate: github` the PR's GitHub CI must also go green,
+  and the coordinator's fix sub-agents handle it if it doesn't.
 - **Self-review**: run the `self-review` skill, then re-read the diff once
   more asking "what would a careful reviewer reject?". Fix it.
 

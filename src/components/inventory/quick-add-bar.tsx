@@ -97,8 +97,10 @@ export function QuickAddBar({
             {dict.quantityLabel}
           </Label>
           <Input
+            enterKeyHint="done"
             id="quick-add-quantity"
             type="number"
+            inputMode="decimal"
             min={0}
             step="any"
             value={quantity}
@@ -110,7 +112,7 @@ export function QuickAddBar({
         {/* w-32, not w-20: the combobox also holds its clear (×) and chevron
             buttons plus padding and border (~74px), so 80px left the input
             about 6px and "pcs" showed as a single letter (UX-1). */}
-        <div className="flex w-32 flex-col gap-1">
+        <div className="flex w-32 flex-col gap-1 max-sm:w-auto max-sm:min-w-36 max-sm:flex-1">
           <Label htmlFor="quick-add-unit" className="text-[11px] font-normal text-muted-foreground">
             {dict.unitLabel}
           </Label>
@@ -124,7 +126,7 @@ export function QuickAddBar({
             dict={dict}
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 max-sm:min-w-40">
           <Label htmlFor="quick-add-category" className="text-[11px] font-normal text-muted-foreground">
             {dict.categoryLabel}
           </Label>

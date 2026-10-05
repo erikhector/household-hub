@@ -1,5 +1,82 @@
 [
   {
+    "version": "0.48.5",
+    "date": "2026-10-04",
+    "pr": 141,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Behind-the-scenes errors in scheduled jobs (notification sync, weekly digest emails) are now reported to the maintainer, so failures get fixed faster.",
+      "sv": "Fel i schemalagda jobb i bakgrunden (notissynk, veckosammanfattning) rapporteras nu till utvecklaren, så att problem åtgärdas snabbare."
+    }
+  },
+  {
+    "version": "0.48.4",
+    "date": "2026-10-04",
+    "pr": 140,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The dashboard, meal planner and personal budget pages load a little faster.",
+      "sv": "Startsidan, måltidsplaneringen och den personliga budgeten laddas lite snabbare."
+    }
+  },
+  {
+    "version": "0.48.2",
+    "date": "2026-10-04",
+    "pr": 139,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Buttons, checkboxes and fields are now bigger on phones, so they are easier to tap.",
+      "sv": "Knappar, kryssrutor och fält är nu större på mobilen och därmed lättare att trycka på."
+    }
+  },
+  {
+    "version": "0.48.1",
+    "date": "2026-10-04",
+    "pr": 138,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Number fields now open the number pad on your phone, and the Enter key on forms shows \"Done\" or \"Go\".",
+      "sv": "Sifferfält öppnar nu sifferknappsatsen på mobilen, och Enter-tangenten i formulär visar \"Klar\" eller \"Kör\"."
+    }
+  },
+  {
+    "version": "0.48.0",
+    "date": "2026-10-04",
+    "pr": 136,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Empty meal slots in the weekly planner are now a single \"Add meal\" row, so an empty week is much shorter on your phone.",
+      "sv": "Tomma måltidsplatser i veckoplaneringen är nu en enda rad, \"Lägg till måltid\", så en tom vecka blir mycket kortare på mobilen."
+    }
+  },
+  {
+    "version": "0.47.8",
+    "date": "2026-10-04",
+    "pr": 134,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Add task\" button on the Tasks page now shows its name on phones instead of just a \"+\".",
+      "sv": "Knappen \"Lägg till uppgift\" på sidan Uppgifter visar nu sitt namn på mobilen i stället för bara ett \"+\"."
+    }
+  },
+  {
+    "version": "0.47.6",
+    "date": "2026-10-04",
+    "pr": 135,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Pages load a bit faster, especially on slow connections, because error-reporting code is no longer downloaded unless it is switched on.",
+      "sv": "Sidorna laddas lite snabbare, särskilt på långsamma anslutningar, eftersom felrapporteringskoden inte längre hämtas om den inte är påslagen."
+    }
+  },
+  {
     "version": "0.47.4",
     "date": "2026-09-30",
     "pr": 133,

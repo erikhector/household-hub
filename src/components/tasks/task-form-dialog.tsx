@@ -158,6 +158,7 @@ export function TaskFormDialog({
           {mode === "edit" && task && <input type="hidden" name="taskId" value={task.id} />}
           {mode === "create" && (
             <Input
+              enterKeyHint="done"
               name="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
