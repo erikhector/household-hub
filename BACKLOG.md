@@ -396,23 +396,6 @@ don't build these in parallel:
       Acceptance: a mobile spec fills the recipe form to the bottom and
       asserts the submit button is in the viewport without scrolling.
 
-- [ ] **UX-13. Forms keep what the user typed after a server error** (high,
-      S) — React 19 resets uncontrolled fields when a form action returns,
-      even when it returns `{ error }`.
-      - Signup wipes name, household, email and both passwords
-        (`auth/signup-form.tsx:80-108`).
-      - Login loses the email (`login-form.tsx:57`). Reset-password, the
-        join sign-up form and the display-name form behave the same way.
-      - Add/edit item resets quantity, threshold, expiry and use-within
-        (`inventory/add-item-dialog.tsx:229-305`).
-      - The transaction description resets too.
-
-      Fix: echo non-secret values back in the action state and key
-      `defaultValue` on it, or make the fields controlled.
-
-      Acceptance: an e2e test submits signup with an email that's already
-      used and asserts the name and email are still filled in.
-
 - [ ] **UX-14. Ticking is instant: optimistic rows with per-row pending**
       (high, M) — The shopping item checkbox
       (`shopping-list-client.tsx:179,860-870`), the share page
