@@ -4428,6 +4428,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
+  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
+  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
+  the inset elsewhere), so they never cover the navigation or sit in the
+  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  button is 44 px (`globals.css`).
+- **Copy-link buttons** (household invite, shopping-list share link,
+  calendar feed) are one component, `CopyLinkButton`
+  (`src/components/ui/copy-link-button.tsx`). It awaits
+  `clipboard.writeText` and shows "Copied" only on success; a rejection
+  shows an error toast telling the user to copy the selected link by hand.
+  On a coarse-pointer device with `navigator.share`, a "Share" button
+  opens the system share sheet.
 
 ## Access control (landing / auth pages vs. the app)
 

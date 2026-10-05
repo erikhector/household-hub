@@ -5,6 +5,7 @@ import { Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CopyLinkButton } from "@/components/ui/copy-link-button";
 import {
   Dialog,
   DialogContent,
@@ -95,16 +96,7 @@ export function ShareListButton({
                   onFocus={(e) => e.currentTarget.select()}
                   aria-label={dict.linkAriaLabel}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    navigator.clipboard.writeText(link);
-                    toast.success(dict.copiedToast);
-                  }}
-                >
-                  {dict.copy}
-                </Button>
+                <CopyLinkButton url={link} dict={dict} shareTitle={dict.dialogTitle} />
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 border-t pt-4">
