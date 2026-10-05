@@ -206,10 +206,14 @@ async function PlannerTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const { recipeRows, entries, activeShoppingLists } = await getMealPlanningCoreData(householdId, weekStartKey);
+  const [{ recipeRows, entries, activeShoppingLists }, locale] = await Promise.all([
+    getMealPlanningCoreData(householdId, weekStartKey),
+    getLocale(),
+  ]);
   return (
     <WeekPlanner
       dict={dict}
+      locale={locale}
       weekStartKey={weekStartKey}
       recipes={recipeRows}
       entries={entries}

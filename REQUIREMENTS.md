@@ -3976,6 +3976,41 @@ any member's star is everyone's star.
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
 
+### Cook mode (GAP-42)
+
+Paprika, Mealie and Tandoor all have a "cook" view. Squirrel showed a
+recipe's `instructions` only inside the edit form, a dialog that dims
+mid-recipe. `CookModeDialog` (`src/components/meal-planning/cook-mode-dialog.tsx`)
+is a full-screen read view for cooking from a phone.
+
+- **Entry points**: a "Cook" button under a `RecipeManager` row's details,
+  and a pot icon on a planner entry (`MealEntryRow`,
+  `mealPlanning.cookModeFromPlanAriaLabel`). Both only exist when the
+  recipe has non-blank instructions.
+- **Content**: the title and portion count, the ingredients, then the
+  steps in large type. Steps are `instructions` split one per line
+  (`splitSteps`, `src/lib/cook-mode-calc.ts`). Sub-recipe components aren't
+  expanded; their own recipes have their own Cook view.
+- **Scaling**: opened from the recipe list, amounts are the recipe's own
+  (`Recipe.servings` portions). Opened from the planner it passes the meal
+  entry's `portions`, and each amount is multiplied by `portions /
+  servings` (`cookScale`, guarded against a zero value) and shown to two
+  decimals in the locale's format (`formatCookQuantity`).
+- **Ticking steps**: each step is a whole-card button with `aria-pressed`;
+  a done step is dimmed, struck through and shows a check instead of its
+  number. State is component-only: nothing is saved or stored in the
+  browser (no `cookie-inventory.ts` entry), so reopening starts fresh.
+- **Wake lock**: the dialog content calls `useScreenWakeLock(open)` (the
+  AUTO-3 hook the shopping list uses), so the screen stays on while the view
+  is open and the lock is released on close. Where the API is missing or
+  denied it silently does nothing.
+- **Closing**: a full-width "Close" button at the bottom of the scroller
+  (thumb zone) and Escape; the round close icon is dropped in favour of it.
+- **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting);
+  `e2e/cook-mode.spec.ts` opens the view, ticks and un-ticks a step and
+  closes back to the list on desktop and mobile. The seeded "Pancakes"
+  recipe has two steps for it.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark

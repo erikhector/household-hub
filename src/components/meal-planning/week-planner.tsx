@@ -3,10 +3,11 @@
 import { type ReactNode, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
@@ -21,6 +22,7 @@ import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/
 import { format, plural } from "@/lib/i18n/format";
 import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -135,12 +137,14 @@ function CopyLastWeekButton({
 
 export function WeekPlanner({
   dict,
+  locale,
   weekStartKey,
   recipes,
   entries,
   activeShoppingLists,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
@@ -225,6 +229,7 @@ export function WeekPlanner({
                 <MealTypeSlot
                   key={mealType}
                   dict={dict}
+                  locale={locale}
                   mealType={mealType}
                   dateKey={day.dateKey}
                   weekStartKey={weekStartKey}
@@ -242,6 +247,7 @@ export function WeekPlanner({
 
 function MealTypeSlot({
   dict,
+  locale,
   mealType,
   dateKey,
   weekStartKey,
@@ -249,6 +255,7 @@ function MealTypeSlot({
   entries,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   mealType: MealType;
   dateKey: string;
   weekStartKey: string;
@@ -289,6 +296,7 @@ function MealTypeSlot({
           <MealEntryRow
             key={entry.id}
             dict={dict}
+            locale={locale}
             entry={entry}
             recipes={recipes}
             weekStartKey={weekStartKey}
@@ -309,16 +317,20 @@ function IconSlot({ children }: { children?: ReactNode }) {
 
 function MealEntryRow({
   dict,
+  locale,
   entry,
   recipes,
   weekStartKey,
 }: {
   dict: MealPlanningDict;
+  locale: Locale;
   entry: MealPlanEntryData;
   recipes: RecipeData[];
   weekStartKey: string;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
+  const linkedRecipe = entry.recipeId ? recipes.find((recipe) => recipe.id === entry.recipeId) : undefined;
+  const cookRecipe = linkedRecipe?.instructions?.trim() ? linkedRecipe : null;
   // Portions only mean something next to a linked recipe — a freeform entry
   // has nothing to scale (see MealPlanEntryData.portions' doc comment).
   const portionsLabel = entry.recipeId
@@ -331,6 +343,30 @@ function MealEntryRow({
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
       </span>
+
+      {/* GAP-42: opens the cook view scaled to this entry's portions. Not
+          gated on consumedAt: reading a recipe again is harmless. */}
+      <IconSlot>
+        {cookRecipe && (
+          <CookModeDialog
+            dict={dict}
+            locale={locale}
+            recipe={cookRecipe}
+            portions={entry.portions}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={format(dict.cookModeFromPlanAriaLabel, { meal: label })}
+              >
+                <CookingPot className="size-3" />
+              </Button>
+            }
+          />
+        )}
+      </IconSlot>
 
       <IconSlot>
         {!entry.consumedAt && (

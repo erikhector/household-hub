@@ -1392,6 +1392,13 @@ export const sv = {
     deleteRecipeInUseError: 'Kan inte tas bort — används som delrecept i "{recipeName}".',
     editAriaLabel: "Redigera recept",
     reviewMatchesAriaLabel: "Granska ingredienskopplingar",
+    // GAP-42: helskärmsvyn för matlagning.
+    cookModeButton: "Laga",
+    cookModeFromPlanAriaLabel: "Laga {meal}",
+    cookModeTitle: "Lagar {name}",
+    cookModeIngredients: "Ingredienser",
+    cookModeSteps: "Steg",
+    cookModeClose: "Stäng",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {
