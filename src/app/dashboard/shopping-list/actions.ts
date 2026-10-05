@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
-import { format, plural } from "@/lib/i18n/format";
+import { datedName, format, plural } from "@/lib/i18n/format";
 import { resolveShoppingExpenseCategory } from "@/lib/budget-groceries-category";
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
@@ -88,7 +88,7 @@ export async function createShoppingListAction(
         householdId: household.id,
         name:
           parsed.data.name ||
-          `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
+          datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
       },
     });
   } catch (error) {
@@ -1660,7 +1660,7 @@ export async function registerReceiptAction(
 
   const finalListName =
     parsed.data.name ||
-    `${dict.shoppingList.registerReceipt.namePlaceholderPrefix} — ${new Date().toLocaleDateString()}`;
+    datedName(dict.shoppingList.registerReceipt.namePlaceholderPrefix, await getLocale());
 
   const preparedItems: {
     name: string;

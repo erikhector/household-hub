@@ -163,6 +163,7 @@ export function TransactionDialog({
   prefillFromTemplate,
   createAction,
   updateAction,
+  numberFormat,
 }: {
   dict: BudgetDict;
   categories: CategoryRow[];
@@ -189,6 +190,9 @@ export function TransactionDialog({
    * (personal) — see TransactionFormAction's doc comment. */
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
+  /** The caller's createMoneyFormat(locale, currencyCode) — only read by
+   * SplitEditor's warnings (UX-15). */
+  numberFormat: Intl.NumberFormat;
 }) {
   const isEdit = !!transaction;
   const canSplit = members.length > 1;
@@ -408,6 +412,7 @@ export function TransactionDialog({
                     setPaidTouched(true);
                   }}
                   onSplitEvenly={() => resetToEvenSplit(amount)}
+                  numberFormat={numberFormat}
                   dict={dict.split}
                 />
               )}

@@ -405,28 +405,26 @@ don't build these in parallel:
       a row, all three are checked before any response arrives, and they
       persist after reload.
 
-- [ ] **UX-15. Dates, months and numbers in the user's locale** (high, S) —
-      Swedish users see English.
-      - "October 2026" on both budget pages
-        (`budget/month-navigator.tsx:37`, `toLocaleDateString(undefined)`
-        in a Server Component).
-      - "Sep 28 – Oct 4, 2026" on the meal planner
-        (`week-planner.tsx:190-192`, a client component, which also
-        risks a hydration mismatch).
-      - Default list names like "Inköpslista — 10/4/2026"
-        (`shopping-lists-overview.tsx:74`,
-        `shopping-list/actions.ts:91,1663`, `cooking-actions.ts:242`).
-      - `toFixed(2)` amounts and percentages ("12.50", "12.5%") in
-        `split-editor.tsx:100-115`, `log-shared-expense-dialog.tsx:306`
-        and `cost-analyzer.tsx:443`.
-      - Units shown raw ("12 pcs" rather than "12 st").
+- [ ] **UX-44. Units in the user's language** (medium, M) — split out of
+      UX-15, which shipped dates, months and numbers. Units are shown
+      exactly as stored, so a Swedish user sees "12 pcs" rather than
+      "12 st" (and "tbsp", "can", "pack" rather than "msk", "burk",
+      "förp"). Stored units are free text and about 60 places in 26 files
+      render one (`inventory-table.tsx`, `shopping-list-client.tsx`,
+      `put-away-dialog.tsx`, `cook-mode-dialog.tsx`,
+      `missing-ingredients-dialog.tsx`, `merge-preview.tsx`, the item
+      page, …), several of them under UX-14's optimistic-ticking work,
+      which is why it's its own PR.
 
-      Fix: pass `locale` and use `Intl.DateTimeFormat`, `Intl.NumberFormat`
-      and `createMoneyFormat`. Add a unit display label in both
-      dictionaries; stored values don't change.
+      Fix: a `units` map in both dictionaries keyed by `canonicalUnit()`
+      (`src/lib/units.ts`) for the known units, plus a `unitLabel(unit,
+      dict.units)` helper that falls back to the stored text for anything
+      unknown. Apply it everywhere a unit is displayed; stored values,
+      inputs and comparisons don't change.
 
-      Acceptance: the sv smoke run asserts "oktober" on `/dashboard/budget`
-      and a Swedish week range on `/dashboard/meal-planning`.
+      Acceptance: the sv run shows "st" for a seeded item counted in
+      "pcs" on `/dashboard/inventory` and on a shopping list; a unit test
+      covers the helper's known/unknown/synonym cases.
 
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
