@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.50.3",
+    "date": "2026-10-05",
+    "pr": 158,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Months, week ranges, default list names, amounts and percentages are now written in your language, for example \"oktober 2026\" and \"12,50 kr\" in Swedish.",
+      "sv": "Månader, veckointervall, namn på nya listor, belopp och procent skrivs nu på ditt språk, till exempel \"oktober 2026\" och \"12,50 kr\"."
+    }
+  },
+  {
     "version": "0.50.2",
     "date": "2026-10-05",
     "pr": 156,
