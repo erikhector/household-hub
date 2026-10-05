@@ -37,7 +37,10 @@ async function holdServerActions(page: Page, path: string) {
   let answered = 0;
   const isAction = (request: { method(): string; headers(): Record<string, string> }) =>
     request.method() === "POST" && "next-action" in request.headers();
-  page.on("requestfinished", (request) => {
+  // "response", not "requestfinished": the action's streamed RSC body can
+  // stay open after the action itself has run and answered.
+  page.on("response", (response) => {
+    const request = response.request();
     if (isAction(request) && new URL(request.url()).pathname === path) answered++;
   });
   await page.route(

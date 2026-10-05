@@ -25,11 +25,11 @@ test("add a task and mark it done", async ({ page }) => {
   const done = page.getByRole("checkbox", { name: `Mark ${title} as done` });
   await expect(done).toBeVisible();
   // The toggle is optimistic (UX-14): the box and its "not done" label flip
-  // on tap, before the save lands. Wait for the Server Action's request to
-  // finish before reloading, or the reload can race it.
-  const saved = page.waitForEvent(
-    "requestfinished",
-    (request) => request.method() === "POST" && "next-action" in request.headers(),
+  // on tap, before the save lands. Wait for the Server Action's response
+  // (sent once the action has run) before reloading, or the reload can race
+  // it.
+  const saved = page.waitForResponse(
+    (response) => response.request().method() === "POST" && "next-action" in response.request().headers(),
   );
   await done.click();
 
