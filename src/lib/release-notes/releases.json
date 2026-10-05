@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.48.6",
+    "date": "2026-10-05",
+    "pr": 153,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "The Budget page loads faster for households with a long history. Price trends and cheapest-store comparisons now look at the last 12 months.",
+      "sv": "Budgetsidan laddas snabbare för hushåll med lång historik. Pristrender och billigaste butik utgår nu från de senaste 12 månaderna."
+    }
+  },
+  {
     "version": "0.48.5",
     "date": "2026-10-04",
     "pr": 141,
