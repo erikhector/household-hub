@@ -447,21 +447,6 @@ don't build these in parallel:
       Acceptance: a unit test greps `actions.ts` files for string-literal
       `error:` values and fails on any.
 
-- [ ] **UX-18. Toasts clear the bottom bar and the home indicator** (medium,
-      S) — `<Toaster />` (`app/layout.tsx:98`) uses Sonner's 16 px mobile
-      offset. On dashboard pages every toast covers the bottom nav, and on
-      iOS it reaches into the home-indicator strip, so its swipe competes
-      with the home gesture. The "Undo" action button is 24 px (M3).
-
-      Fix: `mobileOffset` with the bar height plus
-      `env(safe-area-inset-bottom)` on dashboard routes, and 44 px
-      `[data-button]` under `pointer: coarse`.
-
-      In the same PR, make the copy actions (`share-list-button.tsx:102`,
-      `invite-button.tsx:83`, `calendar-feed-setting.tsx:78`) await
-      `clipboard.writeText` and show an error toast when it fails. Offer
-      `navigator.share` on phones.
-
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
       - **Meal row icons overlap.** Each 44 px button sits in a 24 px
