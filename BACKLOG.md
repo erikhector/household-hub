@@ -726,6 +726,42 @@ don't build these in parallel:
       Add the 16 px field assertion from UX-10. Keep the runtime in check
       by running only `smoke` on the extra projects.
 
+### Product decisions (2026-10-05)
+
+- [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
+      after "Mark as cooked" records leftover servings (GAP-8,
+      `src/app/dashboard/meal-planning/leftovers.ts`), the success toast
+      gains a "Plan leftovers" action. It opens the existing add-to-plan
+      flow (`add-to-plan-dialog.tsx`) prefilled with that recipe, the
+      leftover servings and the next day that has no dinner planned. The
+      user confirms or changes the day; nothing is added to the plan
+      unless they confirm, and a day that already has a dinner is never
+      overwritten. No schema change, no household setting, no automatic
+      scheduling. Acceptance: marking a meal cooked with leftovers shows
+      the toast action; tapping it opens the dialog prefilled as above;
+      confirming adds the entry (visible after reload), dismissing adds
+      nothing; an e2e test covers both on desktop and mobile; a unit test
+      covers the next-free-day helper.
+      Decided 2026-10-05 by autopilot-product: opt-in prompt after
+      cooking, no auto-scheduling. Why: it follows the "suggest, don't
+      silently mutate" guardrail and answers the scan's open questions
+      (which day, clashes, opt-in) without new state. See PRODUCT.md.
+
+- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
+      a "Copy as text" action on a recipe (name, servings, ingredients,
+      instructions) using the clipboard, with a toast on success.
+      No public link, no token, no import into another household: the app
+      keeps every read behind `requireHousehold()`. No schema change, no
+      new browser storage. Acceptance: the action puts the formatted text
+      on the clipboard and shows the toast; a unit test covers the pure
+      formatter (ingredients without quantity, no instructions, both
+      locales' labels); an e2e test clicks it on desktop and mobile and
+      asserts the toast.
+      Decided 2026-10-05 by autopilot-product: copy as text only; the
+      public share link is not being built. Why: it delivers "send a
+      recipe to a friend" without the app's first unauthenticated read.
+      See PRODUCT.md.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -1043,23 +1079,6 @@ out to be a product-scope question rather than a scoped task should move to
       balances stay single-currency internally with only the display layer
       converting — a currency-model change, not a UI tweak.
 
-- [ ] **GAP-39. Auto-schedule leftovers onto a future day's meal plan** `[!]` —
-      needs a product decision. Plan to Eat's standout feature is leftover
-      scheduling: cooking a big batch lets a household drop "leftovers"
-      straight onto a later day's plan instead of re-deciding what to eat.
-      Squirrel's leftovers flow (GAP-8,
-      `src/app/dashboard/meal-planning/leftovers.ts`,
-      `markMealEntryCookedAction`) only ever turns leftover servings into an
-      `InventoryItem` ("Leftovers: <recipe>") for the pantry — it never
-      creates a `MealPlan` entry, so a household still has to remember the
-      leftovers exist and manually plan a day around them (or hope
-      "Use it up", `src/lib/inventory/use-it-up-calc.ts`, surfaces it, which
-      only happens once the item is flagged expiring or low). Turning it
-      into an actual plan slot needs decisions this app hasn't made yet:
-      which day it lands on by default, what happens if that day already
-      has a dinner planned, and whether it's opt-in per meal or a household
-      setting.
-
 ### 2026-09-28 scan
 
 - [ ] **GAP-40. Current pantry value snapshot** (impact: low-medium, effort: S) —
@@ -1116,18 +1135,6 @@ out to be a product-scope question rather than a scoped task should move to
       requests the wake lock while open and releases it on close; an e2e test
       opens it on desktop and mobile, ticks a step and asserts it is marked
       done and that closing returns to the recipe list.
-
-- [ ] **GAP-43. Share a recipe with someone outside the household via a link** `[!]` —
-      needs a product decision. Paprika, Mealie and Tandoor let you send a
-      recipe to a friend or family member. Squirrel's only sharing is inside
-      a household, and every read is scoped by `requireHousehold()`, so a
-      public link would be the app's first unauthenticated data read: it
-      needs decisions on token format and revocation (see SEC-8 on
-      single-use tokens), whether the link shows a snapshot or the live
-      recipe, and whether the receiver can import it into their own
-      household, which would also cross the tenancy boundary in
-      `src/lib/session.ts`. A plain "copy as text" would avoid all of that
-      and could be the smaller first step.
 
 ### 2026-09-30 scan
 
@@ -1242,19 +1249,6 @@ out to be a product-scope question rather than a scoped task should move to
       real friction cost — so it needs a product decision on whether
       "sometimes-populated cost data" is worth it, not just an engineering
       estimate.
-
-- [ ] **TASKS-1. "Tasks cleared" bell notification?** `[!]` — Household
-      Tasks v1 shipped without one, deliberately (see "Household tasks" in
-      REQUIREMENTS.md). Two options, no clear winner without real usage:
-      - **Recommended default: keep not doing it.** The weekly tasks recap
-        already gives completions a positive surface; a bell alert on top
-        risks the "positive notifications become noise" failure the
-        Guardrails warn about.
-      - **Alternative:** a `TASKS_CLEARED` kind, structurally identical
-        to `LIST_CLEARED` (`src/lib/notifications.ts`'s
-        `recordListClearedTransition` — the household's open-task count
-        crossing from >0 to 0) — same dedup/push/bell-icon pattern, so it's
-        cheap to add later. Needs its own small migration (new enum value).
 
 - [ ] **BUDGET-6. Shared action-layer abstraction for both budgets?** `[!]`
       Whether to also unify `src/app/dashboard/budget/actions.ts` and
