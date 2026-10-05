@@ -251,8 +251,7 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
-- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8,
-  UX-10
+- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
 - `dashboard/sidebar.tsx`, `dashboard/bottom-nav.tsx`,
   `dashboard/layout.tsx`: UX-7, UX-27
 
@@ -329,30 +328,6 @@ don't build these in parallel:
       Acceptance: a spec sets `html { font-size: 200% }` and runs
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
-
-- [ ] **UX-10. No sub-16 px fields and no clipped values in form controls**
-      (high, S) — These zoom the page on iOS when focused:
-      - `ui/combobox.tsx:39` is `text-sm` with no phone override. It is
-        used by the transaction category, recurring template, item
-        combobox, shared expense and merge target fields.
-      - The raw `<input>`s in `meal-planning/mark-cooked-dialog.tsx:180,219`
-        are ~30 px tall and 14 px.
-      - The price edit field is overridden to `text-sm`
-        (`shopping-list-client.tsx:1081`).
-      - The edit-item link field in the shopping row editor.
-
-      Fix:
-      - Use `text-base md:text-sm`, `border-2` and 44 px height on phones,
-        matching `input.tsx`.
-      - Replace the raw inputs with `Input`.
-      - In the add/edit item sheet, stop the unit field showing just "p"
-        for "pcs": the clear (×) button and chevron take its width, so
-        widen the column or hide the clear button below `sm`.
-
-      Acceptance: a mobile e2e check asserts every visible, focusable
-      `input`/`textarea`/`[role=combobox]` in each opened dialog has a
-      computed font-size ≥ 16 px. It must skip Base UI's
-      `aria-hidden` hidden inputs.
 
 - [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
       (high, M) — Hard rule M2.
@@ -683,7 +658,7 @@ don't build these in parallel:
       - `landscape`: 863×393 touch.
       - a 200% text pass.
 
-      Add the 16 px field assertion from UX-10. Keep the runtime in check
+      Add the 16 px field assertion (`e2e/form-control-sizes.mobile.spec.ts`). Keep the runtime in check
       by running only `smoke` on the extra projects.
 
 ### Product decisions (2026-10-05)
