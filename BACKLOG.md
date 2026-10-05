@@ -202,6 +202,30 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
+- [ ] **MAINT-16. Test the untested safety-critical helpers and actions** (medium, S) —
+      no test file exists for `lib/logger.ts` (its `redact()` is the only
+      thing stopping a careless `logger.error("x", { user })` leaking a
+      password or token into Sentry/logs: sensitive-key match, nested
+      objects, arrays, `Error` instances, circular refs), nor for
+      `lib/actions/notifications.ts` (`dismissNotificationAction` /
+      `dismissAllNotificationsAction`: tenancy via `requireHousehold()`, an
+      id from another household is a no-op), `lib/actions/preferences.ts`
+      (invalid theme ignored, DB failure logged not thrown) or
+      `lib/actions/locale.ts`. AGENTS.md requires a colocated test for every
+      Server Action. Acceptance: four new `*.test.ts` files that fail if the
+      household scope or a redaction pattern is removed.
+- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
+      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
+      60000).toISOString().slice(0, 10)`) is copy-pasted as
+      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
+      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
+      `todayInputValue` in `components/budget/household-balances.tsx:73`,
+      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
+      opposite semantics under a similar name. Add `toLocalDateKey` /
+      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
+      around midnight in a non-UTC offset, use it in the three call sites,
+      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
+      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
 
 ### UX (2026-09-26 scout)
 
@@ -1138,6 +1162,25 @@ out to be a product-scope question rather than a scoped task should move to
       cancel, with an undo toast after accepting; nothing is written
       until accepted; an e2e test accepts a proposal and asserts the
       entries appear after reload.
+
+### 2026-10-05 scan
+
+- [ ] **GAP-46. "Last cooked / cooked N times" on each recipe** (impact: med, effort: S) —
+      Plan to Eat and Paprika show when a recipe was last made and how
+      often, so a household can see what has dropped out of rotation and
+      stop cooking the same five dinners. Squirrel records the data
+      already: `MealPlanEntry.consumedAt` (`prisma/schema.prisma:906`) is
+      set by "Mark as cooked" (REQUIREMENTS.md, "Mark meal as cooked →
+      inventory decrement"), but nothing reads it back per recipe. The
+      Recipes list (`RecipeManager`) shows only the favorite star and stays
+      alphabetical (REQUIREMENTS.md, "Recipe favorites"). No schema change:
+      a household-scoped `groupBy recipeId` over cooked entries, plus a
+      pure helper for the label. Acceptance: each recipe row shows "Cooked
+      3 times, last 12 Sep" (or nothing for a never-cooked recipe, not
+      "0 times"), localized in `en.ts` and `sv.ts` with a `{ one, other }`
+      plural; the query is scoped by `requireHousehold()` and has a unit
+      test for count and latest date; an e2e test marks a seeded entry
+      cooked, opens Recipes and asserts the line, on desktop and mobile.
 
 ## Needs a decision before building
 
