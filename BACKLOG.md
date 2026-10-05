@@ -101,13 +101,15 @@ Parallel-safe except where noted.
 Tenancy held up everywhere the audit traced it (every client id is scoped by
 `householdId`/`userId`); these are the gaps around it, highest severity first.
 
-- [ ] **SEC-12. Dependency hygiene** (low) — `npm audit --omit=dev` shows 4
-      high findings, all via the `prisma` CLI (`mysql2`, `deepmerge-ts`
-      through `@prisma/config`), not reachable at runtime. Move `prisma` to
-      devDependencies if `scripts/vercel-build.mjs` can still run
-      `migrate deploy` (check Vercel installs devDeps at build), else wait
-      for the upstream fix. `next-auth` is still `5.0.0-beta.32` — track its
-      advisories. Pairs with MAINT-12's Dependabot config.
+- [ ] **SEC-12. Dependency hygiene** (low) `[!]` — blocked on upstream.
+      `prisma` is already a devDependency; `npm audit --omit=dev` still
+      shows 4 high findings (`mysql2`, `deepmerge-ts` via `@prisma/config`)
+      because `@prisma/client` lists `prisma` as an optional peer, which npm
+      installs and audits. Not reachable at runtime (details in
+      REQUIREMENTS.md, "Dependency audit findings (SEC-12)"). Nothing to do
+      until Prisma ships patched versions: re-audit on the next Prisma bump
+      and delete this item then. `next-auth` is still `5.0.0-beta.32`; track
+      its advisories. Pairs with MAINT-12's Dependabot config.
 
 ### Performance (2026-09-26 audit)
 
@@ -193,6 +195,30 @@ then MAINT-7 per feature, to avoid churn.
       `push-notifications-card.tsx:98`, `lib/push.ts:21`; replace
       `v as MealType`-style `onValueChange` casts (16 in `inventory-client.tsx`)
       with a typed `isOneOf(values)` guard.
+- [ ] **MAINT-16. Test the untested safety-critical helpers and actions** (medium, S) —
+      no test file exists for `lib/logger.ts` (its `redact()` is the only
+      thing stopping a careless `logger.error("x", { user })` leaking a
+      password or token into Sentry/logs: sensitive-key match, nested
+      objects, arrays, `Error` instances, circular refs), nor for
+      `lib/actions/notifications.ts` (`dismissNotificationAction` /
+      `dismissAllNotificationsAction`: tenancy via `requireHousehold()`, an
+      id from another household is a no-op), `lib/actions/preferences.ts`
+      (invalid theme ignored, DB failure logged not thrown) or
+      `lib/actions/locale.ts`. AGENTS.md requires a colocated test for every
+      Server Action. Acceptance: four new `*.test.ts` files that fail if the
+      household scope or a redaction pattern is removed.
+- [ ] **MAINT-17. One local-date `YYYY-MM-DD` helper** (low, S) — the same
+      timezone-offset dance (`new Date(d.getTime() - d.getTimezoneOffset() *
+      60000).toISOString().slice(0, 10)`) is copy-pasted as
+      `toDateInputValue` in `components/budget/transaction-dialog.tsx:121`
+      and `personal-budget/log-shared-expense-dialog.tsx:82`, and as
+      `todayInputValue` in `components/budget/household-balances.tsx:73`,
+      while `meal-planning/date-utils.ts` has a UTC `toDateKey` with the
+      opposite semantics under a similar name. Add `toLocalDateKey` /
+      `todayLocalDateKey` to a shared `src/lib/` module with a unit test
+      around midnight in a non-UTC offset, use it in the three call sites,
+      and note in `toDateKey`'s comment that it is UTC. Acceptance: no
+      behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
 
 ### UX (2026-09-26 scout)
 
@@ -208,6 +234,526 @@ no broken empty states — the issues below are all clipped/illegible text.
 Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
+
+### UX (2026-10-04 production-readiness audit)
+
+A full design audit of every page and every dialog, menu and popover:
+- 352 screenshots: Pixel 7, iPhone SE (1st gen) 320×568, Android 360×740, phone
+  landscape 863×393, iPad portrait 810×1080 and desktop, in dark and
+  light, en and sv, and at 200% text.
+- A probe for overflow, clipped text, tiny text and sub-16px fields.
+- 198 popups opened and closed with Escape.
+- A code read of `src/components/**` against DESIGN.md.
+
+The smoke suite passes. Every item below is something it doesn't
+measure, and each was confirmed in a screenshot or in code (file:line).
+Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6gUZ7NeMtTPVV15YwN2j).
+
+**File conflicts.** Several items touch the same shared primitives, so
+don't build these in parallel:
+- `ui/dialog.tsx`: UX-11, UX-12
+- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8,
+  UX-10
+- `dashboard/sidebar.tsx`, `dashboard/bottom-nav.tsx`,
+  `dashboard/layout.tsx`: UX-7, UX-27
+
+- [ ] **UX-7. Fix the 640–1050 px layout: phone landscape, tablets, small
+      laptops** (blocker, M) — Any touch device wider than 640 px gets the
+      desktop shell, and that shell breaks in four places:
+      - **Page scrolls sideways.** The content column in
+        `dashboard/layout.tsx` (`flex flex-1 flex-col`) has no `min-w-0`,
+        so the inventory header (title plus a 639 px action row on one line
+        from `sm:`) pushes the page to 1042 px in an 810 px iPad and an
+        863 px landscape phone.
+      - **Sidebar nav is unreachable.** `sidebar.tsx:78` is `h-screen`, and
+        its six footer rows take the height, so at 393 px tall only
+        "Overview" and half of "Inventory" show. The other seven sections
+        sit behind a ~40 px inner scroll.
+      - **Inventory table shows one row.** Its fixed-height viewport
+        (`sm:h-[calc(100dvh-4rem)]`) is only a row tall at that height.
+      - **Back-links wrap.** "← All shopping lists" puts its arrow on a
+        line of its own.
+
+      Fix:
+      - Add `min-w-0` to the column, and keep the inventory header stacked
+        until `lg`.
+      - Make the sidebar `h-dvh`. When the screen is short
+        (`@media (max-height: 500px)`), scroll the whole aside, or fold the
+        footer into a "More" menu.
+      - Apply the fixed-height table viewport only from `lg` and
+        `min-height: 600px`.
+      - Give back-links `inline-flex whitespace-nowrap`.
+      - Pad `env(safe-area-inset-left/right)` on the aside and `main`
+        (landscape notch).
+
+      Acceptance: a Playwright project at 863×393 and one at 810×1080
+      (touch) runs `smoke` with no horizontal overflow, and every sidebar
+      link passes `toBeInViewport()` after scrolling the aside.
+
+- [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
+      44 px targets and 16 px fields are gated on `max-sm:` only
+      (`ui/button.tsx`, `ui/input.tsx` `md:text-sm`, the `touch-target`
+      utility in `globals.css:12-19`), so iPads and landscape phones get
+      desktop sizing:
+      - checkboxes are ~20 px;
+      - week and month arrows are 27–30 px;
+      - "Add price", "Match item" and "Add meal" are ~24 px;
+      - fields are 14 px on iPhones ≥ 768 px wide in landscape, so iOS
+        zooms in on focus.
+
+      Fix: add `pointer-coarse:` variants alongside `max-sm:` (44 px
+      heights and widths, `text-base`), and compact only under
+      `pointer-fine`.
+
+      Acceptance: `expectTouchTargets` also runs in UX-7's touch projects
+      and passes.
+
+- [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
+      200% (Android "Font size", iOS Larger Text in the PWA), these pages
+      scroll sideways or become unusable:
+      - **Shopping list detail (612 px wide).** The add-items field is
+        crushed to ~30 px by three fixed buttons, and "Match item" and
+        delete are pushed off-screen.
+      - **Meal planning (585 px).** "Jump to today" and "Add missing
+        ingredients…" are `nowrap`.
+      - **Inventory (449 px).** The stepper overlaps the info and "ban"
+        icons, the quantity disappears and delete is clipped.
+      - **Duplicates (425 px).** "Merge into …" doesn't wrap.
+      - **Landing (416 px).** Header "Log in" and the CTA.
+      - **Bottom-nav labels** break mid-word ("Inventor/y").
+
+      Fix: let rows wrap, give the add field its own row, put secondary
+      row actions in a ⋯ menu (see UX-20), and size nav labels to avoid
+      mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
+      above ~1.5× text).
+
+      Acceptance: a spec sets `html { font-size: 200% }` and runs
+      `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
+      mobile project.
+
+- [ ] **UX-10. No sub-16 px fields and no clipped values in form controls**
+      (high, S) — These zoom the page on iOS when focused:
+      - `ui/combobox.tsx:39` is `text-sm` with no phone override. It is
+        used by the transaction category, recurring template, item
+        combobox, shared expense and merge target fields.
+      - The raw `<input>`s in `meal-planning/mark-cooked-dialog.tsx:180,219`
+        are ~30 px tall and 14 px.
+      - The price edit field is overridden to `text-sm`
+        (`shopping-list-client.tsx:1081`).
+      - The edit-item link field in the shopping row editor.
+
+      Fix:
+      - Use `text-base md:text-sm`, `border-2` and 44 px height on phones,
+        matching `input.tsx`.
+      - Replace the raw inputs with `Input`.
+      - In the add/edit item sheet, stop the unit field showing just "p"
+        for "pcs": the clear (×) button and chevron take its width, so
+        widen the column or hide the clear button below `sm`.
+
+      Acceptance: a mobile e2e check asserts every visible, focusable
+      `input`/`textarea`/`[role=combobox]` in each opened dialog has a
+      computed font-size ≥ 16 px. It must skip Base UI's
+      `aria-hidden` hidden inputs.
+
+- [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
+      M7. Nothing in `src/` touches `history`, so Android's back button,
+      or a back swipe with a sheet open, leaves the page and loses the
+      form. From the first screen it leaves the app.
+
+      Fix: in `ui/dialog.tsx` (and `confirm-dialog.tsx`), `pushState` when
+      the sheet opens and close it on `popstate`. When the sheet is closed
+      from the UI, call `history.back()` if our entry is still on top.
+
+      In the same PR:
+      - **Merge into another item** (`/dashboard/inventory/items/[id]`)
+        doesn't close on Escape, on desktop or mobile, and it shows no
+        Merge or Cancel action until something is picked. Show both.
+      - Add `pr-10` to `DialogHeader` so long (Swedish) titles don't run
+        under the 44 px close button (`dialog.tsx:90-103`).
+
+      Acceptance: a mobile spec opens "Add item", calls `page.goBack()`,
+      and asserts the sheet closed and the URL is unchanged.
+
+- [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
+      (high, M) — Hard rule M2.
+      - `DialogFooter` (`ui/dialog.tsx:117-130`) isn't sticky, so in the
+        recipe form, add/edit item and the receipt dialogs Save scrolls
+        out of view.
+      - There is no `interactiveWidget` in `viewport` and no
+        `visualViewport` handling, so the `fixed bottom-0` sheet sits
+        behind the iOS keyboard.
+      - The grabber at `dialog.tsx:79-82` suggests drag-to-dismiss, but
+        dragging does nothing.
+
+      Fix:
+      - Make `DialogFooter` `max-sm:sticky max-sm:bottom-0` on
+        `bg-popover`.
+      - Set `viewport.interactiveWidget: "resizes-content"` (Android).
+      - Add a small hook that writes `--kb-inset` from `visualViewport` and
+        lifts the sheet by it (iOS).
+      - Remove the grabber or make it drag (see UX-34).
+
+      Acceptance: a mobile spec fills the recipe form to the bottom and
+      asserts the submit button is in the viewport without scrolling.
+
+- [ ] **UX-13. Forms keep what the user typed after a server error** (high,
+      S) — React 19 resets uncontrolled fields when a form action returns,
+      even when it returns `{ error }`.
+      - Signup wipes name, household, email and both passwords
+        (`auth/signup-form.tsx:80-108`).
+      - Login loses the email (`login-form.tsx:57`). Reset-password, the
+        join sign-up form and the display-name form behave the same way.
+      - Add/edit item resets quantity, threshold, expiry and use-within
+        (`inventory/add-item-dialog.tsx:229-305`).
+      - The transaction description resets too.
+
+      Fix: echo non-secret values back in the action state and key
+      `defaultValue` on it, or make the fields controlled.
+
+      Acceptance: an e2e test submits signup with an email that's already
+      used and asserts the name and email are still filled in.
+
+- [ ] **UX-14. Ticking is instant: optimistic rows with per-row pending**
+      (high, M) — The shopping item checkbox
+      (`shopping-list-client.tsx:179,860-870`), the share page
+      (`shared-shopping-list-client.tsx:36-47`), tasks
+      (`tasks-client.tsx:53,150,231`) and the inventory +/− steppers
+      (`inventory-table.tsx:207-213`) don't change until the server
+      answers. Meanwhile one shared `useTransition` disables every row, so
+      on weak in-store signal taps look lost. This breaks M5.
+
+      Fix: `useOptimistic` per row with rollback and an error toast, as
+      `recipe-manager.tsx:243-251` already does. Add stepper `aria-label`s
+      ("Decrease Wheat flour") while there.
+
+      Acceptance: an e2e test with a throttled route ticks three items in
+      a row, all three are checked before any response arrives, and they
+      persist after reload.
+
+- [ ] **UX-15. Dates, months and numbers in the user's locale** (high, S) —
+      Swedish users see English.
+      - "October 2026" on both budget pages
+        (`budget/month-navigator.tsx:37`, `toLocaleDateString(undefined)`
+        in a Server Component).
+      - "Sep 28 – Oct 4, 2026" on the meal planner
+        (`week-planner.tsx:190-192`, a client component, which also
+        risks a hydration mismatch).
+      - Default list names like "Inköpslista — 10/4/2026"
+        (`shopping-lists-overview.tsx:74`,
+        `shopping-list/actions.ts:91,1663`, `cooking-actions.ts:242`).
+      - `toFixed(2)` amounts and percentages ("12.50", "12.5%") in
+        `split-editor.tsx:100-115`, `log-shared-expense-dialog.tsx:306`
+        and `cost-analyzer.tsx:443`.
+      - Units shown raw ("12 pcs" rather than "12 st").
+
+      Fix: pass `locale` and use `Intl.DateTimeFormat`, `Intl.NumberFormat`
+      and `createMoneyFormat`. Add a unit display label in both
+      dictionaries; stored values don't change.
+
+      Acceptance: the sv smoke run asserts "oktober" on `/dashboard/budget`
+      and a Swedish week range on `/dashboard/meal-planning`.
+
+- [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
+      languages** (high, M) — About 59 server-action and Zod messages are
+      English only, for example `shopping-list/actions.ts:163,212`,
+      `inventory/actions.ts:41`, `recipe-actions.ts:137`,
+      `planner-actions.ts:24` and `lib/actions/errors.ts:24`. Swedish users
+      see them in toasts and under fields.
+
+      Also hardcoded:
+      - `aria-label="Loading"` on 11 skeletons;
+      - `dialog.tsx`'s "Close" (twice);
+      - `invite-button.tsx`'s fallback error;
+      - `global-error.tsx`, which also uses raw hex and has no dark theme.
+
+      Fix: return dictionary keys, or resolve them with `getDictionary()`
+      in the action. Add `common.loading` and `common.close`.
+
+      Acceptance: a unit test greps `actions.ts` files for string-literal
+      `error:` values and fails on any.
+
+- [ ] **UX-17. Logged-out visitors can choose Swedish** (high, S) — The
+      language toggle is only inside the dashboard, and the locale falls
+      back to `en` with no Accept-Language
+      (`i18n/get-dictionary.ts:25`). A Swedish person opening an invite
+      link, the landing page or login gets English with no way to switch.
+
+      Fix: honour `Accept-Language` when there is no cookie, and add the
+      toggle to the public header or `LegalFooter`.
+
+      Acceptance: `public.spec.ts` opens `/join/<token>` with
+      `locale: "sv-SE"` and no cookie and sees Swedish, then switches to
+      English via the toggle.
+
+- [ ] **UX-18. Toasts clear the bottom bar and the home indicator** (medium,
+      S) — `<Toaster />` (`app/layout.tsx:98`) uses Sonner's 16 px mobile
+      offset. On dashboard pages every toast covers the bottom nav, and on
+      iOS it reaches into the home-indicator strip, so its swipe competes
+      with the home gesture. The "Undo" action button is 24 px (M3).
+
+      Fix: `mobileOffset` with the bar height plus
+      `env(safe-area-inset-bottom)` on dashboard routes, and 44 px
+      `[data-button]` under `pointer: coarse`.
+
+      In the same PR, make the copy actions (`share-list-button.tsx:102`,
+      `invite-button.tsx:83`, `calendar-feed-setting.tsx:78`) await
+      `clipboard.writeText` and show an error toast when it fails. Offer
+      `navigator.share` on phones.
+
+- [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
+      that the guard misses:
+      - **Meal row icons overlap.** Each 44 px button sits in a 24 px
+        `IconSlot` with `gap-1` (`week-planner.tsx:306-411`), so Edit,
+        Move, Cooked and Delete overlap by ~16 px. Blocker.
+      - **Inventory stepper covers the ⓘ icon** on a 320 px iPhone SE.
+      - **Category chip edit/delete** are ~24 px and touching
+        (`category-manager.tsx:226-245`).
+      - **Row gaps under 8 px**: `gap-1` or `gap-1.5` in shopping rows
+        (`:899`), inventory row actions (`item-actions.tsx:56`),
+        transaction rows (`transaction-list.tsx:455`) and recurring rows
+        (`recurring-templates-panel.tsx:377`).
+      - **Small controls**: the password show/hide toggle (~24 px,
+        `password-input.tsx:46`); legal footer links and "Forgot
+        password?"; the "Units, recipes and details" link (16 px tall);
+        smart-add suggestions (~32 px, `smart-add-bar.tsx:252`); the
+        shared-row link (`size-9`, `transaction-list.tsx:401`).
+      - **Guard gaps**: `expectTouchTargets` doesn't check
+        `role="option"`, skips content inside `hidden` tab panels (most
+        of the budget UI), and never runs on public pages.
+
+      Fix the controls, then close those three gaps in `e2e/ui.ts`.
+
+- [ ] **UX-20. Inventory on a phone: one clear action, calmer rows**
+      (medium, M)
+      - **Header**: seven icon-only buttons over two rows. The primary "+"
+        sits alone in the top corner (M2); a cryptic "≡ 1" chip; and the
+        ScanBarcode and ScanLine icons are hard to tell apart
+        (`inventory/page.tsx:110-172`). Fix: keep a labelled "Add item"
+        plus a labelled ⋯ menu (Scan, Scan multiple, Scan a shelf, Paste a
+        list, Export CSV, Manage items), like the shopping list's AUTO-5
+        menu.
+      - **Rows**: up to five 44 px icons squeeze the quantity to "…".
+        Fix: keep Edit, move Details, Mark opened, Mark empty and Delete
+        into a row ⋯ menu.
+      - **Small fixes**: give the quantity a fixed width with
+        `tabular-nums`; label the bare date ("Updated 4 Oct"); make the
+        bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
+        filter selects real `Label`s (`inventory-client.tsx:207-277`).
+
+- [ ] **UX-21. Meal planner: today first, fewer placeholders** (medium, M)
+      - Four rows of controls push Monday down to ~550 px on an iPhone SE.
+      - The week is ~2,800 px of 28 identical "+ Add meal" rows, and
+        today (Sunday) comes last. That breaks M6, which wants one "Add"
+        per group.
+      - Recaps above the tabs load late with `fallback={null}` and push
+        the planner down (`meal-planning/page.tsx:472-479`).
+
+      Fix: one row (‹ › and the range) plus a ⋯ menu for Copy last week
+      and Add missing ingredients; scroll to today on load; one "+ Add
+      meal" per empty day that asks for the slot; a fixed-height skeleton
+      for the recaps.
+
+- [ ] **UX-22. Shopping list detail polish** (medium, S)
+      - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put
+        mic and scan inside it as trailing adornments.
+      - Row actions come in a different order on each row ([Baking][Add
+        price][✎][🗑] vs [Add price][✎][Match item][🗑]). Use a fixed
+        order with delete last.
+      - Hide the category chip when the list is grouped by that category.
+      - Make "Match item" `warning` text on its tint with an icon (it's
+        low contrast in light).
+      - Use one name for the receipt action ("Register receipt" on the
+        index, "Scan receipt" in the detail).
+      - Ask before throwing away a reviewed receipt or AI shelf scan on
+        close (`receipt-scan-dialog.tsx:531`,
+        `register-receipt-dialog.tsx:505`,
+        `ai-shelf-scan-dialog.tsx:117`). Today a back swipe means
+        re-photographing and paying for the AI call again.
+
+- [ ] **UX-23. Budgets: tabs, the disabled primary and the charts**
+      (medium, M)
+      - The tabs wrap on a 320 px phone with "Insights" alone on row 2.
+        Make them scroll sideways.
+      - "Add transaction" is a disabled primary with no explanation (it
+        reads as broken). Hide it until a category exists, or explain
+        when tapped.
+      - Starter-set chips show no selected state and are centred inside a
+        left-aligned card.
+      - Put safe-to-spend above `DueRecurringWidget`
+        (`budget-tabs.tsx:270`).
+      - The fixed-budget bars carry their values only in `title`
+        (`fixed-budget-summary.tsx:195-215`). Print them, as
+        `cost-analyzer.tsx:120` does, and use `chart-1..3`.
+      - Transaction delete: pass the promise to `ConfirmDialog` so
+        "Deleting…" shows (`transaction-list.tsx:178-183`).
+      - Recurring rows: `flex-wrap` the title row so Swedish names don't
+        truncate to nothing (`:342`).
+
+- [ ] **UX-24. One primary action per view** (medium, S) — Hierarchy.
+      - Profile has four primaries (Save, Save, Update email, Update
+        password).
+      - Household has "Add note" and "Turn on calendar feed", while its
+        page action "Invite member" is outlined.
+      - The duplicates page has a primary "Merge" per group.
+      - The task create dialog's submit is `outline`, with no Cancel; the
+        edit dialog has both. The task title also can't be edited at all
+        (`task-form-dialog.tsx:155-165`).
+
+      Fix: per-card saves are `secondary` until their form is dirty;
+      solid "Owner" badges become `secondary`; task create and edit share
+      one footer and a title field.
+
+- [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
+      so light gets less attention:
+      - Disabled primary buttons are white on pale lilac (~1.8:1) and
+        look broken.
+      - The active segmented tab (meal planner, budgets) barely differs
+        from its track.
+      - 2 px field outlines are much heavier than the 1 px card rings.
+      - Overview stat numbers use `chart-1/2` as text, and the amber is
+        ~2.5:1 (`dashboard/page.tsx:232,258,282`).
+      - Completed onboarding rows fade to ~2.5:1.
+      - The phone's sticky add bar paints a flat band over the gradient.
+
+      Add each new token pair to `globals-contrast.test.ts`.
+
+- [ ] **UX-26. Overview: the first screen shows today, not the setup card**
+      (medium, S)
+      - "Get set up" fills the whole first screen on an iPhone SE and in
+        landscape even when 3 of 5 steps are done. Collapse the finished
+        steps into "3 of 5 done", and let the user dismiss the card.
+      - Stat-card buttons sit at different heights, and on the iPad the
+        "View shopping lists" chevron sits on the border. Use `mt-auto` on
+        full-width buttons.
+      - The household-switcher "+" floats mid-header on every phone page.
+        Align it right.
+
+- [ ] **UX-27. Navigation always shows where you are** (medium, S)
+      - Notifications and What's new highlight no bottom-bar item. Map
+        them to "More".
+      - Bottom-bar labels are 10.4 px and the badge 9 px
+        (`bottom-nav.tsx:115,137,148`), below M9. Use ≥ 12 px and write
+        the M9 exception into DESIGN.md.
+      - The collapsed sidebar names its icons only in `title`
+        (`sidebar.tsx:102-182`), which touch never shows. Add `aria-label`
+        and a Base UI Tooltip.
+      - The sidebar footer doesn't mark the active page.
+
+- [ ] **UX-28. Public pages** (medium, S)
+      - The privacy cookie table clips "Purpose" to 2–3 characters on
+        phones. Stack it as a definition list.
+      - `/reset-password/<bad token>` renders the full form; validate the
+        token first, like the other token pages do.
+      - The invalid-token pages (join, share, unsubscribe, verify) each
+        look different. Use one shared status card with the logo.
+      - The landing hero puts "Get started free" below the fold in
+        landscape. Add `@media (max-height: 500px)` padding.
+      - "Privacy Policy" and "Terms of Service" are Title Case.
+      - The English-only legal body needs `lang="en"` when the UI is
+        Swedish (WCAG 3.1.2), and body text in `foreground`, not muted.
+      - Signup's title says "Create your household" but the button says
+        "Create household".
+
+- [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
+      - **Push on iOS.** iOS Safari says push "isn't supported in this
+        browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside
+        standalone mode, say "Add Squirrel to your Home Screen to get
+        notifications" instead.
+      - **iPad install steps.** `install-app-card.tsx:38` misses iPadOS
+        (it uses a desktop UA). Also check
+        `platform === "MacIntel" && maxTouchPoints > 1`.
+      - **Theme colour.** Add `viewport.themeColor` per colour scheme and
+        align `manifest.ts`'s fixed purple `theme_color`.
+      - **Tap highlight.** Add `-webkit-tap-highlight-color: transparent`,
+        since `active:` states already give feedback.
+      - **Reduced motion.** Add a global `prefers-reduced-motion` rule;
+        today there are none in `src/`.
+      - **Notification taps.** In `service-worker.js`, focus an existing
+        window on `notificationclick` instead of opening a new one, and
+        ship a monochrome badge icon.
+      - **Small fixes**: left-align iOS date values; map speech
+        `service-not-allowed` to "unavailable here"; fall back from
+        `crypto.randomUUID()` (it throws over plain-HTTP LAN testing).
+      - **Browser floor.** Document the minimum browser (Safari/iOS 16.4
+        for `oklch`/`color-mix`) and show a notice below it.
+
+- [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
+      (high if it reproduces, S) — There are 48 `type="number"
+      inputMode="decimal"` fields, for example
+      `transaction-dialog.tsx:319` and `quick-add-bar.tsx:102`. With a
+      Swedish region, iOS's decimal pad offers only ",". WebKit has
+      treated "12,5" in a number input as invalid and submitted `""`.
+
+      Test on a Swedish-region iPhone. If it reproduces, switch money and
+      quantity fields to `type="text" inputMode="decimal"` with a pattern,
+      and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
+
+- [ ] **UX-31. Screen-reader and small-screen semantics** (medium, S)
+      - Unread notifications are marked only by a tint and an
+        `aria-label` on a role-less `<span>`
+        (`notifications-history.tsx:72-82`). Add `sr-only` "Unread".
+      - 34 places truncate long names with the full text only in `title`,
+        which touch never shows. Use `line-clamp-2` on phones.
+      - Delete-household confirm needs `autoCapitalize="off"`,
+        `autoCorrect="off"`, a trimmed comparison and a Cancel button.
+      - The invite email field isn't in a `<form>`, so Enter does nothing.
+      - Add `autoComplete="off"` to household-data fields (the "New list"
+        name currently autofills the user's own name), and
+        `enterKeyHint` on each dialog's last field.
+      - Add `src/app/dashboard/error.tsx` so a feature crash keeps the
+        nav, with an offline message.
+      - The password-change form needs a hidden `autoComplete="username"`
+        field.
+
+- [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
+      Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
+      above can fail a build.
+
+      Add Playwright projects:
+      - `iphone`: WebKit, `devices["iPhone 15"]`, running smoke and
+        flows. CI must run `npx playwright install --with-deps webkit`.
+      - `tablet`: 810×1080 touch.
+      - `landscape`: 863×393 touch.
+      - a 200% text pass.
+
+      Add the 16 px field assertion from UX-10. Keep the runtime in check
+      by running only `smoke` on the extra projects.
+
+### Product decisions (2026-10-05)
+
+- [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
+      after "Mark as cooked" records leftover servings (GAP-8,
+      `src/app/dashboard/meal-planning/leftovers.ts`), the success toast
+      gains a "Plan leftovers" action. It opens the existing add-to-plan
+      flow (`add-to-plan-dialog.tsx`) prefilled with that recipe, the
+      leftover servings and the next day that has no dinner planned. The
+      user confirms or changes the day; nothing is added to the plan
+      unless they confirm, and a day that already has a dinner is never
+      overwritten. No schema change, no household setting, no automatic
+      scheduling. Acceptance: marking a meal cooked with leftovers shows
+      the toast action; tapping it opens the dialog prefilled as above;
+      confirming adds the entry (visible after reload), dismissing adds
+      nothing; an e2e test covers both on desktop and mobile; a unit test
+      covers the next-free-day helper.
+      Decided 2026-10-05 by autopilot-product: opt-in prompt after
+      cooking, no auto-scheduling. Why: it follows the "suggest, don't
+      silently mutate" guardrail and answers the scan's open questions
+      (which day, clashes, opt-in) without new state. See PRODUCT.md.
+
+- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
+      a "Copy as text" action on a recipe (name, servings, ingredients,
+      instructions) using the clipboard, with a toast on success.
+      No public link, no token, no import into another household: the app
+      keeps every read behind `requireHousehold()`. No schema change, no
+      new browser storage. Acceptance: the action puts the formatted text
+      on the clipboard and shows the toast; a unit test covers the pure
+      formatter (ingredients without quantity, no instructions, both
+      locales' labels); an e2e test clicks it on desktop and mobile and
+      asserts the toast.
+      Decided 2026-10-05 by autopilot-product: copy as text only; the
+      public share link is not being built. Why: it delivers "send a
+      recipe to a friend" without the app's first unauthenticated read.
+      See PRODUCT.md.
 
 ### Budget component unification
 
@@ -266,7 +812,123 @@ order below is a suggestion, not a dependency, unless noted.
 
 ## Phase 3 — larger items, own PR each
 
-Nothing open right now.
+### State-of-the-art UI (2026-10-04 design audit)
+
+The owner wants the UI itself to be what sets Squirrel apart. The
+benchmark is the best consumer apps on the same tasks:
+- **Bring!** and **AnyList**: offline in the shop, tactile lists.
+- **Todoist** and **Things**: swipe actions, instant feedback, motion.
+- **Copilot Money**: charts and numbers that feel alive.
+
+The UX items above make the app correct. These make it feel native and
+delightful. Today there are no view transitions, no swipe gestures, no
+haptics and no drag-to-dismiss sheets, the charts are hand-rolled
+`div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+polish on top of broken layouts is wasted. Each item keeps M7 (every
+gesture has a visible button) and respects `prefers-reduced-motion`.
+UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
+decision and sit under "Needs a decision before building".
+
+- [ ] **UX-33. Motion system and view transitions** (L) — Define motion
+      tokens in `globals.css` (durations, easing curves, one spring-like
+      curve) and document them in DESIGN.md.
+
+      Use React 19.2's `<ViewTransition>` with Next 16's
+      `experimental.viewTransition` for:
+      - tab and page changes;
+      - shared-element morphs from a list row to its detail page
+        (inventory item, shopping list, recipe);
+      - items entering, leaving and re-sorting a list. A ticked item
+        slides to "Done" instead of jumping.
+
+      Under reduced motion everything falls back to an instant change.
+      Acceptance: list add, remove and tick animate, and no layout jumps
+      (CLS 0 on those interactions).
+
+- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-11/UX-12) —
+      - Drag the grabber or header to dismiss, with velocity and
+        rubber-band.
+      - Snap points (half and full) for long forms.
+      - Background scale-down on iOS-style presentation.
+      - Focus kept on the first field without popping the keyboard on open.
+
+      Evaluate Base UI's own drawer primitive before writing pointer
+      handling. Keep the close button, Escape and back gesture working.
+
+- [ ] **UX-35. Swipe row actions with haptics** (M) — On shopping, task and
+      inventory rows:
+      - swipe right to tick, complete or "+1";
+      - swipe left to reveal Delete (with an undo toast), or Edit.
+
+      The visible row buttons stay (M7). Fire `navigator.vibrate(10)` on
+      the commit threshold where supported (Android); iOS gets the visual
+      snap only. Keep clear of the 20 px screen edges, which belong to the
+      OS back gesture.
+
+- [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
+      (AUTO-3) already groups by store order and holds a wake lock. Add:
+      - large type and full-row targets;
+      - a progress ring ("12 of 18");
+      - ticked items animating to a collapsed "In the cart" section;
+      - an "All done" moment that offers to put things away;
+      - one-handed reach (the next aisle's items near the bottom).
+
+      Acceptance: a whole shop can be done with the thumb, without
+      scrolling to the top.
+
+- [ ] **UX-39. Charts and numbers that feel alive** (M) — Replace the
+      hand-rolled budget bars with one small chart component:
+      - tappable bars and segments that show their value (no hover-only);
+      - a spending sparkline per category;
+      - a projected end-of-month line on safe-to-spend;
+      - tabular numbers that animate between values (count-up, skipped
+        under reduced motion);
+      - a visually hidden data table for screen readers.
+
+      Use chart tokens in order. Copilot Money is the bar.
+
+- [ ] **UX-40. Large-title headers and a thumb-zone action bar on phones**
+      (M) —
+      - Page titles start large and collapse into a compact top bar on
+        scroll, iOS style, which wins back ~120 px on every page.
+      - Each page's primary action ("Add item", "Add task", "Add
+        transaction", "Invite member") moves into a consistent
+        bottom-right floating button or a sticky bar above the bottom nav
+        (M2), replacing the top-corner buttons.
+
+      Requires UX-20's header clean-up first.
+
+- [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
+      - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
+        tasks and categories, and runs actions ("Add milk to Groceries",
+        "Go to budget").
+      - Single-key shortcuts on list pages (`n` new, `/` search, `j`/`k`
+        move, `x` tick), shown in a `?` overlay.
+      - A Base UI Tooltip on every icon-only button.
+
+      Todoist sets this bar for productivity users on desktop.
+
+- [ ] **UX-42. Loading that looks instant** (S) —
+      - Each feature route gets a `loading.tsx` skeleton that matches its
+        final layout (same card heights, so CLS ≈ 0).
+      - Every `fallback={null}` above content is replaced with a
+        fixed-height placeholder.
+      - Pending-state buttons keep their width.
+      - Link prefetch on hover and touchstart for the bottom bar.
+
+      Acceptance: Lighthouse CLS < 0.05 on every dashboard route on the
+      mobile profile.
+
+- [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
+      from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
+      most-used screens:
+      - dashboard, inventory, shopping list and detail, meal planner,
+        tasks, budget overview, and the add-item, add-transaction and
+        recipe sheets;
+      - in light and dark, en and sv, on mobile and desktop;
+      - with masked timestamps and a tolerance threshold.
+
+      A diff fails the PR until a human approves the new baseline.
 
 ---
 
@@ -410,23 +1072,6 @@ out to be a product-scope question rather than a scoped task should move to
       balances stay single-currency internally with only the display layer
       converting — a currency-model change, not a UI tweak.
 
-- [ ] **GAP-39. Auto-schedule leftovers onto a future day's meal plan** `[!]` —
-      needs a product decision. Plan to Eat's standout feature is leftover
-      scheduling: cooking a big batch lets a household drop "leftovers"
-      straight onto a later day's plan instead of re-deciding what to eat.
-      Squirrel's leftovers flow (GAP-8,
-      `src/app/dashboard/meal-planning/leftovers.ts`,
-      `markMealEntryCookedAction`) only ever turns leftover servings into an
-      `InventoryItem` ("Leftovers: <recipe>") for the pantry — it never
-      creates a `MealPlan` entry, so a household still has to remember the
-      leftovers exist and manually plan a day around them (or hope
-      "Use it up", `src/lib/inventory/use-it-up-calc.ts`, surfaces it, which
-      only happens once the item is flagged expiring or low). Turning it
-      into an actual plan slot needs decisions this app hasn't made yet:
-      which day it lands on by default, what happens if that day already
-      has a dinner planned, and whether it's opt-in per meal or a household
-      setting.
-
 ### 2026-09-28 scan
 
 - [ ] **GAP-40. Current pantry value snapshot** (impact: low-medium, effort: S) —
@@ -484,18 +1129,6 @@ out to be a product-scope question rather than a scoped task should move to
       opens it on desktop and mobile, ticks a step and asserts it is marked
       done and that closing returns to the recipe list.
 
-- [ ] **GAP-43. Share a recipe with someone outside the household via a link** `[!]` —
-      needs a product decision. Paprika, Mealie and Tandoor let you send a
-      recipe to a friend or family member. Squirrel's only sharing is inside
-      a household, and every read is scoped by `requireHousehold()`, so a
-      public link would be the app's first unauthenticated data read: it
-      needs decisions on token format and revocation (see SEC-8 on
-      single-use tokens), whether the link shows a snapshot or the live
-      recipe, and whether the receiver can import it into their own
-      household, which would also cross the tenancy boundary in
-      `src/lib/session.ts`. A plain "copy as text" would avoid all of that
-      and could be the smaller first step.
-
 ### 2026-09-30 scan
 
 - [ ] **GAP-44. "Freeze it" on an inventory item (extends the expiry clock)** (impact: med, effort: M) —
@@ -551,6 +1184,27 @@ out to be a product-scope question rather than a scoped task should move to
 
 ## Needs a decision before building
 
+- [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
+      scope and conflict rules.
+      - Cache the active shopping list and shopping mode.
+      - Queue ticks, adds and price edits while offline, and sync with a
+        visible "3 changes waiting" chip.
+      - Use the existing optimistic rows (UX-14) as the foundation.
+
+      Bring! and AnyList both work in a basement supermarket; today
+      Squirrel shows the offline page (`service-worker.js:34-45`).
+
+- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) `[!]` —
+      needs illustration assets. Use the squirrel in:
+      - every empty state (no items, no lists, no meals, no tasks, all
+        caught up);
+      - a subtle celebration when a list is completed or the budget ends
+        the month under plan.
+
+      Use the raster mark only, per DESIGN.md's Brand mark rules, with no
+      emoji, served through `next/image`. Under reduced motion, show a
+      static image.
+
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
       household onboarding offers a one-click `StarterCategoryPicker`; personal onboarding
       only has the manual `AddCategoryDialog`. Decide: give personal budget its own
@@ -588,19 +1242,6 @@ out to be a product-scope question rather than a scoped task should move to
       real friction cost — so it needs a product decision on whether
       "sometimes-populated cost data" is worth it, not just an engineering
       estimate.
-
-- [ ] **TASKS-1. "Tasks cleared" bell notification?** `[!]` — Household
-      Tasks v1 shipped without one, deliberately (see "Household tasks" in
-      REQUIREMENTS.md). Two options, no clear winner without real usage:
-      - **Recommended default: keep not doing it.** The weekly tasks recap
-        already gives completions a positive surface; a bell alert on top
-        risks the "positive notifications become noise" failure the
-        Guardrails warn about.
-      - **Alternative:** a `TASKS_CLEARED` kind, structurally identical
-        to `LIST_CLEARED` (`src/lib/notifications.ts`'s
-        `recordListClearedTransition` — the household's open-task count
-        crossing from >0 to 0) — same dedup/push/bell-icon pattern, so it's
-        cheap to add later. Needs its own small migration (new enum value).
 
 - [ ] **BUDGET-6. Shared action-layer abstraction for both budgets?** `[!]`
       Whether to also unify `src/app/dashboard/budget/actions.ts` and
