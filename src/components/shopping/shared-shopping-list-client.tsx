@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useOptimistic, useState, useTransition } from "react";
 import { Info } from "lucide-react";
 import { toggleItemViaShareTokenAction } from "@/app/share/shopping-list/actions";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { SharedShoppingList } from "@/app/share/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -16,10 +16,12 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  * through, no add/delete/complete controls, and no "editable" gating: any
  * visitor holding the link can check off any item, by product decision.
  *
- * Keeps its own optimistic-ish local `items` state (seeded from the server
- * fetch, patched in place after each toggle) since there's no revalidated
- * server component wrapping this in a session-scoped layout to re-render it
- * automatically the way the dashboard's revalidatePath calls do.
+ * Keeps its own local `items` state (seeded from the server fetch, patched
+ * in place after each saved toggle) since there's no revalidated server
+ * component wrapping this in a session-scoped layout to re-render it
+ * automatically the way the dashboard's revalidatePath calls do. On top of
+ * that each row ticks optimistically in its own transition (UX-14, see
+ * SharedRow), the same as the dashboard's ShoppingRow.
  */
 export function SharedShoppingListClient({
   token,
@@ -31,19 +33,13 @@ export function SharedShoppingListClient({
   dict: Dictionary["sharedShoppingList"];
 }) {
   const [items, setItems] = useState(list.items);
-  const [isPending, startTransition] = useTransition();
 
-  function handleToggle(itemId: string) {
-    startTransition(async () => {
-      const result = await toggleItemViaShareTokenAction(token, itemId);
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      setItems((prev) =>
-        prev.map((item) => (item.id === itemId ? { ...item, purchased: !item.purchased } : item)),
-      );
-    });
+  // Called inside the row's transition once its toggle has saved, so the
+  // row's optimistic value hands over to this one without a flicker.
+  function handleToggled(itemId: string) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, purchased: !item.purchased } : item)),
+    );
   }
 
   const pendingItems = items.filter((item) => !item.purchased);
@@ -65,7 +61,7 @@ export function SharedShoppingListClient({
       ) : (
         <div className="flex flex-col gap-2">
           {pendingItems.map((item) => (
-            <SharedRow key={item.id} item={item} isPending={isPending} onToggle={handleToggle} />
+            <SharedRow key={item.id} token={token} item={item} saveFailed={dict.saveFailedToast} onToggled={handleToggled} />
           ))}
           {purchasedItems.length > 0 && (
             <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
@@ -73,7 +69,7 @@ export function SharedShoppingListClient({
             </p>
           )}
           {purchasedItems.map((item) => (
-            <SharedRow key={item.id} item={item} isPending={isPending} onToggle={handleToggle} />
+            <SharedRow key={item.id} token={token} item={item} saveFailed={dict.saveFailedToast} onToggled={handleToggled} />
           ))}
         </div>
       )}
@@ -81,27 +77,40 @@ export function SharedShoppingListClient({
   );
 }
 
+// UX-14: same optimistic tick as the dashboard's ShoppingRow — flips at once
+// in its own transition, so ticking several rows in a row never waits on (or
+// greys out behind) an earlier save, and snaps back with a toast if the save
+// fails or the rate limit says no.
 function SharedRow({
+  token,
   item,
-  isPending,
-  onToggle,
+  saveFailed,
+  onToggled,
 }: {
+  token: string;
   item: SharedShoppingList["items"][number];
-  isPending: boolean;
-  onToggle: (itemId: string) => void;
+  saveFailed: string;
+  onToggled: (itemId: string) => void;
 }) {
+  const [, startTransition] = useTransition();
+  const [purchased, toggleOptimisticPurchased] = useOptimistic<boolean, void>(item.purchased, (current) => !current);
+
+  function handleToggle() {
+    startTransition(async () => {
+      toggleOptimisticPurchased();
+      const result = await settleOptimisticAction(() => toggleItemViaShareTokenAction(token, item.id), saveFailed);
+      if (result) onToggled(item.id);
+    });
+  }
+
   return (
     <label className="flex items-center gap-3 rounded-md border px-3 py-2 max-sm:min-h-11">
-      <Checkbox
-        checked={item.purchased}
-        disabled={isPending}
-        onChange={() => onToggle(item.id)}
-      />
+      <Checkbox checked={purchased} onChange={handleToggle} />
       {/* GAP-5: name line plus the note (when set) as a muted second line,
           same treatment as ShoppingListClient's rows. */}
       <span className="flex min-w-0 flex-1 flex-col">
         <span
-          className={`truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+          className={`truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
           title={`${item.name} × ${item.quantity} ${item.unit}`}
         >
           {item.name} × {item.quantity} {item.unit}

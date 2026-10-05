@@ -6,8 +6,7 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useTransition } from "react";
-import { toast } from "sonner";
+import { useOptimistic, useTransition } from "react";
 import { Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { TasksWeeklyRecap, type WeeklyRecapGroupView } from "@/components/tasks/tasks-weekly-recap";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -50,7 +50,6 @@ export function TasksClient({
   recapGroups: WeeklyRecapGroupView[];
   locale: Locale;
 }) {
-  const [isPending, startTransition] = useTransition();
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
 
   const openTasks = tasks.filter((t) => !t.completed);
@@ -73,8 +72,6 @@ export function TasksClient({
                 task={task}
                 members={members}
                 memberNameById={memberNameById}
-                isPending={isPending}
-                startTransition={startTransition}
                 dict={dict}
                 locale={locale}
               />
@@ -90,8 +87,6 @@ export function TasksClient({
                 task={task}
                 members={members}
                 memberNameById={memberNameById}
-                isPending={isPending}
-                startTransition={startTransition}
                 dict={dict}
                 locale={locale}
               />
@@ -107,19 +102,30 @@ function TaskItemRow({
   task,
   members,
   memberNameById,
-  isPending,
-  startTransition,
   dict,
   locale,
 }: {
   task: TaskRow;
   members: MemberOption[];
   memberNameById: Map<string, string>;
-  isPending: boolean;
-  startTransition: (fn: () => void) => void;
   dict: TasksDict;
   locale: Locale;
 }) {
+  // UX-14: the tick shows at once, in this row's own transition, so ticking
+  // off several chores in a row never waits on (or greys out behind) an
+  // earlier save. The row stays where it is until the server answers and
+  // only then moves to "Completed" (no list jumping under your thumb), and a
+  // failed save rolls the tick back with a toast. Same pattern as the
+  // shopping list's ShoppingRow.
+  const [, startToggleTransition] = useTransition();
+  const [completed, toggleOptimisticCompleted] = useOptimistic<boolean, void>(task.completed, (current) => !current);
+  const handleToggleCompleted = () => {
+    startToggleTransition(async () => {
+      toggleOptimisticCompleted();
+      await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
+    });
+  };
+
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
   const nextInRotationName = task.nextInRotationMemberId
@@ -147,21 +153,14 @@ function TaskItemRow({
           few visible characters. */}
       <label className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
         <Checkbox
-          checked={task.completed}
-          disabled={isPending}
-          aria-label={format(
-            task.completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel,
-            { title: task.title },
-          )}
-          onChange={() =>
-            startTransition(async () => {
-              const result = await toggleTaskCompletedAction(task.id);
-              if (result.error) toast.error(result.error);
-            })
-          }
+          checked={completed}
+          aria-label={format(completed ? dict.toggleIncompleteAriaLabel : dict.toggleCompleteAriaLabel, {
+            title: task.title,
+          })}
+          onChange={handleToggleCompleted}
         />
         <span
-          className={`min-w-0 flex-1 truncate ${task.completed ? "text-muted-foreground line-through" : ""}`}
+          className={`min-w-0 flex-1 truncate ${completed ? "text-muted-foreground line-through" : ""}`}
           title={task.title}
         >
           {task.title}
@@ -228,7 +227,6 @@ function TaskItemRow({
               variant="ghost"
               size="icon"
               className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-              disabled={isPending}
               aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
             >
               <Trash2 className="size-3.5" />

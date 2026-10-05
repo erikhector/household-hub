@@ -373,6 +373,7 @@ export const sv = {
     adding: "Lägger till…",
     add: "Lägg till",
     deleteItemAriaLabel: "Ta bort {name}",
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     confirmDeleteItem: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",
@@ -1007,6 +1008,9 @@ export const sv = {
     markEmpty: "Markera som slut",
     markEmptyAndAddToList: "Markera som slut & lägg till i inköpslista",
     markedEmptyAddedToast: 'Markerade {name} som slut och la till den i "{list}"',
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    decreaseQuantityAriaLabel: "Minska {name}",
+    increaseQuantityAriaLabel: "Öka {name}",
     opened: "Öppnad",
     markOpened: "Markera som öppnad",
     markOpenedAriaLabel: "Markera {name} som öppnad",
@@ -1569,6 +1573,7 @@ export const sv = {
     lastCompletedByLabel: "Senast utförd av {name}",
     nextDueLabel: "Nästa gång {date}",
     deleteTaskAriaLabel: "Ta bort {title}",
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",
@@ -2607,6 +2612,7 @@ export const sv = {
     emptyList: "Inget på listan än.",
     footerNote: "Delad från ett Squirrel-hushåll",
     rateLimited: "För många ändringar i listan. Vänta en stund och försök igen.",
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
   },
   cookieNotice: {
     title: "Information om cookies",

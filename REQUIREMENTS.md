@@ -5198,6 +5198,27 @@ approximating them, so the email never disagrees with the app.
   Promise<ActionState>` shape (`ActionState = { error?: string }`) for use
   with `useActionState`. Actions triggered by a plain click (toggle, delete,
   quantity +/-) are called directly from a `useTransition` callback instead.
+- **Ticking is instant (UX-14).** The taps people make in a row, often on
+  weak in-store signal, are optimistic and per row: the shopping-list
+  checkbox (`ShoppingRow`), the share page's checkbox (`SharedRow`), a
+  task's checkbox (`TaskItemRow`) and the inventory −/+ stepper
+  (`QuantityStepper`). Each row has its own `useTransition` and a
+  `useOptimistic` value that flips (or steps, via the server's own
+  `nextQuantityAfterDelta`) on tap, so ticking three items shows all three
+  at once and one pending save never disables the other rows. The reducer
+  works from the current optimistic value, so a re-tap before the server
+  answers undoes the first. The server call goes through
+  `settleOptimisticAction` (`src/components/shared/`): when the action
+  returns `{ error }`, or the request never arrives (offline, a dropped
+  connection, which used to reach the error boundary), it toasts and the
+  row snaps back to the server value as the transition ends. Next's
+  redirect signal is re-thrown, so an expired session still lands on
+  login. A ticked row stays in its section until the save revalidates the
+  page, then moves (to "Purchased"/"Completed"), so rows don't jump under
+  the thumb mid-tap. The steppers are named "Decrease {name}" / "Increase
+  {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
+  Server Action request, ticks three rows, checks all three before any
+  answer, then releases and reloads.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
