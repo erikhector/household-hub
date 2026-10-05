@@ -4597,6 +4597,23 @@ components directly.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
   isn't part of the bottom bar.
+- **In between (640 px wide and up, but a tablet or a phone in landscape;
+  UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
+  863×393 too. The content column next to the sidebar is `min-w-0`, so a
+  wide row wraps instead of widening the page. The sidebar is `h-dvh`; on a
+  short screen (the `short:` variant, `max-height: 500px`, defined in
+  `globals.css`) the whole aside scrolls and the nav list takes its
+  natural height, instead of the nav getting a sliver of inner scroll
+  between the household switcher and the footer. The aside pads
+  `env(safe-area-inset-left)` (content-box, so `w-56`/`w-16` stay the
+  content width) and its footer the bottom inset; `main` pads the right
+  inset, and the left one on phones where there's no sidebar. The
+  inventory page pins itself to the viewport with an inner-scrolling
+  table only under `roomy:` (`lg` wide and at least 600 px tall), where
+  that leaves room for more than a row; elsewhere the document scrolls and
+  the table header sticks. Its header row stays stacked until `lg`.
+  Back-links (`← All shopping lists`, the item catalog's) are
+  `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -5364,6 +5381,11 @@ approximating them, so the email never disagrees with the app.
   `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
   only Chromium is installed, and the iPhone presets need WebKit).
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
+  Two more touch projects cover the in-between sizes (UX-7): `landscape`
+  (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
+  `smoke.spec.ts` and `navigation.desktop.spec.ts` (every page without
+  horizontal overflow, every sidebar control reachable by scrolling the
+  aside, back-links on one line).
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a

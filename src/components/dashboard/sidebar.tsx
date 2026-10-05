@@ -73,9 +73,16 @@ export function Sidebar({
   }
 
   return (
+    // h-dvh, not h-screen: the visible viewport on a phone or tablet, where
+    // 100vh can run past the browser toolbar. On a short screen (`short:`,
+    // a phone in landscape) the nav list and the six footer rows can't
+    // share the height: scrolling just the nav left it a ~40 px window, so
+    // the whole aside scrolls instead and the nav takes its natural height
+    // (UX-7). box-content + the safe-area padding keeps w-56/w-16 as the
+    // content width while clearing a landscape notch on the left.
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 flex-col border-r bg-background transition-[width] duration-150 sm:flex print:hidden",
+        "sticky top-0 hidden h-dvh shrink-0 box-content flex-col border-r bg-background pl-[env(safe-area-inset-left)] transition-[width] duration-150 sm:flex short:overflow-y-auto short:overscroll-contain print:hidden",
         expanded ? "w-56" : "w-16",
       )}
     >
@@ -91,7 +98,7 @@ export function Sidebar({
           </span>
         )}
       </div>
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2 short:flex-none short:overflow-visible">
         {navItems.map(({ href, key, icon: Icon, color }) => {
           const active = isNavItemActive(pathname, href);
           const label = dict.nav[key];
@@ -121,7 +128,7 @@ export function Sidebar({
           );
         })}
       </nav>
-      <div className="flex flex-col gap-1 border-t p-2">
+      <div className="flex flex-col gap-1 border-t p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {/* Doubles as the app's version display. The dot stays until the
             user opens What's new for the newest release (see
             src/lib/release-notes/index.ts). */}
