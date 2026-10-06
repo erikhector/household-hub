@@ -37,7 +37,7 @@ export function StatusCard({
           <Icon
             aria-hidden="true"
             className={cn(
-              "mb-1 size-10",
+              "mx-auto mb-1 size-10",
               tone === "error" && "text-destructive",
               tone === "success" && "text-success",
               tone === "neutral" && "text-muted-foreground",

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { STORAGE_INVENTORY } from "../src/lib/cookie-inventory";
 import { dismissCookieNotice, expectNoHorizontalOverflow, setLocaleCookie } from "./ui";
 
 // UX-28: the logged-out pages' shared polish. Visual checks of every page in
@@ -19,6 +20,14 @@ test("the privacy cookie list gives every column room on a phone", async ({ page
     .locator("dd")
     .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().width));
   expect(Math.min(...widths)).toBeGreaterThan(150);
+  // Human-only page: the list still has exactly one entry per
+  // cookie-inventory.ts row, with its name, purpose and duration.
+  await expect(page.locator("#cookies li")).toHaveCount(STORAGE_INVENTORY.length);
+  for (const entry of STORAGE_INVENTORY) {
+    const item = page.locator("#cookies li").filter({ hasText: entry.name }).first();
+    await expect(item).toContainText(entry.purpose);
+    await expect(item).toContainText(entry.duration);
+  }
   await expectNoHorizontalOverflow(page);
 });
 
