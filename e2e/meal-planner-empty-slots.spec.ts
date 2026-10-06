@@ -50,12 +50,20 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   // still empty add rows, and the six other days stay collapsed.
   await expect(page.getByRole("button", { name: /^(Breakfast|Dinner|Snack) Add meal$/ })).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Lunch Add meal" })).toHaveCount(0);
+  if (testInfo.project.name === "mobile") {
+    // M3: neighbouring 44 px targets are at least 8 px apart, so the slot
+    // add rows of a day with entries don't sit shoulder to shoulder.
+    const breakfast = await page.getByRole("button", { name: "Breakfast Add meal" }).boundingBox();
+    const dinner = await page.getByRole("button", { name: "Dinner Add meal" }).boundingBox();
+    expect(breakfast!.height).toBeGreaterThanOrEqual(44);
+    expect(dinner!.y - (breakfast!.y + breakfast!.height)).toBeGreaterThanOrEqual(8);
+  }
   await page.reload();
   // Scoped to main: see the reload in item-page.spec.ts.
   await expect(page.getByRole("main").getByText(name)).toBeVisible();
 });
 
-test("the planner has one control row with the rare actions in a menu", async ({ page }) => {
+test("the planner has one control row with the rare actions in a menu", async ({ page }, testInfo) => {
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
 
   // Previous, next and the ⋯ menu share one row, and the week range is in it.
@@ -65,6 +73,11 @@ test("the planner has one control row with the rare actions in a menu", async ({
   const moreBox = await more.boundingBox();
   expect(Math.abs(prev!.y - next!.y)).toBeLessThan(2);
   expect(Math.abs(prev!.y - moreBox!.y)).toBeLessThan(2);
+  if (testInfo.project.name === "mobile") {
+    // M3: 44 px targets with at least 8 px between neighbours.
+    expect(prev!.width).toBeGreaterThanOrEqual(44);
+    expect(next!.x - (prev!.x + prev!.width)).toBeGreaterThanOrEqual(8);
+  }
   // Rare actions are not standing buttons any more.
   await expect(page.getByRole("button", { name: "Copy last week" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add missing ingredients to shopping list" })).toHaveCount(0);

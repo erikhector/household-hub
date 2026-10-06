@@ -168,7 +168,7 @@ export function WeekPlanner({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 max-sm:gap-2">
         <Button variant="outline" size="icon-sm" aria-label={dict.previousWeek} render={
           <Link href={`/dashboard/meal-planning?week=${prevWeekKey}`} />
         }>
@@ -232,7 +232,7 @@ export function WeekPlanner({
                 <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-1">
+            <CardContent className="flex flex-col gap-1 max-sm:gap-2">
               {/* UX-21: a day with nothing planned is one "+ Add meal" that
                   asks for the slot, not four identical per-slot rows. */}
               {!entriesByDay.has(day.dateKey) ? (
@@ -299,7 +299,7 @@ function MealTypeSlot({
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 max-sm:gap-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
         <MealEntryDialog
@@ -310,7 +310,7 @@ function MealTypeSlot({
           recipes={recipes}
         />
       </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 max-sm:gap-2">
         {entries.map((entry) => (
           <MealEntryRow
             key={entry.id}
@@ -359,7 +359,7 @@ function MealEntryRow({
     : null;
 
   return (
-    <div className="flex items-center justify-between gap-1 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
+    <div className="flex items-center justify-between gap-1 max-sm:gap-2 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
       <span className="min-w-0 flex-1 truncate max-sm:basis-full max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
