@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.51.0",
+    "date": "2026-10-06",
+    "pr": 162,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking items on a shopping list, tasks and stock +/− now respond instantly, even on a weak signal in the shop. If a change can't be saved, it's undone and you're told why.",
+      "sv": "Att bocka av varor på inköpslistan, uppgifter och lagrets +/− svarar nu direkt, även med svag täckning i butiken. Om en ändring inte går att spara ångras den och du får veta varför."
+    }
+  },
+  {
     "version": "0.50.6",
     "date": "2026-10-06",
     "pr": 160,
