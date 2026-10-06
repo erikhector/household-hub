@@ -5517,6 +5517,13 @@ approximating them, so the email never disagrees with the app.
   in `smoke.spec.ts` on the `mobile` project for every page. It checks
   each page's closed state, so menus and dialogs opened later rely on the
   component classes above.
+- **Checkbox and date fields**: a checked `Checkbox` is filled with the
+  primary colour and shows a white tick (the `checkbox-tick` utility in
+  `globals.css`; an inline SVG class got split by `cn()` and left an empty
+  outline). Every date/time input drops its native appearance
+  (`globals.css` base layer) so iOS Safari honours the field's width
+  instead of sizing it to its content and scrolling dialogs sideways; the
+  native picker still opens on tap. `e2e/form-controls.spec.ts` pins both.
 - **Screenshots for review and the UX scout**: with
   `E2E_SCREENSHOT_DIR` set (`npm run test:e2e:screenshots` defaults it to
   `test-results/screenshots/`), the smoke and public specs also save a
