@@ -22,7 +22,7 @@ import { getStockStatus } from "@/lib/stock-status";
 // on a tablet the three-up row leaves each card ~150px, too narrow for
 // "View shopping lists" on one line: unwrapped, it pushed the chevron out
 // onto the card's border.
-const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto max-sm:min-h-11";
+const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
 
 function greetingKey(now: Date): "morning" | "afternoon" | "evening" {
   const hour = now.getHours();

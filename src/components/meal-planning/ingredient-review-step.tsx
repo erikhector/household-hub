@@ -364,7 +364,7 @@ function UnitChoiceFields({
   const t = dict.ingredientReview;
   const group = `ingredient-review-${row.uid}-unit`;
   const option = (value: UnitChoiceAction, label: string) => (
-    <label className="flex items-center gap-2 text-sm max-sm:min-h-11">
+    <label className="flex items-center gap-2 text-sm max-sm:min-h-11 pointer-coarse:min-h-11">
       <Radio
         name={group}
         value={value}

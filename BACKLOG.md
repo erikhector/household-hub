@@ -252,25 +252,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
-- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
-
-- [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
-      44 px targets and 16 px fields are gated on `max-sm:` only
-      (`ui/button.tsx`, `ui/input.tsx` `md:text-sm`, the `touch-target`
-      utility in `globals.css:12-19`), so iPads and landscape phones get
-      desktop sizing:
-      - checkboxes are ~20 px;
-      - week and month arrows are 27–30 px;
-      - "Add price", "Match item" and "Add meal" are ~24 px;
-      - fields are 14 px on iPhones ≥ 768 px wide in landscape, so iOS
-        zooms in on focus.
-
-      Fix: add `pointer-coarse:` variants alongside `max-sm:` (44 px
-      heights and widths, `text-base`), and compact only under
-      `pointer-fine`.
-
-      Acceptance: `expectTouchTargets` also runs in the `landscape` and
-      `tablet` touch projects and passes.
 
 - [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
       200% (Android "Font size", iOS Larger Text in the PWA), these pages

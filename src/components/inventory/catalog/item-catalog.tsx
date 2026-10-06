@@ -68,7 +68,7 @@ export function ItemCatalog({
             aria-pressed={filter === key}
             onClick={() => selectFilter(key)}
             className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors max-sm:min-h-11",
+              "rounded-full border px-3 py-1 text-sm transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
               filter === key
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-input text-muted-foreground hover:border-primary/50",
@@ -127,7 +127,7 @@ function CatalogRows({
           <li key={row.id} className="rounded-lg border sm:rounded-none sm:border-0">
             <Link
               href={itemPageHref(row.id, { kind: "catalog", filter })}
-              className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11", grid)}
+              className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11 pointer-coarse:min-h-11", grid)}
             >
               <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="font-medium break-words">{row.name}</span>

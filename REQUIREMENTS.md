@@ -5352,13 +5352,15 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
-- Form fields never go below 16 px on phones (UX-10): iOS zooms the page when
-  a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
-  and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
-  (44 px) for the single-line ones, so don't override a field with
+- Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
+  the page when a smaller field is focused, at any width (an iPad, a phone in
+  landscape). `Input`, `Combobox`/`Autocomplete` input groups
+  and `Textarea` use `text-base md:pointer-fine:text-sm`, `border-2`, and
+  `max-sm:h-11 pointer-coarse:h-11` (44 px) for the single-line ones, so don't override a field with
   `text-sm` or a raw `<input>`. The add-item unit column is
-  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
-  `e2e/form-control-sizes.mobile.spec.ts`.
+  `max-sm:w-44 pointer-coarse:w-44` so "pcs" isn't clipped to "p". Covered
+  by `e2e/form-control-sizes.mobile.spec.ts`, which also runs on the
+  `landscape` and `tablet` projects.
 
 ## Testing
 
@@ -5484,9 +5486,10 @@ approximating them, so the email never disagrees with the app.
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
   Two more touch projects cover the in-between sizes (UX-7): `landscape`
   (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
-  `smoke.spec.ts` and `navigation.desktop.spec.ts` (every page without
-  horizontal overflow, every sidebar control reachable by scrolling the
-  aside, back-links on one line).
+  `smoke.spec.ts`, `navigation.desktop.spec.ts` and
+  `form-control-sizes.mobile.spec.ts` (every page without horizontal
+  overflow and with 44 px touch targets (UX-8), every sidebar control
+  reachable by scrolling the aside, back-links on one line, 16 px fields).
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a
@@ -5504,17 +5507,21 @@ approximating them, so the email never disagrees with the app.
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
   `npm run test:e2e:desktop` / `:mobile` run one project.
-- **Touch targets (UX-6, DESIGN.md rule M3)**: below `sm` every button,
+- **Touch targets (UX-6, UX-8, DESIGN.md rule M3)**: below `sm`, or on any
+  touch screen (`pointer: coarse`, so also an iPad or a phone in landscape),
+  every button,
   link outside running text, input, checkbox, radio, tab and menu item
   has a 44 x 44 px hit area. `Button` (all sizes), `Input`, the select and
-  combobox triggers and menu items grow with `max-sm:` classes; `Checkbox`
+  combobox triggers and menu items grow with paired `max-sm:` and `pointer-coarse:` classes; `Checkbox`
   and `Radio` are drawn by hand so a `::after` can extend their hit area
   past the 20 px control; links and chips use the `touch-target` utility
-  (`globals.css`) or a `max-sm:min-h-11` row. Desktop keeps its denser
-  sizing. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
+  (`globals.css`) or a `max-sm:min-h-11 pointer-coarse:min-h-11` row. A mouse
+  on a wide screen (`pointer-fine`) keeps the denser sizing; the sidebar's
+  links grow to 44 px under a coarse pointer too. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
   element (passing if its own box, an enclosing label, link or button, or
   an absolutely positioned `::before`/`::after` reaches 44 px) and runs
-  in `smoke.spec.ts` on the `mobile` project for every page. It checks
+  in `smoke.spec.ts` on every project but `desktop` (`mobile`, `landscape`,
+  `tablet`) for every page. It checks
   each page's closed state, so menus and dialogs opened later rely on the
   component classes above.
 - **Checkbox and date fields**: a checked `Checkbox` is filled with the

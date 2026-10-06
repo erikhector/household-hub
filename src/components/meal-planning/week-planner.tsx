@@ -320,7 +320,7 @@ function MealTypeSlot({
 // icon buttons are 44px (DESIGN.md M3), so the slot grows with them instead of
 // letting neighbours overlap.
 function IconSlot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-6 shrink-0 items-center justify-center max-sm:size-11">{children}</span>;
+  return <span className="flex size-6 shrink-0 items-center justify-center max-sm:size-11 pointer-coarse:size-11">{children}</span>;
 }
 
 function MealEntryRow({
