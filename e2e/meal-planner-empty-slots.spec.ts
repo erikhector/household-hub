@@ -59,8 +59,8 @@ test("the planner has one control row with the rare actions in a menu", async ({
   await page.goto(`/dashboard/meal-planning?week=${EMPTY_WEEK}`);
 
   // Previous, next and the ⋯ menu share one row, and the week range is in it.
-  const prev = await page.getByRole("link", { name: "Previous week" }).boundingBox();
-  const next = await page.getByRole("link", { name: "Next week" }).boundingBox();
+  const prev = await page.getByRole("button", { name: "Previous week" }).boundingBox();
+  const next = await page.getByRole("button", { name: "Next week" }).boundingBox();
   const more = page.getByRole("button", { name: "More planner actions" });
   const moreBox = await more.boundingBox();
   expect(Math.abs(prev!.y - next!.y)).toBeLessThan(2);
@@ -78,5 +78,5 @@ test("the planner has one control row with the rare actions in a menu", async ({
 test("the current week opens with today in view", async ({ page }) => {
   await page.goto("/dashboard/meal-planning");
 
-  await expect(page.locator("#meal-planner-today-card")).toBeInViewport();
+  await expect(page.locator("#meal-planner-today-card:visible")).toBeInViewport();
 });

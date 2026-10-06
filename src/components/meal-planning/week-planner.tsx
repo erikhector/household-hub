@@ -138,10 +138,13 @@ export function WeekPlanner({
   // fully visible (the desktop grid shows it in the first row), and never
   // when the planner tab is hidden (its rect is empty).
   useEffect(() => {
-    const card = document.getElementById(TODAY_CARD_ID);
+    // querySelectorAll, not getElementById: take the rendered card, not a
+    // hidden duplicate (e.g. streamed content not yet swapped in).
+    const card = [...document.querySelectorAll<HTMLElement>(`#${TODAY_CARD_ID}`)].find(
+      (el) => el.getBoundingClientRect().height > 0,
+    );
     if (!card) return;
     const rect = card.getBoundingClientRect();
-    if (rect.height === 0) return;
     if (rect.top < 0 || rect.bottom > window.innerHeight) card.scrollIntoView({ block: "start" });
   }, [weekStartKey]);
 
