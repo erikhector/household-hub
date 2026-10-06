@@ -46,6 +46,9 @@ const createTaskSchema = z.object({
 });
 
 const updateTaskSchema = z.object({
+  // UX-24: the edit dialog can rename a task. Optional so a caller that only
+  // reassigns or re-repeats leaves the title alone.
+  title: createTaskSchema.shape.title.optional(),
   assignedToMemberId: z.string().trim().min(1).nullable(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   rotationMemberIds: rotationMemberIdsSchema,
@@ -72,7 +75,7 @@ type TaskAssignment = {
  */
 async function resolveTaskAssignment(
   householdId: string,
-  input: { assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
+  input: { title?: string; assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
 ): Promise<{ error: string } | { data: TaskAssignment }> {
   const { recurrenceIntervalDays, rotationMemberIds } = input;
   let assignedToMemberId = input.assignedToMemberId;
@@ -156,7 +159,7 @@ export async function createTaskAction(
 
 export async function updateTaskAction(
   taskId: string,
-  input: { assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
+  input: { title?: string; assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
 ): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -181,7 +184,7 @@ export async function updateTaskAction(
   try {
     await prisma.householdTask.update({
       where: { id: task.id },
-      data: resolved.data,
+      data: { ...resolved.data, ...(parsed.data.title !== undefined && { title: parsed.data.title }) },
     });
   } catch (error) {
     return toFriendlyError(error);

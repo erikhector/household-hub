@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
+import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updateProfileAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -33,8 +34,10 @@ export function DisplayNameForm({
     return {};
   }, initialState);
 
+  const { dirty, formProps } = useFormDirty(pending);
+
   return (
-    <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={kept.onSubmit} {...formProps} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.label}</Label>
         <Input
@@ -48,7 +51,7 @@ export function DisplayNameForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending} className="self-start">
+      <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
         {pending ? dict.saving : dict.save}
       </Button>
     </form>

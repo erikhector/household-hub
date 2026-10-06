@@ -75,7 +75,7 @@ export function TaskFormDialog({
   trigger: ReactElement;
 }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(mode === "edit" ? (task?.title ?? "") : "");
   const [assignedToMemberId, setAssignedToMemberId] = useState(
     mode === "edit" ? (task?.assignedToMemberId ?? UNASSIGNED_VALUE) : UNASSIGNED_VALUE,
   );
@@ -87,7 +87,7 @@ export function TaskFormDialog({
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
-      setTitle("");
+      setTitle(mode === "edit" ? (task?.title ?? "") : "");
       setAssignedToMemberId(mode === "edit" ? (task?.assignedToMemberId ?? UNASSIGNED_VALUE) : UNASSIGNED_VALUE);
       setRecurrence(
         mode === "edit" && task?.recurrenceIntervalDays ? String(task.recurrenceIntervalDays) : NO_REPEAT_VALUE,
@@ -127,6 +127,7 @@ export function TaskFormDialog({
       : async (_prevState: ActionState, formData: FormData): Promise<ActionState> => {
           if (!task) return { error: "Task not found" };
           return updateTaskAction(task.id, {
+            title: String(formData.get("title") ?? ""),
             assignedToMemberId: (formData.get("assignedToMemberId") as string | null) ?? null,
             recurrenceIntervalDays: formData.has("recurrenceIntervalDays")
               ? Number(formData.get("recurrenceIntervalDays"))
@@ -156,17 +157,15 @@ export function TaskFormDialog({
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           {mode === "edit" && task && <input type="hidden" name="taskId" value={task.id} />}
-          {mode === "create" && (
-            <Input
-              enterKeyHint="done"
-              name="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={dict.addTaskPlaceholder}
-              aria-label={dict.addTaskAriaLabel}
-              maxLength={120}
-            />
-          )}
+          <Input
+            enterKeyHint="done"
+            name="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={dict.addTaskPlaceholder}
+            aria-label={dict.addTaskAriaLabel}
+            maxLength={120}
+          />
           {(mode === "edit" || members.length > 0) && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-assignee">
@@ -308,16 +307,12 @@ export function TaskFormDialog({
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
-            {mode === "edit" && (
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
-                {dict.editTask.cancel}
-              </Button>
-            )}
-            <Button
-              type="submit"
-              variant={mode === "create" ? "outline" : "default"}
-              disabled={pending || (mode === "create" && title.trim().length === 0)}
-            >
+            {/* One footer for both modes (UX-24): Cancel beside the one
+                primary action. */}
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={pending}>
+              {dict.editTask.cancel}
+            </Button>
+            <Button type="submit" disabled={pending || title.trim().length === 0}>
               {pending
                 ? mode === "create"
                   ? dict.adding

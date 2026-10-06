@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updateSwishNumberAction } from "@/app/dashboard/profile/actions";
 import { INVALID_SWISH_NUMBER_ERROR, formatSwishNumber } from "@/lib/swish";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -41,12 +42,14 @@ export function SwishNumberForm({
     return {};
   }, initialState);
 
+  const { dirty, formProps } = useFormDirty(pending);
+
   // Shown the way Swedes write it ("070-123 45 67"), not as the stored
   // alias — the action accepts either form back.
   const displayValue = swishNumber ? formatSwishNumber(swishNumber) : "";
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} {...formProps} className="flex flex-col gap-4">
       <div>
         <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
@@ -67,7 +70,7 @@ export function SwishNumberForm({
         />
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-      <Button type="submit" disabled={pending} className="self-start">
+      <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
         {pending ? dict.saving : dict.save}
       </Button>
     </form>
