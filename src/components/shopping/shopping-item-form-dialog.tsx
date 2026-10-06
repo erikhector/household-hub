@@ -281,7 +281,11 @@ export function ShoppingItemFormDialog({
                 // state isn't carried by colour alone. `order-first` puts
                 // it in the leading slot the category chip takes on a
                 // linked row, so a row's controls always read
-                // [chip or match][price][edit][delete] (UX-22).
+                // [chip or match][price][edit][delete] (UX-22). Accepted
+                // trade-off: tab order puts it after the price, because the
+                // trigger shares a Dialog root with the edit button and
+                // can't be rendered ahead of PriceTag without splitting it
+                // from its dialog; all three stay adjacent on one row.
                 <Badge
                   variant="warning"
                   className="touch-target order-first shrink-0 cursor-pointer justify-center"
