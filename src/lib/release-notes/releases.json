@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.52.0",
+    "date": "2026-10-06",
+    "pr": 168,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The meal planner now opens on today, keeps its controls in one tidy row, and shows a single \"Add meal\" for each empty day, asking which meal when you tap it.",
+      "sv": "Måltidsplaneraren öppnas nu på idag, har sina knappar på en enda rad och visar en enda \"Lägg till måltid\" per tom dag, där du väljer vilken måltid det gäller."
+    }
+  },
+  {
     "version": "0.51.3",
     "date": "2026-10-06",
     "pr": 165,
