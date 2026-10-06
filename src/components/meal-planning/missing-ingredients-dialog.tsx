@@ -39,6 +39,7 @@ import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/subst
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -89,6 +90,7 @@ export function MissingIngredientsDialog({
   weekStartKey: string;
   activeShoppingLists: ActiveShoppingListOption[];
 }) {
+  const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
@@ -286,7 +288,7 @@ export function MissingIngredientsDialog({
                       {item.name}
                     </span>
                     <span className="shrink-0 text-muted-foreground">
-                      {item.missingQuantity} {item.unit}
+                      {item.missingQuantity} {unitLabel(item.unit)}
                     </span>
                     {item.included && (
                       <>

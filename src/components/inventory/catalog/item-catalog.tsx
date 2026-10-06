@@ -25,6 +25,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import { catalogHref, itemPageHref } from "@/lib/inventory/item-page-origin";
+import { useUnitLabel } from "@/components/units-provider";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
 
@@ -112,6 +113,7 @@ function CatalogRows({
   emptyText: string;
   dict: CatalogDict;
 }) {
+  const unitLabel = useUnitLabel();
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   const grid = "sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center sm:gap-4";
   return (
@@ -141,7 +143,7 @@ function CatalogRows({
               </span>
               <span className="break-words text-muted-foreground">{row.category}</span>
               <span className="tabular-nums">
-                {row.quantity} {row.unit}
+                {row.quantity} {unitLabel(row.unit)}
               </span>
               <span className="text-muted-foreground">
                 {format(plural(row.recipeCount, dict.recipes), { count: row.recipeCount })}
@@ -154,9 +156,9 @@ function CatalogRows({
   );
 }
 
-function memberDetails(member: DuplicateMember, dict: CatalogDict): string {
+function memberDetails(member: DuplicateMember, dict: CatalogDict, unitLabel: (unit: string) => string): string {
   return [
-    `${member.quantity} ${member.unit}`,
+    `${member.quantity} ${unitLabel(member.unit)}`,
     ...(member.recipeCount > 0 ? [format(plural(member.recipeCount, dict.recipes), { count: member.recipeCount })] : []),
     ...(member.barcode ? [dict.barcode] : []),
     ...(member.neverStocked ? [dict.neverStocked] : []),
@@ -170,6 +172,7 @@ function memberDetails(member: DuplicateMember, dict: CatalogDict): string {
  * group, so it doesn't come back for anyone in the household.
  */
 function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; dict: CatalogDict; locale: Locale }) {
+  const unitLabel = useUnitLabel();
   const [keeperId, setKeeperId] = useState(group.members[0].id);
   const [unticked, setUnticked] = useState<Set<string>>(new Set());
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -227,7 +230,7 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
                 >
                   {member.name}
                 </Link>
-                <span className="text-muted-foreground">{memberDetails(member, dict)}</span>
+                <span className="text-muted-foreground">{memberDetails(member, dict, unitLabel)}</span>
               </div>
               {isKeeper && <Badge variant="secondary">{dict.keep}</Badge>}
             </li>

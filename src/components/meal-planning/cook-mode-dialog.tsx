@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import type { RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
+import { useUnitLabel } from "@/components/units-provider";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -57,6 +58,7 @@ function CookModeContent({
   recipe: RecipeData;
   portions: number | null;
 }) {
+  const unitLabel = useUnitLabel();
   // Reuses the shopping list's hook (AUTO-3): the lock is requested when this
   // mounts (the view opens) and released when it unmounts (it closes).
   useScreenWakeLock(true);
@@ -102,7 +104,7 @@ function CookModeContent({
                   {ingredient.quantity > 0 && (
                     <span className="font-medium">
                       {formatCookQuantity(ingredient.quantity, scale, locale)}
-                      {ingredient.unit ? ` ${ingredient.unit}` : ""}{" "}
+                      {ingredient.unit ? ` ${unitLabel(ingredient.unit)}` : ""}{" "}
                     </span>
                   )}
                   {ingredient.name}

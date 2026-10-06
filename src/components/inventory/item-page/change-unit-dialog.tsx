@@ -19,6 +19,7 @@ import { planUnitChange, suggestedUnitChangeFactor, type UnitChangeItem } from "
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
+import { useUnitLabel } from "@/components/units-provider";
 
 type ItemPageDict = Dictionary["inventory"]["itemPage"];
 
@@ -37,6 +38,7 @@ export function ChangeUnitDialog({
   dict: ItemPageDict;
   comboDict: Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
 }) {
+  const unitLabel = useUnitLabel();
   const copy = dict.changeUnitDialog;
   const [open, setOpen] = useState(false);
   const [unit, setUnit] = useState("");
@@ -84,7 +86,7 @@ export function ChangeUnitDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
-          <DialogDescription>{format(copy.description, { unit: item.unit })}</DialogDescription>
+          <DialogDescription>{format(copy.description, { unit: unitLabel(item.unit) })}</DialogDescription>
         </DialogHeader>
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="itemId" value={item.id} />
@@ -102,7 +104,7 @@ export function ChangeUnitDialog({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="change-unit-factor">
-              {format(copy.factorLabel, { from: item.unit, to: unit.trim() || "…" })}
+              {format(copy.factorLabel, { from: unitLabel(item.unit), to: unit.trim() ? unitLabel(unit.trim()) : "…" })}
             </Label>
             <Input
               enterKeyHint="done"
@@ -124,14 +126,14 @@ export function ChangeUnitDialog({
             <ul className="flex flex-col gap-1 rounded-md bg-muted/50 p-3 text-sm" aria-live="polite">
               <li>
                 {format(copy.stock, {
-                  before: `${item.quantity} ${item.unit}`,
-                  after: `${plan.quantity} ${plan.unit}`,
+                  before: `${item.quantity} ${unitLabel(item.unit)}`,
+                  after: `${plan.quantity} ${unitLabel(plan.unit)}`,
                 })}
               </li>
               <li>
                 {format(copy.threshold, {
-                  before: `${item.lowStockThreshold} ${item.unit}`,
-                  after: `${plan.lowStockThreshold} ${plan.unit}`,
+                  before: `${item.lowStockThreshold} ${unitLabel(item.unit)}`,
+                  after: `${plan.lowStockThreshold} ${unitLabel(plan.unit)}`,
                 })}
               </li>
             </ul>

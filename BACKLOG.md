@@ -336,27 +336,6 @@ don't build these in parallel:
       Acceptance: a mobile spec fills the recipe form to the bottom and
       asserts the submit button is in the viewport without scrolling.
 
-- [ ] **UX-44. Units in the user's language** (medium, M) — split out of
-      UX-15, which shipped dates, months and numbers. Units are shown
-      exactly as stored, so a Swedish user sees "12 pcs" rather than
-      "12 st" (and "tbsp", "can", "pack" rather than "msk", "burk",
-      "förp"). Stored units are free text and about 60 places in 26 files
-      render one (`inventory-table.tsx`, `shopping-list-client.tsx`,
-      `put-away-dialog.tsx`, `cook-mode-dialog.tsx`,
-      `missing-ingredients-dialog.tsx`, `merge-preview.tsx`, the item
-      page, …), several of them under UX-14's optimistic-ticking work,
-      which is why it's its own PR.
-
-      Fix: a `units` map in both dictionaries keyed by `canonicalUnit()`
-      (`src/lib/units.ts`) for the known units, plus a `unitLabel(unit,
-      dict.units)` helper that falls back to the stored text for anything
-      unknown. Apply it everywhere a unit is displayed; stored values,
-      inputs and comparisons don't change.
-
-      Acceptance: the sv run shows "st" for a seeded item counted in
-      "pcs" on `/dashboard/inventory` and on a shopping list; a unit test
-      covers the helper's known/unknown/synonym cases.
-
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
       English only, for example `shopping-list/actions.ts:163,212`,

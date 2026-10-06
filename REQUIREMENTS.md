@@ -139,8 +139,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
   "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
   name placeholders use the same helper so they match what gets saved.
-  Number *inputs* stay `type="number"` with dot-decimal values. Units are
-  still shown as stored (UX-44).
+  Number *inputs* stay `type="number"` with dot-decimal values.
+- **Units are shown in the viewer's language (UX-44)**: stored units are
+  free text ("pcs", "tbsp"), but every place that displays one goes
+  through `unitLabel(unit, labels)` (`src/lib/units.ts`), which looks the
+  unit's `canonicalUnit()` up in the dictionary's `units` map, so a
+  Swedish user sees "6 st" for "pcs" and "msk" for "tbsp" (or
+  "tablespoon"), and an unknown unit ("glug") shows as stored. Server
+  Components call it with `dict.units`; Client Components use
+  `useUnitLabel()` from `UnitsProvider` (`src/components/units-provider.tsx`),
+  which the dashboard layout and the public share page fill from
+  `dict.units`, instead of threading the map through ~26 components'
+  props. Display only: stored values, unit inputs and comboboxes (which
+  list and accept the stored spelling), and every comparison and
+  conversion (`canonicalUnit`, `classifyUnits`) are unchanged. A
+  synonym is shown as its canonical unit's label in English too ("pieces"
+  reads "pcs"). A new known unit needs an entry in both dictionaries.
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)

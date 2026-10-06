@@ -140,6 +140,18 @@ export function canonicalUnit(unit: string): string {
   return UNIT_SYNONYMS[key] ?? key;
 }
 
+/**
+ * What to show for a stored unit (UX-44): the dictionary's label for its
+ * canonical spelling, so a Swedish user sees "st" for "pcs" and "msk" for
+ * "tbsp" (or "tablespoon"), falling back to the stored text for a unit the
+ * dictionary doesn't know. Display only: stored values, inputs and every
+ * comparison keep using the raw unit and canonicalUnit().
+ */
+export function unitLabel(unit: string, labels: Readonly<Record<string, string>>): string {
+  const key = canonicalUnit(unit);
+  return Object.hasOwn(labels, key) ? labels[key] : unit;
+}
+
 export type UnitKind = "count" | "spoon" | Dimension;
 
 /** What kind of amount a unit measures, or null for an unrecognized unit.
