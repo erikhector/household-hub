@@ -16,6 +16,7 @@ import {
   primaryMobileNavItems,
   overflowMobileNavItems,
   isNavItemActive,
+  isMoreMenuActive,
   NAV_ICON_TILE_CLASSES,
   type ShellDictionary,
 } from "@/components/dashboard/nav-items";
@@ -65,7 +66,7 @@ export function BottomNav({
   unseenRelease: boolean;
 }) {
   const pathname = usePathname();
-  const moreActive = overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href));
+  const moreActive = isMoreMenuActive(pathname);
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
   // Label the toggle with the state it will switch *to* (matching the
   // locale toggle right next to it, which names the target locale rather
@@ -111,8 +112,9 @@ export function BottomNav({
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
+                "relative z-10 flex min-w-0 flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-xs font-medium transition-transform duration-150 ease-out active:scale-90",
                 active ? "text-primary" : "text-muted-foreground",
               )}
             >
@@ -133,8 +135,9 @@ export function BottomNav({
             render={
               <button
                 type="button"
+                aria-current={moreActive ? "page" : undefined}
                 className={cn(
-                  "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-[0.65rem] font-medium transition-transform duration-150 ease-out active:scale-90",
+                  "relative z-10 flex flex-1 scale-100 flex-col items-center gap-0.5 pt-2 pb-1 text-xs font-medium transition-transform duration-150 ease-out active:scale-90",
                   moreActive ? "text-primary" : "text-muted-foreground",
                 )}
               />
@@ -145,7 +148,7 @@ export function BottomNav({
               <Suspense fallback={null}>
                 <NotificationBadgeContent
                   notifications={notifications}
-                  className="-top-1 -right-1 size-3.5 text-[9px]"
+                  className="-top-1.5 -right-2 h-4 min-w-4 px-0.5 text-xs leading-none"
                 />
               </Suspense>
             </span>

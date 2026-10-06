@@ -4660,6 +4660,16 @@ components directly.
   isn't part of the bottom bar. The switcher row spans its container, so
   its "Create household" `+` sits at the right edge of the header (and of
   the expanded sidebar) rather than just after the household name (UX-26).
+- **Where you are (UX-27)**: the current page is marked in both layouts
+  (`aria-current="page"` plus the active fill). On a phone, What's new and
+  the notification centre belong to the "More" menu, so while one is open
+  "More" is the highlighted tab (`isMoreMenuActive` in `nav-items.ts`). The
+  bottom bar's labels and the notification badge are 12 px (`text-xs`),
+  the M9 exception written into DESIGN.md. The collapsed sidebar's
+  icon-only controls carry an `aria-label` and a hover/focus Tooltip
+  (`components/ui/tooltip.tsx`, Base UI) instead of a `title`, which touch
+  never shows; the footer's What's new and notification bell are marked
+  active on their own pages like the section links.
 - **In between (640 px wide and up, but a tablet or a phone in landscape;
   UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
   863×393 too. The content column next to the sidebar is `min-w-0`, so a

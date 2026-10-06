@@ -49,3 +49,30 @@ test("the bottom bar doesn't cover the end of a long page", async ({ page }) => 
   const last = await page.locator("main > *").last().boundingBox();
   expect(bar && last && last.y + last.height <= bar.y + 1, "last content block ends above the bottom bar").toBe(true);
 });
+
+// UX-27: What's new and Notifications live in the More menu, so on their
+// pages "More" is the marked tab instead of no tab at all.
+test("More is marked on pages reached from its menu", async ({ page }) => {
+  const nav = page.getByRole("navigation");
+  const more = nav.getByRole("button", { name: en.nav.more });
+  for (const path of ["/dashboard/whats-new", "/dashboard/notifications", "/dashboard/profile"]) {
+    await page.goto(path);
+    await expect(more).toHaveAttribute("aria-current", "page");
+  }
+  await page.goto("/dashboard/inventory");
+  await expect(more).not.toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: en.nav.inventory })).toHaveAttribute("aria-current", "page");
+});
+
+// UX-27 / M9: the bar's labels are at least 12 px.
+test("the bottom bar labels are at least 12 px", async ({ page }) => {
+  await page.goto("/dashboard");
+  const nav = page.getByRole("navigation");
+  for (const name of [en.nav.overview, en.nav.inventory, en.nav.more]) {
+    const size = await nav
+      .getByText(name, { exact: true })
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(size).toBeGreaterThanOrEqual(12);
+  }
+});

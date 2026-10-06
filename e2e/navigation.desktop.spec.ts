@@ -65,3 +65,36 @@ test("logs out and redirects to login", async ({ page }) => {
   await page.getByRole("button", { name: en.nav.logOut }).click();
   await expect(page).toHaveURL(/\/login/);
 });
+
+// UX-27: the current page is marked everywhere, including the footer pages
+// that aren't in navItems.
+test("the sidebar marks the current page, footer pages included", async ({ page }) => {
+  await page.goto("/dashboard/inventory");
+  const aside = page.locator("aside");
+  await expect(aside.getByRole("link", { name: en.nav.inventory, exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(aside.getByRole("link", { name: en.nav.shoppingList, exact: true })).not.toHaveAttribute("aria-current", "page");
+
+  await page.goto("/dashboard/whats-new");
+  await expect(aside.getByRole("link", { name: new RegExp(`^${en.nav.whatsNew}`) })).toHaveAttribute("aria-current", "page");
+
+  await page.goto("/dashboard/notifications");
+  await expect(aside.getByRole("button", { name: new RegExp(en.notifications.title) })).toHaveAttribute("aria-current", "page");
+});
+
+// UX-27: collapsed, the rail's icons were named only by `title`, which touch
+// never shows. They now carry an aria-label (role queries find them by it)
+// and a Tooltip on hover.
+test("the collapsed sidebar names its icons and shows a tooltip", async ({ page }) => {
+  await page.goto("/dashboard");
+  const aside = page.locator("aside");
+  await aside.getByRole("button", { name: en.nav.collapseSidebar }).click();
+  await expect(aside.getByRole("button", { name: en.nav.expandSidebar })).toBeVisible();
+
+  for (const item of navItems) {
+    await expect(aside.getByRole("link", { name: en.nav[item.key], exact: true })).toBeVisible();
+  }
+  await expect(aside.getByRole("button", { name: en.nav.logOut })).toBeVisible();
+
+  await aside.getByRole("link", { name: en.nav.inventory, exact: true }).hover();
+  await expect(page.locator("[data-side]").filter({ hasText: en.nav.inventory })).toBeVisible();
+});
