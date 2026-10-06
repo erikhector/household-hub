@@ -213,7 +213,8 @@ vi.mock("@/lib/i18n/get-dictionary", async () => ({
   })),
   getLocale: vi.fn(async () => "en"),
 }));
-vi.mock("@/lib/i18n/format", () => ({
+vi.mock("@/lib/i18n/format", async (importOriginal) => ({
+  datedName: (await importOriginal<typeof import("@/lib/i18n/format")>()).datedName,
   format: (template: string, vars: Record<string, string>) =>
     template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? "")),
   plural: (count: number, forms: { one: string; other: string }) => (count === 1 ? forms.one : forms.other),
@@ -267,6 +268,7 @@ const {
   saveCategoryOrderAction,
   resetCategoryOrderAction,
 } = await import("@/app/dashboard/shopping-list/actions");
+const { getLocale } = await import("@/lib/i18n/get-dictionary");
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -305,6 +307,27 @@ describe("createShoppingListAction validation (createListSchema)", () => {
           householdId: "household-1",
           name: expect.stringContaining("Shopping list"),
         }),
+      }),
+    );
+  });
+
+  // UX-15: the date is written in the viewer's language, not the server's
+  // default locale ("10/5/2026").
+  it("dates the default name in the viewer's locale", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 5, 12));
+    vi.mocked(getLocale).mockResolvedValueOnce("sv");
+    shoppingListCreateMock.mockResolvedValue({ id: "list-1" });
+
+    try {
+      await expect(createShoppingListAction({}, formData({}))).rejects.toThrow("REDIRECT:");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(shoppingListCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: "Shopping list — 5 okt. 2026" }),
       }),
     );
   });

@@ -13,6 +13,7 @@ import { conversionLeadUnit } from "@/lib/recipes/unit-hints";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { format, plural } from "@/lib/i18n/format";
+import { createMoneyFormat } from "@/lib/currency";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
 type Counts = MergePreview["items"][number]["counts"];
@@ -91,6 +92,9 @@ export function MergePreviewBody({
   const planned = new Map(plan.items.map((entry) => [entry.id, entry]));
   const amount = (value: number, unit: string) => `${value} ${unit}`;
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
+  // UX-15: "12,50" in sv rather than toFixed's "12.50". No household
+  // currency reaches the catalog, so it stays symbol-free.
+  const priceFormat = createMoneyFormat(locale);
 
   const handleMerge = () =>
     startTransition(async () => {
@@ -116,7 +120,7 @@ export function MergePreviewBody({
       ? [format(copy.threshold, { amount: amount(plan.lowStockThreshold, keeper.unit) })]
       : []),
     ...(plan.fromMerged.lastKnownPrice && plan.lastKnownPrice !== null
-      ? [format(copy.price, { price: plan.lastKnownPrice.toFixed(2) })]
+      ? [format(copy.price, { price: priceFormat.format(plan.lastKnownPrice) })]
       : []),
     ...(plan.fromMerged.category ? [format(copy.category, { category: plan.category })] : []),
     ...plan.conversions.map((conversion) => {

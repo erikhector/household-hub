@@ -83,6 +83,7 @@ export function RecurringTemplateDialog({
   template,
   createAction,
   updateAction,
+  numberFormat,
 }: {
   dict: BudgetDict;
   categories: CategoryRow[];
@@ -99,6 +100,9 @@ export function RecurringTemplateDialog({
    * (personal) — see RecurringTemplateFormAction's doc comment. */
   createAction: RecurringTemplateFormAction;
   updateAction: RecurringTemplateFormAction;
+  /** The caller's createMoneyFormat(locale, currencyCode), for the split
+   * mismatch warning (UX-15). */
+  numberFormat: Intl.NumberFormat;
 }) {
   const isEdit = !!template;
   const memberOptions = members ?? [];
@@ -290,8 +294,8 @@ export function RecurringTemplateDialog({
                   {splitMismatch && (
                     <p className="text-xs text-destructive">
                       {format(dict.recurring.split?.mismatchWarning ?? "", {
-                        total: splitTotal.toFixed(2),
-                        amount: (Number(amount) || 0).toFixed(2),
+                        total: numberFormat.format(splitTotal),
+                        amount: numberFormat.format(Number(amount) || 0),
                       })}
                     </p>
                   )}
