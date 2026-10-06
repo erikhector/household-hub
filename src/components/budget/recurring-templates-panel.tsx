@@ -128,6 +128,7 @@ export function RecurringTemplatesPanel({
           <p className="text-sm text-muted-foreground">{dict.recurring.subtitle}</p>
         </div>
         <RecurringTemplateDialog
+          numberFormat={numberFormat}
           dict={dict}
           categories={categories}
           members={members}
@@ -163,6 +164,7 @@ export function RecurringTemplatesPanel({
                 actions={
                   <>
                     <TransactionDialog
+                      numberFormat={numberFormat}
                       dict={dict}
                       categories={categories}
                       members={members}
@@ -377,6 +379,7 @@ function TemplateRow({
       <div className="flex flex-wrap items-center gap-1.5">
         {actions}
         <RecurringTemplateDialog
+          numberFormat={numberFormat}
           dict={dict}
           categories={categories}
           members={members}

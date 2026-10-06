@@ -91,6 +91,15 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
     // the same thing happening transiently: iOS rubber-banding past the end
     // of the inner scroll and bleeding into a drag of the outer page.
     //
+    // min-w-0 on the content column (UX-7): a flex item won't shrink below
+    // its content's width by default, so one wide row (the inventory
+    // header's action buttons) grew the column, and the whole page,
+    // past the screen on a tablet or a landscape phone. With it, the
+    // column stays the width the sidebar leaves and its content wraps.
+    // main's left/right padding grows to the safe-area insets so a
+    // landscape notch doesn't cover content; from `sm` the sidebar sits on
+    // the left and clears that side itself (see sidebar.tsx).
+    //
     // print: (GAP-24, the shopping list's "Print") undoes all of that on
     // paper. A viewport-sized, internally scrolling column would clip the
     // printout to its first screenful, so the column and `main` go back to
@@ -107,7 +116,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         notifications={notifications}
         unseenRelease={unseenRelease}
       />
-      <div className="flex flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
+      <div className="flex min-w-0 flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
         <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
         </header>
@@ -135,7 +144,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             scrollIntoView (e.g. the shopping list scrolling a just-added
             row into view): without it "nearest" stops at main's bottom
             edge, which is behind BottomNav. */}
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 px-4 pb-8 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
           {children}
         </main>
       </div>

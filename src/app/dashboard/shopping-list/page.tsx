@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
 import { ListTemplatesSection } from "@/components/shopping/list-templates";
@@ -70,7 +70,7 @@ async function ShoppingListsSection({
 }
 
 export default async function ShoppingListPage() {
-  const [{ household }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
+  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
   const [inventoryItems, aliases] = await Promise.all([
     prisma.inventoryItem.findMany({
@@ -104,9 +104,10 @@ export default async function ShoppingListPage() {
             units={units}
             categories={categories}
             dict={dict.shoppingList.registerReceipt}
+            locale={locale}
             aliases={aliases}
           />
-          <NewListDialog dict={dict.shoppingList} />
+          <NewListDialog dict={dict.shoppingList} locale={locale} />
         </div>
       </div>
       <Suspense fallback={<ShoppingListsSkeleton />}>

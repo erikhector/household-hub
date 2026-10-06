@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { format, plural } from "@/lib/i18n/format";
+import { datedName, format, plural } from "@/lib/i18n/format";
 
 describe("plural", () => {
   it("returns the singular form for a count of exactly 1", () => {
@@ -44,5 +44,18 @@ describe("format", () => {
 
   it("returns the template unchanged when it has no placeholders", () => {
     expect(format("No placeholders here", { unused: "value" })).toBe("No placeholders here");
+  });
+});
+
+describe("datedName", () => {
+  // A local date, formatted in that same local zone, so the day can't shift.
+  const date = new Date(2026, 9, 5, 12);
+
+  it("writes the date in Swedish for sv", () => {
+    expect(datedName("Inköpslista", "sv", date)).toBe("Inköpslista — 5 okt. 2026");
+  });
+
+  it("writes the date in English for en", () => {
+    expect(datedName("Shopping list", "en", date)).toBe("Shopping list — Oct 5, 2026");
   });
 });

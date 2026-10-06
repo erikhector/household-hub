@@ -24,8 +24,9 @@ import {
   unarchiveShoppingListAction,
 } from "@/app/dashboard/shopping-list/actions";
 import type { ActionState } from "@/lib/actions/auth";
-import { format, plural } from "@/lib/i18n/format";
+import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
 
 type ListSummary = {
   id: string;
@@ -39,7 +40,7 @@ type ShoppingListDict = Dictionary["shoppingList"];
 
 const initialState: ActionState = {};
 
-export function NewListDialog({ dict }: { dict: ShoppingListDict }) {
+export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale: Locale }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -71,7 +72,7 @@ export function NewListDialog({ dict }: { dict: ShoppingListDict }) {
               enterKeyHint="done"
               id="new-list-name"
               name="name"
-              placeholder={`${dict.defaultNamePrefix} — ${new Date().toLocaleDateString()}`}
+              placeholder={datedName(dict.defaultNamePrefix, locale)}
               maxLength={120}
             />
           </div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import {
   loginAction,
   resendVerificationEmailForLoginAction,
@@ -31,6 +32,8 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
     resendVerificationEmailForLoginAction,
     initialResendState,
   );
+  // UX-13: a wrong password keeps the email filled in.
+  const kept = useKeptFormValues(["email"]);
   // Read client-side (rather than via a `next`/`callbackUrl` prop threaded
   // down from src/app/login/page.tsx) so a deep link followed while logged
   // out lands back where it was headed after login — see proxy.ts, which
@@ -48,7 +51,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
         <input type="hidden" name="next" value={nextPath} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">{dict.email}</Label>
@@ -61,6 +64,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
               required
               maxLength={254}
               autoComplete="email"
+              defaultValue={kept.values.email}
               className="pl-8"
             />
           </div>
