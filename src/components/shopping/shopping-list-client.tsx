@@ -1078,7 +1078,7 @@ function PriceTag({
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);
         }}
-        className="h-7 w-20 px-2 text-sm"
+        className="w-24 px-2"
         aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
       />
       <Button

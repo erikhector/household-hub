@@ -152,6 +152,16 @@ export function WeekPlanner({
 }) {
   const weekStart = parseDateKey(weekStartKey);
   const weekEnd = addDays(weekStart, 6);
+  // UX-15: "28 sep.–4 okt. 2026" in sv, "Sep 28 – Oct 4, 2026" in en —
+  // formatRange drops the repeated month/year itself. parseDateKey gives UTC
+  // midnight, so formatting in UTC names the same days on the server and in
+  // every browser (no hydration mismatch, no off-by-one west of Greenwich).
+  const weekRange = new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).formatRange(weekStart, weekEnd);
   const todayKey = toDateKey(new Date());
 
   const prevWeekKey = toDateKey(addDays(weekStart, -7));
@@ -190,11 +200,7 @@ export function WeekPlanner({
             <ChevronRight className="size-4" />
           </Button>
         </div>
-        <p className="text-sm font-medium">
-          {weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-          {" – "}
-          {weekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-        </p>
+        <p className="text-sm font-medium">{weekRange}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
             {dict.thisWeek}

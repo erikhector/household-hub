@@ -103,7 +103,15 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `cache()`) read the `locale` cookie. Every Server Component that needs
   translated text calls `getDictionary()` itself — there's no `[lang]` param
   to thread through layouts, so `cache()` is what dedupes the repeated
-  `cookies()` read within one request instead.
+  `cookies()` read within one request instead. Locale precedence: signed-in
+  account locale, then the `locale` cookie, then the browser's
+  `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
+  match, q-values honoured), then `en`.
+- **Public language toggle**: `LegalFooter` (rendered by every logged-out
+  page) carries a `PublicLanguageToggle` button, named after the language
+  it switches to, that calls `setLocaleAction` like the dashboard toggle.
+  The `locale` cookie is already in `cookie-inventory.ts` as a preference.
+  Covered by `e2e/public.spec.ts`.
 - **Passing translations to Client Components**: the convention is to pass
   a named sub-object (e.g. `dict.household.invite`) as a `dict` prop, or a
   `Pick<Dictionary, …>` slice when a component reads several namespaces —
@@ -117,6 +125,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.
+- **Dates and numbers follow the locale too (UX-15)**: anything formatted
+  for display takes the viewer's `locale` (from `getLocale()`, passed down
+  as a prop) and goes through `Intl.DateTimeFormat`/`Intl.NumberFormat` or
+  `createMoneyFormat` — never `toLocaleDateString()` with no locale (the
+  runtime's default, which is English on the server) and never
+  `toFixed(2)` for on-screen text. So the budget month reads
+  "oktober 2026", the meal planner's week "28 sep.–4 okt. 2026"
+  (`formatRange`, in UTC since week keys are UTC dates, so server and
+  browser agree), split warnings and "Your share" use the household's
+  money format, and the cost analyzer's price change is a locale percent
+  ("+12,5 %"). A list the user didn't name is called
+  `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
+  "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
+  name placeholders use the same helper so they match what gets saved.
+  Number *inputs* stay `type="number"` with dot-decimal values. Units are
+  still shown as stored (UX-44).
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)
@@ -4428,6 +4452,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
+  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
+  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
+  the inset elsewhere), so they never cover the navigation or sit in the
+  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  button is 44 px (`globals.css`).
+- **Copy-link buttons** (household invite, shopping-list share link,
+  calendar feed) are one component, `CopyLinkButton`
+  (`src/components/ui/copy-link-button.tsx`). It awaits
+  `clipboard.writeText` and shows "Copied" only on success; a rejection
+  shows an error toast telling the user to copy the selected link by hand.
+  On a coarse-pointer device with `navigator.share`, a "Share" button
+  opens the system share sheet.
 
 ## Access control (landing / auth pages vs. the app)
 
@@ -5256,6 +5292,13 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- Form fields never go below 16 px on phones (UX-10): iOS zooms the page when
+  a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
+  and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
+  (44 px) for the single-line ones, so don't override a field with
+  `text-sm` or a raw `<input>`. The add-item unit column is
+  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
+  `e2e/form-control-sizes.mobile.spec.ts`.
 
 ## Testing
 
