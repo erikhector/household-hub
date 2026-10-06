@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { E2E_SHOPPING_LIST, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
+import { E2E_SHOPPING_LIST } from "./seed-data";
+import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { dismissCookieNotice } from "./ui";
 
 // UX-44: stored units are free text ("pcs", "tbsp"), but they're shown in
