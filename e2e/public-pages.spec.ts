@@ -86,7 +86,7 @@ test("signup's button names the same thing as its title", async ({ page }) => {
 test("the landing page's main button stays on screen in a landscape phone", async ({ page }) => {
   await page.setViewportSize({ width: 915, height: 412 });
   await page.goto("/");
-  const button = page.getByRole("link", { name: "Get started free" });
+  const button = page.getByRole("button", { name: "Get started free" });
   await expect(button).toBeVisible();
   const box = await button.boundingBox();
   expect(box!.y + box!.height).toBeLessThanOrEqual(412);
