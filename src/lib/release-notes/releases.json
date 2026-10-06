@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.53.0",
+    "date": "2026-10-06",
+    "pr": 169,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Units now appear in your language: Swedish users see \"st\", \"msk\" and \"burk\" instead of \"pcs\", \"tbsp\" and \"can\".",
+      "sv": "Enheter visas nu på svenska: \"st\", \"msk\" och \"burk\" i stället för \"pcs\", \"tbsp\" och \"can\"."
+    }
+  },
+  {
     "version": "0.52.0",
     "date": "2026-10-06",
     "pr": 168,
