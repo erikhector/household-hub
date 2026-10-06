@@ -336,23 +336,6 @@ don't build these in parallel:
       Acceptance: a mobile spec fills the recipe form to the bottom and
       asserts the submit button is in the viewport without scrolling.
 
-- [ ] **UX-14. Ticking is instant: optimistic rows with per-row pending**
-      (high, M) — The shopping item checkbox
-      (`shopping-list-client.tsx:179,860-870`), the share page
-      (`shared-shopping-list-client.tsx:36-47`), tasks
-      (`tasks-client.tsx:53,150,231`) and the inventory +/− steppers
-      (`inventory-table.tsx:207-213`) don't change until the server
-      answers. Meanwhile one shared `useTransition` disables every row, so
-      on weak in-store signal taps look lost. This breaks M5.
-
-      Fix: `useOptimistic` per row with rollback and an error toast, as
-      `recipe-manager.tsx:243-251` already does. Add stepper `aria-label`s
-      ("Decrease Wheat flour") while there.
-
-      Acceptance: an e2e test with a throttled route ticks three items in
-      a row, all three are checked before any response arrives, and they
-      persist after reload.
-
 - [ ] **UX-44. Units in the user's language** (medium, M) — split out of
       UX-15, which shipped dates, months and numbers. Units are shown
       exactly as stored, so a Swedish user sees "12 pcs" rather than
