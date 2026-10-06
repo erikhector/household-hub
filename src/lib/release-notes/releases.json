@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.51.1",
+    "date": "2026-10-06",
+    "pr": 163,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Checked boxes now show their fill and tick again, and date fields no longer make forms scroll sideways on iPhone.",
+      "sv": "Ikryssade rutor visar nu sin fyllning och bock igen, och datumfält får inte längre formulär att skrolla i sidled på iPhone."
+    }
+  },
+  {
     "version": "0.51.0",
     "date": "2026-10-06",
     "pr": 162,
