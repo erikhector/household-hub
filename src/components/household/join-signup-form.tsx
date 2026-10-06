@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PasswordInput } from "@/components/auth/password-input";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { joinViaInviteSignupAction } from "@/lib/actions/household";
 import { resendVerificationEmailForLoginAction, type ResendVerificationForLoginState } from "@/lib/actions/auth";
 import type { SignupState } from "@/lib/actions/auth";
@@ -33,6 +34,8 @@ export function JoinSignupForm({
     resendVerificationEmailForLoginAction,
     initialResendState,
   );
+  // UX-13, as in SignupForm: an error keeps the name and email.
+  const kept = useKeptFormValues(["displayName", "email"]);
 
   // Carries the invite forward through login (A5's redirect-back param) so
   // "log in, then reopen this invite link" is a real, working path instead
@@ -76,15 +79,30 @@ export function JoinSignupForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="token" value={token} />
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
-        <Input id="displayName" name="displayName" required maxLength={60} autoComplete="name" />
+        <Input
+          id="displayName"
+          name="displayName"
+          required
+          maxLength={60}
+          autoComplete="name"
+          defaultValue={kept.values.displayName}
+        />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{dict.email}</Label>
-        <Input id="email" name="email" type="email" required maxLength={254} autoComplete="email" />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          defaultValue={kept.values.email}
+        />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{dict.password}</Label>

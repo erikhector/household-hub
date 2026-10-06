@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { updateProfileAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -19,6 +20,9 @@ export function DisplayNameForm({
   displayName: string;
   dict: Dictionary["profile"]["displayNameForm"];
 }) {
+  // UX-13: a rejected name stays in the field to fix, rather than snapping
+  // back to the saved one.
+  const kept = useKeptFormValues(["displayName"]);
   const [state, formAction, pending] = useActionState(async (
     prevState: FormState,
     formData: FormData,
@@ -30,7 +34,7 @@ export function DisplayNameForm({
   }, initialState);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.label}</Label>
         <Input
@@ -38,7 +42,7 @@ export function DisplayNameForm({
           key={displayName}
           id="displayName"
           name="displayName"
-          defaultValue={displayName}
+          defaultValue={kept.values.displayName ?? displayName}
           required
           maxLength={60}
         />

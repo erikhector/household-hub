@@ -5270,6 +5270,24 @@ approximating them, so the email never disagrees with the app.
   Promise<ActionState>` shape (`ActionState = { error?: string }`) for use
   with `useActionState`. Actions triggered by a plain click (toggle, delete,
   quantity +/-) are called directly from a `useTransition` callback instead.
+- **A failed submit keeps what the user typed (UX-13).** React 19 resets an
+  uncontrolled `<form action>` once the action settles, even when it came
+  back with `{ error }`. Forms whose fields are uncontrolled use
+  `useKeptFormValues([...names])` (`src/components/shared/use-kept-form-values.ts`):
+  its `onSubmit` records the listed fields' values as the form is
+  submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
+  so the reset lands on what was typed. It's client-side, so the actions'
+  return types and no-JS fallback are unchanged. The names are an
+  allowlist and never include a password: password fields still clear
+  after an error (so the reset-password form, which has nothing else, is
+  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
+  signup, login, the invite sign-up form, the display-name form, add/edit
+  item (quantity, low-stock threshold, expiry, use-within) and the
+  transaction description. After a *successful* "save & add another", the
+  add-item dialog calls `kept.keep(["quantity", "lowStockThreshold"])`:
+  those carry into the next item, while expiry and use-within go back to
+  blank (so AUTO-7 can still estimate the next item's expiry). Covered by
+  `e2e/form-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).

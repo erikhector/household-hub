@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { checkSplitForm, evenSplitAmounts } from "@/components/budget/split-amounts";
 import { SplitEditor } from "@/components/budget/split-editor";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -225,6 +226,9 @@ export function TransactionDialog({
   // amount field (see buildInitialPaidAmounts), so typing the amount after
   // ticking "Split this expense" doesn't leave a stale 0 behind.
   const [paidTouched, setPaidTouched] = useState(false);
+  // UX-13: the description is the dialog's only uncontrolled text field,
+  // so it's the one a failed save would otherwise wipe.
+  const kept = useKeptFormValues(["description"]);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -256,6 +260,7 @@ export function TransactionDialog({
       ),
     );
     setPaidTouched(false);
+    kept.reset();
     setDate(toDateInputValue(transaction?.date ?? defaultDateForMonth(monthKey)));
   }
 
@@ -289,7 +294,7 @@ export function TransactionDialog({
             {isEdit ? dict.editTransactionDialogTitle : dict.addTransactionDialogTitle}
           </DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={transaction.id} />}
           {!isEdit && prefillFromTemplate && (
             <input type="hidden" name="recurringTemplateId" value={prefillFromTemplate.templateId} />
@@ -349,7 +354,7 @@ export function TransactionDialog({
               name="description"
               maxLength={200}
               placeholder={dict.descriptionPlaceholder}
-              defaultValue={transaction?.description ?? prefillFromTemplate?.description ?? ""}
+              defaultValue={kept.values.description ?? transaction?.description ?? prefillFromTemplate?.description ?? ""}
             />
           </div>
           <div className="flex flex-col gap-3 rounded-lg border border-dashed p-3">
