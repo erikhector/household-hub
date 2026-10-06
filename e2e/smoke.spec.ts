@@ -24,10 +24,13 @@ for (const locale of LOCALES) {
         await expectRendersCleanly(page, route);
         await expect(page.locator("main")).toBeVisible();
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
-        await saveScreenshot(page, testInfo, locale, route);
         // M3 is a touch rule (UX-8: phones, landscape phones, tablets); the
         // desktop project, with a mouse, is deliberately denser.
         if (testInfo.project.name !== "desktop") await expectTouchTargets(page);
+        // After the measurement: the screenshot resizes the viewport, and
+        // on the wide touch projects the page was then measured as a mouse
+        // layout (sidebar buttons back at 28 px) in screenshot runs.
+        await saveScreenshot(page, testInfo, locale, route);
         expect(errors, `console/page errors on ${route.path}`).toEqual([]);
       });
     }
