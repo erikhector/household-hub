@@ -311,6 +311,7 @@ export function TransactionList({
             <TableCell>
               <div className="flex items-center justify-end gap-1">
                 <TransactionDialog
+                  numberFormat={numberFormat}
                   dict={dict}
                   categories={categories}
                   members={members}
@@ -454,6 +455,7 @@ export function TransactionList({
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <TransactionDialog
+                  numberFormat={numberFormat}
                   dict={dict}
                   categories={categories}
                   members={members}

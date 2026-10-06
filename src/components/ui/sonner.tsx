@@ -1,11 +1,23 @@
 "use client"
 
 import { useTheme } from "next-themes"
+import { usePathname } from "next/navigation"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  // On phones the dashboard's fixed BottomNav (4rem plus the home-indicator
+  // inset, the same 4.75rem the cookie notice clears) owns the bottom edge,
+  // so a toast at Sonner's 16 px default covered the navigation and, on iOS,
+  // reached into the home-indicator strip where its swipe-to-dismiss fights
+  // the home gesture. Elsewhere there's no bar, but the inset still applies.
+  // `mobileOffset` only takes effect at Sonner's phone breakpoint, so
+  // desktop is untouched.
+  const onDashboard = usePathname().startsWith("/dashboard")
+  const mobileBottom = onDashboard
+    ? "calc(4.75rem + env(safe-area-inset-bottom))"
+    : "max(1rem, env(safe-area-inset-bottom))"
 
   return (
     <Sonner
@@ -39,6 +51,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // oklab, not oklch: an oklch mix interpolates hue too, so green over
       // the violet popover came out blue and amber came out pink.
       richColors
+      mobileOffset={{ bottom: mobileBottom, left: 16, right: 16, top: 16 }}
       style={
         {
           "--normal-bg": "var(--popover)",
