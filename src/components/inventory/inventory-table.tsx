@@ -52,6 +52,7 @@ import {
 } from "@/components/inventory/inventory-table-utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
@@ -543,9 +544,10 @@ function QuantityStepper({
   disabled: boolean;
   dict: Dictionary["inventory"];
 }) {
+  const unitLabel = useUnitLabel();
   const [, startTransition] = useTransition();
   const [quantity, addOptimisticDelta] = useOptimistic(item.quantity, nextQuantityAfterDelta);
-  const label = `${formatQuantity(quantity)} ${item.unit}`;
+  const label = `${formatQuantity(quantity)} ${unitLabel(item.unit)}`;
 
   function adjust(delta: number) {
     startTransition(async () => {
@@ -600,10 +602,11 @@ function QuantityStepper({
 // that hasn't been put away yet. Muted text rather than a badge, since it's
 // context for the stock badge beside it, not a status of its own.
 function OnTheWayHint({ item, dict }: { item: InventoryItemRow; dict: Dictionary["inventory"] }) {
+  const unitLabel = useUnitLabel();
   if (!item.incoming || item.incoming <= 0) return null;
   return (
     <span className="text-xs text-muted-foreground tabular-nums">
-      {format(dict.onTheWay, { amount: `${formatQuantity(item.incoming)} ${item.unit}` })}
+      {format(dict.onTheWay, { amount: `${formatQuantity(item.incoming)} ${unitLabel(item.unit)}` })}
     </span>
   );
 }

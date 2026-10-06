@@ -22,6 +22,7 @@ import {
 import { normalizeVoiceTranscript, speechRecognitionLang } from "@/lib/shopping/voice-transcript";
 import { useSpeechRecognition } from "@/components/shopping/use-speech-recognition";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 /**
  * The shopping list's primary add path (AUTO-1): one always-visible line
@@ -63,6 +64,7 @@ export function SmartAddBar({
   locale: Locale;
   onAdded: (shoppingListItemIds: string[]) => void;
 }) {
+  const unitLabel = useUnitLabel();
   const [value, setValue] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const [focused, setFocused] = useState(false);
@@ -260,7 +262,7 @@ export function SmartAddBar({
                         {suggestion.stockStatus === "out" ? dict.stockOut : dict.stockLow}
                       </Badge>
                     )}
-                    {suggestion.unit}
+                    {unitLabel(suggestion.unit)}
                   </span>
                 </li>
               ))}

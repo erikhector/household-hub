@@ -2,6 +2,14 @@ import type { Dictionary } from "./en";
 import { categoryLabels } from "@/lib/inventory/category-labels";
 
 export const sv = {
+  // Visningsnamn för lagrade enheter, nycklade på canonicalUnit() (UX-44).
+  units: {
+    ml: "ml", cl: "cl", dl: "dl", l: "l", tsp: "tsk", krm: "krm", tbsp: "msk",
+    cup: "kopp", "fl oz": "fl oz", floz: "fl oz", pint: "pint", quart: "quart", gallon: "gallon",
+    mg: "mg", g: "g", kg: "kg", oz: "oz", lb: "lb",
+    pcs: "st", clove: "klyfta", can: "burk", pack: "förp", slice: "skiva",
+    bunch: "knippe", jar: "burk", bag: "påse", bottle: "flaska", box: "ask", pinch: "nypa",
+  },
   nav: {
     overview: "Översikt",
     inventory: "Lager",

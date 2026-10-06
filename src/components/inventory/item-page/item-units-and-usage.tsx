@@ -23,6 +23,7 @@ import { canonicalUnit, convertForItem } from "@/lib/units";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
+import { useUnitLabel } from "@/components/units-provider";
 
 type ItemPageDict = Dictionary["inventory"]["itemPage"];
 type ComboDict = Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
@@ -54,6 +55,7 @@ export function ItemUnitsAndUsage({
   dict: ItemPageDict;
   comboDict: ComboDict;
 }) {
+  const unitLabel = useUnitLabel();
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -88,9 +90,9 @@ export function ItemUnitsAndUsage({
         <h2 id="units" className="font-heading text-lg font-semibold">
           {dict.unitsTitle}
         </h2>
-        <p className="text-sm">{format(dict.countedIn, { unit: item.unit })}</p>
+        <p className="text-sm">{format(dict.countedIn, { unit: unitLabel(item.unit) })}</p>
         {conversions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{format(dict.noConversions, { unit: item.unit })}</p>
+          <p className="text-sm text-muted-foreground">{format(dict.noConversions, { unit: unitLabel(item.unit) })}</p>
         ) : (
           <ul className="flex flex-col divide-y rounded-md border">
             {conversions.map((conversion) => {
@@ -98,13 +100,13 @@ export function ItemUnitsAndUsage({
               return (
                 <li key={conversion.id} className="flex items-center gap-2 px-3 py-1.5">
                   <span className="min-w-0 flex-1 text-sm break-words">
-                    1 {sentence.leadUnit} = {sentence.amount} {sentence.otherUnit}
+                    1 {unitLabel(sentence.leadUnit)} = {sentence.amount} {unitLabel(sentence.otherUnit)}
                   </span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={format(dict.editConversionAriaLabel, { unit: conversion.fromUnit })}
+                    aria-label={format(dict.editConversionAriaLabel, { unit: unitLabel(conversion.fromUnit) })}
                     onClick={() => openEdit(conversion)}
                   >
                     <Pencil className="size-3.5" />
@@ -117,13 +119,13 @@ export function ItemUnitsAndUsage({
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
                         disabled={isPending}
-                        aria-label={format(dict.deleteConversionAriaLabel, { unit: conversion.fromUnit })}
+                        aria-label={format(dict.deleteConversionAriaLabel, { unit: unitLabel(conversion.fromUnit) })}
                       >
                         <X className="size-3.5" />
                       </Button>
                     }
-                    title={format(dict.confirmDeleteConversion.title, { unit: conversion.fromUnit })}
-                    description={format(dict.confirmDeleteConversion.description, { unit: conversion.fromUnit })}
+                    title={format(dict.confirmDeleteConversion.title, { unit: unitLabel(conversion.fromUnit) })}
+                    description={format(dict.confirmDeleteConversion.description, { unit: unitLabel(conversion.fromUnit) })}
                     cancelLabel={dict.confirmDeleteConversion.cancel}
                     confirmLabel={dict.confirmDeleteConversion.confirm}
                     pendingLabel={dict.confirmDeleteConversion.confirming}
@@ -158,11 +160,11 @@ export function ItemUnitsAndUsage({
                   {row.recipeName}
                 </Link>
                 <span className="text-muted-foreground">
-                  {row.quantity} {row.unit}
+                  {row.quantity} {unitLabel(row.unit)}
                 </span>
                 {row.convertedLabel !== null ? (
                   <span className="flex items-center gap-1">
-                    = {row.convertedLabel} {item.unit}
+                    = {row.convertedLabel} {unitLabel(item.unit)}
                     <CircleCheck className="size-3.5 text-primary" role="img" aria-label={dict.converts} />
                   </span>
                 ) : (
@@ -170,10 +172,10 @@ export function ItemUnitsAndUsage({
                     <TriangleAlert
                       className="size-3.5 text-warning"
                       role="img"
-                      aria-label={format(dict.cantConvert, { unit: row.unit, itemUnit: item.unit })}
+                      aria-label={format(dict.cantConvert, { unit: unitLabel(row.unit), itemUnit: unitLabel(item.unit) })}
                     />
                     <Button type="button" variant="outline" size="xs" onClick={() => openAdd(canonicalUnit(row.unit))}>
-                      {format(dict.addUnit, { unit: canonicalUnit(row.unit) })}
+                      {format(dict.addUnit, { unit: unitLabel(row.unit) })}
                     </Button>
                   </span>
                 )}
@@ -213,6 +215,7 @@ function TryIt({
   dict: ItemPageDict;
   comboDict: ComboDict;
 }) {
+  const unitLabel = useUnitLabel();
   const [amount, setAmount] = useState("1");
   const [unit, setUnit] = useState(units.find((candidate) => canonicalUnit(candidate) !== canonicalUnit(item.unit)) ?? item.unit);
   const quantity = Number(amount.trim().replace(",", "."));
@@ -241,7 +244,7 @@ function TryIt({
         />
       </div>
       <span aria-live="polite" data-testid="try-it-result">
-        {result === null ? dict.tryItNoResult : `= ${short(roundAmount(result))} ${item.unit}`}
+        {result === null ? dict.tryItNoResult : `= ${short(roundAmount(result))} ${unitLabel(item.unit)}`}
       </span>
     </div>
   );
@@ -264,6 +267,7 @@ function ConversionDialog({
   dict: ItemPageDict;
   comboDict: ComboDict;
 }) {
+  const unitLabel = useUnitLabel();
   const copy = dict.conversionDialog;
   const [fromUnit, setFromUnit] = useState(state?.fromUnit ?? "");
   const [amount, setAmount] = useState(state?.amount ?? "");
@@ -316,7 +320,7 @@ function ConversionDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="conversion-amount">{copy.amountLabel}</Label>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span>1 {sentence?.leadUnit ?? "…"} =</span>
+              <span>1 {sentence ? unitLabel(sentence.leadUnit) : "…"} =</span>
               <Input
                 id="conversion-amount"
                 type="text"
@@ -330,7 +334,7 @@ function ConversionDialog({
                 aria-invalid={amount.trim() !== "" && unitTyped && factor === null}
                 required
               />
-              <span>{sentence?.otherUnit ?? "…"}</span>
+              <span>{sentence ? unitLabel(sentence.otherUnit) : "…"}</span>
             </div>
             {fromHint && <p className="text-xs text-muted-foreground">{copy.typical}</p>}
           </div>

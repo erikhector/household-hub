@@ -30,6 +30,7 @@ import { formatQuantity } from "@/lib/format-quantity";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { cn } from "@/lib/utils";
+import { useUnitLabel } from "@/components/units-provider";
 
 type Mode = 1 | -1;
 
@@ -78,6 +79,7 @@ export function StockScanDialog({
   items: { id: string; name: string }[];
   trigger: ReactElement;
 }) {
+  const unitLabel = useUnitLabel();
   const t = dict.stockScan;
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>(1);
@@ -416,7 +418,7 @@ export function StockScanDialog({
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {entry.appliedDelta > 0 ? "+" : entry.appliedDelta < 0 ? "−" : "±"}
                     {formatQuantity(Math.abs(entry.appliedDelta))} ·{" "}
-                    {format(t.logRow, { quantity: formatQuantity(entry.item.quantity), unit: entry.item.unit })}
+                    {format(t.logRow, { quantity: formatQuantity(entry.item.quantity), unit: unitLabel(entry.item.unit) })}
                   </span>
                   {entry.mode === -1 && entry.item.quantity === 0 && !entry.undone && !entry.addedToList && (
                     <Button

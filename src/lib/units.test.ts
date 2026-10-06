@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { canonicalUnit, classifyUnits, convertForItem, convertQuantity, unitsAreComparable } from "./units";
+import { canonicalUnit, classifyUnits, convertForItem, convertQuantity, unitLabel, unitsAreComparable } from "./units";
+import { en } from "@/lib/i18n/dictionaries/en";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 describe("convertQuantity", () => {
   it("converts between volume units", () => {
@@ -141,5 +143,33 @@ describe("synonym-aware conversion", () => {
   it("converts a synonym 1:1 so comparable units always convert", () => {
     expect(unitsAreComparable("st", "pcs")).toBe(true);
     expect(convertQuantity(3, "st", "pcs")).toBe(3);
+  });
+});
+
+describe("unitLabel (UX-44)", () => {
+  it("shows a known unit in the dictionary's language", () => {
+    expect(unitLabel("pcs", sv.units)).toBe("st");
+    expect(unitLabel("tbsp", sv.units)).toBe("msk");
+    expect(unitLabel("pcs", en.units)).toBe("pcs");
+  });
+
+  it("labels synonyms and spellings like their canonical unit", () => {
+    expect(unitLabel("st", sv.units)).toBe("st");
+    expect(unitLabel("Pieces", sv.units)).toBe("st");
+    expect(unitLabel(" Tablespoon ", sv.units)).toBe("msk");
+    expect(unitLabel("förp", en.units)).toBe("pack");
+  });
+
+  it("falls back to the stored text for an unknown unit", () => {
+    expect(unitLabel("Glug", sv.units)).toBe("Glug");
+    expect(unitLabel("constructor", sv.units)).toBe("constructor");
+    expect(unitLabel("", sv.units)).toBe("");
+  });
+
+  it("has a label for every canonical unit the app recognises", () => {
+    for (const unit of ["pcs", "clove", "can", "pack", "slice", "bunch", "jar", "bag", "bottle", "box", "tsp", "tbsp", "krm", "pinch", "ml", "l", "g", "kg"]) {
+      expect(sv.units).toHaveProperty(unit);
+      expect(en.units).toHaveProperty(unit);
+    }
   });
 });

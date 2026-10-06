@@ -24,6 +24,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -32,6 +33,7 @@ type ReviewItem = CookedIngredientData & { included: boolean; quantity: string }
 const initialState: ActionState = {};
 
 export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entry: MealPlanEntryData }) {
+  const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
@@ -174,7 +176,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                         {item.name}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {format(dict.onHandQuantityLabel, { quantity: item.onHandQuantity, unit: item.unit })}
+                        {format(dict.onHandQuantityLabel, { quantity: item.onHandQuantity, unit: unitLabel(item.unit) })}
                       </span>
                     </label>
                     <div className="flex items-center gap-2 pl-6">
@@ -189,7 +191,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                         onChange={(e) => updateQuantity(item.key, e.target.value)}
                         aria-label={format(dict.cookedQuantityAriaLabel, { name: item.name })}
                       />
-                      <span className="text-xs text-muted-foreground">{item.unit}</span>
+                      <span className="text-xs text-muted-foreground">{unitLabel(item.unit)}</span>
                       {item.unitMismatch && (
                         <span className="text-xs text-warning">
                           {format(dict.cookedIngredientUnitMismatchNote, {
