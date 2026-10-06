@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addMonths, parseMonthKey, toMonthKey } from "@/lib/budget-date-utils";
+import type { Locale } from "@/lib/i18n/locales";
 
 // Narrowed to just the three labels this needs (rather than the full budget
 // dictionary) so it works for both dict.budget and dict.personalBudget, same
@@ -18,11 +19,15 @@ export type MonthNavigatorDict = { previousMonth: string; nextMonth: string; thi
 export function MonthNavigator({
   basePath,
   monthKey,
+  locale,
   dict,
   extraParams,
 }: {
   basePath: string;
   monthKey: string;
+  /** UX-15: the month is named in the viewer's language ("oktober 2026"),
+   * not the runtime's default locale. */
+  locale: Locale;
   dict: MonthNavigatorDict;
   /** Extra query params preserved across prev/next/this-month navigation —
    * e.g. the household budget's `?household=` deep-link override (F1: a
@@ -34,7 +39,7 @@ export function MonthNavigator({
   const monthStart = parseMonthKey(monthKey);
   const prevMonthKey = toMonthKey(addMonths(monthStart, -1));
   const nextMonthKey = toMonthKey(addMonths(monthStart, 1));
-  const monthLabel = monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const monthLabel = monthStart.toLocaleDateString(locale, { month: "long", year: "numeric" });
   const extraQuery = extraParams
     ? Object.entries(extraParams)
         .map(([key, value]) => `&${key}=${encodeURIComponent(value)}`)

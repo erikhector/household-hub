@@ -350,7 +350,7 @@ export function InventoryTable({
           </Button>
         </div>
       )}
-      <div className="hidden sm:block sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
+      <div className="hidden sm:block sm:min-h-0 sm:flex-1 roomy:overflow-y-auto">
       <Table>
       <TableHeader className="sticky top-0 z-10 bg-background">
         <TableRow>

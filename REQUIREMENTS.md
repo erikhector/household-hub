@@ -125,6 +125,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.
+- **Dates and numbers follow the locale too (UX-15)**: anything formatted
+  for display takes the viewer's `locale` (from `getLocale()`, passed down
+  as a prop) and goes through `Intl.DateTimeFormat`/`Intl.NumberFormat` or
+  `createMoneyFormat` — never `toLocaleDateString()` with no locale (the
+  runtime's default, which is English on the server) and never
+  `toFixed(2)` for on-screen text. So the budget month reads
+  "oktober 2026", the meal planner's week "28 sep.–4 okt. 2026"
+  (`formatRange`, in UTC since week keys are UTC dates, so server and
+  browser agree), split warnings and "Your share" use the household's
+  money format, and the cost analyzer's price change is a locale percent
+  ("+12,5 %"). A list the user didn't name is called
+  `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
+  "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
+  name placeholders use the same helper so they match what gets saved.
+  Number *inputs* stay `type="number"` with dot-decimal values. Units are
+  still shown as stored (UX-44).
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)
@@ -4436,6 +4452,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
+  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
+  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
+  the inset elsewhere), so they never cover the navigation or sit in the
+  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  button is 44 px (`globals.css`).
+- **Copy-link buttons** (household invite, shopping-list share link,
+  calendar feed) are one component, `CopyLinkButton`
+  (`src/components/ui/copy-link-button.tsx`). It awaits
+  `clipboard.writeText` and shows "Copied" only on success; a rejection
+  shows an error toast telling the user to copy the selected link by hand.
+  On a coarse-pointer device with `navigator.share`, a "Share" button
+  opens the system share sheet.
 
 ## Access control (landing / auth pages vs. the app)
 
@@ -4604,7 +4632,43 @@ components directly.
   isn't hidden behind the fixed bar.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
-  isn't part of the bottom bar.
+  isn't part of the bottom bar. The switcher row spans its container, so
+  its "Create household" `+` sits at the right edge of the header (and of
+  the expanded sidebar) rather than just after the household name (UX-26).
+- **In between (640 px wide and up, but a tablet or a phone in landscape;
+  UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
+  863×393 too. The content column next to the sidebar is `min-w-0`, so a
+  wide row wraps instead of widening the page. The sidebar is `h-dvh`; on a
+  short screen (the `short:` variant, `max-height: 500px`, defined in
+  `globals.css`) the whole aside scrolls and the nav list takes its
+  natural height, instead of the nav getting a sliver of inner scroll
+  between the household switcher and the footer. The aside pads
+  `env(safe-area-inset-left)` (content-box, so `w-56`/`w-16` stay the
+  content width) and its footer the bottom inset; `main` pads the right
+  inset, and the left one on phones where there's no sidebar. The
+  inventory page pins itself to the viewport with an inner-scrolling
+  table only under `roomy:` (`lg` wide and at least 600 px tall), where
+  that leaves room for more than a row; elsewhere the document scrolls and
+  the table header scrolls away with it (the table is wider than the
+  column there and keeps its own horizontal scroll, which a sticky header
+  can't see past). Its header row stays stacked until `lg`.
+  Back-links (`← All shopping lists`, the item catalog's) are
+  `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
+- **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
+  leads with today (your tasks, your budget), so the "Get set up" card
+  (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
+  the steps still open and counts the finished (or skipped) ones in one
+  "3 of 5 done" line, and disappears on its own once every step is done.
+  Its `X` ("Hide the setup card") hides it for good via
+  `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
+  per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
+  1 year, read by `src/lib/getting-started-dismiss.ts`, listed in
+  `cookie-inventory.ts`), the same mechanism as the household step's "Skip
+  this step". Every step is still reachable from the navigation, so hiding
+  loses nothing. The "View …" buttons at the foot of the overview cards use
+  `mt-auto` so cards side by side line them up, and their labels wrap rather
+  than push the chevron outside the card on narrow (tablet) columns.
+  Covered by `e2e/overview.spec.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -5227,6 +5291,24 @@ approximating them, so the email never disagrees with the app.
   {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
   Server Action request, ticks three rows, checks all three before any
   answer, then releases and reloads.
+- **A failed submit keeps what the user typed (UX-13).** React 19 resets an
+  uncontrolled `<form action>` once the action settles, even when it came
+  back with `{ error }`. Forms whose fields are uncontrolled use
+  `useKeptFormValues([...names])` (`src/components/shared/use-kept-form-values.ts`):
+  its `onSubmit` records the listed fields' values as the form is
+  submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
+  so the reset lands on what was typed. It's client-side, so the actions'
+  return types and no-JS fallback are unchanged. The names are an
+  allowlist and never include a password: password fields still clear
+  after an error (so the reset-password form, which has nothing else, is
+  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
+  signup, login, the invite sign-up form, the display-name form, add/edit
+  item (quantity, low-stock threshold, expiry, use-within) and the
+  transaction description. After a *successful* "save & add another", the
+  add-item dialog calls `kept.keep(["quantity", "lowStockThreshold"])`:
+  those carry into the next item, while expiry and use-within go back to
+  blank (so AUTO-7 can still estimate the next item's expiry). Covered by
+  `e2e/form-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -5270,6 +5352,13 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- Form fields never go below 16 px on phones (UX-10): iOS zooms the page when
+  a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
+  and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
+  (44 px) for the single-line ones, so don't override a field with
+  `text-sm` or a raw `<input>`. The add-item unit column is
+  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
+  `e2e/form-control-sizes.mobile.spec.ts`.
 
 ## Testing
 
@@ -5393,6 +5482,11 @@ approximating them, so the email never disagrees with the app.
   `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
   only Chromium is installed, and the iPhone presets need WebKit).
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
+  Two more touch projects cover the in-between sizes (UX-7): `landscape`
+  (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
+  `smoke.spec.ts` and `navigation.desktop.spec.ts` (every page without
+  horizontal overflow, every sidebar control reachable by scrolling the
+  aside, back-links on one line).
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a

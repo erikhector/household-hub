@@ -113,6 +113,7 @@ export function LogSharedExpenseDialog({
   monthKey,
   trigger,
   prefill,
+  numberFormat,
 }: {
   dict: Dictionary["personalBudget"];
   /** Every household the signed-in user belongs to that has more than one
@@ -124,6 +125,9 @@ export function LogSharedExpenseDialog({
   monthKey?: string;
   trigger: ReactElement;
   prefill?: SharedExpensePrefill;
+  /** The caller's createMoneyFormat(locale, currencyCode), for "Your share"
+   * and SplitEditor's warnings (UX-15). */
+  numberFormat: Intl.NumberFormat;
 }) {
   const [open, setOpen] = useState(false);
   const [householdId, setHouseholdId] = useState(prefill?.householdId ?? households[0]?.id ?? "");
@@ -303,7 +307,7 @@ export function LogSharedExpenseDialog({
               />
               {myShare !== undefined && (
                 <p className="text-xs text-muted-foreground">
-                  {dict.shared.yourShare}: {myShare.toFixed(2)}
+                  {dict.shared.yourShare}: {numberFormat.format(myShare)}
                 </p>
               )}
             </div>
@@ -344,6 +348,7 @@ export function LogSharedExpenseDialog({
                 setPaidTouched(true);
               }}
               onSplitEvenly={() => resetToEvenSplit(amount)}
+              numberFormat={numberFormat}
               dict={dict.logShared}
             />
           </div>

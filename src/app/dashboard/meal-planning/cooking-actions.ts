@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { round2 } from "@/lib/math";
-import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
+import { datedName } from "@/lib/i18n/format";
 import { toFriendlyError } from "@/lib/actions/errors";
 import type { ActionState } from "@/lib/actions/auth";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
@@ -239,7 +240,7 @@ export async function addMissingIngredientsToShoppingListAction(
         householdId: household.id,
         name:
           parsed.data.newListName ||
-          `${dict.shoppingList.defaultNamePrefix} — ${new Date().toLocaleDateString()}`,
+          datedName(dict.shoppingList.defaultNamePrefix, await getLocale()),
       },
     });
     listId = list.id;
