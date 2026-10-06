@@ -96,5 +96,5 @@ test("the collapsed sidebar names its icons and shows a tooltip", async ({ page 
   await expect(aside.getByRole("button", { name: en.nav.logOut })).toBeVisible();
 
   await aside.getByRole("link", { name: en.nav.inventory, exact: true }).hover();
-  await expect(page.locator("[data-side]").filter({ hasText: en.nav.inventory })).toBeVisible();
+  await expect(page.locator("[data-side]").filter({ hasText: en.nav.inventory }).last()).toBeVisible();
 });
