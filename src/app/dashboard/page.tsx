@@ -7,11 +7,22 @@ import { SafeToSpend } from "@/components/budget/safe-to-spend";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { isHouseholdStepSkipped } from "@/lib/household-step-skip";
+import { isGettingStartedDismissed } from "@/lib/getting-started-dismiss";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
+
+// The "View …" link at the foot of each overview card (UX-26). `mt-auto`
+// pins it to the card's bottom, so side-by-side cards with different amounts
+// of content above (an "out of stock" line in one, not the other) line their
+// buttons up instead of leaving them at different heights. The label may
+// wrap (`whitespace-normal`, `h-auto` over the fixed button height) because
+// on a tablet the three-up row leaves each card ~150px, too narrow for
+// "View shopping lists" on one line: unwrapped, it pushed the chevron out
+// onto the card's border.
+const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto max-sm:min-h-11";
 
 function greetingKey(now: Date): "morning" | "afternoon" | "evening" {
   const hour = now.getHours();
@@ -42,6 +53,7 @@ export default async function DashboardOverviewPage() {
     personalBudgetCategoryCount,
     personalPosition,
     householdStepSkipped,
+    gettingStartedDismissed,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // Filtered by the assignee's user rather than a membership id looked up
@@ -77,6 +89,7 @@ export default async function DashboardOverviewPage() {
       sharedLabel: dict.personalBudget.shared.sharedBadge,
     }),
     isHouseholdStepSkipped(household.id),
+    isGettingStartedDismissed(household.id),
   ]);
 
   const myOpenTasks = myTasks.filter((t) => isTaskOpen(t, now));
@@ -116,7 +129,9 @@ export default async function DashboardOverviewPage() {
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
 
-      <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
+      {!gettingStartedDismissed && (
+        <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
@@ -128,7 +143,7 @@ export default async function DashboardOverviewPage() {
               {dict.dashboard.yourTasksTitle}
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
+          <CardContent className="flex flex-1 flex-col gap-3">
             {myOpenTasks.length > 0 ? (
               <>
                 <p className="text-sm text-foreground">
@@ -150,7 +165,7 @@ export default async function DashboardOverviewPage() {
             <Button
               variant="outline"
               size="sm"
-              className="mt-1 w-full justify-between"
+              className={CARD_LINK_BUTTON}
               render={<Link href="/dashboard/tasks" />}
             >
               {dict.dashboard.viewTasks}
@@ -183,12 +198,12 @@ export default async function DashboardOverviewPage() {
                 {dict.dashboard.yourBudgetTitle}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3">
+            <CardContent className="flex flex-1 flex-col gap-3">
               <p className="text-sm text-muted-foreground">{dict.personalBudget.onboarding.body}</p>
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full justify-between"
+                className={CARD_LINK_BUTTON}
                 render={<Link href="/dashboard/personal-budget" />}
               >
                 {dict.dashboard.setUpPersonalBudgetCta}
@@ -228,7 +243,7 @@ export default async function DashboardOverviewPage() {
                 {dict.dashboard.lowStockItems}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-1 flex-col gap-1">
               <p className="font-display text-3xl font-semibold text-chart-1">{lowStock.length}</p>
               {outOfStock.length > 0 && (
                 <p className="text-sm text-destructive">
@@ -240,7 +255,7 @@ export default async function DashboardOverviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-1 w-full justify-between"
+                className={CARD_LINK_BUTTON}
                 render={<Link href="/dashboard/inventory" />}
               >
                 {dict.dashboard.viewInventory}
@@ -254,7 +269,7 @@ export default async function DashboardOverviewPage() {
                 {dict.dashboard.shoppingLists}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-1 flex-col gap-1">
               <p className="font-display text-3xl font-semibold text-chart-2">{pendingShoppingItems}</p>
               <p className="text-sm text-muted-foreground">
                 {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
@@ -264,7 +279,7 @@ export default async function DashboardOverviewPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-1 w-full justify-between"
+                className={CARD_LINK_BUTTON}
                 render={<Link href="/dashboard/shopping-list" />}
               >
                 {dict.dashboard.viewShoppingLists}

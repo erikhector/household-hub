@@ -4632,7 +4632,24 @@ components directly.
   isn't hidden behind the fixed bar.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
-  isn't part of the bottom bar.
+  isn't part of the bottom bar. The switcher row spans its container, so
+  its "Create household" `+` sits at the right edge of the header (and of
+  the expanded sidebar) rather than just after the household name (UX-26).
+- **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
+  leads with today (your tasks, your budget), so the "Get set up" card
+  (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
+  the steps still open and counts the finished (or skipped) ones in one
+  "3 of 5 done" line, and disappears on its own once every step is done.
+  Its `X` ("Hide the setup card") hides it for good via
+  `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
+  per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
+  1 year, read by `src/lib/getting-started-dismiss.ts`, listed in
+  `cookie-inventory.ts`), the same mechanism as the household step's "Skip
+  this step". Every step is still reachable from the navigation, so hiding
+  loses nothing. The "View …" buttons at the foot of the overview cards use
+  `mt-auto` so cards side by side line them up, and their labels wrap rather
+  than push the chevron outside the card on narrow (tablet) columns.
+  Covered by `e2e/overview.spec.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;

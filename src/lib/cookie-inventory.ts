@@ -127,6 +127,15 @@ export const STORAGE_INVENTORY: readonly StorageEntry[] = [
     duration: "1 year",
   },
   {
+    // Suffixed with the household's id at set time (getting_started_dismissed_<id>) —
+    // see dismissGettingStartedAction in src/lib/actions/household.ts.
+    name: "getting_started_dismissed_",
+    kind: "cookie",
+    category: "preference",
+    purpose: "Remembers that you hid the “Get set up” card on the overview for a given household.",
+    duration: "1 year",
+  },
+  {
     name: "theme",
     kind: "localStorage",
     category: "preference",
