@@ -368,7 +368,7 @@ export function ShoppingItemFormDialog({
                     dict={dict.editItem}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="edit-item-quantity">{dict.editItem.quantityLabel}</Label>
                     <Input

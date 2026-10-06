@@ -276,25 +276,6 @@ don't build these in parallel:
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
 
-- [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
-      M7. Nothing in `src/` touches `history`, so Android's back button,
-      or a back swipe with a sheet open, leaves the page and loses the
-      form. From the first screen it leaves the app.
-
-      Fix: in `ui/dialog.tsx` (and `confirm-dialog.tsx`), `pushState` when
-      the sheet opens and close it on `popstate`. When the sheet is closed
-      from the UI, call `history.back()` if our entry is still on top.
-
-      In the same PR:
-      - **Merge into another item** (`/dashboard/inventory/items/[id]`)
-        doesn't close on Escape, on desktop or mobile, and it shows no
-        Merge or Cancel action until something is picked. Show both.
-      - Add `pr-10` to `DialogHeader` so long (Swedish) titles don't run
-        under the 44 px close button (`dialog.tsx:90-103`).
-
-      Acceptance: a mobile spec opens "Add item", calls `page.goBack()`,
-      and asserts the sheet closed and the URL is unchanged.
-
 - [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
       (high, M) — Hard rule M2.
       - `DialogFooter` (`ui/dialog.tsx:117-130`) isn't sticky, so in the
@@ -691,7 +672,7 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-11/UX-12) —
+- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
       - Drag the grabber or header to dismiss, with velocity and
         rubber-band.
       - Snap points (half and full) for long forms.
@@ -1007,6 +988,41 @@ out to be a product-scope question rather than a scoped task should move to
       plural; the query is scoped by `requireHousehold()` and has a unit
       test for count and latest date; an e2e test marks a seeded entry
       cooked, opens Recipes and asserts the line, on desktop and mobile.
+
+### 2026-10-06 scan
+
+- [ ] **GAP-47. Price history on an inventory item** (impact: med, effort: S) —
+      Grocy shows every product's purchase price history (date, store,
+      price, per-unit price) so a household can see whether milk is really
+      getting dearer. Squirrel already records it: `PriceHistory`
+      (`prisma/schema.prisma:658`) is written by purchases and receipt
+      scans and feeds the spike warning and Budget → Insights, but the
+      inventory item itself shows no price at all; `PriceHistory` is only
+      read in `budget/page.tsx` and `receipt-scan-dialog.tsx`. No schema
+      change: a household-scoped read of an item's last N rows plus the
+      existing per-unit helpers in `price-spike.ts`. Acceptance: the item
+      detail shows "Recent prices" (up to 10 rows: date, store if known,
+      price and per-unit price) and nothing for an item with no history
+      (no empty chart); the read is scoped by `requireHousehold()` and
+      unit-tested for tenancy and ordering; strings in `en.ts` and
+      `sv.ts`; an e2e test buys a seeded item with a price, opens it and
+      asserts the row, on desktop and mobile.
+
+- [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
+      Paprika, Mealie and AnyList let you copy a recipe to make a variant
+      (vegetarian lasagne, half batch) without retyping ingredients and
+      steps. Squirrel can only create from scratch or import from a URL
+      (REQUIREMENTS.md, "Recipe import from URL"), and a repo search finds
+      no copy action. No schema change: a Server Action that copies the
+      recipe, its ingredients and tags into a new row in the same
+      household, titled "<name> (copy)", favorite flag reset. Acceptance:
+      a "Duplicate" action on a recipe row opens the copy for editing
+      with an undo toast; it is `requireHousehold()`-scoped, rejects a
+      recipe id from another household (unit test) and the copy doesn't
+      share ingredient rows with the original (editing one leaves the
+      other unchanged); strings in both dictionaries; an e2e test
+      duplicates a seeded recipe and asserts both appear after reload, on
+      desktop and mobile.
 
 ## Needs a decision before building
 

@@ -173,6 +173,12 @@ changes (`npm run test:e2e:screenshots`), not just the code. No
 horizontal page scroll at 412 px (`expectNoHorizontalOverflow`), and no
 table or row that only makes sense wider than the screen.
 
+In forms, a combobox or select gets its own row on a phone. The one
+pairing that fits is a short number beside it (a `6rem` quantity column
+and the unit taking the rest); two comboboxes, or three columns of
+anything, stack below `sm`. A field whose value can't be read isn't a
+field.
+
 ### M2. Thumb zone
 
 The primary action lives where a thumb reaches it: the bottom half of the

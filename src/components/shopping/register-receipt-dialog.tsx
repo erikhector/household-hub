@@ -348,7 +348,7 @@ export function RegisterReceiptDialog({
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-2 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${row.key}-quantity`} className="text-xs">
               {dict.quantityLabel}

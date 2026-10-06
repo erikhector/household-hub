@@ -60,8 +60,13 @@ function AutocompleteTrigger({
   return (
     <AutocompletePrimitive.Trigger
       data-slot="autocomplete-trigger"
+      // On phones both buttons are 44 px (M3), and the pair left a unit
+      // field 5 px of text. So only one shows at a time there: the chevron
+      // while the field is empty, the clear button (data-visible while
+      // there's a value, and placed before the trigger) once it has one.
+      // Clearing brings the chevron back to browse every suggestion.
       className={cn(
-        "flex size-6 max-sm:size-11 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50",
+        "flex size-6 max-sm:size-11 pointer-coarse:size-11 max-sm:[[data-slot=autocomplete-clear][data-visible]~&]:hidden pointer-coarse:[[data-slot=autocomplete-clear][data-visible]~&]:hidden shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50",
         className
       )}
       {...props}

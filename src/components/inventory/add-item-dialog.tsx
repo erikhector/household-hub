@@ -193,7 +193,7 @@ export function ItemFormDialog({
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="category">{dict.categoryLabel}</Label>
               <ComboField
@@ -226,7 +226,10 @@ export function ItemFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          {/* Phones: a short quantity column beside a unit that takes the
+              rest of the row; "low stock at" wraps under quantity. Three
+              equal columns left the unit combobox 5 px of text. */}
+          <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="quantity">{dict.quantityLabel}</Label>
               <Input
