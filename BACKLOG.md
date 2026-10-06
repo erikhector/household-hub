@@ -253,41 +253,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 - `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
-- `dashboard/sidebar.tsx`, `dashboard/bottom-nav.tsx`,
-  `dashboard/layout.tsx`: UX-7, UX-27
-
-- [ ] **UX-7. Fix the 640–1050 px layout: phone landscape, tablets, small
-      laptops** (blocker, M) — Any touch device wider than 640 px gets the
-      desktop shell, and that shell breaks in four places:
-      - **Page scrolls sideways.** The content column in
-        `dashboard/layout.tsx` (`flex flex-1 flex-col`) has no `min-w-0`,
-        so the inventory header (title plus a 639 px action row on one line
-        from `sm:`) pushes the page to 1042 px in an 810 px iPad and an
-        863 px landscape phone.
-      - **Sidebar nav is unreachable.** `sidebar.tsx:78` is `h-screen`, and
-        its six footer rows take the height, so at 393 px tall only
-        "Overview" and half of "Inventory" show. The other seven sections
-        sit behind a ~40 px inner scroll.
-      - **Inventory table shows one row.** Its fixed-height viewport
-        (`sm:h-[calc(100dvh-4rem)]`) is only a row tall at that height.
-      - **Back-links wrap.** "← All shopping lists" puts its arrow on a
-        line of its own.
-
-      Fix:
-      - Add `min-w-0` to the column, and keep the inventory header stacked
-        until `lg`.
-      - Make the sidebar `h-dvh`. When the screen is short
-        (`@media (max-height: 500px)`), scroll the whole aside, or fold the
-        footer into a "More" menu.
-      - Apply the fixed-height table viewport only from `lg` and
-        `min-height: 600px`.
-      - Give back-links `inline-flex whitespace-nowrap`.
-      - Pad `env(safe-area-inset-left/right)` on the aside and `main`
-        (landscape notch).
-
-      Acceptance: a Playwright project at 863×393 and one at 810×1080
-      (touch) runs `smoke` with no horizontal overflow, and every sidebar
-      link passes `toBeInViewport()` after scrolling the aside.
 
 - [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
       44 px targets and 16 px fields are gated on `max-sm:` only
@@ -304,8 +269,8 @@ don't build these in parallel:
       heights and widths, `text-base`), and compact only under
       `pointer-fine`.
 
-      Acceptance: `expectTouchTargets` also runs in UX-7's touch projects
-      and passes.
+      Acceptance: `expectTouchTargets` also runs in the `landscape` and
+      `tablet` touch projects and passes.
 
 - [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
       200% (Android "Font size", iOS Larger Text in the PWA), these pages
@@ -544,17 +509,6 @@ don't build these in parallel:
       - The phone's sticky add bar paints a flat band over the gradient.
 
       Add each new token pair to `globals-contrast.test.ts`.
-
-- [ ] **UX-26. Overview: the first screen shows today, not the setup card**
-      (medium, S)
-      - "Get set up" fills the whole first screen on an iPhone SE and in
-        landscape even when 3 of 5 steps are done. Collapse the finished
-        steps into "3 of 5 done", and let the user dismiss the card.
-      - Stat-card buttons sit at different heights, and on the iPad the
-        "View shopping lists" chevron sits on the border. Use `mt-auto` on
-        full-width buttons.
-      - The household-switcher "+" floats mid-header on every phone page.
-        Align it right.
 
 - [ ] **UX-27. Navigation always shows where you are** (medium, S)
       - Notifications and What's new highlight no bottom-bar item. Map

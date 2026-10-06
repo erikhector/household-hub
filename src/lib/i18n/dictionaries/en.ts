@@ -321,7 +321,8 @@ export const en = {
       title: "Get set up",
       subtitle: "A few quick steps to get the most out of Squirrel.",
       skip: "Skip this step",
-      skipped: "Skipped — invite anytime from Household settings.",
+      progress: "{done} of {total} done",
+      dismiss: "Hide the setup card",
       steps: {
         household: {
           title: "Invite your household",

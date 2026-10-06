@@ -58,6 +58,32 @@ export default defineConfig({
       dependencies: ["setup"],
       testIgnore: /\.desktop\.spec\.ts$/,
     },
+    // UX-7: the in-between sizes. Any touch device wider than `sm` (640 px)
+    // gets the desktop shell, which used to scroll sideways, hide most of
+    // the sidebar behind a tiny inner scroll and squeeze the inventory
+    // table to one row there. A phone in landscape (short: the sidebar
+    // has to scroll as a whole) and a portrait tablet (narrow: the
+    // content column must not grow past the screen). Only the checks
+    // about layout run here: every page renders without overflow
+    // (`smoke`) and the sidebar reaches every section (navigation).
+    {
+      name: "landscape",
+      use: { ...devices["Pixel 7"], viewport: { width: 863, height: 393 }, storageState: STORAGE_STATE },
+      dependencies: ["setup"],
+      testMatch: /(smoke|navigation\.desktop)\.spec\.ts$/,
+    },
+    {
+      name: "tablet",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 810, height: 1080 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ["setup"],
+      testMatch: /(smoke|navigation\.desktop)\.spec\.ts$/,
+    },
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
