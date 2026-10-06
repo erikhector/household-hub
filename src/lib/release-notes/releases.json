@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.50.5",
+    "date": "2026-10-06",
+    "pr": 159,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now fits tablets and phones held sideways: no more sideways scrolling, every menu section is reachable, and the inventory list uses the whole screen.",
+      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer sidledsscrollning, alla menyval går att nå och inventarielistan använder hela skärmen."
+    }
+  },
+  {
     "version": "0.50.4",
     "date": "2026-10-06",
     "pr": 161,
