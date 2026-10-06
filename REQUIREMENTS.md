@@ -411,7 +411,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
-      page.
+      page. Cancel and a disabled Merge show before an item is picked, and
+      Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
+      as `null`, which lets Escape through to the dialog).
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
@@ -3240,21 +3242,30 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
   constraint) the first time a meal is actually added to that week, not on
   page view, so browsing to an empty future/past week doesn't write rows.
-- **Empty slots (UX-5)**: a slot with no entries renders as one full-width
-  "<slot> + Add meal" row (`MealEntryDialog` with `slotLabel`, min height
-  36 px) instead of a label, a "Nothing planned" line and a small "+"
-  button, so an empty week is 28 single-line rows rather than a wall of
-  repeated text. A slot with entries keeps its label, the entries and the
-  small "+" that stacks another one. `e2e/meal-planner-empty-slots.spec.ts`
-  covers both.
+- **Empty days and controls (UX-5, UX-21)**: a day with no entries at all
+  is one card with a single "+ Add meal" button (`MealEntryDialog` with
+  `askSlot`), and the dialog asks for the slot (a "Meal" select, Dinner
+  preselected), so an empty week is 7 buttons instead of 28 identical rows.
+  Once a day has an entry it shows its four slots as before: an empty slot
+  is a full-width "<slot> + Add meal" row (`slotLabel`), a slot with entries
+  keeps its label, the entries and the small "+" that stacks another one.
+  The controls are one row: ‹ ›, the week range, "This week" (only when
+  another week is shown) and a ⋯ menu ("More planner actions") holding
+  "Copy last week" (empty week only) and "Add missing ingredients to
+  shopping list". On load, the current week scrolls today's card into view
+  when it isn't already fully visible (the old "Jump to today" button is
+  gone). The two recaps above the tabs load behind a fixed-height skeleton
+  (`RecapSkeleton` in `page.tsx`) rather than `fallback={null}`, so the
+  planner doesn't shift when they arrive. `e2e/meal-planner-empty-slots.spec.ts`
+  covers all of it.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. There's no uniqueness constraint on
   `(date, mealType)` — multiple entries can stack in one slot (e.g. two
   snacks), matching the schema.
-- **Copy last week** (BACKLOG GAP-23): an empty week's planner header
-  shows a "Copy last week" button (`CopyLastWeekButton` in
+- **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
+  shows a "Copy last week" item (`copyLastWeek` in
   `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
   toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
   Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household
@@ -4700,6 +4711,24 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
+  (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
+  too) pushes a same-URL history entry while it's open, so Android's back
+  button, a back swipe or the browser's back closes the sheet instead of
+  leaving the page and losing the form. Closing it from the UI (X,
+  Cancel, Escape, a submit) calls `history.back()` when its entry is still
+  the current one, so no extra back step is left behind. The mechanics
+  are in `src/components/ui/dialog-history.ts`: one `popstate`
+  listener, added before the router's own (the root layout renders
+  `DialogHistoryListener` so the module loads with every page), keeps the stack of open dialogs (a back closes only
+  the top one), stops Next.js's router from seeing a pop that stays on the
+  same URL, keeps its marker through the router's same-URL state
+  replaces, and steps forward again if the app navigated (e.g. the merge
+  dialog's `router.replace`) before its own `back()` landed. A dialog
+  whose owner refuses to close (one that stays open while saving) gets a
+  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
+  `dialog-history.test.ts`.
 
 ## Releases & What's new
 
@@ -5370,9 +5399,20 @@ approximating them, so the email never disagrees with the app.
   a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
   and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
   (44 px) for the single-line ones, so don't override a field with
-  `text-sm` or a raw `<input>`. The add-item unit column is
-  `max-sm:w-44` so "pcs" isn't clipped to "p". Covered by
+  `text-sm` or a raw `<input>`. Covered by
   `e2e/form-control-sizes.mobile.spec.ts`.
+- Comboboxes keep their value readable on phones. An autocomplete field
+  shows one 44 px button at a time below `sm`: the chevron while it's
+  empty, the clear (×) once it has a value (clearing brings the chevron
+  back). Form rows stack below `sm` so a combobox never shares a row with
+  more than a short number field: category and location (inventory add
+  and edit, the bulk-add review steps, the receipt's new-item draft) take
+  a row each, and quantity + unit become a `6rem` quantity beside a unit
+  that fills the row, with any third field wrapping under quantity
+  (inventory add/edit, shopping edit item, receipt rows). A recipe
+  ingredient's name gets its own row above quantity, unit and remove.
+  Desktop layouts are unchanged. `e2e/form-field-room.mobile.spec.ts`
+  fails if any combobox in those dialogs has under 120 px for its text.
 
 ## Testing
 

@@ -96,6 +96,22 @@ enough to trust.
 
 Parallel-safe except where noted.
 
+### Bugs
+
+- [ ] **BUG-1. Survive a dropped pooled DB connection on page render** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-2 (2 events, 2026-10-04, `GET /dashboard`,
+      vercel-production, iPhone): `Error: Connection terminated unexpectedly`
+      from `pg-pool` inside a Prisma `queryRaw`, so the dashboard rendered the
+      error page. `src/lib/prisma.ts` builds the `Pool` with no
+      `pool.on("error", …)` handler and no `connectionTimeoutMillis`, so a
+      connection the pooler closed while idle is handed out and fails the
+      first query instead of being replaced. Add an `error` listener that logs
+      to Sentry and lets pg discard the client, set `connectionTimeoutMillis`,
+      and retry the read once on this specific error (not writes).
+      Acceptance: unit test with a mocked pool shows the `error` listener is
+      registered and a first-attempt "Connection terminated unexpectedly"
+      read succeeds on retry, while a write is not retried.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -251,7 +267,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
-- `ui/dialog.tsx`: UX-11, UX-12
 - `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
 
 - [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
@@ -294,25 +309,6 @@ don't build these in parallel:
       Acceptance: a spec sets `html { font-size: 200% }` and runs
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
-
-- [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
-      M7. Nothing in `src/` touches `history`, so Android's back button,
-      or a back swipe with a sheet open, leaves the page and loses the
-      form. From the first screen it leaves the app.
-
-      Fix: in `ui/dialog.tsx` (and `confirm-dialog.tsx`), `pushState` when
-      the sheet opens and close it on `popstate`. When the sheet is closed
-      from the UI, call `history.back()` if our entry is still on top.
-
-      In the same PR:
-      - **Merge into another item** (`/dashboard/inventory/items/[id]`)
-        doesn't close on Escape, on desktop or mobile, and it shows no
-        Merge or Cancel action until something is picked. Show both.
-      - Add `pr-10` to `DialogHeader` so long (Swedish) titles don't run
-        under the 44 px close button (`dialog.tsx:90-103`).
-
-      Acceptance: a mobile spec opens "Add item", calls `page.goBack()`,
-      and asserts the sheet closed and the URL is unchanged.
 
 - [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
       (high, M) — Hard rule M2.
@@ -394,19 +390,6 @@ don't build these in parallel:
         `tabular-nums`; label the bare date ("Updated 4 Oct"); make the
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
-
-- [ ] **UX-21. Meal planner: today first, fewer placeholders** (medium, M)
-      - Four rows of controls push Monday down to ~550 px on an iPhone SE.
-      - The week is ~2,800 px of 28 identical "+ Add meal" rows, and
-        today (Sunday) comes last. That breaks M6, which wants one "Add"
-        per group.
-      - Recaps above the tabs load late with `fallback={null}` and push
-        the planner down (`meal-planning/page.tsx:472-479`).
-
-      Fix: one row (‹ › and the range) plus a ⋯ menu for Copy last week
-      and Add missing ingredients; scroll to today on load; one "+ Add
-      meal" per empty day that asks for the slot; a fixed-height skeleton
-      for the recaps.
 
 - [ ] **UX-22. Shopping list detail polish** (medium, S)
       - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put
@@ -689,7 +672,7 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-11/UX-12) —
+- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
       - Drag the grabber or header to dismiss, with velocity and
         rubber-band.
       - Snap points (half and full) for long forms.
@@ -1005,6 +988,41 @@ out to be a product-scope question rather than a scoped task should move to
       plural; the query is scoped by `requireHousehold()` and has a unit
       test for count and latest date; an e2e test marks a seeded entry
       cooked, opens Recipes and asserts the line, on desktop and mobile.
+
+### 2026-10-06 scan
+
+- [ ] **GAP-47. Price history on an inventory item** (impact: med, effort: S) —
+      Grocy shows every product's purchase price history (date, store,
+      price, per-unit price) so a household can see whether milk is really
+      getting dearer. Squirrel already records it: `PriceHistory`
+      (`prisma/schema.prisma:658`) is written by purchases and receipt
+      scans and feeds the spike warning and Budget → Insights, but the
+      inventory item itself shows no price at all; `PriceHistory` is only
+      read in `budget/page.tsx` and `receipt-scan-dialog.tsx`. No schema
+      change: a household-scoped read of an item's last N rows plus the
+      existing per-unit helpers in `price-spike.ts`. Acceptance: the item
+      detail shows "Recent prices" (up to 10 rows: date, store if known,
+      price and per-unit price) and nothing for an item with no history
+      (no empty chart); the read is scoped by `requireHousehold()` and
+      unit-tested for tenancy and ordering; strings in `en.ts` and
+      `sv.ts`; an e2e test buys a seeded item with a price, opens it and
+      asserts the row, on desktop and mobile.
+
+- [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
+      Paprika, Mealie and AnyList let you copy a recipe to make a variant
+      (vegetarian lasagne, half batch) without retyping ingredients and
+      steps. Squirrel can only create from scratch or import from a URL
+      (REQUIREMENTS.md, "Recipe import from URL"), and a repo search finds
+      no copy action. No schema change: a Server Action that copies the
+      recipe, its ingredients and tags into a new row in the same
+      household, titled "<name> (copy)", favorite flag reset. Acceptance:
+      a "Duplicate" action on a recipe row opens the copy for editing
+      with an undo toast; it is `requireHousehold()`-scoped, rejects a
+      recipe id from another household (unit test) and the copy doesn't
+      share ingredient rows with the original (editing one leaves the
+      other unchanged); strings in both dictionaries; an e2e test
+      duplicates a seeded recipe and asserts both appear after reload, on
+      desktop and mobile.
 
 ## Needs a decision before building
 
