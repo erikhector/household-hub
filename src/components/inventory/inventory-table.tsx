@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
 import { Minus, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,9 @@ import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { getStockStatus } from "@/lib/stock-status";
+import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { formatQuantity } from "@/lib/format-quantity";
 import {
   groupItems,
@@ -201,14 +203,6 @@ export function InventoryTable({
           },
         },
       });
-    });
-  }
-
-  function handleAdjustQuantity(itemId: string, delta: number) {
-    startTransition(async () => {
-      const result = await adjustQuantityAction(itemId, delta);
-      if (result.error) toast.error(result.error);
-      else showAutoAddedToast(result.autoAdded, dict.autoAdd);
     });
   }
 
@@ -413,32 +407,7 @@ export function InventoryTable({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-7"
-                      disabled={isPending}
-                      onClick={() => handleAdjustQuantity(item.id, -1)}
-                    >
-                      <Minus className="size-3.5" />
-                    </Button>
-                    <span
-                      className="block w-14 shrink-0 truncate text-center tabular-nums"
-                      title={`${formatQuantity(item.quantity)} ${item.unit}`}
-                    >
-                      {formatQuantity(item.quantity)} {item.unit}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-7"
-                      disabled={isPending}
-                      onClick={() => handleAdjustQuantity(item.id, 1)}
-                    >
-                      <Plus className="size-3.5" />
-                    </Button>
-                  </div>
+                  <QuantityStepper item={item} layout="table" disabled={isPending} dict={dict} />
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap items-center gap-1">
@@ -526,37 +495,7 @@ export function InventoryTable({
                   </div>
                 </div>
                 <div className="flex min-w-0 items-center justify-between gap-2">
-                  <div className="flex min-w-0 shrink items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                      disabled={isPending}
-                      onClick={() => handleAdjustQuantity(item.id, -1)}
-                    >
-                      <Minus className="size-3.5" />
-                    </Button>
-                    {/* Capped (not flex-1) so the control stays a tight
-                        cluster instead of stretching across the row — a long/
-                        custom unit string still truncates instead of forcing
-                        the row wider; see the desktop table's w-14 cell for
-                        the same fix. */}
-                    <span
-                      className="max-w-24 truncate text-center text-sm tabular-nums"
-                      title={`${formatQuantity(item.quantity)} ${item.unit}`}
-                    >
-                      {formatQuantity(item.quantity)} {item.unit}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0"
-                      disabled={isPending}
-                      onClick={() => handleAdjustQuantity(item.id, 1)}
-                    >
-                      <Plus className="size-3.5" />
-                    </Button>
-                  </div>
+                  <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
                   <div className="shrink-0">
                     <ItemActions
                       item={item}
@@ -581,6 +520,78 @@ export function InventoryTable({
           </Fragment>
         ))}
       </div>
+    </div>
+  );
+}
+
+// The row's −/+ stepper (desktop table cell or phone card). UX-14: each tap
+// moves the number at once, in this row's own transition, so tapping + three
+// times on a slow connection shows 3 more straight away instead of nothing
+// until the first save lands, and other rows stay usable meanwhile. The
+// optimistic step uses the server's own rounding and zero floor
+// (nextQuantityAfterDelta), so the number it shows is the one that saves; a
+// failed save snaps back to the server's value with a toast. The stock badge
+// beside it follows once the save revalidates the page.
+function QuantityStepper({
+  item,
+  layout,
+  disabled,
+  dict,
+}: {
+  item: InventoryItemRow;
+  layout: "table" | "card";
+  disabled: boolean;
+  dict: Dictionary["inventory"];
+}) {
+  const [, startTransition] = useTransition();
+  const [quantity, addOptimisticDelta] = useOptimistic(item.quantity, nextQuantityAfterDelta);
+  const label = `${formatQuantity(quantity)} ${item.unit}`;
+
+  function adjust(delta: number) {
+    startTransition(async () => {
+      addOptimisticDelta(delta);
+      const result = await settleOptimisticAction(() => adjustQuantityAction(item.id, delta), dict.saveFailedToast);
+      if (result) showAutoAddedToast(result.autoAdded, dict.autoAdd);
+    });
+  }
+
+  const isTable = layout === "table";
+  const buttonClass = isTable ? "size-7" : "shrink-0";
+  return (
+    <div className={isTable ? "flex items-center gap-2" : "flex min-w-0 shrink items-center gap-1.5"}>
+      <Button
+        variant="outline"
+        size="icon"
+        className={buttonClass}
+        disabled={disabled}
+        aria-label={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
+        onClick={() => adjust(-1)}
+      >
+        <Minus className="size-3.5" />
+      </Button>
+      {/* Fixed width in the table, capped (not flex-1) on a card, so the
+          control stays a tight cluster and a long/custom unit string
+          truncates instead of forcing the row wider. */}
+      <span
+        className={
+          isTable
+            ? "block w-14 shrink-0 truncate text-center tabular-nums"
+            : "max-w-24 truncate text-center text-sm tabular-nums"
+        }
+        title={label}
+      >
+        {label}
+      </span>
+      <Button
+        variant="outline"
+        size="icon"
+        className={buttonClass}
+        disabled={disabled}
+        aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
+        onClick={() => adjust(1)}
+      >
+        <Plus className="size-3.5" />
+      </Button>
     </div>
   );
 }

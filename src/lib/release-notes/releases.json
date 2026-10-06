@@ -1,5 +1,60 @@
 [
   {
+    "version": "0.51.3",
+    "date": "2026-10-06",
+    "pr": 165,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fields like Unit, Category and Location in forms now show their whole value on phones instead of being cut off.",
+      "sv": "Fält som Enhet, Kategori och Plats i formulär visar nu hela sitt värde på mobilen i stället för att klippas av."
+    }
+  },
+  {
+    "version": "0.51.2",
+    "date": "2026-10-06",
+    "pr": 164,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The back button or back swipe now closes an open form or dialog instead of leaving the page. \"Merge into another item\" also shows Cancel and Merge from the start and closes with Escape.",
+      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Escape."
+    }
+  },
+  {
+    "version": "0.51.1",
+    "date": "2026-10-06",
+    "pr": 163,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Checked boxes now show their fill and tick again, and date fields no longer make forms scroll sideways on iPhone.",
+      "sv": "Ikryssade rutor visar nu sin fyllning och bock igen, och datumfält får inte längre formulär att skrolla i sidled på iPhone."
+    }
+  },
+  {
+    "version": "0.51.0",
+    "date": "2026-10-06",
+    "pr": 162,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking items on a shopping list, tasks and stock +/− now respond instantly, even on a weak signal in the shop. If a change can't be saved, it's undone and you're told why.",
+      "sv": "Att bocka av varor på inköpslistan, uppgifter och lagrets +/− svarar nu direkt, även med svag täckning i butiken. Om en ändring inte går att spara ångras den och du får veta varför."
+    }
+  },
+  {
+    "version": "0.50.6",
+    "date": "2026-10-06",
+    "pr": 160,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Forms no longer wipe what you typed when something goes wrong: a failed sign-up, login or save keeps your entries so you only fix what was wrong.",
+      "sv": "Formulär tömmer inte längre det du skrivit när något går fel: en misslyckad registrering, inloggning eller sparning behåller dina uppgifter så att du bara behöver rätta det som var fel."
+    }
+  },
+  {
     "version": "0.50.5",
     "date": "2026-10-06",
     "pr": 159,

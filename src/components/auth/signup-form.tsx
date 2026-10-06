@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import {
   signupAction,
   resendVerificationEmailForLoginAction,
@@ -37,6 +38,9 @@ export function SignupForm({
     resendVerificationEmailForLoginAction,
     initialResendState,
   );
+  // UX-13: an "email already in use" error mustn't wipe the name, household
+  // and email (the passwords still clear — see useKeptFormValues).
+  const kept = useKeptFormValues(["displayName", "householdName", "email"]);
 
   // The account now exists but can't sign in until its email is verified
   // (see signupAction's doc comment in src/lib/actions/auth.ts) — swap the
@@ -72,7 +76,7 @@ export function SignupForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <Label htmlFor="displayName">{dict.yourName}</Label>
         <div className="relative">
@@ -83,6 +87,7 @@ export function SignupForm({
             required
             maxLength={60}
             autoComplete="name"
+            defaultValue={kept.values.displayName}
             className="pl-8"
           />
         </div>
@@ -97,6 +102,7 @@ export function SignupForm({
             required
             maxLength={60}
             placeholder={dict.householdNamePlaceholder}
+            defaultValue={kept.values.householdName}
             className="pl-8"
           />
         </div>
@@ -112,6 +118,7 @@ export function SignupForm({
             required
             maxLength={254}
             autoComplete="email"
+            defaultValue={kept.values.email}
             className="pl-8"
           />
         </div>

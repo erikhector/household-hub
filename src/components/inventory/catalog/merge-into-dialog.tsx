@@ -8,6 +8,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -72,6 +73,19 @@ export function MergeIntoDialog({
             emptyMessage={dict.noMatches}
           />
         </div>
+        {/* Until an item is picked, the preview (and its buttons) can't load,
+            but the way out and the next step are shown from the start: Cancel,
+            and Merge disabled until there's something to merge into (UX-11). */}
+        {!target && (
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              {dict.mergeDialog.cancel}
+            </Button>
+            <Button type="button" variant="destructive" disabled>
+              {dict.mergeDialog.merge}
+            </Button>
+          </DialogFooter>
+        )}
         {target && (
           <MergePreviewBody
             key={target.id}
