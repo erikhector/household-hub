@@ -12,7 +12,8 @@
 // Create submits straight through createTaskAction(prevState, formData).
 // updateTaskAction (edit) takes a plain object rather than FormData, so the
 // `action` below adapts this same <form>'s FormData into that call for edit
-// mode — updateTaskAction's own validation/mutation is untouched.
+// mode, including the title (UX-24: edit can rename), which updateTaskAction
+// validates with the same rules as create.
 //
 // GAP-38: once a task repeats, "Take turns" lets you line up two or more
 // people; completing it passes it to the next one (see
