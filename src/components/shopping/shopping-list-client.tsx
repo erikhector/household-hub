@@ -374,7 +374,7 @@ export function ShoppingListClient({
       <PrintableList name={list.name} groups={pendingGroups} dict={dict} />
       <Link
         href="/dashboard/shopping-list"
-        className="touch-target gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="touch-target inline-flex w-fit items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         {dict.backToAll}
