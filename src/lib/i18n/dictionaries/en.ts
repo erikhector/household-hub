@@ -1305,7 +1305,9 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
-    jumpToToday: "Jump to today",
+    morePlannerActions: "More planner actions",
+    // The slot picker in the "Add a meal" dialog opened from an empty day (UX-21).
+    mealSlotLabel: "Meal",
     // "Copy last week" on an empty week (BACKLOG GAP-23) — see copyWeekAction
     // in planner-actions.ts. Slots already filled are skipped, so {count} is
     // what was actually written, not last week's total.
