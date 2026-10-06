@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { pickFormValues } from "./use-kept-form-values";
+import { keepOnly, pickFormValues } from "./use-kept-form-values";
+
+describe("keepOnly", () => {
+  it("drops every remembered field that isn't listed", () => {
+    // "Save & add another": quantity and threshold carry over, the
+    // previous item's expiry and use-within don't.
+    const submitted = { quantity: "3", lowStockThreshold: "2", expiresAt: "2026-12-01", useWithinDaysOpened: "5" };
+
+    expect(keepOnly(submitted, ["quantity", "lowStockThreshold"])).toEqual({
+      quantity: "3",
+      lowStockThreshold: "2",
+    });
+  });
+
+  it("doesn't invent a listed field that was never remembered", () => {
+    expect(keepOnly<"quantity" | "expiresAt">({ expiresAt: "" }, ["quantity"])).toEqual({});
+  });
+});
 
 describe("pickFormValues", () => {
   it("keeps only the listed fields", () => {

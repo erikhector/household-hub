@@ -18,6 +18,18 @@ export function pickFormValues<N extends string>(
   return values;
 }
 
+/** `values` narrowed to `names` — what `keep` leaves remembered. */
+export function keepOnly<N extends string>(
+  values: Partial<Record<N, string>>,
+  names: readonly N[],
+): Partial<Record<N, string>> {
+  const kept: Partial<Record<N, string>> = {};
+  for (const name of names) {
+    if (values[name] !== undefined) kept[name] = values[name];
+  }
+  return kept;
+}
+
 /**
  * UX-13: React 19 resets an uncontrolled form once its action settles —
  * including when the action came back with `{ error }`, which wiped what the
@@ -35,7 +47,10 @@ export function pickFormValues<N extends string>(
  *
  * `onSubmit` doesn't call `preventDefault`, so the form's `action` still
  * runs. Call `reset` when a dialog reopens so it starts from its own
- * defaults again rather than the last attempt.
+ * defaults again rather than the last attempt. Call `keep(names)` from a
+ * successful action that leaves the form open, to carry only those fields
+ * into the next entry: the rest go back to their own defaults with the
+ * reset that follows.
  */
 export function useKeptFormValues<N extends string>(names: readonly N[]) {
   const [values, setValues] = useState<Partial<Record<N, string>>>({});
@@ -44,5 +59,6 @@ export function useKeptFormValues<N extends string>(names: readonly N[]) {
     onSubmit: (event: FormEvent<HTMLFormElement>) =>
       setValues(pickFormValues(new FormData(event.currentTarget), names)),
     reset: () => setValues({}),
+    keep: (keepNames: readonly N[]) => setValues((current) => keepOnly(current, keepNames)),
   };
 }

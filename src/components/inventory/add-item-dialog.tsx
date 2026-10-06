@@ -123,6 +123,10 @@ export function ItemFormDialog({
       // pantry shelf, a drawer of tools), so re-picking them per item is the
       // cost this button exists to remove. Only the name (and any scanned
       // barcode note) resets, and focus goes back to it immediately.
+      // Expiry and use-within belong to the item just saved, so they go
+      // back to blank (which also lets AUTO-7 estimate the next item's
+      // expiry); only quantity and threshold carry over.
+      kept.keep(["quantity", "lowStockThreshold"]);
       setName("");
       setScannedBarcode(null);
       setSessionAddedCount((count) => count + 1);

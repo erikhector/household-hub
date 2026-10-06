@@ -5246,9 +5246,12 @@ approximating them, so the email never disagrees with the app.
   after an error (so the reset-password form, which has nothing else, is
   unchanged). A dialog calls `kept.reset()` when it reopens. Used by
   signup, login, the invite sign-up form, the display-name form, add/edit
-  item (quantity, low-stock threshold, expiry, use-within — which also
-  makes "save & add another" keep quantity and threshold, as intended) and
-  the transaction description. Covered by `e2e/form-errors.spec.ts`.
+  item (quantity, low-stock threshold, expiry, use-within) and the
+  transaction description. After a *successful* "save & add another", the
+  add-item dialog calls `kept.keep(["quantity", "lowStockThreshold"])`:
+  those carry into the next item, while expiry and use-within go back to
+  blank (so AUTO-7 can still estimate the next item's expiry). Covered by
+  `e2e/form-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
