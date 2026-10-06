@@ -715,11 +715,16 @@ export function RecipeFormDialog({
                 {dict.addIngredient}
               </Button>
             </div>
-            <div className="flex flex-col gap-2">
+            {/* max-sm:gap-4: each ingredient is two lines on a phone, so a
+                wider gap between them than inside one keeps them grouped. */}
+            <div className="flex flex-col gap-2 max-sm:gap-4">
               {ingredients.map((row) => (
                 <div key={row.uid} className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <div className="min-w-0 flex-1">
+                  {/* Phones: the name gets its own row and quantity, unit and
+                      remove share the next, so the name isn't squeezed
+                      beside three fixed-width controls. */}
+                  <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
+                    <div className="min-w-0 flex-1 basis-full sm:basis-0">
                       <ComboField
                         id={`ingredient-name-${row.uid}`}
                         name="ingredientName"
@@ -749,7 +754,7 @@ export function RecipeFormDialog({
                       onChange={(e) => updateRow(row.uid, "unit", e.target.value)}
                       placeholder={dict.ingredientUnitPlaceholder}
                       maxLength={20}
-                      className="w-16 shrink-0"
+                      className="w-16 shrink-0 max-sm:w-auto max-sm:min-w-0 max-sm:flex-1"
                     />
                     <Button
                       type="button"

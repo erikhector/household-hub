@@ -382,7 +382,7 @@ export function ReceiptScanDialog({
 
         {isDraftOpen && (
           <div className="flex flex-col gap-2 rounded-md border border-dashed p-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-2 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${row.key}-new-name`} className="text-xs">
                   {dict.newItemNameLabel}
@@ -412,7 +412,7 @@ export function ReceiptScanDialog({
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${row.key}-new-unit`} className="text-xs">
                   {dict.newItemUnitLabel}

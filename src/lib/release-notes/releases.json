@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.51.3",
+    "date": "2026-10-06",
+    "pr": 165,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fields like Unit, Category and Location in forms now show their whole value on phones instead of being cut off.",
+      "sv": "Fält som Enhet, Kategori och Plats i formulär visar nu hela sitt värde på mobilen i stället för att klippas av."
+    }
+  },
+  {
+    "version": "0.51.2",
+    "date": "2026-10-06",
+    "pr": 164,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The back button or back swipe now closes an open form or dialog instead of leaving the page. \"Merge into another item\" also shows Cancel and Merge from the start and closes with Escape.",
+      "sv": "Bakåtknappen eller bakåtsvepet stänger nu ett öppet formulär eller en dialog i stället för att lämna sidan. \"Slå ihop med en annan vara\" visar också Avbryt och Slå ihop direkt och stängs med Escape."
+    }
+  },
+  {
     "version": "0.51.1",
     "date": "2026-10-06",
     "pr": 163,
