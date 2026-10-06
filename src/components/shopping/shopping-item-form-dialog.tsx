@@ -317,7 +317,7 @@ export function ShoppingItemFormDialog({
                   className="w-20"
                   aria-label={dict.addItemQuantityAriaLabel}
                 />
-                <div className="w-24 max-sm:w-44">
+                <div className="w-24 max-sm:w-44 pointer-coarse:w-44">
                   <ComboField
                     id="add-item-unit"
                     name="unit"

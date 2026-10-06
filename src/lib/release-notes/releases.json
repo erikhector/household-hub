@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.53.1",
+    "date": "2026-10-06",
+    "pr": 170,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Buttons, checkboxes and fields are now comfortably large to tap on tablets and on phones held sideways, and text fields no longer make iPhones zoom in.",
+      "sv": "Knappar, kryssrutor och fält är nu lagom stora att trycka på på surfplattor och på telefoner i liggande läge, och textfälten får inte längre iPhone att zooma in."
+    }
+  },
+  {
     "version": "0.53.0",
     "date": "2026-10-06",
     "pr": 169,

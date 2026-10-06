@@ -108,7 +108,7 @@ export function Sidebar({
               href={href}
               title={expanded ? undefined : label}
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors pointer-coarse:min-h-11",
                 !expanded && "justify-center",
                 active
                   ? "bg-primary text-primary-foreground"
@@ -136,7 +136,7 @@ export function Sidebar({
           href="/dashboard/whats-new"
           title={expanded ? undefined : `${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
           className={cn(
-            "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors",
+            "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors pointer-coarse:h-11",
             !expanded && "justify-center",
             isNavItemActive(pathname, "/dashboard/whats-new")
               ? "bg-muted text-foreground"
