@@ -527,17 +527,6 @@ don't build these in parallel:
 
       Add each new token pair to `globals-contrast.test.ts`.
 
-- [ ] **UX-26. Overview: the first screen shows today, not the setup card**
-      (medium, S)
-      - "Get set up" fills the whole first screen on an iPhone SE and in
-        landscape even when 3 of 5 steps are done. Collapse the finished
-        steps into "3 of 5 done", and let the user dismiss the card.
-      - Stat-card buttons sit at different heights, and on the iPad the
-        "View shopping lists" chevron sits on the border. Use `mt-auto` on
-        full-width buttons.
-      - The household-switcher "+" floats mid-header on every phone page.
-        Align it right.
-
 - [ ] **UX-27. Navigation always shows where you are** (medium, S)
       - Notifications and What's new highlight no bottom-bar item. Map
         them to "More".

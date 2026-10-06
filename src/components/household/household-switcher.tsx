@@ -42,7 +42,7 @@ function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switch
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="icon" className="size-7" aria-label={dict.createAriaLabel}>
+          <Button variant="ghost" size="icon-sm" className="ml-auto" aria-label={dict.createAriaLabel}>
             <Plus className="size-4" />
           </Button>
         }
@@ -81,7 +81,11 @@ export function HouseholdSwitcher({
   const switcherDict = dict;
 
   return (
-    <div className="flex min-w-0 items-center gap-1">
+    // w-full + the "+" button's ml-auto (UX-26): the row spans its
+    // container, so "+" sits at the right edge of the phone header (and of
+    // the expanded sidebar) instead of floating wherever the household name
+    // happens to end.
+    <div className="flex w-full min-w-0 items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger
           render={

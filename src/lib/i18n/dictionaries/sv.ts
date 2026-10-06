@@ -295,7 +295,8 @@ export const sv = {
       title: "Kom igång",
       subtitle: "Några snabba steg för att få ut det mesta av Squirrel.",
       skip: "Hoppa över det här steget",
-      skipped: "Överhoppat — bjud in när som helst från hushållsinställningar.",
+      progress: "{done} av {total} klara",
+      dismiss: "Dölj Kom igång-kortet",
       steps: {
         household: {
           title: "Bjud in ditt hushåll",
