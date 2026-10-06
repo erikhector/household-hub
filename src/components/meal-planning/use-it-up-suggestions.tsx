@@ -96,7 +96,7 @@ export function UseItUpSuggestions({
               type="button"
               variant="ghost"
               size="icon"
-              className="size-5 shrink-0 text-muted-foreground max-sm:size-11"
+              className="size-5 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
               aria-label={dict.useItUpDismissAriaLabel}
               onClick={() => handleDismiss(suggestion)}
             >

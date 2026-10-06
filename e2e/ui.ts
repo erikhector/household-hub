@@ -77,7 +77,7 @@ export async function expectNoHorizontalOverflow(page: Page) {
 // row is the target), or an absolutely positioned ::before/::after that
 // extends the hit area past a smaller visible control. Links inside running
 // text are exempt (WCAG 2.5.8): an <a> whose parent block also holds text of
-// its own. Call on the mobile project only; desktop sizing is deliberately
+// its own. Call on every touch project (not desktop); mouse sizing is deliberately
 // denser. `min` is the 44px of M3, with 0.5px of slack for sub-pixel layout.
 export async function expectTouchTargets(page: Page, min = 44) {
   const small = await page.evaluate((min) => {

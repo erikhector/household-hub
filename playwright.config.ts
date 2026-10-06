@@ -64,13 +64,14 @@ export default defineConfig({
     // table to one row there. A phone in landscape (short: the sidebar
     // has to scroll as a whole) and a portrait tablet (narrow: the
     // content column must not grow past the screen). Only the checks
-    // about layout run here: every page renders without overflow
-    // (`smoke`) and the sidebar reaches every section (navigation).
+    // about layout and touch sizing (UX-8) run here: every page renders
+    // without overflow and with 44 px targets (`smoke`), the sidebar reaches
+    // every section (navigation) and fields stay 16 px (form-control-sizes).
     {
       name: "landscape",
       use: { ...devices["Pixel 7"], viewport: { width: 863, height: 393 }, storageState: STORAGE_STATE },
       dependencies: ["setup"],
-      testMatch: /(smoke|navigation\.desktop)\.spec\.ts$/,
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
     },
     {
       name: "tablet",
@@ -82,7 +83,7 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
       dependencies: ["setup"],
-      testMatch: /(smoke|navigation\.desktop)\.spec\.ts$/,
+      testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
     },
   ],
   webServer: process.env.E2E_BASE_URL

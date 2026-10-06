@@ -9,7 +9,9 @@ import { dismissCookieNotice } from "./ui";
 // visible, focusable field in each dialog below must compute to >= 16 px.
 // Base UI renders aria-hidden mirror inputs (form value carriers) that are
 // never focused, so those are skipped.
-test.skip(({ isMobile }) => !isMobile, "phone font-size rule: desktop is deliberately text-sm");
+// UX-8: runs on every touch project (phone, landscape, tablet), since the
+// 16 px rule follows the pointer, not the width.
+test.skip(({ isMobile }) => !isMobile, "touch font-size rule: a mouse on desktop is deliberately text-sm");
 
 async function expectFieldsAtLeast16px(dialog: Locator) {
   const fields = await dialog.locator("input, textarea, [role=combobox]").evaluateAll((els) =>

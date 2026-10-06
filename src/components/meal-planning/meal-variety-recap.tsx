@@ -32,7 +32,7 @@ export function MealVarietyRecap({ count, dict }: { count: number; dict: Diction
       <Button
         variant="ghost"
         size="icon"
-        className="size-6 shrink-0 text-muted-foreground max-sm:size-11"
+        className="size-6 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
         aria-label={dict.varietyRecapDismissAriaLabel}
         onClick={() => setDismissedCount(String(count))}
       >
