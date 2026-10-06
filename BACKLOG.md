@@ -416,19 +416,6 @@ don't build these in parallel:
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
 
-- [ ] **UX-21. Meal planner: today first, fewer placeholders** (medium, M)
-      - Four rows of controls push Monday down to ~550 px on an iPhone SE.
-      - The week is ~2,800 px of 28 identical "+ Add meal" rows, and
-        today (Sunday) comes last. That breaks M6, which wants one "Add"
-        per group.
-      - Recaps above the tabs load late with `fallback={null}` and push
-        the planner down (`meal-planning/page.tsx:472-479`).
-
-      Fix: one row (‹ › and the range) plus a ⋯ menu for Copy last week
-      and Add missing ingredients; scroll to today on load; one "+ Add
-      meal" per empty day that asks for the slot; a fixed-height skeleton
-      for the recaps.
-
 - [ ] **UX-22. Shopping list detail polish** (medium, S)
       - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put
         mic and scan inside it as trailing adornments.

@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
-import { ListPlus } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -84,12 +82,16 @@ export function MissingIngredientsDialog({
   dict,
   weekStartKey,
   activeShoppingLists,
+  onClose,
 }: {
   dict: MealPlanningDict;
   weekStartKey: string;
   activeShoppingLists: ActiveShoppingListOption[];
+  // UX-21: opened from the planner's ⋯ menu, which can't host a Dialog (it
+  // unmounts with the menu), so the planner mounts this only while it is
+  // open and it starts open. Closing (any way) calls onClose to unmount it.
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -116,25 +118,10 @@ export function MissingIngredientsDialog({
           ? String(formData.get("newListName") || "").trim() || dict.newShoppingListOption
           : (activeShoppingLists.find((l) => l.id === targetListId)?.name ?? "");
       toast.success(format(dict.missingIngredientsAddedToast, { list: listName }));
-      setOpen(false);
+      onClose();
     }
     return result;
   }, initialState);
-
-  function handleOpenChange(next: boolean) {
-    setOpen(next);
-    if (!next) return;
-
-    // Always recompute on open rather than caching across opens — the meal
-    // plan or inventory may have changed since the dialog was last shown,
-    // and this stays cheap (a handful of rows at household scale). The
-    // range goes back to "This week" too, re-anchored on whichever week
-    // the planner is showing now.
-    setPreset("week");
-    setCustomFrom(weekStartKey);
-    setCustomThrough(defaultCustomThrough(weekStartKey));
-    loadPreview(weekRange(weekStartKey));
-  }
 
   function changeRange(nextPreset: RangePreset, nextFrom: string, nextThrough: string) {
     setPreset(nextPreset);
@@ -170,6 +157,16 @@ export function MissingIngredientsDialog({
     });
   }
 
+  // Always recomputed on open rather than cached across opens — the meal
+  // plan or inventory may have changed since the dialog was last shown, and
+  // this stays cheap (a handful of rows at household scale). Since the
+  // dialog is mounted fresh each time, the range starts at "This week",
+  // anchored on whichever week the planner is showing now.
+  useEffect(() => {
+    loadPreview(weekRange(weekStartKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
+
   function toggleItem(key: string) {
     setItems((prev) =>
       prev ? prev.map((item) => (item.key === key ? { ...item, included: !item.included } : item)) : prev,
@@ -194,15 +191,7 @@ export function MissingIngredientsDialog({
   const includedCount = items?.filter((item) => item.included).length ?? 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" size="sm">
-            <ListPlus className="size-4" />
-            {dict.addMissingIngredients}
-          </Button>
-        }
-      />
+    <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.missingIngredientsDialogTitle}</DialogTitle>

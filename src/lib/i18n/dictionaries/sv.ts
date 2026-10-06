@@ -1239,7 +1239,8 @@ export const sv = {
     previousWeek: "Föregående vecka",
     nextWeek: "Nästa vecka",
     thisWeek: "Denna vecka",
-    jumpToToday: "Hoppa till idag",
+    morePlannerActions: "Fler planeringsåtgärder",
+    mealSlotLabel: "Måltid",
     copyLastWeek: "Kopiera förra veckan",
     copyLastWeekToast: {
       one: "Kopierade {count} måltid från förra veckan",
