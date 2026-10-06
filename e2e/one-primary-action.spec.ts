@@ -60,7 +60,11 @@ test("task create and edit dialogs share one footer, and the title can be rename
   await field.fill(renamed);
   await edit.getByRole("button", { name: "Save", exact: true }).click();
 
-  // Reload first: the rename must have reached the database.
+  // The dialog closes once the Server Action has settled; reloading before
+  // that aborts the in-flight save.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText(renamed)).toBeVisible();
+  // Reload: the rename must have reached the database.
   await page.reload();
   await expect(page.getByText(renamed)).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toHaveCount(0);
