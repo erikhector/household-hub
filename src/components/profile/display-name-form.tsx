@@ -45,6 +45,7 @@ export function DisplayNameForm({
           key={displayName}
           id="displayName"
           name="displayName"
+          autoComplete="name"
           defaultValue={kept.values.displayName ?? displayName}
           required
           maxLength={60}

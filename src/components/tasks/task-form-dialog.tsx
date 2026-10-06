@@ -159,6 +159,7 @@ export function TaskFormDialog({
           {mode === "edit" && task && <input type="hidden" name="taskId" value={task.id} />}
           <Input
             enterKeyHint="done"
+            autoComplete="off"
             name="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

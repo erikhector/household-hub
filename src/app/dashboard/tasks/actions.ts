@@ -75,7 +75,7 @@ type TaskAssignment = {
  */
 async function resolveTaskAssignment(
   householdId: string,
-  input: { title?: string; assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
+  input: { assignedToMemberId: string | null; recurrenceIntervalDays: number | null; rotationMemberIds: string[] },
 ): Promise<{ error: string } | { data: TaskAssignment }> {
   const { recurrenceIntervalDays, rotationMemberIds } = input;
   let assignedToMemberId = input.assignedToMemberId;
