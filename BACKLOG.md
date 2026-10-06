@@ -251,7 +251,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
-- `ui/dialog.tsx`: UX-11, UX-12
 - `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
 
 - [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
@@ -294,25 +293,6 @@ don't build these in parallel:
       Acceptance: a spec sets `html { font-size: 200% }` and runs
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
-
-- [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
-      M7. Nothing in `src/` touches `history`, so Android's back button,
-      or a back swipe with a sheet open, leaves the page and loses the
-      form. From the first screen it leaves the app.
-
-      Fix: in `ui/dialog.tsx` (and `confirm-dialog.tsx`), `pushState` when
-      the sheet opens and close it on `popstate`. When the sheet is closed
-      from the UI, call `history.back()` if our entry is still on top.
-
-      In the same PR:
-      - **Merge into another item** (`/dashboard/inventory/items/[id]`)
-        doesn't close on Escape, on desktop or mobile, and it shows no
-        Merge or Cancel action until something is picked. Show both.
-      - Add `pr-10` to `DialogHeader` so long (Swedish) titles don't run
-        under the 44 px close button (`dialog.tsx:90-103`).
-
-      Acceptance: a mobile spec opens "Add item", calls `page.goBack()`,
-      and asserts the sheet closed and the URL is unchanged.
 
 - [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
       (high, M) — Hard rule M2.
@@ -710,7 +690,7 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-11/UX-12) —
+- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
       - Drag the grabber or header to dismiss, with velocity and
         rubber-band.
       - Snap points (half and full) for long forms.

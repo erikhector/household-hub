@@ -6,9 +6,71 @@ import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
+import { pushDialogEntry } from "@/components/ui/dialog-history"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+// While the dialog is open it owns a history entry, so the phone's back
+// gesture closes it instead of leaving the page (UX-11, DESIGN.md M7; the
+// mechanics are in dialog-history.ts). Every dialog in the app goes through
+// here, ConfirmDialog included, so none has to opt in.
+function useBackGestureCloses(open: boolean, close: () => void) {
+  const closeRef = React.useRef(close)
+  React.useEffect(() => {
+    closeRef.current = close
+  })
+  // Bumped when a back gesture closed the dialog. If its owner refused to
+  // close (e.g. a dialog that stays open while saving), the effect re-runs
+  // and pushes a fresh entry, so the next back still has one to pop.
+  const [generation, setGeneration] = React.useState(0)
+  React.useEffect(() => {
+    if (!open) return
+    let release: (() => void) | undefined
+    // A tick late, so StrictMode's dev-only mount → unmount → mount doesn't
+    // push, back() and push again: that back() is async, would land after
+    // the second push, and close the dialog it just opened.
+    const timer = setTimeout(() => {
+      release = pushDialogEntry(() => {
+        closeRef.current()
+        setGeneration((value) => value + 1)
+      })
+    })
+    return () => {
+      clearTimeout(timer)
+      release?.()
+    }
+  }, [open, generation])
+}
+
+function Dialog({
+  open,
+  defaultOpen,
+  onOpenChange,
+  actionsRef,
+  ...props
+}: DialogPrimitive.Root.Props) {
+  // Most dialogs here are controlled, but an uncontrolled one (a bare
+  // <Dialog> with a Trigger) still needs its open state tracked for the
+  // history entry, so it's mirrored from onOpenChange.
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(defaultOpen ?? false)
+  const ownActionsRef = React.useRef<DialogPrimitive.Root.Actions>(null)
+  const actions = actionsRef ?? ownActionsRef
+
+  // The root's own close() goes through onOpenChange like Escape or the X
+  // does, so each dialog's close logic runs unchanged.
+  useBackGestureCloses(open ?? uncontrolledOpen, () => actions.current?.close())
+
+  return (
+    <DialogPrimitive.Root
+      data-slot="dialog"
+      open={open}
+      defaultOpen={defaultOpen}
+      actionsRef={actions}
+      onOpenChange={(next, eventDetails) => {
+        onOpenChange?.(next, eventDetails)
+        if (!eventDetails.isCanceled) setUncontrolledOpen(next)
+      }}
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
@@ -108,7 +170,9 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      // pr-10 keeps a long (Swedish) title from running under the close
+      // button in the top-right corner.
+      className={cn("flex flex-col gap-2 pr-10", className)}
       {...props}
     />
   )
