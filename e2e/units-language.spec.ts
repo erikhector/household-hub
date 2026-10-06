@@ -23,13 +23,13 @@ for (const [locale, storageState, unit] of [
       await page.goto("/dashboard/inventory");
       // The stepper's label is the quantity and unit, rendered once per
       // layout (table row and phone card), so match the visible one.
-      await expect(page.getByRole("main").getByText(`6 ${unit}`, { exact: true }).first()).toBeVisible();
+      await expect(page.getByRole("main").getByText(`6 ${unit}`, { exact: true }).filter({ visible: true }).first()).toBeVisible();
       if (locale === "sv") await expect(page.getByRole("main").getByText(/\bpcs\b/)).toHaveCount(0);
     });
 
     test(`a shopping list shows "pcs" as "${unit}"`, async ({ page }) => {
       await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
-      await expect(page.getByRole("main").getByText(`Apples × 6 ${unit}`, { exact: true }).first()).toBeVisible();
+      await expect(page.getByRole("main").getByText(`Apples × 6 ${unit}`, { exact: true }).filter({ visible: true }).first()).toBeVisible();
     });
   });
 }
