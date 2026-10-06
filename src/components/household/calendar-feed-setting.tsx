@@ -5,6 +5,7 @@ import { CalendarDays, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CopyLinkButton } from "@/components/ui/copy-link-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   disableCalendarFeedAction,
@@ -64,23 +65,15 @@ export function CalendarFeedSetting({
       </p>
       {feedUrl && webcalUrl ? (
         <>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Input
               readOnly
+              className="min-w-[12rem] flex-1"
               value={feedUrl}
               onFocus={(e) => e.currentTarget.select()}
               aria-label={dict.linkAriaLabel}
             />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                navigator.clipboard.writeText(feedUrl);
-                toast.success(dict.copiedToast);
-              }}
-            >
-              {dict.copy}
-            </Button>
+            <CopyLinkButton url={feedUrl} dict={dict} shareTitle={dict.title} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" render={<a href={webcalUrl} />}>

@@ -170,7 +170,7 @@ export function InventoryClient({
           always-visible header — see dashboard/layout.tsx) once the page
           title scrolls past it, so search stays reachable without
           scrolling back up — desktop has room to spare and stays static
-          (see the page's sm:h-[calc(...)] wrapper, which keeps this row
+          (see the page's roomy:h-[calc(...)] wrapper, which keeps this row
           fixed and lets the table below scroll internally instead). */}
       <div className="flex flex-col gap-2 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2 sm:shrink-0">
         <div className="flex items-center gap-2">

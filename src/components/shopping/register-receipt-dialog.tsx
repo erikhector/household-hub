@@ -55,8 +55,9 @@ import { detectReceiptCurrency, parseReceiptText } from "@/lib/receipt-parsing";
 import { scanReceiptPhotoAction } from "@/lib/actions/receipt-scan";
 import { fileToResizedDataUrl } from "@/lib/image-resize";
 import { HOUSEHOLD_BASE_CURRENCY, SUPPORTED_CURRENCIES } from "@/lib/currency";
-import { format, plural } from "@/lib/i18n/format";
+import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/locales";
 
 type InventoryItemOption = {
   id: string;
@@ -95,12 +96,15 @@ export function RegisterReceiptDialog({
   units,
   categories,
   dict,
+  locale,
   aliases = [],
 }: {
   inventoryItems: InventoryItemOption[];
   units: string[];
   categories: string[];
   dict: Dictionary["shoppingList"]["registerReceipt"];
+  /** Dates the list-name placeholder like the name the server saves (UX-15). */
+  locale: Locale;
   /** MATCH-5: the household's learned item names (see matchReceiptLines). */
   aliases?: ItemAliasLike[];
 }) {
@@ -120,7 +124,7 @@ export function RegisterReceiptDialog({
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const itemNames = [...new Set(inventoryItems.map((i) => i.name))].sort((a, b) => a.localeCompare(b));
-  const namePlaceholder = `${dict.namePlaceholderPrefix} — ${new Date().toLocaleDateString()}`;
+  const namePlaceholder = datedName(dict.namePlaceholderPrefix, locale);
 
   function reset() {
     setPhase("idle");
@@ -288,7 +292,7 @@ export function RegisterReceiptDialog({
         setErrorMessage(result.error);
         return;
       }
-      const amountLabel = new Intl.NumberFormat(undefined, {
+      const amountLabel = new Intl.NumberFormat(locale, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(result.totalAmount ?? 0);

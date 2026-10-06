@@ -1,5 +1,82 @@
 [
   {
+    "version": "0.51.0",
+    "date": "2026-10-06",
+    "pr": 162,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Ticking items on a shopping list, tasks and stock +/− now respond instantly, even on a weak signal in the shop. If a change can't be saved, it's undone and you're told why.",
+      "sv": "Att bocka av varor på inköpslistan, uppgifter och lagrets +/− svarar nu direkt, även med svag täckning i butiken. Om en ändring inte går att spara ångras den och du får veta varför."
+    }
+  },
+  {
+    "version": "0.50.6",
+    "date": "2026-10-06",
+    "pr": 160,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Forms no longer wipe what you typed when something goes wrong: a failed sign-up, login or save keeps your entries so you only fix what was wrong.",
+      "sv": "Formulär tömmer inte längre det du skrivit när något går fel: en misslyckad registrering, inloggning eller sparning behåller dina uppgifter så att du bara behöver rätta det som var fel."
+    }
+  },
+  {
+    "version": "0.50.5",
+    "date": "2026-10-06",
+    "pr": 159,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now fits tablets and phones held sideways: no more sideways scrolling, every menu section is reachable, and the inventory list uses the whole screen.",
+      "sv": "Squirrel passar nu surfplattor och mobiler på tvären: ingen mer sidledsscrollning, alla menyval går att nå och inventarielistan använder hela skärmen."
+    }
+  },
+  {
+    "version": "0.50.4",
+    "date": "2026-10-06",
+    "pr": 161,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The overview now opens on today: the \"Get set up\" card only lists the steps you haven't done yet, and you can hide it.",
+      "sv": "Översikten visar nu dagen först: kortet \"Kom igång\" listar bara de steg du inte gjort än, och du kan dölja det."
+    }
+  },
+  {
+    "version": "0.50.3",
+    "date": "2026-10-05",
+    "pr": 158,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Months, week ranges, default list names, amounts and percentages are now written in your language, for example \"oktober 2026\" and \"12,50 kr\" in Swedish.",
+      "sv": "Månader, veckointervall, namn på nya listor, belopp och procent skrivs nu på ditt språk, till exempel \"oktober 2026\" och \"12,50 kr\"."
+    }
+  },
+  {
+    "version": "0.50.2",
+    "date": "2026-10-05",
+    "pr": 156,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Toasts on your phone no longer cover the bottom navigation, and the Undo button is easier to tap. If copying a link fails you now see an error instead of \"copied\", and phones get a Share button for links.",
+      "sv": "Notiser på mobilen täcker inte längre nedre navigeringen, och Ångra-knappen är lättare att trycka på. Om det inte går att kopiera en länk visas nu ett felmeddelande i stället för \"kopierad\", och mobiler får en Dela-knapp för länkar."
+    }
+  },
+  {
+    "version": "0.50.1",
+    "date": "2026-10-05",
+    "pr": 157,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Form fields on phones are now large enough that iOS no longer zooms in when you tap them.",
+      "sv": "Formulärfält på mobilen är nu tillräckligt stora för att iOS inte längre zoomar in när du trycker på dem."
+    }
+  },
+  {
     "version": "0.50.0",
     "date": "2026-10-05",
     "pr": 155,

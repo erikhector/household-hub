@@ -12,3 +12,13 @@ export function format(template: string, vars: Record<string, string | number>):
     key in vars ? String(vars[key]) : match,
   );
 }
+
+/**
+ * The name a list gets when the user leaves the name blank: the prefix plus
+ * today's date in the viewer's language — "Inköpslista — 5 okt. 2026",
+ * "Shopping list — Oct 5, 2026" (UX-15). A bare toLocaleDateString() used
+ * the runtime's default locale instead, so Swedish users got "10/5/2026".
+ */
+export function datedName(prefix: string, locale: string, date: Date = new Date()): string {
+  return `${prefix} — ${new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date)}`;
+}

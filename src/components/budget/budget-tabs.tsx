@@ -79,6 +79,7 @@ import type {
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
 import type { ActionState } from "@/lib/actions/auth";
+import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
 export type BudgetTab = "overview" | "manage" | "transactions" | "insights";
@@ -223,6 +224,9 @@ export function BudgetTabs({
   const [tab, setTab] = useState<Tab>(initialTab);
   const hasCategories = categories.length > 0;
 
+  // UX-15: the split warnings in the two dialogs below.
+  const numberFormat = createMoneyFormat(locale, currencyCode);
+
   const tabItems: TabItem<Tab>[] = [
     { value: "overview", label: dict.tabOverview },
     { value: "manage", label: dict.tabManage },
@@ -235,6 +239,7 @@ export function BudgetTabs({
       <MonthNavigator
         basePath={basePath}
         monthKey={monthKey}
+        locale={locale}
         dict={dict}
         extraParams={householdParam ? { household: householdParam } : undefined}
       />
@@ -244,6 +249,7 @@ export function BudgetTabs({
         <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
           {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
             <LogSharedExpenseDialog
+              numberFormat={numberFormat}
               dict={logSharedDialogDict}
               households={sharedExpenseHouseholds}
               monthKey={monthKey}
@@ -251,6 +257,7 @@ export function BudgetTabs({
             />
           )}
           <TransactionDialog
+            numberFormat={numberFormat}
             dict={dict}
             categories={categories}
             members={members}

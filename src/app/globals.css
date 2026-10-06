@@ -4,6 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* UX-7: the desktop shell starts at `sm` (640 px wide) whatever the
+   height, so it also serves phones in landscape (~390 px tall) and
+   tablets. `short:` is for that landscape phone: too short for the
+   sidebar's nav and footer to share one screen. `roomy:` is for layouts
+   that pin a page to the viewport height (the inventory table's own
+   scroll area), which only pays off when there's room for more than a
+   row or two of content. */
+@custom-variant short (@media (max-height: 500px));
+@custom-variant roomy (@media (width >= 64rem) and (height >= 600px));
+
 /* DESIGN.md rule M3: a tap target is at least 44 x 44 px on phones. For a
    link or bare control whose visible text is smaller, this grows the box
    (and so the hit area) below `sm` and vertically centres the label. From
@@ -258,6 +268,29 @@
   100% {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+/* M3 (DESIGN.md): Sonner's "Undo" / action buttons are ~24 px tall, a
+   fat-finger target on a phone where the toast is also timed. Coarse
+   pointers only, so desktop keeps Sonner's compact button. */
+@media (pointer: coarse) {
+  [data-sonner-toast] [data-button] {
+    min-height: 44px;
+    min-width: 44px;
+    padding-inline: 0.75rem;
+  }
+}
+
+/* Sonner switches to its phone offsets at 600 px, but the BottomNav shows
+   until 640 px (`sm`), so between the two a toast would sit at the desktop
+   16 px offset over the bar. Reuse the phone bottom offset (set from
+   sonner.tsx) across that band. */
+@media (min-width: 601px) and (max-width: 639px) {
+  /* `body` raises specificity: Sonner injects its own stylesheet at runtime,
+     after this one, with the same selector. */
+  body [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: var(--mobile-offset-bottom);
   }
 }
 

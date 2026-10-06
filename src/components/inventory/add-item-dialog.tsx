@@ -19,6 +19,7 @@ import { createInventoryItemAction, updateInventoryItemAction } from "@/app/dash
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";
 import { BarcodeScannerButton, ScannedBarcodeNote, type BarcodeScanResult } from "@/components/shared/barcode-scanner";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inventory/inventory-table-utils";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -74,6 +75,10 @@ export function ItemFormDialog({
   // open — set on click (below), read once the action settles.
   const keepOpenRef = useRef(false);
   const [sessionAddedCount, setSessionAddedCount] = useState(0);
+  // UX-13: an error keeps the numbers and dates the user typed. It also
+  // makes "save & add another" keep quantity and threshold as its comment
+  // below promises — the form reset after a success used to put them back.
+  const kept = useKeptFormValues(["quantity", "lowStockThreshold", "expiresAt", "useWithinDaysOpened"]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -85,6 +90,7 @@ export function ItemFormDialog({
       setNeverExpires(item?.shelfLifeDays === -1);
       setScannedBarcode(null);
       setSessionAddedCount(0);
+      kept.reset();
     }
   };
 
@@ -117,6 +123,10 @@ export function ItemFormDialog({
       // pantry shelf, a drawer of tools), so re-picking them per item is the
       // cost this button exists to remove. Only the name (and any scanned
       // barcode note) resets, and focus goes back to it immediately.
+      // Expiry and use-within belong to the item just saved, so they go
+      // back to blank (which also lets AUTO-7 estimate the next item's
+      // expiry); only quantity and threshold carry over.
+      kept.keep(["quantity", "lowStockThreshold"]);
       setName("");
       setScannedBarcode(null);
       setSessionAddedCount((count) => count + 1);
@@ -155,7 +165,7 @@ export function ItemFormDialog({
             })()}
           </p>
         )}
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
           {mode === "edit" && item && <input type="hidden" name="itemId" value={item.id} />}
           {/* Remembered on the new item (AUTO-6) so the next scan of this
               product resolves straight to it — see createInventoryItemAction. */}
@@ -226,7 +236,7 @@ export function ItemFormDialog({
                 inputMode="decimal"
                 min={0}
                 step="any"
-                defaultValue={item?.quantity ?? 1}
+                defaultValue={kept.values.quantity ?? item?.quantity ?? 1}
                 required
               />
             </div>
@@ -252,7 +262,7 @@ export function ItemFormDialog({
                 inputMode="decimal"
                 min={0}
                 step="any"
-                defaultValue={item?.lowStockThreshold ?? 1}
+                defaultValue={kept.values.lowStockThreshold ?? item?.lowStockThreshold ?? 1}
                 required
               />
             </div>
@@ -278,7 +288,9 @@ export function ItemFormDialog({
               // Left in place (not cleared) while disabled — unchecking
               // "doesn't expire" shouldn't lose whatever date was there, and
               // a disabled input's value isn't submitted anyway.
-              defaultValue={item?.expiresAt ? item.expiresAt.toISOString().slice(0, 10) : ""}
+              defaultValue={
+                kept.values.expiresAt ?? (item?.expiresAt ? item.expiresAt.toISOString().slice(0, 10) : "")
+              }
             />
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Checkbox
@@ -302,7 +314,7 @@ export function ItemFormDialog({
               step={1}
               inputMode="numeric"
               disabled={neverExpires}
-              defaultValue={item?.useWithinDaysOpened ?? ""}
+              defaultValue={kept.values.useWithinDaysOpened ?? item?.useWithinDaysOpened ?? ""}
             />
             <p className="text-xs text-muted-foreground">{dict.useWithinDaysOpenedHint}</p>
           </div>

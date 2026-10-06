@@ -39,6 +39,7 @@ export function SplitEditor({
   onSharesChange,
   onPaidChange,
   onSplitEvenly,
+  numberFormat,
   dict,
 }: {
   members: { id: string; displayName: string }[];
@@ -49,6 +50,11 @@ export function SplitEditor({
   onSharesChange: (next: Record<string, string>) => void;
   onPaidChange: (next: Record<string, string>) => void;
   onSplitEvenly: () => void;
+  /** UX-15: the caller's createMoneyFormat(locale, currencyCode), so the
+   * warnings read "12,50 kr" to a Swedish household rather than a bare
+   * `toFixed(2)` "12.50". The inputs themselves stay `type="number"`, whose
+   * value is always dot-decimal whatever the locale. */
+  numberFormat: Intl.NumberFormat;
   dict: SplitEditorDict;
 }) {
   const check = checkSplitForm(amount, shares, paid);
@@ -97,22 +103,22 @@ export function SplitEditor({
       {check.shareMismatch && (
         <p className="text-xs text-destructive">
           {format(dict.mismatchWarning, {
-            total: check.shareTotal.toFixed(2),
-            amount: (Number(amount) || 0).toFixed(2),
+            total: numberFormat.format(check.shareTotal),
+            amount: numberFormat.format(Number(amount) || 0),
           })}
         </p>
       )}
       {check.overpaid && (
         <p className="text-xs text-destructive">
           {format(dict.overpaidWarning, {
-            paid: check.paidTotal.toFixed(2),
-            amount: (Number(amount) || 0).toFixed(2),
+            paid: numberFormat.format(check.paidTotal),
+            amount: numberFormat.format(Number(amount) || 0),
           })}
         </p>
       )}
       {!check.overpaid && check.leftDue > 0 && (
         <p className="text-xs text-muted-foreground">
-          {format(dict.leftDueHint, { amount: check.leftDue.toFixed(2) })}
+          {format(dict.leftDueHint, { amount: numberFormat.format(check.leftDue) })}
         </p>
       )}
     </div>

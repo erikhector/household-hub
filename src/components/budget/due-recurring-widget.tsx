@@ -182,6 +182,7 @@ export function DueRecurringWidget({
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <TransactionDialog
+                    numberFormat={numberFormat}
                     dict={dict}
                     categories={categories}
                     members={members}
@@ -263,6 +264,7 @@ export function DueRecurringWidget({
                   {logSharedDialogDict &&
                     sharedExpenseHouseholds.some((h) => h.id === row.logPrefill.householdId) && (
                       <LogSharedExpenseDialog
+                        numberFormat={numberFormat}
                         dict={logSharedDialogDict}
                         households={sharedExpenseHouseholds}
                         monthKey={monthKey}

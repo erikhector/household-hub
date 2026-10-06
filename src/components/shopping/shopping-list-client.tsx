@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -63,6 +63,7 @@ import {
 } from "@/app/dashboard/shopping-list/actions";
 import { format, plural } from "@/lib/i18n/format";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
+import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
@@ -374,7 +375,7 @@ export function ShoppingListClient({
       <PrintableList name={list.name} groups={pendingGroups} dict={dict} />
       <Link
         href="/dashboard/shopping-list"
-        className="touch-target gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="touch-target inline-flex w-fit items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" />
         {dict.backToAll}
@@ -827,6 +828,25 @@ function ShoppingRow({
     if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
+  // UX-14: ticking is instant. The box flips the moment it's tapped, in this
+  // row's own transition rather than the list's shared one, so on weak
+  // in-store signal you can tick the next three items while the first save
+  // is still on its way, and nothing greys out meanwhile. The reducer
+  // toggles from the *current* optimistic value, so a quick re-tap before
+  // the server answers un-ticks it again, matching the two toggles it sends.
+  // When the transition ends React swaps in the server-rendered
+  // `item.purchased`, so a failed save rolls the box back by itself;
+  // settleOptimisticAction adds the toast that says why.
+  const [, startTickTransition] = useTransition();
+  const [purchased, toggleOptimisticPurchased] = useOptimistic<boolean, void>(item.purchased, (current) => !current);
+  const handleTogglePurchased = () => {
+    startTickTransition(async () => {
+      toggleOptimisticPurchased();
+      const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
+      if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
+    });
+  };
+
   return (
     <div
       ref={rowRef}
@@ -858,19 +878,13 @@ function ShoppingRow({
           )}
         >
           <Checkbox
-            checked={item.purchased}
+            checked={purchased}
             disabled={isPending || !editable}
             className={editable ? "size-5" : undefined}
-            onChange={() =>
-              startTransition(async () => {
-                const result = await togglePurchasedAction(item.id);
-                if (result.error) toast.error(result.error);
-                else showAutoAddedToast(result.autoAdded, autoAddDict);
-              })
-            }
+            onChange={handleTogglePurchased}
           />
           <span
-            className={`min-w-0 flex-1 break-words sm:truncate ${item.purchased ? "text-muted-foreground line-through" : ""}`}
+            className={`min-w-0 flex-1 break-words sm:truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
             title={`${item.name} × ${item.quantity} ${item.unit}`}
           >
             {item.name} × {item.quantity} {item.unit}
@@ -1078,7 +1092,7 @@ function PriceTag({
         onKeyDown={(e) => {
           if (e.key === "Escape") setEditing(false);
         }}
-        className="h-7 w-20 px-2 text-sm"
+        className="w-24 px-2"
         aria-label={format(dict.priceInputAriaLabel, { name: item.name })}
       />
       <Button
