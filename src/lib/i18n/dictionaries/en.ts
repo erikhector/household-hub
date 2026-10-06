@@ -321,7 +321,8 @@ export const en = {
       title: "Get set up",
       subtitle: "A few quick steps to get the most out of Squirrel.",
       skip: "Skip this step",
-      skipped: "Skipped — invite anytime from Household settings.",
+      progress: "{done} of {total} done",
+      dismiss: "Hide the setup card",
       steps: {
         household: {
           title: "Invite your household",
@@ -403,6 +404,7 @@ export const en = {
     adding: "Adding…",
     add: "Add",
     deleteItemAriaLabel: "Remove {name}",
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
     confirmDeleteItem: {
       title: "Remove {name}?",
       description: "This can't be undone.",
@@ -1072,6 +1074,9 @@ export const en = {
     markEmpty: "Mark as empty",
     markEmptyAndAddToList: "Mark as empty & add to shopping list",
     markedEmptyAddedToast: 'Marked {name} as empty and added it to "{list}"',
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    decreaseQuantityAriaLabel: "Decrease {name}",
+    increaseQuantityAriaLabel: "Increase {name}",
     opened: "Opened",
     markOpened: "Mark opened",
     markOpenedAriaLabel: "Mark {name} as opened",
@@ -1658,6 +1663,7 @@ export const en = {
     lastCompletedByLabel: "Last done by {name}",
     nextDueLabel: "Next due {date}",
     deleteTaskAriaLabel: "Delete {title}",
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
@@ -2717,6 +2723,7 @@ export const en = {
     emptyList: "Nothing on this list yet.",
     footerNote: "Shared from a Squirrel household",
     rateLimited: "Too many changes to this list. Please wait a while and try again.",
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
   },
   cookieNotice: {
     title: "Cookie notice",
