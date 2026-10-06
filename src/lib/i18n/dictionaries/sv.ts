@@ -2483,6 +2483,10 @@ export const sv = {
       saving: "Uppdaterar…",
       submit: "Uppdatera lösenord",
       backToLogin: "Tillbaka till inloggning",
+      invalidTitle: "Länken har gått ut",
+      invalidDescription:
+        "Länken för att återställa lösenordet är ogiltig eller har gått ut. Begär en ny.",
+      requestNewLink: "Begär en ny länk",
     },
     verifyEmail: {
       pageTitle: "Verifiera din e-post",
@@ -2505,7 +2509,7 @@ export const sv = {
       showPassword: "Visa lösenord",
       hidePassword: "Dölj lösenord",
       creating: "Skapar konto…",
-      submit: "Skapa hushåll",
+      submit: "Skapa ditt hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       verificationSentDescription:
@@ -2620,6 +2624,7 @@ export const sv = {
   },
   sharedShoppingList: {
     notFoundTitle: "Länken hittades inte",
+    notFoundLink: "Gå till Squirrel",
     notFoundDescription:
       "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
     liveNotice:

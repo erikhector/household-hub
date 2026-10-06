@@ -1,6 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { XCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { getShoppingListByShareToken } from "@/app/share/shopping-list/actions";
 import { SharedShoppingListClient } from "@/components/shopping/shared-shopping-list-client";
+import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { LegalFooter } from "@/components/legal-footer";
 import { UnitsProvider } from "@/components/units-provider";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -21,28 +23,27 @@ export default async function SharedShoppingListPage(
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Card className="w-full max-w-md">
-        {list ? (
+      {list ? (
+        <Card className="w-full max-w-md">
           <CardContent>
             <UnitsProvider labels={dict.units}>
               <SharedShoppingListClient token={token} list={list} dict={dict.sharedShoppingList} />
             </UnitsProvider>
           </CardContent>
-        ) : (
-          <>
-            <CardHeader>
-              <CardTitle className="text-xl break-words">
-                {dict.sharedShoppingList.notFoundTitle}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {dict.sharedShoppingList.notFoundDescription}
-              </p>
-            </CardContent>
-          </>
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <StatusCard
+          brand={dict.auth.brand}
+          icon={XCircle}
+          tone="error"
+          title={dict.sharedShoppingList.notFoundTitle}
+        >
+          <p className="text-sm text-muted-foreground">
+            {dict.sharedShoppingList.notFoundDescription}
+          </p>
+          <StatusCardLink href="/">{dict.sharedShoppingList.notFoundLink}</StatusCardLink>
+        </StatusCard>
+      )}
       <LegalFooter dict={dict.legal} />
     </div>
   );

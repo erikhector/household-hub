@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { CheckCircle2, MailCheck, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { verifyEmailAction, type VerifyEmailState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -11,10 +11,12 @@ const initialState: VerifyEmailState = {};
 
 export function VerifyEmailClient({
   token,
+  brand,
   isAuthenticated,
   dict,
 }: {
   token: string;
+  brand: string;
   isAuthenticated: boolean;
   dict: Dictionary["auth"]["verifyEmail"];
 }) {
@@ -34,41 +36,35 @@ export function VerifyEmailClient({
 
   if (state.status === "verified" || state.status === "alreadyVerified") {
     return (
-      <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <CheckCircle2 className="size-10 text-success" />
+      <StatusCard brand={brand} icon={CheckCircle2} tone="success" title={dict.pageTitle}>
         <p className="text-sm text-muted-foreground">
           {state.status === "verified" ? dict.verifiedDescription : dict.alreadyVerifiedDescription}
         </p>
-        <Link href="/dashboard" className="text-sm font-medium text-primary underline underline-offset-4">
-          {dict.goToDashboard}
-        </Link>
-      </div>
+        <StatusCardLink href="/dashboard">{dict.goToDashboard}</StatusCardLink>
+      </StatusCard>
     );
   }
 
   if (state.error) {
     return (
-      <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <XCircle className="size-10 text-destructive" />
+      <StatusCard brand={brand} icon={XCircle} tone="error" title={dict.pageTitle}>
         <p className="text-sm text-muted-foreground">{state.error}</p>
-        <Link
-          href={isAuthenticated ? "/dashboard" : "/login"}
-          className="text-sm font-medium text-primary underline underline-offset-4"
-        >
+        <StatusCardLink href={isAuthenticated ? "/dashboard" : "/login"}>
           {isAuthenticated ? dict.dashboardResendLink : dict.loginToResendLink}
-        </Link>
-      </div>
+        </StatusCardLink>
+      </StatusCard>
     );
   }
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col items-center gap-4 py-2 text-center">
-      <input type="hidden" name="token" value={token} />
-      <MailCheck className="size-10 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{dict.verifying}</p>
-      <Button type="submit" disabled={pending} variant="outline">
-        {dict.submit}
-      </Button>
-    </form>
+    <StatusCard brand={brand} icon={MailCheck} tone="neutral" title={dict.pageTitle}>
+      <form ref={formRef} action={formAction} className="flex flex-col items-center gap-4">
+        <input type="hidden" name="token" value={token} />
+        <p className="text-sm text-muted-foreground">{dict.verifying}</p>
+        <Button type="submit" disabled={pending} variant="outline">
+          {dict.submit}
+        </Button>
+      </form>
+    </StatusCard>
   );
 }

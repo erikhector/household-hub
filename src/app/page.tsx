@@ -59,7 +59,7 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-6">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-6 [@media(max-height:500px)]:py-3">
         <div className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight">
           <BrandBadge />
           {dict.auth.brand}
@@ -71,7 +71,9 @@ export default async function Home() {
       </header>
 
       <main className="flex flex-1 flex-col items-center px-4">
-        <section className="flex max-w-2xl flex-col items-center gap-6 py-16 text-center sm:py-24">
+        {/* UX-28: in landscape on a phone (≈ 400 px tall) the generous hero
+            padding pushed "Get started" below the fold, so tighten it there. */}
+        <section className="flex max-w-2xl flex-col items-center gap-6 py-16 text-center sm:py-24 [@media(max-height:500px)]:gap-4 [@media(max-height:500px)]:py-6">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
             <Sparkles className="size-3.5" />
             {dict.landing.heroBadge}

@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { CheckCircle2, MailX, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatusCard, StatusCardLink } from "@/components/auth/status-card";
 import { unsubscribeFromDigestAction, type DigestUnsubscribeState } from "@/lib/actions/digest";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -16,9 +16,11 @@ const initialState: DigestUnsubscribeState = {};
 // submit it. The visible button covers JS-disabled readers.
 export function DigestUnsubscribeClient({
   token,
+  brand,
   dict,
 }: {
   token: string;
+  brand: string;
   dict: Dictionary["digestUnsubscribe"];
 }) {
   const [state, formAction, pending] = useActionState(unsubscribeFromDigestAction, initialState);
@@ -30,26 +32,30 @@ export function DigestUnsubscribeClient({
 
   if (state.status === "unsubscribed" || state.status === "invalid") {
     const done = state.status === "unsubscribed";
-    const Icon = done ? CheckCircle2 : XCircle;
     return (
-      <div className="flex flex-col items-center gap-4 py-2 text-center">
-        <Icon className={`size-10 ${done ? "text-success" : "text-destructive"}`} />
+      <StatusCard
+        brand={brand}
+        icon={done ? CheckCircle2 : XCircle}
+        tone={done ? "success" : "error"}
+        title={dict.pageTitle}
+      >
         <p className="text-sm text-muted-foreground">{done ? dict.done : dict.invalid}</p>
-        <Link href="/dashboard/profile" className="text-sm font-medium text-primary underline underline-offset-4">
-          {dict.profileLink}
-        </Link>
-      </div>
+        <StatusCardLink href="/dashboard/profile">{dict.profileLink}</StatusCardLink>
+      </StatusCard>
     );
   }
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col items-center gap-4 py-2 text-center">
-      <input type="hidden" name="token" value={token} />
-      <MailX className="size-10 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{state.status === "error" ? dict.error : dict.working}</p>
-      <Button type="submit" disabled={pending} variant="outline">
-        {dict.submit}
-      </Button>
-    </form>
+    <StatusCard brand={brand} icon={MailX} tone="neutral" title={dict.pageTitle}>
+      <form ref={formRef} action={formAction} className="flex flex-col items-center gap-4">
+        <input type="hidden" name="token" value={token} />
+        <p className="text-sm text-muted-foreground">
+          {state.status === "error" ? dict.error : dict.working}
+        </p>
+        <Button type="submit" disabled={pending} variant="outline">
+          {dict.submit}
+        </Button>
+      </form>
+    </StatusCard>
   );
 }

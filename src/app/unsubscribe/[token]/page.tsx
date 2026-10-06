@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DigestUnsubscribeClient } from "@/components/auth/digest-unsubscribe-client";
 import { LegalFooter } from "@/components/legal-footer";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
@@ -13,14 +12,7 @@ export default async function DigestUnsubscribePage(props: PageProps<"/unsubscri
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{dict.digestUnsubscribe.pageTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DigestUnsubscribeClient token={token} dict={dict.digestUnsubscribe} />
-        </CardContent>
-      </Card>
+      <DigestUnsubscribeClient token={token} brand={dict.auth.brand} dict={dict.digestUnsubscribe} />
       <LegalFooter dict={dict.legal} />
     </div>
   );
