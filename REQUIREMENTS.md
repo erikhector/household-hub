@@ -125,6 +125,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   (`"{key}"` interpolation) and `plural(count, { one, other })`, both plain
   functions usable from Server or Client Components, for the handful of
   strings that need a count or a name substituted in.
+- **Dates and numbers follow the locale too (UX-15)**: anything formatted
+  for display takes the viewer's `locale` (from `getLocale()`, passed down
+  as a prop) and goes through `Intl.DateTimeFormat`/`Intl.NumberFormat` or
+  `createMoneyFormat` — never `toLocaleDateString()` with no locale (the
+  runtime's default, which is English on the server) and never
+  `toFixed(2)` for on-screen text. So the budget month reads
+  "oktober 2026", the meal planner's week "28 sep.–4 okt. 2026"
+  (`formatRange`, in UTC since week keys are UTC dates, so server and
+  browser agree), split warnings and "Your share" use the household's
+  money format, and the cost analyzer's price change is a locale percent
+  ("+12,5 %"). A list the user didn't name is called
+  `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
+  "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
+  name placeholders use the same helper so they match what gets saved.
+  Number *inputs* stay `type="number"` with dot-decimal values. Units are
+  still shown as stored (UX-44).
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)
@@ -381,7 +397,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     - **Merge into another item…** (MATCH-7): picks the item to keep with
       `ItemCombobox`, then the catalog's merge preview and confirm (below).
       This item is the one that goes, so a merge ends on the kept item's
-      page.
+      page. Cancel and a disabled Merge show before an item is picked, and
+      Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
+      as `null`, which lets Escape through to the dialog).
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
@@ -4436,6 +4454,18 @@ flat grayscale:
   (popover) — they're news, not an outcome. The variables have to be set
   inline on the Toaster, since Sonner's stylesheet sets the same ones on
   that element per theme.
+  On phones `mobileOffset` lifts toasts clear of the fixed BottomNav
+  (4.75rem + `env(safe-area-inset-bottom)` on `/dashboard` routes, just
+  the inset elsewhere), so they never cover the navigation or sit in the
+  iOS home-indicator strip. Under `pointer: coarse` the action ("Undo")
+  button is 44 px (`globals.css`).
+- **Copy-link buttons** (household invite, shopping-list share link,
+  calendar feed) are one component, `CopyLinkButton`
+  (`src/components/ui/copy-link-button.tsx`). It awaits
+  `clipboard.writeText` and shows "Copied" only on success; a rejection
+  shows an error toast telling the user to copy the selected link by hand.
+  On a coarse-pointer device with `navigator.share`, a "Share" button
+  opens the system share sheet.
 
 ## Access control (landing / auth pages vs. the app)
 
@@ -4604,7 +4634,43 @@ components directly.
   isn't hidden behind the fixed bar.
 - On mobile the sidebar is hidden entirely; the `HouseholdSwitcher` instead
   appears in a slim header above the page content (`sm:hidden`), since it
-  isn't part of the bottom bar.
+  isn't part of the bottom bar. The switcher row spans its container, so
+  its "Create household" `+` sits at the right edge of the header (and of
+  the expanded sidebar) rather than just after the household name (UX-26).
+- **In between (640 px wide and up, but a tablet or a phone in landscape;
+  UX-7)**: these get the desktop shell, so it has to hold at 810×1080 and
+  863×393 too. The content column next to the sidebar is `min-w-0`, so a
+  wide row wraps instead of widening the page. The sidebar is `h-dvh`; on a
+  short screen (the `short:` variant, `max-height: 500px`, defined in
+  `globals.css`) the whole aside scrolls and the nav list takes its
+  natural height, instead of the nav getting a sliver of inner scroll
+  between the household switcher and the footer. The aside pads
+  `env(safe-area-inset-left)` (content-box, so `w-56`/`w-16` stay the
+  content width) and its footer the bottom inset; `main` pads the right
+  inset, and the left one on phones where there's no sidebar. The
+  inventory page pins itself to the viewport with an inner-scrolling
+  table only under `roomy:` (`lg` wide and at least 600 px tall), where
+  that leaves room for more than a row; elsewhere the document scrolls and
+  the table header scrolls away with it (the table is wider than the
+  column there and keeps its own horizontal scroll, which a sticky header
+  can't see past). Its header row stays stacked until `lg`.
+  Back-links (`← All shopping lists`, the item catalog's) are
+  `inline-flex whitespace-nowrap`, so the arrow stays on the label's line.
+- **Overview first screen (UX-26)**: the overview (`src/app/dashboard/page.tsx`)
+  leads with today (your tasks, your budget), so the "Get set up" card
+  (`src/components/dashboard/getting-started.tsx`) stays short: it lists only
+  the steps still open and counts the finished (or skipped) ones in one
+  "3 of 5 done" line, and disappears on its own once every step is done.
+  Its `X` ("Hide the setup card") hides it for good via
+  `dismissGettingStartedAction` (`src/lib/actions/household.ts`), a
+  per-browser, per-household cookie (`getting_started_dismissed_<householdId>`,
+  1 year, read by `src/lib/getting-started-dismiss.ts`, listed in
+  `cookie-inventory.ts`), the same mechanism as the household step's "Skip
+  this step". Every step is still reachable from the navigation, so hiding
+  loses nothing. The "View …" buttons at the foot of the overview cards use
+  `mt-auto` so cards side by side line them up, and their labels wrap rather
+  than push the chevron outside the card on narrow (tablet) columns.
+  Covered by `e2e/overview.spec.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -4622,6 +4688,24 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
+  (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
+  too) pushes a same-URL history entry while it's open, so Android's back
+  button, a back swipe or the browser's back closes the sheet instead of
+  leaving the page and losing the form. Closing it from the UI (X,
+  Cancel, Escape, a submit) calls `history.back()` when its entry is still
+  the current one, so no extra back step is left behind. The mechanics
+  are in `src/components/ui/dialog-history.ts`: one `popstate`
+  listener, added before the router's own (the root layout renders
+  `DialogHistoryListener` so the module loads with every page), keeps the stack of open dialogs (a back closes only
+  the top one), stops Next.js's router from seeing a pop that stays on the
+  same URL, keeps its marker through the router's same-URL state
+  replaces, and steps forward again if the app navigated (e.g. the merge
+  dialog's `router.replace`) before its own `back()` landed. A dialog
+  whose owner refuses to close (one that stays open while saving) gets a
+  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
+  `dialog-history.test.ts`.
 
 ## Releases & What's new
 
@@ -5206,6 +5290,45 @@ approximating them, so the email never disagrees with the app.
   Promise<ActionState>` shape (`ActionState = { error?: string }`) for use
   with `useActionState`. Actions triggered by a plain click (toggle, delete,
   quantity +/-) are called directly from a `useTransition` callback instead.
+- **Ticking is instant (UX-14).** The taps people make in a row, often on
+  weak in-store signal, are optimistic and per row: the shopping-list
+  checkbox (`ShoppingRow`), the share page's checkbox (`SharedRow`), a
+  task's checkbox (`TaskItemRow`) and the inventory −/+ stepper
+  (`QuantityStepper`). Each row has its own `useTransition` and a
+  `useOptimistic` value that flips (or steps, via the server's own
+  `nextQuantityAfterDelta`) on tap, so ticking three items shows all three
+  at once and one pending save never disables the other rows. The reducer
+  works from the current optimistic value, so a re-tap before the server
+  answers undoes the first. The server call goes through
+  `settleOptimisticAction` (`src/components/shared/`): when the action
+  returns `{ error }`, or the request never arrives (offline, a dropped
+  connection, which used to reach the error boundary), it toasts and the
+  row snaps back to the server value as the transition ends. Next's
+  redirect signal is re-thrown, so an expired session still lands on
+  login. A ticked row stays in its section until the save revalidates the
+  page, then moves (to "Purchased"/"Completed"), so rows don't jump under
+  the thumb mid-tap. The steppers are named "Decrease {name}" / "Increase
+  {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
+  Server Action request, ticks three rows, checks all three before any
+  answer, then releases and reloads.
+- **A failed submit keeps what the user typed (UX-13).** React 19 resets an
+  uncontrolled `<form action>` once the action settles, even when it came
+  back with `{ error }`. Forms whose fields are uncontrolled use
+  `useKeptFormValues([...names])` (`src/components/shared/use-kept-form-values.ts`):
+  its `onSubmit` records the listed fields' values as the form is
+  submitted, and each field reads `defaultValue={kept.values.x ?? fallback}`,
+  so the reset lands on what was typed. It's client-side, so the actions'
+  return types and no-JS fallback are unchanged. The names are an
+  allowlist and never include a password: password fields still clear
+  after an error (so the reset-password form, which has nothing else, is
+  unchanged). A dialog calls `kept.reset()` when it reopens. Used by
+  signup, login, the invite sign-up form, the display-name form, add/edit
+  item (quantity, low-stock threshold, expiry, use-within) and the
+  transaction description. After a *successful* "save & add another", the
+  add-item dialog calls `kept.keep(["quantity", "lowStockThreshold"])`:
+  those carry into the next item, while expiry and use-within go back to
+  blank (so AUTO-7 can still estimate the next item's expiry). Covered by
+  `e2e/form-errors.spec.ts`.
 - Auth.js `signIn`/`signOut` calls that redirect must not be wrapped in a
   `try/catch` that swallows the redirect — only catch `AuthError` specifically
   and re-throw everything else (see `src/lib/actions/auth.ts`).
@@ -5390,6 +5513,11 @@ approximating them, so the email never disagrees with the app.
   `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
   only Chromium is installed, and the iPhone presets need WebKit).
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
+  Two more touch projects cover the in-between sizes (UX-7): `landscape`
+  (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
+  `smoke.spec.ts` and `navigation.desktop.spec.ts` (every page without
+  horizontal overflow, every sidebar control reachable by scrolling the
+  aside, back-links on one line).
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a
@@ -5420,6 +5548,13 @@ approximating them, so the email never disagrees with the app.
   in `smoke.spec.ts` on the `mobile` project for every page. It checks
   each page's closed state, so menus and dialogs opened later rely on the
   component classes above.
+- **Checkbox and date fields**: a checked `Checkbox` is filled with the
+  primary colour and shows a white tick (the `checkbox-tick` utility in
+  `globals.css`; an inline SVG class got split by `cn()` and left an empty
+  outline). Every date/time input drops its native appearance
+  (`globals.css` base layer) so iOS Safari honours the field's width
+  instead of sizing it to its content and scrolling dialogs sideways; the
+  native picker still opens on tap. `e2e/form-controls.spec.ts` pins both.
 - **Screenshots for review and the UX scout**: with
   `E2E_SCREENSHOT_DIR` set (`npm run test:e2e:screenshots` defaults it to
   `test-results/screenshots/`), the smoke and public specs also save a

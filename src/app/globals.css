@@ -4,6 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* UX-7: the desktop shell starts at `sm` (640 px wide) whatever the
+   height, so it also serves phones in landscape (~390 px tall) and
+   tablets. `short:` is for that landscape phone: too short for the
+   sidebar's nav and footer to share one screen. `roomy:` is for layouts
+   that pin a page to the viewport height (the inventory table's own
+   scroll area), which only pays off when there's room for more than a
+   row or two of content. */
+@custom-variant short (@media (max-height: 500px));
+@custom-variant roomy (@media (width >= 64rem) and (height >= 600px));
+
 /* DESIGN.md rule M3: a tap target is at least 44 x 44 px on phones. For a
    link or bare control whose visible text is smaller, this grows the box
    (and so the hit area) below `sm` and vertically centres the label. From
@@ -16,6 +26,12 @@
     min-height: 2.75rem;
     min-width: 2.75rem;
   }
+}
+
+/* The checked Checkbox's tick (src/components/ui/checkbox.tsx explains why
+   it isn't an inline arbitrary class). White on `bg-primary`. */
+@utility checkbox-tick {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
 }
 
 @theme inline {
@@ -196,6 +212,27 @@
   html {
     @apply font-sans;
   }
+  /* iOS Safari draws date/time fields with its native appearance, which
+     sizes the box to its own content and ignores `width: 100%` /
+     `min-width: 0`: in a narrow dialog (or a two-column grid like the
+     missing-ingredients range) the field spilled past its container and
+     the whole sheet scrolled sideways. Dropping the native appearance lets
+     the author width win; tapping still opens the native picker. Without
+     it WebKit also centres the value, so it's pinned back to the start to
+     line up with every other field. */
+  input:is(
+      [type="date"],
+      [type="time"],
+      [type="datetime-local"],
+      [type="month"],
+      [type="week"]
+    ) {
+    appearance: none;
+    min-width: 0;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: start;
+  }
 }
 
 /* Only matches an installed/standalone launch (see PwaSplashScreen for why) —
@@ -231,6 +268,29 @@
   100% {
     opacity: 0;
     visibility: hidden;
+  }
+}
+
+/* M3 (DESIGN.md): Sonner's "Undo" / action buttons are ~24 px tall, a
+   fat-finger target on a phone where the toast is also timed. Coarse
+   pointers only, so desktop keeps Sonner's compact button. */
+@media (pointer: coarse) {
+  [data-sonner-toast] [data-button] {
+    min-height: 44px;
+    min-width: 44px;
+    padding-inline: 0.75rem;
+  }
+}
+
+/* Sonner switches to its phone offsets at 600 px, but the BottomNav shows
+   until 640 px (`sm`), so between the two a toast would sit at the desktop
+   16 px offset over the bar. Reuse the phone bottom offset (set from
+   sonner.tsx) across that band. */
+@media (min-width: 601px) and (max-width: 639px) {
+  /* `body` raises specificity: Sonner injects its own stylesheet at runtime,
+     after this one, with the same selector. */
+  body [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: var(--mobile-offset-bottom);
   }
 }
 

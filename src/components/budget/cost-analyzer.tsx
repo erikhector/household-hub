@@ -88,6 +88,14 @@ export function CostAnalyzer({
   const numberFormat = createMoneyFormat(locale, currencyCode);
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  // UX-15: "+12,5 %" in sv, "+12.5%" in en — the locale decides the decimal
+  // mark and the space before the sign, and signDisplay adds the "+".
+  const percentFormat = new Intl.NumberFormat(locale, {
+    style: "percent",
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    signDisplay: "exceptZero",
+  });
 
   const maxMonthlyTotal = Math.max(0, ...monthlySpending.map((m) => m.total));
 
@@ -148,6 +156,7 @@ export function CostAnalyzer({
                   dict={dict}
                   numberFormat={numberFormat}
                   dateFormat={dateFormat}
+                  percentFormat={percentFormat}
                 />
               ))}
             </div>
@@ -419,11 +428,13 @@ function ItemTrendCard({
   dict,
   numberFormat,
   dateFormat,
+  percentFormat,
 }: {
   item: ItemPriceTrend;
   dict: Dictionary["budget"]["costAnalyzer"];
   numberFormat: Intl.NumberFormat;
   dateFormat: Intl.DateTimeFormat;
+  percentFormat: Intl.NumberFormat;
 }) {
   const latest = item.points[item.points.length - 1];
   const changeColor =
@@ -432,15 +443,13 @@ function ItemTrendCard({
       : item.changePercent < 0
         ? "text-success"
         : "text-muted-foreground";
-  const changeSign = item.changePercent > 0 ? "+" : "";
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="truncate font-medium">{item.name}</span>
         <span className={`shrink-0 text-xs font-medium tabular-nums ${changeColor}`}>
-          {changeSign}
-          {item.changePercent.toFixed(1)}%
+          {percentFormat.format(item.changePercent / 100)}
         </span>
       </div>
       <Sparkline points={item.points.map((p) => p.price)} />

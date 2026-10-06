@@ -251,43 +251,7 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
-- `ui/dialog.tsx`: UX-11, UX-12
 - `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
-- `dashboard/sidebar.tsx`, `dashboard/bottom-nav.tsx`,
-  `dashboard/layout.tsx`: UX-7, UX-27
-
-- [ ] **UX-7. Fix the 640–1050 px layout: phone landscape, tablets, small
-      laptops** (blocker, M) — Any touch device wider than 640 px gets the
-      desktop shell, and that shell breaks in four places:
-      - **Page scrolls sideways.** The content column in
-        `dashboard/layout.tsx` (`flex flex-1 flex-col`) has no `min-w-0`,
-        so the inventory header (title plus a 639 px action row on one line
-        from `sm:`) pushes the page to 1042 px in an 810 px iPad and an
-        863 px landscape phone.
-      - **Sidebar nav is unreachable.** `sidebar.tsx:78` is `h-screen`, and
-        its six footer rows take the height, so at 393 px tall only
-        "Overview" and half of "Inventory" show. The other seven sections
-        sit behind a ~40 px inner scroll.
-      - **Inventory table shows one row.** Its fixed-height viewport
-        (`sm:h-[calc(100dvh-4rem)]`) is only a row tall at that height.
-      - **Back-links wrap.** "← All shopping lists" puts its arrow on a
-        line of its own.
-
-      Fix:
-      - Add `min-w-0` to the column, and keep the inventory header stacked
-        until `lg`.
-      - Make the sidebar `h-dvh`. When the screen is short
-        (`@media (max-height: 500px)`), scroll the whole aside, or fold the
-        footer into a "More" menu.
-      - Apply the fixed-height table viewport only from `lg` and
-        `min-height: 600px`.
-      - Give back-links `inline-flex whitespace-nowrap`.
-      - Pad `env(safe-area-inset-left/right)` on the aside and `main`
-        (landscape notch).
-
-      Acceptance: a Playwright project at 863×393 and one at 810×1080
-      (touch) runs `smoke` with no horizontal overflow, and every sidebar
-      link passes `toBeInViewport()` after scrolling the aside.
 
 - [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
       44 px targets and 16 px fields are gated on `max-sm:` only
@@ -304,8 +268,8 @@ don't build these in parallel:
       heights and widths, `text-base`), and compact only under
       `pointer-fine`.
 
-      Acceptance: `expectTouchTargets` also runs in UX-7's touch projects
-      and passes.
+      Acceptance: `expectTouchTargets` also runs in the `landscape` and
+      `tablet` touch projects and passes.
 
 - [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
       200% (Android "Font size", iOS Larger Text in the PWA), these pages
@@ -330,25 +294,6 @@ don't build these in parallel:
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
 
-- [ ] **UX-11. Back gesture closes sheets and dialogs** (high, M) — Hard rule
-      M7. Nothing in `src/` touches `history`, so Android's back button,
-      or a back swipe with a sheet open, leaves the page and loses the
-      form. From the first screen it leaves the app.
-
-      Fix: in `ui/dialog.tsx` (and `confirm-dialog.tsx`), `pushState` when
-      the sheet opens and close it on `popstate`. When the sheet is closed
-      from the UI, call `history.back()` if our entry is still on top.
-
-      In the same PR:
-      - **Merge into another item** (`/dashboard/inventory/items/[id]`)
-        doesn't close on Escape, on desktop or mobile, and it shows no
-        Merge or Cancel action until something is picked. Show both.
-      - Add `pr-10` to `DialogHeader` so long (Swedish) titles don't run
-        under the 44 px close button (`dialog.tsx:90-103`).
-
-      Acceptance: a mobile spec opens "Add item", calls `page.goBack()`,
-      and asserts the sheet closed and the URL is unchanged.
-
 - [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
       (high, M) — Hard rule M2.
       - `DialogFooter` (`ui/dialog.tsx:117-130`) isn't sticky, so in the
@@ -371,62 +316,26 @@ don't build these in parallel:
       Acceptance: a mobile spec fills the recipe form to the bottom and
       asserts the submit button is in the viewport without scrolling.
 
-- [ ] **UX-13. Forms keep what the user typed after a server error** (high,
-      S) — React 19 resets uncontrolled fields when a form action returns,
-      even when it returns `{ error }`.
-      - Signup wipes name, household, email and both passwords
-        (`auth/signup-form.tsx:80-108`).
-      - Login loses the email (`login-form.tsx:57`). Reset-password, the
-        join sign-up form and the display-name form behave the same way.
-      - Add/edit item resets quantity, threshold, expiry and use-within
-        (`inventory/add-item-dialog.tsx:229-305`).
-      - The transaction description resets too.
+- [ ] **UX-44. Units in the user's language** (medium, M) — split out of
+      UX-15, which shipped dates, months and numbers. Units are shown
+      exactly as stored, so a Swedish user sees "12 pcs" rather than
+      "12 st" (and "tbsp", "can", "pack" rather than "msk", "burk",
+      "förp"). Stored units are free text and about 60 places in 26 files
+      render one (`inventory-table.tsx`, `shopping-list-client.tsx`,
+      `put-away-dialog.tsx`, `cook-mode-dialog.tsx`,
+      `missing-ingredients-dialog.tsx`, `merge-preview.tsx`, the item
+      page, …), several of them under UX-14's optimistic-ticking work,
+      which is why it's its own PR.
 
-      Fix: echo non-secret values back in the action state and key
-      `defaultValue` on it, or make the fields controlled.
+      Fix: a `units` map in both dictionaries keyed by `canonicalUnit()`
+      (`src/lib/units.ts`) for the known units, plus a `unitLabel(unit,
+      dict.units)` helper that falls back to the stored text for anything
+      unknown. Apply it everywhere a unit is displayed; stored values,
+      inputs and comparisons don't change.
 
-      Acceptance: an e2e test submits signup with an email that's already
-      used and asserts the name and email are still filled in.
-
-- [ ] **UX-14. Ticking is instant: optimistic rows with per-row pending**
-      (high, M) — The shopping item checkbox
-      (`shopping-list-client.tsx:179,860-870`), the share page
-      (`shared-shopping-list-client.tsx:36-47`), tasks
-      (`tasks-client.tsx:53,150,231`) and the inventory +/− steppers
-      (`inventory-table.tsx:207-213`) don't change until the server
-      answers. Meanwhile one shared `useTransition` disables every row, so
-      on weak in-store signal taps look lost. This breaks M5.
-
-      Fix: `useOptimistic` per row with rollback and an error toast, as
-      `recipe-manager.tsx:243-251` already does. Add stepper `aria-label`s
-      ("Decrease Wheat flour") while there.
-
-      Acceptance: an e2e test with a throttled route ticks three items in
-      a row, all three are checked before any response arrives, and they
-      persist after reload.
-
-- [ ] **UX-15. Dates, months and numbers in the user's locale** (high, S) —
-      Swedish users see English.
-      - "October 2026" on both budget pages
-        (`budget/month-navigator.tsx:37`, `toLocaleDateString(undefined)`
-        in a Server Component).
-      - "Sep 28 – Oct 4, 2026" on the meal planner
-        (`week-planner.tsx:190-192`, a client component, which also
-        risks a hydration mismatch).
-      - Default list names like "Inköpslista — 10/4/2026"
-        (`shopping-lists-overview.tsx:74`,
-        `shopping-list/actions.ts:91,1663`, `cooking-actions.ts:242`).
-      - `toFixed(2)` amounts and percentages ("12.50", "12.5%") in
-        `split-editor.tsx:100-115`, `log-shared-expense-dialog.tsx:306`
-        and `cost-analyzer.tsx:443`.
-      - Units shown raw ("12 pcs" rather than "12 st").
-
-      Fix: pass `locale` and use `Intl.DateTimeFormat`, `Intl.NumberFormat`
-      and `createMoneyFormat`. Add a unit display label in both
-      dictionaries; stored values don't change.
-
-      Acceptance: the sv smoke run asserts "oktober" on `/dashboard/budget`
-      and a Swedish week range on `/dashboard/meal-planning`.
+      Acceptance: the sv run shows "st" for a seeded item counted in
+      "pcs" on `/dashboard/inventory` and on a shopping list; a unit test
+      covers the helper's known/unknown/synonym cases.
 
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
@@ -446,21 +355,6 @@ don't build these in parallel:
 
       Acceptance: a unit test greps `actions.ts` files for string-literal
       `error:` values and fails on any.
-
-- [ ] **UX-18. Toasts clear the bottom bar and the home indicator** (medium,
-      S) — `<Toaster />` (`app/layout.tsx:98`) uses Sonner's 16 px mobile
-      offset. On dashboard pages every toast covers the bottom nav, and on
-      iOS it reaches into the home-indicator strip, so its swipe competes
-      with the home gesture. The "Undo" action button is 24 px (M3).
-
-      Fix: `mobileOffset` with the bar height plus
-      `env(safe-area-inset-bottom)` on dashboard routes, and 44 px
-      `[data-button]` under `pointer: coarse`.
-
-      In the same PR, make the copy actions (`share-list-button.tsx:102`,
-      `invite-button.tsx:83`, `calendar-feed-setting.tsx:78`) await
-      `clipboard.writeText` and show an error toast when it fails. Offer
-      `navigator.share` on phones.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
@@ -578,17 +472,6 @@ don't build these in parallel:
       - The phone's sticky add bar paints a flat band over the gradient.
 
       Add each new token pair to `globals-contrast.test.ts`.
-
-- [ ] **UX-26. Overview: the first screen shows today, not the setup card**
-      (medium, S)
-      - "Get set up" fills the whole first screen on an iPhone SE and in
-        landscape even when 3 of 5 steps are done. Collapse the finished
-        steps into "3 of 5 done", and let the user dismiss the card.
-      - Stat-card buttons sit at different heights, and on the iPad the
-        "View shopping lists" chevron sits on the border. Use `mt-auto` on
-        full-width buttons.
-      - The household-switcher "+" floats mid-header on every phone page.
-        Align it right.
 
 - [ ] **UX-27. Navigation always shows where you are** (medium, S)
       - Notifications and What's new highlight no bottom-bar item. Map
@@ -807,7 +690,7 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-11/UX-12) —
+- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
       - Drag the grabber or header to dismiss, with velocity and
         rubber-band.
       - Snap points (half and full) for long forms.

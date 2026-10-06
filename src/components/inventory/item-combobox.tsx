@@ -51,7 +51,11 @@ export function ItemCombobox({
   return (
     <Combobox
       items={comboboxItems}
-      value={value}
+      // Nothing picked is null, not "": Base UI's input clears a selection
+      // on Escape and stops the key there, and only lets it through to the
+      // dialog around it when the value already is null. With "" it never
+      // did, so Escape couldn't close the dialog (UX-11).
+      value={value === "" ? null : value}
       onValueChange={(next) => onValueChange(typeof next === "string" ? next : "")}
     >
       <ComboboxInputGroup aria-invalid={invalid || undefined}>
