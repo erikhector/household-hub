@@ -7,6 +7,7 @@ import { settleOptimisticAction } from "@/components/shared/settle-optimistic-ac
 import { Checkbox } from "@/components/ui/checkbox";
 import type { SharedShoppingList } from "@/app/share/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 /**
  * Client half of the public, unauthenticated share page
@@ -92,6 +93,7 @@ function SharedRow({
   saveFailed: string;
   onToggled: (itemId: string) => void;
 }) {
+  const unitLabel = useUnitLabel();
   const [, startTransition] = useTransition();
   const [purchased, toggleOptimisticPurchased] = useOptimistic<boolean, void>(item.purchased, (current) => !current);
 
@@ -111,9 +113,9 @@ function SharedRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span
           className={`truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
-          title={`${item.name} × ${item.quantity} ${item.unit}`}
+          title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
         >
-          {item.name} × {item.quantity} {item.unit}
+          {item.name} × {item.quantity} {unitLabel(item.unit)}
         </span>
         {item.note && (
           <span className="text-xs break-words whitespace-pre-line text-muted-foreground">{item.note}</span>

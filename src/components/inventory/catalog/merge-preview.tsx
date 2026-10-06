@@ -14,6 +14,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { format, plural } from "@/lib/i18n/format";
 import { createMoneyFormat } from "@/lib/currency";
+import { useUnitLabel } from "@/components/units-provider";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
 type Counts = MergePreview["items"][number]["counts"];
@@ -41,6 +42,7 @@ export function MergePreviewBody({
   onCancel: () => void;
   onMerged: () => void;
 }) {
+  const unitLabel = useUnitLabel();
   const copy = dict.mergeDialog;
   const idPrefix = useId();
   const [result, setResult] = useState<Awaited<ReturnType<typeof previewMergeAction>> | null>(null);
@@ -90,7 +92,7 @@ export function MergePreviewBody({
   const { plan, missingFactor, badFactor } = planMerge(keeper, items, factors);
   const ready = missingFactor.length === 0 && badFactor.length === 0;
   const planned = new Map(plan.items.map((entry) => [entry.id, entry]));
-  const amount = (value: number, unit: string) => `${value} ${unit}`;
+  const amount = (value: number, unit: string) => `${value} ${unitLabel(unit)}`;
   const dateFormat = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" });
   // UX-15: "12,50" in sv rather than toFixed's "12.50". No household
   // currency reaches the catalog, so it stays symbol-free.
@@ -126,7 +128,7 @@ export function MergePreviewBody({
     ...plan.conversions.map((conversion) => {
       const sentence = conversionSentence(conversion.fromUnit, conversion.factor, keeper.unit);
       return format(copy.conversion, {
-        sentence: `1 ${sentence.leadUnit} = ${sentence.amount} ${sentence.otherUnit}`,
+        sentence: `1 ${unitLabel(sentence.leadUnit)} = ${sentence.amount} ${unitLabel(sentence.otherUnit)}`,
       });
     }),
     ...plan.aliases.map((name) => format(copy.alias, { name, keeper: keeper.name })),
@@ -158,8 +160,8 @@ export function MergePreviewBody({
               )}
               {needsFactor && (
                 <div className="flex flex-col gap-1.5">
-                  <p className="text-muted-foreground">{format(copy.needsFactor, { from: item.unit, to: keeper.unit })}</p>
-                  <Label htmlFor={inputId}>{format(copy.factorLabel, { lead, other })}</Label>
+                  <p className="text-muted-foreground">{format(copy.needsFactor, { from: unitLabel(item.unit), to: unitLabel(keeper.unit) })}</p>
+                  <Label htmlFor={inputId}>{format(copy.factorLabel, { lead: unitLabel(lead), other: unitLabel(other) })}</Label>
                   <Input
                     id={inputId}
                     type="text"

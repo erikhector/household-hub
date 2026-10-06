@@ -139,8 +139,22 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   `datedName(prefix, locale)` (`src/lib/i18n/format.ts`), e.g.
   "Inköpslista — 5 okt. 2026"; the shopping-list and receipt dialogs'
   name placeholders use the same helper so they match what gets saved.
-  Number *inputs* stay `type="number"` with dot-decimal values. Units are
-  still shown as stored (UX-44).
+  Number *inputs* stay `type="number"` with dot-decimal values.
+- **Units are shown in the viewer's language (UX-44)**: stored units are
+  free text ("pcs", "tbsp"), but every place that displays one goes
+  through `unitLabel(unit, labels)` (`src/lib/units.ts`), which looks the
+  unit's `canonicalUnit()` up in the dictionary's `units` map, so a
+  Swedish user sees "6 st" for "pcs" and "msk" for "tbsp" (or
+  "tablespoon"), and an unknown unit ("glug") shows as stored. Server
+  Components call it with `dict.units`; Client Components use
+  `useUnitLabel()` from `UnitsProvider` (`src/components/units-provider.tsx`),
+  which the dashboard layout and the public share page fill from
+  `dict.units`, instead of threading the map through ~26 components'
+  props. Display only: stored values, unit inputs and comboboxes (which
+  list and accept the stored spelling), and every comparison and
+  conversion (`canonicalUnit`, `classifyUnits`) are unchanged. A
+  synonym is shown as its canonical unit's label in English too ("pieces"
+  reads "pcs"). A new known unit needs an entry in both dictionaries.
 - **Switching locale**: `setLocaleAction` (`src/lib/actions/locale.ts`) sets
   the cookie and calls `revalidatePath("/", "layout")`; the client-side
   `useLocaleToggle` hook (`src/components/language/use-locale-toggle.ts`)
@@ -3228,21 +3242,30 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
   constraint) the first time a meal is actually added to that week, not on
   page view, so browsing to an empty future/past week doesn't write rows.
-- **Empty slots (UX-5)**: a slot with no entries renders as one full-width
-  "<slot> + Add meal" row (`MealEntryDialog` with `slotLabel`, min height
-  36 px) instead of a label, a "Nothing planned" line and a small "+"
-  button, so an empty week is 28 single-line rows rather than a wall of
-  repeated text. A slot with entries keeps its label, the entries and the
-  small "+" that stacks another one. `e2e/meal-planner-empty-slots.spec.ts`
-  covers both.
+- **Empty days and controls (UX-5, UX-21)**: a day with no entries at all
+  is one card with a single "+ Add meal" button (`MealEntryDialog` with
+  `askSlot`), and the dialog asks for the slot (a "Meal" select, Dinner
+  preselected), so an empty week is 7 buttons instead of 28 identical rows.
+  Once a day has an entry it shows its four slots as before: an empty slot
+  is a full-width "<slot> + Add meal" row (`slotLabel`), a slot with entries
+  keeps its label, the entries and the small "+" that stacks another one.
+  The controls are one row: ‹ ›, the week range, "This week" (only when
+  another week is shown) and a ⋯ menu ("More planner actions") holding
+  "Copy last week" (empty week only) and "Add missing ingredients to
+  shopping list". On load, the current week scrolls today's card into view
+  when it isn't already fully visible (the old "Jump to today" button is
+  gone). The two recaps above the tabs load behind a fixed-height skeleton
+  (`RecapSkeleton` in `page.tsx`) rather than `fallback={null}`, so the
+  planner doesn't shift when they arrive. `e2e/meal-planner-empty-slots.spec.ts`
+  covers all of it.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
   chosen) to a date + `MealType` slot. There's no uniqueness constraint on
   `(date, mealType)` — multiple entries can stack in one slot (e.g. two
   snacks), matching the schema.
-- **Copy last week** (BACKLOG GAP-23): an empty week's planner header
-  shows a "Copy last week" button (`CopyLastWeekButton` in
+- **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
+  shows a "Copy last week" item (`copyLastWeek` in
   `week-planner.tsx`) that calls `copyWeekAction(fromWeekStart,
   toWeekStart)` in `planner-actions.ts` as a click action. Both keys are
   Zod-validated as `yyyy-mm-dd` Mondays and must differ; the household

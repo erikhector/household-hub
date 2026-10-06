@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getShoppingListByShareToken } from "@/app/share/shopping-list/actions";
 import { SharedShoppingListClient } from "@/components/shopping/shared-shopping-list-client";
 import { LegalFooter } from "@/components/legal-footer";
+import { UnitsProvider } from "@/components/units-provider";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 // Top-level, NOT under /dashboard — reached only via a
@@ -23,7 +24,9 @@ export default async function SharedShoppingListPage(
       <Card className="w-full max-w-md">
         {list ? (
           <CardContent>
-            <SharedShoppingListClient token={token} list={list} dict={dict.sharedShoppingList} />
+            <UnitsProvider labels={dict.units}>
+              <SharedShoppingListClient token={token} list={list} dict={dict.sharedShoppingList} />
+            </UnitsProvider>
           </CardContent>
         ) : (
           <>

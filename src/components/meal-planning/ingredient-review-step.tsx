@@ -26,6 +26,7 @@ import type { IngredientMatchStatus } from "@/lib/recipes/ingredient-match";
 import { rowUnitChoice, type RowUnitChoice, type UnitChoiceAction } from "@/lib/recipes/unit-choice";
 import type { IngredientPreviewItem } from "@/app/dashboard/meal-planning/recipe-actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -191,6 +192,7 @@ function ReviewRowCard({
   error: string | null;
   onChange: (patch: Partial<ReviewRow>) => void;
 }) {
+  const unitLabel = useUnitLabel();
   const t = dict.ingredientReview;
   const candidates = row.candidateIds
     .map((id) => review.items.find((item) => item.id === id))
@@ -318,18 +320,18 @@ function ReviewRowCard({
       )}
 
       {pantryUnit && isDefaultNewUnit && (
-        <p className="text-xs text-muted-foreground">{format(t.newUnitDefault, { unit: pantryUnit })}</p>
+        <p className="text-xs text-muted-foreground">{format(t.newUnitDefault, { unit: unitLabel(pantryUnit) })}</p>
       )}
       {pantryUnit && !isDefaultNewUnit && (unitClass === "same" || unitClass === "convertible") && (
-        <p className="text-xs text-muted-foreground">{format(t.unitOk, { unit: pantryUnit })}</p>
+        <p className="text-xs text-muted-foreground">{format(t.unitOk, { unit: unitLabel(pantryUnit) })}</p>
       )}
       {pantryUnit && !isDefaultNewUnit && unitClass === "known" && (
-        <p className="text-xs text-muted-foreground">{format(t.unitKnown, { unit: pantryUnit })}</p>
+        <p className="text-xs text-muted-foreground">{format(t.unitKnown, { unit: unitLabel(pantryUnit) })}</p>
       )}
       {pantryUnit && !isDefaultNewUnit && unitClass === "unknown" && (
         <p className="flex items-start gap-1.5 text-xs text-warning">
           <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden />
-          {format(t.unitUnknown, { recipeUnit: row.unit, itemUnit: pantryUnit })}
+          {format(t.unitUnknown, { recipeUnit: unitLabel(row.unit), itemUnit: unitLabel(pantryUnit) })}
         </p>
       )}
       {pantryUnit && unitClass === "unknown" && (
@@ -361,6 +363,7 @@ function UnitChoiceFields({
   dict: MealPlanningDict;
   onChange: (patch: Partial<ReviewRow>) => void;
 }) {
+  const unitLabel = useUnitLabel();
   const t = dict.ingredientReview;
   const group = `ingredient-review-${row.uid}-unit`;
   const option = (value: UnitChoiceAction, label: string) => (
@@ -382,15 +385,15 @@ function UnitChoiceFields({
       {choice.action === "remember" && (
         <div className="flex flex-col gap-1 pl-6">
           <div className="flex flex-wrap items-center gap-1.5 text-sm">
-            <span>1 {choice.leadUnit} =</span>
+            <span>1 {unitLabel(choice.leadUnit)} =</span>
             <Input
               value={choice.rememberValue}
               onChange={(e) => onChange({ rememberValue: e.target.value })}
               inputMode="decimal"
               className="h-8 w-24"
-              aria-label={format(t.unitRememberInputLabel, { unit: choice.otherUnit, leadUnit: choice.leadUnit })}
+              aria-label={format(t.unitRememberInputLabel, { unit: unitLabel(choice.otherUnit), leadUnit: unitLabel(choice.leadUnit) })}
             />
-            <span>{choice.otherUnit}</span>
+            <span>{unitLabel(choice.otherUnit)}</span>
           </div>
           {choice.fromHint && <p className="text-xs text-muted-foreground">{t.unitRememberHint}</p>}
         </div>
@@ -403,9 +406,9 @@ function UnitChoiceFields({
             onChange={(e) => onChange({ overrideValue: e.target.value })}
             inputMode="decimal"
             className="h-8 w-24"
-            aria-label={format(t.unitOverrideInputLabel, { unit: pantryUnit })}
+            aria-label={format(t.unitOverrideInputLabel, { unit: unitLabel(pantryUnit) })}
           />
-          <span>{pantryUnit}</span>
+          <span>{unitLabel(pantryUnit)}</span>
         </div>
       )}
       {option("defer", t.unitDefer)}

@@ -8,6 +8,7 @@ import {
   EmailVerificationBanner,
   EMAIL_VERIFICATION_DISMISSED_COOKIE,
 } from "@/components/dashboard/email-verification-banner";
+import { UnitsProvider } from "@/components/units-provider";
 import { requireHousehold } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
@@ -145,7 +146,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             row into view): without it "nearest" stops at main's bottom
             edge, which is behind BottomNav. */}
         <main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
-          {children}
+          <UnitsProvider labels={dict.units}>{children}</UnitsProvider>
         </main>
       </div>
       <BottomNav dict={shellDict} locale={locale} notifications={notifications} unseenRelease={unseenRelease} />

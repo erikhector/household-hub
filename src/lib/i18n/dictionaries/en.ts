@@ -6,6 +6,15 @@
 import { categoryLabels } from "@/lib/inventory/category-labels";
 
 export const en = {
+  // Display labels for stored units, keyed by canonicalUnit() (UX-44).
+  // Anything not listed shows as stored; see unitLabel() in lib/units.ts.
+  units: {
+    ml: "ml", cl: "cl", dl: "dl", l: "l", tsp: "tsp", krm: "krm", tbsp: "tbsp",
+    cup: "cup", "fl oz": "fl oz", floz: "fl oz", pint: "pint", quart: "quart", gallon: "gallon",
+    mg: "mg", g: "g", kg: "kg", oz: "oz", lb: "lb",
+    pcs: "pcs", clove: "clove", can: "can", pack: "pack", slice: "slice",
+    bunch: "bunch", jar: "jar", bag: "bag", bottle: "bottle", box: "box", pinch: "pinch",
+  },
   nav: {
     overview: "Overview",
     inventory: "Inventory",
@@ -1305,7 +1314,9 @@ export const en = {
     previousWeek: "Previous week",
     nextWeek: "Next week",
     thisWeek: "This week",
-    jumpToToday: "Jump to today",
+    morePlannerActions: "More planner actions",
+    // The slot picker in the "Add a meal" dialog opened from an empty day (UX-21).
+    mealSlotLabel: "Meal",
     // "Copy last week" on an empty week (BACKLOG GAP-23) — see copyWeekAction
     // in planner-actions.ts. Slots already filled are skipped, so {count} is
     // what was actually written, not last week's total.

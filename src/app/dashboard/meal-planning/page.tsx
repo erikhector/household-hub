@@ -222,6 +222,16 @@ async function PlannerTabSection({
   );
 }
 
+// UX-21: the recaps used to load with `fallback={null}` and push the planner
+// down when they arrived. Both render a one-line card (`py-2` + a 20 px
+// line, taller on phones where the dismiss button is 44 px), so this
+// reserves that height and the tabs stay put. A recap
+// that turns out to be empty or dismissed still collapses its slot once
+// loaded, but never after the planner under it has been looked at.
+function RecapSkeleton() {
+  return <div className="h-10 animate-pulse max-sm:h-[3.875rem] rounded-md border border-dashed bg-muted/40" role="status" aria-label="Loading" />;
+}
+
 function PlannerTabSkeleton() {
   return (
     <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label="Loading">
@@ -473,12 +483,12 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       <MealPlanningView
         dict={dict.mealPlanning}
         varietyRecap={
-          <Suspense key="variety-recap" fallback={null}>
+          <Suspense key="variety-recap" fallback={<RecapSkeleton />}>
             <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />
           </Suspense>
         }
         nutritionRecap={
-          <Suspense key="nutrition-recap" fallback={null}>
+          <Suspense key="nutrition-recap" fallback={<RecapSkeleton />}>
             <MealNutritionRecapSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
           </Suspense>
         }

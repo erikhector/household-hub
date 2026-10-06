@@ -17,6 +17,7 @@ import { putAwayItemsAction, type PutAwayEntry } from "@/app/dashboard/shopping-
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { useUnitLabel } from "@/components/units-provider";
 
 export type PutAwayItem = {
   id: string;
@@ -91,6 +92,7 @@ export function PutAwayDialog({
   dict: Dictionary["shoppingList"];
   autoAddDict: Dictionary["inventory"]["autoAdd"];
 }) {
+  const unitLabel = useUnitLabel();
   const t = dict.putAway;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -212,7 +214,7 @@ export function PutAwayDialog({
                   (linked ? (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-[6rem_1fr_1fr]">
                       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                        {format(t.quantityLabel, { unit: item.unit })}
+                        {format(t.quantityLabel, { unit: unitLabel(item.unit) })}
                         <Input
                           type="number"
                           inputMode="decimal"

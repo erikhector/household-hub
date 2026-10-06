@@ -96,6 +96,22 @@ enough to trust.
 
 Parallel-safe except where noted.
 
+### Bugs
+
+- [ ] **BUG-1. Survive a dropped pooled DB connection on page render** (impact: med, effort: S) —
+      Sentry JAVASCRIPT-NEXTJS-2 (2 events, 2026-10-04, `GET /dashboard`,
+      vercel-production, iPhone): `Error: Connection terminated unexpectedly`
+      from `pg-pool` inside a Prisma `queryRaw`, so the dashboard rendered the
+      error page. `src/lib/prisma.ts` builds the `Pool` with no
+      `pool.on("error", …)` handler and no `connectionTimeoutMillis`, so a
+      connection the pooler closed while idle is handed out and fails the
+      first query instead of being replaced. Add an `error` listener that logs
+      to Sentry and lets pg discard the client, set `connectionTimeoutMillis`,
+      and retry the read once on this specific error (not writes).
+      Acceptance: unit test with a mocked pool shows the `error` listener is
+      registered and a first-attempt "Connection terminated unexpectedly"
+      read succeeds on retry, while a write is not retried.
+
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -298,27 +314,6 @@ don't build these in parallel:
       Acceptance: a mobile spec fills the recipe form to the bottom and
       asserts the submit button is in the viewport without scrolling.
 
-- [ ] **UX-44. Units in the user's language** (medium, M) — split out of
-      UX-15, which shipped dates, months and numbers. Units are shown
-      exactly as stored, so a Swedish user sees "12 pcs" rather than
-      "12 st" (and "tbsp", "can", "pack" rather than "msk", "burk",
-      "förp"). Stored units are free text and about 60 places in 26 files
-      render one (`inventory-table.tsx`, `shopping-list-client.tsx`,
-      `put-away-dialog.tsx`, `cook-mode-dialog.tsx`,
-      `missing-ingredients-dialog.tsx`, `merge-preview.tsx`, the item
-      page, …), several of them under UX-14's optimistic-ticking work,
-      which is why it's its own PR.
-
-      Fix: a `units` map in both dictionaries keyed by `canonicalUnit()`
-      (`src/lib/units.ts`) for the known units, plus a `unitLabel(unit,
-      dict.units)` helper that falls back to the stored text for anything
-      unknown. Apply it everywhere a unit is displayed; stored values,
-      inputs and comparisons don't change.
-
-      Acceptance: the sv run shows "st" for a seeded item counted in
-      "pcs" on `/dashboard/inventory` and on a shopping list; a unit test
-      covers the helper's known/unknown/synonym cases.
-
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
       English only, for example `shopping-list/actions.ts:163,212`,
@@ -377,19 +372,6 @@ don't build these in parallel:
         `tabular-nums`; label the bare date ("Updated 4 Oct"); make the
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
-
-- [ ] **UX-21. Meal planner: today first, fewer placeholders** (medium, M)
-      - Four rows of controls push Monday down to ~550 px on an iPhone SE.
-      - The week is ~2,800 px of 28 identical "+ Add meal" rows, and
-        today (Sunday) comes last. That breaks M6, which wants one "Add"
-        per group.
-      - Recaps above the tabs load late with `fallback={null}` and push
-        the planner down (`meal-planning/page.tsx:472-479`).
-
-      Fix: one row (‹ › and the range) plus a ⋯ menu for Copy last week
-      and Add missing ingredients; scroll to today on load; one "+ Add
-      meal" per empty day that asks for the slot; a fixed-height skeleton
-      for the recaps.
 
 - [ ] **UX-22. Shopping list detail polish** (medium, S)
       - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put

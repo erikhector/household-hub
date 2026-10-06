@@ -6,7 +6,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { usedInRows } from "@/lib/inventory/item-units";
-import { canonicalUnit } from "@/lib/units";
+import { canonicalUnit, unitLabel } from "@/lib/units";
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
 import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
@@ -113,10 +113,10 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <p>
-            {format(dict.inStock, { amount: `${item.quantity} ${item.unit}` })}
+            {format(dict.inStock, { amount: `${item.quantity} ${unitLabel(item.unit, fullDict.units)}` })}
             <span className="text-sm text-muted-foreground">
               {" · "}
-              {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${item.unit}` })}
+              {format(dict.lowStockAt, { amount: `${item.lowStockThreshold} ${unitLabel(item.unit, fullDict.units)}` })}
             </span>
           </p>
           <ChangeUnitDialog
@@ -157,7 +157,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
                   {row.shoppingList.name}
                 </Link>{" "}
                 <span className="text-muted-foreground">
-                  ({row.quantity} {row.unit})
+                  ({row.quantity} {unitLabel(row.unit, fullDict.units)})
                 </span>
               </li>
             ))}

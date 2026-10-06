@@ -74,6 +74,7 @@ import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
 import type { ItemAliasLike } from "@/lib/item-alias";
+import { useUnitLabel } from "@/components/units-provider";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -727,6 +728,7 @@ function PrintableList({
   groups: ShoppingModeGroup<ShoppingListItemRow>[];
   dict: ShoppingListDict;
 }) {
+  const unitLabel = useUnitLabel();
   return (
     <section data-print-list className="hidden bg-white text-black print:block">
       <h1 className="mb-6 border-b-2 border-black pb-2 font-heading text-4xl font-bold">{name}</h1>
@@ -741,7 +743,7 @@ function PrintableList({
                 <li key={item.id} className="flex items-baseline gap-3 text-2xl leading-snug">
                   <span aria-hidden className="inline-block size-5 shrink-0 translate-y-0.5 border-2 border-black" />
                   <span>
-                    {item.name} × {item.quantity} {item.unit}
+                    {item.name} × {item.quantity} {unitLabel(item.unit)}
                   </span>
                 </li>
               ))}
@@ -816,6 +818,7 @@ function ShoppingRow({
   numberFormat: Intl.NumberFormat;
   autoAddDict: Dictionary["inventory"]["autoAdd"];
 }) {
+  const unitLabel = useUnitLabel();
   const needsMapping = item.inventoryItemId === null;
 
   // A just-added row scrolls into view if the list is long enough to have
@@ -885,9 +888,9 @@ function ShoppingRow({
           />
           <span
             className={`min-w-0 flex-1 break-words sm:truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
-            title={`${item.name} × ${item.quantity} ${item.unit}`}
+            title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
           >
-            {item.name} × {item.quantity} {item.unit}
+            {item.name} × {item.quantity} {unitLabel(item.unit)}
           </span>
           {item.addedAutomatically && (
             <Badge variant="secondary" className="shrink-0">

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
-import { CUSTOM_RECIPE_SENTINEL, type MealType } from "@/app/dashboard/meal-planning/meal-types";
+import { CUSTOM_RECIPE_SENTINEL, MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import type { MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -47,6 +47,18 @@ type CreateProps = CommonProps & {
   // tiny "+" button. Omitted, the trigger is the compact icon button that
   // sits beside a slot's existing entries.
   slotLabel?: string;
+  // UX-21: a day with nothing planned shows one "+ Add meal" for the whole
+  // day, so the dialog asks which slot (`mealType` is the preselected one).
+  askSlot?: boolean;
+};
+
+type MealTypeLabelKey = "mealTypeBreakfast" | "mealTypeLunch" | "mealTypeDinner" | "mealTypeSnack";
+
+const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
+  BREAKFAST: "mealTypeBreakfast",
+  LUNCH: "mealTypeLunch",
+  DINNER: "mealTypeDinner",
+  SNACK: "mealTypeSnack",
 };
 
 type EditProps = CommonProps & {
@@ -65,6 +77,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
     isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : CUSTOM_RECIPE_SENTINEL,
   );
   const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
+  const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
 
   const action = isEdit ? updateMealEntryAction : addMealEntryAction;
   const [state, formAction, pending] = useActionState(async (
@@ -102,11 +115,16 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
         render={
           isEdit ? (
             props.trigger
+          ) : props.askSlot ? (
+            <Button type="button" variant="ghost" className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
+              <Plus className="size-3.5" aria-hidden="true" />
+              {dict.addMeal}
+            </Button>
           ) : props.slotLabel ? (
             <Button
               type="button"
               variant="ghost"
-              className="h-9 w-full justify-between px-2 text-xs font-medium uppercase text-muted-foreground"
+              className="h-9 w-full justify-between px-2 text-xs font-medium uppercase text-muted-foreground max-sm:h-11"
             >
               <span>{props.slotLabel}</span>
               <span className="flex items-center gap-1 font-normal normal-case">
@@ -136,8 +154,26 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             <>
               <input type="hidden" name="weekStartDate" value={props.weekStartKey} />
               <input type="hidden" name="date" value={props.dateKey} />
-              <input type="hidden" name="mealType" value={props.mealType} />
+              <input type="hidden" name="mealType" value={mealType} />
             </>
+          )}
+
+          {!isEdit && props.askSlot && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="mealTypeSelect">{dict.mealSlotLabel}</Label>
+              <Select value={mealType} onValueChange={(v) => v && setMealType(v as MealType)}>
+                <SelectTrigger id="mealTypeSelect" className="w-full">
+                  <SelectValue>{(value: MealType) => dict[mealTypeDictKey[value]]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {MEAL_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {dict[mealTypeDictKey[type]]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           <div className="flex flex-col gap-2">
