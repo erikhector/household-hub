@@ -263,6 +263,11 @@ Body text at least 14 px and form fields 16 px on phones; text zoom to
 safe-area insets (notch, home indicator). Swedish strings and long names
 wrap or truncate with the full value reachable, never overflow.
 
+Exception: the bottom bar's tab labels and the notification count badge
+are chrome, not body text. Five equal tabs at 412 px leave ~80 px per
+label, which fits Swedish words at 12 px (`text-xs`) but not 14 px. 12 px
+is the floor for them; nothing smaller anywhere.
+
 ### M10. Accessible on a phone
 
 About 15% of people live with some form of disability, and small screens

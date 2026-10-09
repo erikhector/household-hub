@@ -406,17 +406,6 @@ don't build these in parallel:
 
       Add each new token pair to `globals-contrast.test.ts`.
 
-- [ ] **UX-27. Navigation always shows where you are** (medium, S)
-      - Notifications and What's new highlight no bottom-bar item. Map
-        them to "More".
-      - Bottom-bar labels are 10.4 px and the badge 9 px
-        (`bottom-nav.tsx:115,137,148`), below M9. Use ≥ 12 px and write
-        the M9 exception into DESIGN.md.
-      - The collapsed sidebar names its icons only in `title`
-        (`sidebar.tsx:102-182`), which touch never shows. Add `aria-label`
-        and a Base UI Tooltip.
-      - The sidebar footer doesn't mark the active page.
-
 - [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
       - **Push on iOS.** iOS Safari says push "isn't supported in this
         browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside

@@ -21,6 +21,7 @@ import Link from "next/link";
 import { Bell, CalendarClock, CalendarDays, CheckCircle2, Package, ShoppingBag, TrendingUp, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -205,27 +206,42 @@ export function NotificationBell({
   items,
   dict,
   expanded,
+  active,
 }: {
   items: NotificationItem[];
   dict: Dictionary["notifications"];
   expanded: boolean;
+  // On the notification centre page: the footer marks it like any other
+  // current page (UX-27).
+  active?: boolean;
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
+      <Tooltip
+        label={dict.bellAriaLabel}
+        disabled={expanded}
         render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-            title={dict.bellAriaLabel}
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={expanded ? undefined : dict.bellAriaLabel}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "w-full",
+                  expanded ? "justify-start gap-2.5" : "justify-center",
+                  active && "bg-muted text-foreground",
+                )}
+              />
+            }
           />
         }
       >
         <BellIcon count={items.length} />
         {expanded && dict.title}
-      </DropdownMenuTrigger>
+      </Tooltip>
       <DropdownMenuContent align="start" className="w-64">
         <NotificationEntries items={items} dict={dict} />
         <DropdownMenuSeparator />

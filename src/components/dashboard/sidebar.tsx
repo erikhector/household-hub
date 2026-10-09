@@ -6,6 +6,7 @@ import { Suspense, use, useState } from "react";
 import { ChevronLeft, ChevronRight, Languages, LogOut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import { navItems, isNavItemActive, NAV_ICON_TILE_CLASSES, SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
 import { useLogout } from "@/lib/push-client";
@@ -28,13 +29,59 @@ function NotificationBellContent({
   notifications,
   dict,
   expanded,
+  active,
 }: {
   notifications: Promise<NotificationItem[]>;
   dict: Dictionary["notifications"];
   expanded: boolean;
+  active: boolean;
 }) {
   const items = use(notifications);
-  return <NotificationBell items={items} dict={dict} expanded={expanded} />;
+  return <NotificationBell items={items} dict={dict} expanded={expanded} active={active} />;
+}
+
+// A footer action. Collapsed, it is an icon alone: `aria-label` names it for
+// screen readers and the Tooltip shows it on hover/focus, since a `title`
+// never appears on touch (UX-27). Expanded, the visible text is the name
+// (`alwaysNamed` keeps the aria-label for the collapse toggle, whose visible
+// text is the shorter "Collapse").
+function FooterButton({
+  label,
+  text,
+  expanded,
+  onClick,
+  disabled,
+  alwaysNamed,
+  children,
+}: {
+  label: string;
+  text: string;
+  expanded: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  alwaysNamed?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip
+      label={label}
+      disabled={expanded}
+      render={
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onClick}
+          disabled={disabled}
+          aria-label={expanded && !alwaysNamed ? undefined : label}
+          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
+        />
+      }
+    >
+      {children}
+      {expanded && text}
+    </Tooltip>
+  );
 }
 
 export function Sidebar({
@@ -58,6 +105,9 @@ export function Sidebar({
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const pathname = usePathname();
+  // The footer pages aren't in navItems, so they mark themselves (UX-27).
+  const whatsNewActive = isNavItemActive(pathname, "/dashboard/whats-new");
+  const notificationsActive = isNavItemActive(pathname, "/dashboard/notifications");
   const { current: themeChoice, Icon: ThemeIcon, cycle: cycleTheme } = useThemeCycle();
   // Label the toggle with the state it will switch *to* (matching the
   // locale toggle right next to it, which names the target locale rather
@@ -90,12 +140,18 @@ export function Sidebar({
         {expanded ? (
           <HouseholdSwitcher current={current} households={households} dict={switcherDict} />
         ) : (
-          <span
-            className="flex size-8 items-center justify-center rounded-md bg-muted text-xs font-semibold"
-            title={current.name}
+          <Tooltip
+            label={current.name}
+            render={
+              <span
+                role="img"
+                aria-label={current.name}
+                className="flex size-8 items-center justify-center rounded-md bg-muted text-xs font-semibold"
+              />
+            }
           >
             {current.name.slice(0, 1).toUpperCase()}
-          </span>
+          </Tooltip>
         )}
       </div>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2 short:flex-none short:overflow-visible">
@@ -103,17 +159,24 @@ export function Sidebar({
           const active = isNavItemActive(pathname, href);
           const label = dict.nav[key];
           return (
-            <Link
+            <Tooltip
               key={href}
-              href={href}
-              title={expanded ? undefined : label}
-              className={cn(
-                "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors pointer-coarse:min-h-11",
-                !expanded && "justify-center",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
+              label={label}
+              disabled={expanded}
+              render={
+                <Link
+                  href={href}
+                  aria-label={expanded ? undefined : label}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors pointer-coarse:min-h-11",
+                    !expanded && "justify-center",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                />
+              }
             >
               <span
                 className={cn(
@@ -124,7 +187,7 @@ export function Sidebar({
                 <Icon className="size-4 shrink-0" />
               </span>
               {expanded && <span className="truncate">{label}</span>}
-            </Link>
+            </Tooltip>
           );
         })}
       </nav>
@@ -132,16 +195,23 @@ export function Sidebar({
         {/* Doubles as the app's version display. The dot stays until the
             user opens What's new for the newest release (see
             src/lib/release-notes/index.ts). */}
-        <Link
-          href="/dashboard/whats-new"
-          title={expanded ? undefined : `${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
-          className={cn(
-            "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors pointer-coarse:h-11",
-            !expanded && "justify-center",
-            isNavItemActive(pathname, "/dashboard/whats-new")
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
-          )}
+        <Tooltip
+          label={`${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
+          disabled={expanded}
+          render={
+            <Link
+              href="/dashboard/whats-new"
+              aria-label={expanded ? undefined : `${dict.nav.whatsNew} · v${CURRENT_VERSION}`}
+              aria-current={whatsNewActive ? "page" : undefined}
+              className={cn(
+                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors pointer-coarse:h-11",
+                !expanded && "justify-center",
+                whatsNewActive
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            />
+          }
         >
           <span className="relative inline-flex">
             <Sparkles className="size-4" />
@@ -157,55 +227,46 @@ export function Sidebar({
               <span className="ml-auto text-xs tabular-nums">v{CURRENT_VERSION}</span>
             </>
           )}
-        </Link>
-        <Suspense fallback={<NotificationBell items={[]} dict={dict.notifications} expanded={expanded} />}>
-          <NotificationBellContent notifications={notifications} dict={dict.notifications} expanded={expanded} />
+        </Tooltip>
+        <Suspense
+          fallback={<NotificationBell items={[]} dict={dict.notifications} expanded={expanded} active={notificationsActive} />}
+        >
+          <NotificationBellContent
+            notifications={notifications}
+            dict={dict.notifications}
+            expanded={expanded}
+            active={notificationsActive}
+          />
         </Suspense>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        <FooterButton
+          label={dict.language.toggleLabel}
+          expanded={expanded}
           onClick={toggleLocale}
-          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-          title={dict.language.toggleLabel}
+          text={nextLocale === "sv" ? dict.language.swedish : dict.language.english}
         >
           <Languages className="size-4" />
-          {expanded && (nextLocale === "sv" ? dict.language.swedish : dict.language.english)}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={cycleTheme}
-          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-          title={dict.theme.toggleLabel}
-        >
+        </FooterButton>
+        <FooterButton label={dict.theme.toggleLabel} expanded={expanded} onClick={cycleTheme} text={dict.theme[nextTheme]}>
           <ThemeIcon className="size-4" />
-          {expanded && dict.theme[nextTheme]}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        </FooterButton>
+        <FooterButton
+          label={dict.nav.logOut}
+          expanded={expanded}
           onClick={logOut}
           disabled={loggingOut}
-          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-          title={expanded ? undefined : dict.nav.logOut}
+          text={dict.nav.logOut}
         >
           <LogOut className="size-4" />
-          {expanded && dict.nav.logOut}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        </FooterButton>
+        <FooterButton
+          label={expanded ? dict.nav.collapseSidebar : dict.nav.expandSidebar}
+          expanded={expanded}
           onClick={toggle}
-          className={cn("w-full", expanded ? "justify-start gap-2.5" : "justify-center")}
-          aria-label={expanded ? dict.nav.collapseSidebar : dict.nav.expandSidebar}
+          text={dict.nav.collapse}
+          alwaysNamed
         >
           {expanded ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
-          {expanded && dict.nav.collapse}
-        </Button>
+        </FooterButton>
       </div>
     </aside>
   );

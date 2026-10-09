@@ -92,3 +92,15 @@ export const overflowMobileNavItems = navItems.filter((item) => !primaryMobileHr
 export function isNavItemActive(pathname: string, href: string) {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 }
+
+// Pages reached from the "More" menu on a phone that aren't one of
+// overflowMobileNavItems: What's new and the notification centre sit in the
+// same menu, so while one is open "More" is where you are (UX-27).
+const moreMenuExtraHrefs = ["/dashboard/whats-new", "/dashboard/notifications"];
+
+export function isMoreMenuActive(pathname: string) {
+  return (
+    overflowMobileNavItems.some((item) => isNavItemActive(pathname, item.href)) ||
+    moreMenuExtraHrefs.some((href) => isNavItemActive(pathname, href))
+  );
+}
