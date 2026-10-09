@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.57.0",
+    "date": "2026-10-09",
+    "pr": 177,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now feels at home on your phone: iPhone and iPad users get the right install and notification steps, the browser chrome matches the app theme, and older browsers get a friendly nudge to update.",
+      "sv": "Squirrel känns nu mer hemma på telefonen: iPhone- och iPad-användare får rätt installations- och notisvägledning, webbläsaren matchar appens tema och äldre webbläsare får en vänlig puff att uppdatera."
+    }
+  },
+  {
     "version": "0.56.1",
     "date": "2026-10-09",
     "pr": 175,
