@@ -18,3 +18,7 @@ ALTER TABLE "PreparedBatch" ADD CONSTRAINT "PreparedBatch_recipeId_fkey" FOREIGN
 
 -- RenameIndex
 ALTER INDEX "PreparedBatch_household_idx" RENAME TO "PreparedBatch_householdId_idx";
+
+-- Re-add MealPlanEntry foreign key and index (preserve referential integrity)
+ALTER TABLE "MealPlanEntry" ADD CONSTRAINT "MealPlanEntry_preparedBatchId_fkey" FOREIGN KEY ("preparedBatchId") REFERENCES "PreparedBatch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "MealPlanEntry_preparedBatchId_idx" ON "MealPlanEntry" ("preparedBatchId");
