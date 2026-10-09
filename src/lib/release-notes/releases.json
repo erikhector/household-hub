@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.55.0",
+    "date": "2026-10-09",
+    "pr": 172,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page is tidier: voice and barcode buttons sit inside the add field, item buttons always appear in the same order, and \"Match item\" is easier to see. The receipt button is now called \"Register receipt\" everywhere, and closing a scanned receipt or shelf scan asks before throwing it away.",
+      "sv": "Inköpslistan är snyggare: röst- och streckkodsknapparna sitter i skrivfältet, knapparna på varje vara kommer alltid i samma ordning och \"Koppla vara\" syns bättre. Kvittoknappen heter nu \"Registrera kvitto\" överallt, och när du stänger ett inläst kvitto eller en hyllskanning får du en fråga innan det kastas."
+    }
+  },
+  {
     "version": "0.54.0",
     "date": "2026-10-09",
     "pr": 171,
