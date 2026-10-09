@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.57.1",
+    "date": "2026-10-09",
+    "pr": 180,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Save buttons in pop-up sheets now stay visible while you fill in long forms, and sheets no longer hide behind the phone keyboard.",
+      "sv": "Spara-knapparna i popup-paneler ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
+    }
+  },
+  {
     "version": "0.57.0",
     "date": "2026-10-09",
     "pr": 177,
