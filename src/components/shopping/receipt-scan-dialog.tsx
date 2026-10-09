@@ -1,6 +1,6 @@
 "use client";
 
-// "Scan receipt" — take a photo of a paper receipt and use it to mark
+// "Register receipt" (UX-22: one name with the index page's action) — take a photo of a paper receipt and use it to mark
 // multiple shopping-list items purchased (with a price) in one go, instead
 // of checking them off and pricing them one at a time. See REQUIREMENTS.md
 // / the household budget's Cost analyzer for why estimatedPrice matters:
@@ -30,6 +30,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import { Camera, ImageUp, Loader2, Plus } from "lucide-react";
+import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,11 +137,23 @@ export function ReceiptScanDialog({
     unit: "pcs",
     category: "",
   });
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const matchOptions = [...pendingItems, ...extraItems];
   const itemNames = [...new Set(inventoryItems.map((i) => i.name))].sort((a, b) => a.localeCompare(b));
+
+  // A reviewed receipt was paid for (the AI read), so closing it asks first
+  // (UX-22). Every other phase has nothing worth keeping.
+  function requestClose() {
+    if (phase === "review") {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    setOpen(false);
+    reset();
+  }
 
   function reset() {
     setPhase("idle");
@@ -526,11 +539,21 @@ export function ReceiptScanDialog({
         )}
       </div>
 
+      <DiscardReviewDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        dict={dict.discard}
+        onDiscard={() => {
+          setOpen(false);
+          reset();
+        }}
+      />
+
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) reset();
+          if (!next) requestClose();
+          else setOpen(true);
         }}
       >
         <DialogContent className="sm:max-w-lg">
@@ -627,7 +650,7 @@ export function ReceiptScanDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={requestClose}
               disabled={phase === "applying"}
             >
               {dict.cancel}

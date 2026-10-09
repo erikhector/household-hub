@@ -646,11 +646,17 @@ export const en = {
       existingSelectionRequired: 'Choose an item, or switch to "Create new" or "Skip".',
     },
     receiptScan: {
-      scanButton: "Scan receipt",
+      discard: {
+        title: "Discard this review?",
+        description: "The receipt has already been read. If you close now you'll have to take the photo again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
+      scanButton: "Register receipt",
       scanDisabledHint: "Add items to this list first — there's nothing yet to match a receipt against.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
-      dialogTitle: "Scan receipt",
+      dialogTitle: "Register receipt",
       analyzing: "Reading your receipt with AI…",
       reading: "Reading receipt… this can take a moment the first time.",
       noLinesFound:
@@ -699,6 +705,12 @@ export const en = {
       addItemError: "Couldn't add that item — try again.",
     },
     registerReceipt: {
+      discard: {
+        title: "Discard this review?",
+        description: "The receipt has already been read. If you close now you'll have to take the photo again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
       button: "Register receipt",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
@@ -961,6 +973,12 @@ export const en = {
       done: "Done",
     },
     aiShelfScan: {
+      discard: {
+        title: "Discard this scan?",
+        description: "The shelf has already been read. If you close now you'll have to scan it again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
       triggerLabel: "Scan a shelf",
       betaBadge: "Beta",
       dialogTitle: "Scan a shelf with AI",

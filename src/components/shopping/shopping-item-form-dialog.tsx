@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -275,10 +275,22 @@ export function ShoppingItemFormDialog({
             <DialogTrigger
               nativeButton={false}
               render={
+                // `warning` is the tinted pair (text on its own 10% tint)
+                // that clears contrast in light mode, where bare
+                // text-warning on the card didn't; the icon means the
+                // state isn't carried by colour alone. `order-first` puts
+                // it in the leading slot the category chip takes on a
+                // linked row, so a row's controls always read
+                // [chip or match][price][edit][delete] (UX-22). Accepted
+                // trade-off: tab order puts it after the price, because the
+                // trigger shares a Dialog root with the edit button and
+                // can't be rendered ahead of PriceTag without splitting it
+                // from its dialog; all three stay adjacent on one row.
                 <Badge
-                  variant="outline"
-                  className="touch-target shrink-0 cursor-pointer justify-center border-dashed text-warning hover:bg-warning/10"
+                  variant="warning"
+                  className="touch-target order-first shrink-0 cursor-pointer justify-center"
                 >
+                  <TriangleAlert aria-hidden />
                   {matchItemLabel}
                 </Badge>
               }

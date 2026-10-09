@@ -610,11 +610,17 @@ export const sv = {
       existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny" eller "Hoppa över".',
     },
     receiptScan: {
-      scanButton: "Skanna kvitto",
+      discard: {
+        title: "Kasta bort granskningen?",
+        description: "Kvittot är redan inläst. Om du stänger nu måste du ta fotot igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
+      scanButton: "Registrera kvitto",
       scanDisabledHint: "Lägg till varor på listan först — det finns inget att matcha ett kvitto mot ännu.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
-      dialogTitle: "Skanna kvitto",
+      dialogTitle: "Registrera kvitto",
       analyzing: "Läser kvittot med AI…",
       reading: "Läser kvittot… det kan ta en stund första gången.",
       noLinesFound:
@@ -658,6 +664,12 @@ export const sv = {
       addItemError: "Kunde inte lägga till varan — försök igen.",
     },
     registerReceipt: {
+      discard: {
+        title: "Kasta bort granskningen?",
+        description: "Kvittot är redan inläst. Om du stänger nu måste du ta fotot igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
       button: "Registrera kvitto",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
@@ -901,6 +913,12 @@ export const sv = {
       done: "Klar",
     },
     aiShelfScan: {
+      discard: {
+        title: "Kasta bort skanningen?",
+        description: "Hyllan är redan inläst. Om du stänger nu måste du skanna den igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
       triggerLabel: "Skanna en hylla",
       betaBadge: "Beta",
       dialogTitle: "Skanna en hylla med AI",

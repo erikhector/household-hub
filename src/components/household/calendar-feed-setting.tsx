@@ -123,7 +123,7 @@ export function CalendarFeedSetting({
       ) : isOwner ? (
         <div className="flex flex-col items-start gap-2">
           <p className="text-sm text-muted-foreground">{dict.offDescription}</p>
-          <Button type="button" disabled={isEnabling} onClick={handleEnable}>
+          <Button type="button" variant="secondary" disabled={isEnabling} onClick={handleEnable}>
             {isEnabling ? dict.enabling : dict.enable}
           </Button>
         </div>
