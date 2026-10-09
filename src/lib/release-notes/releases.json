@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.56.1",
+    "date": "2026-10-09",
+    "pr": 175,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Light theme is easier on the eyes: buttons, tabs, fields and numbers now have proper contrast, and the sticky bars on phones blend into the background.",
+      "sv": "Ljust tema är behagligare för ögonen: knappar, flikar, fält och siffror har nu ordentlig kontrast, och de fästa fälten på telefonen smälter in i bakgrunden."
+    }
+  },
+  {
     "version": "0.56.0",
     "date": "2026-10-09",
     "pr": 174,
