@@ -206,8 +206,10 @@ export function SmartAddBar({
 
   return (
     // Sticky on phones, where the list scrolls under it, so the add line is
-    // always one tap away — same treatment as the inventory search bar.
-    <div className="flex flex-col gap-1.5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-1 max-sm:pb-2">
+    // always one tap away — same treatment as the inventory search bar:
+    // translucent with a blur so it melts into the page gradient instead
+    // of painting a flat band over it (UX-25).
+    <div className="flex flex-col gap-1.5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background/85 max-sm:px-4 max-sm:pt-1 max-sm:pb-2 max-sm:backdrop-blur-sm">
       <div className="flex items-center gap-1.5">
         <div className="relative min-w-0 flex-1">
           <Input

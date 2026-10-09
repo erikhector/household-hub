@@ -392,20 +392,6 @@ don't build these in parallel:
       - Recurring rows: `flex-wrap` the title row so Swedish names don't
         truncate to nothing (`:342`).
 
-- [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
-      so light gets less attention:
-      - Disabled primary buttons are white on pale lilac (~1.8:1) and
-        look broken.
-      - The active segmented tab (meal planner, budgets) barely differs
-        from its track.
-      - 2 px field outlines are much heavier than the 1 px card rings.
-      - Overview stat numbers use `chart-1/2` as text, and the amber is
-        ~2.5:1 (`dashboard/page.tsx:232,258,282`).
-      - Completed onboarding rows fade to ~2.5:1.
-      - The phone's sticky add bar paints a flat band over the gradient.
-
-      Add each new token pair to `globals-contrast.test.ts`.
-
 - [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
       - **Push on iOS.** iOS Safari says push "isn't supported in this
         browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside

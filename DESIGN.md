@@ -314,9 +314,11 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   links, the active nav item and the checkbox accent. Don't use it for
   decoration: the brand's purple is carried by the mascot and the
   gradient. Put `primary-foreground` on it.
-- `secondary`, `muted` and `accent` are quiet fills: secondary buttons and
-  the active tab (`secondary`), tracks and hovers (`muted`), selected menu
-  rows (`accent`). Pair each with its `-foreground`.
+- `secondary`, `muted` and `accent` are quiet fills: secondary buttons,
+  segmented tracks and hovers (`muted`), selected menu rows (`accent`). The
+  active segmented tab is a `card` pill, ringed and lifted off the track —
+  the `secondary` fill was 1.03:1 against `muted`, so the edge and shadow
+  carry the selection, not the fill. Pair each with its `-foreground`.
 - Status is text on a tint of itself (10% light, 20% dark), never a solid
   block: `destructive` (delete, errors, over budget), `warning` (amber:
   tight, running low), `attention` (orange: needs a look), `success`
@@ -329,7 +331,7 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   30% border. Info and plain toasts stay neutral `popover`.
 - Charts take `chart-1` … `chart-5` in order. Chart colours are for marks,
   not text: use `success`, not `chart-5`, for green words and numbers.
-- Borders are `border` (1px) for decorative hairlines and `input` (2px)
+- Borders are `border` (1px) for decorative hairlines and `input` (1px)
   for field outlines, which must stay at 3:1. Cards are set apart with a
   1px ring of `foreground` at 10%, not a border colour or a shadow.
 
@@ -378,7 +380,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 - Focus is always visible: the control's border turns `ring` and a 3px
   halo of `ring` at 50% appears. Invalid fields swap `ring` for
   `destructive`.
-- Disabled is 50% opacity with no pointer events.
+- Disabled keeps its shape at full opacity for solid fills (`muted` fill,
+  `muted-foreground` label — white on a faded primary was ~1.5:1). Other
+  controls fade to 50% opacity. Everything disabled has no pointer events.
 - Dialogs slide up from the bottom on phones and zoom in (95%) from `sm`.
 
 ### Iconography
