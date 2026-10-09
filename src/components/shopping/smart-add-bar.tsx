@@ -231,7 +231,35 @@ export function SmartAddBar({
             onBlur={() => setFocused(false)}
             placeholder={speech.listening ? dict.voiceListening : dict.placeholder}
             maxLength={1000}
+            // Room for the trailing mic + scan buttons (44 px each on a
+            // phone, M3), so typed text never runs underneath them.
+            className={speech.supported ? "pr-[4.5rem] max-sm:pr-24" : "pr-10 max-sm:pr-12"}
           />
+          {/* Mic and scan sit inside the field (UX-22): on a 320 px phone
+              three outlined buttons beside it squeezed the placeholder to
+              "Add items, e.g. 2". Only Add stays outside, as the primary. */}
+          <div className="absolute inset-y-0 right-0 flex items-center">
+            {speech.supported && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className={cn("text-muted-foreground", speech.listening && "text-destructive")}
+                aria-label={speech.listening ? dict.voiceStop : dict.voiceLabel}
+                onClick={() => (speech.listening ? speech.stop() : speech.start())}
+              >
+                {speech.listening ? <Square className="size-4" /> : <Mic className="size-4" />}
+              </Button>
+            )}
+            <BarcodeScannerButton
+              dict={barcodeDict}
+              size="icon"
+              variant="ghost"
+              className="text-muted-foreground"
+              label={dict.scanLabel}
+              onDetected={handleScanned}
+            />
+          </div>
           {open && (
             <ul
               id={listboxId}
@@ -269,23 +297,6 @@ export function SmartAddBar({
             </ul>
           )}
         </div>
-        {speech.supported && (
-          <Button
-            type="button"
-            size="icon"
-            variant={speech.listening ? "destructive" : "outline"}
-            aria-label={speech.listening ? dict.voiceStop : dict.voiceLabel}
-            onClick={() => (speech.listening ? speech.stop() : speech.start())}
-          >
-            {speech.listening ? <Square className="size-4" /> : <Mic className="size-4" />}
-          </Button>
-        )}
-        <BarcodeScannerButton
-          dict={barcodeDict}
-          size="icon"
-          label={dict.scanLabel}
-          onDetected={handleScanned}
-        />
         <Button
           type="button"
           size="icon"

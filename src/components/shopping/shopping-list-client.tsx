@@ -667,6 +667,7 @@ export function ShoppingListClient({
                     item={item}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
+                    groupedByCategory
                     isPending={isPending}
                     startTransition={startTransition}
                     inventoryItems={inventoryItems}
@@ -803,11 +804,15 @@ function ShoppingRow({
   numberFormat,
   autoAddDict,
   awaitingPutAway = false,
+  groupedByCategory = false,
 }: {
   item: ShoppingListItemRow;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
   awaitingPutAway?: boolean;
   highlighted?: boolean;
+  /** The row sits under its category's group header (the pending section),
+   * so its own category chip would only repeat that header (UX-22). */
+  groupedByCategory?: boolean;
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
@@ -917,8 +922,10 @@ function ShoppingRow({
           {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
               Only on an editable, linked row — an unlinked one has no
               category yet (the mapping flow picks one), and a read-only
-              list already shows each row's category as its group header. */}
-          {editable && item.category !== null && (
+              list already shows each row's category as its group header.
+              Rows under a group header skip it for the same reason
+              (UX-22), so it shows on the flat Purchased section. */}
+          {editable && item.category !== null && !groupedByCategory && (
             <CategoryChip
               itemId={item.id}
               itemName={item.name}

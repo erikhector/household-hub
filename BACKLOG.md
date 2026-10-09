@@ -373,23 +373,6 @@ don't build these in parallel:
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
 
-- [ ] **UX-22. Shopping list detail polish** (medium, S)
-      - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put
-        mic and scan inside it as trailing adornments.
-      - Row actions come in a different order on each row ([Baking][Add
-        price][✎][🗑] vs [Add price][✎][Match item][🗑]). Use a fixed
-        order with delete last.
-      - Hide the category chip when the list is grouped by that category.
-      - Make "Match item" `warning` text on its tint with an icon (it's
-        low contrast in light).
-      - Use one name for the receipt action ("Register receipt" on the
-        index, "Scan receipt" in the detail).
-      - Ask before throwing away a reviewed receipt or AI shelf scan on
-        close (`receipt-scan-dialog.tsx:531`,
-        `register-receipt-dialog.tsx:505`,
-        `ai-shelf-scan-dialog.tsx:117`). Today a back swipe means
-        re-photographing and paying for the AI call again.
-
 - [ ] **UX-23. Budgets: tabs, the disabled primary and the charts**
       (medium, M)
       - The tabs wrap on a 320 px phone with "Insights" alone on row 2.

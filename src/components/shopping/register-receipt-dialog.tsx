@@ -33,6 +33,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Camera, ImageUp, Loader2, Trash2 } from "lucide-react";
+import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -120,11 +121,23 @@ export function RegisterReceiptDialog({
   const [listName, setListName] = useState("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [showAccepted, setShowAccepted] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
   const itemNames = [...new Set(inventoryItems.map((i) => i.name))].sort((a, b) => a.localeCompare(b));
   const namePlaceholder = datedName(dict.namePlaceholderPrefix, locale);
+
+  // A reviewed receipt was paid for (the AI read), so closing it asks first
+  // (UX-22). Every other phase has nothing worth keeping.
+  function requestClose() {
+    if (phase === "review") {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    setOpen(false);
+    reset();
+  }
 
   function reset() {
     setPhase("idle");
@@ -504,11 +517,21 @@ export function RegisterReceiptDialog({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <DiscardReviewDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        dict={dict.discard}
+        onDiscard={() => {
+          setOpen(false);
+          reset();
+        }}
+      />
+
       <Dialog
         open={open}
         onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) reset();
+          if (!next) requestClose();
+          else setOpen(true);
         }}
       >
         <DialogContent className="sm:max-w-lg">
@@ -616,7 +639,7 @@ export function RegisterReceiptDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={requestClose}
               disabled={phase === "applying"}
             >
               {dict.cancel}

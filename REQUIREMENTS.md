@@ -682,7 +682,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     configured) only when neither step recognizes the name. A category the
     user typed in the review is never second-guessed.
     **Correcting a guess in place (AUTO-2b)**: every editable, linked
-    shopping-list row shows its `InventoryItem`'s category as a small chip
+    shopping-list row in the flat Purchased section shows (UX-22: rows
+    under their category's group header don't, since the chip would repeat
+    the header) its `InventoryItem`'s category as a small chip
     (`CategoryChip`, `src/components/shopping/category-chip.tsx`, outside
     the row's `<label>` so tapping it doesn't toggle purchased). Tapping it
     opens a menu of the household's existing categories plus "New
@@ -1899,10 +1901,25 @@ top of it. No migration was needed.
     as the rest of the analyzer plus one small `ShoppingListItem` id query
     in the same `Promise.all`. No schema change.
 
+#### Detail page polish (UX-22)
+
+- The add line's mic and barcode buttons are ghost buttons inside the
+  field's right edge (the input pads for them); only Add sits outside it.
+- A row's controls keep one order: [category chip or "Match item"]
+  [price] [edit] [delete]. "Match item" is a `warning` badge (text on its
+  own tint, with a triangle icon) placed in the chip's leading slot, and
+  pending rows under a category header omit the chip that would repeat it.
+- Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
+  or the AI shelf scan while their review step is showing asks first
+  ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,
+  backdrop, Esc or a back swipe, since re-reading means a new photo and
+  another AI call. Other phases close at once. Not covered by e2e: reaching
+  the review step needs a real AI/OCR read.
+
 #### Finishing the trip in one gesture (AUTO-5)
 
 The detail page's header keeps only what's used on every trip visible:
-"Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
+"Register receipt" (UX-22: the same name as the index page's action) and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
 smart add line below. The menu holds add item, import, add low-stock
 items, resolve mappings (when there are enough unlinked items), share,
 export, print (below), then — after a separator — "Complete list", archive/unarchive, and
@@ -2739,7 +2756,7 @@ scanning it again is a one-step stock change instead of a name to type.
 
 ## Receipt scanning
 
-A "Scan receipt" button on an active shopping list's detail page
+A "Register receipt" button (named "Scan receipt" before UX-22, to match the index page) on an active shopping list's detail page
 (`ReceiptScanDialog`, `src/components/shopping/receipt-scan-dialog.tsx`,
 wired into `ShoppingListClient`) lets a household member photograph a paper
 receipt after a shop and, in one step, mark every matched list item
