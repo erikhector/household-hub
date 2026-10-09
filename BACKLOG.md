@@ -292,28 +292,6 @@ don't build these in parallel:
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
 
-- [ ] **UX-12. On-screen keyboard and long sheets: Save always reachable**
-      (high, M) — Hard rule M2.
-      - `DialogFooter` (`ui/dialog.tsx:117-130`) isn't sticky, so in the
-        recipe form, add/edit item and the receipt dialogs Save scrolls
-        out of view.
-      - There is no `interactiveWidget` in `viewport` and no
-        `visualViewport` handling, so the `fixed bottom-0` sheet sits
-        behind the iOS keyboard.
-      - The grabber at `dialog.tsx:79-82` suggests drag-to-dismiss, but
-        dragging does nothing.
-
-      Fix:
-      - Make `DialogFooter` `max-sm:sticky max-sm:bottom-0` on
-        `bg-popover`.
-      - Set `viewport.interactiveWidget: "resizes-content"` (Android).
-      - Add a small hook that writes `--kb-inset` from `visualViewport` and
-        lifts the sheet by it (iOS).
-      - Remove the grabber or make it drag (see UX-34).
-
-      Acceptance: a mobile spec fills the recipe form to the bottom and
-      asserts the submit button is in the viewport without scrolling.
-
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
       English only, for example `shopping-list/actions.ts:163,212`,

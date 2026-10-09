@@ -4793,6 +4793,21 @@ components directly.
   fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
+- **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
+  `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
+  a long form (the recipe form, add/edit item, receipts) instead of
+  scrolling out of view, and it swaps the translucent desktop strip for
+  opaque `bg-popover` so scrolled content doesn't show through. The
+  sheet itself rides above the keyboard two ways: Android gets
+  `viewport.interactiveWidget: "resizes-content"` in
+  `src/app/layout.tsx` (the layout viewport shrinks above the keyboard),
+  and iOS — which ignores that key — gets `useKeyboardInset`
+  (`src/components/ui/keyboard-inset.ts`), which writes the
+  `visualViewport` gap to `--kb-inset` while a dialog is open and
+  `DialogContent` lifts its `bottom` by it. The grabber line is gone:
+  it suggested drag-to-dismiss without doing anything (real drag is
+  UX-34). Covered by `e2e/sheet-keyboard.mobile.spec.ts` and
+  `keyboard-inset.test.ts`.
 
 ## Releases & What's new
 

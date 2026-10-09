@@ -7,6 +7,7 @@ import { cn } from "cn"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 import { pushDialogEntry } from "@/components/ui/dialog-history"
+import { useKeyboardInset } from "@/components/ui/keyboard-inset"
 
 // While the dialog is open it owns a history entry, so the phone's back
 // gesture closes it instead of leaving the page (UX-11, DESIGN.md M7; the
@@ -109,6 +110,8 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  // UX-12: lifts the sheet above the iOS keyboard (see keyboard-inset.ts).
+  useKeyboardInset();
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -120,6 +123,10 @@ function DialogContent({
           // get clipped under the keyboard. dvh, not vh: on iOS Safari vh is
           // the viewport with the toolbars hidden, so 85vh overshoots the
           // visible screen and the sheet's bottom sits out of reach.
+          // bottom-[var(--kb-inset)]: the iOS keyboard's height (0 when
+          // closed or on Android, where interactiveWidget resizes the layout
+          // viewport instead) — without it the fixed sheet sits behind the
+          // keyboard (UX-12).
           // overscroll-contain keeps a swipe that hits the end from
           // rubber-banding the page behind. This is the dialog's scroller, so
           // don't give content a viewport-height one of its own (max-h-[70vh]
@@ -130,7 +137,7 @@ function DialogContent({
           // row (the recipe form's ingredient rows) widened the whole sheet
           // past the screen once no inner scroller was there to clip it.
           // sm+: the original centered modal.
-          "fixed inset-x-0 top-auto bottom-0 z-50 grid grid-cols-1 max-h-[85dvh] overscroll-contain w-full max-w-none translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-t-2xl bg-popover p-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
+          "fixed inset-x-0 top-auto bottom-[var(--kb-inset,0px)] z-50 grid grid-cols-1 max-h-[85dvh] overscroll-contain w-full max-w-none translate-x-0 translate-y-0 gap-4 overflow-y-auto rounded-t-2xl bg-popover p-4 pt-5 pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 duration-150 outline-none data-open:animate-in data-open:slide-in-from-bottom data-open:fade-in-0 data-closed:animate-out data-closed:slide-out-to-bottom data-closed:fade-out-0",
           // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
           // "left" conflict group, and it keeps only the later class — reversing
           // this order silently drops sm:left-1/2, leaving the dialog at left:0
@@ -140,10 +147,6 @@ function DialogContent({
         )}
         {...props}
       >
-        <div
-          aria-hidden
-          className="absolute top-2 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full bg-foreground/15 sm:hidden"
-        />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
@@ -190,7 +193,12 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
+        // UX-12 (DESIGN.md M2): on phones the footer sticks to the sheet's
+        // bottom, so Save stays in the thumb zone in a long form instead of
+        // scrolling out of view. max-sm:bg-popover (opaque, over the base
+        // translucent strip) so the content scrolling underneath doesn't
+        // show through. sm+: the original static row.
+        "max-sm:sticky max-sm:bottom-0 -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 max-sm:bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
         className
       )}
       {...props}
