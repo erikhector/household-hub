@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.54.0",
+    "date": "2026-10-09",
+    "pr": 171,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Each page now has one clearly highlighted main button. Save buttons on your profile light up once you change something, and you can now rename a task when editing it.",
+      "sv": "Varje sida har nu en tydligt markerad huvudknapp. Spara-knapparna i din profil blir markerade när du ändrat något, och du kan nu byta namn på en uppgift när du redigerar den."
+    }
+  },
+  {
     "version": "0.53.1",
     "date": "2026-10-06",
     "pr": 170,
