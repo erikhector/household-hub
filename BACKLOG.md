@@ -373,23 +373,6 @@ don't build these in parallel:
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
 
-- [ ] **UX-22. Shopping list detail polish** (medium, S)
-      - On a 320 px phone the add field shrinks to "Add items, e.g. 2". Put
-        mic and scan inside it as trailing adornments.
-      - Row actions come in a different order on each row ([Baking][Add
-        price][✎][🗑] vs [Add price][✎][Match item][🗑]). Use a fixed
-        order with delete last.
-      - Hide the category chip when the list is grouped by that category.
-      - Make "Match item" `warning` text on its tint with an icon (it's
-        low contrast in light).
-      - Use one name for the receipt action ("Register receipt" on the
-        index, "Scan receipt" in the detail).
-      - Ask before throwing away a reviewed receipt or AI shelf scan on
-        close (`receipt-scan-dialog.tsx:531`,
-        `register-receipt-dialog.tsx:505`,
-        `ai-shelf-scan-dialog.tsx:117`). Today a back swipe means
-        re-photographing and paying for the AI call again.
-
 - [ ] **UX-23. Budgets: tabs, the disabled primary and the charts**
       (medium, M)
       - The tabs wrap on a 320 px phone with "Insights" alone on row 2.
@@ -409,20 +392,6 @@ don't build these in parallel:
       - Recurring rows: `flex-wrap` the title row so Swedish names don't
         truncate to nothing (`:342`).
 
-- [ ] **UX-24. One primary action per view** (medium, S) — Hierarchy.
-      - Profile has four primaries (Save, Save, Update email, Update
-        password).
-      - Household has "Add note" and "Turn on calendar feed", while its
-        page action "Invite member" is outlined.
-      - The duplicates page has a primary "Merge" per group.
-      - The task create dialog's submit is `outline`, with no Cancel; the
-        edit dialog has both. The task title also can't be edited at all
-        (`task-form-dialog.tsx:155-165`).
-
-      Fix: per-card saves are `secondary` until their form is dirty;
-      solid "Owner" badges become `secondary`; task create and edit share
-      one footer and a title field.
-
 - [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
       so light gets less attention:
       - Disabled primary buttons are white on pale lilac (~1.8:1) and
@@ -436,21 +405,6 @@ don't build these in parallel:
       - The phone's sticky add bar paints a flat band over the gradient.
 
       Add each new token pair to `globals-contrast.test.ts`.
-
-- [ ] **UX-28. Public pages** (medium, S)
-      - The privacy cookie table clips "Purpose" to 2–3 characters on
-        phones. Stack it as a definition list.
-      - `/reset-password/<bad token>` renders the full form; validate the
-        token first, like the other token pages do.
-      - The invalid-token pages (join, share, unsubscribe, verify) each
-        look different. Use one shared status card with the logo.
-      - The landing hero puts "Get started free" below the fold in
-        landscape. Add `@media (max-height: 500px)` padding.
-      - "Privacy Policy" and "Terms of Service" are Title Case.
-      - The English-only legal body needs `lang="en"` when the UI is
-        Swedish (WCAG 3.1.2), and body text in `foreground`, not muted.
-      - Signup's title says "Create your household" but the button says
-        "Create household".
 
 - [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
       - **Push on iOS.** iOS Safari says push "isn't supported in this

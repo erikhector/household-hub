@@ -646,11 +646,17 @@ export const en = {
       existingSelectionRequired: 'Choose an item, or switch to "Create new" or "Skip".',
     },
     receiptScan: {
-      scanButton: "Scan receipt",
+      discard: {
+        title: "Discard this review?",
+        description: "The receipt has already been read. If you close now you'll have to take the photo again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
+      scanButton: "Register receipt",
       scanDisabledHint: "Add items to this list first — there's nothing yet to match a receipt against.",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
-      dialogTitle: "Scan receipt",
+      dialogTitle: "Register receipt",
       analyzing: "Reading your receipt with AI…",
       reading: "Reading receipt… this can take a moment the first time.",
       noLinesFound:
@@ -699,6 +705,12 @@ export const en = {
       addItemError: "Couldn't add that item — try again.",
     },
     registerReceipt: {
+      discard: {
+        title: "Discard this review?",
+        description: "The receipt has already been read. If you close now you'll have to take the photo again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
       button: "Register receipt",
       takePhoto: "Take photo",
       choosePhoto: "Choose photo",
@@ -961,6 +973,12 @@ export const en = {
       done: "Done",
     },
     aiShelfScan: {
+      discard: {
+        title: "Discard this scan?",
+        description: "The shelf has already been read. If you close now you'll have to scan it again.",
+        keep: "Keep reviewing",
+        discard: "Discard",
+      },
       triggerLabel: "Scan a shelf",
       betaBadge: "Beta",
       dialogTitle: "Scan a shelf with AI",
@@ -2577,6 +2595,10 @@ export const en = {
       saving: "Updating…",
       submit: "Update password",
       backToLogin: "Back to log in",
+      invalidTitle: "Link expired",
+      invalidDescription:
+        "This password reset link is invalid or has expired. Request a new one.",
+      requestNewLink: "Request a new link",
     },
     verifyEmail: {
       pageTitle: "Verify your email",
@@ -2599,7 +2621,7 @@ export const en = {
       showPassword: "Show password",
       hidePassword: "Hide password",
       creating: "Creating account…",
-      submit: "Create household",
+      submit: "Create your household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
       verificationSentDescription:
@@ -2726,6 +2748,7 @@ export const en = {
   // ShoppingListClient UI/controls that don't exist on this page).
   sharedShoppingList: {
     notFoundTitle: "Link not found",
+    notFoundLink: "Go to Squirrel",
     notFoundDescription:
       "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
     liveNotice:
@@ -2749,9 +2772,9 @@ export const en = {
     cookiesNavLabel: "Cookies",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "By creating an account, you agree to the",
-    termsLink: "Terms of Service",
+    termsLink: "Terms of service",
     consentAnd: "and",
-    privacyLink: "Privacy Policy",
+    privacyLink: "Privacy policy",
     consentSuffix: ".",
   },
   // The HTML emails built in src/lib/email.ts — rendered server-side into a

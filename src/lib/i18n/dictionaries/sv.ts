@@ -610,11 +610,17 @@ export const sv = {
       existingSelectionRequired: 'Välj en vara, eller växla till "Skapa ny" eller "Hoppa över".',
     },
     receiptScan: {
-      scanButton: "Skanna kvitto",
+      discard: {
+        title: "Kasta bort granskningen?",
+        description: "Kvittot är redan inläst. Om du stänger nu måste du ta fotot igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
+      scanButton: "Registrera kvitto",
       scanDisabledHint: "Lägg till varor på listan först — det finns inget att matcha ett kvitto mot ännu.",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
-      dialogTitle: "Skanna kvitto",
+      dialogTitle: "Registrera kvitto",
       analyzing: "Läser kvittot med AI…",
       reading: "Läser kvittot… det kan ta en stund första gången.",
       noLinesFound:
@@ -658,6 +664,12 @@ export const sv = {
       addItemError: "Kunde inte lägga till varan — försök igen.",
     },
     registerReceipt: {
+      discard: {
+        title: "Kasta bort granskningen?",
+        description: "Kvittot är redan inläst. Om du stänger nu måste du ta fotot igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
       button: "Registrera kvitto",
       takePhoto: "Ta foto",
       choosePhoto: "Välj foto",
@@ -901,6 +913,12 @@ export const sv = {
       done: "Klar",
     },
     aiShelfScan: {
+      discard: {
+        title: "Kasta bort skanningen?",
+        description: "Hyllan är redan inläst. Om du stänger nu måste du skanna den igen.",
+        keep: "Fortsätt granska",
+        discard: "Kasta bort",
+      },
       triggerLabel: "Skanna en hylla",
       betaBadge: "Beta",
       dialogTitle: "Skanna en hylla med AI",
@@ -2483,6 +2501,10 @@ export const sv = {
       saving: "Uppdaterar…",
       submit: "Uppdatera lösenord",
       backToLogin: "Tillbaka till inloggning",
+      invalidTitle: "Länken har gått ut",
+      invalidDescription:
+        "Länken för att återställa lösenordet är ogiltig eller har gått ut. Begär en ny.",
+      requestNewLink: "Begär en ny länk",
     },
     verifyEmail: {
       pageTitle: "Verifiera din e-post",
@@ -2505,7 +2527,7 @@ export const sv = {
       showPassword: "Visa lösenord",
       hidePassword: "Dölj lösenord",
       creating: "Skapar konto…",
-      submit: "Skapa hushåll",
+      submit: "Skapa ditt hushåll",
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       verificationSentDescription:
@@ -2620,6 +2642,7 @@ export const sv = {
   },
   sharedShoppingList: {
     notFoundTitle: "Länken hittades inte",
+    notFoundLink: "Gå till Squirrel",
     notFoundDescription:
       "Den här dellänken är ogiltig eller har återkallats. Be den som delade den med dig om en ny.",
     liveNotice:

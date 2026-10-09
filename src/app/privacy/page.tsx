@@ -10,10 +10,10 @@ import { STORAGE_INVENTORY } from "@/lib/cookie-inventory";
 // is grounded in the actual data model (prisma/schema.prisma's User model),
 // the actual email flow (src/lib/email.ts, Resend), and a repo-wide check
 // that confirmed there are no analytics/tracking scripts anywhere in
-// src/ — don't add either without updating this page. The cookie table in
+// src/ — don't add either without updating this page. The cookie list in
 // section 4 is generated from src/lib/cookie-inventory.ts.
 export const metadata: Metadata = {
-  title: "Privacy Policy — Squirrel",
+  title: "Privacy policy — Squirrel",
 };
 
 const LAST_UPDATED = "September 25, 2026";
@@ -30,7 +30,7 @@ function Section({
   return (
     <section id={id} className="flex scroll-mt-6 flex-col gap-3">
       <h2 className="font-heading text-xl font-semibold tracking-tight">{title}</h2>
-      <div className="flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
+      <div className="flex flex-col gap-3 text-sm leading-relaxed text-foreground">
         {children}
       </div>
     </section>
@@ -51,9 +51,9 @@ export default async function PrivacyPage() {
           {dict.auth.brand}
         </Link>
 
-        <article className="flex flex-col gap-8">
+        <article lang="en" className="flex flex-col gap-8">
           <header className="flex flex-col gap-1">
-            <h1 className="font-heading text-3xl font-bold tracking-tight">Privacy Policy</h1>
+            <h1 className="font-heading text-3xl font-bold tracking-tight">Privacy policy</h1>
             <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           </header>
 
@@ -105,31 +105,25 @@ export default async function PrivacyPage() {
               site-data settings; the only effect is that you&apos;ll be signed out and your
               preferences reset.
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[32rem] border-collapse text-left text-xs">
-                <thead>
-                  <tr className="border-b text-foreground">
-                    <th className="py-2 pr-3 font-medium">Name</th>
-                    <th className="py-2 pr-3 font-medium">Type</th>
-                    <th className="py-2 pr-3 font-medium">Purpose</th>
-                    <th className="py-2 font-medium">Lasts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {STORAGE_INVENTORY.map((entry) => (
-                    <tr key={entry.name} className="border-b align-top last:border-b-0">
-                      <td className="py-2 pr-3 font-mono">{entry.name}</td>
-                      <td className="py-2 pr-3">
-                        {entry.kind === "cookie" ? "Cookie" : "Local storage"},{" "}
-                        {entry.category === "necessary" ? "necessary" : "preference"}
-                      </td>
-                      <td className="py-2 pr-3">{entry.purpose}</td>
-                      <td className="py-2">{entry.duration}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className="flex flex-col gap-3">
+              {STORAGE_INVENTORY.map((entry) => (
+                <li key={entry.name} className="rounded-lg border p-3">
+                  <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 text-sm">
+                    <dt className="text-muted-foreground">Name</dt>
+                    <dd className="font-mono break-all">{entry.name}</dd>
+                    <dt className="text-muted-foreground">Type</dt>
+                    <dd>
+                      {entry.kind === "cookie" ? "Cookie" : "Local storage"},{" "}
+                      {entry.category === "necessary" ? "necessary" : "preference"}
+                    </dd>
+                    <dt className="text-muted-foreground">Purpose</dt>
+                    <dd>{entry.purpose}</dd>
+                    <dt className="text-muted-foreground">Lasts</dt>
+                    <dd>{entry.duration}</dd>
+                  </dl>
+                </li>
+              ))}
+            </ul>
             <p>
               On a secure (HTTPS) connection the sign-in cookies carry a browser-enforced prefix
               (<code>__Secure-</code> or <code>__Host-</code>) in front of the names above. If you
@@ -306,7 +300,7 @@ export default async function PrivacyPage() {
               invited you, or the person who operates your instance of Squirrel. See also
               our{" "}
               <Link href="/terms" className="text-primary underline underline-offset-4">
-                Terms of Service
+                Terms of service
               </Link>
               .
             </p>

@@ -24,6 +24,7 @@
 import { useRef, useState, type ChangeEvent, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Camera, ImageUp, Loader2, Sparkles, X } from "lucide-react";
+import { DiscardReviewDialog } from "@/components/ui/discard-review-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ export function AiShelfScanDialog({
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const libraryInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -112,6 +114,18 @@ export function AiShelfScanDialog({
     setRows([]);
     setCategory("");
     setLocation("");
+  }
+
+  // Closing from the review step (backdrop, Esc, back swipe) asks first
+  // (UX-22): the shelf photo was already read by the AI, and re-scanning
+  // means another photo and another paid call. Programmatic closes after a
+  // successful apply call handleOpenChange directly and skip the question.
+  function requestOpenChange(next: boolean) {
+    if (!next && phase === "review") {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    handleOpenChange(next);
   }
 
   function handleOpenChange(next: boolean) {
@@ -279,7 +293,13 @@ export function AiShelfScanDialog({
       />
       <input ref={libraryInputRef} type="file" accept="image/*" className="hidden" onChange={onFileSelected} />
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DiscardReviewDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        dict={t.discard}
+        onDiscard={() => handleOpenChange(false)}
+      />
+      <Dialog open={open} onOpenChange={requestOpenChange}>
         <DialogTrigger render={trigger} />
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

@@ -57,7 +57,7 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline">{dict.button}</Button>} />
+      <DialogTrigger render={<Button>{dict.button}</Button>} />
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.dialogTitle}</DialogTitle>

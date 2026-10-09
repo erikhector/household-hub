@@ -91,7 +91,7 @@ export function MemberList({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Badge variant={member.role === "OWNER" ? "default" : "secondary"}>
+              <Badge variant={member.role === "OWNER" ? "secondary" : "outline"}>
                 {member.role === "OWNER" ? dict.owner : dict.contributor}
               </Badge>
               {isOwner && member.role !== "OWNER" && (

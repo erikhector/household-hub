@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.55.1",
+    "date": "2026-10-09",
+    "pr": 173,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Link pages (invites, shared lists, password reset, email verification, unsubscribe) now look the same, and an expired password reset link tells you right away instead of after you type a new password. The cookie list on the privacy page is readable on phones.",
+      "sv": "Sidor som öppnas från länkar (inbjudningar, delade listor, lösenordsåterställning, e-postverifiering, avprenumeration) ser nu likadana ut, och en utgången återställningslänk berättar det direkt i stället för efter att du skrivit ett nytt lösenord. Cookielistan på integritetssidan går nu att läsa på mobilen."
+    }
+  },
+  {
+    "version": "0.55.0",
+    "date": "2026-10-09",
+    "pr": 172,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The shopping list page is tidier: voice and barcode buttons sit inside the add field, item buttons always appear in the same order, and \"Match item\" is easier to see. The receipt button is now called \"Register receipt\" everywhere, and closing a scanned receipt or shelf scan asks before throwing it away.",
+      "sv": "Inköpslistan är snyggare: röst- och streckkodsknapparna sitter i skrivfältet, knapparna på varje vara kommer alltid i samma ordning och \"Koppla vara\" syns bättre. Kvittoknappen heter nu \"Registrera kvitto\" överallt, och när du stänger ett inläst kvitto eller en hyllskanning får du en fråga innan det kastas."
+    }
+  },
+  {
+    "version": "0.54.0",
+    "date": "2026-10-09",
+    "pr": 171,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Each page now has one clearly highlighted main button. Save buttons on your profile light up once you change something, and you can now rename a task when editing it.",
+      "sv": "Varje sida har nu en tydligt markerad huvudknapp. Spara-knapparna i din profil blir markerade när du ändrat något, och du kan nu byta namn på en uppgift när du redigerar den."
+    }
+  },
+  {
     "version": "0.53.1",
     "date": "2026-10-06",
     "pr": 170,

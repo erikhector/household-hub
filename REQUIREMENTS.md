@@ -682,7 +682,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     configured) only when neither step recognizes the name. A category the
     user typed in the review is never second-guessed.
     **Correcting a guess in place (AUTO-2b)**: every editable, linked
-    shopping-list row shows its `InventoryItem`'s category as a small chip
+    shopping-list row in the flat Purchased section shows (UX-22: rows
+    under their category's group header don't, since the chip would repeat
+    the header) its `InventoryItem`'s category as a small chip
     (`CategoryChip`, `src/components/shopping/category-chip.tsx`, outside
     the row's `<label>` so tapping it doesn't toggle purchased). Tapping it
     opens a menu of the household's existing categories plus "New
@@ -1899,10 +1901,25 @@ top of it. No migration was needed.
     as the rest of the analyzer plus one small `ShoppingListItem` id query
     in the same `Promise.all`. No schema change.
 
+#### Detail page polish (UX-22)
+
+- The add line's mic and barcode buttons are ghost buttons inside the
+  field's right edge (the input pads for them); only Add sits outside it.
+- A row's controls keep one order: [category chip or "Match item"]
+  [price] [edit] [delete]. "Match item" is a `warning` badge (text on its
+  own tint, with a triangle icon) placed in the chip's leading slot, and
+  pending rows under a category header omit the chip that would repeat it.
+- Closing the receipt dialogs (`ReceiptScanDialog`, `RegisterReceiptDialog`)
+  or the AI shelf scan while their review step is showing asks first
+  ("Discard this review?", `DiscardReviewDialog`), whether by Cancel,
+  backdrop, Esc or a back swipe, since re-reading means a new photo and
+  another AI call. Other phases close at once. Not covered by e2e: reaching
+  the review step needs a real AI/OCR read.
+
 #### Finishing the trip in one gesture (AUTO-5)
 
 The detail page's header keeps only what's used on every trip visible:
-"Scan receipt" and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
+"Register receipt" (UX-22: the same name as the index page's action) and a `⋯` overflow menu (Base UI `DropdownMenu`), with the
 smart add line below. The menu holds add item, import, add low-stock
 items, resolve mappings (when there are enough unlinked items), share,
 export, print (below), then — after a separator — "Complete list", archive/unarchive, and
@@ -2739,7 +2756,7 @@ scanning it again is a one-step stock change instead of a name to type.
 
 ## Receipt scanning
 
-A "Scan receipt" button on an active shopping list's detail page
+A "Register receipt" button (named "Scan receipt" before UX-22, to match the index page) on an active shopping list's detail page
 (`ReceiptScanDialog`, `src/components/shopping/receipt-scan-dialog.tsx`,
 wired into `ShoppingListClient`) lets a household member photograph a paper
 receipt after a shop and, in one step, mark every matched list item
@@ -4162,6 +4179,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Create and edit share one dialog (UX-24)**: both modes of
+  `TaskFormDialog` have a title field (so a task can be renamed;
+  `updateTaskAction` takes an optional trimmed `title`, 1-120 characters), a
+  Cancel button and one primary submit.
 - **Add task button (UX-4)**: the header button always shows its "Add task"
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
@@ -4704,6 +4725,21 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Public pages (UX-28)**: the token-link pages (join, shared shopping
+  list, reset password, verify email, unsubscribe) show every invalid or
+  finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
+  brand mark, tinted icon, title, message and a 44 px recovery link.
+  `/reset-password/<token>` checks the link first
+  (`isPasswordResetTokenUsable`, `src/lib/reset-token.ts`) and shows
+  "Link expired" with a link to `/forgot-password` rather than the form;
+  `resetPasswordAction` still validates on submit. The privacy page lists
+  cookies as a definition list per entry (a table clipped "Purpose" to a few
+  characters on phones). The English-only legal body is `lang="en"` and set
+  in `foreground`; "Terms of service" and "Privacy policy" are sentence
+  case; signup's button reads "Create your household" like its title; the
+  landing hero tightens its padding in `max-height: 500px` (landscape
+  phones) so "Get started free" stays on screen. Covered by
+  `e2e/public-pages.spec.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -4721,6 +4757,14 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
+  page's main call to action is a solid `default` Button. Profile's four
+  save buttons (display name, Swish number, email, password) are `secondary`
+  until their form differs from what is saved (`useFormDirty`,
+  `src/components/shared/use-form-dirty.ts`). On Household, "Invite member"
+  is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
+  and the role badge is `secondary` for the owner and `outline` for members.
+  Each possible-duplicates group's "Merge" is `secondary`.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back
@@ -5506,7 +5550,7 @@ approximating them, so the email never disagrees with the app.
   `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
   its value isn't listed in `STORAGE_INVENTORY`
   (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
-  cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  cookie list (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 - **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`

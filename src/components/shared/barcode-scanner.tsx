@@ -52,6 +52,8 @@ export function BarcodeScannerButton({
   disabled,
   size = "default",
   label,
+  variant = "outline",
+  className,
 }: {
   dict: BarcodeScannerDict;
   onResult?: (result: BarcodeScanResult) => void;
@@ -65,6 +67,9 @@ export function BarcodeScannerButton({
    * "Scan barcode") as its accessible name. */
   size?: "default" | "sm" | "xs" | "icon";
   label?: string;
+  /** Defaults to "outline"; "ghost" for a trailing adornment inside an input. */
+  variant?: "outline" | "ghost";
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -250,8 +255,9 @@ export function BarcodeScannerButton({
     <>
       <Button
         type="button"
-        variant="outline"
+        variant={variant}
         size={size}
+        className={className}
         disabled={disabled}
         onClick={() => setOpen(true)}
         aria-label={size === "icon" ? (label ?? dict.scanButton) : undefined}

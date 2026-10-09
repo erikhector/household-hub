@@ -1,4 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { VerifyEmailClient } from "@/components/auth/verify-email-client";
 import { LegalFooter } from "@/components/legal-footer";
 import { auth } from "@/lib/auth";
@@ -24,18 +23,12 @@ export default async function VerifyEmailPage(props: PageProps<"/verify-email/[t
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-xl">{dict.auth.verifyEmail.pageTitle}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <VerifyEmailClient
-            token={token}
-            isAuthenticated={Boolean(session?.user)}
-            dict={dict.auth.verifyEmail}
-          />
-        </CardContent>
-      </Card>
+      <VerifyEmailClient
+        token={token}
+        brand={dict.auth.brand}
+        isAuthenticated={Boolean(session?.user)}
+        dict={dict.auth.verifyEmail}
+      />
       <LegalFooter dict={dict.legal} />
     </div>
   );

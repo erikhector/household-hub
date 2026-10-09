@@ -238,7 +238,7 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
         })}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={mergeIds.length === 0} onClick={() => setMergeOpen(true)}>
+        <Button type="button" variant="secondary" disabled={mergeIds.length === 0} onClick={() => setMergeOpen(true)}>
           {format(plural(mergeIds.length, dict.mergeButton), { count: mergeIds.length, name: keeper.name })}
         </Button>
         <Button type="button" variant="outline" disabled={isPending} onClick={handleDismiss}>

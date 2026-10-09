@@ -89,7 +89,7 @@ export function HouseholdNotes({
           rows={2}
         />
         <div className="flex justify-end">
-          <Button type="submit" disabled={pending || body.trim().length === 0}>
+          <Button type="submit" variant="secondary" disabled={pending || body.trim().length === 0}>
             {pending ? dict.adding : dict.add}
           </Button>
         </div>
