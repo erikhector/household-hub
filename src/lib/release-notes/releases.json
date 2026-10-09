@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.55.1",
+    "date": "2026-10-09",
+    "pr": 173,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Link pages (invites, shared lists, password reset, email verification, unsubscribe) now look the same, and an expired password reset link tells you right away instead of after you type a new password. The cookie list on the privacy page is readable on phones.",
+      "sv": "Sidor som öppnas från länkar (inbjudningar, delade listor, lösenordsåterställning, e-postverifiering, avprenumeration) ser nu likadana ut, och en utgången återställningslänk berättar det direkt i stället för efter att du skrivit ett nytt lösenord. Cookielistan på integritetssidan går nu att läsa på mobilen."
+    }
+  },
+  {
     "version": "0.55.0",
     "date": "2026-10-09",
     "pr": 172,
