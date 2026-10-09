@@ -11,6 +11,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isAppleMobile } from "@/lib/platform";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type BeforeInstallPromptEvent = Event & {
@@ -33,9 +34,16 @@ const getStandaloneSnapshot = () => window.matchMedia("(display-mode: standalone
 const getStandaloneServerSnapshot = () => false;
 
 // Static for the life of the page — no real subscription needed, just an
-// SSR-safe read of navigator.userAgent.
+// SSR-safe read of the navigator identity. Covers desktop-mode iPadOS too:
+// since iPadOS 13 an iPad reports a Mac UA by default, so the platform +
+// touch check in isAppleMobile is what catches it (UX-29).
 const noSubscription = () => () => {};
-const getIsIOSSnapshot = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !("MSStream" in window);
+const getIsIOSSnapshot = () =>
+  isAppleMobile({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints,
+  });
 const getIsIOSServerSnapshot = () => false;
 
 export function InstallAppCard({ dict }: { dict: Dictionary["profile"]["installApp"] }) {

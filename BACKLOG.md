@@ -406,29 +406,6 @@ don't build these in parallel:
       an e2e spec covers a seeded shared transaction that appears in the
       personal charts and month totals on both desktop and mobile.
 
-- [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
-      - **Push on iOS.** iOS Safari says push "isn't supported in this
-        browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside
-        standalone mode, say "Add Squirrel to your Home Screen to get
-        notifications" instead.
-      - **iPad install steps.** `install-app-card.tsx:38` misses iPadOS
-        (it uses a desktop UA). Also check
-        `platform === "MacIntel" && maxTouchPoints > 1`.
-      - **Theme colour.** Add `viewport.themeColor` per colour scheme and
-        align `manifest.ts`'s fixed purple `theme_color`.
-      - **Tap highlight.** Add `-webkit-tap-highlight-color: transparent`,
-        since `active:` states already give feedback.
-      - **Reduced motion.** Add a global `prefers-reduced-motion` rule;
-        today there are none in `src/`.
-      - **Notification taps.** In `service-worker.js`, focus an existing
-        window on `notificationclick` instead of opening a new one, and
-        ship a monochrome badge icon.
-      - **Small fixes**: left-align iOS date values; map speech
-        `service-not-allowed` to "unavailable here"; fall back from
-        `crypto.randomUUID()` (it throws over plain-HTTP LAN testing).
-      - **Browser floor.** Document the minimum browser (Safari/iOS 16.4
-        for `oklch`/`color-mix`) and show a notice below it.
-
 - [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
       (high if it reproduces, S) — There are 48 `type="number"
       inputMode="decimal"` fields, for example

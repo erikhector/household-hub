@@ -2422,6 +2422,7 @@ export const sv = {
       disableButton: "Inaktivera notiser",
       enabled: "Notiser är aktiverade på den här enheten.",
       unsupported: "Push-notiser stöds inte i den här webbläsaren.",
+      iosInstallRequired: "Lägg till Squirrel på hemskärmen för att få notiser.",
       notConfigured: "Push-notiser är inte konfigurerade för appen ännu.",
       permissionDenied: "Notiser är blockerade för den här sidan — kontrollera webbläsarens webbplatsinställningar.",
       error: "Något gick fel. Försök igen.",
@@ -2659,6 +2660,11 @@ export const sv = {
       "Squirrel använder bara cookies som håller dig inloggad och kommer ihåg dina inställningar (som språk och tema). Ingen reklam eller spårning.",
     learnMore: "Läs mer",
     dismiss: "Uppfattat",
+  },
+  browserFloor: {
+    title: "Din webbläsare är för gammal",
+    message:
+      "Squirrel behöver en nyare webbläsare (Safari 16.4 eller nyare, eller en aktuell Chrome, Edge eller Firefox). Vissa delar av appen kan se fel ut tills du uppdaterar.",
   },
   legal: {
     termsNavLabel: "Villkor",

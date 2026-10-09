@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  mapSpeechRecognitionError,
+  type SpeechRecognitionFailure,
+} from "@/lib/shopping/voice-transcript";
 
 // A minimal slice of the Web Speech API. TypeScript's DOM lib doesn't ship
 // SpeechRecognition (it's still prefixed as webkitSpeechRecognition in
@@ -41,8 +45,6 @@ function getRecognitionConstructor(): SpeechRecognitionConstructor | null {
 const subscribe = () => () => {};
 const getSnapshot = () => getRecognitionConstructor() !== null;
 const getServerSnapshot = () => false;
-
-export type SpeechRecognitionFailure = "denied" | "no-speech" | "failed";
 
 /**
  * One-utterance speech recognition for the smart add line (AUTO-12):
@@ -102,13 +104,7 @@ export function useSpeechRecognition({
       // "aborted" is our own stop()/unmount, not something to report.
       if (event.error === "aborted") return;
       finalTranscript = "";
-      callbacksRef.current.onError(
-        event.error === "not-allowed" || event.error === "service-not-allowed"
-          ? "denied"
-          : event.error === "no-speech"
-            ? "no-speech"
-            : "failed",
-      );
+      callbacksRef.current.onError(mapSpeechRecognitionError(event.error));
     };
     // onend fires after every session, final result or not — the one place
     // to hand over what was heard and reset.

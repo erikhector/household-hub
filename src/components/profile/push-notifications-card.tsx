@@ -13,6 +13,7 @@ import { Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PushQuietHoursForm } from "@/components/profile/push-quiet-hours-form";
 import { subscribeToPushAction, unsubscribeFromPushAction } from "@/lib/actions/push";
+import { pushAvailability, type PushAvailability } from "@/lib/platform";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { resolveSubscriptionState, type SubscriptionState } from "@/lib/push-subscription-state";
 
@@ -32,15 +33,26 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-type Support = "unsupported" | "denied" | "available";
+type Support = PushAvailability;
 
 // Read via useSyncExternalStore, not useState+useEffect — see the matching
 // comment in install-app-card.tsx for why (SSR/hydration-safe browser reads).
 const noSubscription = () => () => {};
 function getSupportSnapshot(): Support {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
-  if (Notification.permission === "denied") return "denied";
-  return "available";
+  // iOS Safari's legacy standalone flag (pre-display-mode adoption), for an
+  // installed PWA that would otherwise read as a plain browser tab.
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return pushAvailability({
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints,
+    standalone,
+    hasServiceWorker: "serviceWorker" in navigator,
+    hasPushManager: "PushManager" in window,
+    permission: Notification.permission,
+  });
 }
 const getSupportServerSnapshot = (): Support => "unsupported";
 
@@ -163,6 +175,10 @@ export function PushNotificationsCard({
       </div>
       {status === "notConfigured" && <p className="text-sm text-muted-foreground">{dict.notConfigured}</p>}
       {status === "unsupported" && <p className="text-sm text-muted-foreground">{dict.unsupported}</p>}
+      {/* UX-29: on iOS 16.4+ outside the installed app the APIs may already
+          exist, but pushes only arrive once Squirrel is on the Home Screen —
+          so this says what to do instead of "not supported". */}
+      {status === "ios-install" && <p className="text-sm text-muted-foreground">{dict.iosInstallRequired}</p>}
       {status === "denied" && <p className="text-sm text-muted-foreground">{dict.permissionDenied}</p>}
       {status === "subscribed" && (
         <div className="flex items-center gap-3">

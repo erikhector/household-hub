@@ -20,7 +20,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body,
       icon: "/icon.png",
-      badge: "/icon.png",
+      // Monochrome white-on-transparent (public/badge.png): Android tints
+      // badge pixels, so the full-colour app icon would render as a blob.
+      badge: "/badge.png",
       data: { url: url || "/dashboard" },
     }),
   );
@@ -28,7 +30,25 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow(event.notification.data.url));
+  const url = event.notification.data.url;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      // A tap raises the tab the user already has open instead of spawning
+      // a new one per notification.
+      const open = clientList.find((client) => "focus" in client);
+      if (!open) return self.clients.openWindow(url);
+      const target = new URL(url, self.location.origin);
+      // An empty client URL (a tab still on its initial blank page) would
+      // throw in new URL() — fall back to our own origin, which matches a
+      // same-origin target and just raises the tab otherwise.
+      if (new URL(open.url || self.location.origin).origin === target.origin && "navigate" in open) {
+        // navigate() can resolve null (the navigation went elsewhere) —
+        // focus the original tab either way.
+        return open.navigate(target.href).then((client) => (client ?? open).focus());
+      }
+      return open.focus();
+    }),
+  );
 });
 
 // --- Minimal offline fallback -----------------------------------------------

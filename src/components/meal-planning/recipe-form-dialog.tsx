@@ -40,6 +40,7 @@ import {
 } from "@/components/meal-planning/ingredient-review-step";
 import type { RecipeData } from "@/components/meal-planning/types";
 import { rowUnitChoice } from "@/lib/recipes/unit-choice";
+import { newUid } from "@/lib/uid";
 import {
   defaultNewItemUnit,
   ingredientBaseName,
@@ -90,7 +91,9 @@ type IngredientRow = {
 
 function blankRow(): IngredientRow {
   return {
-    uid: crypto.randomUUID(),
+    // newUid, not crypto.randomUUID(): the latter throws in insecure
+    // contexts (plain-HTTP LAN testing) — see src/lib/uid.ts.
+    uid: newUid(),
     name: "",
     quantity: "1",
     unit: "pcs",
@@ -407,7 +410,7 @@ export function RecipeFormDialog({
           // The parser splits the prep note off the name (MATCH-4) and
           // hands it over as `note`, which the row keeps as its own field.
           result.recipe.ingredients.map((ingredient) => ({
-            uid: crypto.randomUUID(),
+            uid: newUid(),
             name: ingredient.name,
             quantity: String(ingredient.quantity),
             unit: ingredient.unit,
@@ -515,7 +518,7 @@ export function RecipeFormDialog({
   const addComponentRow = () => {
     const next = componentCandidates.find((c) => !usedComponentIds.has(c.id));
     if (!next) return;
-    setComponents((rows) => [...rows, { uid: crypto.randomUUID(), componentRecipeId: next.id, quantity: "1" }]);
+    setComponents((rows) => [...rows, { uid: newUid(), componentRecipeId: next.id, quantity: "1" }]);
   };
   const removeComponentRow = (uid: string) =>
     setComponents((rows) => rows.filter((r) => r.uid !== uid));

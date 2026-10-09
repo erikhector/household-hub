@@ -22,6 +22,22 @@ export function speechRecognitionLang(locale: Locale): string {
   return locale === "sv" ? "sv-SE" : "en-US";
 }
 
+/** The failure buckets the smart add line toasts on (use-speech-recognition). */
+export type SpeechRecognitionFailure = "denied" | "no-speech" | "failed";
+
+/**
+ * Maps a Web Speech API error to the toast bucket. UX-29: `service-not-allowed`
+ * is what Chrome reports when the recognition *service* is unreachable (no
+ * network for the server-side recognizer, or the device offers none) — there
+ * is nothing the user could allow in site settings, so it reads as
+ * "unavailable here" (`failed`) rather than "blocked" (`denied`).
+ */
+export function mapSpeechRecognitionError(error: string): SpeechRecognitionFailure {
+  if (error === "not-allowed") return "denied";
+  if (error === "no-speech") return "no-speech";
+  return "failed";
+}
+
 type NumberWords = {
   ones: Record<string, number>;
   tens: Record<string, number>;

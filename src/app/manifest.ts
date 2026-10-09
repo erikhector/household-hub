@@ -8,7 +8,11 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#0a0a0a",
-    theme_color: "#a855f7",
+    // UX-29: aligned with the dark page ground (globals.css --gradient-end,
+  // the per-scheme value layout.tsx's viewport themeColor carries for dark —
+  // the app's default theme) instead of the old fixed brand purple, so the
+  // installed app's task-switcher/splash chrome matches the page behind it.
+  theme_color: "#0a0414",
     icons: [
       {
         src: "/icon-192.png",

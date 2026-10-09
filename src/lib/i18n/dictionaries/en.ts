@@ -2516,6 +2516,7 @@ export const en = {
       disableButton: "Disable notifications",
       enabled: "Notifications are enabled on this device.",
       unsupported: "Push notifications aren't supported in this browser.",
+      iosInstallRequired: "Add Squirrel to your Home Screen to get notifications.",
       notConfigured: "Push notifications aren't set up for this app yet.",
       permissionDenied: "Notifications are blocked for this site — check your browser's site settings.",
       error: "Something went wrong. Please try again.",
@@ -2765,6 +2766,11 @@ export const en = {
       "Squirrel only uses cookies that keep you signed in and remember your settings (like language and theme). No advertising or tracking.",
     learnMore: "Learn more",
     dismiss: "Got it",
+  },
+  browserFloor: {
+    title: "Your browser is out of date",
+    message:
+      "Squirrel needs a recent browser (Safari 16.4 or newer, or a current Chrome, Edge or Firefox). Some parts of the app may look wrong until you update.",
   },
   legal: {
     termsNavLabel: "Terms",

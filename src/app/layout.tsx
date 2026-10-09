@@ -8,6 +8,7 @@ import { getUserPreferences } from "@/lib/preferences";
 import { isThemeChoice } from "@/components/theme/theme-choice";
 import { PwaSplashScreen } from "@/components/pwa/pwa-splash-screen";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
+import { BrowserFloorNotice } from "@/components/pwa/browser-floor-notice";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { DialogHistoryListener } from "@/components/ui/dialog-history-listener";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
@@ -69,6 +70,15 @@ export const viewport: Viewport = {
   // bottom-nav.tsx, dialog.tsx) has no effect. "cover" hands that area to us
   // instead, so those existing safe-area paddings actually take over it.
   viewportFit: "cover",
+  // UX-29: paint the browser chrome (address bar, task switcher) to match the
+  // page ground — globals.css's --gradient-end per scheme — instead of the
+  // default white/black. manifest.ts's theme_color is the single-colour
+  // fallback for contexts without media-query support; it carries the dark
+  // value, the app's default theme.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fefcff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0414" },
+  ],
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
@@ -94,6 +104,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <PwaSplashScreen />
         <ServiceWorkerRegistration />
+        <BrowserFloorNotice dict={dict.browserFloor} />
         <DialogHistoryListener />
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
           {children}
