@@ -14,13 +14,15 @@
 @custom-variant short (@media (max-height: 500px));
 @custom-variant roomy (@media (width >= 64rem) and (height >= 600px));
 
-/* DESIGN.md rule M3: a tap target is at least 44 x 44 px on phones. For a
-   link or bare control whose visible text is smaller, this grows the box
-   (and so the hit area) below `sm` and vertically centres the label. From
-   `sm` up the original compact sizing is untouched. e2e/ui.ts
+/* DESIGN.md rule M3: a tap target is at least 44 x 44 px on phones and
+   any touch screen (UX-8: an iPad or a phone in landscape is wider than
+   `sm`, but the input is still a finger). For a link or bare control whose
+   visible text is smaller, this grows the box (and so the hit area) below
+   `sm` or under a coarse pointer and vertically centres the label. A mouse
+   on a wide screen keeps the original compact sizing. e2e/ui.ts
    `expectTouchTargets` guards it. */
 @utility touch-target {
-  @media (width < 40rem) {
+  @media (width < 40rem), (pointer: coarse) {
     display: inline-flex;
     align-items: center;
     min-height: 2.75rem;

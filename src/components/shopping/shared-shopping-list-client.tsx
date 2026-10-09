@@ -106,7 +106,7 @@ function SharedRow({
   }
 
   return (
-    <label className="flex items-center gap-3 rounded-md border px-3 py-2 max-sm:min-h-11">
+    <label className="flex items-center gap-3 rounded-md border px-3 py-2 max-sm:min-h-11 pointer-coarse:min-h-11">
       <Checkbox checked={purchased} onChange={handleToggle} />
       {/* GAP-5: name line plus the note (when set) as a muted second line,
           same treatment as ShoppingListClient's rows. */}
