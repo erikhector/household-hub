@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.57.2",
+    "date": "2026-10-09",
+    "pr": 181,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed a gap below the bottom bar on phones so it now sits flush with the bottom of the screen.",
+      "sv": "Åtgärdat en glipa under bottenlisten på mobiler så att den nu ligger kant i kant med skärmens nederkant."
+    }
+  },
+  {
     "version": "0.57.1",
     "date": "2026-10-09",
     "pr": 180,
