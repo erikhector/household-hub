@@ -85,6 +85,7 @@ test.describe("document polish", () => {
   });
 
   test("an outdated browser gets the update notice, a modern one nothing", async ({ page }) => {
+    const errors = collectErrors(page);
     await page.addInitScript(() => {
       Object.defineProperty(window, "CSS", { value: { supports: () => false }, configurable: true });
     });
@@ -92,6 +93,7 @@ test.describe("document polish", () => {
     const notice = page.getByRole("region", { name: en.browserFloor.title });
     await expect(notice).toBeVisible();
     await expect(notice).toContainText(en.browserFloor.message);
+    expect(errors).toEqual([]);
   });
 
   test("a modern browser gets no floor notice", async ({ page }) => {
@@ -131,7 +133,12 @@ test.describe("profile cards on Apple-mobile browsers", () => {
     await expect(page.getByRole("heading", { name: en.profile.pushNotifications.title })).toBeVisible();
     await expect(page.getByText(en.profile.pushNotifications.unsupported)).toHaveCount(0);
     // Without VAPID keys (e.g. CI) the card reports that instead — the
-    // install prompt only shows where push is actually configured.
+    // install prompt only shows where push is actually configured. The full
+    // branch matrix (ios-install vs available vs unsupported, all UA shapes)
+    // is covered in unit tests instead — see pushAvailability in
+    // src/lib/platform.test.ts — since no test browser is an iPhone; this
+    // spec guards the one thing only the real card can prove: an iOS 16.4+
+    // browser never sees the "not supported" copy.
     const body = await page.locator("main").innerText();
     if (!body.includes(en.profile.pushNotifications.notConfigured)) {
       await expect(page.getByText(en.profile.pushNotifications.iosInstallRequired)).toBeVisible();
