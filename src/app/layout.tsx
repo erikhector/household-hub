@@ -104,9 +104,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={locale}
       suppressHydrationWarning
-      className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}
+      // Use the dynamic viewport height on the root so fixed/positioned
+      // children (bottom bars, sheets) are anchored to the true device
+      // viewport edge instead of a shorter layout viewport. h-dvh is the
+      // unit used elsewhere in the app for the same purpose.
+      className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-dvh antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-dvh flex flex-col">
         <PwaSplashScreen />
         <ServiceWorkerRegistration />
         <BrowserFloorNotice dict={dict.browserFloor} />
