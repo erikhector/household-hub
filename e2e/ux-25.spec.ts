@@ -8,18 +8,16 @@ import { collectErrors, dismissCookieNotice } from "./ui";
 // lives in Node on the computed strings, keeping the in-page queries tiny.
 
 // -- colour helpers (contrast, WCAG 2) --------------------------------------
-// Computed colours arrive as the browser serialises them — rgb()/rgba(),
-// oklch() (the app's tokens) or color-mix() (Tailwind opacity modifiers) —
-// so the parser handles all three, with the same oklch→linear-sRGB math as
-// src/app/globals-contrast.test.ts. color-mix() blends premultiplied in
-// linear sRGB rather than the named space: an approximation, with enough
-// margin under the 4.5:1 floors here.
+// Computed colours arrive as the browser serialises them — rgb(), oklch(),
+// oklab(), lab() (all with optional `/ alpha`) or color-mix() — so the
+// parser handles each, with the same oklch math as
+// src/app/globals-contrast.test.ts plus lab/oklab converters below.
+// color-mix() blends premultiplied in linear sRGB rather than the named
+// space: an approximation, with enough margin under the 4.5:1 floors here.
 type Rgb = [number, number, number];
 
-function oklchToLinear(L: number, C: number, hDeg: number): Rgb {
-  const h = (hDeg * Math.PI) / 180;
-  const a = C * Math.cos(h);
-  const b = C * Math.sin(h);
+// oklab → linear sRGB (the rectangular core shared with oklch below).
+function oklabToLinear(L: number, a: number, b: number): Rgb {
   const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
   const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
   const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
@@ -28,6 +26,28 @@ function oklchToLinear(L: number, C: number, hDeg: number): Rgb {
     clamp(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
     clamp(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
     clamp(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  ];
+}
+
+function oklchToLinear(L: number, C: number, hDeg: number): Rgb {
+  const h = (hDeg * Math.PI) / 180;
+  return oklabToLinear(L, C * Math.cos(h), C * Math.sin(h));
+}
+
+// CIE lab (D65) → linear sRGB, via XYZ.
+function labToLinear(L: number, a: number, b: number): Rgb {
+  const fy = (L + 16) / 116;
+  const fx = fy + a / 500;
+  const fz = fy - b / 200;
+  const finv = (t: number) => (t > 6 / 29 ? t ** 3 : 3 * (6 / 29) ** 2 * (t - 4 / 29));
+  const x = 0.95047 * finv(fx);
+  const y = finv(fy);
+  const z = 1.08883 * finv(fz);
+  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  return [
+    clamp(3.2404542 * x - 1.5371385 * y - 0.4985314 * z),
+    clamp(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
+    clamp(0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
   ];
 }
 
@@ -56,6 +76,31 @@ function parseAlpha(rest: string | undefined): number {
   return alpha.endsWith("%") ? Number(alpha.slice(0, -1)) / 100 : Number(alpha);
 }
 
+// Splits "fn(channels / alpha)" into channels and alpha at the slash that
+// sits directly inside the outer function (depth 1), so nested slashes in
+// a color-mix() operand survive. The closing paren is re-attached to the
+// channels side.
+function splitAlpha(value: string): [string, string | undefined] {
+  let depth = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "/" && depth === 1)
+      return [`${value.slice(0, i).trimEnd()})`, value.slice(i + 1, value.lastIndexOf(")"))];
+  }
+  return [value, undefined];
+}
+
+// Space- or comma-separated channel lists; lab's L may be a percentage.
+function channels(text: string): number[] {
+  return text
+    .replace(/,/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((c) => (c.endsWith("%") ? Number(c.slice(0, -1)) / 100 : Number(c)));
+}
+
 function parse(css: string): { rgb: Rgb; alpha: number } {
   const value = css.trim().toLowerCase();
   if (value === "transparent") return { rgb: [0, 0, 0], alpha: 0 };
@@ -67,27 +112,15 @@ function parse(css: string): { rgb: Rgb; alpha: number } {
     return { rgb: [nums[0], nums[1], nums[2]], alpha: 1 };
   }
 
-  const rgb = value.match(/^rgba?\((.+)\)$/);
-  if (rgb) {
-    const [channels, alpha] = rgb[1].split("/");
-    const nums = channels.replace(/,/g, " ").split(/\s+/).filter(Boolean).map(Number);
-    return { rgb: [nums[0] / 255, nums[1] / 255, nums[2] / 255], alpha: parseAlpha(alpha) };
-  }
+  const [body, alphaPart] = splitAlpha(value);
+  const alpha = parseAlpha(alphaPart);
+  const fn = body.match(/^([a-z-]+)\((.+)\)$/);
+  if (!fn) throw new Error(`unparsed colour ${css}`);
 
-  const oklch = value.match(/^oklch\((.+)\)$/);
-  if (oklch) {
-    const [channels, alpha] = oklch[1].split("/");
-    const [l, c, h] = channels.replace(/,/g, " ").split(/\s+/).filter(Boolean);
-    const lightness = l.endsWith("%") ? Number(l.slice(0, -1)) / 100 : Number(l);
-    // parse() speaks gamma-encoded sRGB throughout (like rgb()/hex), so the
-    // linear result is encoded back; luminance() linearises again.
-    const [lr, lg, lb] = oklchToLinear(lightness, Number(c), Number(h));
-    return { rgb: [toGamma(lr), toGamma(lg), toGamma(lb)], alpha: parseAlpha(alpha) };
-  }
-
-  const mix = value.match(/^color-mix\(in\s+[\w-]+\s*,\s*(.+)\)$/);
-  if (mix) {
-    const [first, second] = splitTopLevel(mix[1]);
+  if (fn[1] === "color-mix") {
+    const inner = body.match(/^color-mix\(in\s+[\w-]+\s*,\s*(.+)\)$/);
+    if (!inner) throw new Error(`unparsed colour ${css}`);
+    const [first, second] = splitTopLevel(inner[1]);
     const part = (s: string) => {
       const pct = s.match(/([\d.]+)%\s*$/);
       return { color: s.replace(/[\d.]+%\s*$/, "").trim(), pct: pct ? Number(pct[1]) / 100 : null };
@@ -103,9 +136,35 @@ function parse(css: string): { rgb: Rgb; alpha: number } {
     const la = ca.rgb.map(toLinear);
     const lb = cb.rgb.map(toLinear);
     const mixed = la.map((c, i) => c * pa * ca.alpha + lb[i] * (1 - pa) * cb.alpha);
-    const alpha = pa * ca.alpha + (1 - pa) * cb.alpha;
-    const unpremultiply = (c: number) => (alpha === 0 ? 0 : toGamma(c / alpha));
-    return { rgb: [unpremultiply(mixed[0]), unpremultiply(mixed[1]), unpremultiply(mixed[2])], alpha };
+    const mixedAlpha = pa * ca.alpha + (1 - pa) * cb.alpha;
+    const unpremultiply = (c: number) => (mixedAlpha === 0 ? 0 : toGamma(c / mixedAlpha));
+    return {
+      rgb: [unpremultiply(mixed[0]), unpremultiply(mixed[1]), unpremultiply(mixed[2])],
+      alpha: mixedAlpha,
+    };
+  }
+
+  const nums = channels(fn[2]);
+
+  if (fn[1] === "rgb" || fn[1] === "rgba") {
+    return { rgb: [nums[0] / 255, nums[1] / 255, nums[2] / 255], alpha };
+  }
+  if (fn[1] === "oklab") {
+    const [lr, lg, lb] = oklabToLinear(nums[0], nums[1], nums[2]);
+    return { rgb: [toGamma(lr), toGamma(lg), toGamma(lb)], alpha };
+  }
+  if (fn[1] === "oklch") {
+    // parse() speaks gamma-encoded sRGB throughout (like rgb()/hex), so the
+    // linear result is encoded back; luminance() linearises again.
+    const [lr, lg, lb] = oklchToLinear(nums[0], nums[1], nums[2]);
+    return { rgb: [toGamma(lr), toGamma(lg), toGamma(lb)], alpha };
+  }
+  if (fn[1] === "lab") {
+    // Computed lab() carries L on 0–100 (a percentage would already be a
+    // 0–1 fraction from channels(), so scale it back up).
+    const L = nums[0] <= 1 && fn[2].includes("%") ? nums[0] * 100 : nums[0];
+    const [lr, lg, lb] = labToLinear(L, nums[1], nums[2]);
+    return { rgb: [toGamma(lr), toGamma(lg), toGamma(lb)], alpha };
   }
 
   throw new Error(`unparsed colour ${css}`);
@@ -161,6 +220,12 @@ test("overview stats meet text contrast in the light theme", async ({ page }) =>
   // 2.9:1 on card. The safe-to-spend card's tinted background doesn't
   // resolve to a plain colour triple, so it stays out of this math.
   const headings = ["Low stock items", "Shopping lists", "Total items tracked"];
+  // The cards stream in after the page shell (slowest on phones), so wait
+  // for each heading before measuring — otherwise the locator races the
+  // render and finds nothing.
+  for (const heading of headings) {
+    await expect(page.locator("main").getByText(heading, { exact: true })).toBeVisible();
+  }
   const stats = await page.evaluate((wanted) =>
     Array.from(document.querySelectorAll('main [data-slot="card"]'))
       .map((card) => {
@@ -177,7 +242,8 @@ test("overview stats meet text contrast in the light theme", async ({ page }) =>
       })
       .filter((s) => s !== null),
   headings);
-  expect(stats.length, "stat numbers on the overview").toBe(3);
+  // Each heading exactly once — no missing card, no double match.
+  expect(stats.map((s) => s.heading).sort()).toEqual([...headings].sort());
   for (const s of stats) {
     expect(contrast(s.fg, 1, s.bg), `stat in "${s.heading}…"`).toBeGreaterThanOrEqual(4.5);
   }
