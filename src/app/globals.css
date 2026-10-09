@@ -235,6 +235,28 @@
   input::-webkit-date-and-time-value {
     text-align: start;
   }
+  /* UX-29: no grey tap flash on phones — every control already answers a
+     touch with its own active:/pressed state (DESIGN.md M5), so the
+     platform default is pure noise over it. */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* UX-29 (DESIGN.md principle 6: respect the user's settings): with reduced
+   motion on, every animation and transition collapses to instant. 0.01ms —
+   not 0 — keeps transitionend/animationend listeners firing for anything
+   that waits on them (dialog exits, toasts). Unlayered, after the Tailwind
+   import, so it wins over utility animations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Only matches an installed/standalone launch (see PwaSplashScreen for why) —

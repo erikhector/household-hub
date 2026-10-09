@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { normalizeVoiceTranscript, speechRecognitionLang } from "./voice-transcript";
+import { mapSpeechRecognitionError, normalizeVoiceTranscript, speechRecognitionLang } from "./voice-transcript";
 import { parseSmartAddInput } from "./smart-add-suggestions";
 
 describe("speechRecognitionLang", () => {
   it("maps the app locale to a recognizer language tag", () => {
     expect(speechRecognitionLang("sv")).toBe("sv-SE");
     expect(speechRecognitionLang("en")).toBe("en-US");
+  });
+});
+
+describe("mapSpeechRecognitionError", () => {
+  it("maps a blocked mic to denied, silence to no-speech, everything else to failed", () => {
+    expect(mapSpeechRecognitionError("not-allowed")).toBe("denied");
+    expect(mapSpeechRecognitionError("no-speech")).toBe("no-speech");
+    expect(mapSpeechRecognitionError("audio-capture")).toBe("failed");
+    expect(mapSpeechRecognitionError("network")).toBe("failed");
+  });
+
+  it("maps an unreachable service to unavailable-here, not blocked", () => {
+    // service-not-allowed means the recognizer itself can't be reached —
+    // telling the user to allow the mic in settings would be wrong.
+    expect(mapSpeechRecognitionError("service-not-allowed")).toBe("failed");
   });
 });
 

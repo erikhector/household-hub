@@ -5144,7 +5144,10 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   manual add-to-home-screen instructions instead of a button; everywhere
   else shows a real install button once the browser fires
   `beforeinstallprompt` (captured and replayed via `prompt()`), or generic
-  fallback copy before/if it never does. The standalone-mode and iOS checks
+  fallback copy before/if it never does. iOS detection covers desktop-mode
+  iPadOS too (UX-29): since iPadOS 13 an iPad reports a Mac UA by default,
+  so `isAppleMobile` (`src/lib/platform.ts`, unit-tested) also accepts
+  `platform === "MacIntel" && maxTouchPoints > 1`. The standalone-mode and iOS checks
   are both read via `useSyncExternalStore` rather than `useState`+`useEffect`,
   since they're browser-only values that would otherwise mismatch between
   the server-rendered HTML and the client's first hydration pass.
@@ -5285,11 +5288,54 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
       apply is worse than an error.
   - **Showing it**: `src/lib/service-worker.js` only implements two
     listeners — `push` (shows the notification via
-    `registration.showNotification`, with `{ title, body, url }` as sent)
-    and `notificationclick` (closes it and opens `url`, mirroring
-    `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
+    `registration.showNotification`, with `{ title, body, url }` as sent
+    and a monochrome `badge.png` — Android tints badge pixels, so the
+    full-colour app icon would render as a blob) and `notificationclick`
+    (closes it, then focuses the already-open tab — steering it to `url`
+    when same-origin — and only opens a new window when none exists,
+    mirroring `notificationHref()` in `notification-bell.tsx`). It has no `fetch`
     handler and does no caching — it exists purely to deliver push, not for
     offline support (see `INFRA-5` in BACKLOG.md).
+
+### Platform polish (UX-29)
+
+- **iOS push prompt.** On iOS/iPadOS 16.4+ outside standalone mode the card
+  says "Add Squirrel to your Home Screen to get notifications" instead of
+  "not supported in this browser" — Web Push arrived on iOS with 16.4 and
+  only works for Home Screen web apps. The decision lives in pure
+  `pushAvailability` (`src/lib/platform.ts`, unit-tested), which the card
+  feeds from `navigator`/`matchMedia("(display-mode: standalone)")` (plus
+  legacy `navigator.standalone`) via `useSyncExternalStore`.
+- **Theme colour.** The root layout sets per-scheme `viewport.themeColor`
+  (light/dark page ground from `globals.css` `--gradient-end`);
+  `manifest.ts`'s single `theme_color` carries the dark value, the app's
+  default theme, instead of the old fixed brand purple.
+- **Tap highlight and reduced motion.** `globals.css` sets
+  `-webkit-tap-highlight-color: transparent` (every control already answers
+  a touch with its own `active:` state, DESIGN.md M5) and a global
+  `prefers-reduced-motion` rule collapsing animations/transitions to
+  instant (0.01ms, so `transitionend` listeners still fire).
+- **Client ids.** Client-side ids use `newUid` (`src/lib/uid.ts`):
+  `crypto.randomUUID()` where available, a v4-shaped fallback otherwise —
+  the former throws in insecure contexts such as plain-HTTP LAN testing.
+- **Speech errors.** `mapSpeechRecognitionError`
+  (`src/lib/shopping/voice-transcript.ts`, unit-tested) maps the
+  recognizer's `service-not-allowed` (service unreachable, nothing the user
+  could allow) to the "unavailable here" toast rather than the
+  "microphone blocked" one. iOS date values were already pinned to
+  `text-align: start` in `globals.css`, so that half of the item needed no
+  change.
+
+### Browser floor (UX-29)
+
+The minimum browser is whatever renders the design tokens: `oklch()` and
+`color-mix()`, i.e. Safari/iOS 16.4+ or a current Chrome, Edge or Firefox.
+`BrowserFloorNotice` (`src/components/pwa/browser-floor-notice.tsx`,
+rendered in the root layout) probes exactly those two features via
+`CSS.supports` and shows an update banner below the floor — nothing at or
+above it. Covered by `e2e/ux-29.spec.ts` (with `CSS.supports` stubbed off),
+alongside the theme-color metas, tap highlight, reduced motion and both
+Apple-mobile cards.
 
 ## Weekly digest email (GAP-27)
 

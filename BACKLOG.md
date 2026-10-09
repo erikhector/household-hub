@@ -406,29 +406,6 @@ don't build these in parallel:
       an e2e spec covers a seeded shared transaction that appears in the
       personal charts and month totals on both desktop and mobile.
 
-- [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
-      - **Push on iOS.** iOS Safari says push "isn't supported in this
-        browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside
-        standalone mode, say "Add Squirrel to your Home Screen to get
-        notifications" instead.
-      - **iPad install steps.** `install-app-card.tsx:38` misses iPadOS
-        (it uses a desktop UA). Also check
-        `platform === "MacIntel" && maxTouchPoints > 1`.
-      - **Theme colour.** Add `viewport.themeColor` per colour scheme and
-        align `manifest.ts`'s fixed purple `theme_color`.
-      - **Tap highlight.** Add `-webkit-tap-highlight-color: transparent`,
-        since `active:` states already give feedback.
-      - **Reduced motion.** Add a global `prefers-reduced-motion` rule;
-        today there are none in `src/`.
-      - **Notification taps.** In `service-worker.js`, focus an existing
-        window on `notificationclick` instead of opening a new one, and
-        ship a monochrome badge icon.
-      - **Small fixes**: left-align iOS date values; map speech
-        `service-not-allowed` to "unavailable here"; fall back from
-        `crypto.randomUUID()` (it throws over plain-HTTP LAN testing).
-      - **Browser floor.** Document the minimum browser (Safari/iOS 16.4
-        for `oklch`/`color-mix`) and show a notice below it.
-
 - [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
       (high if it reproduces, S) — There are 48 `type="number"
       inputMode="decimal"` fields, for example
@@ -982,11 +959,45 @@ out to be a product-scope question rather than a scoped task should move to
       - Behaviour: using a prepped portion on the planner decrements
         `remainingPortions`; deleting an entry returns the portion; mark-as-eaten
         optionally decrements inventory separately per ingredient (opt-in).
-      Acceptance: create a prepared batch, assign some portions to planner
-      days, see the remaining count update when portions are used or
-      unassigned; unit tests for the decrement/return logic, and an e2e
-      flow that cooks a batch, assigns portions and consumes one on both
-      desktop and mobile.
+Acceptance: create a prepared batch, assign some portions to planner
+days, see the remaining count update when portions are used or
+unassigned; unit tests for the decrement/return logic, and an e2e
+flow that cooks a batch, assigns portions and consumes one on both
+desktop and mobile.
+
+### Product decisions needed for GAP-49 (please record choice below)
+
+Before implementation, the product owner must choose among the options
+below and approve the schema changes if any. Add the chosen option and
+any rationale here; this PR records the decision and requests approval.
+
+1) Ownership / tenancy
+   - Option A (recommended): PreparedBatch is household-scoped (householdId) with cookedByMemberId optional.
+   - Option B: PreparedBatch is owned by a single member (member-scoped).  
+
+2) Expiry date behaviour
+   - Option A (recommended): expiryDate optional; expired batches are flagged and cannot be assigned.
+   - Option B: no expiry date; expiry handled manually via a UI action.
+
+3) Portions granularity
+   - Option A (recommended): integer-only portions (totalPortions, remainingPortions Int).
+   - Option B: allow fractional portions (Decimal) — more complex arithmetic.
+
+4) How a prepared portion attaches to a meal-plan entry
+   - Option A (recommended): MealPlanEntry gets preparedBatchId and preparedPortionsUsed (Int). Assigning decrements remainingPortions immediately; unassigning returns them.
+   - Option B: store per-portion records (PreparedBatchPortion rows) and link to MealPlanEntry by portion id.
+
+5) Consuming a prepared portion and inventory adjustments
+   - Option A (recommended): do NOT change inventory automatically when an assigned portion is marked eaten unless a household setting enables it (opt-in setting `mealPrep.decrementInventoryOnConsume`, default false).
+   - Option B: always decrement inventory when consumed.
+
+6) Initial UI scope for this PR
+   - Option A (recommend minimal scope): provide the PreparedBatch data model and Server Actions plus an "Attach prepared portion" option in the MealEntry dialog and a dashboard card listing active batches. The distribution picker may be deferred to follow-up.
+   - Option B: implement full distribution picker UI in this PR.
+
+If you approve, please paste the chosen Option letters and any notes below and merge this PR. If schema changes are required, see note below about a separate owner-reviewed schema PR.
+
+Schema changes: if the owner approves a household-scoped PreparedBatch model, a separate schema PR (labelled `needs-human`) will be opened with the exact Prisma additions and migration; this docs PR must record the product decision but must not contain schema changes.
 
 ## Needs a decision before building
 

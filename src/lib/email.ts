@@ -25,11 +25,10 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // deployments should set EMAIL_FROM to a verified sending address instead.
 const DEFAULT_FROM = "Squirrel <onboarding@resend.dev>";
 
-// Matches manifest.ts's theme_color / globals.css's --primary (oklch(0.56
-// 0.22 300)) — kept as a plain hex here since email clients don't support
-// oklch(), and hardcoded rather than themed since an email is rendered once,
-// server-side, with no CSS variables or dark-mode media query support to
-// rely on across mail clients.
+// Matches globals.css's --primary (oklch(0.56 0.22 300)) — kept as a plain
+// hex here since email clients don't support oklch(), and hardcoded rather
+// than themed since an email is rendered once, server-side, with no CSS
+// variables or dark-mode media query support to rely on across mail clients.
 const BRAND_COLOR = "#a855f7";
 
 // APP_URL is the same "deployer-controlled base URL" env var absoluteAppUrl()
