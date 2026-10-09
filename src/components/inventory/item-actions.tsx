@@ -173,7 +173,7 @@ export function ItemActions({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button variant="ghost" size="icon" className={cn(size, "sm:hidden")} aria-label={(dict as any).moreActions ?? "More actions"}>
+            <Button variant="ghost" size="icon" className={cn(size, "sm:hidden")} aria-label={dict.moreActions}>
               <Ellipsis className="size-4" />
             </Button>
           }
@@ -183,8 +183,8 @@ export function ItemActions({
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => editRef.current?.click()}>{(dict as any).editAriaLabel ?? dict.editAriaLabel}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.confirmDelete.confirm}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => editRef.current?.click()}>{dict.edit}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.delete}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
