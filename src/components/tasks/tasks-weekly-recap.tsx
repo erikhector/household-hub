@@ -59,7 +59,7 @@ export function TasksWeeklyRecap({
       <Button
         variant="ghost"
         size="icon"
-        className="size-6 shrink-0 text-muted-foreground max-sm:size-11"
+        className="size-6 shrink-0 text-muted-foreground max-sm:size-11 pointer-coarse:size-11"
         aria-label={dict.weeklyRecapDismissAriaLabel}
         onClick={() => setDismissedWeek(currentWeekKey())}
       >

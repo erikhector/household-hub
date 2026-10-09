@@ -360,11 +360,13 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   scrolls, and dialogs become bottom sheets flush with the screen edge
   (max 85dvh, safe-area padding). From `sm` (640px) dialogs are centred,
   384px wide.
-- Touch targets grow on phones (`max-sm:` bumps) and reach 44px (rule
-  M3): every `Button` size, `Input`, select and combobox trigger,
+- Touch targets grow on phones and touch screens (paired `max-sm:` and
+  `pointer-coarse:` bumps, so an iPad or a landscape phone counts) and reach
+  44px (rule M3): every `Button` size, `Input`, select and combobox trigger,
   `Checkbox` and `Radio` (hit area extended by a pseudo-element). For a
-  link or custom control use the `touch-target` utility or `max-sm:min-h-11`.
-  `expectTouchTargets` in `e2e/ui.ts` fails the mobile smoke run on a miss.
+  link or custom control use the `touch-target` utility or `max-sm:min-h-11 pointer-coarse:min-h-11`.
+  `expectTouchTargets` in `e2e/ui.ts` fails the smoke run on a touch project
+  (mobile, landscape, tablet) on a miss.
 
 ### Depth, motion and states
 

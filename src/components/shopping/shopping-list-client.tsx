@@ -877,7 +877,7 @@ function ShoppingRow({
             // purchased — the label/input pairing (Checkbox is a native
             // <input type="checkbox">) already gives this keyboard and
             // screen-reader semantics for free, no extra handler needed.
-            editable && "cursor-pointer self-stretch max-sm:min-h-11",
+            editable && "cursor-pointer self-stretch max-sm:min-h-11 pointer-coarse:min-h-11",
           )}
         >
           <Checkbox
