@@ -66,6 +66,9 @@ export const sv = {
       empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
       unread: "Oläst",
     },
+    preparedBatchesTitle: "Förberedda satser",
+    preparedBatchesSubtitle: "Aktiva satser och återstående portioner",
+    viewPreparedBatches: "Visa satser",
   },
   language: {
     english: "Engelska",
@@ -2739,6 +2742,3 @@ export const sv = {
     },
   },
 } satisfies Dictionary;
-      preparedBatchesTitle: "Förberedda satser",
-      preparedBatchesSubtitle: "Aktiva satser och återstående portioner",
-      viewPreparedBatches: "Visa satser",

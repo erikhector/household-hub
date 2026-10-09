@@ -80,6 +80,9 @@ export const en = {
       empty: "No notifications yet. You'll see one here when an item runs out of stock or is about to expire.",
       unread: "Unread",
     },
+    preparedBatchesTitle: "Prepared batches",
+    preparedBatchesSubtitle: "Active cooked batches and remaining portions",
+    viewPreparedBatches: "View batches",
   },
   language: {
     english: "English",
@@ -2852,6 +2855,3 @@ export const en = {
 };
 
 export type Dictionary = typeof en;
-      preparedBatchesTitle: "Prepared batches",
-      preparedBatchesSubtitle: "Active cooked batches and remaining portions",
-      viewPreparedBatches: "View batches",
