@@ -2595,6 +2595,10 @@ export const en = {
       saving: "Updating…",
       submit: "Update password",
       backToLogin: "Back to log in",
+      invalidTitle: "Link expired",
+      invalidDescription:
+        "This password reset link is invalid or has expired. Request a new one.",
+      requestNewLink: "Request a new link",
     },
     verifyEmail: {
       pageTitle: "Verify your email",
@@ -2617,7 +2621,7 @@ export const en = {
       showPassword: "Show password",
       hidePassword: "Hide password",
       creating: "Creating account…",
-      submit: "Create household",
+      submit: "Create your household",
       haveAccount: "Already have an account?",
       logIn: "Log in",
       verificationSentDescription:
@@ -2744,6 +2748,7 @@ export const en = {
   // ShoppingListClient UI/controls that don't exist on this page).
   sharedShoppingList: {
     notFoundTitle: "Link not found",
+    notFoundLink: "Go to Squirrel",
     notFoundDescription:
       "This share link is invalid or has been revoked. Ask whoever shared it with you for a new one.",
     liveNotice:
@@ -2767,9 +2772,9 @@ export const en = {
     cookiesNavLabel: "Cookies",
     footerCopyright: "© {year} Squirrel",
     signupConsentPrefix: "By creating an account, you agree to the",
-    termsLink: "Terms of Service",
+    termsLink: "Terms of service",
     consentAnd: "and",
-    privacyLink: "Privacy Policy",
+    privacyLink: "Privacy policy",
     consentSuffix: ".",
   },
   // The HTML emails built in src/lib/email.ts — rendered server-side into a

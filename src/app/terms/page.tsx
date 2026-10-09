@@ -9,7 +9,7 @@ import { getDictionary } from "@/lib/i18n/get-dictionary";
 // body. Only the brand header/footer chrome around this content uses the
 // dictionary, same as every other page in src/app.
 export const metadata: Metadata = {
-  title: "Terms of Service — Squirrel",
+  title: "Terms of service — Squirrel",
 };
 
 const LAST_UPDATED = "September 7, 2026";
@@ -18,7 +18,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-heading text-xl font-semibold tracking-tight">{title}</h2>
-      <div className="flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
+      <div className="flex flex-col gap-3 text-sm leading-relaxed text-foreground">
         {children}
       </div>
     </section>
@@ -39,9 +39,9 @@ export default async function TermsPage() {
           {dict.auth.brand}
         </Link>
 
-        <article className="flex flex-col gap-8">
+        <article lang="en" className="flex flex-col gap-8">
           <header className="flex flex-col gap-1">
-            <h1 className="font-heading text-3xl font-bold tracking-tight">Terms of Service</h1>
+            <h1 className="font-heading text-3xl font-bold tracking-tight">Terms of service</h1>
             <p className="text-sm text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           </header>
 
@@ -111,7 +111,7 @@ export default async function TermsPage() {
               When you send a household invite by email, we use Resend, a transactional-email
               provider, to deliver that message. See our{" "}
               <Link href="/privacy" className="text-primary underline underline-offset-4">
-                Privacy Policy
+                Privacy policy
               </Link>{" "}
               for what that involves. We don&apos;t use any advertising or analytics services.
             </p>
@@ -159,7 +159,7 @@ export default async function TermsPage() {
               household&apos;s Squirrel instance (typically the household owner who invited
               you, or the person who set up the app) — see &quot;Contact&quot; in our{" "}
               <Link href="/privacy" className="text-primary underline underline-offset-4">
-                Privacy Policy
+                Privacy policy
               </Link>
               .
             </p>

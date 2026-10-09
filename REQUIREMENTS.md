@@ -4715,6 +4715,21 @@ components directly.
   `mt-auto` so cards side by side line them up, and their labels wrap rather
   than push the chevron outside the card on narrow (tablet) columns.
   Covered by `e2e/overview.spec.ts`.
+- **Public pages (UX-28)**: the token-link pages (join, shared shopping
+  list, reset password, verify email, unsubscribe) show every invalid or
+  finished state in one `StatusCard` (`src/components/auth/status-card.tsx`):
+  brand mark, tinted icon, title, message and a 44 px recovery link.
+  `/reset-password/<token>` checks the link first
+  (`isPasswordResetTokenUsable`, `src/lib/reset-token.ts`) and shows
+  "Link expired" with a link to `/forgot-password` rather than the form;
+  `resetPasswordAction` still validates on submit. The privacy page lists
+  cookies as a definition list per entry (a table clipped "Purpose" to a few
+  characters on phones). The English-only legal body is `lang="en"` and set
+  in `foreground`; "Terms of service" and "Privacy policy" are sentence
+  case; signup's button reads "Create your household" like its title; the
+  landing hero tightens its padding in `max-height: 500px` (landscape
+  phones) so "Get started free" stays on screen. Covered by
+  `e2e/public-pages.spec.ts`.
 - `src/app/dashboard/layout.tsx` is the one place that calls
   `getDictionary()`/`getLocale()` for the whole dashboard shell and passes
   `dict`/`locale` down into `Sidebar`, `BottomNav`, and `HouseholdSwitcher`;
@@ -5525,7 +5540,7 @@ approximating them, so the email never disagrees with the app.
   `src/lib/actions/household.ts`) or `*_STORAGE_KEY` constant and fails if
   its value isn't listed in `STORAGE_INVENTORY`
   (`src/lib/cookie-inventory.ts`), which also feeds the privacy page's
-  cookie table (`src/app/privacy/page.tsx`). A new cookie or localStorage
+  cookie list (`src/app/privacy/page.tsx`). A new cookie or localStorage
   key must follow one of those three naming patterns and get a
   `STORAGE_INVENTORY` entry in the same PR, or the test fails.
 - **Dismissed-UI hook** (MAINT-9): `useDismissedLocalStorage(key)`

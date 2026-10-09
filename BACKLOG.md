@@ -417,21 +417,6 @@ don't build these in parallel:
         and a Base UI Tooltip.
       - The sidebar footer doesn't mark the active page.
 
-- [ ] **UX-28. Public pages** (medium, S)
-      - The privacy cookie table clips "Purpose" to 2–3 characters on
-        phones. Stack it as a definition list.
-      - `/reset-password/<bad token>` renders the full form; validate the
-        token first, like the other token pages do.
-      - The invalid-token pages (join, share, unsubscribe, verify) each
-        look different. Use one shared status card with the logo.
-      - The landing hero puts "Get started free" below the fold in
-        landscape. Add `@media (max-height: 500px)` padding.
-      - "Privacy Policy" and "Terms of Service" are Title Case.
-      - The English-only legal body needs `lang="en"` when the UI is
-        Swedish (WCAG 3.1.2), and body text in `foreground`, not muted.
-      - Signup's title says "Create your household" but the button says
-        "Create household".
-
 - [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
       - **Push on iOS.** iOS Safari says push "isn't supported in this
         browser" (`push-notifications-card.tsx:41`). On iOS ≥ 16.4 outside
