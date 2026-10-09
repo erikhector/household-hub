@@ -389,22 +389,22 @@ don't build these in parallel:
         `cost-analyzer.tsx:120` does, and use `chart-1..3`.
       - Transaction delete: pass the promise to `ConfirmDialog` so
         "Deleting…" shows (`transaction-list.tsx:178-183`).
-      - Recurring rows: `flex-wrap` the title row so Swedish names don't
-        truncate to nothing (`:342`).
+        - Recurring rows: `flex-wrap` the title row so Swedish names don't
+         truncate to nothing (`:342`).
 
-- [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
-      so light gets less attention:
-      - Disabled primary buttons are white on pale lilac (~1.8:1) and
-        look broken.
-      - The active segmented tab (meal planner, budgets) barely differs
-        from its track.
-      - 2 px field outlines are much heavier than the 1 px card rings.
-      - Overview stat numbers use `chart-1/2` as text, and the amber is
-        ~2.5:1 (`dashboard/page.tsx:232,258,282`).
-      - Completed onboarding rows fade to ~2.5:1.
-      - The phone's sticky add bar paints a flat band over the gradient.
-
-      Add each new token pair to `globals-contrast.test.ts`.
+- [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
+      The Personal budget "Insights" / tabs view currently omits shared
+      household transactions (splits, shared-paid bills), so a member's
+      personal view under-counts their effective spending and safe-to-spend.
+      - Include `TransactionSplit` / shared `Transaction` rows in the
+        personal insights calculations and charts (month totals, category
+        breakdowns, trend lines), attributing only the member's owed share.
+      - Keep tenancy: every query still uses `requireHousehold()` and
+        members only see their own split share.
+      Acceptance: the Insights tabs show numbers that include the member's
+      share of split transactions (unit test comparing before/after dataset);
+      an e2e spec covers a seeded shared transaction that appears in the
+      personal charts and month totals on both desktop and mobile.
 
 - [ ] **UX-29. Platform polish: iOS, Android and the PWA** (medium, M)
       - **Push on iOS.** iOS Safari says push "isn't supported in this
@@ -546,7 +546,25 @@ order below is a suggestion, not a dependency, unless noted.
       (`personal-budget/page.tsx:217,330`), `groupBy` + `_sum` for all-time
       savings, and a SQL aggregate (`groupBy` on `TransactionSplit`) for
       "owed from earlier months". Verify with 3 years × 100/month seeded.
-      No schema change of its own beyond PERF-3's index.
+ No schema change of its own beyond PERF-3's index.
+
+- [ ] **BUDGET-8. One-off shared cost / planned shared expense mechanism** (medium, M) `[schema?]`
+      Households need a way to create an expected, non-recurring shared
+      cost (e.g. "Group purchase: new vacuum" or "Shared bulk buy") that
+      is eligible for budgets and member shares without being a recurring
+      template. This covers planned joint purchases that should affect
+      category budgets and safe-to-spend forecasts.
+      - Proposal: add a `SharedPlan` table or a `Transaction.isPlannedShared`
+        boolean plus `plannedDate` and optional `participants`/`split` info;
+        or reuse `Transaction` with a `status: planned|posted` and an
+        associated `TransactionSplit` prepared but not yet settled.
+      - Migration: if a new column/table is needed, add a migration and
+        keep read paths backward-compatible while the UI rolls out.
+      Acceptance: a member can create a planned shared cost, it shows up
+      in the household and personal budgets as an expected charge (at each
+      participant's share) and can be converted to a real `Transaction` on
+      settlement; unit tests for the create/convert flows and a short e2e
+      spec for the UI flow.
 - [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
       any role can create 7-day invites (`household.ts:32-50`) and nothing
       revokes them; `removeMemberAction` (`:383-410`) leaves pending
@@ -947,6 +965,27 @@ out to be a product-scope question rather than a scoped task should move to
       share ingredient rows with the original (editing one leaves the
       other unchanged); strings in both dictionaries; an e2e test
       duplicates a seeded recipe and asserts both appear after reload, on
+      desktop and mobile.
+
+- [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
+      Households often batch-cook (e.g. "8 portions chicken & rice") and
+      re-use those portions across the week's meal plan. Add a Meal-Prep
+      mode to record cooked batches, distribute portions to planner days,
+      and track remaining prepped servings so inventory and meal-plan stay
+      in sync.
+      - Data model: `PreparedBatch { recipeId, cookedByMemberId, totalPortions,
+        remainingPortions, cookedAt, expiryDate? }` and links from a
+        `MealPlanEntry` to a `PreparedBatch` portion when used.
+      - UX: a "Mark cooked (batch)" flow that records N portions, shows
+        a picker to distribute portions onto planned meals (or attach later),
+        and a dashboard card listing active batches and remaining portions.
+      - Behaviour: using a prepped portion on the planner decrements
+        `remainingPortions`; deleting an entry returns the portion; mark-as-eaten
+        optionally decrements inventory separately per ingredient (opt-in).
+      Acceptance: create a prepared batch, assign some portions to planner
+      days, see the remaining count update when portions are used or
+      unassigned; unit tests for the decrement/return logic, and an e2e
+      flow that cooks a batch, assigns portions and consumes one on both
       desktop and mobile.
 
 ## Needs a decision before building
