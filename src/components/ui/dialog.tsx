@@ -198,7 +198,14 @@ function DialogFooter({
         // scrolling out of view. max-sm:bg-popover (opaque, over the base
         // translucent strip) so the content scrolling underneath doesn't
         // show through. sm+: the original static row.
-        "max-sm:sticky max-sm:bottom-0 -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 max-sm:bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
+        // The stick offset is negative, not 0: `position: sticky` constrains
+        // the footer's MARGIN box, and the `-mb-[...]` full-bleed pull below
+        // is part of that box — with `bottom-0` the border box stuck exactly
+        // that margin (16px, more under a home indicator) above the sheet
+        // bottom (measured: footer 16.0px short while scrolled). Negating the
+        // same `max(1rem, env(safe-area-inset-bottom))` puts the border box
+        // exactly at the sheet bottom at every safe-area size.
+        "max-sm:sticky max-sm:-bottom-[max(1rem,env(safe-area-inset-bottom))] -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 max-sm:bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
         className
       )}
       {...props}
