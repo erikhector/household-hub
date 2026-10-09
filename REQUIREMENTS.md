@@ -4808,10 +4808,13 @@ components directly.
   closed (animation transients, rounding, browser toolbars — never a
   keyboard), and window `resize`/`orientationchange`/`focusout` recompute
   the value so a missed keyboard-close event self-heals instead of leaving
-  the sheet lifted. The grabber line is gone:
+  the sheet lifted. The footer's stick offset negates its full-bleed
+  negative margin (`position: sticky` constrains the margin box), so the
+  footer sits exactly at the sheet bottom instead of that margin above it.
+  The grabber line is gone:
   it suggested drag-to-dismiss without doing anything (real drag is
-  UX-34). Covered by `e2e/sheet-keyboard.mobile.spec.ts` and
-  `keyboard-inset.test.ts`.
+  UX-34). Covered by `e2e/sheet-keyboard.mobile.spec.ts`,
+  `e2e/sheet-footer.mobile.spec.ts` and `keyboard-inset.test.ts`.
 
 ## Releases & What's new
 
