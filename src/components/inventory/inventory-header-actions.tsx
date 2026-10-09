@@ -32,7 +32,7 @@ export function InventoryHeaderActionsClient({ items, categories, locations, uni
       <BulkPasteDialog dict={dict} categories={categories} locations={locations} trigger={<button ref={pasteRef} className="sr-only" />} />
       <BulkScanDialog dict={dict} barcodeDict={barcodeDict} categories={categories} locations={locations} trigger={<button ref={bulkRef} className="sr-only" />} />
       <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)} trigger={<button ref={aiRef} className="sr-only" />} />
-      <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} trigger={<button ref={addRef} className="sr-only" aiCategoryFallbackEnabled={false} />} />
+      <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} trigger={<button ref={addRef} className="sr-only" />} />
 
       {/* Desktop / tablet: keep icon buttons visible */}
       <div className="hidden sm:flex items-center gap-2">

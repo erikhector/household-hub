@@ -189,6 +189,7 @@ model Household {
   shoppingLists      ShoppingList[]
   listTemplates      ShoppingListTemplate[]
   recipes            Recipe[]
+  preparedBatches    PreparedBatch[]
   itemAliases        ItemAlias[]
   mealPlans          MealPlan[]
   budgetCategories   BudgetCategory[]
@@ -723,6 +724,7 @@ model Recipe {
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
   mealPlanEntries MealPlanEntry[]
+  preparedBatches  PreparedBatch[]
   // Sub-recipes this recipe includes (e.g. a lasagna's bolognese +
   // béchamel) — see RecipeComponent below.
   components      RecipeComponent[]  @relation("ParentRecipe")
@@ -915,6 +917,23 @@ model MealPlanEntry {
   notification Notification?
 
   @@index([mealPlanId])
+}
+
+model PreparedBatch {
+  id                String   @id @default(cuid())
+  householdId       String
+  recipeId          String
+  cookedByMemberId  String?
+  totalPortions     Int
+  remainingPortions Int
+  cookedAt          DateTime @default(now())
+  expiryDate        DateTime?
+  createdAt         DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+
+  @@index([householdId])
 }
 
 // --- Budgeting -----------------------------------------------------------------

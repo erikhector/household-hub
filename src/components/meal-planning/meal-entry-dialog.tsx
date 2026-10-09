@@ -33,7 +33,7 @@ const initialState: ActionState = {};
 type CommonProps = {
   dict: MealPlanningDict;
   recipes: RecipeData[];
-  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: string; cookedByMemberId?: string | null; expiryDate?: string | null }[];
+  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
 };
 
 // "create" adds a new entry to a given day/slot; "edit" (an existing entry's

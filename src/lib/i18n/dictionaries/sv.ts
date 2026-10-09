@@ -331,6 +331,9 @@ export const sv = {
         },
       },
     },
+    preparedBatchesTitle: "Förberedda satser",
+    preparedBatchesSubtitle: "Aktiva satser och återstående portioner",
+    viewPreparedBatches: "Visa satser",
   },
   shoppingList: {
     title: "Inköpslistor",

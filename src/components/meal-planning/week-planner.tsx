@@ -247,7 +247,7 @@ export function WeekPlanner({
                  preparedBatches={preparedBatches}
                  askSlot
                />
-              ) : MEAL_TYPES.map((mealType) => (
+               ) : MEAL_TYPES.map((mealType) => (
                 <MealTypeSlot
                   key={mealType}
                   dict={dict}
@@ -257,6 +257,7 @@ export function WeekPlanner({
                   weekStartKey={weekStartKey}
                   recipes={recipes}
                   entries={(entriesByDay.get(day.dateKey) ?? []).filter((e) => e.mealType === mealType)}
+                  preparedBatches={preparedBatches}
                 />
               ))}
             </CardContent>
@@ -275,6 +276,7 @@ function MealTypeSlot({
   weekStartKey,
   recipes,
   entries,
+  preparedBatches,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -283,6 +285,7 @@ function MealTypeSlot({
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
+  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
 }) {
   const label = dict[mealTypeDictKey[mealType]];
 

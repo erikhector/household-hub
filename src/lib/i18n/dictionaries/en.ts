@@ -358,6 +358,9 @@ export const en = {
         },
       },
     },
+    preparedBatchesTitle: "Prepared batches",
+    preparedBatchesSubtitle: "Active cooked batches and remaining portions",
+    viewPreparedBatches: "View batches",
   },
   shoppingList: {
     title: "Shopping lists",

@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/actions/auth";
+import { portionsMultiplier, expandRecipeIngredients } from "./recipe-expansion";
+import { computeCookedIngredients } from "./cooked-ingredients";
+import { round2 } from "@/lib/math";
+import { recordOutOfStockTransition } from "@/lib/notifications";
+import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 
 const DASHBOARD_PATH = "/dashboard";
 
@@ -19,7 +24,7 @@ export async function createPreparedBatchAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { household } = await requireHousehold();
+  const { household, userId } = await requireHousehold();
 
   const parsed = createBatchSchema.safeParse({
     recipeId: formData.get("recipeId"),
@@ -35,14 +40,60 @@ export async function createPreparedBatchAction(
   const recipe = await prisma.recipe.findFirst({ where: { id: recipeId, householdId: household.id } });
   if (!recipe) return { error: "Recipe not found" };
 
+  // We'll expand the recipe into ingredient needs and decrement inventory
+  const autoAdded: AutoAddedItem[] = [];
   try {
     await prisma.$transaction(async (tx) => {
-      // Decrement inventory for the whole batch immediately: scale recipe by totalPortions
-      // Reuse expandRecipeIngredients logic already in cooking-actions via recipe-expansion.
-      // For simplicity here, call a minimal expansion path: use existing computeCookedIngredients flow earlier instead
-      // TODO: expand ingredients properly; for now rely on markMealEntryCookedAction's helpers in future iteration.
+      // Expand recipe ingredients scaled to the batch's totalPortions
+      const recipeMultiplier = portionsMultiplier(totalPortions, recipe.servings);
+      const expanded = await expandRecipeIngredients(household.id, recipeId, recipeMultiplier, new Set());
 
-      const batch = await tx.preparedBatch.create({
+      // Collect loose-name matches for any ingredients without inventoryItemId
+      const looseNames = new Set<string>();
+      for (const ing of expanded) if (!ing.inventoryItemId) looseNames.add(ing.name.toLowerCase());
+      const looseMatches =
+        looseNames.size > 0
+          ? await tx.inventoryItem.findMany({ where: { householdId: household.id }, include: { unitConversions: { select: { fromUnit: true, factor: true } } } })
+          : [];
+      const looseByName = new Map(looseMatches.filter((i) => looseNames.has(i.name.toLowerCase())).map((i) => [i.name.toLowerCase(), i]));
+
+      // Build CookedIngredientNeed-like list for computeCookedIngredients
+      const needs = expanded
+        .map((ingredient) => {
+          if (ingredient.inventoryItemId) return ingredient;
+          const loose = looseByName.get(ingredient.name.toLowerCase());
+          if (loose) {
+            return {
+              inventoryItemId: loose.id,
+              inventoryItemName: loose.name,
+              onHandQuantity: loose.quantity,
+              onHandUnit: loose.unit,
+              conversions: loose.unitConversions ?? [],
+              name: ingredient.name,
+              unit: ingredient.unit,
+              quantity: ingredient.quantity,
+            } as any;
+          }
+          return null;
+        })
+        .filter(Boolean) as any[];
+
+      const cooked = computeCookedIngredients(needs);
+
+      // Decrement each inventory item by its suggestedQuantity (rounded)
+      for (const row of cooked) {
+        if (row.suggestedQuantity <= 0) continue;
+        const item = await tx.inventoryItem.findFirst({ where: { id: row.inventoryItemId as string, householdId: household.id } });
+        if (!item) continue;
+        const nextQuantity = round2(Math.max(0, item.quantity - row.suggestedQuantity));
+        await tx.inventoryItem.update({ where: { id: item.id }, data: { quantity: nextQuantity } });
+        await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId ?? null);
+        const added = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
+        if (added) autoAdded.push(added);
+      }
+
+      // Create the prepared batch row
+      await tx.preparedBatch.create({
         data: {
           householdId: household.id,
           recipeId,
@@ -53,8 +104,9 @@ export async function createPreparedBatchAction(
           expiryDate: expiryDate ? new Date(expiryDate) : null,
         },
       });
-      // Inventory decrementing should run here; postponed to reuse existing cooked-ingredients flow.
     });
+    // Revalidate any auto-added shopping list entries
+    if (autoAdded.length > 0) revalidateAutoAdded(autoAdded);
   } catch (err) {
     return { error: "Failed to create batch" };
   }
@@ -107,7 +159,7 @@ export async function unassignPreparedPortionsAction(entryId: string): Promise<A
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.preparedBatch.updateMany({ where: { id: entry.preparedBatchId, householdId: household.id }, data: { remainingPortions: { increment: entry.preparedPortionsUsed } } as any });
+      await tx.preparedBatch.updateMany({ where: { id: entry.preparedBatchId as string, householdId: household.id }, data: { remainingPortions: { increment: entry.preparedPortionsUsed } } as any });
       await tx.mealPlanEntry.update({ where: { id: entry.id }, data: { preparedBatchId: null, preparedPortionsUsed: 0 } as any });
     });
   } catch (err) {

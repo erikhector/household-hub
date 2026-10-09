@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import en from "@/lib/i18n/dictionaries/en";
+import { en } from "@/lib/i18n/dictionaries/en";
 import { format } from "@/lib/i18n/format";
 
 describe("LastUpdated label formatting", () => {
