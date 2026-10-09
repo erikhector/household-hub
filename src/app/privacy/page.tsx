@@ -108,7 +108,7 @@ export default async function PrivacyPage() {
             <ul className="flex flex-col gap-3">
               {STORAGE_INVENTORY.map((entry) => (
                 <li key={entry.name} className="rounded-lg border p-3">
-                  <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 text-xs">
+                  <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 text-sm">
                     <dt className="text-muted-foreground">Name</dt>
                     <dd className="font-mono break-all">{entry.name}</dd>
                     <dt className="text-muted-foreground">Type</dt>
