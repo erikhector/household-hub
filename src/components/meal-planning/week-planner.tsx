@@ -100,6 +100,7 @@ export function WeekPlanner({
   locale,
   weekStartKey,
   recipes,
+  preparedBatches,
   entries,
   activeShoppingLists,
 }: {
@@ -107,6 +108,7 @@ export function WeekPlanner({
   locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
+  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
 }) {
@@ -236,14 +238,15 @@ export function WeekPlanner({
               {/* UX-21: a day with nothing planned is one "+ Add meal" that
                   asks for the slot, not four identical per-slot rows. */}
               {!entriesByDay.has(day.dateKey) ? (
-                <MealEntryDialog
-                  dict={dict}
-                  weekStartKey={weekStartKey}
-                  dateKey={day.dateKey}
-                  mealType="DINNER"
-                  recipes={recipes}
-                  askSlot
-                />
+               <MealEntryDialog
+                 dict={dict}
+                 weekStartKey={weekStartKey}
+                 dateKey={day.dateKey}
+                 mealType="DINNER"
+                 recipes={recipes}
+                 preparedBatches={preparedBatches}
+                 askSlot
+               />
               ) : MEAL_TYPES.map((mealType) => (
                 <MealTypeSlot
                   key={mealType}
@@ -293,6 +296,7 @@ function MealTypeSlot({
         dateKey={dateKey}
         mealType={mealType}
         recipes={recipes}
+        preparedBatches={preparedBatches}
         slotLabel={label}
       />
     );
@@ -302,13 +306,14 @@ function MealTypeSlot({
     <div className="flex flex-col gap-1 max-sm:gap-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-        <MealEntryDialog
-          dict={dict}
-          weekStartKey={weekStartKey}
-          dateKey={dateKey}
-          mealType={mealType}
-          recipes={recipes}
-        />
+      <MealEntryDialog
+        dict={dict}
+        weekStartKey={weekStartKey}
+        dateKey={dateKey}
+        mealType={mealType}
+        recipes={recipes}
+        preparedBatches={preparedBatches}
+      />
       </div>
       <div className="flex flex-col gap-1 max-sm:gap-2">
         {entries.map((entry) => (

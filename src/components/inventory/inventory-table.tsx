@@ -272,7 +272,7 @@ export function InventoryTable({
   return (
     <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>

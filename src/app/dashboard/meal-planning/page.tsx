@@ -37,7 +37,7 @@ type MealPlanningDict = Dictionary["mealPlanning"];
 const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: string) => {
   const weekStart = parseDateKey(weekStartKey);
 
-  const [recipes, mealPlan, activeShoppingLists, inventoryItems] = await Promise.all([
+  const [recipes, mealPlan, activeShoppingLists, inventoryItems, preparedBatches] = await Promise.all([
     prisma.recipe.findMany({
       where: { householdId },
       include: {
@@ -88,6 +88,11 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
         expiresAt: true,
         lastKnownPrice: true,
       },
+    }),
+    prisma.preparedBatch.findMany({
+      where: { householdId, remainingPortions: { gt: 0 } },
+      select: { id: true, recipeId: true, totalPortions: true, remainingPortions: true, cookedAt: true, cookedByMemberId: true, expiryDate: true },
+      orderBy: { cookedAt: "desc" },
     }),
   ]);
 
@@ -151,7 +156,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     })),
   );
 
-  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems, nutritionRecapTotals };
+  return { recipes, recipeRows, entries, activeShoppingLists, inventoryItems, nutritionRecapTotals, preparedBatches };
 });
 
 // SCALE-J: a trailing-30-day window across all weeks, independent of
@@ -206,7 +211,7 @@ async function PlannerTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const [{ recipeRows, entries, activeShoppingLists }, locale] = await Promise.all([
+  const [{ recipeRows, entries, activeShoppingLists, preparedBatches }, locale] = await Promise.all([
     getMealPlanningCoreData(householdId, weekStartKey),
     getLocale(),
   ]);
@@ -216,6 +221,7 @@ async function PlannerTabSection({
       locale={locale}
       weekStartKey={weekStartKey}
       recipes={recipeRows}
+      preparedBatches={preparedBatches}
       entries={entries}
       activeShoppingLists={activeShoppingLists}
     />

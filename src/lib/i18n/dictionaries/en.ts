@@ -1373,6 +1373,9 @@ export const en = {
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
+    preparedBatchLabel: "Prepared batch",
+    noPreparedBatch: "No prepared batch",
+    preparedPortionsLabel: "Portions from batch",
     removeMealAriaLabel: "Remove meal",
     confirmDeleteMeal: {
       title: "Remove {meal}?",
@@ -2849,3 +2852,6 @@ export const en = {
 };
 
 export type Dictionary = typeof en;
+      preparedBatchesTitle: "Prepared batches",
+      preparedBatchesSubtitle: "Active cooked batches and remaining portions",
+      viewPreparedBatches: "View batches",

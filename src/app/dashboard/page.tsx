@@ -211,6 +211,19 @@ export default async function DashboardOverviewPage() {
               </Button>
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{dict.dashboard.preparedBatchesTitle}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col gap-1">
+              <p className="font-display text-3xl font-semibold text-foreground">{/* TODO: dynamic count */}0</p>
+              <p className="text-sm text-muted-foreground">{dict.dashboard.preparedBatchesSubtitle}</p>
+              <Button variant="outline" size="sm" className={CARD_LINK_BUTTON} render={<Link href="/dashboard/meal-planning" />}>
+                {dict.dashboard.viewPreparedBatches}
+                <ChevronRight className="size-4" />
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
 

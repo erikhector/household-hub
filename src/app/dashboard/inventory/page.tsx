@@ -12,6 +12,7 @@ import { StockScanDialog } from "@/components/inventory/stock-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
+import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
@@ -105,78 +106,9 @@ async function InventoryActionButtons({
   barcodeDict: Dictionary["barcodeScanner"];
 }) {
   const { items, categories, locations, units } = await getInventoryData(householdId);
-
-  return (
-    <>
-      {/* AUTO-6: scan a remembered barcode to change its stock by one —
-          the everyday scan, as opposed to "Scan multiple"'s one-off bulk
-          add of new items. */}
-      <StockScanDialog
-        dict={dict}
-        barcodeDict={barcodeDict}
-        items={items.map((item) => ({ id: item.id, name: item.name }))}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ScanBarcode className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.stockScan.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <BulkPasteDialog
-        dict={dict}
-        categories={categories}
-        locations={locations}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ClipboardList className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.pasteList.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <BulkScanDialog
-        dict={dict}
-        barcodeDict={barcodeDict}
-        categories={categories}
-        locations={locations}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ScanLine className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.bulkScan.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <AiShelfScanDialog
-        dict={dict}
-        categories={categories}
-        locations={locations}
-        configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <Sparkles className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
-            <Badge variant="secondary" className="hidden sm:inline-flex">
-              {dict.aiShelfScan.betaBadge}
-            </Badge>
-          </Button>
-        }
-      />
-      <ItemFormDialog
-        mode="create"
-        categories={categories}
-        locations={locations}
-        units={units}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
-        trigger={
-          <Button className="gap-1.5">
-            <Plus className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
-          </Button>
-        }
-      />
-    </>
-  );
+  // Render a client component that provides the labelled mobile header
+  // and preserves the desktop icon buttons.
+  return <InventoryHeaderActionsClient items={items} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} />;
 }
 
 // Decision 5 in the design (§7): the item catalog is reached from here, not

@@ -905,6 +905,10 @@ model MealPlanEntry {
   // a static "Cooked" indicator. Null means not yet cooked/consumed.
   // Meaningless (and unused) on a freeform entry, same as `portions`.
   consumedAt   DateTime?
+  // Optional link to a PreparedBatch when this meal uses a prepped portion.
+  preparedBatchId     String?
+  // How many portions from the prepared batch this entry consumes (int).
+  preparedPortionsUsed Int?    @default(0)
 
   mealPlan     MealPlan      @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe?       @relation(fields: [recipeId], references: [id], onDelete: SetNull)
