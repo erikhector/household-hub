@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.56.0",
+    "date": "2026-10-09",
+    "pr": 174,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The mobile bottom bar now highlights \"More\" when you're on What's new or Notifications, its labels are easier to read, and the collapsed sidebar shows a tooltip naming each icon.",
+      "sv": "Mobilens nedre meny markerar nu \"Mer\" när du är på Nyheter eller Notiser, etiketterna är lättare att läsa, och det hopfällda sidofältet visar en förklaring för varje ikon."
+    }
+  },
+  {
     "version": "0.55.1",
     "date": "2026-10-09",
     "pr": 173,
