@@ -70,6 +70,11 @@ export const viewport: Viewport = {
   // bottom-nav.tsx, dialog.tsx) has no effect. "cover" hands that area to us
   // instead, so those existing safe-area paddings actually take over it.
   viewportFit: "cover",
+  // UX-12: resize the layout viewport above the on-screen keyboard (Android
+  // Chrome) instead of overlaying it, so the fixed bottom sheet rides up
+  // with the visible area on its own. iOS Safari ignores this, which is
+  // what the --kb-inset hook (keyboard-inset.ts, read by dialog.tsx) is for.
+  interactiveWidget: "resizes-content",
   // UX-29: paint the browser chrome (address bar, task switcher) to match the
   // page ground — globals.css's --gradient-end per scheme — instead of the
   // default white/black. manifest.ts's theme_color is the single-colour
