@@ -4162,6 +4162,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Create and edit share one dialog (UX-24)**: both modes of
+  `TaskFormDialog` have a title field (so a task can be renamed;
+  `updateTaskAction` takes an optional trimmed `title`, 1-120 characters), a
+  Cancel button and one primary submit.
 - **Add task button (UX-4)**: the header button always shows its "Add task"
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
@@ -4711,6 +4715,14 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
+  page's main call to action is a solid `default` Button. Profile's four
+  save buttons (display name, Swish number, email, password) are `secondary`
+  until their form differs from what is saved (`useFormDirty`,
+  `src/components/shared/use-form-dirty.ts`). On Household, "Invite member"
+  is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
+  and the role badge is `secondary` for the owner and `outline` for members.
+  Each possible-duplicates group's "Merge" is `secondary`.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back

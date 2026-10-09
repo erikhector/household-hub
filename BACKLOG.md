@@ -409,20 +409,6 @@ don't build these in parallel:
       - Recurring rows: `flex-wrap` the title row so Swedish names don't
         truncate to nothing (`:342`).
 
-- [ ] **UX-24. One primary action per view** (medium, S) — Hierarchy.
-      - Profile has four primaries (Save, Save, Update email, Update
-        password).
-      - Household has "Add note" and "Turn on calendar feed", while its
-        page action "Invite member" is outlined.
-      - The duplicates page has a primary "Merge" per group.
-      - The task create dialog's submit is `outline`, with no Cancel; the
-        edit dialog has both. The task title also can't be edited at all
-        (`task-form-dialog.tsx:155-165`).
-
-      Fix: per-card saves are `secondary` until their form is dirty;
-      solid "Owner" badges become `secondary`; task create and edit share
-      one footer and a title field.
-
 - [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
       so light gets less attention:
       - Disabled primary buttons are white on pale lilac (~1.8:1) and
