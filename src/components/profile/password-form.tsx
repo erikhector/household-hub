@@ -5,6 +5,7 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updatePasswordAction } from "@/app/dashboard/profile/actions";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -17,6 +18,7 @@ export function PasswordForm({
   dict: Dictionary["profile"]["passwordForm"];
 }) {
   const [state, formAction, pending] = useActionState(updatePasswordAction, initialState);
+  const { dirty, formProps } = useFormDirty(pending);
 
   return (
     <div className="flex flex-col gap-3">
@@ -24,7 +26,7 @@ export function PasswordForm({
         <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} {...formProps} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="currentPasswordForPassword">{dict.currentPasswordLabel}</Label>
           <div className="relative">
@@ -73,7 +75,7 @@ export function PasswordForm({
           </div>
         </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-        <Button type="submit" disabled={pending} className="self-start">
+        <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
           {pending ? dict.saving : dict.save}
         </Button>
       </form>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updateEmailAction } from "@/app/dashboard/profile/actions";
 import { resendVerificationEmailAction, type ResendVerificationState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -38,6 +39,7 @@ export function EmailForm({
     toast.success(dict.saved);
     return {};
   }, initialState);
+  const { dirty, formProps } = useFormDirty(pending);
   const [resendState, resendFormAction, resendPending] = useActionState(
     resendVerificationEmailAction,
     initialResendState,
@@ -70,7 +72,7 @@ export function EmailForm({
           </div>
         )}
       </div>
-      <form key={email} action={formAction} className="flex flex-col gap-4">
+      <form key={email} action={formAction} {...formProps} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="newEmail">{dict.newEmailLabel}</Label>
           <div className="relative">
@@ -102,7 +104,7 @@ export function EmailForm({
           </div>
         </div>
         {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-        <Button type="submit" disabled={pending} className="self-start">
+        <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
           {pending ? dict.saving : dict.save}
         </Button>
       </form>

@@ -237,6 +237,39 @@ describe("updateTaskAction", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/tasks");
   });
 
+  it("renames a task with a trimmed title (UX-24)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+
+    const result = await updateTaskAction("task-1", {
+      title: "  Water the plants  ",
+      assignedToMemberId: null,
+      recurrenceIntervalDays: null,
+      rotationMemberIds: [],
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(householdTaskUpdateMock).toHaveBeenCalledWith({
+      where: { id: "task-1" },
+      data: expect.objectContaining({ title: "Water the plants" }),
+    });
+  });
+
+  it("rejects a blank title on edit and leaves the task alone (UX-24)", async () => {
+    requireHouseholdMock.mockResolvedValue({ household });
+    householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });
+
+    const result = await updateTaskAction("task-1", {
+      title: "   ",
+      assignedToMemberId: null,
+      recurrenceIntervalDays: null,
+      rotationMemberIds: [],
+    });
+
+    expect(result.error).toBe("Title is required");
+    expect(householdTaskUpdateMock).not.toHaveBeenCalled();
+  });
+
   it("clears the assignee and recurrence when both are set to null", async () => {
     requireHouseholdMock.mockResolvedValue({ household });
     householdTaskFindFirstMock.mockResolvedValue({ id: "task-1" });

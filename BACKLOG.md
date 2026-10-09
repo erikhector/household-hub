@@ -267,25 +267,7 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
-- `ui/button.tsx`, `ui/input.tsx`, `ui/combobox.tsx`, `globals.css`: UX-8
-
-- [ ] **UX-8. Size touch targets by pointer, not by width** (high, M) — The
-      44 px targets and 16 px fields are gated on `max-sm:` only
-      (`ui/button.tsx`, `ui/input.tsx` `md:text-sm`, the `touch-target`
-      utility in `globals.css:12-19`), so iPads and landscape phones get
-      desktop sizing:
-      - checkboxes are ~20 px;
-      - week and month arrows are 27–30 px;
-      - "Add price", "Match item" and "Add meal" are ~24 px;
-      - fields are 14 px on iPhones ≥ 768 px wide in landscape, so iOS
-        zooms in on focus.
-
-      Fix: add `pointer-coarse:` variants alongside `max-sm:` (44 px
-      heights and widths, `text-base`), and compact only under
-      `pointer-fine`.
-
-      Acceptance: `expectTouchTargets` also runs in the `landscape` and
-      `tablet` touch projects and passes.
+- `ui/dialog.tsx`: UX-11, UX-12
 
 - [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
       200% (Android "Font size", iOS Larger Text in the PWA), these pages
@@ -409,20 +391,6 @@ don't build these in parallel:
         "Deleting…" shows (`transaction-list.tsx:178-183`).
       - Recurring rows: `flex-wrap` the title row so Swedish names don't
         truncate to nothing (`:342`).
-
-- [ ] **UX-24. One primary action per view** (medium, S) — Hierarchy.
-      - Profile has four primaries (Save, Save, Update email, Update
-        password).
-      - Household has "Add note" and "Turn on calendar feed", while its
-        page action "Invite member" is outlined.
-      - The duplicates page has a primary "Merge" per group.
-      - The task create dialog's submit is `outline`, with no Cancel; the
-        edit dialog has both. The task title also can't be edited at all
-        (`task-form-dialog.tsx:155-165`).
-
-      Fix: per-card saves are `secondary` until their form is dirty;
-      solid "Owner" badges become `secondary`; task create and edit share
-      one footer and a title field.
 
 - [ ] **UX-25. Light theme polish** (medium, S) — The app defaults to dark,
       so light gets less attention:

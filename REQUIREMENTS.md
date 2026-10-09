@@ -4179,6 +4179,10 @@ co-managers, not kids earning rewards.
   use `onDelete: SetNull` (never `Cascade`), the same tradeoff
   `Transaction.recurringTemplateId` makes for its template: a member leaving the household
   unassigns/un-attributes their tasks rather than deleting task history.
+- **Create and edit share one dialog (UX-24)**: both modes of
+  `TaskFormDialog` have a title field (so a task can be renamed;
+  `updateTaskAction` takes an optional trimmed `title`, 1-120 characters), a
+  Cancel button and one primary submit.
 - **Add task button (UX-4)**: the header button always shows its "Add task"
   label. It used to collapse to a lone "+" below `sm`, leaving the page's one
   primary action with no visible words on phones. `flows.spec.ts` asserts the
@@ -4728,6 +4732,14 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
+  page's main call to action is a solid `default` Button. Profile's four
+  save buttons (display name, Swish number, email, password) are `secondary`
+  until their form differs from what is saved (`useFormDirty`,
+  `src/components/shared/use-form-dirty.ts`). On Household, "Invite member"
+  is the primary; "Add note" and "Turn on calendar feed" are `secondary`,
+  and the role badge is `secondary` for the owner and `outline` for members.
+  Each possible-duplicates group's "Merge" is `secondary`.
 - **Back closes dialogs (UX-11, DESIGN.md M7)**: every `Dialog`
   (`src/components/ui/dialog.tsx`, so `ConfirmDialog` and every sheet
   too) pushes a same-URL history entry while it's open, so Android's back
@@ -5412,12 +5424,14 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
-- Form fields never go below 16 px on phones (UX-10): iOS zooms the page when
-  a smaller field is focused. `Input`, `Combobox`/`Autocomplete` input groups
-  and `Textarea` use `text-base md:text-sm`, `border-2`, and `max-sm:h-11`
-  (44 px) for the single-line ones, so don't override a field with
-  `text-sm` or a raw `<input>`. Covered by
-  `e2e/form-control-sizes.mobile.spec.ts`.
+- Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
+  the page when a smaller field is focused, at any width (an iPad, a phone in
+  landscape). `Input`, `Combobox`/`Autocomplete` input groups
+  and `Textarea` use `text-base md:pointer-fine:text-sm`, `border-2`, and
+  `max-sm:h-11 pointer-coarse:h-11` (44 px) for the single-line ones, so don't override a field with
+  `text-sm` or a raw `<input>`. Covered
+  by `e2e/form-control-sizes.mobile.spec.ts`, which also runs on the
+  `landscape` and `tablet` projects.
 - Comboboxes keep their value readable on phones. An autocomplete field
   shows one 44 px button at a time below `sm`: the chevron while it's
   empty, the clear (×) once it has a value (clearing brings the chevron
@@ -5555,9 +5569,10 @@ approximating them, so the email never disagrees with the app.
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
   Two more touch projects cover the in-between sizes (UX-7): `landscape`
   (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
-  `smoke.spec.ts` and `navigation.desktop.spec.ts` (every page without
-  horizontal overflow, every sidebar control reachable by scrolling the
-  aside, back-links on one line).
+  `smoke.spec.ts`, `navigation.desktop.spec.ts` and
+  `form-control-sizes.mobile.spec.ts` (every page without horizontal
+  overflow and with 44 px touch targets (UX-8), every sidebar control
+  reachable by scrolling the aside, back-links on one line, 16 px fields).
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a
@@ -5575,17 +5590,21 @@ approximating them, so the email never disagrees with the app.
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
   `npm run test:e2e:desktop` / `:mobile` run one project.
-- **Touch targets (UX-6, DESIGN.md rule M3)**: below `sm` every button,
+- **Touch targets (UX-6, UX-8, DESIGN.md rule M3)**: below `sm`, or on any
+  touch screen (`pointer: coarse`, so also an iPad or a phone in landscape),
+  every button,
   link outside running text, input, checkbox, radio, tab and menu item
   has a 44 x 44 px hit area. `Button` (all sizes), `Input`, the select and
-  combobox triggers and menu items grow with `max-sm:` classes; `Checkbox`
+  combobox triggers and menu items grow with paired `max-sm:` and `pointer-coarse:` classes; `Checkbox`
   and `Radio` are drawn by hand so a `::after` can extend their hit area
   past the 20 px control; links and chips use the `touch-target` utility
-  (`globals.css`) or a `max-sm:min-h-11` row. Desktop keeps its denser
-  sizing. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
+  (`globals.css`) or a `max-sm:min-h-11 pointer-coarse:min-h-11` row. A mouse
+  on a wide screen (`pointer-fine`) keeps the denser sizing; the sidebar's
+  links grow to 44 px under a coarse pointer too. `expectTouchTargets(page)` in `e2e/ui.ts` measures every such
   element (passing if its own box, an enclosing label, link or button, or
   an absolutely positioned `::before`/`::after` reaches 44 px) and runs
-  in `smoke.spec.ts` on the `mobile` project for every page. It checks
+  in `smoke.spec.ts` on every project but `desktop` (`mobile`, `landscape`,
+  `tablet`) for every page. It checks
   each page's closed state, so menus and dialogs opened later rely on the
   component classes above.
 - **Checkbox and date fields**: a checked `Checkbox` is filled with the

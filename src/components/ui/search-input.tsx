@@ -45,7 +45,7 @@ function SearchInput({
           type="button"
           onClick={() => onValueChange("")}
           aria-label={clearLabel}
-          className="absolute right-1 top-1/2 flex size-6 max-sm:size-11 max-sm:right-0 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground"
+          className="absolute right-1 top-1/2 flex size-6 max-sm:size-11 pointer-coarse:size-11 max-sm:right-0 pointer-coarse:right-0 -translate-y-1/2 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground"
         >
           <XIcon className="size-3.5" />
         </button>

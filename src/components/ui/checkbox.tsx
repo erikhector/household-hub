@@ -27,7 +27,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<"input">) {
       type="checkbox"
       data-slot="checkbox"
       className={cn(
-        "relative size-4 max-sm:size-5 shrink-0 appearance-none rounded-[5px] border border-input bg-background bg-center bg-no-repeat transition-colors checked:border-primary checked:bg-primary checked:bg-[length:80%] checked:checkbox-tick focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none max-sm:after:absolute max-sm:after:-inset-3.5 max-sm:after:content-[''] disabled:cursor-not-allowed disabled:opacity-50",
+        "relative size-4 max-sm:size-5 pointer-coarse:size-5 shrink-0 appearance-none rounded-[5px] border border-input bg-background bg-center bg-no-repeat transition-colors checked:border-primary checked:bg-primary checked:bg-[length:80%] checked:checkbox-tick focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none max-sm:after:absolute max-sm:after:-inset-3.5 max-sm:after:content-[''] pointer-coarse:after:absolute pointer-coarse:after:-inset-3.5 pointer-coarse:after:content-[''] disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
