@@ -52,6 +52,15 @@ function Tabs<Value extends string = string>({
                 type="button"
                 variant={tab.value === value ? "secondary" : "ghost"}
                 size="sm"
+                // UX-25: the secondary fill was 1.03:1 against the muted
+                // track, so the active tab was invisible. It renders as a
+                // card pill, ringed and lifted off the track, instead — the
+                // edge and shadow carry the selection, not the fill.
+                className={
+                  tab.value === value
+                    ? "border-foreground/10 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground"
+                    : undefined
+                }
               />
             }
           >

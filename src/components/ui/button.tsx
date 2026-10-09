@@ -7,11 +7,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:bg-primary/85 hover:shadow-md hover:shadow-primary/40",
+        // UX-25: a solid fill at 50% opacity over the page composites to a
+        // pale wash, and white on it was ~1.5:1. Disabled solid buttons keep
+        // their shape at full opacity on a muted fill instead
+        // (muted-foreground on muted is guarded in globals-contrast.test.ts).
+        default:
+          "bg-primary text-primary-foreground shadow-sm shadow-primary/30 hover:bg-primary/85 hover:shadow-md hover:shadow-primary/40 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/13 dark:hover:bg-input/20",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:

@@ -244,7 +244,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-1">
-              <p className="font-display text-3xl font-semibold text-chart-1">{lowStock.length}</p>
+              <p className="font-display text-3xl font-semibold text-warning">{lowStock.length}</p>
               {outOfStock.length > 0 && (
                 <p className="text-sm text-destructive">
                   {format(plural(outOfStock.length, dict.dashboard.outOfStock), {
@@ -270,7 +270,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-1 flex-col gap-1">
-              <p className="font-display text-3xl font-semibold text-chart-2">{pendingShoppingItems}</p>
+              <p className="font-display text-3xl font-semibold text-primary">{pendingShoppingItems}</p>
               <p className="text-sm text-muted-foreground">
                 {format(plural(activeLists.length, dict.dashboard.itemsToBuyAcross), {
                   count: activeLists.length,
@@ -294,7 +294,7 @@ export default async function DashboardOverviewPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="font-display text-3xl font-semibold text-chart-1">{items.length}</p>
+              <p className="font-display text-3xl font-semibold text-foreground">{items.length}</p>
               <p className="text-sm text-muted-foreground">{dict.dashboard.inInventory}</p>
             </CardContent>
           </Card>

@@ -117,6 +117,16 @@ describe.each(Object.entries(THEMES))("globals.css %s theme", (theme, vars) => {
     pairs.push([`ring (focus) on ${s}`, solid("ring"), solid(s), 3]);
   }
 
+  // UX-25 (light theme polish) fixed its usages by pointing them at pairs
+  // already guarded above, so no new token — and no new pair — was needed:
+  // disabled solid buttons use muted-foreground on muted (was white at 50%
+  // opacity over a 50% primary wash, ~1.5:1); the active segmented tab is a
+  // card pill (foreground on card) ringed off the muted track (the
+  // secondary fill was 1.03:1 against it); the overview stats are warning /
+  // primary / foreground on card (chart-1/2 as text were 3.5:1 and 2.9:1).
+  // The completed onboarding rows needed nothing: UX-26 already hides them
+  // behind the "n of 5 done" line instead of fading them.
+
   it.each(pairs)("%s", (label, fg, bg, min) => {
     const ratio = contrast(fg, bg);
     expect(ratio, `${theme}: ${label} is ${ratio.toFixed(2)}:1, needs ${min}:1`).toBeGreaterThanOrEqual(min);

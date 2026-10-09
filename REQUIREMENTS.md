@@ -4465,12 +4465,14 @@ flat grayscale:
   `Input`). Don't add icons purely for decoration where they don't clarify
   the action.
 - **Buttons/inputs**: `Button`'s default variant carries a colored shadow and
-  a small lift-on-hover/press-down-on-active motion; `Input` has a slightly
-  thicker (`border-2`) border that tints toward `--ring` on hover. These are
+  a small lift-on-hover/press-down-on-active motion; `Input` has a 1px
+  (`border`) `--input` outline, the same weight as the card rings. These are
   defined once in `src/components/ui/button.tsx` / `input.tsx` — every usage
   inherits them automatically, so don't override with one-off `shadow-none`
-  or `border` tweaks unless a specific screen genuinely needs a quieter
-  control.
+  or `border-2` tweaks unless a specific screen genuinely needs a heavier
+  control. Disabled solid buttons (`default`, `secondary`) keep full opacity
+  on a `muted` fill with `muted-foreground` text instead of fading: white at
+  50% opacity over the faded primary was ~1.5:1 in the light theme.
 - **Contrast**: every text colour holds 4.5:1 on the surfaces it's painted
   on, and field outlines (`--input`) and the focus ring hold 3:1, in both
   themes. `src/app/globals-contrast.test.ts` reads `globals.css` and fails
@@ -4478,7 +4480,13 @@ flat grayscale:
   The status colours (`--destructive`, `--warning`, `--attention`,
   `--success`) are tuned to be text on a `--status-tint` (10% light, 20%
   dark) mix of themselves — that's how Badge, the destructive Button and
-  toasts use them — not only on a plain surface. Dark `--primary-foreground`
+  toasts use them — not only on a plain surface. The active segmented tab
+  is a ringed `card` pill lifted off the `muted` track (the `secondary`
+  fill was 1.03:1 against it). The phone sticky bars (inventory search,
+  shopping-list add line) are translucent with a blur
+  (`bg-background/85`, `backdrop-blur-sm`) so they melt into the page
+  gradient instead of painting a flat band over it. Dark
+  `--primary-foreground`
   is a deep purple ink, not white: the lighter dark-theme purple can't hold
   4.5:1 with white text. Because dark `--input` is white at 35% (for the 3:1
   outline), the dark field fills in `components/ui/*` use it at small
@@ -4488,7 +4496,9 @@ flat grayscale:
   or balanced budget, income, done, saved, "enabled") use `text-success`,
   not `text-chart-5`. `chart-5` is the same green tuned for chart marks and
   is only 3.2:1 as text on a light card; it stays for chart bars, legend
-  dots and avatar fills.
+  dots and avatar fills. The same rule covers the other chart tokens: the
+  overview stat numbers use `warning` (low stock), `primary` (shopping) and
+  `foreground` (total), not `chart-1/2` as text (3.5:1 and 2.9:1).
 - **Toasts**: `src/components/ui/sonner.tsx` turns on Sonner's `richColors`
   and points each outcome type at the app's tokens: `toast.success` green
   (`--success`), `toast.error` red (`--destructive`), `toast.warning` amber
