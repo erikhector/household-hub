@@ -100,7 +100,6 @@ export function WeekPlanner({
   locale,
   weekStartKey,
   recipes,
-  preparedBatches,
   entries,
   activeShoppingLists,
 }: {
@@ -108,7 +107,6 @@ export function WeekPlanner({
   locale: Locale;
   weekStartKey: string;
   recipes: RecipeData[];
-  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
 }) {
@@ -238,16 +236,15 @@ export function WeekPlanner({
               {/* UX-21: a day with nothing planned is one "+ Add meal" that
                   asks for the slot, not four identical per-slot rows. */}
               {!entriesByDay.has(day.dateKey) ? (
-               <MealEntryDialog
-                 dict={dict}
-                 weekStartKey={weekStartKey}
-                 dateKey={day.dateKey}
-                 mealType="DINNER"
-                 recipes={recipes}
-                 preparedBatches={preparedBatches}
-                 askSlot
-               />
-               ) : MEAL_TYPES.map((mealType) => (
+                <MealEntryDialog
+                  dict={dict}
+                  weekStartKey={weekStartKey}
+                  dateKey={day.dateKey}
+                  mealType="DINNER"
+                  recipes={recipes}
+                  askSlot
+                />
+              ) : MEAL_TYPES.map((mealType) => (
                 <MealTypeSlot
                   key={mealType}
                   dict={dict}
@@ -257,7 +254,6 @@ export function WeekPlanner({
                   weekStartKey={weekStartKey}
                   recipes={recipes}
                   entries={(entriesByDay.get(day.dateKey) ?? []).filter((e) => e.mealType === mealType)}
-                  preparedBatches={preparedBatches}
                 />
               ))}
             </CardContent>
@@ -276,7 +272,6 @@ function MealTypeSlot({
   weekStartKey,
   recipes,
   entries,
-  preparedBatches,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -285,7 +280,6 @@ function MealTypeSlot({
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
-  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
 }) {
   const label = dict[mealTypeDictKey[mealType]];
 
@@ -299,7 +293,6 @@ function MealTypeSlot({
         dateKey={dateKey}
         mealType={mealType}
         recipes={recipes}
-        preparedBatches={preparedBatches}
         slotLabel={label}
       />
     );
@@ -309,14 +302,13 @@ function MealTypeSlot({
     <div className="flex flex-col gap-1 max-sm:gap-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-      <MealEntryDialog
-        dict={dict}
-        weekStartKey={weekStartKey}
-        dateKey={dateKey}
-        mealType={mealType}
-        recipes={recipes}
-        preparedBatches={preparedBatches}
-      />
+        <MealEntryDialog
+          dict={dict}
+          weekStartKey={weekStartKey}
+          dateKey={dateKey}
+          mealType={mealType}
+          recipes={recipes}
+        />
       </div>
       <div className="flex flex-col gap-1 max-sm:gap-2">
         {entries.map((entry) => (

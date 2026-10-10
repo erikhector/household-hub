@@ -80,9 +80,6 @@ export const en = {
       empty: "No notifications yet. You'll see one here when an item runs out of stock or is about to expire.",
       unread: "Unread",
     },
-    preparedBatchesTitle: "Prepared batches",
-    preparedBatchesSubtitle: "Active cooked batches and remaining portions",
-    viewPreparedBatches: "View batches",
   },
   language: {
     english: "English",
@@ -358,9 +355,6 @@ export const en = {
         },
       },
     },
-    preparedBatchesTitle: "Prepared batches",
-    preparedBatchesSubtitle: "Active cooked batches and remaining portions",
-    viewPreparedBatches: "View batches",
   },
   shoppingList: {
     title: "Shopping lists",
@@ -1382,9 +1376,6 @@ export const en = {
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
     portionsHint: "How many portions of the recipe you're cooking for this slot.",
-    preparedBatchLabel: "Prepared batch",
-    noPreparedBatch: "No prepared batch",
-    preparedPortionsLabel: "Portions from batch",
     removeMealAriaLabel: "Remove meal",
     confirmDeleteMeal: {
       title: "Remove {meal}?",

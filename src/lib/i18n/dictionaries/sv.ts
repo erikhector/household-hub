@@ -66,9 +66,6 @@ export const sv = {
       empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
       unread: "Oläst",
     },
-    preparedBatchesTitle: "Förberedda satser",
-    preparedBatchesSubtitle: "Aktiva satser och återstående portioner",
-    viewPreparedBatches: "Visa satser",
   },
   language: {
     english: "Engelska",
@@ -331,9 +328,6 @@ export const sv = {
         },
       },
     },
-    preparedBatchesTitle: "Förberedda satser",
-    preparedBatchesSubtitle: "Aktiva satser och återstående portioner",
-    viewPreparedBatches: "Visa satser",
   },
   shoppingList: {
     title: "Inköpslistor",
@@ -1311,9 +1305,6 @@ export const sv = {
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",
     portionsHint: "Hur många portioner av receptet du lagar för det här tillfället.",
-    preparedBatchLabel: "Förberedd sats",
-    noPreparedBatch: "Ingen förberedd sats",
-    preparedPortionsLabel: "Portioner från satsen",
     removeMealAriaLabel: "Ta bort måltid",
     confirmDeleteMeal: {
       title: "Ta bort {meal}?",

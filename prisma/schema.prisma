@@ -189,7 +189,6 @@ model Household {
   shoppingLists      ShoppingList[]
   listTemplates      ShoppingListTemplate[]
   recipes            Recipe[]
-  preparedBatches    PreparedBatch[]
   itemAliases        ItemAlias[]
   mealPlans          MealPlan[]
   budgetCategories   BudgetCategory[]
@@ -724,7 +723,6 @@ model Recipe {
   household       Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients     RecipeIngredient[]
   mealPlanEntries MealPlanEntry[]
-  preparedBatches  PreparedBatch[]
   // Sub-recipes this recipe includes (e.g. a lasagna's bolognese +
   // béchamel) — see RecipeComponent below.
   components      RecipeComponent[]  @relation("ParentRecipe")
@@ -907,40 +905,12 @@ model MealPlanEntry {
   // a static "Cooked" indicator. Null means not yet cooked/consumed.
   // Meaningless (and unused) on a freeform entry, same as `portions`.
   consumedAt   DateTime?
-  // Optional link to a PreparedBatch when this meal uses a prepped portion.
-  preparedBatchId     String?
-  // How many portions from the prepared batch this entry consumes (int).
-  preparedPortionsUsed Int?    @default(0)
-
-  // Relation to PreparedBatch when this entry consumes prepared portions.
-  preparedBatch PreparedBatch? @relation(fields: [preparedBatchId], references: [id], onDelete: SetNull)
 
   mealPlan     MealPlan      @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   recipe       Recipe?       @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   notification Notification?
 
   @@index([mealPlanId])
-  @@index([preparedBatchId])
-}
-
-model PreparedBatch {
-  id                String   @id @default(cuid())
-  householdId       String
-  recipeId          String
-  cookedByMemberId  String?
-  totalPortions     Int
-  remainingPortions Int
-  cookedAt          DateTime @default(now())
-  expiryDate        DateTime?
-  createdAt         DateTime @default(now())
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Restrict)
-
-  // Back-relation to meal plan entries that used portions from this batch.
-  mealPlanEntries MealPlanEntry[]
-
-  @@index([householdId])
 }
 
 // --- Budgeting -----------------------------------------------------------------

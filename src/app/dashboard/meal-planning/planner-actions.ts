@@ -22,8 +22,6 @@ const addEntrySchema = z.object({
   // addMealEntryAction below falls back to that recipe's own `servings` (i.e.
   // "one full recipe"), matching pre-portions behavior.
   portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
-  preparedBatchId: z.string().optional(),
-  preparedPortionsUsed: z.coerce.number().int().min(1).optional(),
 });
 
 export async function addMealEntryAction(
@@ -78,25 +76,16 @@ export async function addMealEntryAction(
     },
   });
 
-  const createData: any = {
-    mealPlanId: plan.id,
-    date: new Date(`${date}T00:00:00.000Z`),
-    mealType,
-    recipeId: linkedRecipeId,
-    freeformName: freeformMealName,
-    portions,
-  };
-  if (parsed.data.preparedBatchId && parsed.data.preparedPortionsUsed) {
-    // assign from a prepared batch: decrement remainingPortions and attach
-    const batch = await prisma.preparedBatch.findFirst({ where: { id: parsed.data.preparedBatchId, householdId: household.id } });
-    if (!batch) return { error: "Prepared batch not found" };
-    if (batch.remainingPortions < parsed.data.preparedPortionsUsed) return { error: "Not enough portions available" };
-    createData.preparedBatchId = parsed.data.preparedBatchId;
-    createData.preparedPortionsUsed = parsed.data.preparedPortionsUsed;
-    await prisma.preparedBatch.update({ where: { id: batch.id }, data: { remainingPortions: { decrement: parsed.data.preparedPortionsUsed } } as any });
-  }
-
-  await prisma.mealPlanEntry.create({ data: createData });
+  await prisma.mealPlanEntry.create({
+    data: {
+      mealPlanId: plan.id,
+      date: new Date(`${date}T00:00:00.000Z`),
+      mealType,
+      recipeId: linkedRecipeId,
+      freeformName: freeformMealName,
+      portions,
+    },
+  });
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
@@ -107,8 +96,6 @@ const updateEntrySchema = z.object({
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
   portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
-  preparedBatchId: z.string().nullable().optional(),
-  preparedPortionsUsed: z.coerce.number().int().min(1).nullable().optional(),
 });
 
 export async function updateMealEntryAction(
@@ -150,29 +137,14 @@ export async function updateMealEntryAction(
     freeformMealName = freeformName;
   }
 
-  const updateData: any = { recipeId: linkedRecipeId, freeformName: freeformMealName, portions };
-
-  // Handle prepared batch assignment/unassignment
-  const newBatchId = parsed.data.preparedBatchId ?? null;
-  const newBatchPortions = parsed.data.preparedPortionsUsed ?? 0;
-  if (entry.preparedBatchId && entry.preparedPortionsUsed) {
-    // If previously assigned and now changing or removing, return previous portions
-    if (!newBatchId || newBatchId !== entry.preparedBatchId) {
-      await prisma.preparedBatch.updateMany({ where: { id: entry.preparedBatchId, householdId: household.id }, data: { remainingPortions: { increment: entry.preparedPortionsUsed } } as any });
-      updateData.preparedBatchId = null;
-      updateData.preparedPortionsUsed = 0;
-    }
-  }
-  if (newBatchId) {
-    const batch = await prisma.preparedBatch.findFirst({ where: { id: newBatchId, householdId: household.id } });
-    if (!batch) return { error: "Prepared batch not found" };
-    if (batch.remainingPortions < newBatchPortions) return { error: "Not enough portions available" };
-    await prisma.preparedBatch.update({ where: { id: batch.id }, data: { remainingPortions: { decrement: newBatchPortions } } as any });
-    updateData.preparedBatchId = newBatchId;
-    updateData.preparedPortionsUsed = newBatchPortions;
-  }
-
-  await prisma.mealPlanEntry.update({ where: { id: entry.id }, data: updateData });
+  await prisma.mealPlanEntry.update({
+    where: { id: entry.id },
+    data: {
+      recipeId: linkedRecipeId,
+      freeformName: freeformMealName,
+      portions,
+    },
+  });
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};

@@ -33,7 +33,6 @@ const initialState: ActionState = {};
 type CommonProps = {
   dict: MealPlanningDict;
   recipes: RecipeData[];
-  preparedBatches?: { id: string; recipeId: string; totalPortions: number; remainingPortions: number; cookedAt: Date; cookedByMemberId?: string | null; expiryDate?: Date | null }[];
 };
 
 // "create" adds a new entry to a given day/slot; "edit" (an existing entry's
@@ -77,8 +76,6 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   const [recipeChoice, setRecipeChoice] = useState(
     isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : CUSTOM_RECIPE_SENTINEL,
   );
-  const [batchChoice, setBatchChoice] = useState<string | null>(isEdit ? (props.entry.preparedBatchId ?? null) : null);
-  const [batchPortions, setBatchPortions] = useState(isEdit ? String(props.entry.preparedPortionsUsed ?? 1) : "1");
   const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
   const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
 
@@ -199,30 +196,6 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             </Select>
             <input type="hidden" name="recipeId" value={recipeChoice} />
           </div>
-
-          {props.preparedBatches && props.preparedBatches.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="preparedBatchId">{dict.preparedBatchLabel}</Label>
-              <Select value={batchChoice ?? ""} onValueChange={(v) => { setBatchChoice(v || null); }}>
-                <SelectTrigger id="preparedBatchId" className="w-full">
-                  <SelectValue>{(value: string) => (value ? props.preparedBatches?.find((b) => b.id === value)?.recipeId ?? value : dict.noPreparedBatch)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">{dict.noPreparedBatch}</SelectItem>
-                  {props.preparedBatches.map((batch) => (
-                    <SelectItem key={batch.id} value={batch.id}>
-                      {batch.recipeId} · {batch.remainingPortions}/{batch.totalPortions}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <input type="hidden" name="preparedBatchId" value={batchChoice ?? ""} />
-              <div className="flex items-center gap-2">
-                <Label htmlFor="preparedPortionsUsed">{dict.preparedPortionsLabel}</Label>
-                <Input id="preparedPortionsUsed" name="preparedPortionsUsed" type="number" min={1} max={1000} step={1} value={batchPortions} onChange={(e) => setBatchPortions(e.target.value)} className="w-24" />
-              </div>
-            </div>
-          )}
 
           {recipeChoice === CUSTOM_RECIPE_SENTINEL ? (
             <div className="flex flex-col gap-2">
