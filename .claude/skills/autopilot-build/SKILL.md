@@ -86,6 +86,8 @@ procedure.
 While they run, don't poll and don't do their work. Each one's report
 arrives as a notification; validate it (step 3) as it comes in.
 
+The coordinator is the human proxy: it answers any question a sub-agent has; sub-agents never block on a human. Reversible work proceeds with the result reported; irreversible writes pause for the coordinator's explicit call.
+
 ## 3. Validate (coordinator)
 
 A sub-agent's report is a claim. Check each one against what's really on
@@ -157,6 +159,8 @@ nothing built, and other worktrees share this machine's CPU and Postgres:
 Follow AGENTS.md's Development workflow exactly (orient → implement → test
 → verify → self-review → document), plus:
 
+Match a `poteto-mode` playbook first (`feature` for behavior, `bug-fix` for defects, `refactoring` for structure-only), then follow it through this file's own orient/implement/test/verify gate. Call pstack skills explicitly by ID; do not pre-read uncalled playbooks or principles.
+
 - **Orient**: read the item's REQUIREMENTS.md section (grep headings,
   then read the range). If the item turns out to be ambiguous or bigger
   than one PR, don't guess: open a `docs(backlog)` PR that splits it or
@@ -215,3 +219,5 @@ work its open review comments, merge conflict or (only with
 locked `ci:local` command before every push. Report as above: PR URL,
 branch, pushed head SHA, worktree path, `ci:local` summary, and one line
 per thread or problem saying how it was settled.
+
+Match a `poteto-mode` playbook first (`bug-fix` for defects, `refactoring` for structure-only), then follow it through this file's verify gate. Call pstack skills explicitly by ID; do not pre-read uncalled playbooks or principles.

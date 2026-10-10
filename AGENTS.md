@@ -219,6 +219,8 @@ flagged for careful review. Product direction and the decisions taken
 for the owner are in [PRODUCT.md](./PRODUCT.md). See REQUIREMENTS.md, "Autonomous improvement
 loop".
 
+Autopilot sub-agents may call the vendored pstack slice explicitly by skill ID (Superpowers keeps process routing; repo conventions win on conflict). Model mapping is repo-local `inherit-parent` in `.agents/pstack-models.md`.
+
 ## Pull requests and releases
 
 - All work lands on `master` through a squash-merged PR. Never push to
