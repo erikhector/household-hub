@@ -241,7 +241,12 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
             <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
           </Suspense>
-          <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
+          {/* Page-level export stays desktop-only: on mobile it lives
+              inside the ⋯ menu (InventoryHeaderActionsClient) so there is
+              only one export action per viewport. */}
+          <div className="hidden sm:block">
+            <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
+          </div>
           <Suspense fallback={<InventoryActionButtonsSkeleton />}>
             <InventoryActionButtons
               householdId={household.id}

@@ -10,7 +10,7 @@ import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
 import Link from "next/link";
-import { Ellipsis, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
+import { Download, Ellipsis, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
 
 type InventoryHeaderItem = { id: string; name: string };
 
@@ -109,7 +109,7 @@ export function InventoryHeaderActionsClient({
               <ClipboardList className="size-4" /> {dict.pasteList.triggerLabel}
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/dashboard/inventory/export" prefetch={false} /> }>
-              {exportLabel}
+              <Download className="size-4" /> {exportLabel}
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/dashboard/inventory/items" prefetch={false} /> }>
               {manageItemsLabel}

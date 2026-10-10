@@ -562,11 +562,12 @@ function QuantityStepper({
   return (
     <div className={isTable ? "flex items-center gap-2" : "flex min-w-0 shrink items-center gap-1.5"}>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         className={buttonClass}
         disabled={disabled}
         aria-label={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
+        title={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(-1)}
       >
         <Minus className="size-3.5" />
@@ -585,11 +586,12 @@ function QuantityStepper({
         {label}
       </span>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         className={buttonClass}
         disabled={disabled}
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
+        title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(1)}
       >
         <Plus className="size-3.5" />

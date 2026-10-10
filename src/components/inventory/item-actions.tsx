@@ -56,7 +56,6 @@ export function ItemActions({
   // refs for dialog triggers so the mobile menu can open them without
   // rendering the dialogs inside the menu popup (which would unmount them
   // as the menu closes).
-  const editRef = React.useRef<HTMLButtonElement | null>(null);
   const deleteRef = React.useRef<HTMLButtonElement | null>(null);
   return (
     <div className="flex items-center gap-1">
@@ -104,21 +103,10 @@ export function ItemActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Hidden programmatic triggers for the edit & delete dialogs (used by mobile menu) */}
-      <ItemFormDialog
-        mode="edit"
-        item={item}
-        categories={categories}
-        locations={locations}
-        units={units}
-        members={members}
-        locale={locale}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        trigger={<button ref={editRef} className="sr-only" />}
-      />
+      {/* Hidden programmatic trigger for the delete dialog (used by mobile menu).
+          Not focusable: it exists only so the menu can open the dialog. */}
       <ConfirmDialog
-        trigger={<button ref={deleteRef} className="sr-only" />}
+        trigger={<button ref={deleteRef} className="sr-only" tabIndex={-1} aria-hidden="true" />}
         title={format(dict.confirmDelete.title, { name: item.name })}
         description={dict.confirmDelete.description}
         cancelLabel={dict.confirmDelete.cancel}
@@ -127,7 +115,8 @@ export function ItemActions({
         onConfirm={() => onDelete(item.id)}
       />
 
-      {/* Desktop visible edit & delete */}
+      {/* Visible edit & delete. Edit stays visible on mobile too — the
+          primary per-row action — while the rest collapse into the ⋯ menu. */}
       <ItemFormDialog
         mode="edit"
         item={item}
@@ -142,8 +131,9 @@ export function ItemActions({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
+            className={cn(size, "text-muted-foreground hover:text-primary inline-flex")}
             aria-label={dict.editAriaLabel}
+            title={dict.edit}
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -183,7 +173,6 @@ export function ItemActions({
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => editRef.current?.click()}>{dict.edit}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.delete}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
