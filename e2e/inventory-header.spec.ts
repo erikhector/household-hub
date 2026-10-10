@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { E2E_ITEM } from "./seed-data";
 
 test("inventory header has labelled Add item and a More menu", async ({ page }) => {
   await page.goto("/dashboard/inventory");

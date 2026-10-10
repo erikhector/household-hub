@@ -1,16 +1,11 @@
 import { Suspense, cache } from "react";
 import Link from "next/link";
-import { ClipboardList, ListChecks, Plus, ScanBarcode, ScanLine, Sparkles } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
-import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
-import { StockScanDialog } from "@/components/inventory/stock-scan-dialog";
-import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
-import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
 import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
@@ -100,15 +95,30 @@ async function InventoryActionButtons({
   householdId,
   dict,
   barcodeDict,
+  exportLabel,
+  manageItemsLabel,
 }: {
   householdId: string;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
+  exportLabel: string;
+  manageItemsLabel: string;
 }) {
   const { items, categories, locations, units } = await getInventoryData(householdId);
   // Render a client component that provides the labelled mobile header
   // and preserves the desktop icon buttons.
-  return <InventoryHeaderActionsClient items={items} categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} />;
+  return (
+    <InventoryHeaderActionsClient
+      items={items}
+      categories={categories}
+      locations={locations}
+      units={units}
+      dict={dict}
+      barcodeDict={barcodeDict}
+      exportLabel={exportLabel}
+      manageItemsLabel={manageItemsLabel}
+    />
+  );
 }
 
 // Decision 5 in the design (§7): the item catalog is reached from here, not
@@ -233,7 +243,13 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
           <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
           <Suspense fallback={<InventoryActionButtonsSkeleton />}>
-            <InventoryActionButtons householdId={household.id} dict={dict.inventory} barcodeDict={dict.barcodeScanner} />
+            <InventoryActionButtons
+              householdId={household.id}
+              dict={dict.inventory}
+              barcodeDict={dict.barcodeScanner}
+              exportLabel={dict.export.button}
+              manageItemsLabel={dict.inventory.catalog.manageItems}
+            />
           </Suspense>
         </div>
       </div>

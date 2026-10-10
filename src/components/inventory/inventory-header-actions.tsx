@@ -2,18 +2,37 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { StockScanDialog } from "@/components/inventory/stock-scan-dialog";
 import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
 import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
 import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
-import { ExportButton } from "@/components/export/export-button";
 import Link from "next/link";
 import { Ellipsis, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
 
-export function InventoryHeaderActionsClient({ items, categories, locations, units, dict, barcodeDict }: any) {
+type InventoryHeaderItem = { id: string; name: string };
+
+export function InventoryHeaderActionsClient({
+  items,
+  categories,
+  locations,
+  units,
+  dict,
+  barcodeDict,
+  exportLabel,
+  manageItemsLabel,
+}: {
+  items: InventoryHeaderItem[];
+  categories: string[];
+  locations: string[];
+  units: string[];
+  dict: Dictionary["inventory"];
+  barcodeDict: Dictionary["barcodeScanner"];
+  exportLabel: string;
+  manageItemsLabel: string;
+}) {
   const stockRef = useRef<HTMLButtonElement | null>(null);
   const pasteRef = useRef<HTMLButtonElement | null>(null);
   const bulkRef = useRef<HTMLButtonElement | null>(null);
@@ -26,7 +45,7 @@ export function InventoryHeaderActionsClient({ items, categories, locations, uni
       <StockScanDialog
         dict={dict}
         barcodeDict={barcodeDict}
-        items={items.map((it: any) => ({ id: it.id, name: it.name }))}
+        items={items.map((it: InventoryHeaderItem) => ({ id: it.id, name: it.name }))}
         trigger={<button ref={stockRef} className="sr-only" />}
       />
       <BulkPasteDialog dict={dict} categories={categories} locations={locations} trigger={<button ref={pasteRef} className="sr-only" />} />
@@ -36,7 +55,7 @@ export function InventoryHeaderActionsClient({ items, categories, locations, uni
 
       {/* Desktop / tablet: keep icon buttons visible */}
       <div className="hidden sm:flex items-center gap-2">
-        <StockScanDialog dict={dict} barcodeDict={barcodeDict} items={items.map((it: any) => ({ id: it.id, name: it.name }))} trigger={
+        <StockScanDialog dict={dict} barcodeDict={barcodeDict} items={items.map((it: InventoryHeaderItem) => ({ id: it.id, name: it.name }))} trigger={
           <Button variant="outline" className="gap-1.5">
             <ScanBarcode className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.stockScan.triggerLabel}</span>
@@ -90,10 +109,10 @@ export function InventoryHeaderActionsClient({ items, categories, locations, uni
               <ClipboardList className="size-4" /> {dict.pasteList.triggerLabel}
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/dashboard/inventory/export" prefetch={false} /> }>
-              {dict.export.button}
+              {exportLabel}
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/dashboard/inventory/items" prefetch={false} /> }>
-              {dict.manageItems}
+              {manageItemsLabel}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
