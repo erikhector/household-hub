@@ -5739,6 +5739,13 @@ approximating them, so the email never disagrees with the app.
 Scheduled Claude Code sessions ("routines") improve the app continuously,
 under human control. Five roles, each a skill in `.claude/skills/`:
 
+General software-development skills (brainstorming, writing plans,
+test-driven implementation, code review) come from
+[Superpowers](https://github.com/obra/superpowers): OpenCode loads them
+automatically from the pin in `opencode.json`, and Claude Code users
+install the plugin once from the official marketplace (see AGENTS.md,
+"Agent skills (Superpowers)").
+
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
   weekly), `ux` (`UX-`, from screenshots of every route on phone and

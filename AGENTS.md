@@ -35,6 +35,19 @@ update them or add new work there.
 - Zod, Sonner (toasts), next-themes, Sentry, Upstash Redis (rate limiting),
   Resend (email), web-push.
 
+## Agent skills (Superpowers)
+
+This repo uses [Superpowers](https://github.com/obra/superpowers)
+(`obra/superpowers`), a software-development skills framework
+(brainstorming → planning → test-driven implementation → review).
+OpenCode loads it automatically from `opencode.json` (pinned to a tag;
+bump the pin to update). In Claude Code, install it once per user from
+the official marketplace
+(`/plugin install superpowers@claude-plugins-official`). Never copy
+skill files into the repo by hand: a manual copy misses the bootstrap
+that makes the skills trigger, and the pin is the single source of
+truth for the version in use.
+
 ## Commands
 
 ```bash
