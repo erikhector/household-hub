@@ -39,6 +39,8 @@ export function InventoryHeaderActionsClient({
   const aiRef = useRef<HTMLButtonElement | null>(null);
   const addRef = useRef<HTMLButtonElement | null>(null);
 
+  const aiEnabled = Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
+
   return (
     <div className="flex items-center gap-2">
       {/* Hidden programmatic triggers (outside any menu) */}
@@ -50,8 +52,8 @@ export function InventoryHeaderActionsClient({
       />
       <BulkPasteDialog dict={dict} categories={categories} locations={locations} trigger={<button ref={pasteRef} className="sr-only" />} />
       <BulkScanDialog dict={dict} barcodeDict={barcodeDict} categories={categories} locations={locations} trigger={<button ref={bulkRef} className="sr-only" />} />
-      <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)} trigger={<button ref={aiRef} className="sr-only" />} />
-      <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} trigger={<button ref={addRef} className="sr-only" />} />
+       <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={aiEnabled} trigger={<button ref={aiRef} className="sr-only" />} />
+       <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} trigger={<button ref={addRef} className="sr-only" />} />
 
       {/* Desktop / tablet: keep icon buttons visible */}
       <div className="hidden sm:flex items-center gap-2">
@@ -73,13 +75,13 @@ export function InventoryHeaderActionsClient({
             <span className="sr-only sm:not-sr-only">{dict.bulkScan.triggerLabel}</span>
           </Button>
         } />
-        <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)} trigger={
+        <AiShelfScanDialog dict={dict} categories={categories} locations={locations} configured={aiEnabled} trigger={
           <Button variant="outline" className="gap-1.5">
             <Sparkles className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
           </Button>
         } />
-        <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={false} trigger={
+        <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiEnabled} trigger={
           <Button className="gap-1.5">
             <Plus className="size-4" />
             <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
