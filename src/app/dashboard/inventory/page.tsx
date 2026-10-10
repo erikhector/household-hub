@@ -238,9 +238,13 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
-            <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
-          </Suspense>
+          {/* Desktop-only like export above: on mobile manage-items
+              lives inside the ⋯ menu so it isn't duplicated. */}
+          <div className="hidden sm:block">
+            <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
+              <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
+            </Suspense>
+          </div>
           {/* Page-level export stays desktop-only: on mobile it lives
               inside the ⋯ menu (InventoryHeaderActionsClient) so there is
               only one export action per viewport. */}
