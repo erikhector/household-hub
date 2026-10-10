@@ -5739,6 +5739,20 @@ approximating them, so the email never disagrees with the app.
 Scheduled Claude Code sessions ("routines") improve the app continuously,
 under human control. Five roles, each a skill in `.claude/skills/`:
 
+A pinned slice of [pstack](https://github.com/backnotprop/pstack) agent
+skills (commit `3a60467`) is vendored under `.agents/skills/` (OpenCode)
+and `.claude/skills/` (Claude Code): `poteto-mode` with the `feature`,
+`bug-fix`, `refactoring`, `babysit`, `shipping` and `opening-a-pr`
+playbooks, plus `how`, `why`, `architect`, `interrogate`, `tdd`,
+`unslop`, `technical-writing`, `no-comments`, `reflect` and ten
+principle files. The builder and reviewer sub-agent prompts name the
+entry playbook explicitly; all other pstack skills are opt-in by ID and
+never pre-read. Every model role maps to `inherit-parent`
+(`.agents/pstack-models.md`), so the loop always runs on the session
+model and never routes onto paid defaults. The coordinator is the human
+proxy: sub-agents never block on a human, reversible work proceeds and
+reports, irreversible writes pause for the coordinator.
+
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
   weekly), `ux` (`UX-`, from screenshots of every route on phone and
