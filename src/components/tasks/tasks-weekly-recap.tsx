@@ -50,7 +50,7 @@ export function TasksWeeklyRecap({
         <p className="font-medium text-foreground">{dict.weeklyRecapTitle}</p>
         <ul className="mt-1 flex flex-col gap-0.5">
           {groups.map((group, index) => (
-            <li key={index} className="truncate">
+            <li key={index} className="line-clamp-2 break-words sm:line-clamp-1">
               {group.memberName ?? dict.unassignedBadge}: {group.titles.join(", ")}
             </li>
           ))}

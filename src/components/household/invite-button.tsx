@@ -83,9 +83,17 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
             </div>
             <div className="flex flex-col gap-2 border-t pt-4">
               <p className="text-sm text-muted-foreground">{dict.emailLabel}</p>
-              <div className="flex gap-2">
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+              >
                 <Input
                   type="email"
+                  autoComplete="off"
+                  enterKeyHint="send"
                   placeholder={dict.emailPlaceholder}
                   aria-label={dict.emailPlaceholder}
                   value={email}
@@ -93,15 +101,11 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
                   maxLength={254}
                   disabled={isSending}
                 />
-                <Button
-                  type="button"
-                  disabled={isSending || !email.trim()}
-                  onClick={handleSend}
-                >
+                <Button type="submit" disabled={isSending || !email.trim()}>
                   <Mail className="size-4" />
                   {isSending ? dict.sending : dict.send}
                 </Button>
-              </div>
+              </form>
             </div>
           </div>
         )}

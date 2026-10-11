@@ -395,23 +395,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-- [ ] **UX-31. Screen-reader and small-screen semantics** (medium, S)
-      - Unread notifications are marked only by a tint and an
-        `aria-label` on a role-less `<span>`
-        (`notifications-history.tsx:72-82`). Add `sr-only` "Unread".
-      - 34 places truncate long names with the full text only in `title`,
-        which touch never shows. Use `line-clamp-2` on phones.
-      - Delete-household confirm needs `autoCapitalize="off"`,
-        `autoCorrect="off"`, a trimmed comparison and a Cancel button.
-      - The invite email field isn't in a `<form>`, so Enter does nothing.
-      - Add `autoComplete="off"` to household-data fields (the "New list"
-        name currently autofills the user's own name), and
-        `enterKeyHint` on each dialog's last field.
-      - Add `src/app/dashboard/error.tsx` so a feature crash keeps the
-        nav, with an offline message.
-      - The password-change form needs a hidden `autoComplete="username"`
-        field.
-
 - [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
       Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
       above can fail a build.

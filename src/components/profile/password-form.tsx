@@ -13,8 +13,10 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 const initialState: ActionState = {};
 
 export function PasswordForm({
+  email,
   dict,
 }: {
+  email: string;
   dict: Dictionary["profile"]["passwordForm"];
 }) {
   const [state, formAction, pending] = useActionState(updatePasswordAction, initialState);
@@ -27,6 +29,9 @@ export function PasswordForm({
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       <form action={formAction} {...formProps} className="flex flex-col gap-4">
+        {/* Hidden username so password managers file the new password under
+            the right account; autoComplete="username" is what they look for. */}
+        <input type="text" name="username" value={email} autoComplete="username" readOnly hidden />
         <div className="flex flex-col gap-2">
           <Label htmlFor="currentPasswordForPassword">{dict.currentPasswordLabel}</Label>
           <div className="relative">

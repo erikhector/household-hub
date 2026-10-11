@@ -80,7 +80,7 @@ export function ReorderSectionsDialog({
         <ol className="flex max-h-80 flex-col gap-1 overflow-y-auto">
           {draft.map((section, index) => (
             <li key={section.key} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
-              <span className="flex-1 truncate text-sm">{section.label}</span>
+              <span className="flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">{section.label}</span>
               <Button
                 type="button"
                 variant="ghost"

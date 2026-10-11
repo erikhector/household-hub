@@ -95,12 +95,17 @@ export function DeleteHouseholdDialog({
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="go"
             />
           </div>
           <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>{dict.cancel}</DialogClose>
             <Button
               variant="destructive"
-              disabled={isPending || confirmText !== householdName}
+              disabled={isPending || confirmText.trim() !== householdName.trim()}
               onClick={handleDelete}
             >
               <Trash2 className="size-4" />

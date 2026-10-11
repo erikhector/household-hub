@@ -1,0 +1,86 @@
+import { expect, test } from "@playwright/test";
+import { Client } from "pg";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
+import { E2E_ITEM } from "./seed-data";
+import { dismissCookieNotice } from "./ui";
+
+// UX-31: screen-reader and small-screen semantics.
+
+test("an unread notification says 'Unread' in text, not only with a dot", async ({ page }) => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(`DELETE FROM "Notification" WHERE "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+    await client.query(
+      `INSERT INTO "Notification" (id, "householdId", kind, "inventoryItemId") VALUES ($1, $2, 'EXPIRING_SOON', $3)`,
+      ["ux31-unread", E2E_HOUSEHOLD.id, E2E_ITEM.id],
+    );
+  } finally {
+    await client.end();
+  }
+
+  await page.goto("/dashboard/notifications");
+  // The word is part of the link's accessible name, so a screen reader reads it.
+  const link = page.getByRole("main").getByRole("link", { name: /Unread/ });
+  await expect(link).toHaveCount(1);
+  // sr-only: in the accessibility tree, not visible as text.
+  const box = await link.getByText("Unread", { exact: true }).boundingBox();
+  expect(box === null || (box.width <= 1 && box.height <= 1)).toBe(true);
+});
+
+test("long list names clamp to two lines on phones and one on desktop", async ({ page }, testInfo) => {
+  const name = `Clamp ${Date.now().toString(36)} ${"very long name ".repeat(12)}`.trim();
+  await page.goto("/dashboard/shopping-list");
+  await page.getByRole("button", { name: "New list" }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill(name);
+  await page.getByRole("button", { name: "Create list" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/shopping-list\/[^/]+$/);
+
+  await page.goto("/dashboard/shopping-list");
+  const label = page.getByRole("main").getByText(name, { exact: true }).first();
+  await expect(label).toBeVisible();
+  const clamp = await label.evaluate((el) => getComputedStyle(el).webkitLineClamp);
+  expect(clamp).toBe(testInfo.project.name === "mobile" ? "2" : "1");
+});
+
+test("new list name does not autofill", async ({ page }) => {
+  await page.goto("/dashboard/shopping-list");
+  await page.getByRole("button", { name: "New list" }).click();
+  await expect(page.getByRole("textbox", { name: "Name" })).toHaveAttribute("autocomplete", "off");
+});
+
+test("delete household: confirm field is exact-match, has a Cancel and no autocorrect", async ({ page, context, baseURL }) => {
+  await page.goto("/dashboard/household");
+  await dismissCookieNotice(context, baseURL!);
+  await page.getByRole("button", { name: "Delete household" }).click();
+  const field = page.getByRole("textbox", { name: /Type .* to confirm/ });
+  await expect(field).toHaveAttribute("autocapitalize", "off");
+  await expect(field).toHaveAttribute("autocorrect", "off");
+  const confirm = page.getByRole("dialog").getByRole("button", { name: "Delete household" });
+  await expect(confirm).toBeDisabled();
+  // Surrounding whitespace (a keyboard's trailing space) still matches.
+  await field.fill(`  ${E2E_HOUSEHOLD.name} `);
+  await expect(confirm).toBeEnabled();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("invite email is a form, so Enter submits it", async ({ page, context, baseURL }) => {
+  await page.goto("/dashboard/household");
+  await dismissCookieNotice(context, baseURL!);
+  await page.getByRole("button", { name: "Invite member" }).click();
+  const email = page.getByRole("textbox", { name: "Their email address" });
+  await expect(email).toBeVisible();
+  expect(await email.evaluate((el) => el.closest("form") !== null)).toBe(true);
+  await email.fill("someone@squirrel.test");
+  await email.press("Enter");
+  // Success or a delivery error: either way Enter did something (a toast).
+  await expect(page.locator("[data-sonner-toast]").first()).toBeVisible();
+});
+
+test("password form carries a hidden username for password managers", async ({ page }) => {
+  await page.goto("/dashboard/profile");
+  const username = page.locator('input[autocomplete="username"]');
+  await expect(username).toHaveCount(1);
+  await expect(username).toHaveValue(E2E_USER.email);
+});
