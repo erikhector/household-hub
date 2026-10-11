@@ -91,6 +91,13 @@ function InventoryActionButtonsSkeleton() {
   );
 }
 
+// One duplicate-group count per render, shared by the desktop link and the
+// phone ⋯ menu (react `cache` dedupes it across both Suspense boundaries).
+const getDuplicateGroups = cache(async (householdId: string) => {
+  const { items } = await getInventoryData(householdId);
+  return countDuplicateGroups(householdId, items);
+});
+
 async function InventoryActionButtons({
   householdId,
   dict,
@@ -107,7 +114,7 @@ async function InventoryActionButtons({
   const { items, categories, locations, units } = await getInventoryData(householdId);
   // The phone ⋯ menu carries the manage-items link, so it needs the same
   // duplicate count + deep link ManageItemsLink gives desktop.
-  const groups = await countDuplicateGroups(householdId, items);
+  const groups = await getDuplicateGroups(householdId);
   // Env vars are server-only; the client component can't read them.
   const aiShelfScanConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
   // Render a client component that provides the labelled mobile header
@@ -134,8 +141,7 @@ async function InventoryActionButtons({
 // from a bottom-nav tab, and the badge counts its open duplicate groups so
 // they get noticed. With groups open, the link lands on them.
 async function ManageItemsLink({ householdId, dict }: { householdId: string; dict: Dictionary["inventory"]["catalog"] }) {
-  const { items } = await getInventoryData(householdId);
-  const groups = await countDuplicateGroups(householdId, items);
+  const groups = await getDuplicateGroups(householdId);
   const href = groups > 0 ? "/dashboard/inventory/items?filter=duplicates" : "/dashboard/inventory/items";
 
   return (

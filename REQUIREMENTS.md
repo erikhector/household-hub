@@ -414,6 +414,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       page. Cancel and a disabled Merge show before an item is picked, and
       Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
       as `null`, which lets Escape through to the dialog).
+  - **Inventory on a phone (UX-20)**: below `sm` the page header shows a
+    labelled "Add item" plus a labelled "More inventory actions" ⋯ menu
+    (Scan, Scan multiple, Scan a shelf, Paste a list, Export CSV, Manage
+    items). The manage-items entry keeps the duplicate-group badge and the
+    `?filter=duplicates` deep link: `InventoryActionButtons` computes the
+    count (one cached `countDuplicateGroups` per render, shared with the
+    desktop link) and the AI-configured flags server-side, since
+    non-`NEXT_PUBLIC_` env vars are never readable in a client component.
+    The menu opens the dialogs through hidden, non-focusable
+    (`tabIndex={-1}`, `aria-hidden`) trigger buttons. From `sm` up the
+    individual icon buttons stay. Each row keeps Edit visible and moves
+    Details, Mark opened, Mark empty and Delete into a row "More actions"
+    ⋯ menu (8 px between the two targets, M3). Small fixes: ghost
+    quantity steppers, the bare "last updated" date reads "Last updated
+    4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
+    mobile filter selects have real `Label`s.
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
