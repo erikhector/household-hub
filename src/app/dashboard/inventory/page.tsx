@@ -105,6 +105,11 @@ async function InventoryActionButtons({
   manageItemsLabel: string;
 }) {
   const { items, categories, locations, units } = await getInventoryData(householdId);
+  // The phone ⋯ menu carries the manage-items link, so it needs the same
+  // duplicate count + deep link ManageItemsLink gives desktop.
+  const groups = await countDuplicateGroups(householdId, items);
+  // Env vars are server-only; the client component can't read them.
+  const aiShelfScanConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
   // Render a client component that provides the labelled mobile header
   // and preserves the desktop icon buttons.
   return (
@@ -117,6 +122,10 @@ async function InventoryActionButtons({
       barcodeDict={barcodeDict}
       exportLabel={exportLabel}
       manageItemsLabel={manageItemsLabel}
+      manageItemsHref={groups > 0 ? "/dashboard/inventory/items?filter=duplicates" : "/dashboard/inventory/items"}
+      duplicateGroups={groups}
+      aiShelfScanConfigured={aiShelfScanConfigured}
+      aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
     />
   );
 }

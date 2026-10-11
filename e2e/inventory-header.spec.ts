@@ -1,39 +1,30 @@
 import { expect, test } from "@playwright/test";
 
-test("inventory header has labelled Add item and a More menu", async ({ page }) => {
+// UX-20: on a phone the inventory header is one labelled "Add item" plus a
+// labelled "More inventory actions" menu, and each row collapses its
+// secondary actions into a ⋯ menu. On desktop the individual buttons stay.
+test("inventory header and row actions adapt to the viewport", async ({ page }) => {
+  const isMobile = test.info().project.name === "mobile";
   await page.goto("/dashboard/inventory");
+  const main = page.getByRole("main");
 
-  // Add item should be reachable by name on both viewports
-  await expect(page.getByRole("button", { name: "Add item" })).toBeVisible();
+  const addItem = main.getByRole("button", { name: "Add item", exact: true }).filter({ visible: true });
+  await expect(addItem).toBeVisible();
 
-  // There should be a more/menu trigger — use a fuzzy match for "More"
-  const more = page.getByRole("button", { name: /More/i });
-  // The More menu is only present on the mobile layout; tolerate its
-  // absence on desktop.
-  if (await more.count() > 0) await expect(more).toBeVisible();
+  // Fixed seeded item (e2e/seed.ts), scoped to its own row.
+  const row = main.getByRole("row", { name: /Tomatoes/ }).or(main.getByRole("listitem").filter({ hasText: "Tomatoes" })).filter({ visible: true }).first();
+  await expect(row).toBeVisible();
 
-  // Ensure at least one inventory row is present (header row exists too,
-  // so expect more than one row in the table) to avoid reliance on a
-  // particular seeded item name.
-  // Confirm at least one seeded inventory item is visible. Try a few known
-  // seeded names (falls back to a table-row check if none of them match).
-  const seeded = ["Tomatoes", "Olive oil", "Egg", "Wheat flour", "Crème fraiche"];
-  let found = false;
-  for (const name of seeded) {
-    if (await page.getByText(name).count() > 0) {
-      const locator = page.getByText(name).first();
-      if (await locator.isVisible()) {
-        await expect(locator).toBeVisible();
-      } else {
-        // Item exists in the DOM (may be offscreen on small viewports).
-        expect(await page.getByText(name).count()).toBeGreaterThan(0);
-      }
-      found = true;
-      break;
-    }
-  }
-  if (!found) {
-    const rowCount = await page.getByRole("row").count();
-    expect(rowCount).toBeGreaterThan(1);
+  const headerMore = main.getByRole("button", { name: "More inventory actions", exact: true });
+  const rowMore = row.getByRole("button", { name: "More actions", exact: true });
+
+  if (isMobile) {
+    await expect(headerMore).toBeVisible();
+    await expect(rowMore).toBeVisible();
+    await rowMore.click();
+    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+  } else {
+    await expect(headerMore).toBeHidden();
+    await expect(rowMore).toBeHidden();
   }
 });

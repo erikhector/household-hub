@@ -833,6 +833,7 @@ export const en = {
     editAriaLabel: "Edit item",
     deleteAriaLabel: "Delete item",
     moreActions: "More actions",
+    moreInventoryActions: "More inventory actions",
     edit: "Edit",
     delete: "Delete",
     confirmDelete: {

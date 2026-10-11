@@ -787,6 +787,7 @@ export const sv = {
     editAriaLabel: "Redigera vara",
     deleteAriaLabel: "Ta bort vara",
     moreActions: "Fler åtgärder",
+    moreInventoryActions: "Fler lageråtgärder",
     edit: "Redigera",
     delete: "Ta bort",
     confirmDelete: {
