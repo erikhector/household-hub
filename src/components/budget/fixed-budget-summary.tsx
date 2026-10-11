@@ -220,7 +220,7 @@ export function FixedBudgetSummary({
                           { dot: "bg-chart-2", name: dict.legendExpense, value: point.expense },
                           { dot: "bg-chart-3", name: dict.legendSavings, value: point.savings },
                         ].map((row) => (
-                          <li key={row.dot} className="flex items-center gap-1 whitespace-nowrap">
+                          <li key={row.dot} className="relative flex items-center gap-1 whitespace-nowrap">
                             <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${row.dot}`} />
                             <span className="sr-only">{row.name}</span>
                             {numberFormat.format(row.value)}
