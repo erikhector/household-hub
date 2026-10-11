@@ -52,7 +52,7 @@ export function InventoryHeaderActionsClient({
   const addRef = useRef<HTMLButtonElement | null>(null);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {/* Hidden programmatic triggers (outside any menu) */}
       <StockScanDialog
         dict={dict}
@@ -66,7 +66,7 @@ export function InventoryHeaderActionsClient({
       <ItemFormDialog mode="create" categories={categories} locations={locations} units={units} dict={dict} barcodeDict={barcodeDict} aiCategoryFallbackEnabled={aiCategoryFallbackEnabled} trigger={<button ref={addRef} type="button" tabIndex={-1} aria-hidden="true" className="sr-only" />} />
 
       {/* Desktop / tablet: keep icon buttons visible */}
-      <div className="hidden sm:flex items-center gap-2">
+      <div className="hidden sm:flex flex-wrap items-center gap-2">
         <StockScanDialog dict={dict} barcodeDict={barcodeDict} items={items.map((it: InventoryHeaderItem) => ({ id: it.id, name: it.name }))} trigger={
           <Button variant="outline" className="gap-1.5">
             <ScanBarcode className="size-4" />

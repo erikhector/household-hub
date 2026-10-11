@@ -11,12 +11,12 @@ test("inventory header and row actions adapt to the viewport", async ({ page }) 
   const addItem = main.getByRole("button", { name: "Add item", exact: true }).filter({ visible: true });
   await expect(addItem).toBeVisible();
 
-  // Fixed seeded item (e2e/seed.ts), scoped to its own row.
-  const row = main.getByRole("row", { name: /Tomatoes/ }).or(main.getByRole("listitem").filter({ hasText: "Tomatoes" })).filter({ visible: true }).first();
-  await expect(row).toBeVisible();
+  // Fixed seeded item (e2e/seed.ts): search narrows the list to its one row.
+  await page.getByPlaceholder("Search by name…").filter({ visible: true }).fill("Tomatoes");
+  await expect(main.getByText("Tomatoes", { exact: true }).filter({ visible: true })).toBeVisible();
 
   const headerMore = main.getByRole("button", { name: "More inventory actions", exact: true });
-  const rowMore = row.getByRole("button", { name: "More actions", exact: true });
+  const rowMore = main.getByRole("button", { name: "More actions", exact: true }).filter({ visible: true });
 
   if (isMobile) {
     await expect(headerMore).toBeVisible();
