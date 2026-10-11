@@ -169,7 +169,7 @@ export function FixedBudgetSummary({
           {!hasTrendData ? (
             <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-chart-1" />
@@ -184,7 +184,7 @@ export function FixedBudgetSummary({
                   {dict.legendSavings}
                 </span>
               </div>
-              <div className="flex items-end gap-3 overflow-x-auto">
+              <div className="flex w-full min-w-0 items-end gap-3 overflow-x-auto">
                 {monthlyTotals.map((point) => {
                   const label = monthFormat.format(new Date(`${point.month}-01T00:00:00`));
                   return (
