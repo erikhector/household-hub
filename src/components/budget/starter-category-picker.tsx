@@ -15,7 +15,7 @@
 // React/selection keys.
 
 import { useState, useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createStarterCategoriesAction } from "@/app/dashboard/budget/actions";
@@ -82,11 +82,11 @@ export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) 
       </div>
       <div className="flex flex-col gap-2">
         {groups.map((group) => (
-          <div key={group.type} className="flex flex-col items-center gap-1.5">
+          <div key={group.type} className="flex flex-col items-start gap-1.5">
             <p className="text-xs font-medium uppercase text-muted-foreground">
               {typeLabel(group.type)}
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap gap-2">
               {group.items.map((item) => {
                 const isSelected = selected.has(item.id);
                 return (
@@ -96,12 +96,13 @@ export function StarterCategoryPicker({ dict }: { dict: Dictionary["budget"] }) 
                     aria-pressed={isSelected}
                     onClick={() => toggleItem(item.id)}
                     className={cn(
-                      "rounded-full border px-3 py-1 text-xs transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
+                      "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition-colors max-sm:min-h-11 pointer-coarse:min-h-11",
                       isSelected
-                        ? "border-primary bg-primary/10 text-primary"
+                        ? "border-primary bg-primary/10 font-medium text-primary"
                         : "border-input text-muted-foreground hover:border-primary/50",
                     )}
                   >
+                    {isSelected && <Check aria-hidden className="size-3" />}
                     {item.name}
                   </button>
                 );

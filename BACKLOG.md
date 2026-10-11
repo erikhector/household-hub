@@ -351,25 +351,6 @@ don't build these in parallel:
         bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
         filter selects real `Label`s (`inventory-client.tsx:207-277`).
 
-- [ ] **UX-23. Budgets: tabs, the disabled primary and the charts**
-      (medium, M)
-      - The tabs wrap on a 320 px phone with "Insights" alone on row 2.
-        Make them scroll sideways.
-      - "Add transaction" is a disabled primary with no explanation (it
-        reads as broken). Hide it until a category exists, or explain
-        when tapped.
-      - Starter-set chips show no selected state and are centred inside a
-        left-aligned card.
-      - Put safe-to-spend above `DueRecurringWidget`
-        (`budget-tabs.tsx:270`).
-      - The fixed-budget bars carry their values only in `title`
-        (`fixed-budget-summary.tsx:195-215`). Print them, as
-        `cost-analyzer.tsx:120` does, and use `chart-1..3`.
-      - Transaction delete: pass the promise to `ConfirmDialog` so
-        "Deleting…" shows (`transaction-list.tsx:178-183`).
-        - Recurring rows: `flex-wrap` the title row so Swedish names don't
-         truncate to nothing (`:342`).
-
 - [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
       The Personal budget "Insights" / tabs view currently omits shared
       household transactions (splits, shared-paid bills), so a member's
