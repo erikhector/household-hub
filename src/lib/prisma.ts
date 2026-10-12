@@ -2,6 +2,8 @@ import { attachDatabasePool } from "@vercel/functions";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { runWithReadRetry } from "@/lib/db-retry";
+import { reportError } from "@/lib/report-error";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -31,11 +33,39 @@ const pool =
     // pooler's own connection limit in the meantime. Release idle clients
     // quickly instead of pg's default of never timing them out.
     idleTimeoutMillis: 10_000,
+    // Without a bound, a pool that can't get a connection waits forever and
+    // the page hangs until the platform kills the invocation. Fail fast
+    // instead so the error boundary (or the read retry below) takes over.
+    connectionTimeoutMillis: 10_000,
   });
+
+// pg emits "error" on the pool when an *idle* client dies (the pooler closed
+// it, the network dropped). With no listener Node treats that as an
+// uncaught exception. With one, pg discards the dead client itself, so the
+// next checkout opens a fresh connection; all we add is the report.
+// Registered only when the pool is new, so dev hot reloads don't stack
+// listeners on the cached pool.
+if (!globalForPrisma.pgPool) {
+  pool.on("error", (error) => {
+    reportError("Idle pooled database client errored", error);
+  });
+}
 
 const adapter = new PrismaPg(pool);
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+// A connection the pooler closed while it sat idle can still be handed out
+// and fails the first query on it. Retry reads once (see db-retry.ts); the
+// extension is typed back to PrismaClient because it changes no model API
+// and helpers across the codebase accept `PrismaClient`.
+export const prisma =
+  globalForPrisma.prisma ??
+  (new PrismaClient({ adapter }).$extends({
+    query: {
+      $allOperations({ operation, args, query }) {
+        return runWithReadRetry(operation, () => query(args));
+      },
+    },
+  }) as unknown as PrismaClient);
 
 // On Vercel's Fluid compute, an instance can be reused across invocations
 // or suspended between them. Without this, a pg client checked back into

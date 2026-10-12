@@ -96,22 +96,6 @@ enough to trust.
 
 Parallel-safe except where noted.
 
-### Bugs
-
-- [ ] **BUG-1. Survive a dropped pooled DB connection on page render** (impact: med, effort: S) —
-      Sentry JAVASCRIPT-NEXTJS-2 (2 events, 2026-10-04, `GET /dashboard`,
-      vercel-production, iPhone): `Error: Connection terminated unexpectedly`
-      from `pg-pool` inside a Prisma `queryRaw`, so the dashboard rendered the
-      error page. `src/lib/prisma.ts` builds the `Pool` with no
-      `pool.on("error", …)` handler and no `connectionTimeoutMillis`, so a
-      connection the pooler closed while idle is handed out and fails the
-      first query instead of being replaced. Add an `error` listener that logs
-      to Sentry and lets pg discard the client, set `connectionTimeoutMillis`,
-      and retry the read once on this specific error (not writes).
-      Acceptance: unit test with a mocked pool shows the `error` listener is
-      registered and a first-attempt "Connection terminated unexpectedly"
-      read succeeds on retry, while a write is not retried.
-
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
