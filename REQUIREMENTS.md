@@ -414,6 +414,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       page. Cancel and a disabled Merge show before an item is picked, and
       Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
       as `null`, which lets Escape through to the dialog).
+  - **Inventory on a phone (UX-20)**: below `sm` the page header shows a
+    labelled "Add item" plus a labelled "More inventory actions" ⋯ menu
+    (Scan, Scan multiple, Scan a shelf, Paste a list, Export CSV, Manage
+    items). The manage-items entry keeps the duplicate-group badge and the
+    `?filter=duplicates` deep link: `InventoryActionButtons` computes the
+    count (one cached `countDuplicateGroups` per render, shared with the
+    desktop link) and the AI-configured flags server-side, since
+    non-`NEXT_PUBLIC_` env vars are never readable in a client component.
+    The menu opens the dialogs through hidden, non-focusable
+    (`tabIndex={-1}`, `aria-hidden`) trigger buttons. From `sm` up the
+    individual icon buttons stay. Each row keeps Edit visible and moves
+    Details, Mark opened, Mark empty and Delete into a row "More actions"
+    ⋯ menu (8 px between the two targets, M3). Small fixes: ghost
+    quantity steppers, the bare "last updated" date reads "Last updated
+    4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
+    mobile filter selects have real `Label`s.
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
@@ -1327,6 +1343,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
+- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
+  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
+  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
+  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
+  none). Deleting the recipe deletes its batches; deleting a batch only
+  unlinks the entries, and a departing member leaves the batch unattributed.
+  No actions or UI use it yet.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -2480,6 +2503,20 @@ personal budget as missing household's persistent "Manage categories" button
 next to the tab bar. That gap is gone: the four-tab pass gave Categories its
 own section in the Manage tab on both pages, which is the stable home the
 button existed to provide, so neither page gets the button.
+
+**Tabs, primary action and charts (UX-23).** The shared `Tabs` bar scrolls
+sideways (no wrapping, scrollbar hidden), so on a 320 px phone "Insights"
+never sits alone on a second row; Meal Planning gets the same behaviour.
+"Add transaction" is only rendered once a category exists (the onboarding
+card is the next step until then) rather than as a disabled primary. On
+Overview, Safe to spend comes before the due-recurring widget. The starter
+category chips are left-aligned and a selected chip also shows a check mark
+(not colour alone). `FixedBudgetSummary`'s trend bars print each month's
+income, expense and savings under the bars (colours `chart-1..3`, matching
+the legend) instead of carrying them only in `title`. Deleting a
+transaction passes the action's promise to `ConfirmDialog`, so the button
+shows "Deleting…" until the server answers, and recurring-row titles wrap
+instead of truncating. Covered by `e2e/ux-23.spec.ts`.
 
 ## Data export (CSV)
 
@@ -4095,6 +4132,29 @@ is a full-screen read view for cooking from a phone.
   closes back to the list on desktop and mobile. The seeded "Pancakes"
   recipe has two steps for it.
 
+### Copy a recipe as text (GAP-43)
+
+Sending a recipe to a friend used to mean retyping it. Each `RecipeManager`
+row has a "Copy as text" button (beside "Cook", under the details) that puts
+the recipe on the clipboard as plain text and confirms with a toast.
+
+- **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,
+  servings line, an "Ingredients" list (`- 3 dl Wheat flour`, prep note in
+  brackets, an ingredient with no quantity is just its name), then
+  "Instructions" as numbered steps (`splitSteps`). A recipe with no
+  ingredients or no instructions leaves that section out. Labels come from
+  the dictionary (`ingredientsLabel`, `instructionsLabel`, `servingsCount`),
+  so the text is in the viewer's language; amounts use `formatCookQuantity`
+  and the household's unit labels.
+- **Deliberately not built**: no public share link or token, no import into
+  another household. Every read stays behind `requireHousehold()` (decided
+  2026-10-05, see PRODUCT.md). No schema change, no new browser storage.
+- **Clipboard**: the success toast waits for `clipboard.writeText`; on a
+  rejection (unfocused page, denied permission) an error toast shows.
+- **Tests**: `recipe-text.test.ts` (both locales, no quantity, no
+  instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
+  button on desktop and mobile, asserts the toast and the clipboard text.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
@@ -5347,6 +5407,37 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   "microphone blocked" one. iOS date values were already pinned to
   `text-align: start` in `globals.css`, so that half of the item needed no
   change.
+
+### Screen-reader and small-screen semantics (UX-31)
+
+- **Unread notifications** on the history page render a decorative
+  `aria-hidden` dot plus an `sr-only` "Unread" inside the link, so the word is
+  part of the link's accessible name (an `aria-label` on a role-less `<span>`
+  is ignored by screen readers).
+- **Long names** (shopping lists, recipes, members, items, notifications and
+  similar) use `line-clamp-2 break-words sm:line-clamp-1` instead of
+  `truncate`: two wrapped lines on phones, where the `title` tooltip never
+  shows on touch, one ellipsised line from `sm` up. The budget components and
+  the inventory table rows are not yet covered; they belong to other in-flight
+  work.
+- **Delete household** confirm field sets `autoCapitalize="off"`,
+  `autoCorrect="off"`, `spellCheck={false}` and `enterKeyHint="go"`, compares
+  trimmed text against the trimmed name, and has a Cancel button.
+- **Invite by email** is a real `<form>`, so Enter on the email field sends.
+- **Household-data text fields** carry `autoComplete="off"` (M4), so the
+  "New list" name no longer autofills the user's own name. `enterKeyHint` is
+  set on the last field of the recipe-import, add-category and stock-scan
+  "new item" inputs.
+- **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
+  layout: a feature crash replaces only the page content, so the sidebar or
+  bottom bar stay usable. When `navigator.onLine` is false it says the page
+  needs a connection instead of "something went wrong".
+- **Password change** form includes a hidden `autoComplete="username"` input
+  holding the account email so password managers file the new password
+  correctly.
+
+Covered by `e2e/ux-31.spec.ts` (the error boundary itself has no e2e: a
+render crash cannot be provoked from the UI).
 
 ### Browser floor (UX-29)
 

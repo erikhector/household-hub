@@ -1,6 +1,6 @@
 {
   "name": "squirrel",
-  "version": "0.57.2",
+  "version": "0.59.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

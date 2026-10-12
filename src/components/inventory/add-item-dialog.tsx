@@ -178,6 +178,7 @@ export function ItemFormDialog({
               )}
             </div>
             <Input
+              autoComplete="off"
               ref={nameInputRef}
               id="name"
               name="name"

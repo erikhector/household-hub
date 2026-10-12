@@ -57,7 +57,12 @@ test("a duplicate pair found from the inventory page merges into the item with s
   await seedItems([keeper, merged], recipe);
 
   await page.goto("/dashboard/inventory");
-  const manage = page.getByRole("link", { name: /Manage items.*possible duplicate group/ });
+  // Desktop shows the link in the header; on a phone it sits in the ⋯ menu
+  // (with the same duplicate badge and deep link).
+  if (test.info().project.name === "mobile") {
+    await page.getByRole("main").getByRole("button", { name: "More inventory actions", exact: true }).click();
+  }
+  const manage = page.getByRole(test.info().project.name === "mobile" ? "menuitem" : "link", { name: /Manage items.*possible duplicate group/ });
   await expect(manage).toBeVisible();
   await manage.click();
   await expect(page).toHaveURL(/\/dashboard\/inventory\/items\?filter=duplicates$/);

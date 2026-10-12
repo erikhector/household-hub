@@ -260,6 +260,7 @@ export const en = {
       checking: "Checking…",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
+      cancel: "Cancel",
       title: "Delete {name}?",
       description:
         "This permanently deletes the household and everything in it — inventory, shopping lists, meal plans, and budget data — for every member. This can't be undone.",
@@ -832,6 +833,10 @@ export const en = {
     editDialogTitle: "Edit inventory item",
     editAriaLabel: "Edit item",
     deleteAriaLabel: "Delete item",
+    moreActions: "More actions",
+    moreInventoryActions: "More inventory actions",
+    edit: "Edit",
+    delete: "Delete",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
@@ -1510,6 +1515,10 @@ export const en = {
     cookModeIngredients: "Ingredients",
     cookModeSteps: "Steps",
     cookModeClose: "Close",
+    // GAP-43: copies the recipe as plain text to the clipboard.
+    copyRecipeText: "Copy as text",
+    copyRecipeTextToast: "Recipe copied as text",
+    copyRecipeTextFailedToast: "Couldn't copy the recipe",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.

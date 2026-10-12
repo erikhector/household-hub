@@ -163,6 +163,7 @@ export function MergePreviewBody({
                   <p className="text-muted-foreground">{format(copy.needsFactor, { from: unitLabel(item.unit), to: unitLabel(keeper.unit) })}</p>
                   <Label htmlFor={inputId}>{format(copy.factorLabel, { lead: unitLabel(lead), other: unitLabel(other) })}</Label>
                   <Input
+                    autoComplete="off"
                     id={inputId}
                     type="text"
                     inputMode="decimal"

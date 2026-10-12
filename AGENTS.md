@@ -261,9 +261,10 @@ loop".
 - Never edit `version` in `package.json` or
   `src/lib/release-notes/releases.json` by hand. `.github/workflows/release.yml`
   writes both after merge. See REQUIREMENTS.md, "Releases & What's new".
-- Never run `scripts/release.ts apply` in a PR. That was the stopgap
-  while GitHub Actions was down (`ci_gate: local`); with the workflow
-  running, it releases the same PR twice.
+- Never run `scripts/release.ts apply` in a PR while `ci_gate: github`:
+  with the workflow running, it releases the same PR twice. It's only
+  for the `ci_gate: local` stopgap (GitHub Actions down or out of
+  minutes), as AUTOPILOT.md describes.
 
 ## Testing
 
