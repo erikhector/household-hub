@@ -116,12 +116,18 @@ export function WeekPlanner({
   // formatRange drops the repeated month/year itself. parseDateKey gives UTC
   // midnight, so formatting in UTC names the same days on the server and in
   // every browser (no hydration mismatch, no off-by-one west of Greenwich).
+  // The spacing around the dash is engine-specific: Node's ICU writes thin
+  // spaces ("Oct 12\u2009–\u200918") where Safari writes plain ones, which
+  // made every English planner load a hydration mismatch on iPhones (caught
+  // by the WebKit `iphone` e2e project, UX-32). Plain spaces on both sides.
   const weekRange = new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
     timeZone: "UTC",
-  }).formatRange(weekStart, weekEnd);
+  })
+    .formatRange(weekStart, weekEnd)
+    .replace(/[\u2009\u202f]/g, " ");
   const todayKey = toDateKey(new Date());
 
   const prevWeekKey = toDateKey(addDays(weekStart, -7));

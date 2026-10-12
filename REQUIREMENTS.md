@@ -5782,12 +5782,15 @@ approximating them, so the email never disagrees with the app.
   `form-control-sizes.mobile.spec.ts` (every page without horizontal
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
-  A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts` and
-  `flows.spec.ts` to catch iOS Safari differences. It exists only when
-  `E2E_WEBKIT=1` (CI sets it after `npx playwright install --with-deps
-  webkit`); without it the config prints a warning and leaves the project
-  out, so local runs without WebKit don't fail. Locally: install WebKit,
-  then `E2E_WEBKIT=1 npm run test:e2e -- --project=iphone`.
+  A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
+  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) to catch iOS Safari differences. It exists
+  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  install --with-deps webkit`, and the `ci:local` gate skips the project
+  unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
+  config prints a warning once and leaves the project out, so runs without
+  WebKit don't fail. Locally: `npx playwright install webkit`, then
+  `E2E_WEBKIT=1 npm run test:e2e -- --project=iphone`.
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a

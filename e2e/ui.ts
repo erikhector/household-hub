@@ -28,13 +28,21 @@ export async function dismissCookieNotice(context: BrowserContext, baseURL: stri
   await context.addCookies([{ name: COOKIE_NOTICE_COOKIE, value: "1", url: baseURL }]);
 }
 
+// Console "errors" the browser itself logs about markup we chose on purpose,
+// not failures of the app. WebKit (the `iphone` project, as on a real
+// iPhone) logs one for the viewport meta's `interactive-widget` key on every
+// page: Android Chrome needs it (UX-12, src/app/layout.tsx) and Safari just
+// ignores it. Keep this list to exact, explained browser messages.
+const BROWSER_NOTICES = [/^Viewport argument key "interactive-widget" not recognized and ignored\.$/];
+
 // Start collecting uncaught page errors and console errors. Call before the
 // first navigation; assert on the returned array at the end.
 export function collectErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text());
+    if (message.type() === "error" && !BROWSER_NOTICES.some((notice) => notice.test(message.text())))
+      errors.push(message.text());
   });
   return errors;
 }
