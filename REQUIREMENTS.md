@@ -5676,18 +5676,33 @@ approximating them, so the email never disagrees with the app.
   a production build (`npm run build`, then `npm run test:e2e` starts
   `next start` itself) against a real Postgres, because the unit suite
   mocks every I/O boundary and so can't tell whether a page actually
-  renders or a form actually saves. `e2e/global-setup.ts` seeds a fixed,
-  already-verified household with two owners, one whose account language
+  renders or a form actually saves. `e2e/global-setup.ts` seeds, once per
+  Playwright worker, a fixed, already-verified household with two owners, one whose account language
   is English and one Swedish, plus a shopping list with two rows
   (`e2e/seed.ts`, fixed ids in `e2e/seed-data.ts`; login is gated on email
   verification, which a test can't click through) and refuses to run
   against a non-local `DATABASE_URL` unless `E2E_ALLOW_REMOTE_DB=true`.
-  `e2e/auth.setup.ts` logs both users in once through the real form and
-  saves their sessions for the specs. Signed-in pages take the locale
+  `e2e/auth.setup.ts` logs every worker's two users in once through the
+  real form and saves their sessions for the specs. Signed-in pages take the locale
   from the account rather than the cookie, which is why Swedish needs its
-  own user. Specs run serially (`workers: 1`) since they share the seeded
-  household, and name the rows they create uniquely so reruns don't
-  collide. `next start` gets
+  own user. Spec files run in parallel (`workers: 3`, `E2E_WORKERS` or
+  `--workers` to change it) without racing on rows, because each worker
+  has its own copy of the seeded household, users and rows: Playwright
+  sets `TEST_PARALLEL_INDEX` in the worker before it loads the config and
+  specs, and `e2e/seed-data.ts` suffixes every seeded id with it (ids are
+  primary keys across the database), so specs keep importing plain
+  constants (`E2E_HOUSEHOLD`, `E2E_SHOPPING_LIST`, `STORAGE_STATE`, …)
+  and get their worker's. Outside a worker those resolve to worker 0, so
+  a test title never contains one (`smoke.spec.ts` titles pages by route
+  pattern, and screenshots are named by pattern too). Tests inside a
+  file still run in order. A spec names the rows it creates uniquely,
+  with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
+  one file can now run at the same time; and it sets up what it needs
+  rather than counting on another spec having run first, and cleans up
+  only inside its own `E2E_HOUSEHOLD`. That took the suite from 10.1
+  minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
+  the single `next start` process is the bottleneck (4 workers: 5.4
+  minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
   with a Postgres service container, running on every PR and push to
@@ -5724,7 +5739,7 @@ approximating them, so the email never disagrees with the app.
   (add and complete a task, create a shopping list and add items).
   `npm run test:e2e:desktop` / `:mobile` run one project, and
   `npm run test:e2e:quick` runs `desktop` and `mobile` only, skipping the
-  `landscape` and `tablet` reruns (about 2 of the suite's 10 minutes) while
+  `landscape` and `tablet` reruns (78 of the ~400 tests) while
   iterating. `ci:local` and CI always run every project.
 - **Local check speed**: `npm run check` runs lint, typecheck and unit
   tests at the same time through `scripts/run-parallel.mjs`, which
