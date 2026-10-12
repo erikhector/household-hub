@@ -200,6 +200,7 @@ model Household {
   notes              HouseholdNote[]
   weeklyDigestSends  WeeklyDigestSend[]
   duplicateDismissals InventoryDuplicateDismissal[]
+  preparedBatches    PreparedBatch[]
 }
 
 // See Household.inventorySyncMode.
@@ -226,6 +227,7 @@ model HouseholdMember {
   authoredNotes           HouseholdNote[]
   settlementsPaid         MemberSettlement[]       @relation("SettlementFrom")
   settlementsReceived     MemberSettlement[]       @relation("SettlementTo")
+  cookedBatches           PreparedBatch[]
 
   @@unique([householdId, userId])
 }
@@ -731,6 +733,7 @@ model Recipe {
   // since a recipe disappearing out from under a parent would silently
   // change what that parent means.
   usedInRecipes   RecipeComponent[]  @relation("ComponentRecipe")
+  preparedBatches PreparedBatch[]
 
   @@index([householdId])
 }
@@ -905,12 +908,71 @@ model MealPlanEntry {
   // a static "Cooked" indicator. Null means not yet cooked/consumed.
   // Meaningless (and unused) on a freeform entry, same as `portions`.
   consumedAt   DateTime?
+  // GAP-49 meal prep: the cooked batch this slot eats from, if any. Null is
+  // the normal case — the slot cooks `recipe` fresh. SetNull rather than
+  // Cascade: throwing a batch away (or the batch disappearing with its
+  // recipe, see PreparedBatch.recipeId) must not wipe the planned meal,
+  // which still has its recipe/freeform name and simply stops claiming
+  // leftovers.
+  preparedBatchId      String?
+  // How many of the batch's portions this slot has drawn, so unassigning or
+  // deleting the entry can hand exactly that many back to
+  // PreparedBatch.remainingPortions. NOT NULL with 0 rather than nullable:
+  // the decrement/return arithmetic never has to special-case null, and
+  // every existing row reads as "drew nothing". Only meaningful while
+  // preparedBatchId is set; the assign/unassign actions keep the pair in
+  // step (and reset this to 0 when they clear the link).
+  preparedPortionsUsed Int       @default(0)
 
-  mealPlan     MealPlan      @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  recipe       Recipe?       @relation(fields: [recipeId], references: [id], onDelete: SetNull)
-  notification Notification?
+  mealPlan      MealPlan       @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe        Recipe?        @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  preparedBatch PreparedBatch? @relation(fields: [preparedBatchId], references: [id], onDelete: SetNull)
+  notification  Notification?
 
   @@index([mealPlanId])
+  @@index([preparedBatchId])
+}
+
+// GAP-49 meal prep: one batch-cooked recipe ("8 portions chicken & rice")
+// whose portions are handed out to meal-plan slots over the week. Household-
+// scoped like everything else (cookedByMember is attribution, not
+// ownership), with integer portions — the recommended options in GAP-49's
+// BACKLOG.md entry. This is the schema slice only; the actions and UI that
+// move portions between a batch and MealPlanEntry.preparedPortionsUsed land
+// in follow-up PRs.
+model PreparedBatch {
+  id                String    @id @default(cuid())
+  householdId       String
+  // Required, and Cascade on delete: GAP-49's data model has a batch always
+  // be *of* a recipe, so a recipe-less batch would be a row the UI can't
+  // name. Cascade rather than RESTRICT keeps deleteRecipeAction's plain
+  // prisma.recipe.delete working (RESTRICT would make it throw an
+  // untranslated FK error) — the batch goes with its recipe, and any
+  // MealPlanEntry drawing from it just loses the link via its own SetNull.
+  recipeId          String
+  // Who cooked it, for a "cooked by" line. SetNull: a member leaving the
+  // household shouldn't take the household's leftovers with them.
+  cookedByMemberId  String?
+  // What the cook made; fixed at creation, so the UI can show "3 of 8 left"
+  // without summing entries.
+  totalPortions     Int
+  // Portions not yet assigned to a meal-plan slot. Assigning decrements it;
+  // unassigning returns the entry's preparedPortionsUsed to it.
+  remainingPortions Int
+  cookedAt          DateTime  @default(now())
+  // Optional "eat by" date; null means the household didn't set one.
+  expiryDate        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  recipe          Recipe           @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  cookedByMember  HouseholdMember? @relation(fields: [cookedByMemberId], references: [id], onDelete: SetNull)
+  mealPlanEntries MealPlanEntry[]
+
+  @@index([householdId])
+  @@index([recipeId])
+  @@index([cookedByMemberId])
 }
 
 // --- Budgeting -----------------------------------------------------------------

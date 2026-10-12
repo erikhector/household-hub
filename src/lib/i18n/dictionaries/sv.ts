@@ -233,6 +233,7 @@ export const sv = {
       checking: "Kontrollerar…",
       blockedTitle: "Kan inte ta bort hushållet",
       blockedClose: "OK",
+      cancel: "Avbryt",
       title: "Ta bort {name}?",
       description:
         "Detta tar permanent bort hushållet och allt i det — lager, inköpslistor, matplaner och budgetdata — för alla medlemmar. Det går inte att ångra.",
@@ -1441,6 +1442,10 @@ export const sv = {
     cookModeIngredients: "Ingredienser",
     cookModeSteps: "Steg",
     cookModeClose: "Stäng",
+    // GAP-43: copies the recipe as plain text to the clipboard.
+    copyRecipeText: "Kopiera som text",
+    copyRecipeTextToast: "Receptet kopierades som text",
+    copyRecipeTextFailedToast: "Det gick inte att kopiera receptet",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {

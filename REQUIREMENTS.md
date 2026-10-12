@@ -1343,6 +1343,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
+- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
+  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
+  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
+  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
+  none). Deleting the recipe deletes its batches; deleting a batch only
+  unlinks the entries, and a departing member leaves the batch unattributed.
+  No actions or UI use it yet.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -4125,6 +4132,29 @@ is a full-screen read view for cooking from a phone.
   closes back to the list on desktop and mobile. The seeded "Pancakes"
   recipe has two steps for it.
 
+### Copy a recipe as text (GAP-43)
+
+Sending a recipe to a friend used to mean retyping it. Each `RecipeManager`
+row has a "Copy as text" button (beside "Cook", under the details) that puts
+the recipe on the clipboard as plain text and confirms with a toast.
+
+- **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,
+  servings line, an "Ingredients" list (`- 3 dl Wheat flour`, prep note in
+  brackets, an ingredient with no quantity is just its name), then
+  "Instructions" as numbered steps (`splitSteps`). A recipe with no
+  ingredients or no instructions leaves that section out. Labels come from
+  the dictionary (`ingredientsLabel`, `instructionsLabel`, `servingsCount`),
+  so the text is in the viewer's language; amounts use `formatCookQuantity`
+  and the household's unit labels.
+- **Deliberately not built**: no public share link or token, no import into
+  another household. Every read stays behind `requireHousehold()` (decided
+  2026-10-05, see PRODUCT.md). No schema change, no new browser storage.
+- **Clipboard**: the success toast waits for `clipboard.writeText`; on a
+  rejection (unfocused page, denied permission) an error toast shows.
+- **Tests**: `recipe-text.test.ts` (both locales, no quantity, no
+  instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
+  button on desktop and mobile, asserts the toast and the clipboard text.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
@@ -5378,6 +5408,37 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `text-align: start` in `globals.css`, so that half of the item needed no
   change.
 
+### Screen-reader and small-screen semantics (UX-31)
+
+- **Unread notifications** on the history page render a decorative
+  `aria-hidden` dot plus an `sr-only` "Unread" inside the link, so the word is
+  part of the link's accessible name (an `aria-label` on a role-less `<span>`
+  is ignored by screen readers).
+- **Long names** (shopping lists, recipes, members, items, notifications and
+  similar) use `line-clamp-2 break-words sm:line-clamp-1` instead of
+  `truncate`: two wrapped lines on phones, where the `title` tooltip never
+  shows on touch, one ellipsised line from `sm` up. The budget components and
+  the inventory table rows are not yet covered; they belong to other in-flight
+  work.
+- **Delete household** confirm field sets `autoCapitalize="off"`,
+  `autoCorrect="off"`, `spellCheck={false}` and `enterKeyHint="go"`, compares
+  trimmed text against the trimmed name, and has a Cancel button.
+- **Invite by email** is a real `<form>`, so Enter on the email field sends.
+- **Household-data text fields** carry `autoComplete="off"` (M4), so the
+  "New list" name no longer autofills the user's own name. `enterKeyHint` is
+  set on the last field of the recipe-import, add-category and stock-scan
+  "new item" inputs.
+- **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
+  layout: a feature crash replaces only the page content, so the sidebar or
+  bottom bar stay usable. When `navigator.onLine` is false it says the page
+  needs a connection instead of "something went wrong".
+- **Password change** form includes a hidden `autoComplete="username"` input
+  holding the account email so password managers file the new password
+  correctly.
+
+Covered by `e2e/ux-31.spec.ts` (the error boundary itself has no e2e: a
+render crash cannot be provoked from the UI).
+
 ### Browser floor (UX-29)
 
 The minimum browser is whatever renders the design tokens: `oklch()` and
@@ -5855,6 +5916,38 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
   loosening limits.
+
+Every role works from two outside skill packs with one owner each, so
+they never compete (AGENTS.md, "Agent skills"):
+
+- **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
+  pinned `v7.0.0`) owns the development process: brainstorming, writing
+  plans, test-driven implementation, systematic debugging, verification
+  and code review. It is installed, not vendored: OpenCode loads it from
+  the pin in `opencode.json`, and Claude Code users install the plugin
+  once from the official marketplace.
+- **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack),
+  pinned commit `3a60467`) supplies specialist tools, vendored verbatim
+  under `.claude/skills/` (Claude Code) and `.agents/skills/` (OpenCode):
+  `how`, `why`, `interrogate`, `unslop`, `technical-writing`, `reflect`
+  and ten `principle-*` files. They never trigger on their own
+  (`disable-model-invocation`) and are called only by ID; the builder
+  names `how`, `why` and `interrogate` as aids within AGENTS.md's
+  workflow, and the reviewer may `interrogate` a contested design.
+  pstack's own process layer (`poteto-mode` playbooks, `tdd`,
+  `no-comments`) is left out: it overlaps Superpowers and conflicts with
+  this repo's rules (mandatory hand-off to other vendors' models,
+  rebasing, stripping explanatory comments). So is `architect`, which
+  needs pstack's unvendored `arena`. The skills read their model roles
+  from `~/.agents/pstack-models.md`; the web session-start hook installs
+  the repo's `.agents/pstack-models.md` there, with every role on
+  `inherit-parent`, so the loop runs on the session model.
+
+The builder coordinator is the human proxy for its sub-agents: they
+never block on a human. Their normal work (commits, pushes, opening and
+fixing their own PR) proceeds and is reported; anything irreversible
+beyond that (force-pushing, deleting branches or data, closing a PR)
+waits for the coordinator's explicit call.
 
 `AUTOPILOT.md` is the control file every session reads first: on/off
 switches per role, limits, which backlog prefixes the builder may pick,

@@ -104,7 +104,7 @@ export function CategoryChip({
                 "disabled:pointer-events-none disabled:opacity-50 sm:max-w-40",
               )}
             >
-              <span className="truncate">{category}</span>
+              <span className="line-clamp-2 break-words sm:line-clamp-1">{category}</span>
             </button>
           }
         />
@@ -142,6 +142,8 @@ export function CategoryChip({
               <DialogTitle>{format(dict.newCategoryTitle, { name: itemName })}</DialogTitle>
             </DialogHeader>
             <Input
+              autoComplete="off"
+              enterKeyHint="done"
               autoFocus
               aria-label={dict.newCategoryLabel}
               placeholder={dict.newCategoryPlaceholder}

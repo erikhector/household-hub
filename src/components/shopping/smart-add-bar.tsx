@@ -285,7 +285,7 @@ export function SmartAddBar({
                     index === activeIndex && "bg-accent text-accent-foreground",
                   )}
                 >
-                  <span className="min-w-0 truncate">{suggestion.name}</span>
+                  <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1">{suggestion.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                     {suggestion.stockStatus !== "in" && (
                       <Badge variant={suggestion.stockStatus === "out" ? "destructive" : "warning"}>

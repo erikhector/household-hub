@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.59.0",
+    "date": "2026-10-12",
+    "pr": 193,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now copy a recipe as plain text, with its ingredients and steps, to send to a friend or paste into a note.",
+      "sv": "Du kan nu kopiera ett recept som vanlig text, med ingredienser och steg, för att skicka till en vän eller klistra in i en anteckning."
+    }
+  },
+  {
+    "version": "0.58.2",
+    "date": "2026-10-12",
+    "pr": 187,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Screen readers now announce unread notifications, long names wrap on phones instead of being cut off, and deleting a household no longer trips over autocorrect.",
+      "sv": "Skärmläsare läser nu upp olästa notiser, långa namn bryts över flera rader på mobilen i stället för att klippas, och autokorrigering stör inte längre när du tar bort ett hushåll."
+    }
+  },
+  {
     "version": "0.58.1",
     "date": "2026-10-12",
     "pr": 186,

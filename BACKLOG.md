@@ -359,23 +359,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-- [ ] **UX-31. Screen-reader and small-screen semantics** (medium, S)
-      - Unread notifications are marked only by a tint and an
-        `aria-label` on a role-less `<span>`
-        (`notifications-history.tsx:72-82`). Add `sr-only` "Unread".
-      - 34 places truncate long names with the full text only in `title`,
-        which touch never shows. Use `line-clamp-2` on phones.
-      - Delete-household confirm needs `autoCapitalize="off"`,
-        `autoCorrect="off"`, a trimmed comparison and a Cancel button.
-      - The invite email field isn't in a `<form>`, so Enter does nothing.
-      - Add `autoComplete="off"` to household-data fields (the "New list"
-        name currently autofills the user's own name), and
-        `enterKeyHint` on each dialog's last field.
-      - Add `src/app/dashboard/error.tsx` so a feature crash keeps the
-        nav, with an offline message.
-      - The password-change form needs a hidden `autoComplete="username"`
-        field.
-
 - [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
       Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
       above can fail a build.
@@ -410,21 +393,6 @@ don't build these in parallel:
       cooking, no auto-scheduling. Why: it follows the "suggest, don't
       silently mutate" guardrail and answers the scan's open questions
       (which day, clashes, opt-in) without new state. See PRODUCT.md.
-
-- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
-      a "Copy as text" action on a recipe (name, servings, ingredients,
-      instructions) using the clipboard, with a toast on success.
-      No public link, no token, no import into another household: the app
-      keeps every read behind `requireHousehold()`. No schema change, no
-      new browser storage. Acceptance: the action puts the formatted text
-      on the clipboard and shows the toast; a unit test covers the pure
-      formatter (ingredients without quantity, no instructions, both
-      locales' labels); an e2e test clicks it on desktop and mobile and
-      asserts the toast.
-      Decided 2026-10-05 by autopilot-product: copy as text only; the
-      public share link is not being built. Why: it delivers "send a
-      recipe to a friend" without the app's first unauthenticated read.
-      See PRODUCT.md.
 
 ### Budget component unification
 
@@ -887,6 +855,9 @@ out to be a product-scope question rather than a scoped task should move to
       desktop and mobile.
 
 - [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
+      _Schema slice landed (PR #179): `PreparedBatch` and the two
+      `MealPlanEntry` fields exist; actions, UI and tests below are still
+      to do._
       Households often batch-cook (e.g. "8 portions chicken & rice") and
       re-use those portions across the week's meal plan. Add a Meal-Prep
       mode to record cooked batches, distribute portions to planner days,
@@ -906,6 +877,39 @@ out to be a product-scope question rather than a scoped task should move to
       unassigned; unit tests for the decrement/return logic, and an e2e
       flow that cooks a batch, assigns portions and consumes one on both
       desktop and mobile.
+
+### 2026-10-12 scan
+
+- [ ] **GAP-50. Step timers in Cook mode** (impact: med, effort: S) —
+      AnyList added recipe timers that keep running while you do something
+      else. Squirrel's Cook mode (GAP-42, `cook-mode-dialog.tsx`) shows
+      steps but has no timer, so a cook leaves the screen for the phone's
+      clock app. Detect durations in a step's text ("simmer 15 minutes",
+      "koka i 10 min") with a pure helper in `cook-mode-calc.ts` and show a
+      "Start 15 min timer" button on that step; a running timer shows a
+      countdown chip, and when it ends the dialog shows an in-page alert
+      and a short vibration where supported. In-dialog only: no push, no
+      background work, nothing stored in the browser (so no
+      `cookie-inventory.ts` entry). Works with no AI key.
+      Acceptance: unit tests for duration parsing (en + sv, ranges like
+      "10-12 min" use the upper bound, hours); an e2e step in
+      `e2e/cook-mode.spec.ts` that opens a seeded step with a duration,
+      starts the timer and asserts the countdown chip is visible, on
+      desktop and mobile.
+
+- [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
+      AnyList's v6 meal planning has a queue of recipes you intend to make
+      soon without giving them a date. Squirrel has favorites (permanent)
+      and the planner (dated) but nothing in between, so "that chili I
+      want this week" gets lost or is planned on an arbitrary day. Add a
+      per-recipe "Cook soon" toggle (a nullable `Recipe.cookSoonAt`
+      timestamp `[schema]`, Phase 2) shown as a pinned "Cook soon" group
+      at the top of the Recipes tab, ordered by when it was added; it
+      clears itself when that recipe is marked cooked or placed on the
+      planner. Suggest, don't mutate: nothing else changes.
+      Acceptance: toggling a seeded recipe moves it into the group and
+      survives reload; marking it cooked removes it; unit test for the
+      auto-clear rule; e2e on desktop and mobile.
 
 ## Needs a decision before building
 
@@ -1052,6 +1056,8 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
       | v0.58.0 | #183 feat: inventory mobile — one clear action, calmer rows (UX-20) | 2026-10-12 | #183 |
       | v0.58.1 | #186 fix: budget tabs scroll, no disabled primary, printed chart values (UX-23) | 2026-10-12 | #186 |
+      | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
+      | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
