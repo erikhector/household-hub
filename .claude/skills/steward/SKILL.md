@@ -10,12 +10,13 @@ harness still apply; this file only adds what's specific to this repo.
 
 ## CI gate
 
-Read `ci_gate` in AUTOPILOT.md first. It is `github`: the `CI` checks
+Read `ci_gate` in AUTOPILOT.md first. It is `local` until the GitHub
+Actions minutes reset (see the end of this section). When `github`: the `CI` checks
 (and "Release preview", which validates the title) must be green on the
 head commit, and the section below applies. Run `npm run check` (and
 the touched e2e specs) before every push so CI isn't the first to fail.
 Never run `scripts/release.ts apply` on a PR branch: `release.yml`
-releases after merge. Only if `ci_gate` is set back to `local` (Actions
+releases after merge. While `ci_gate` is `local` (Actions
 can't start runners): ignore check runs, gate on `npm run ci:local` in
 your session with its summary under "Verification", and cut releases
 in-PR as AUTOPILOT.md describes.

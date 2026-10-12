@@ -787,6 +787,10 @@ export const sv = {
     editDialogTitle: "Redigera vara",
     editAriaLabel: "Redigera vara",
     deleteAriaLabel: "Ta bort vara",
+    moreActions: "Fler åtgärder",
+    moreInventoryActions: "Fler lageråtgärder",
+    edit: "Redigera",
+    delete: "Ta bort",
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",

@@ -833,6 +833,10 @@ export const en = {
     editDialogTitle: "Edit inventory item",
     editAriaLabel: "Edit item",
     deleteAriaLabel: "Delete item",
+    moreActions: "More actions",
+    moreInventoryActions: "More inventory actions",
+    edit: "Edit",
+    delete: "Delete",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",

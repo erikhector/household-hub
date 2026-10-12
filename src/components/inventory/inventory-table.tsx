@@ -272,7 +272,7 @@ export function InventoryTable({
   return (
     <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
           <span className="text-sm font-medium">
             {format(plural(selected.size, dict.bulkActions.selectedCount), { count: selected.size })}
           </span>
@@ -562,11 +562,12 @@ function QuantityStepper({
   return (
     <div className={isTable ? "flex items-center gap-2" : "flex min-w-0 shrink items-center gap-1.5"}>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         className={buttonClass}
         disabled={disabled}
         aria-label={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
+        title={format(dict.decreaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(-1)}
       >
         <Minus className="size-3.5" />
@@ -585,11 +586,12 @@ function QuantityStepper({
         {label}
       </span>
       <Button
-        variant="outline"
+        variant="ghost"
         size="icon"
         className={buttonClass}
         disabled={disabled}
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
+        title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(1)}
       >
         <Plus className="size-3.5" />
