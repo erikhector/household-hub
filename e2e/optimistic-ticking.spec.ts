@@ -15,6 +15,18 @@ import { dismissCookieNotice } from "./ui";
 // and removed again afterwards.
 const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
+// No service worker. The root layout registers one (src/lib/service-worker.js)
+// with a `fetch` handler, and it installs and claims each fresh test page
+// a moment after load. Playwright's page.route() can't see requests a
+// service worker handles, and when the claim lands while a test is running
+// the page's own fetches come back ERR_ABORTED without ever reaching the
+// route below: the held actions are never released or counted, and the
+// abort test can miss its abort. It hit about one run in fifteen to twenty with
+// three e2e workers, whose load slows the worker's install into the
+// window between goto and the taps. Playwright's own advice for request
+// interception is to block service workers; nothing here tests them.
+test.use({ serviceWorkers: "block" });
+
 function db() {
   return new Client({ connectionString: process.env.DATABASE_URL });
 }
