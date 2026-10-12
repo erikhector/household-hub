@@ -284,7 +284,7 @@ don't build these in parallel:
       - **Bottom-nav labels** break mid-word ("Inventor/y").
 
       Fix: let rows wrap, give the add field its own row, put secondary
-      row actions in a ⋯ menu (see UX-20), and size nav labels to avoid
+      row actions in a ⋯ menu (as the inventory rows do), and size nav labels to avoid
       mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
       above ~1.5× text).
 
@@ -333,23 +333,6 @@ don't build these in parallel:
         of the budget UI), and never runs on public pages.
 
       Fix the controls, then close those three gaps in `e2e/ui.ts`.
-
-- [ ] **UX-20. Inventory on a phone: one clear action, calmer rows**
-      (medium, M)
-      - **Header**: seven icon-only buttons over two rows. The primary "+"
-        sits alone in the top corner (M2); a cryptic "≡ 1" chip; and the
-        ScanBarcode and ScanLine icons are hard to tell apart
-        (`inventory/page.tsx:110-172`). Fix: keep a labelled "Add item"
-        plus a labelled ⋯ menu (Scan, Scan multiple, Scan a shelf, Paste a
-        list, Export CSV, Manage items), like the shopping list's AUTO-5
-        menu.
-      - **Rows**: up to five 44 px icons squeeze the quantity to "…".
-        Fix: keep Edit, move Details, Mark opened, Mark empty and Delete
-        into a row ⋯ menu.
-      - **Small fixes**: give the quantity a fixed width with
-        `tabular-nums`; label the bare date ("Updated 4 Oct"); make the
-        bulk-edit bar `max-sm:sticky` at the bottom; give the mobile
-        filter selects real `Label`s (`inventory-client.tsx:207-277`).
 
 - [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
       The Personal budget "Insights" / tabs view currently omits shared
@@ -602,7 +585,7 @@ decision and sit under "Needs a decision before building".
         bottom-right floating button or a sticky bar above the bottom nav
         (M2), replacing the top-corner buttons.
 
-      Requires UX-20's header clean-up first.
+      Builds on the inventory header clean-up (done).
 
 - [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
       - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
@@ -1028,7 +1011,8 @@ credentials only the product owner can provision, or an architecture call.
       `package.json` and `releases.json`. For each one below, tag the
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
-      No new versions join this list. Delete the item once all of them
+      Versions cut in-PR under the `ci_gate: local` stopgap from
+      2026-10-12 join this list too. Delete the item once all of them
       are tagged. v0.47.5, v0.47.7 and v0.48.3 are deliberately left
       out: those PRs were released again by the workflow (v0.47.6,
       v0.47.8, v0.48.4, already tagged), so tagging them would publish a
@@ -1066,6 +1050,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.2 | #131 perf: load inventory once per receipt instead of per unmatched line (PERF-16) | 2026-09-30 | #131 |
       | v0.47.3 | #132 perf: bound the recurring-template duplicate-period check to the current period (PERF-17) | 2026-09-30 | #132 |
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
+      | v0.58.0 | #183 feat: inventory mobile — one clear action, calmer rows (UX-20) | 2026-10-12 | #183 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
