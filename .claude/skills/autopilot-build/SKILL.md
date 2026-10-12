@@ -86,6 +86,12 @@ procedure.
 While they run, don't poll and don't do their work. Each one's report
 arrives as a notification; validate it (step 3) as it comes in.
 
+The coordinator is the human proxy: it answers any question a sub-agent
+has, so sub-agents never block on a human. Their normal work (commits,
+pushes, opening and fixing their own PR) proceeds and is reported;
+anything irreversible beyond that (force-pushing, deleting branches or
+data, closing a PR) waits for the coordinator's explicit call.
+
 ## 3. Validate (coordinator)
 
 A sub-agent's report is a claim. Check each one against what's really on
@@ -157,6 +163,12 @@ nothing built, and other worktrees share this machine's CPU and Postgres:
 Follow AGENTS.md's Development workflow exactly (orient → implement → test
 → verify → self-review → document), plus:
 
+Superpowers drives the process inside that workflow (AGENTS.md, "Agent
+skills"). The vendored pstack tools are aids you call by ID only when
+they help, never pre-read: `how` before changing an unfamiliar
+subsystem, `why` when the intent of code you're changing is unclear,
+`interrogate` on a contested design.
+
 - **Orient**: read the item's REQUIREMENTS.md section (grep headings,
   then read the range). If the item turns out to be ambiguous or bigger
   than one PR, don't guess: open a `docs(backlog)` PR that splits it or
@@ -215,3 +227,7 @@ work its open review comments, merge conflict or (only with
 locked `ci:local` command before every push. Report as above: PR URL,
 branch, pushed head SHA, worktree path, `ci:local` summary, and one line
 per thread or problem saying how it was settled.
+
+Root-cause a red check before touching it (Superpowers'
+systematic-debugging; pstack `why` when the failing code's intent is
+unclear).
