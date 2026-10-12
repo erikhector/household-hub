@@ -249,7 +249,7 @@ export function TransactionList({
                 <div className="flex items-center justify-end">
                   <Link
                     href={`/dashboard/budget?month=${monthKey}&household=${item.row.householdId}`}
-                    className="inline-flex size-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                    className="inline-flex size-7 pointer-coarse:size-11 items-center justify-center text-muted-foreground hover:text-foreground"
                     title={format(dict.shared?.viewInHouseholdBudget ?? "", {
                       household: item.row.householdName,
                     })}
