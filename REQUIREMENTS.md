@@ -120,7 +120,8 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   a second error. `dict.common` (`loading`, `close`, from
   `src/lib/i18n/common.ts`) labels the loading skeletons and the dialog
   Close buttons; `components/ui/dialog.tsx` has no `dict` prop, so it reads
-  `commonCopy[getClientLocale()]`. `global-error.tsx` follows the cookie
+  `commonCopy[getDocumentLocale()]` (the page's `<html lang>`, which also
+  covers an account locale that has no cookie on this device yet). `global-error.tsx` follows the cookie
   locale and the OS colour scheme, using the globals.css tokens instead of
   hex. Guarded by `src/lib/actions/error-strings.test.ts`, which fails on a
   string-literal `error:` in any action file that isn't on its `PENDING`

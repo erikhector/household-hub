@@ -30,7 +30,7 @@ for (const [locale, storageState, t] of [
       await page.getByRole("button", { name: t.inventory.addItem }).first().click();
       const dialog = page.getByRole("dialog", { name: t.inventory.addDialogTitle });
       await dialog.getByLabel(t.inventory.nameLabel, { exact: true }).fill("   ");
-      await dialog.getByRole("button", { name: t.inventory.save, exact: true }).click();
+      await dialog.getByRole("button", { name: t.inventory.addItem, exact: true }).click();
 
       await expect(dialog.getByText(t.errors.nameRequired)).toBeVisible();
     });

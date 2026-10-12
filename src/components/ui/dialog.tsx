@@ -9,7 +9,7 @@ import { XIcon } from "lucide-react"
 import { pushDialogEntry } from "@/components/ui/dialog-history"
 import { useKeyboardInset } from "@/components/ui/keyboard-inset"
 import { commonCopy } from "@/lib/i18n/common"
-import { getClientLocale } from "@/lib/i18n/client-locale"
+import { getDocumentLocale } from "@/lib/i18n/client-locale"
 
 // While the dialog is open it owns a history entry, so the phone's back
 // gesture closes it instead of leaving the page (UX-11, DESIGN.md M7; the
@@ -163,7 +163,7 @@ function DialogContent({
           >
             <XIcon
             />
-            <span className="sr-only">{commonCopy[getClientLocale()].close}</span>
+            <span className="sr-only">{commonCopy[getDocumentLocale()].close}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -215,7 +215,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close render={<Button variant="outline" />}>
-          {commonCopy[getClientLocale()].close}
+          {commonCopy[getDocumentLocale()].close}
         </DialogPrimitive.Close>
       )}
     </div>
