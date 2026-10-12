@@ -69,6 +69,7 @@ export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-list-name">{dict.nameLabel}</Label>
             <Input
+              autoComplete="off"
               enterKeyHint="done"
               id="new-list-name"
               name="name"
@@ -102,7 +103,7 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate font-medium" title={list.name}>{list.name}</p>
+            <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={list.name}>{list.name}</p>
             {list.isDefault && (
               <Badge variant="secondary" className="shrink-0" title={dict.defaultListHint}>
                 {dict.defaultListBadge}

@@ -341,8 +341,8 @@ function TemplateRow({
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 truncate font-medium" title={template.name}>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="min-w-0 max-w-full break-words font-medium" title={template.name}>
             {template.name}
           </span>
           <Badge variant="secondary" className="max-w-[10rem]">

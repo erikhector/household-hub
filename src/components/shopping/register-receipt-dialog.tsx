@@ -579,6 +579,7 @@ export function RegisterReceiptDialog({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="register-receipt-name">{dict.nameLabel}</Label>
                 <Input
+                  autoComplete="off"
                   id="register-receipt-name"
                   value={listName}
                   onChange={(e) => setListName(e.target.value)}
@@ -606,6 +607,7 @@ export function RegisterReceiptDialog({
                 <div className="flex flex-1 flex-col gap-2">
                   <Label htmlFor="register-receipt-store">{dict.storeLabel}</Label>
                   <Input
+                    autoComplete="off"
                     id="register-receipt-store"
                     value={store}
                     onChange={(e) => setStore(e.target.value)}

@@ -411,6 +411,7 @@ export function ShoppingItemFormDialog({
                   <Label htmlFor="edit-item-note">{dict.editItem.noteLabel}</Label>
                   {/* maxLength mirrors actions.ts's SHOPPING_ITEM_NOTE_MAX_LENGTH. */}
                   <Textarea
+                    autoComplete="off"
                     id="edit-item-note"
                     name="note"
                     rows={2}
@@ -425,7 +426,7 @@ export function ShoppingItemFormDialog({
                   <Label>{dict.editItem.linkSectionLabel}</Label>
                   {linkMode === "linked" && linkedItem ? (
                     <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 truncate text-sm">
+                      <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1 text-sm">
                         {format(dict.editItem.linkedTo, { name: linkedItem.name })}
                       </span>
                       <div className="flex shrink-0 gap-2">

@@ -133,7 +133,7 @@ function NotificationRow({ item, dict }: { item: NotificationItem; dict: Diction
             assigned to a capitalized variable and used as a JSX tag; this
             sidesteps that false positive without changing behavior. */}
         {createElement(notificationIcon(item.kind), { className: cn("size-4 shrink-0", isGoodNews && "text-success") })}
-        <span className="truncate">{notificationLabel(item, dict)}</span>
+        <span className="line-clamp-2 break-words sm:line-clamp-1">{notificationLabel(item, dict)}</span>
       </DropdownMenuItem>
       <DropdownMenuItem
         closeOnClick={false}
