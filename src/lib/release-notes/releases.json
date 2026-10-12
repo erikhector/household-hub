@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.58.1",
+    "date": "2026-10-12",
+    "pr": 186,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The budget tabs now scroll sideways on small phones, \"Add transaction\" only appears once you have a category, and the monthly chart shows its amounts.",
+      "sv": "Budgetflikarna kan nu rullas i sidled på små telefoner, \"Lägg till transaktion\" visas först när du har en kategori, och månadsdiagrammet visar sina belopp."
+    }
+  },
+  {
     "version": "0.58.0",
     "date": "2026-10-12",
     "pr": 183,
