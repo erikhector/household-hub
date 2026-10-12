@@ -179,6 +179,7 @@ export function ImportListDialog({
               <>
                 <p className="text-sm text-muted-foreground">{dict.description}</p>
                 <Textarea
+                  autoComplete="off"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder={dict.textareaPlaceholder}
@@ -208,7 +209,7 @@ export function ImportListDialog({
                     {dict.uploadButtonLabel}
                   </Button>
                   {csvFile && (
-                    <span className="truncate text-sm text-muted-foreground">
+                    <span className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground">
                       {format(dict.uploadFileSelected, { name: csvFile.name })}
                     </span>
                   )}
@@ -229,6 +230,7 @@ export function ImportListDialog({
               {rows.map((row) => (
                 <li key={row.key} className="flex items-center gap-2">
                   <Input
+                    autoComplete="off"
                     value={row.name}
                     onChange={(e) => updateRow(row.key, { name: e.target.value })}
                     maxLength={120}
@@ -247,6 +249,7 @@ export function ImportListDialog({
                     aria-label={dict.quantityLabel}
                   />
                   <Input
+                    autoComplete="off"
                     value={row.unit}
                     onChange={(e) => updateRow(row.key, { unit: e.target.value })}
                     maxLength={20}

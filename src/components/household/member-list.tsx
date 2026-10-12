@@ -80,10 +80,10 @@ export function MemberList({
             className="flex items-center justify-between rounded-md border px-3 py-2"
           >
             <div className="min-w-0">
-              <p className="truncate font-medium" title={member.displayName}>
+              <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={member.displayName}>
                 {member.displayName}
               </p>
-              <p className="truncate text-sm text-muted-foreground" title={member.email}>
+              <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={member.email}>
                 {member.email}
               </p>
               {isSelf && member.role === "OWNER" && (

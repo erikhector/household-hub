@@ -36,7 +36,7 @@ export function BudgetOnboarding({
           <p className="max-w-md text-sm text-muted-foreground">{dict.onboarding.body}</p>
           <AddCategoryDialog dict={dict} createAction={createCategoryAction} />
         </div>
-        <div className="flex justify-center border-t border-primary/20 pt-6">
+        <div className="border-t border-primary/20 pt-6">
           <StarterCategoryPicker dict={dict} />
         </div>
       </CardContent>

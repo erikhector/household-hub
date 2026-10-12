@@ -1,8 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { ExternalLink, Pencil, Repeat, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,7 +132,6 @@ export function TransactionList({
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
 }) {
-  const [isPending, startTransition] = useTransition();
   const numberFormat = createMoneyFormat(locale, currencyCode);
   const dateFormat = new Intl.DateTimeFormat(locale, {
     day: "numeric",
@@ -175,11 +172,11 @@ export function TransactionList({
     return parts.join(" · ");
   }
 
+  // UX-23: hand ConfirmDialog the action's promise (it owns the pending
+  // state and toasts a returned `error`), so the confirm button shows
+  // "Deleting…" until the server answers instead of closing at once.
   function handleDelete(id: string) {
-    startTransition(async () => {
-      const result = await onDelete(id);
-      if (result.error) toast.error(result.error);
-    });
+    return onDelete(id);
   }
 
   // sharedRows is always [] on the household budget page, so this sort is a
@@ -336,7 +333,6 @@ export function TransactionList({
                       variant="ghost"
                       size="icon"
                       className="size-7 text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
                       aria-label={dict.deleteAriaLabel}
                     >
                       <Trash2 className="size-3.5" />
@@ -480,7 +476,6 @@ export function TransactionList({
                       variant="ghost"
                       size="icon"
                       className="size-9 text-muted-foreground hover:text-destructive"
-                      disabled={isPending}
                       aria-label={dict.deleteAriaLabel}
                     >
                       <Trash2 className="size-4" />

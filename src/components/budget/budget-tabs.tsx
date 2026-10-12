@@ -256,17 +256,23 @@ export function BudgetTabs({
               trigger={<Button variant="outline">{logSharedDialogDict.logShared.button}</Button>}
             />
           )}
-          <TransactionDialog
-            numberFormat={numberFormat}
-            dict={dict}
-            categories={categories}
-            members={members}
-            currentMemberId={currentMemberId}
-            monthKey={monthKey}
-            createAction={createTransactionAction}
-            updateAction={updateTransactionAction}
-            trigger={<Button disabled={!hasCategories}>{dict.addTransaction}</Button>}
-          />
+          {/* UX-23: with no category yet there is nothing to log against, and
+              a disabled primary read as broken. The onboarding card on
+              Overview is the next step, so the button appears once it is
+              possible. */}
+          {hasCategories && (
+            <TransactionDialog
+              numberFormat={numberFormat}
+              dict={dict}
+              categories={categories}
+              members={members}
+              currentMemberId={currentMemberId}
+              monthKey={monthKey}
+              createAction={createTransactionAction}
+              updateAction={updateTransactionAction}
+              trigger={<Button>{dict.addTransaction}</Button>}
+            />
+          )}
         </fieldset>
       </div>
 
@@ -274,6 +280,18 @@ export function BudgetTabs({
         <div hidden={tab !== "overview"} className="flex flex-col gap-6">
           {hasCategories ? (
             <>
+              {/* UX-23: the key number comes first (DESIGN.md Hierarchy). */}
+              <SafeToSpend
+                amount={safeToSpendAmount}
+                status={safeToSpendStatus}
+                breakdown={safeToSpendBreakdown}
+                expectedRecurring={safeToSpendExpectedRecurring}
+                householdDebts={householdDebts}
+                showHouseholdName={showHouseholdName}
+                dict={dict.safeToSpend}
+                locale={locale}
+                currencyCode={currencyCode}
+              />
               <DueRecurringWidget
                 templates={dueTemplates}
                 hasTemplates={hasRecurringTemplates}
@@ -293,17 +311,6 @@ export function BudgetTabs({
                 onLogAsIs={onLogTemplateAsIs}
                 createTransactionAction={createTransactionAction}
                 updateTransactionAction={updateTransactionAction}
-              />
-              <SafeToSpend
-                amount={safeToSpendAmount}
-                status={safeToSpendStatus}
-                breakdown={safeToSpendBreakdown}
-                expectedRecurring={safeToSpendExpectedRecurring}
-                householdDebts={householdDebts}
-                showHouseholdName={showHouseholdName}
-                dict={dict.safeToSpend}
-                locale={locale}
-                currencyCode={currencyCode}
               />
               {savingsGoals}
               {periodSummary}

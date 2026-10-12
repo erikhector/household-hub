@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -206,9 +207,9 @@ export function InventoryClient({
               </DialogHeader>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{dict.categoryLabel}</span>
+                  <Label id="mobile-category-label" className="text-xs font-medium text-muted-foreground">{dict.categoryLabel}</Label>
                   <Select value={category} onValueChange={(v) => setCategory(v ?? ALL)}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger aria-labelledby="mobile-category-label" className="w-full">
                       <SelectValue>{(v: string) => (v === ALL ? dict.allCategories : v)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -222,9 +223,9 @@ export function InventoryClient({
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{dict.locationLabel}</span>
+                  <Label id="mobile-location-label" className="text-xs font-medium text-muted-foreground">{dict.locationLabel}</Label>
                   <Select value={location} onValueChange={(v) => setLocation(v ?? ALL)}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger aria-labelledby="mobile-location-label" className="w-full">
                       <SelectValue>
                         {(v: string) =>
                           v === ALL ? dict.allLocations : v === UNASSIGNED ? dict.unassignedLocation : v
@@ -243,9 +244,9 @@ export function InventoryClient({
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{dict.columnStatus}</span>
+                  <Label id="mobile-status-label" className="text-xs font-medium text-muted-foreground">{dict.columnStatus}</Label>
                   <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger aria-labelledby="mobile-status-label" className="w-full">
                       <SelectValue>
                         {(v: string) => (v === ALL ? dict.allStatuses : statusLabels[v as StockStatus])}
                       </SelectValue>
@@ -261,9 +262,9 @@ export function InventoryClient({
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">{dict.updatedFilterLabel}</span>
+                  <Label id="mobile-updated-label" className="text-xs font-medium text-muted-foreground">{dict.updatedFilterLabel}</Label>
                   <Select value={updatedFilter} onValueChange={(v) => setUpdatedFilter((v as UpdatedFilter) ?? "all")}>
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger aria-labelledby="mobile-updated-label" className="w-full">
                       <SelectValue>{(v: string) => updatedFilterLabels[v as UpdatedFilter]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>

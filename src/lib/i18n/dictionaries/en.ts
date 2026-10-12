@@ -260,6 +260,7 @@ export const en = {
       checking: "Checking…",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
+      cancel: "Cancel",
       title: "Delete {name}?",
       description:
         "This permanently deletes the household and everything in it — inventory, shopping lists, meal plans, and budget data — for every member. This can't be undone.",
@@ -832,6 +833,10 @@ export const en = {
     editDialogTitle: "Edit inventory item",
     editAriaLabel: "Edit item",
     deleteAriaLabel: "Delete item",
+    moreActions: "More actions",
+    moreInventoryActions: "More inventory actions",
+    edit: "Edit",
+    delete: "Delete",
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",

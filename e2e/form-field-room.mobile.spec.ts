@@ -98,7 +98,9 @@ test("the new recipe dialog gives the ingredient row room on a phone", async ({ 
 test("the paste-a-list review gives its shared fields room on a phone", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await page.goto("/dashboard/inventory");
-  await page.getByRole("button", { name: "Paste a list" }).first().click();
+  // On a phone the header keeps one Add item; the rest live in its menu.
+  await page.getByRole("main").getByRole("button", { name: "More inventory actions", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Paste a list" }).click();
   const dialog = page.getByRole("dialog", { name: "Add items in bulk" });
   await dialog.getByRole("textbox").first().fill("2 cans tomatoes\nMilk");
   await dialog.getByRole("button", { name: "Parse list" }).click();
