@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button"
 // primitive the same way components/ui/select.tsx wraps its Select
 // primitive, rather than hand-rolling tab semantics.
 //
+// UX-23: the bar scrolls sideways instead of wrapping, so a 320 px phone
+// never strands the last tab alone on a second row (each Tab is `shrink-0`).
+//
 // Only renders the tab bar itself — callers keep owning their own tab panel
 // markup/visibility (e.g. `hidden` toggling or conditional rendering) exactly
 // as before; this component doesn't render `Tabs.Panel`.
@@ -35,7 +38,7 @@ function Tabs<Value extends string = string>({
       value={value}
       onValueChange={(nextValue) => onChange(nextValue as Value)}
       className={cn(
-        "flex w-fit max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1",
+        "flex w-fit min-w-0 max-w-full gap-1 overflow-x-auto rounded-lg bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className
       )}
     >
@@ -56,11 +59,11 @@ function Tabs<Value extends string = string>({
                 // track, so the active tab was invisible. It renders as a
                 // card pill, ringed and lifted off the track, instead — the
                 // edge and shadow carry the selection, not the fill.
-                className={
-                  tab.value === value
-                    ? "border-foreground/10 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground"
-                    : undefined
-                }
+                className={cn(
+                  "shrink-0",
+                  tab.value === value &&
+                    "border-foreground/10 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground"
+                )}
               />
             }
           >

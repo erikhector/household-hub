@@ -226,6 +226,7 @@ function TryIt({
     <div className="flex flex-wrap items-center gap-2 text-sm">
       <span className="font-medium">{dict.tryIt}</span>
       <Input
+        autoComplete="off"
         type="text"
         inputMode="decimal"
         className="w-20"
@@ -322,6 +323,7 @@ function ConversionDialog({
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span>1 {sentence ? unitLabel(sentence.leadUnit) : "…"} =</span>
               <Input
+                autoComplete="off"
                 id="conversion-amount"
                 type="text"
                 inputMode="decimal"

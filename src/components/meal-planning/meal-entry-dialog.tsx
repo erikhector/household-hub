@@ -201,6 +201,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="freeformName">{dict.customMealNameLabel}</Label>
               <Input
+                autoComplete="off"
                 ref={freeformNameRef}
                 id="freeformName"
                 name="freeformName"

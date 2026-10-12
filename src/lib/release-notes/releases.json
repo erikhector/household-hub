@@ -1,5 +1,71 @@
 [
   {
+    "version": "0.58.2",
+    "date": "2026-10-12",
+    "pr": 187,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Screen readers now announce unread notifications, long names wrap on phones instead of being cut off, and deleting a household no longer trips over autocorrect.",
+      "sv": "Skärmläsare läser nu upp olästa notiser, långa namn bryts över flera rader på mobilen i stället för att klippas, och autokorrigering stör inte längre när du tar bort ett hushåll."
+    }
+  },
+  {
+    "version": "0.58.1",
+    "date": "2026-10-12",
+    "pr": 186,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The budget tabs now scroll sideways on small phones, \"Add transaction\" only appears once you have a category, and the monthly chart shows its amounts.",
+      "sv": "Budgetflikarna kan nu rullas i sidled på små telefoner, \"Lägg till transaktion\" visas först när du har en kategori, och månadsdiagrammet visar sina belopp."
+    }
+  },
+  {
+    "version": "0.58.0",
+    "date": "2026-10-12",
+    "pr": 183,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a phone, the inventory page now has a clear \"Add item\" button and one \"More inventory actions\" menu, and each item keeps Edit with its other actions in a ⋯ menu so quantities stay readable.",
+      "sv": "I mobilen har lagersidan nu en tydlig knapp \"Lägg till vara\" och en meny \"Fler lageråtgärder\", och varje vara behåller Redigera med övriga åtgärder i en ⋯-meny så att antalen syns."
+    }
+  },
+  {
+    "version": "0.57.2",
+    "date": "2026-10-09",
+    "pr": 181,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Fixed a gap below the bottom bar on phones so it now sits flush with the bottom of the screen.",
+      "sv": "Åtgärdat en glipa under bottenlisten på mobiler så att den nu ligger kant i kant med skärmens nederkant."
+    }
+  },
+  {
+    "version": "0.57.1",
+    "date": "2026-10-09",
+    "pr": 180,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Save buttons in pop-up sheets now stay visible while you fill in long forms, and sheets no longer hide behind the phone keyboard.",
+      "sv": "Spara-knapparna i popup-paneler ligger nu alltid synliga när du fyller i långa formulär, och panelerna hamnar inte längre bakom telefonens tangentbord."
+    }
+  },
+  {
+    "version": "0.57.0",
+    "date": "2026-10-09",
+    "pr": 177,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now feels at home on your phone: iPhone and iPad users get the right install and notification steps, the browser chrome matches the app theme, and older browsers get a friendly nudge to update.",
+      "sv": "Squirrel känns nu mer hemma på telefonen: iPhone- och iPad-användare får rätt installations- och notisvägledning, webbläsaren matchar appens tema och äldre webbläsare får en vänlig puff att uppdatera."
+    }
+  },
+  {
     "version": "0.56.1",
     "date": "2026-10-09",
     "pr": 175,

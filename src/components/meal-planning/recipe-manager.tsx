@@ -258,7 +258,7 @@ function RecipeRow({
     <div className="flex items-center gap-3 px-3 py-2.5">
       <ChefHat className="size-4 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium" title={recipe.name}>
+        <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={recipe.name}>
           {recipe.name}
         </p>
         {/* GAP-29: only the tags actually set — recipe.tags is already in
@@ -273,7 +273,7 @@ function RecipeRow({
           </div>
         )}
         {ingredientSummary && (
-          <p className="truncate text-sm text-muted-foreground" title={ingredientSummary}>
+          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={ingredientSummary}>
             {/* MATCH-6: a linked ingredient opens its pantry item's page,
                 whose back arrow comes back to this tab. */}
             {recipe.ingredients.map((ingredient, index) => (
@@ -300,18 +300,18 @@ function RecipeRow({
             title={`${dict.includesLabel} ${componentSummary} — ${dict.componentsHint}`}
           >
             <Layers className="size-3 shrink-0" />
-            <span className="truncate">
+            <span className="line-clamp-2 break-words sm:line-clamp-1">
               {dict.includesLabel} {componentSummary}
             </span>
           </p>
         )}
         {nutritionSummary && (
-          <p className="truncate text-sm text-muted-foreground" title={nutritionSummary}>
+          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={nutritionSummary}>
             {nutritionSummary}
           </p>
         )}
         {costSummary && (
-          <p className="truncate text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
+          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
             {costSummary}
           </p>
         )}

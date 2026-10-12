@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { dismissCookieNotice } from "./ui";
 
 // UX-24: one primary (solid) action per view. DESIGN.md's hierarchy rule
 // reads the solid `default` Button as "the" call to action, so the checks
 // below read the variant through its background token: `bg-primary` is
 // primary, `bg-secondary` is the quiet one.
-const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
+// Timestamp plus a random tail: the specs share one seeded household and
+// never clean up, so a name must not collide with (or be a prefix of) a row
+// left by an earlier project, retry or run.
+const unique = (label: string) =>
+  `${label} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const PRIMARY = /(^|\s)bg-primary(\s|$)/;
 const SECONDARY = /(^|\s)bg-secondary(\s|$)/;
 
@@ -38,7 +43,10 @@ test("household page: Invite member is the one primary action", async ({ page })
   if (await turnOn.count()) await expect(turnOn).toHaveClass(SECONDARY);
 });
 
-test("task create and edit dialogs share one footer, and the title can be renamed", async ({ page }) => {
+test("task create and edit dialogs share one footer, and the title can be renamed", async ({ page, context, baseURL }) => {
+  // On the phone the cookie notice floats over the bottom of the list and
+  // intercepts the click on a freshly added row's Edit button.
+  await dismissCookieNotice(context, baseURL!);
   const title = unique("Sweep the porch");
   const renamed = unique("Sweep the deck");
   await page.goto("/dashboard/tasks");
@@ -49,7 +57,7 @@ test("task create and edit dialogs share one footer, and the title can be rename
   await expect(create.getByRole("button", { name: "Add", exact: true })).toHaveClass(PRIMARY);
   await create.getByRole("textbox", { name: "Task title" }).fill(title);
   await create.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByText(title)).toBeVisible();
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: `Edit ${title}` }).click();
   const edit = page.getByRole("dialog");
@@ -63,9 +71,14 @@ test("task create and edit dialogs share one footer, and the title can be rename
   // The dialog closes once the Server Action has settled; reloading before
   // that aborts the in-flight save.
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText(renamed)).toBeVisible();
-  // Reload: the rename must have reached the database.
+  await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+  // Reload: the rename must have reached the database. Assert through the
+  // row's accessible buttons, not getByText: right after a reload React's
+  // streamed HTML still holds a hidden (`<div hidden>`) copy of the list
+  // next to the live one until the Suspense swap finishes, and getByText
+  // matches both (a strict-mode violation). Role queries skip hidden
+  // elements, so they only ever see the rendered row.
   await page.reload();
-  await expect(page.getByText(renamed)).toBeVisible();
-  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: `Edit ${renamed}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Edit ${title}` })).toHaveCount(0);
 });

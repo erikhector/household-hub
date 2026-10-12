@@ -153,7 +153,7 @@ export default async function DashboardOverviewPage() {
                 </p>
                 <ul className="flex flex-col gap-1">
                   {myOpenTasks.slice(0, 3).map((task) => (
-                    <li key={task.id} className="truncate text-sm text-muted-foreground">
+                    <li key={task.id} className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground">
                       {task.title}
                     </li>
                   ))}
@@ -220,7 +220,7 @@ export default async function DashboardOverviewPage() {
           <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
             <Users className="size-4 shrink-0" />
             <span
-              className="min-w-0 flex-1 truncate"
+              className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1"
               title={format(plural(memberCount, dict.dashboard.sharedWithIn), {
                 count: memberCount,
                 name: household.name,

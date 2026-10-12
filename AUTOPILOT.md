@@ -115,10 +115,10 @@ An autopilot PR touching any of these must say so in its Summary under
 ## CI gate
 
 ```yaml
-ci_gate: github          # local | github
+ci_gate: local           # local | github
 ```
 
-`github` (current): `.github/workflows/ci.yml` runs on every PR and push
+`github`: `.github/workflows/ci.yml` runs on every PR and push
 to `master`, and its checks (`Lint, typecheck, test, build` and
 `End-to-end (Playwright)`) must be green on a PR's head commit before it
 merges, as in the `steward` skill. Run the fast local checks
@@ -126,8 +126,9 @@ merges, as in the `steward` skill. Run the fast local checks
 so CI isn't the first to find a failure. `release.yml` cuts every release
 after merge, so a PR never bumps its own version.
 
-`local` is the stopgap for when GitHub Actions can't start runners
-(2026-09-26 to 2026-10-04): `ci.yml` goes back to manual dispatch, the
+`local` (current, since 2026-10-12: the GitHub Actions minutes are used
+up until the month resets) is the stopgap for when GitHub Actions can't
+start runners (also 2026-09-26 to 2026-10-04): `ci.yml` goes back to manual dispatch, the
 gate becomes `npm run ci:local` (lint, typecheck, unit tests, build, e2e)
 in the session before every push with its summary in the PR body, GitHub
 check runs are ignored, and a releasing PR cuts its own release before

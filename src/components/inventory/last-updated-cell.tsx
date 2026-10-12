@@ -34,7 +34,7 @@ export function LastUpdatedCell({
   // Nothing extra to disclose (no resolvable updater) — plain text, no
   // need for a tap target.
   if (!updaterName) {
-    return <span className="block text-muted-foreground">{dateLabel}</span>;
+    return <span className="block text-muted-foreground">{format(dict.lastUpdatedNoUser, { date: dateLabel })}</span>;
   }
 
   return (

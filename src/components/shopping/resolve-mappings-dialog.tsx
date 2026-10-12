@@ -163,7 +163,7 @@ export function ResolveMappingsDialog({
               return (
                 <div key={row.itemId} className="flex flex-col gap-2 rounded-md border p-2">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium" title={row.name}>
+                    <p className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm font-medium" title={row.name}>
                       {row.name}
                     </p>
                     <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-muted p-1">

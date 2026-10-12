@@ -38,8 +38,13 @@ self.addEventListener("notificationclick", (event) => {
       const open = clientList.find((client) => "focus" in client);
       if (!open) return self.clients.openWindow(url);
       const target = new URL(url, self.location.origin);
-      if (new URL(open.url).origin === target.origin && "navigate" in open) {
-        return open.navigate(target.href).then((client) => client && client.focus());
+      // An empty client URL (a tab still on its initial blank page) would
+      // throw in new URL() — fall back to our own origin, which matches a
+      // same-origin target and just raises the tab otherwise.
+      if (new URL(open.url || self.location.origin).origin === target.origin && "navigate" in open) {
+        // navigate() can resolve null (the navigation went elsewhere) —
+        // focus the original tab either way.
+        return open.navigate(target.href).then((client) => (client ?? open).focus());
       }
       return open.focus();
     }),

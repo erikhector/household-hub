@@ -572,6 +572,8 @@ export function RecipeFormDialog({
           <Label htmlFor="recipe-import-url">{dict.importUrlLabel}</Label>
           <div className="flex items-center gap-2">
             <Input
+              autoComplete="off"
+              enterKeyHint="go"
               id="recipe-import-url"
               name="url"
               type="url"
@@ -637,6 +639,7 @@ export function RecipeFormDialog({
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Label htmlFor="recipe-name">{dict.recipeNameLabel}</Label>
               <Input
+                autoComplete="off"
                 ref={nameInputRef}
                 id="recipe-name"
                 name="name"
@@ -667,6 +670,7 @@ export function RecipeFormDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipe-instructions">{dict.instructionsLabel}</Label>
             <Textarea
+              autoComplete="off"
               id="recipe-instructions"
               name="instructions"
               value={instructions}
@@ -752,6 +756,7 @@ export function RecipeFormDialog({
                       className="w-16 shrink-0"
                     />
                     <Input
+                      autoComplete="off"
                       name="ingredientUnit"
                       value={row.unit}
                       onChange={(e) => updateRow(row.uid, "unit", e.target.value)}

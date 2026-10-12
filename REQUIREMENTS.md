@@ -414,6 +414,22 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       page. Cancel and a disabled Merge show before an item is picked, and
       Escape closes it (`ItemCombobox` passes "nothing picked" to Base UI
       as `null`, which lets Escape through to the dialog).
+  - **Inventory on a phone (UX-20)**: below `sm` the page header shows a
+    labelled "Add item" plus a labelled "More inventory actions" ⋯ menu
+    (Scan, Scan multiple, Scan a shelf, Paste a list, Export CSV, Manage
+    items). The manage-items entry keeps the duplicate-group badge and the
+    `?filter=duplicates` deep link: `InventoryActionButtons` computes the
+    count (one cached `countDuplicateGroups` per render, shared with the
+    desktop link) and the AI-configured flags server-side, since
+    non-`NEXT_PUBLIC_` env vars are never readable in a client component.
+    The menu opens the dialogs through hidden, non-focusable
+    (`tabIndex={-1}`, `aria-hidden`) trigger buttons. From `sm` up the
+    individual icon buttons stay. Each row keeps Edit visible and moves
+    Details, Mark opened, Mark empty and Delete into a row "More actions"
+    ⋯ menu (8 px between the two targets, M3). Small fixes: ghost
+    quantity steppers, the bare "last updated" date reads "Last updated
+    4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
+    mobile filter selects have real `Label`s.
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge
@@ -1327,6 +1343,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
+- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
+  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
+  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
+  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
+  none). Deleting the recipe deletes its batches; deleting a batch only
+  unlinks the entries, and a departing member leaves the batch unattributed.
+  No actions or UI use it yet.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -2480,6 +2503,20 @@ personal budget as missing household's persistent "Manage categories" button
 next to the tab bar. That gap is gone: the four-tab pass gave Categories its
 own section in the Manage tab on both pages, which is the stable home the
 button existed to provide, so neither page gets the button.
+
+**Tabs, primary action and charts (UX-23).** The shared `Tabs` bar scrolls
+sideways (no wrapping, scrollbar hidden), so on a 320 px phone "Insights"
+never sits alone on a second row; Meal Planning gets the same behaviour.
+"Add transaction" is only rendered once a category exists (the onboarding
+card is the next step until then) rather than as a disabled primary. On
+Overview, Safe to spend comes before the due-recurring widget. The starter
+category chips are left-aligned and a selected chip also shows a check mark
+(not colour alone). `FixedBudgetSummary`'s trend bars print each month's
+income, expense and savings under the bars (colours `chart-1..3`, matching
+the legend) instead of carrying them only in `title`. Deleting a
+transaction passes the action's promise to `ConfirmDialog`, so the button
+shows "Deleting…" until the server answers, and recurring-row titles wrap
+instead of truncating. Covered by `e2e/ux-23.spec.ts`.
 
 ## Data export (CSV)
 
@@ -4793,6 +4830,28 @@ components directly.
   fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
+- **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
+  `DialogFooter` is `sticky bottom-0`, so Save stays in the thumb zone in
+  a long form (the recipe form, add/edit item, receipts) instead of
+  scrolling out of view, and it swaps the translucent desktop strip for
+  opaque `bg-popover` so scrolled content doesn't show through. The
+  sheet itself rides above the keyboard two ways: Android gets
+  `viewport.interactiveWidget: "resizes-content"` in
+  `src/app/layout.tsx` (the layout viewport shrinks above the keyboard),
+  and iOS — which ignores that key — gets `useKeyboardInset`
+  (`src/components/ui/keyboard-inset.ts`), which writes the
+  `visualViewport` gap to `--kb-inset` while a dialog is open and
+  `DialogContent` lifts its `bottom` by it. Gaps under 150px read as
+  closed (animation transients, rounding, browser toolbars — never a
+  keyboard), and window `resize`/`orientationchange`/`focusout` recompute
+  the value so a missed keyboard-close event self-heals instead of leaving
+  the sheet lifted. The footer's stick offset negates its full-bleed
+  negative margin (`position: sticky` constrains the margin box), so the
+  footer sits exactly at the sheet bottom instead of that margin above it.
+  The grabber line is gone:
+  it suggested drag-to-dismiss without doing anything (real drag is
+  UX-34). Covered by `e2e/sheet-keyboard.mobile.spec.ts`,
+  `e2e/sheet-footer.mobile.spec.ts` and `keyboard-inset.test.ts`.
 
 ## Releases & What's new
 
@@ -5325,6 +5384,37 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   "microphone blocked" one. iOS date values were already pinned to
   `text-align: start` in `globals.css`, so that half of the item needed no
   change.
+
+### Screen-reader and small-screen semantics (UX-31)
+
+- **Unread notifications** on the history page render a decorative
+  `aria-hidden` dot plus an `sr-only` "Unread" inside the link, so the word is
+  part of the link's accessible name (an `aria-label` on a role-less `<span>`
+  is ignored by screen readers).
+- **Long names** (shopping lists, recipes, members, items, notifications and
+  similar) use `line-clamp-2 break-words sm:line-clamp-1` instead of
+  `truncate`: two wrapped lines on phones, where the `title` tooltip never
+  shows on touch, one ellipsised line from `sm` up. The budget components and
+  the inventory table rows are not yet covered; they belong to other in-flight
+  work.
+- **Delete household** confirm field sets `autoCapitalize="off"`,
+  `autoCorrect="off"`, `spellCheck={false}` and `enterKeyHint="go"`, compares
+  trimmed text against the trimmed name, and has a Cancel button.
+- **Invite by email** is a real `<form>`, so Enter on the email field sends.
+- **Household-data text fields** carry `autoComplete="off"` (M4), so the
+  "New list" name no longer autofills the user's own name. `enterKeyHint` is
+  set on the last field of the recipe-import, add-category and stock-scan
+  "new item" inputs.
+- **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
+  layout: a feature crash replaces only the page content, so the sidebar or
+  bottom bar stay usable. When `navigator.onLine` is false it says the page
+  needs a connection instead of "something went wrong".
+- **Password change** form includes a hidden `autoComplete="username"` input
+  holding the account email so password managers file the new password
+  correctly.
+
+Covered by `e2e/ux-31.spec.ts` (the error boundary itself has no e2e: a
+render crash cannot be provoked from the UI).
 
 ### Browser floor (UX-29)
 

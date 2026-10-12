@@ -273,7 +273,7 @@ export function MissingIngredientsDialog({
                       checked={item.included}
                       onChange={() => toggleItem(item.key)}
                     />
-                    <span className="min-w-0 flex-1 truncate" title={item.name}>
+                    <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
                       {item.name}
                     </span>
                     <span className="shrink-0 text-muted-foreground">
@@ -327,7 +327,7 @@ export function MissingIngredientsDialog({
             {targetListId === NEW_SHOPPING_LIST_SENTINEL && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="newListName">{dict.newListNameLabel}</Label>
-                <Input enterKeyHint="done" id="newListName" name="newListName" placeholder={dict.newListNamePlaceholder} />
+                <Input autoComplete="off" enterKeyHint="done" id="newListName" name="newListName" placeholder={dict.newListNamePlaceholder} />
               </div>
             )}
 
