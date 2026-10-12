@@ -5773,8 +5773,8 @@ approximating them, so the email never disagrees with the app.
   image's Postgres 16 and migrates it, so agents can run the suite too.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
   every spec in two projects, `desktop` (Desktop Chrome, 1280×720) and
-  `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
-  only Chromium is installed, and the iPhone presets need WebKit).
+  `mobile` (Pixel 7, 412 px wide with touch; the always-on phone, since
+  only Chromium is installed by default).
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
   Two more touch projects cover the in-between sizes (UX-7): `landscape`
   (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
@@ -5782,6 +5782,15 @@ approximating them, so the email never disagrees with the app.
   `form-control-sizes.mobile.spec.ts` (every page without horizontal
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
+  A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
+  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) to catch iOS Safari differences. It exists
+  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  install --with-deps webkit`, and the `ci:local` gate skips the project
+  unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
+  config prints a warning once and leaves the project out, so runs without
+  WebKit don't fail. Locally: `npx playwright install webkit`, then
+  `E2E_WEBKIT=1 npm run test:e2e -- --project=iphone`.
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a

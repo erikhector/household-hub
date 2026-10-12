@@ -359,20 +359,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-- [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
-      Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
-      above can fail a build.
-
-      Add Playwright projects:
-      - `iphone`: WebKit, `devices["iPhone 15"]`, running smoke and
-        flows. CI must run `npx playwright install --with-deps webkit`.
-      - `tablet`: 810×1080 touch.
-      - `landscape`: 863×393 touch.
-      - a 200% text pass.
-
-      Add the 16 px field assertion (`e2e/form-control-sizes.mobile.spec.ts`). Keep the runtime in check
-      by running only `smoke` on the extra projects.
-
 ### Product decisions (2026-10-05)
 
 - [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
