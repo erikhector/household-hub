@@ -1343,6 +1343,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
+- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
+  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
+  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
+  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
+  none). Deleting the recipe deletes its batches; deleting a batch only
+  unlinks the entries, and a departing member leaves the batch unattributed.
+  No actions or UI use it yet.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`

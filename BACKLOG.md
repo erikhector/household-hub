@@ -855,6 +855,9 @@ out to be a product-scope question rather than a scoped task should move to
       desktop and mobile.
 
 - [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
+      _Schema slice landed (PR #179): `PreparedBatch` and the two
+      `MealPlanEntry` fields exist; actions, UI and tests below are still
+      to do._
       Households often batch-cook (e.g. "8 portions chicken & rice") and
       re-use those portions across the week's meal plan. Add a Meal-Prep
       mode to record cooked batches, distribute portions to planner days,
