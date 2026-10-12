@@ -98,7 +98,6 @@ export function DeleteHouseholdDialog({
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
-              enterKeyHint="go"
             />
           </div>
           <DialogFooter>

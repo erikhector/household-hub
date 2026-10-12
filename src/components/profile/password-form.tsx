@@ -29,9 +29,19 @@ export function PasswordForm({
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       <form action={formAction} {...formProps} className="flex flex-col gap-4">
-        {/* Hidden username so password managers file the new password under
-            the right account; autoComplete="username" is what they look for. */}
-        <input type="text" name="username" value={email} autoComplete="username" readOnly hidden />
+        {/* Username so password managers file the new password under the
+            right account. It must be rendered (sr-only, not `hidden`, which is
+            display:none and which managers skip) but kept out of the tab order
+            and the accessibility tree. No `name`: the action doesn't read it. */}
+        <input
+          type="text"
+          value={email}
+          autoComplete="username"
+          readOnly
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+        />
         <div className="flex flex-col gap-2">
           <Label htmlFor="currentPasswordForPassword">{dict.currentPasswordLabel}</Label>
           <div className="relative">
