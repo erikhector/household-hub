@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.58.0",
+    "date": "2026-10-12",
+    "pr": 183,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a phone, the inventory page now has a clear \"Add item\" button and one \"More inventory actions\" menu, and each item keeps Edit with its other actions in a ⋯ menu so quantities stay readable.",
+      "sv": "I mobilen har lagersidan nu en tydlig knapp \"Lägg till vara\" och en meny \"Fler lageråtgärder\", och varje vara behåller Redigera med övriga åtgärder i en ⋯-meny så att antalen syns."
+    }
+  },
+  {
     "version": "0.57.2",
     "date": "2026-10-09",
     "pr": 181,
