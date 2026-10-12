@@ -18,6 +18,17 @@ try {
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
+// UX-32: the real iPhone engine. WebKit is a separate browser download (and
+// `--with-deps` needs root), so the `iphone` project is opt-in: CI sets
+// E2E_WEBKIT=1 after `npx playwright install --with-deps webkit`; locally,
+// set it the same way once WebKit is installed. Without it the project is
+// NOT defined and this says so, rather than the run failing on a missing
+// browser or silently looking like it covered iOS.
+const withWebkit = process.env.E2E_WEBKIT === "1";
+if (!withWebkit) {
+  console.warn("[playwright] E2E_WEBKIT is not set: the `iphone` (WebKit) project is skipped. CI runs it.");
+}
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
@@ -41,9 +52,9 @@ export default defineConfig({
   // scrolls), so desktop-only coverage misses a whole class of bugs.
   // `*.desktop.spec.ts` / `*.mobile.spec.ts` are for the few checks that
   // only make sense at one size (e.g. which navigation is showing). Pixel 7
-  // rather than an iPhone: the iPhone presets need WebKit, and only
-  // Chromium is installed here and in CI; the viewport and touch
-  // emulation are what matter for layout.
+  // is the always-on phone: Chromium is all that's installed by default,
+  // and the viewport and touch emulation are what matter for layout. The
+  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set in CI).
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
@@ -85,6 +96,21 @@ export default defineConfig({
       dependencies: ["setup"],
       testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
     },
+    // UX-32: iOS Safari renders and zooms differently from Chromium
+    // (16 px field zoom, 100vh, number inputs, safe areas), so the Pixel 7
+    // run above can't catch those. Every page renders (`smoke`) and the
+    // main user flows (`flows`) run in WebKit with an iPhone 15. Only these
+    // two specs, to keep the extra runtime small.
+    ...(withWebkit
+      ? [
+          {
+            name: "iphone",
+            use: { ...devices["iPhone 15"], storageState: STORAGE_STATE },
+            dependencies: ["setup"],
+            testMatch: /(smoke|flows)\.spec\.ts$/,
+          },
+        ]
+      : []),
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
