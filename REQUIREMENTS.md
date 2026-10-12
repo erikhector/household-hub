@@ -5902,21 +5902,25 @@ they never compete (AGENTS.md, "Agent skills"):
 - **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack),
   pinned commit `3a60467`) supplies specialist tools, vendored verbatim
   under `.claude/skills/` (Claude Code) and `.agents/skills/` (OpenCode):
-  `how`, `why`, `architect`, `interrogate`, `unslop`,
-  `technical-writing`, `reflect` and ten `principle-*` files. They never
-  trigger on their own (`disable-model-invocation`) and are called only
-  by ID; the builder names `how`, `why`, `architect` and `interrogate`
-  as aids within AGENTS.md's workflow, and the reviewer may `interrogate`
-  a contested design. pstack's own process layer (`poteto-mode`
-  playbooks, `tdd`, `no-comments`) is left out: it overlaps Superpowers
-  and conflicts with this repo's rules (nested delegation, rebasing,
-  stripping explanatory comments). Every pstack model role maps to
-  `inherit-parent` (`.agents/pstack-models.md`), so the loop always runs
-  on the session model.
+  `how`, `why`, `interrogate`, `unslop`, `technical-writing`, `reflect`
+  and ten `principle-*` files. They never trigger on their own
+  (`disable-model-invocation`) and are called only by ID; the builder
+  names `how`, `why` and `interrogate` as aids within AGENTS.md's
+  workflow, and the reviewer may `interrogate` a contested design.
+  pstack's own process layer (`poteto-mode` playbooks, `tdd`,
+  `no-comments`) is left out: it overlaps Superpowers and conflicts with
+  this repo's rules (mandatory hand-off to other vendors' models,
+  rebasing, stripping explanatory comments). So is `architect`, which
+  needs pstack's unvendored `arena`. The skills read their model roles
+  from `~/.agents/pstack-models.md`; the web session-start hook installs
+  the repo's `.agents/pstack-models.md` there, with every role on
+  `inherit-parent`, so the loop runs on the session model.
 
 The builder coordinator is the human proxy for its sub-agents: they
-never block on a human, reversible work proceeds and is reported, and
-irreversible writes wait for the coordinator's explicit call.
+never block on a human. Their normal work (commits, pushes, opening and
+fixing their own PR) proceeds and is reported; anything irreversible
+beyond that (force-pushing, deleting branches or data, closing a PR)
+waits for the coordinator's explicit call.
 
 `AUTOPILOT.md` is the control file every session reads first: on/off
 switches per role, limits, which backlog prefixes the builder may pick,

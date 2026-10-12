@@ -1,6 +1,7 @@
 # pstack model configuration. One line per role. Delete a line to fall back to the skill default.
 # Repo-local copy for household-hub: every role runs on the session model.
-# Copy this file to ~/.agents/pstack-models.md to apply it to interactive sessions.
+# The skills read ~/.agents/pstack-models.md: .claude/hooks/session-start.sh installs this copy
+# there in web sessions; locally, copy it there yourself.
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit the subagent `model`).
 # budget: large (xhigh)
 feature, refactoring: inherit-parent

@@ -52,17 +52,21 @@ both on any conflict.
 - **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack))
   supplies specialist tools you call by ID when they help: `how`
   (walk a subsystem before changing it), `why` (the intent behind odd
-  code), `architect` (sketch types and modules first), `interrogate`
-  (adversarial review of a design), `unslop` and `technical-writing`
-  (prose), `reflect`, and the `principle-*` files. A pinned slice is
+  code), `interrogate` (adversarial review of a design), `unslop` and
+  `technical-writing` (prose), `reflect`, and the `principle-*` files. A pinned slice is
   vendored verbatim in `.claude/skills/` and mirrored to `.agents/skills/`
   for OpenCode; `pstack-ATTRIBUTION.md` in each records the commit. None
   triggers on its own. Never edit the copies: re-vendor at a new pin, in
-  both places. Model roles all map to `inherit-parent`
-  (`.agents/pstack-models.md`), so they run on the session model.
-  pstack's process layer (`poteto-mode`, `tdd`, `no-comments`) is
-  deliberately not vendored: Superpowers owns process, and `no-comments`
-  would strip the explanatory comments this repo keeps.
+  both places. The skills read their model roles from
+  `~/.agents/pstack-models.md`; the web session-start hook installs the
+  repo's `.agents/pstack-models.md` there (every role `inherit-parent`,
+  the session model). Locally, copy it there yourself. Some of these
+  tools (`how`, `why`, `interrogate`, `reflect`) spawn their own
+  sub-agents, so reach for them when the answer is worth the context.
+  Not vendored: pstack's process layer (`poteto-mode`, `tdd`,
+  `no-comments`), because Superpowers owns process and `no-comments`
+  would strip the explanatory comments this repo keeps, and `architect`,
+  which needs pstack's unvendored `arena`.
 
 ## Commands
 

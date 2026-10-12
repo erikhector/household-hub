@@ -87,9 +87,10 @@ While they run, don't poll and don't do their work. Each one's report
 arrives as a notification; validate it (step 3) as it comes in.
 
 The coordinator is the human proxy: it answers any question a sub-agent
-has, so sub-agents never block on a human. Reversible work proceeds and
-is reported; irreversible writes wait for the coordinator's explicit
-call.
+has, so sub-agents never block on a human. Their normal work (commits,
+pushes, opening and fixing their own PR) proceeds and is reported;
+anything irreversible beyond that (force-pushing, deleting branches or
+data, closing a PR) waits for the coordinator's explicit call.
 
 ## 3. Validate (coordinator)
 
@@ -166,7 +167,7 @@ Superpowers drives the process inside that workflow (AGENTS.md, "Agent
 skills"). The vendored pstack tools are aids you call by ID only when
 they help, never pre-read: `how` before changing an unfamiliar
 subsystem, `why` when the intent of code you're changing is unclear,
-`architect` for a multi-file shape, `interrogate` on a contested design.
+`interrogate` on a contested design.
 
 - **Orient**: read the item's REQUIREMENTS.md section (grep headings,
   then read the range). If the item turns out to be ambiguous or bigger
