@@ -81,6 +81,7 @@ export function QuickAddBar({
             {dict.nameLabel}
           </Label>
           <Input
+            autoComplete="off"
             ref={nameInputRef}
             id="quick-add-name"
             value={name}

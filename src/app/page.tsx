@@ -87,7 +87,7 @@ export default async function Home() {
             {dict.landing.heroDescription}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" className="h-auto max-w-full min-h-10 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
+            <Button size="lg" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
               <Sparkles className="size-4" />
               {dict.landing.getStarted}
               <ArrowRight className="size-4" />
@@ -95,7 +95,7 @@ export default async function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="h-auto max-w-full min-h-10 py-2 text-base whitespace-normal"
+              className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal"
               render={<Link href="/login" />}
             >
               <LogIn className="size-4" />
@@ -154,7 +154,7 @@ export default async function Home() {
             {dict.landing.ctaTitle}
           </h2>
           <p className="max-w-md text-muted-foreground">{dict.landing.ctaDescription}</p>
-          <Button size="lg" className="h-auto max-w-full min-h-10 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
+          <Button size="lg" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
             <Sparkles className="size-4" />
             {dict.landing.ctaButton}
           </Button>

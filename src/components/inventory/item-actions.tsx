@@ -1,7 +1,8 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
-import { Ban, Info, PackageOpen, Pencil, Trash2 } from "lucide-react";
+import { Ban, Info, PackageOpen, Pencil, Trash2, Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -52,13 +53,18 @@ export function ItemActions({
   // and the pack isn't already open — a button that would only ever no-op
   // is noise on every other row.
   const canMarkOpened = item.useWithinDaysOpened != null && item.useWithinDaysOpened > 0 && !item.openedAt;
+  // refs for dialog triggers so the mobile menu can open them without
+  // rendering the dialogs inside the menu popup (which would unmount them
+  // as the menu closes).
+  const deleteRef = React.useRef<HTMLButtonElement | null>(null);
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1">
+    <div className="flex items-center gap-1 max-sm:gap-2">
+      {/* Desktop: show individual controls */}
       {canMarkOpened && (
         <Button
           variant="ghost"
           size="icon"
-          className={cn(size, "text-muted-foreground hover:text-primary")}
+          className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
           disabled={isPending}
           aria-label={format(dict.markOpenedAriaLabel, { name: item.name })}
           title={dict.markOpened}
@@ -67,10 +73,9 @@ export function ItemActions({
           <PackageOpen className="size-3.5" />
         </Button>
       )}
-      {/* MATCH-6: the item page (recipes using it, units, learned names). */}
       <Link
         href={`/dashboard/inventory/items/${item.id}`}
-        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary")}
+        className={cn(buttonVariants({ variant: "ghost", size: "icon" }), size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
         aria-label={format(dict.detailsAriaLabel, { name: item.name })}
         title={dict.details}
       >
@@ -82,7 +87,7 @@ export function ItemActions({
             <Button
               variant="ghost"
               size="icon"
-              className={cn(size, "text-muted-foreground hover:text-warning")}
+              className={cn(size, "text-muted-foreground hover:text-warning hidden sm:inline-flex")}
               disabled={isPending}
               aria-label={dict.markEmptyAriaLabel}
             >
@@ -97,6 +102,21 @@ export function ItemActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Hidden programmatic trigger for the delete dialog (used by mobile menu).
+          Not focusable: it exists only so the menu can open the dialog. */}
+      <ConfirmDialog
+        trigger={<button ref={deleteRef} className="sr-only" tabIndex={-1} aria-hidden="true" />}
+        title={format(dict.confirmDelete.title, { name: item.name })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={() => onDelete(item.id)}
+      />
+
+      {/* Visible edit & delete. Edit stays visible on mobile too — the
+          primary per-row action — while the rest collapse into the ⋯ menu. */}
       <ItemFormDialog
         mode="edit"
         item={item}
@@ -111,8 +131,9 @@ export function ItemActions({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(size, "text-muted-foreground hover:text-primary")}
+            className={cn(size, "text-muted-foreground hover:text-primary inline-flex")}
             aria-label={dict.editAriaLabel}
+            title={dict.edit}
           >
             <Pencil className="size-3.5" />
           </Button>
@@ -123,7 +144,7 @@ export function ItemActions({
           <Button
             variant="ghost"
             size="icon"
-            className={cn(size, "text-muted-foreground hover:text-destructive")}
+            className={cn(size, "text-muted-foreground hover:text-destructive hidden sm:inline-flex")}
             disabled={isPending}
             aria-label={dict.deleteAriaLabel}
           >
@@ -137,6 +158,24 @@ export function ItemActions({
         pendingLabel={dict.confirmDelete.confirming}
         onConfirm={() => onDelete(item.id)}
       />
+
+      {/* Mobile: collapsed ⋯ menu that opens the actions */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon" className={cn(size, "sm:hidden")} aria-label={dict.moreActions}>
+              <Ellipsis className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
+          <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => deleteRef.current?.click()}>{dict.delete}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

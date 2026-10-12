@@ -71,7 +71,13 @@ const recipeRow = (page: Page, name: string) => page.getByRole("listitem").filte
 test("an item's details open from the inventory list and show its recipes and learned names", async ({ page }) => {
   const flour = await seedFlour();
   await searchInventory(page, flour.name);
-  await page.getByRole("link", { name: `Details for ${flour.name}` }).filter({ visible: true }).click();
+  if (test.info().project.name === "mobile") {
+    // The phone card keeps Edit and a ⋯ menu; Details lives in the menu.
+    await page.getByRole("main").getByRole("button", { name: "More actions", exact: true }).filter({ visible: true }).click();
+    await page.getByRole("menuitem", { name: "Details" }).click();
+  } else {
+    await page.getByRole("link", { name: `Details for ${flour.name}` }).filter({ visible: true }).click();
+  }
 
   await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
   // Scoped to main, like after the reload in the next test: the page streams in.

@@ -1,4 +1,4 @@
-import { test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { DASHBOARD_ROUTES, PUBLIC_ROUTES, type UiRoute } from "./routes";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES, setLocaleCookie } from "./ui";
@@ -17,6 +17,15 @@ async function expectSurvivesDoubleText(page: Page, route: UiRoute) {
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
   await page.waitForLoadState("networkidle");
   await expectNoHorizontalOverflow(page);
+  // A button that wraps its label must grow with it: Button's `max-sm:h-11`
+  // beats a bare `h-auto`, which left wrapped text spilling out of a 44 px
+  // box. Same rule everywhere, so every visible button is checked.
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('[data-slot="button"]')]
+      .filter((el) => el.getBoundingClientRect().width > 0 && el.scrollHeight > el.clientHeight + 1)
+      .map((el) => `${(el.textContent ?? "").trim().slice(0, 40)} (${el.scrollHeight}px > ${el.clientHeight}px)`),
+  );
+  expect(clipped, "buttons whose wrapped text overflows their box").toEqual([]);
 }
 
 for (const locale of LOCALES) {

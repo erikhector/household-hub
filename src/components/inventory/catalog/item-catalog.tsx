@@ -243,7 +243,7 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
         <Button
           type="button"
           variant="secondary"
-          className="h-auto max-w-full min-h-8 py-1 whitespace-normal"
+          className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 py-1 whitespace-normal"
           disabled={mergeIds.length === 0}
           onClick={() => setMergeOpen(true)}
         >

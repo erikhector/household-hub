@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.58.2",
+    "date": "2026-10-12",
+    "pr": 187,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Screen readers now announce unread notifications, long names wrap on phones instead of being cut off, and deleting a household no longer trips over autocorrect.",
+      "sv": "Skärmläsare läser nu upp olästa notiser, långa namn bryts över flera rader på mobilen i stället för att klippas, och autokorrigering stör inte längre när du tar bort ett hushåll."
+    }
+  },
+  {
+    "version": "0.58.1",
+    "date": "2026-10-12",
+    "pr": 186,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The budget tabs now scroll sideways on small phones, \"Add transaction\" only appears once you have a category, and the monthly chart shows its amounts.",
+      "sv": "Budgetflikarna kan nu rullas i sidled på små telefoner, \"Lägg till transaktion\" visas först när du har en kategori, och månadsdiagrammet visar sina belopp."
+    }
+  },
+  {
+    "version": "0.58.0",
+    "date": "2026-10-12",
+    "pr": 183,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On a phone, the inventory page now has a clear \"Add item\" button and one \"More inventory actions\" menu, and each item keeps Edit with its other actions in a ⋯ menu so quantities stay readable.",
+      "sv": "I mobilen har lagersidan nu en tydlig knapp \"Lägg till vara\" och en meny \"Fler lageråtgärder\", och varje vara behåller Redigera med övriga åtgärder i en ⋯-meny så att antalen syns."
+    }
+  },
+  {
     "version": "0.57.2",
     "date": "2026-10-09",
     "pr": 181,
