@@ -1047,7 +1047,8 @@ credentials only the product owner can provision, or an architecture call.
       `package.json` and `releases.json`. For each one below, tag the
       squash-merge commit on `master` that carries it, then run
       `gh release create vX.Y.Z` with the note from `releases.json`.
-      No new versions join this list. Delete the item once all of them
+      Versions cut in-PR under the `ci_gate: local` stopgap from
+      2026-10-12 join this list too. Delete the item once all of them
       are tagged. v0.47.5, v0.47.7 and v0.48.3 are deliberately left
       out: those PRs were released again by the workflow (v0.47.6,
       v0.47.8, v0.48.4, already tagged), so tagging them would publish a
