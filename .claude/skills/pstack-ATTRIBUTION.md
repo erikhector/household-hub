@@ -12,10 +12,8 @@ See the upstream LICENSE for the full text.
 
 ## Vendored slice
 
-poteto-mode (SKILL.md + playbooks feature, bug-fix, refactoring, babysit,
-shipping, opening-a-pr + references/bugbot-triage.md), how, why,
-architect, interrogate, tdd, unslop, technical-writing, no-comments,
-reflect (each SKILL.md + references/), and principles laziness-protocol,
+how, why, architect, interrogate, unslop, technical-writing, reflect
+(each SKILL.md + references/), and principles laziness-protocol,
 foundational-thinking, model-the-domain, boundary-discipline,
 type-system-discipline, prove-it-works, fix-root-causes,
 sequence-verifiable-units, test-behavior-not-implementation,
@@ -23,7 +21,9 @@ guard-the-context-window.
 
 ## Deliberate drops at this pin
 
-Other poteto-mode playbooks, poteto-mode/scripts/, the other fourteen
-principle files, and all non-listed skills. A pointer to a dropped file
-resolves to nothing by design; the autopilot wiring only names vendored
-files.
+pstack's process layer: poteto-mode (all playbooks), tdd and no-comments.
+Superpowers owns the development process in this repo, and no-comments
+would strip the explanatory comments AGENTS.md asks for (see AGENTS.md,
+"Agent skills"). Also dropped: the other fourteen principle files and all
+non-listed skills. A pointer to a dropped file resolves to nothing by
+design; the autopilot wiring only names vendored skills.

@@ -86,7 +86,10 @@ procedure.
 While they run, don't poll and don't do their work. Each one's report
 arrives as a notification; validate it (step 3) as it comes in.
 
-The coordinator is the human proxy: it answers any question a sub-agent has; sub-agents never block on a human. Reversible work proceeds with the result reported; irreversible writes pause for the coordinator's explicit call.
+The coordinator is the human proxy: it answers any question a sub-agent
+has, so sub-agents never block on a human. Reversible work proceeds and
+is reported; irreversible writes wait for the coordinator's explicit
+call.
 
 ## 3. Validate (coordinator)
 
@@ -159,7 +162,11 @@ nothing built, and other worktrees share this machine's CPU and Postgres:
 Follow AGENTS.md's Development workflow exactly (orient → implement → test
 → verify → self-review → document), plus:
 
-Match a `poteto-mode` playbook first (`feature` for behavior, `bug-fix` for defects, `refactoring` for structure-only), then follow it through this file's own orient/implement/test/verify gate. Call pstack skills explicitly by ID; do not pre-read uncalled playbooks or principles.
+Superpowers drives the process inside that workflow (AGENTS.md, "Agent
+skills"). The vendored pstack tools are aids you call by ID only when
+they help, never pre-read: `how` before changing an unfamiliar
+subsystem, `why` when the intent of code you're changing is unclear,
+`architect` for a multi-file shape, `interrogate` on a contested design.
 
 - **Orient**: read the item's REQUIREMENTS.md section (grep headings,
   then read the range). If the item turns out to be ambiguous or bigger
@@ -220,4 +227,6 @@ locked `ci:local` command before every push. Report as above: PR URL,
 branch, pushed head SHA, worktree path, `ci:local` summary, and one line
 per thread or problem saying how it was settled.
 
-Match a `poteto-mode` playbook first (`bug-fix` for defects, `refactoring` for structure-only), then follow it through this file's verify gate. Call pstack skills explicitly by ID; do not pre-read uncalled playbooks or principles.
+Root-cause a red check before touching it (Superpowers'
+systematic-debugging; pstack `why` when the failing code's intent is
+unclear).

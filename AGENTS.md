@@ -35,6 +35,35 @@ update them or add new work there.
 - Zod, Sonner (toasts), next-themes, Sentry, Upstash Redis (rate limiting),
   Resend (email), web-push.
 
+## Agent skills
+
+Two outside skill packs, each with one job. Repo rules (this file,
+DESIGN.md, the `.claude/skills/` autopilot and review skills) win over
+both on any conflict.
+
+- **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers))
+  owns the process: brainstorming → planning → test-driven
+  implementation → debugging → verification → review. It is installed,
+  never vendored. OpenCode (V2, 2.0.4+) loads it from the tag pinned in
+  `opencode.json`; bump the pin to update. In Claude Code, install it once
+  per user (`/plugin install superpowers@claude-plugins-official`). Don't
+  copy its skill files into the repo: a copy misses the bootstrap that
+  makes the skills trigger.
+- **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack))
+  supplies specialist tools you call by ID when they help: `how`
+  (walk a subsystem before changing it), `why` (the intent behind odd
+  code), `architect` (sketch types and modules first), `interrogate`
+  (adversarial review of a design), `unslop` and `technical-writing`
+  (prose), `reflect`, and the `principle-*` files. A pinned slice is
+  vendored verbatim in `.claude/skills/` and mirrored to `.agents/skills/`
+  for OpenCode; `pstack-ATTRIBUTION.md` in each records the commit. None
+  triggers on its own. Never edit the copies: re-vendor at a new pin, in
+  both places. Model roles all map to `inherit-parent`
+  (`.agents/pstack-models.md`), so they run on the session model.
+  pstack's process layer (`poteto-mode`, `tdd`, `no-comments`) is
+  deliberately not vendored: Superpowers owns process, and `no-comments`
+  would strip the explanatory comments this repo keeps.
+
 ## Commands
 
 ```bash
@@ -218,8 +247,6 @@ AUTOPILOT.md first and obey it. Human-only areas listed there always get
 flagged for careful review. Product direction and the decisions taken
 for the owner are in [PRODUCT.md](./PRODUCT.md). See REQUIREMENTS.md, "Autonomous improvement
 loop".
-
-Autopilot sub-agents may call the vendored pstack slice explicitly by skill ID (Superpowers keeps process routing; repo conventions win on conflict). Model mapping is repo-local `inherit-parent` in `.agents/pstack-models.md`.
 
 ## Pull requests and releases
 

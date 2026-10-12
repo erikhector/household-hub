@@ -5739,20 +5739,6 @@ approximating them, so the email never disagrees with the app.
 Scheduled Claude Code sessions ("routines") improve the app continuously,
 under human control. Five roles, each a skill in `.claude/skills/`:
 
-A pinned slice of [pstack](https://github.com/backnotprop/pstack) agent
-skills (commit `3a60467`) is vendored under `.agents/skills/` (OpenCode)
-and `.claude/skills/` (Claude Code): `poteto-mode` with the `feature`,
-`bug-fix`, `refactoring`, `babysit`, `shipping` and `opening-a-pr`
-playbooks, plus `how`, `why`, `architect`, `interrogate`, `tdd`,
-`unslop`, `technical-writing`, `no-comments`, `reflect` and ten
-principle files. The builder and reviewer sub-agent prompts name the
-entry playbook explicitly; all other pstack skills are opt-in by ID and
-never pre-read. Every model role maps to `inherit-parent`
-(`.agents/pstack-models.md`), so the loop always runs on the session
-model and never routes onto paid defaults. The coordinator is the human
-proxy: sub-agents never block on a human, reversible work proceeds and
-reports, irreversible writes pause for the coordinator.
-
 - **Scouts** (`autopilot-scout <lens>`) find work through one lens:
   `competitors` (`GAP-`), `code` (`SEC-`/`PERF-`/`MAINT-`, rotating
   weekly), `ux` (`UX-`, from screenshots of every route on phone and
@@ -5812,6 +5798,34 @@ reports, irreversible writes pause for the coordinator.
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
   loosening limits.
+
+Every role works from two outside skill packs with one owner each, so
+they never compete (AGENTS.md, "Agent skills"):
+
+- **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
+  pinned `v7.0.0`) owns the development process: brainstorming, writing
+  plans, test-driven implementation, systematic debugging, verification
+  and code review. It is installed, not vendored: OpenCode loads it from
+  the pin in `opencode.json`, and Claude Code users install the plugin
+  once from the official marketplace.
+- **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack),
+  pinned commit `3a60467`) supplies specialist tools, vendored verbatim
+  under `.claude/skills/` (Claude Code) and `.agents/skills/` (OpenCode):
+  `how`, `why`, `architect`, `interrogate`, `unslop`,
+  `technical-writing`, `reflect` and ten `principle-*` files. They never
+  trigger on their own (`disable-model-invocation`) and are called only
+  by ID; the builder names `how`, `why`, `architect` and `interrogate`
+  as aids within AGENTS.md's workflow, and the reviewer may `interrogate`
+  a contested design. pstack's own process layer (`poteto-mode`
+  playbooks, `tdd`, `no-comments`) is left out: it overlaps Superpowers
+  and conflicts with this repo's rules (nested delegation, rebasing,
+  stripping explanatory comments). Every pstack model role maps to
+  `inherit-parent` (`.agents/pstack-models.md`), so the loop always runs
+  on the session model.
+
+The builder coordinator is the human proxy for its sub-agents: they
+never block on a human, reversible work proceeds and is reported, and
+irreversible writes wait for the coordinator's explicit call.
 
 `AUTOPILOT.md` is the control file every session reads first: on/off
 switches per role, limits, which backlog prefixes the builder may pick,

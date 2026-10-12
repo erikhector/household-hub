@@ -133,7 +133,9 @@ don't merge. Follow Markers above, then:
    and PRODUCT.md (nothing above PRODUCT.md's "Direction"), and every
    decision is inside AUTOPILOT.md's `may_decide` and outside
    `never_decide`. One that isn't is a blocking finding.
-5. Post **one** comment review: before posting, apply the vendored `no-comments` hygiene pass and the human-only deeper read where AUTOPILOT.md requires it. Call pstack skills explicitly by ID; do not pre-read uncalled skills. One inline comment per real finding
+   A design you can't settle from the diff may get pstack's `interrogate`
+   (called by ID; AGENTS.md, "Agent skills") before the verdict.
+5. Post **one** comment review: one inline comment per real finding
    (file:line, what's wrong, the concrete fix), most severe first. No
    style nits the linter would catch, no praise, no diff summary. A
    finding you're unsure about is a question, not a blocker by itself.
