@@ -14,7 +14,10 @@ test("Copy as text puts the recipe on the clipboard and shows a toast", async ({
   const t = en.mealPlanning;
   await page.goto("/dashboard/meal-planning?tab=recipes");
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
-  await page.getByRole("button", { name: t.copyRecipeText, exact: true }).click();
+  // The search filters after a render: click only once a single row is left.
+  const copy = page.getByRole("button", { name: t.copyRecipeText, exact: true });
+  await expect(copy).toHaveCount(1);
+  await copy.click();
 
   await expect(page.getByText(t.copyRecipeTextToast)).toBeVisible();
   const text = await page.evaluate(() => navigator.clipboard.readText());
@@ -27,7 +30,10 @@ test("a recipe without instructions still copies, without an instructions sectio
   const t = en.mealPlanning;
   await page.goto("/dashboard/meal-planning?tab=recipes");
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Cinnamon buns");
-  await page.getByRole("button", { name: t.copyRecipeText, exact: true }).click();
+  // The search filters after a render: click only once a single row is left.
+  const copy = page.getByRole("button", { name: t.copyRecipeText, exact: true });
+  await expect(copy).toHaveCount(1);
+  await copy.click();
 
   await expect(page.getByText(t.copyRecipeTextToast)).toBeVisible();
   const text = await page.evaluate(() => navigator.clipboard.readText());
