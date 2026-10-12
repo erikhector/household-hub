@@ -5722,7 +5722,19 @@ approximating them, so the email never disagrees with the app.
   under the bar. Both read `nav-items.ts` and the dictionary, so moving
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
-  `npm run test:e2e:desktop` / `:mobile` run one project.
+  `npm run test:e2e:desktop` / `:mobile` run one project, and
+  `npm run test:e2e:quick` runs `desktop` and `mobile` only, skipping the
+  `landscape` and `tablet` reruns (about 2 of the suite's 10 minutes) while
+  iterating. `ci:local` and CI always run every project.
+- **Local check speed**: `npm run check` runs lint, typecheck and unit
+  tests at the same time through `scripts/run-parallel.mjs`, which
+  buffers each one's output and prints it whole as it finishes (so the
+  three don't interleave), lets all of them finish so one run reports
+  every failure, and exits non-zero if any failed. `npm run lint` keeps an
+  ESLint cache in `node_modules/.cache/eslint/` (content-based, so a
+  branch switch that only touches mtimes doesn't invalidate it), which
+  takes a re-run from ~38 s to ~2 s. Together `check` went from ~92 s to
+  ~37 s cold and ~21 s warm.
 - **Touch targets (UX-6, UX-8, DESIGN.md rule M3)**: below `sm`, or on any
   touch screen (`pointer: coarse`, so also an iPad or a phone in landscape),
   every button,
