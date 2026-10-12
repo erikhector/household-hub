@@ -269,29 +269,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-- [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
-      200% (Android "Font size", iOS Larger Text in the PWA), these pages
-      scroll sideways or become unusable:
-      - **Shopping list detail (612 px wide).** The add-items field is
-        crushed to ~30 px by three fixed buttons, and "Match item" and
-        delete are pushed off-screen.
-      - **Meal planning (585 px).** "Jump to today" and "Add missing
-        ingredients…" are `nowrap`.
-      - **Inventory (449 px).** The stepper overlaps the info and "ban"
-        icons, the quantity disappears and delete is clipped.
-      - **Duplicates (425 px).** "Merge into …" doesn't wrap.
-      - **Landing (416 px).** Header "Log in" and the CTA.
-      - **Bottom-nav labels** break mid-word ("Inventor/y").
-
-      Fix: let rows wrap, give the add field its own row, put secondary
-      row actions in a ⋯ menu (see UX-20), and size nav labels to avoid
-      mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
-      above ~1.5× text).
-
-      Acceptance: a spec sets `html { font-size: 200% }` and runs
-      `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
-      mobile project.
-
 - [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
       languages** (high, M) — About 59 server-action and Zod messages are
       English only, for example `shopping-list/actions.ts:163,212`,

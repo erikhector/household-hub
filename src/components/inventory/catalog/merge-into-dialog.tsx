@@ -52,7 +52,7 @@ export function MergeIntoDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
-          <Button type="button" variant="outline" className="w-fit">
+          <Button type="button" variant="outline" className="h-auto max-w-full min-h-8 w-fit py-1 whitespace-normal">
             {dict.mergeInto}
           </Button>
         }

@@ -53,7 +53,7 @@ export function ItemActions({
   // is noise on every other row.
   const canMarkOpened = item.useWithinDaysOpened != null && item.useWithinDaysOpened > 0 && !item.openedAt;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center justify-end gap-1">
       {canMarkOpened && (
         <Button
           variant="ghost"
