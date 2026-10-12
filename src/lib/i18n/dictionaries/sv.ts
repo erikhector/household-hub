@@ -1437,6 +1437,10 @@ export const sv = {
     cookModeIngredients: "Ingredienser",
     cookModeSteps: "Steg",
     cookModeClose: "Stäng",
+    // GAP-43: copies the recipe as plain text to the clipboard.
+    copyRecipeText: "Kopiera som text",
+    copyRecipeTextToast: "Receptet kopierades som text",
+    copyRecipeTextFailedToast: "Det gick inte att kopiera receptet",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {

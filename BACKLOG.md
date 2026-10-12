@@ -447,21 +447,6 @@ don't build these in parallel:
       silently mutate" guardrail and answers the scan's open questions
       (which day, clashes, opt-in) without new state. See PRODUCT.md.
 
-- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
-      a "Copy as text" action on a recipe (name, servings, ingredients,
-      instructions) using the clipboard, with a toast on success.
-      No public link, no token, no import into another household: the app
-      keeps every read behind `requireHousehold()`. No schema change, no
-      new browser storage. Acceptance: the action puts the formatted text
-      on the clipboard and shows the toast; a unit test covers the pure
-      formatter (ingredients without quantity, no instructions, both
-      locales' labels); an e2e test clicks it on desktop and mobile and
-      asserts the toast.
-      Decided 2026-10-05 by autopilot-product: copy as text only; the
-      public share link is not being built. Why: it delivers "send a
-      recipe to a friend" without the app's first unauthenticated read.
-      See PRODUCT.md.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
