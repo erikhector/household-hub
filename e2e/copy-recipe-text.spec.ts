@@ -12,9 +12,9 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 test("Copy as text puts the recipe on the clipboard and shows a toast", async ({ page }) => {
   const t = en.mealPlanning;
-  await page.goto("/dashboard/meal-planning?tab=recipes");
-  await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Pancakes");
-  // The search filters after a render: click only once a single row is left.
+  // `recipe=` opens the list already searched down to that recipe, which
+  // avoids typing into the search box before the page has hydrated.
+  await page.goto("/dashboard/meal-planning?tab=recipes&recipe=e2e-recipe-pancakes");
   const copy = page.getByRole("button", { name: t.copyRecipeText, exact: true });
   await expect(copy).toHaveCount(1);
   await copy.click();
@@ -28,9 +28,9 @@ test("Copy as text puts the recipe on the clipboard and shows a toast", async ({
 
 test("a recipe without instructions still copies, without an instructions section", async ({ page }) => {
   const t = en.mealPlanning;
-  await page.goto("/dashboard/meal-planning?tab=recipes");
-  await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Cinnamon buns");
-  // The search filters after a render: click only once a single row is left.
+  // `recipe=` opens the list already searched down to that recipe, which
+  // avoids typing into the search box before the page has hydrated.
+  await page.goto("/dashboard/meal-planning?tab=recipes&recipe=e2e-recipe-buns");
   const copy = page.getByRole("button", { name: t.copyRecipeText, exact: true });
   await expect(copy).toHaveCount(1);
   await copy.click();
