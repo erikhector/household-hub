@@ -359,7 +359,7 @@ function MealEntryRow({
     : null;
 
   return (
-    <div className="flex items-center justify-between gap-1 max-sm:gap-2 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
+    <div className="flex items-center justify-between gap-1 max-sm:gap-2 pointer-coarse:gap-2 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
       <span className="min-w-0 flex-1 truncate max-sm:basis-full max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
         {label}
         {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}

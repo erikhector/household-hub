@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PUBLIC_ROUTES } from "./routes";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, saveScreenshot, setLocaleCookie } from "./ui";
 
 // The logged-out pages (landing, auth forms, legal pages, and the
 // token-link pages in their "invalid link" state), with the same checks as
@@ -19,6 +19,8 @@ for (const locale of LOCALES) {
         const errors = collectErrors(page);
         await expectRendersCleanly(page, route);
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        // M3 on the logged-out pages too (UX-19); touch projects only.
+        if (testInfo.project.name !== "desktop") await expectTouchTargets(page);
         await saveScreenshot(page, testInfo, locale, route);
         expect(errors, `console/page errors on ${route.path}`).toEqual([]);
       });

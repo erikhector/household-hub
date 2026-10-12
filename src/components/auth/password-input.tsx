@@ -35,7 +35,7 @@ export function PasswordInput({
       )}
       <Input
         type={visible ? "text" : "password"}
-        className={cn(Icon && "pl-8", "pr-8", className)}
+        className={cn(Icon && "pl-8", "pr-8 max-sm:pr-11 pointer-coarse:pr-11", className)}
         {...props}
       />
       <button
@@ -43,7 +43,7 @@ export function PasswordInput({
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? hideLabel : showLabel}
         aria-pressed={visible}
-        className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 max-sm:right-0 max-sm:p-3.5 pointer-coarse:right-0 pointer-coarse:p-3.5 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>

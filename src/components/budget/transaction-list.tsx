@@ -395,7 +395,7 @@ export function TransactionList({
                 </div>
                 <Link
                   href={`/dashboard/budget?month=${monthKey}&household=${item.row.householdId}`}
-                  className="inline-flex size-9 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+                  className="inline-flex size-9 max-sm:size-11 pointer-coarse:size-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                   title={format(dict.shared?.viewInHouseholdBudget ?? "", { household: item.row.householdName })}
                   aria-label={format(dict.shared?.viewInHouseholdBudget ?? "", {
                     household: item.row.householdName,

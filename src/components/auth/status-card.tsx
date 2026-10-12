@@ -27,7 +27,7 @@ export function StatusCard({
     <>
       <Link
         href="/"
-        className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
+        className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
       >
         <BrandBadge />
         {brand}

@@ -282,6 +282,7 @@ function RecipeRow({
                 {ingredient.inventoryItemId ? (
                   <Link
                     href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
+                    data-running-text
                     className="underline-offset-4 hover:text-foreground hover:underline"
                   >
                     {ingredient.name}

@@ -45,7 +45,7 @@ export default async function PrivacyPage() {
       <div className="flex w-full max-w-3xl flex-col gap-10">
         <Link
           href="/"
-          className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
+          className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
         >
           <BrandBadge />
           {dict.auth.brand}

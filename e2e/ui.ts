@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { expect, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
 
@@ -81,7 +81,7 @@ export async function expectNoHorizontalOverflow(page: Page) {
 // denser. `min` is the 44px of M3, with 0.5px of slack for sub-pixel layout.
 export async function expectTouchTargets(page: Page, min = 44) {
   const small = await page.evaluate((min) => {
-    const selector = 'button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="button"]';
+    const selector = 'button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="tab"], [role="menuitem"], [role="button"], [role="option"]';
     const found: string[] = [];
     const big = (w: number, h: number) => w >= min - 0.5 && h >= min - 0.5;
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
@@ -112,8 +112,11 @@ export async function expectTouchTargets(page: Page, min = 44) {
         if (big(w, h)) extended = true;
       }
       if (extended) continue;
-      // Link inside running text.
+      // Link inside running text. `data-running-text` marks one the parent's
+      // own-text test below can't see (a comma-separated list with a single
+      // entry has no text node of its own).
       if (el.tagName === "A") {
+        if (el.hasAttribute("data-running-text")) continue;
         const parent = el.parentElement;
         const own = Array.from(parent?.childNodes ?? []).some((n) => n.nodeType === 3 && (n.textContent ?? "").trim().length > 0);
         if (own) continue;
@@ -124,6 +127,61 @@ export async function expectTouchTargets(page: Page, min = 44) {
     return found;
   }, min);
   expect(small, `tap targets under ${min}x${min}px (DESIGN.md M3)`).toEqual([]);
+}
+
+// DESIGN.md rule M3, the other half: neighbouring targets are at least 8 px
+// apart and never overlap. expectTouchTargets only measures each control on
+// its own, so a row of 44 px buttons packed into 24 px slots passed it
+// (UX-19). Checks every visible button, link and input inside `scope`
+// pairwise; a pair where one contains the other (a button in a label) is
+// skipped. Call on touch projects.
+export async function expectTargetsApart(scope: Locator, gap = 8) {
+  const close = await scope.evaluate((root, gap) => {
+    const els = Array.from(root.querySelectorAll<HTMLElement>('button, a[href], input:not([type="hidden"]), [role="checkbox"], [role="switch"], [role="option"]')).filter((el) => {
+      const r = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return r.width > 1 && r.height > 1 && style.visibility !== "hidden" && !el.closest("[hidden], [aria-hidden='true']");
+    });
+    const label = (el: HTMLElement) => el.getAttribute("aria-label") || (el.textContent ?? "").trim().slice(0, 20) || el.tagName.toLowerCase();
+    const found: string[] = [];
+    for (let i = 0; i < els.length; i++) {
+      for (let j = i + 1; j < els.length; j++) {
+        const a = els[i];
+        const b = els[j];
+        if (a.contains(b) || b.contains(a)) continue;
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        const dx = Math.max(rb.left - ra.right, ra.left - rb.right);
+        const dy = Math.max(rb.top - ra.bottom, ra.top - rb.bottom);
+        // Apart on either axis by the gap (0.5px of sub-pixel slack).
+        if (Math.max(dx, dy) < gap - 0.5) found.push(`"${label(a)}" and "${label(b)}" are ${Math.round(Math.max(dx, dy))}px apart`);
+      }
+    }
+    return found;
+  }, gap);
+  expect(close, `neighbouring tap targets under ${gap}px apart (DESIGN.md M3)`).toEqual([]);
+}
+
+// expectTouchTargets skips anything inside a `hidden` tab panel, and most of
+// the budget UI lives in one, so a page's other tabs were never measured
+// (UX-19). This measures the open tab, then clicks through every tab of every
+// tablist on the page and measures each panel as it opens. It leaves the last
+// tab of each list selected, so call it at the end of a test.
+export async function expectTouchTargetsInTabs(page: Page, min = 44) {
+  await expectTouchTargets(page, min);
+  const lists = page.getByRole("tablist");
+  const listCount = await lists.count();
+  for (let l = 0; l < listCount; l++) {
+    const tabs = lists.nth(l).getByRole("tab");
+    const tabCount = await tabs.count();
+    for (let t = 0; t < tabCount; t++) {
+      const tab = tabs.nth(t);
+      if ((await tab.getAttribute("aria-selected")) === "true") continue;
+      await tab.click();
+      await expect(tab).toHaveAttribute("aria-selected", "true");
+      await expectTouchTargets(page, min);
+    }
+  }
 }
 
 // Screenshots for humans and the UX scout (autopilot-scout `ux` lens).
