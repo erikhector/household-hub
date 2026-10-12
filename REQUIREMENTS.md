@@ -2497,6 +2497,20 @@ next to the tab bar. That gap is gone: the four-tab pass gave Categories its
 own section in the Manage tab on both pages, which is the stable home the
 button existed to provide, so neither page gets the button.
 
+**Tabs, primary action and charts (UX-23).** The shared `Tabs` bar scrolls
+sideways (no wrapping, scrollbar hidden), so on a 320 px phone "Insights"
+never sits alone on a second row; Meal Planning gets the same behaviour.
+"Add transaction" is only rendered once a category exists (the onboarding
+card is the next step until then) rather than as a disabled primary. On
+Overview, Safe to spend comes before the due-recurring widget. The starter
+category chips are left-aligned and a selected chip also shows a check mark
+(not colour alone). `FixedBudgetSummary`'s trend bars print each month's
+income, expense and savings under the bars (colours `chart-1..3`, matching
+the legend) instead of carrying them only in `title`. Deleting a
+transaction passes the action's promise to `ConfirmDialog`, so the button
+shows "Deleting…" until the server answers, and recurring-row titles wrap
+instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
 ## Data export (CSV)
 
 Three "Export CSV" buttons — inventory, one shopping list, and budget

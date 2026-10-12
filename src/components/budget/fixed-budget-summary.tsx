@@ -169,49 +169,64 @@ export function FixedBudgetSummary({
           {!hasTrendData ? (
             <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3">
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-chart-5" />
+                  <span className="size-2 rounded-full bg-chart-1" />
                   {dict.legendIncome}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-destructive" />
+                  <span className="size-2 rounded-full bg-chart-2" />
                   {dict.legendExpense}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-chart-2" />
+                  <span className="size-2 rounded-full bg-chart-3" />
                   {dict.legendSavings}
                 </span>
               </div>
-              <div className="flex h-52 items-end gap-3 overflow-x-auto">
+              <div className="flex w-full min-w-0 items-end gap-3 overflow-x-auto">
                 {monthlyTotals.map((point) => {
                   const label = monthFormat.format(new Date(`${point.month}-01T00:00:00`));
                   return (
                     <div
                       key={point.month}
-                      className="flex min-w-16 flex-1 flex-col items-center gap-2"
+                      className="flex min-w-24 flex-1 flex-col items-center gap-2"
                     >
                       <div className="flex h-36 w-full items-end justify-center gap-1">
                         <MonthBar
                           value={point.income}
                           max={maxMonthlyTotal}
-                          className="bg-chart-5"
+                          className="bg-chart-1"
                           title={numberFormat.format(point.income)}
                         />
                         <MonthBar
                           value={point.expense}
                           max={maxMonthlyTotal}
-                          className="bg-destructive"
+                          className="bg-chart-2"
                           title={numberFormat.format(point.expense)}
                         />
                         <MonthBar
                           value={point.savings}
                           max={maxMonthlyTotal}
-                          className="bg-chart-2"
+                          className="bg-chart-3"
                           title={numberFormat.format(point.savings)}
                         />
                       </div>
+                      {/* UX-23: print the values (title is hover-only, so
+                          invisible on a phone), as CostAnalyzer does. */}
+                      <ul className="flex flex-col gap-0.5 text-[11px] tabular-nums text-muted-foreground">
+                        {[
+                          { dot: "bg-chart-1", name: dict.legendIncome, value: point.income },
+                          { dot: "bg-chart-2", name: dict.legendExpense, value: point.expense },
+                          { dot: "bg-chart-3", name: dict.legendSavings, value: point.savings },
+                        ].map((row) => (
+                          <li key={row.dot} className="relative flex items-center gap-1 whitespace-nowrap">
+                            <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${row.dot}`} />
+                            <span className="sr-only">{row.name}</span>
+                            {numberFormat.format(row.value)}
+                          </li>
+                        ))}
+                      </ul>
                       <span className="text-[11px] text-muted-foreground">{label}</span>
                     </div>
                   );
