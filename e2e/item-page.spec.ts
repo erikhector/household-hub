@@ -1,13 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // MATCH-6: the item page at /dashboard/inventory/items/[id]. Each test
 // writes its own item (straight to Postgres, like recipe-ingredients.spec.ts
 // does for aliases), because the desktop and mobile runs share the seeded
 // household and these tests change the item's units.
-const suffix = () => Date.now().toString(36);
+const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
