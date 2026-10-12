@@ -1515,6 +1515,10 @@ export const en = {
     cookModeIngredients: "Ingredients",
     cookModeSteps: "Steps",
     cookModeClose: "Close",
+    // GAP-43: copies the recipe as plain text to the clipboard.
+    copyRecipeText: "Copy as text",
+    copyRecipeTextToast: "Recipe copied as text",
+    copyRecipeTextFailedToast: "Couldn't copy the recipe",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.

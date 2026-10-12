@@ -133,7 +133,9 @@ export async function expectTouchTargets(page: Page, min = 44) {
 export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Locale, route: UiRoute) {
   const dir = process.env.E2E_SCREENSHOT_DIR;
   if (!dir) return;
-  const slug = route.path.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-") || "root";
+  // From the pattern, not the path, so a seeded id (which differs per
+  // worker, e2e/seed-data.ts) doesn't change the file name between runs.
+  const slug = route.pattern.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-").replace(/-$/, "") || "root";
   const file = path.join(dir, `${testInfo.project.name}-${locale}-${slug}.png`);
   fs.mkdirSync(dir, { recursive: true });
 

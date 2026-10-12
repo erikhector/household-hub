@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
 
 // UX-7 (DESIGN.md M4): a money or quantity field has to open the number pad
@@ -23,7 +24,7 @@ test("the budget transaction amount field asks for the decimal pad and the last 
   // "Add transaction" is disabled until the household has a category, and the
   // seed has none, so write one straight to Postgres (uniquely named: the
   // desktop and mobile runs share the household).
-  const tag = Date.now().toString(36);
+  const tag = `${Date.now().toString(36)}-w${E2E_WORKER}`;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {

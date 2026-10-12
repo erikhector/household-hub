@@ -35,6 +35,39 @@ update them or add new work there.
 - Zod, Sonner (toasts), next-themes, Sentry, Upstash Redis (rate limiting),
   Resend (email), web-push.
 
+## Agent skills
+
+Two outside skill packs, each with one job. Repo rules (this file,
+DESIGN.md, the `.claude/skills/` autopilot and review skills) win over
+both on any conflict.
+
+- **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers))
+  owns the process: brainstorming → planning → test-driven
+  implementation → debugging → verification → review. It is installed,
+  never vendored. OpenCode (V2, 2.0.4+) loads it from the tag pinned in
+  `opencode.json`; bump the pin to update. In Claude Code, install it once
+  per user (`/plugin install superpowers@claude-plugins-official`). Don't
+  copy its skill files into the repo: a copy misses the bootstrap that
+  makes the skills trigger.
+- **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack))
+  supplies specialist tools you call by ID when they help: `how`
+  (walk a subsystem before changing it), `why` (the intent behind odd
+  code), `interrogate` (adversarial review of a design), `unslop` and
+  `technical-writing` (prose), `reflect`, and the `principle-*` files. A pinned slice is
+  vendored verbatim in `.claude/skills/` and mirrored to `.agents/skills/`
+  for OpenCode; `pstack-ATTRIBUTION.md` in each records the commit. None
+  triggers on its own. Never edit the copies: re-vendor at a new pin, in
+  both places. The skills read their model roles from
+  `~/.agents/pstack-models.md`; the web session-start hook installs the
+  repo's `.agents/pstack-models.md` there (every role `inherit-parent`,
+  the session model). Locally, copy it there yourself. Some of these
+  tools (`how`, `why`, `interrogate`, `reflect`) spawn their own
+  sub-agents, so reach for them when the answer is worth the context.
+  Not vendored: pstack's process layer (`poteto-mode`, `tdd`,
+  `no-comments`), because Superpowers owns process and `no-comments`
+  would strip the explanatory comments this repo keeps, and `architect`,
+  which needs pstack's unvendored `arena`.
+
 ## Commands
 
 ```bash
@@ -44,10 +77,11 @@ npm run dev                 # dev server on :3000
 npm run lint
 npm run typecheck           # next typegen && tsc --noEmit (typegen emits .next/types)
 npm test                    # vitest run (non-watch)
-npm run check               # lint + typecheck + test in one go
+npm run check               # lint + typecheck + test, run in parallel
 npm run build
 npm run test:e2e            # Playwright vs `next start` + real Postgres (build first), desktop + mobile
 npm run test:e2e:mobile     # just the phone viewport (or :desktop) while iterating
+npm run test:e2e:quick      # desktop + mobile, skips the landscape/tablet reruns
 npm run test:e2e:screenshots # every page × desktop/mobile × en/sv to test-results/screenshots/
 npm run ci:local            # the full gate: check + build + e2e
 ```
@@ -274,7 +308,15 @@ loop".
   "Add task" })`), not CSS classes or test ids. If you can't find an
   element that way, it probably needs a label for screen readers too.
   Name rows you create uniquely (`unique()` in `flows.spec.ts`), since
-  specs share the seeded household.
+  a worker's household collects the rows of every spec it runs.
+- **Parallel workers**: spec files run in parallel, each Playwright
+  worker in its own seeded household (`e2e/seed-data.ts`). Import the
+  seeded ids from `e2e/seed.ts`/`seed-data.ts` (never hardcode
+  `e2e-…` ids), keep them out of test titles, and give rows you insert
+  ids with `E2E_WORKER` in them. A test must set up what it needs (a
+  budget category, say), never count on another spec having made it,
+  and clean up only rows in `E2E_HOUSEHOLD` (a cleanup by id prefix
+  alone deletes another worker's rows mid-test).
 - **Shared checks** live in `e2e/ui.ts` (`collectErrors`,
   `expectRendersCleanly`, `expectNoHorizontalOverflow`, `saveScreenshot`,
   `dismissCookieNotice` for specs where the cookie notice would get in

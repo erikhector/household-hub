@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { navItems } from "@/components/dashboard/nav-items";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { E2E_SHOPPING_LIST } from "./seed-data";
 
 // Desktop only (the `desktop` project in playwright.config.ts): every
 // sidebar entry reaches its section, and the bottom bar stays out of the
@@ -47,7 +48,7 @@ test("every sidebar control can be scrolled into view", async ({ page }) => {
 // UX-7: Tailwind's preflight makes an <svg> a block, so a back-link that
 // isn't a flex row puts its arrow on a line of its own above the label.
 test("a back-link keeps its arrow on the label's line", async ({ page }) => {
-  await page.goto("/dashboard/shopping-list/e2e-shopping-list");
+  await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
   const back = page.getByRole("link", { name: en.shoppingList.backToAll });
   const [link, icon] = await Promise.all([back.boundingBox(), back.locator("svg").boundingBox()]);
   expect(link && icon).toBeTruthy();

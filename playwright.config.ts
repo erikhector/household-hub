@@ -32,10 +32,15 @@ if (!withWebkit) {
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
-  // Specs share one seeded household, so run them one at a time rather
-  // than risk two specs racing on the same rows.
+  // Each worker gets its own seeded household and users (e2e/seed-data.ts),
+  // so spec files run in parallel without racing on the same rows. Tests
+  // inside a file still run in order, since some build on the one before.
+  // Three, because the one `next start` process is the bottleneck, not the
+  // browsers: on 4 cores, 1 worker took 10.1 min, 2 took 6.6, 3 took 5.6
+  // and 4 took 5.4 but queued requests long enough that a 5 s wait timed
+  // out. E2E_WORKERS overrides the count, like `--workers`.
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.E2E_WORKERS) || 3,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Terse locally (agents read this output), HTML report in CI for humans.

@@ -133,6 +133,8 @@ don't merge. Follow Markers above, then:
    and PRODUCT.md (nothing above PRODUCT.md's "Direction"), and every
    decision is inside AUTOPILOT.md's `may_decide` and outside
    `never_decide`. One that isn't is a blocking finding.
+   A design you can't settle from the diff may get pstack's `interrogate`
+   (called by ID; AGENTS.md, "Agent skills") before the verdict.
 5. Post **one** comment review: one inline comment per real finding
    (file:line, what's wrong, the concrete fix), most severe first. No
    style nits the linter would catch, no praise, no diff summary. A

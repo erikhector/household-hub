@@ -380,21 +380,6 @@ don't build these in parallel:
       silently mutate" guardrail and answers the scan's open questions
       (which day, clashes, opt-in) without new state. See PRODUCT.md.
 
-- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
-      a "Copy as text" action on a recipe (name, servings, ingredients,
-      instructions) using the clipboard, with a toast on success.
-      No public link, no token, no import into another household: the app
-      keeps every read behind `requireHousehold()`. No schema change, no
-      new browser storage. Acceptance: the action puts the formatted text
-      on the clipboard and shows the toast; a unit test covers the pure
-      formatter (ingredients without quantity, no instructions, both
-      locales' labels); an e2e test clicks it on desktop and mobile and
-      asserts the toast.
-      Decided 2026-10-05 by autopilot-product: copy as text only; the
-      public share link is not being built. Why: it delivers "send a
-      recipe to a friend" without the app's first unauthenticated read.
-      See PRODUCT.md.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -856,6 +841,9 @@ out to be a product-scope question rather than a scoped task should move to
       desktop and mobile.
 
 - [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
+      _Schema slice landed (PR #179): `PreparedBatch` and the two
+      `MealPlanEntry` fields exist; actions, UI and tests below are still
+      to do._
       Households often batch-cook (e.g. "8 portions chicken & rice") and
       re-use those portions across the week's meal plan. Add a Meal-Prep
       mode to record cooked batches, distribute portions to planner days,
@@ -1055,6 +1043,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.58.0 | #183 feat: inventory mobile — one clear action, calmer rows (UX-20) | 2026-10-12 | #183 |
       | v0.58.1 | #186 fix: budget tabs scroll, no disabled primary, printed chart values (UX-23) | 2026-10-12 | #186 |
       | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
+      | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
