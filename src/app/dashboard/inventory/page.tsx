@@ -203,9 +203,9 @@ async function ManageItemsLink({ householdId, dict }: { householdId: string; dic
   );
 }
 
-function InventoryTableSkeleton() {
+function InventoryTableSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label={label}>
       <div className="flex items-center gap-2">
         <div className="h-9 w-48 rounded-md bg-muted" />
         <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
@@ -305,7 +305,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
         </div>
       </div>
-      <Suspense fallback={<InventoryTableSkeleton />}>
+      <Suspense fallback={<InventoryTableSkeleton label={dict.common.loading} />}>
         <InventoryTable
           householdId={household.id}
           dict={dict.inventory}

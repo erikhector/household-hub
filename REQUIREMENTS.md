@@ -107,6 +107,25 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Server-action errors and shared labels (UX-16)**: what an action
+  returns as `{ error }` is in the request's language. `dict.errors` holds
+  the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
+  `toFriendlyError(error)` (all in `src/lib/actions/errors.ts`, all async)
+  resolve them with `getDictionary()`. A Zod schema is a module-level
+  constant and can't know the language, so its messages are `errors` keys
+  wrapped in `v("nameRequired")` (a typo is a compile error), and
+  `zodFail` translates the first issue; Zod's own English text is never
+  shown, it falls back to `errors.invalidInput`. `errorText` falls back to
+  English when the dictionary can't be read, so a failure path never throws
+  a second error. `dict.common` (`loading`, `close`, from
+  `src/lib/i18n/common.ts`) labels the loading skeletons and the dialog
+  Close buttons; `components/ui/dialog.tsx` has no `dict` prop, so it reads
+  `commonCopy[getClientLocale()]`. `global-error.tsx` follows the cookie
+  locale and the OS colour scheme, using the globals.css tokens instead of
+  hex. Guarded by `src/lib/actions/error-strings.test.ts`, which fails on a
+  string-literal `error:` in any action file that isn't on its `PENDING`
+  list (the files MAINT-7 still has to convert; a file that becomes clean
+  must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button, named after the language
   it switches to, that calls `setLocaleAction` like the dashboard toggle.

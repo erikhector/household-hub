@@ -160,16 +160,21 @@ then MAINT-7 per feature, to avoid churn.
       shopping link/unlink/apply-receipt/complete,
       `addMissingIngredientsToShoppingListAction`. Consider a
       `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
-- [ ] **MAINT-7. Translate server-returned error messages** (medium, L, one PR per feature) —
-      ~150 hardcoded English `error: "…"` strings and Zod messages reach
-      Swedish users (budget 34, household 23, shopping 22, personal budget
-      18, auth 13, planner 8, tasks 7), and `toFriendlyError` itself returns
-      English (`errors.ts:24`). Copy the `getDictionary()` + `dict.errors.*`
-      pattern from `template-actions.ts`/`recipe-actions.ts`. Also
-      `"Task not found"` in `components/tasks/task-form-dialog.tsx:128` and
-      12 hardcoded `aria-label="Loading"` in `page.tsx`/`loading.tsx` files.
-      Start with `errors.ts`, tasks, meal-planning; leave budget until
-      BUDGET-6 is decided.
+- [ ] **MAINT-7. Translate the remaining server-returned error messages**
+      (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
+      `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
+      REQUIREMENTS.md "Internationalization") and converted shopping list,
+      inventory, meal planning, tasks and the shared list link. Still
+      English: the ~125 string-literal `error:` values and Zod messages in
+      the files on `PENDING` in `src/lib/actions/error-strings.test.ts`
+      (budget 35, household 27, personal budget 19, auth 14, barcode,
+      receipt and inventory scans, profile, push, digest, household notes),
+      plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
+      feature at a time, add its keys to `dict.errors` (or a feature
+      namespace, as `template-actions.ts` does), and delete the file from
+      `PENDING`: the test fails if a clean file stays listed. Leave budget
+      until BUDGET-6 is decided.
 - [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
       `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
       is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
@@ -291,25 +296,6 @@ don't build these in parallel:
       Acceptance: a spec sets `html { font-size: 200% }` and runs
       `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
       mobile project.
-
-- [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
-      languages** (high, M) — About 59 server-action and Zod messages are
-      English only, for example `shopping-list/actions.ts:163,212`,
-      `inventory/actions.ts:41`, `recipe-actions.ts:137`,
-      `planner-actions.ts:24` and `lib/actions/errors.ts:24`. Swedish users
-      see them in toasts and under fields.
-
-      Also hardcoded:
-      - `aria-label="Loading"` on 11 skeletons;
-      - `dialog.tsx`'s "Close" (twice);
-      - `invite-button.tsx`'s fallback error;
-      - `global-error.tsx`, which also uses raw hex and has no dark theme.
-
-      Fix: return dictionary keys, or resolve them with `getDictionary()`
-      in the action. Add `common.loading` and `common.close`.
-
-      Acceptance: a unit test greps `actions.ts` files for string-literal
-      `error:` values and fails on any.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:

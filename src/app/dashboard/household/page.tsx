@@ -55,9 +55,9 @@ async function SharedWithNote({
   );
 }
 
-function MemberListSkeleton() {
+function MemberListSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="h-12 rounded-md bg-muted/40" />
       ))}
@@ -152,12 +152,12 @@ export default async function HouseholdPage() {
           <InviteButton dict={dict.household.invite} />
         </div>
       </div>
-      <Suspense fallback={<MemberListSkeleton />}>
+      <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
         <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />
       </Suspense>
       {/* Its own Suspense boundary so a slow notes query never holds up
           the member list above (same reasoning as HouseholdMemberList). */}
-      <Suspense fallback={<MemberListSkeleton />}>
+      <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
         <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       </Suspense>
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day

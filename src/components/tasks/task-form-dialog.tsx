@@ -126,7 +126,7 @@ export function TaskFormDialog({
     mode === "create"
       ? createTaskAction
       : async (_prevState: ActionState, formData: FormData): Promise<ActionState> => {
-          if (!task) return { error: "Task not found" };
+          if (!task) return { error: dict.editTask.notFound };
           return updateTaskAction(task.id, {
             title: String(formData.get("title") ?? ""),
             assignedToMemberId: (formData.get("assignedToMemberId") as string | null) ?? null,
