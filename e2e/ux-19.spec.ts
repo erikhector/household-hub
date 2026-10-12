@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_ITEM, E2E_SHOPPING_LIST } from "./seed-data";
+import { E2E_SHOPPING_LIST } from "./seed-data";
 import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouchTargetsInTabs } from "./ui";
 
 // UX-19 (M3): touch targets that were too small, overlapped or sat under 8 px
@@ -61,7 +61,7 @@ test("category chips keep 44 px edit and delete buttons apart, in every budget t
 
 test("smart-add suggestions are 44 px tall", async ({ page }) => {
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
-  await page.getByRole("combobox", { name: "Add to the list" }).fill(E2E_ITEM.name.slice(0, 5));
+  await page.getByRole("combobox", { name: "Add to the list" }).fill("Toma");
   await expect(page.getByRole("option").first()).toBeVisible();
   await expectTouchTargets(page);
 });
