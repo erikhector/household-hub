@@ -281,6 +281,7 @@ function ReviewRowCard({
               {t.newNameLabel}
             </Label>
             <Input
+              autoComplete="off"
               id={`${fieldId}-name`}
               value={row.newName}
               onChange={(e) => onChange({ newName: e.target.value })}
@@ -309,6 +310,7 @@ function ReviewRowCard({
                 {t.newUnitLabel}
               </Label>
               <Input
+                autoComplete="off"
                 id={`${fieldId}-unit`}
                 value={row.newUnit}
                 onChange={(e) => onChange({ newUnit: e.target.value, newUnitTouched: true, ...UNIT_CHOICE_RESET })}
@@ -387,6 +389,7 @@ function UnitChoiceFields({
           <div className="flex flex-wrap items-center gap-1.5 text-sm">
             <span>1 {unitLabel(choice.leadUnit)} =</span>
             <Input
+              autoComplete="off"
               value={choice.rememberValue}
               onChange={(e) => onChange({ rememberValue: e.target.value })}
               inputMode="decimal"
@@ -402,6 +405,7 @@ function UnitChoiceFields({
       {choice.action === "override" && (
         <div className="flex flex-wrap items-center gap-1.5 pl-6 text-sm">
           <Input
+            autoComplete="off"
             value={choice.overrideValue}
             onChange={(e) => onChange({ overrideValue: e.target.value })}
             inputMode="decimal"

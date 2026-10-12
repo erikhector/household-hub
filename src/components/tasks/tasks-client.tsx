@@ -160,7 +160,7 @@ function TaskItemRow({
           onChange={handleToggleCompleted}
         />
         <span
-          className={`min-w-0 flex-1 truncate ${completed ? "text-muted-foreground line-through" : ""}`}
+          className={`min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 ${completed ? "text-muted-foreground line-through" : ""}`}
           title={task.title}
         >
           {task.title}

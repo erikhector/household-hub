@@ -347,7 +347,7 @@ export function ReceiptScanDialog({
       <div key={row.key} className="flex flex-col gap-2 rounded-md border bg-background p-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium" title={row.name}>
+            <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm font-medium" title={row.name}>
               {row.name}
             </p>
             {row.quantity !== 1 && (
@@ -617,6 +617,7 @@ export function ReceiptScanDialog({
                 <div className="flex flex-1 flex-col gap-2">
                   <Label htmlFor="receipt-store">{dict.storeLabel}</Label>
                   <Input
+                    autoComplete="off"
                     id="receipt-store"
                     value={store}
                     onChange={(e) => setStore(e.target.value)}

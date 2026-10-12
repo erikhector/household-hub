@@ -206,7 +206,7 @@ export function BulkScanDialog({
                 <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto">
                   {queue.map((row) => (
                     <li key={row.key} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm">
-                      <span className="flex-1 truncate">{row.name || t.namePlaceholder}</span>
+                      <span className="flex-1 line-clamp-2 break-words sm:line-clamp-1">{row.name || t.namePlaceholder}</span>
                       <span className="text-xs tabular-nums text-muted-foreground">×{row.quantity}</span>
                       <button
                         type="button"
@@ -268,6 +268,7 @@ export function BulkScanDialog({
               {queue.map((row) => (
                 <li key={row.key} className="flex items-center gap-2">
                   <Input
+                    autoComplete="off"
                     value={row.name}
                     onChange={(e) => updateRow(row.key, { name: e.target.value })}
                     placeholder={t.namePlaceholder}

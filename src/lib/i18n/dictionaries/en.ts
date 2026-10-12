@@ -260,6 +260,7 @@ export const en = {
       checking: "Checking…",
       blockedTitle: "Can't delete household",
       blockedClose: "OK",
+      cancel: "Cancel",
       title: "Delete {name}?",
       description:
         "This permanently deletes the household and everything in it — inventory, shopping lists, meal plans, and budget data — for every member. This can't be undone.",

@@ -78,16 +78,17 @@ export function NotificationsHistory({
                   )}
                 >
                   <Icon className={cn("size-4 shrink-0", isGoodNews && "text-success")} />
-                  <span className="min-w-0 flex-1 truncate text-sm">{notificationLabel(item, dict)}</span>
+                  <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">{notificationLabel(item, dict)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatTimestamp(item.createdAt, locale)}
                   </span>
                   {isUnread && (
-                    <span
-                      aria-label={dict.history.unread}
-                      title={dict.history.unread}
-                      className="size-2 shrink-0 rounded-full bg-primary"
-                    />
+                    <>
+                      {/* A role-less span's aria-label is ignored by screen readers, so the
+                          dot is decorative and the word itself is read as link text. */}
+                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-primary" />
+                      <span className="sr-only">{dict.history.unread}</span>
+                    </>
                   )}
                 </Link>
               </li>

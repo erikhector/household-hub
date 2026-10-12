@@ -54,7 +54,7 @@ function CreateHouseholdDialog({ dict }: { dict: Dictionary["household"]["switch
         <form action={formAction} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-household-name">{dict.nameLabel}</Label>
-            <Input enterKeyHint="done" id="new-household-name" name="name" required maxLength={60} />
+            <Input autoComplete="off" enterKeyHint="done" id="new-household-name" name="name" required maxLength={60} />
           </div>
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
@@ -92,7 +92,7 @@ export function HouseholdSwitcher({
             <Button variant="ghost" className="h-auto min-w-0 flex-col items-start px-2 py-1">
               <span className="text-xs font-medium text-muted-foreground">{switcherDict.label}</span>
               <span className="flex min-w-0 max-w-full items-center gap-1 font-semibold">
-                <span className="min-w-0 truncate" title={current.name}>
+                <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={current.name}>
                   {current.name}
                 </span>
                 <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
@@ -108,7 +108,7 @@ export function HouseholdSwitcher({
               disabled={isPending || h.id === current.id}
               onClick={() => startTransition(() => switchHouseholdAction(h.id))}
             >
-              <span className="min-w-0 truncate" title={h.name}>
+              <span className="min-w-0 line-clamp-2 break-words sm:line-clamp-1" title={h.name}>
                 {h.name}
               </span>
               {h.id === current.id && (

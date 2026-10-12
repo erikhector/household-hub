@@ -355,6 +355,8 @@ export function StockScanDialog({
                 <Label htmlFor="stock-scan-new-name">{t.newItemNameLabel}</Label>
                 <div className="flex gap-1.5">
                   <Input
+                    autoComplete="off"
+                    enterKeyHint="done"
                     id="stock-scan-new-name"
                     value={unknown.name}
                     onChange={(e) => {
@@ -414,7 +416,7 @@ export function StockScanDialog({
                     entry.undone && "text-muted-foreground line-through",
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate">{entry.item.name}</span>
+                  <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1">{entry.item.name}</span>
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {entry.appliedDelta > 0 ? "+" : entry.appliedDelta < 0 ? "−" : "±"}
                     {formatQuantity(Math.abs(entry.appliedDelta))} ·{" "}

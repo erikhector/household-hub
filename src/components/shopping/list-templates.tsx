@@ -72,6 +72,7 @@ export function SaveTemplateDialog({
           <div className="flex flex-col gap-2">
             <Label htmlFor="template-name">{dict.nameLabel}</Label>
             <Input
+              autoComplete="off"
               enterKeyHint="done"
               id="template-name"
               name="name"
@@ -140,7 +141,7 @@ function TemplateRow({ template, dict }: { template: TemplateSummary; dict: Temp
           <ScrollText className="size-4" />
         </span>
         <div className="min-w-0">
-          <p className="truncate font-medium" title={template.name}>
+          <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={template.name}>
             {template.name}
           </p>
           <p className="text-sm text-muted-foreground">

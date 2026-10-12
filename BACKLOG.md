@@ -359,23 +359,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-- [ ] **UX-31. Screen-reader and small-screen semantics** (medium, S)
-      - Unread notifications are marked only by a tint and an
-        `aria-label` on a role-less `<span>`
-        (`notifications-history.tsx:72-82`). Add `sr-only` "Unread".
-      - 34 places truncate long names with the full text only in `title`,
-        which touch never shows. Use `line-clamp-2` on phones.
-      - Delete-household confirm needs `autoCapitalize="off"`,
-        `autoCorrect="off"`, a trimmed comparison and a Cancel button.
-      - The invite email field isn't in a `<form>`, so Enter does nothing.
-      - Add `autoComplete="off"` to household-data fields (the "New list"
-        name currently autofills the user's own name), and
-        `enterKeyHint` on each dialog's last field.
-      - Add `src/app/dashboard/error.tsx` so a feature crash keeps the
-        nav, with an offline message.
-      - The password-change form needs a hidden `autoComplete="username"`
-        field.
-
 - [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
       Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
       above can fail a build.
@@ -1052,6 +1035,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.47.4 | #133 fix: make invite, reset and verification tokens single-use and hashed (SEC-8) | 2026-09-30 | #133 |
       | v0.58.0 | #183 feat: inventory mobile — one clear action, calmer rows (UX-20) | 2026-10-12 | #183 |
       | v0.58.1 | #186 fix: budget tabs scroll, no disabled primary, printed chart values (UX-23) | 2026-10-12 | #186 |
+      | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

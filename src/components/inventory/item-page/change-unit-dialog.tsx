@@ -107,6 +107,7 @@ export function ChangeUnitDialog({
               {format(copy.factorLabel, { from: unitLabel(item.unit), to: unit.trim() ? unitLabel(unit.trim()) : "…" })}
             </Label>
             <Input
+              autoComplete="off"
               enterKeyHint="done"
               id="change-unit-factor"
               name="factor"

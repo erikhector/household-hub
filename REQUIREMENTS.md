@@ -5378,6 +5378,37 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
   `text-align: start` in `globals.css`, so that half of the item needed no
   change.
 
+### Screen-reader and small-screen semantics (UX-31)
+
+- **Unread notifications** on the history page render a decorative
+  `aria-hidden` dot plus an `sr-only` "Unread" inside the link, so the word is
+  part of the link's accessible name (an `aria-label` on a role-less `<span>`
+  is ignored by screen readers).
+- **Long names** (shopping lists, recipes, members, items, notifications and
+  similar) use `line-clamp-2 break-words sm:line-clamp-1` instead of
+  `truncate`: two wrapped lines on phones, where the `title` tooltip never
+  shows on touch, one ellipsised line from `sm` up. The budget components and
+  the inventory table rows are not yet covered; they belong to other in-flight
+  work.
+- **Delete household** confirm field sets `autoCapitalize="off"`,
+  `autoCorrect="off"`, `spellCheck={false}` and `enterKeyHint="go"`, compares
+  trimmed text against the trimmed name, and has a Cancel button.
+- **Invite by email** is a real `<form>`, so Enter on the email field sends.
+- **Household-data text fields** carry `autoComplete="off"` (M4), so the
+  "New list" name no longer autofills the user's own name. `enterKeyHint` is
+  set on the last field of the recipe-import, add-category and stock-scan
+  "new item" inputs.
+- **`src/app/dashboard/error.tsx`** is a segment boundary below the dashboard
+  layout: a feature crash replaces only the page content, so the sidebar or
+  bottom bar stay usable. When `navigator.onLine` is false it says the page
+  needs a connection instead of "something went wrong".
+- **Password change** form includes a hidden `autoComplete="username"` input
+  holding the account email so password managers file the new password
+  correctly.
+
+Covered by `e2e/ux-31.spec.ts` (the error boundary itself has no e2e: a
+render crash cannot be provoked from the UI).
+
 ### Browser floor (UX-29)
 
 The minimum browser is whatever renders the design tokens: `oklch()` and
