@@ -4125,6 +4125,29 @@ is a full-screen read view for cooking from a phone.
   closes back to the list on desktop and mobile. The seeded "Pancakes"
   recipe has two steps for it.
 
+### Copy a recipe as text (GAP-43)
+
+Sending a recipe to a friend used to mean retyping it. Each `RecipeManager`
+row has a "Copy as text" button (beside "Cook", under the details) that puts
+the recipe on the clipboard as plain text and confirms with a toast.
+
+- **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,
+  servings line, an "Ingredients" list (`- 3 dl Wheat flour`, prep note in
+  brackets, an ingredient with no quantity is just its name), then
+  "Instructions" as numbered steps (`splitSteps`). A recipe with no
+  ingredients or no instructions leaves that section out. Labels come from
+  the dictionary (`ingredientsLabel`, `instructionsLabel`, `servingsCount`),
+  so the text is in the viewer's language; amounts use `formatCookQuantity`
+  and the household's unit labels.
+- **Deliberately not built**: no public share link or token, no import into
+  another household. Every read stays behind `requireHousehold()` (decided
+  2026-10-05, see PRODUCT.md). No schema change, no new browser storage.
+- **Clipboard**: the success toast waits for `clipboard.writeText`; on a
+  rejection (unfocused page, denied permission) an error toast shows.
+- **Tests**: `recipe-text.test.ts` (both locales, no quantity, no
+  instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
+  button on desktop and mobile, asserts the toast and the clipboard text.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
