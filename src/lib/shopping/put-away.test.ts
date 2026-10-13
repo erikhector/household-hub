@@ -10,15 +10,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InventoryItem, Prisma } from "@/generated/prisma/client";
 
-const { openedResetOnArrivalMock, estimatedExpiryUpdateMock, recordOutOfStockTransitionMock, addToDefaultListOnLowStockMock } =
-  vi.hoisted(() => ({
+const {
+  openedResetOnArrivalMock,
+  frozenResetOnArrivalMock,
+  estimatedExpiryUpdateMock,
+  recordOutOfStockTransitionMock,
+  addToDefaultListOnLowStockMock,
+} = vi.hoisted(() => ({
     openedResetOnArrivalMock: vi.fn(),
+    frozenResetOnArrivalMock: vi.fn(),
     estimatedExpiryUpdateMock: vi.fn(),
     recordOutOfStockTransitionMock: vi.fn(),
     addToDefaultListOnLowStockMock: vi.fn(),
   }));
 
-vi.mock("@/lib/inventory/expiry", () => ({ openedResetOnArrival: openedResetOnArrivalMock }));
+vi.mock("@/lib/inventory/expiry", () => ({
+  openedResetOnArrival: openedResetOnArrivalMock,
+  frozenResetOnArrival: frozenResetOnArrivalMock,
+}));
 vi.mock("@/lib/inventory/shelf-life", () => ({ estimatedExpiryUpdate: estimatedExpiryUpdateMock }));
 vi.mock("@/lib/notifications", () => ({ recordOutOfStockTransition: recordOutOfStockTransitionMock }));
 vi.mock("@/lib/shopping/default-list", () => ({ addToDefaultListOnLowStock: addToDefaultListOnLowStockMock }));
@@ -116,6 +125,26 @@ describe("applyStockArrival", () => {
       expect.objectContaining({
         data: expect.objectContaining({ openedAt: null, expiresAt, expiresAtEstimated: true }),
       }),
+    );
+  });
+
+  it("merges the GAP-44 frozen-reset patch into the write", async () => {
+    const tx = fakeTx();
+    openedResetOnArrivalMock.mockReturnValue(null);
+    frozenResetOnArrivalMock.mockReturnValue({ frozenAt: null });
+    estimatedExpiryUpdateMock.mockReturnValue(null);
+    addToDefaultListOnLowStockMock.mockResolvedValue(null);
+
+    await applyStockArrival(tx, {
+      householdId: "household-1",
+      inventoryItem: fakeItem({ quantity: 0 }),
+      quantity: 2,
+      unit: "pcs",
+      price: null,
+    });
+
+    expect(tx.inventoryItem.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ frozenAt: null }) }),
     );
   });
 

@@ -348,6 +348,15 @@ model InventoryItem {
   // (see openedResetOnArrival, same file).
   openedAt           DateTime?
   useWithinDaysOpened Int?
+  // GAP-44 — "Freeze it": the mirror image of the opened clock for the most
+  // common way a household avoids waste. `frozenAt` is when the row's
+  // "Freeze" button was clicked; it replaces `expiresAt` with frozenAt +
+  // `useWithinDaysFrozen` days (null = the 90-day default, see
+  // DEFAULT_USE_WITHIN_DAYS_FROZEN and frozenExpiryUpdate in
+  // src/lib/inventory/expiry.ts) and is cleared when the item is restocked
+  // from zero, since a new pack arrives thawed (see frozenResetOnArrival).
+  frozenAt            DateTime?
+  useWithinDaysFrozen Int?
   // AUTO-10: the "You usually buy this about now" chip is dismissed until
   // this moment. Dismissing sets it one median purchase interval ahead —
   // the item's next cycle (repurchaseSnoozeUntil in

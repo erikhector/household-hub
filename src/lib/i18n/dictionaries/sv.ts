@@ -1055,6 +1055,12 @@ export const sv = {
     markedOpenedToast: "{name} markerad som öppnad — använd senast {date}",
     undoMarkOpened: "Ångra",
     markOpenedUndoneToast: "{name} är oöppnad igen",
+    frozen: "Fryst",
+    freeze: "Frys",
+    freezeAriaLabel: "Frys {name}",
+    frozenToast: "{name} fryst — använd senast {date}",
+    undoFreeze: "Ångra",
+    freezeUndoneToast: "{name} är ofryst igen",
     unassignedLocation: "Ingen plats tilldelad",
     bulkActions: {
       selectAllAriaLabel: "Markera alla varor",

@@ -28,6 +28,8 @@ import {
   markItemEmptyAction,
   markItemOpenedAction,
   undoMarkItemOpenedAction,
+  freezeItemAction,
+  undoFreezeItemAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
@@ -200,6 +202,32 @@ export function InventoryTable({
             void undoMarkItemOpenedAction(item.id, openedAt, previous).then((undoResult) => {
               if (undoResult.error) toast.error(undoResult.error);
               else toast.success(format(dict.markOpenedUndoneToast, { name: item.name }));
+            });
+          },
+        },
+      });
+    });
+  }
+
+  // GAP-44: same shape as handleMarkOpened: applied straight away, Undo on
+  // the toast restores the snapshot unless the item changed since.
+  function handleFreeze(item: InventoryItemRow) {
+    startTransition(async () => {
+      const result = await freezeItemAction(item.id);
+      if (result.error || !result.frozenAt || !result.expiresAt || !result.previous) {
+        if (result.error) toast.error(result.error);
+        return;
+      }
+      const { frozenAt, previous } = result;
+      const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(result.expiresAt);
+      toast.success(format(dict.frozenToast, { name: item.name, date }), {
+        duration: 8000,
+        action: {
+          label: dict.undoFreeze,
+          onClick: () => {
+            void undoFreezeItemAction(item.id, frozenAt, previous).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(format(dict.freezeUndoneToast, { name: item.name }));
             });
           },
         },
@@ -418,6 +446,7 @@ export function InventoryTable({
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
                       openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
                       dict={dict}
                     />
                   </div>
@@ -438,6 +467,7 @@ export function InventoryTable({
                     isPending={isPending}
                     onMarkEmpty={handleMarkEmpty}
                     onMarkOpened={handleMarkOpened}
+                    onFreeze={handleFreeze}
                     onDelete={handleDelete}
                   />
                 </TableCell>
@@ -491,6 +521,7 @@ export function InventoryTable({
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
                       openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
                       dict={dict}
                     />
                   </div>
@@ -510,6 +541,7 @@ export function InventoryTable({
                       isPending={isPending}
                       onMarkEmpty={handleMarkEmpty}
                       onMarkOpened={handleMarkOpened}
+                    onFreeze={handleFreeze}
                       onDelete={handleDelete}
                       size="size-9"
                     />

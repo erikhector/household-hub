@@ -26,6 +26,10 @@ export type InventoryItemRow = {
   // schema.prisma.
   openedAt: Date | null;
   useWithinDaysOpened: number | null;
+  // GAP-44: when the item was frozen (shows ExpiryBadge's "Frozen" tag and
+  // hides the row's "Freeze" button) and its optional freezer window.
+  frozenAt: Date | null;
+  useWithinDaysFrozen: number | null;
   updatedAt: Date;
   updatedByUserId: string | null;
   // Ticked off a shopping list but not put away yet (src/lib/incoming-stock.ts)

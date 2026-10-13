@@ -1115,6 +1115,12 @@ export const en = {
     markedOpenedToast: "{name} marked as opened — use by {date}",
     undoMarkOpened: "Undo",
     markOpenedUndoneToast: "{name} is back to unopened",
+    frozen: "Frozen",
+    freeze: "Freeze",
+    freezeAriaLabel: "Freeze {name}",
+    frozenToast: "{name} frozen — use by {date}",
+    undoFreeze: "Undo",
+    freezeUndoneToast: "{name} is back to unfrozen",
     unassignedLocation: "Unassigned",
     bulkActions: {
       selectAllAriaLabel: "Select all items",
