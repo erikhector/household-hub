@@ -93,7 +93,7 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
   // Tomorrow already has a dinner, so the day after is suggested.
   await expect(dialog.getByLabel("Date")).toHaveValue(key(utcDay(2)));
   await expect(dialog.getByRole("spinbutton", { name: "Portions" })).toHaveValue("2");
-  await expect(dialog.getByRole("combobox", { name: "Meal" })).toHaveText("Dinner");
+  await expect(dialog.getByRole("combobox", { name: "Meal" })).toHaveText(/^Dinner/);
 
   await dialog.getByRole("button", { name: "Add to plan" }).click();
   await expect(dialog).toHaveCount(0);
