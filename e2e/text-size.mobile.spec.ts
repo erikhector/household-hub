@@ -35,7 +35,7 @@ for (const locale of LOCALES) {
       await dismissCookieNotice(context, baseURL!);
     });
     for (const route of DASHBOARD_ROUTES) {
-      test(`${route.path} has no sideways scroll`, async ({ page }) => {
+      test(`${route.pattern} has no sideways scroll`, async ({ page }) => {
         await expectSurvivesDoubleText(page, route);
       });
     }
@@ -48,7 +48,7 @@ for (const locale of LOCALES) {
       await dismissCookieNotice(context, baseURL!);
     });
     for (const route of PUBLIC_ROUTES) {
-      test(`${route.path} has no sideways scroll`, async ({ page }) => {
+      test(`${route.pattern} has no sideways scroll`, async ({ page }) => {
         await expectSurvivesDoubleText(page, route);
       });
     }
