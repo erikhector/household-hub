@@ -861,6 +861,29 @@ out to be a product-scope question rather than a scoped task should move to
       survives reload; marking it cooked removes it; unit test for the
       auto-clear rule; e2e on desktop and mobile.
 
+### 2026-10-13 scan
+
+- [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —
+      AnyList's Dec 2025 meal-plan update added saved templates, and Plan to
+      Eat has long had reusable plans. Squirrel's `copyWeekAction`
+      (REQUIREMENTS.md, "Meal planning", `week-planner.tsx`) only copies a
+      week that already happened, so a household's favourite rotations
+      ("school-week basics", "guests weekend") have to be found by
+      scrolling back through the calendar, and are lost once that week
+      is edited. Add `MealPlanTemplate` + `MealPlanTemplateEntry`
+      (`householdId`, `name`, entries with `dayOffset 0-6`, `mealType`,
+      `recipeId`/free-text title, `portions`; cascade on recipe delete
+      drops the entry), mirroring the shopping `ShoppingListTemplate`
+      pattern (GAP-4, `src/lib/shopping/list-templates.ts`). A "Save week
+      as template" action in the planner menu and a "Plan from template"
+      picker that stamps it onto the shown week, skipping slots already
+      filled and offering Undo like copy-week. Suggest, don't mutate:
+      nothing changes until the user confirms. Phase 2 (migration).
+      Acceptance: unit tests for the offset mapping and the
+      skip-filled-slots rule plus tenancy on both actions; an e2e step
+      saves the seeded week, applies it to the next empty week and asserts
+      the entries show, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
