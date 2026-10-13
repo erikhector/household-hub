@@ -126,6 +126,11 @@ const WIDE_BADGE_ITEMS = [
     sql: `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "frozenAt", "expiresAt", "expiresAtEstimated", "updatedAt")
           VALUES ($1, $2, $3, 'Meat & fish', 1, 'pcs', now(), now() + interval '60 days', true, now())`,
   },
+  {
+    label: "Low stock, Opened, Frozen and an estimated Expiring soon",
+    sql: `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "openedAt", "frozenAt", "expiresAt", "expiresAtEstimated", "updatedAt")
+          VALUES ($1, $2, $3, 'Meat & fish', 1, 'pcs', 2, now(), now(), now() + interval '1 day', true, now())`,
+  },
 ];
 
 for (const locale of LOCALES) {
@@ -166,6 +171,12 @@ for (const locale of LOCALES) {
             const overlapsName =
               box.left < nameBox.right - 1 && box.right > nameBox.left + 1 && box.top < nameBox.bottom && box.bottom > nameBox.top;
             if (overlapsName) found.push(`${text} overlaps the name`);
+            // A badge that spills out of its cluster usually lands on a lower
+            // line than the name text, where the overlap check above can't
+            // see it. The cluster is a flex item, so it never overlaps the
+            // name itself: a badge inside it is clear of the name.
+            const cluster = badge.parentElement!.getBoundingClientRect();
+            if (box.left < cluster.left - 1 || box.right > cluster.right + 1) found.push(`${text} spills out of its badge group`);
             if (badge.scrollWidth > badge.clientWidth + 1 || badge.scrollHeight > badge.clientHeight + 1) {
               found.push(`${text} is clipped`);
             }
