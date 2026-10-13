@@ -165,8 +165,9 @@ export async function expectTargetsApart(scope: Locator, gap = 8) {
 // expectTouchTargets skips anything inside a `hidden` tab panel, and most of
 // the budget UI lives in one, so a page's other tabs were never measured
 // (UX-19). This measures the open tab, then clicks through every tab of every
-// tablist on the page and measures each panel as it opens. It leaves the last
-// tab of each list selected, so call it at the end of a test.
+// tablist on the page and measures each panel as it opens, then re-selects the
+// tab that was open to begin with, so a screenshot taken afterwards shows the
+// page's default state.
 export async function expectTouchTargetsInTabs(page: Page, min = 44) {
   await expectTouchTargets(page, min);
   const lists = page.getByRole("tablist");
@@ -174,12 +175,20 @@ export async function expectTouchTargetsInTabs(page: Page, min = 44) {
   for (let l = 0; l < listCount; l++) {
     const tabs = lists.nth(l).getByRole("tab");
     const tabCount = await tabs.count();
+    let original = -1;
     for (let t = 0; t < tabCount; t++) {
       const tab = tabs.nth(t);
-      if ((await tab.getAttribute("aria-selected")) === "true") continue;
+      if ((await tab.getAttribute("aria-selected")) === "true") {
+        original = t;
+        continue;
+      }
       await tab.click();
       await expect(tab).toHaveAttribute("aria-selected", "true");
       await expectTouchTargets(page, min);
+    }
+    if (original >= 0) {
+      await tabs.nth(original).click();
+      await expect(tabs.nth(original)).toHaveAttribute("aria-selected", "true");
     }
   }
 }
