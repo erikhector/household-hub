@@ -228,13 +228,13 @@ async function PlannerTabSection({
 // reserves that height and the tabs stay put. A recap
 // that turns out to be empty or dismissed still collapses its slot once
 // loaded, but never after the planner under it has been looked at.
-function RecapSkeleton() {
-  return <div className="h-10 animate-pulse max-sm:h-[3.875rem] rounded-md border border-dashed bg-muted/40" role="status" aria-label="Loading" />;
+function RecapSkeleton({ label }: { label: string }) {
+  return <div className="h-10 animate-pulse max-sm:h-[3.875rem] rounded-md border border-dashed bg-muted/40" role="status" aria-label={label} />;
 }
 
-function PlannerTabSkeleton() {
+function PlannerTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label="Loading">
+    <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label={label}>
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="h-48 rounded-lg border bg-muted/40" />
       ))}
@@ -410,9 +410,9 @@ async function RecipesTabSection({
   );
 }
 
-function RecipesTabSkeleton() {
+function RecipesTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="h-14 rounded-md border bg-muted/40" />
       ))}
@@ -451,9 +451,9 @@ async function CookTabSection({
   );
 }
 
-function CookTabSkeleton() {
+function CookTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label={label}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-16 bg-muted/40" />
       ))}
@@ -483,22 +483,22 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
       <MealPlanningView
         dict={dict.mealPlanning}
         varietyRecap={
-          <Suspense key="variety-recap" fallback={<RecapSkeleton />}>
+          <Suspense key="variety-recap" fallback={<RecapSkeleton label={dict.common.loading} />}>
             <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />
           </Suspense>
         }
         nutritionRecap={
-          <Suspense key="nutrition-recap" fallback={<RecapSkeleton />}>
+          <Suspense key="nutrition-recap" fallback={<RecapSkeleton label={dict.common.loading} />}>
             <MealNutritionRecapSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
           </Suspense>
         }
         plannerTab={
-          <Suspense key="planner-tab" fallback={<PlannerTabSkeleton />}>
+          <Suspense key="planner-tab" fallback={<PlannerTabSkeleton label={dict.common.loading} />}>
             <PlannerTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
           </Suspense>
         }
         recipesTab={
-          <Suspense key="recipes-tab" fallback={<RecipesTabSkeleton />}>
+          <Suspense key="recipes-tab" fallback={<RecipesTabSkeleton label={dict.common.loading} />}>
             <RecipesTabSection
               householdId={household.id}
               currencyCode={household.currencyCode}
@@ -508,7 +508,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
           </Suspense>
         }
         cookTab={
-          <Suspense key="cook-tab" fallback={<CookTabSkeleton />}>
+          <Suspense key="cook-tab" fallback={<CookTabSkeleton label={dict.common.loading} />}>
             <CookTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
           </Suspense>
         }
