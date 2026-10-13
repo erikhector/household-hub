@@ -1,0 +1,50 @@
+name: Cut release
+
+# One click in the Actions tab ships what's on `next`: cuts a
+# `release/<date>` branch from it and opens the release PR into `master`.
+# CI then runs the full suite once on that snapshot, the "Release preview"
+# comment lists every PR it ships with the combined note, and merging it
+# (with a merge commit, never squash) makes release.yml cut one version.
+# The autopilot reviewer does the same at the end of its run (see the
+# autopilot-review skill), so this is for shipping by hand.
+#
+# Uses RELEASE_TOKEN: a PR opened with the default GITHUB_TOKEN doesn't
+# trigger other workflows, so CI and the preview would never run on it.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cut:
+    name: Cut release branch and open release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Cut and open
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          git fetch origin master next
+          if [ -z "$(git log --oneline origin/master..origin/next)" ]; then
+            echo "next has nothing that isn't on master; nothing to release."
+            exit 0
+          fi
+          open=$(gh pr list --base master --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("release/"))][0].headRefName // ""')
+          if [ -n "$open" ]; then
+            echo "::error::Release PR from $open is still open. Merge or close it first."
+            exit 1
+          fi
+          branch="release/$(date -u +%Y-%m-%d-%H%M)"
+          git push origin "origin/next:refs/heads/$branch"
+          gh pr create --base master --head "$branch" \
+            --title "chore: release $branch" \
+            --body "Ships everything merged into \`next\` up to the cut. The **Release preview** comment lists the PRs, the version and the combined What's new note. Merge with **Create a merge commit**, never squash."

@@ -109,7 +109,7 @@ GitHub and on disk before accepting it:
    item ID, label `autopilot`, template filled in, release note in English
    and Swedish for a releasing type, and "⚠️ Needs careful review" if the
    diff touches a human-only area (check `git diff --stat
-   origin/master...<branch>` against AUTOPILOT.md's list yourself).
+   origin/next...<branch>` against AUTOPILOT.md's list yourself).
 4. **The diff is in scope**: `--stat` shows only files the item plausibly
    needs, the BACKLOG.md item is deleted and REQUIREMENTS.md is updated,
    new logic has a colocated `*.test.ts`, and a user-visible change has an
@@ -147,7 +147,7 @@ worktrees. The coordinator validates your report, so report facts.
 The worktree is a fresh checkout with no `node_modules`, no `.env` and
 nothing built, and other worktrees share this machine's CPU and Postgres:
 
-1. `git checkout -b <branch from your prompt> origin/master`.
+1. `git checkout -b <branch from your prompt> origin/next`.
 2. `npm ci --prefer-offline --no-audit --no-fund --loglevel=error`.
 3. Your own database, so parallel e2e runs and migrations don't collide:
    `psql postgresql://household:household@localhost:5432/postgres -c
@@ -209,6 +209,8 @@ subsystem, `why` when the intent of code you're changing is unclear,
   "⚠️ Needs careful review" listing them.
 - Body also gets a "Verification" section with the summary lines of
   `npm run ci:local` (test counts, pass/fail) for the pushed commit.
+- Base branch `next` (feature PRs never target `master`; that's the
+  release PR's job, see the `autopilot-review` skill).
 - Label `autopilot`. Don't subscribe to the PR and don't merge it: the
   coordinator subscribes and routes review comments back to you.
 

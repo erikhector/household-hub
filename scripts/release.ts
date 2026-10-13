@@ -12,12 +12,30 @@
 //     src/lib/release-notes/releases.json, and writes `version` and
 //     `released` to $GITHUB_OUTPUT for the later steps.
 //
+//   node scripts/release.ts train-prs <master>..<release branch>
+//     Prints the numbers of the PRs squash-merged into `next` in that range,
+//     one per line, oldest first. The workflows fetch each one's title and
+//     body with `gh` into the JSON file below.
+//
 // PR data comes in via env vars (PR_TITLE, PR_BODY, PR_NUMBER) rather than
 // being interpolated into the workflow's shell script, so a PR title can't
-// inject shell commands.
+// inject shell commands. For the release PR (a `release/*` branch cut from
+// `next`, into `master`: the release train), TRAIN_PRS_FILE names a JSON
+// array of the included PRs' `{ number, title, body }` and PR_NUMBER is the
+// release PR's own number; its own title and body are ignored. BASE_REF=next
+// marks a feature PR into `next`, whose preview says what it adds to the
+// next release instead of promising a version.
 
+import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { ALLOWED_TYPES, planRelease, type ReleaseEntry } from "../src/lib/release-notes/release-calc.ts";
+import {
+  ALLOWED_TYPES,
+  planRelease,
+  planTrainRelease,
+  prNumbersFromSubjects,
+  type ReleaseEntry,
+  type TrainPr,
+} from "../src/lib/release-notes/release-calc.ts";
 
 const PACKAGE_JSON = "package.json";
 const PACKAGE_LOCK = "package-lock.json";
@@ -38,19 +56,69 @@ function setOutput(name: string, value: string) {
 }
 
 const mode = process.argv[2];
+
+if (mode === "train-prs") {
+  const range = process.argv[3];
+  if (!range) {
+    console.error("Usage: node scripts/release.ts train-prs <master>..<release branch>");
+    process.exit(2);
+  }
+  const log = execFileSync("git", ["log", "--first-parent", "--format=%s", range], { encoding: "utf8" });
+  console.log(prNumbersFromSubjects(log).join("\n"));
+  process.exit(0);
+}
+
 const pkg = readJson<{ version: string }>(PACKAGE_JSON);
-const plan = planRelease({
-  title: process.env.PR_TITLE ?? "",
-  body: process.env.PR_BODY,
-  pr: Number(process.env.PR_NUMBER ?? 0),
-  currentVersion: pkg.version,
-  date: new Date(),
-});
+const trainFile = process.env.TRAIN_PRS_FILE;
+const train = trainFile
+  ? planTrainRelease({
+      prs: readJson<TrainPr[]>(trainFile),
+      pr: Number(process.env.PR_NUMBER ?? 0),
+      currentVersion: pkg.version,
+      date: new Date(),
+    })
+  : null;
+const plan = train
+  ? null
+  : planRelease({
+      title: process.env.PR_TITLE ?? "",
+      body: process.env.PR_BODY,
+      pr: Number(process.env.PR_NUMBER ?? 0),
+      currentVersion: pkg.version,
+      date: new Date(),
+    });
+const intoNext = process.env.BASE_REF === "next";
+
+function noteTable(entry: ReleaseEntry): string[] {
+  return [
+    "| | |",
+    "|---|---|",
+    `| 🇬🇧 English | ${entry.notes.en.replace(/\n+/g, "<br>")} |`,
+    `| 🇸🇪 Svenska | ${entry.notes.sv?.replace(/\n+/g, "<br>") ?? "_Not written: Swedish users will see the English note._"} |`,
+  ];
+}
 
 if (mode === "preview") {
   // The marker lets the workflow find and update its own comment instead of
   // adding a new one on every push.
   const lines = ["<!-- release-preview -->", "### 🐿️ Release preview", ""];
+  if (train) {
+    lines.push(
+      train.status === "release"
+        ? `Merging this release PR will ship **v${train.entry.version}** (${train.type} bump from \`${pkg.version}\`) with these PRs from \`next\`:`
+        : `Merging this release PR **won't cut a release**: none of the PRs from \`next\` is a \`feat\`, \`fix\` or \`perf\`. The version stays at \`${pkg.version}\`.`,
+      "",
+      ...train.items.map((i) => `- #${i.pr} ${i.title}${i.type ? ` _(${i.type})_` : ""}`),
+    );
+    if (train.items.length === 0) lines.push("_The release branch has nothing that isn't on `master` yet._");
+    if (train.status === "release") {
+      lines.push("", "This note will be shown in the app under **What's new**:", "", ...noteTable(train.entry));
+    }
+    lines.push("", "_Each note comes from that PR's **Release note** section. This comment updates when the release branch moves._");
+    console.log(lines.join("\n"));
+    process.exit(0);
+  }
+  if (!plan) throw new Error("unreachable");
   if (plan.status === "invalid-title") {
     lines.push(
       "❌ **The PR title must follow [Conventional Commits](https://www.conventionalcommits.org/):** `type(optional scope): description`",
@@ -59,21 +127,22 @@ if (mode === "preview") {
     );
   } else if (plan.status === "no-release") {
     lines.push(
-      `Merging this \`${plan.parsed.kind}\` PR **won't cut a release**. The version stays at \`${pkg.version}\`.`,
+      intoNext
+        ? `This \`${plan.parsed.kind}\` PR **adds nothing to the next release's note**.`
+        : `Merging this \`${plan.parsed.kind}\` PR **won't cut a release**. The version stays at \`${pkg.version}\`.`,
       "",
       "Use `feat`, `fix` or `perf` if users will notice the change.",
     );
   } else {
     const { entry, type } = plan;
     lines.push(
-      `Merging will release **v${entry.version}** (${type} bump from \`${pkg.version}\`).`,
+      intoNext
+        ? `Merging queues this for the next release (at least a **${type}** bump). It ships with the next release PR into \`master\`.`
+        : `Merging will release **v${entry.version}** (${type} bump from \`${pkg.version}\`).`,
       "",
-      "This note will be shown in the app under **What's new**:",
+      intoNext ? "This note will be part of the release's **What's new** entry:" : "This note will be shown in the app under **What's new**:",
       "",
-      "| | |",
-      "|---|---|",
-      `| 🇬🇧 English | ${entry.notes.en.replace(/\n+/g, " ")} |`,
-      `| 🇸🇪 Svenska | ${entry.notes.sv?.replace(/\n+/g, " ") ?? "_Not written: Swedish users will see the English note._"} |`,
+      ...noteTable(entry),
       "",
       "_Edit the **Release note** section of the PR description to change it. This comment updates automatically._",
     );
@@ -83,18 +152,20 @@ if (mode === "preview") {
 }
 
 if (mode === "apply") {
-  if (plan.status === "invalid-title") {
+  const result = train ?? plan;
+  if (!result) throw new Error("unreachable");
+  if (result.status === "invalid-title") {
     console.error("PR title is not a Conventional Commit; nothing to release.");
     setOutput("released", "false");
     process.exit(0);
   }
-  if (plan.status === "no-release") {
-    console.log(`"${plan.parsed.kind}" PR: no release.`);
+  if (result.status === "no-release") {
+    console.log("parsed" in result ? `"${result.parsed.kind}" PR: no release.` : "No feat, fix or perf PR in the train: no release.");
     setOutput("released", "false");
     process.exit(0);
   }
 
-  const { entry } = plan;
+  const { entry } = result;
   writeJson(PACKAGE_JSON, { ...readJson<object>(PACKAGE_JSON), version: entry.version });
 
   // Keeps the lockfile's copies of the root version in step, so the release
@@ -110,7 +181,8 @@ if (mode === "apply") {
   // Body for the GitHub Release the workflow creates next.
   const bodyFile = process.env.RELEASE_BODY_FILE;
   if (bodyFile) {
-    const body = [entry.notes.en, entry.notes.sv ? `\n🇸🇪 ${entry.notes.sv}` : "", `\n\nPR: #${entry.pr}`];
+    const prs = train ? `\n\nPRs: ${train.items.map((i) => `#${i.pr}`).join(", ")} (release PR #${entry.pr})` : `\n\nPR: #${entry.pr}`;
+    const body = [entry.notes.en, entry.notes.sv ? `\n🇸🇪 ${entry.notes.sv}` : "", prs];
     writeFileSync(bodyFile, body.join(""));
   }
 
@@ -120,5 +192,5 @@ if (mode === "apply") {
   process.exit(0);
 }
 
-console.error("Usage: node scripts/release.ts <preview|apply>");
+console.error("Usage: node scripts/release.ts <preview|apply|train-prs>");
 process.exit(2);

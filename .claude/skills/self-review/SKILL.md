@@ -11,11 +11,12 @@ already know; read extra context only where a hunk is ambiguous.
 ## 1. Get the diff (one call)
 
 ```bash
-git fetch -q origin master && git diff --stat origin/master...HEAD && git diff origin/master...HEAD -- . ':!package-lock.json'
+git fetch -q origin next && git diff --stat origin/next...HEAD && git diff origin/next...HEAD -- . ':!package-lock.json'
 ```
 
-Include uncommitted work with `git diff origin/master` instead if you
-haven't committed yet.
+Include uncommitted work with `git diff origin/next` instead if you
+haven't committed yet. (`next` is where feature PRs land; for a hotfix
+into `master`, diff against `origin/master`.)
 
 ## 2. Check each hunk against this list
 

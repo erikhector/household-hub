@@ -43,12 +43,14 @@ There's no database in CI; a test that needs one is wrong, so mock
 
 ## Merge conflicts
 
-- Merge `origin/master` into the branch (never rebase a shared branch).
-- `package-lock.json`: take master's, then `npm install` to regenerate.
+- Merge the PR's base into the branch (never rebase a shared branch):
+  `origin/next` for a feature PR, `origin/master` for a hotfix or release
+  PR. "Base" below means that branch.
+- `package-lock.json`: take the base's, then `npm install` to regenerate.
 - `package.json` `version` and `src/lib/release-notes/releases.json`: always
-  take master's, since the release workflow owns them.
+  take the base's, since the release workflow owns them.
 - `prisma/migrations/`: never edit an already-merged migration. If both sides
-  added one, keep master's and regenerate yours on top with
+  added one, keep the base's and regenerate yours on top with
   `npx prisma migrate dev --name <name>` (local DB only).
 - BACKLOG.md / REQUIREMENTS.md: keep both sides' content.
 

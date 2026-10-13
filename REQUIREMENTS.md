@@ -4906,23 +4906,50 @@ components directly.
 
 ## Releases & What's new
 
-Every change reaches `master` through a pull request, and every releasing PR
+Every change reaches `master` through a pull request, and every release
 bumps the app's version and adds a user-facing note. Nobody edits the
 version or the notes by hand.
+
+- **Release train.** Feature PRs target `next`, the default branch, and
+  are squash-merged there without releasing. To ship, a `release/<date>`
+  branch is cut from `next` (the autopilot reviewer's daily run, or the
+  **Cut release** workflow) and merged into `master` through one release
+  PR, with a merge commit. That PR is the only place the e2e suite runs on
+  GitHub, so a day's PRs share one browser run instead of one each (plus
+  a re-run every time a branch was brought up to date with `master`, the
+  previous flow that used up the Actions minutes in October 2026).
+  `release.yml` reads the shipped PRs from the merge commit's second
+  parent (`scripts/release.ts train-prs`, which picks the "(#N)" out of
+  each squash commit's subject), takes the biggest bump among their titles
+  and joins their release notes, oldest first, into one entry. A PR with
+  no Swedish note contributes its English one to the Swedish text. Then it
+  merges `master` back into `next`. A hotfix PR straight into `master`
+  still releases on its own, as below.
+- **CI tiers** (`.github/workflows/ci.yml`): PRs into `next` run lint,
+  typecheck, unit tests and build; PRs into `master` swap the build for
+  the e2e job, which builds once itself. Draft PRs skip e2e. Docs-only
+  PRs (`*.md`, `docs/`, `.claude/`, `.agents/`) skip both, and a skipped
+  job counts as passing for the required checks. A new push cancels the
+  PR's running workflow, and nothing runs on push, since every commit
+  reaching `next` or `master` was already checked on its PR. The
+  Playwright browsers and `.next/cache` are cached between runs.
 
 - **PR title = release type.** Titles follow Conventional Commits
   (`type(scope)!: description`). `feat` → minor, `fix`/`perf`/`revert` →
   patch, any type with `!` → major. `refactor`, `docs`, `test`, `ci`,
   `chore`, `build` and `style` merge without a release. PRs are
-  squash-merged, so the title is also the commit message on `master`.
+  squash-merged into `next`, so the title is also the commit message
+  there, which is how the release train finds each PR again.
 - **PR body = release note.** `.github/pull_request_template.md` has a
   "Release note" section with `### English` and `### Svenska` headings. An
   empty English note falls back to the title's description. An empty
   Swedish note is stored as `null` and the app shows the English one.
 - **Before merge**: `.github/workflows/release-preview.yml` fails the check
-  on an invalid title and keeps one PR comment up to date with the version
-  the PR will release and the exact note users will see.
-- **After merge**: `.github/workflows/release.yml` runs
+  on an invalid title and keeps one PR comment up to date with the exact
+  note users will see: on a PR into `next`, the bump it adds to the next
+  release; on the release PR, every PR it ships with the version and the
+  combined note (its own title isn't checked); on a hotfix, its version.
+- **After merge** into `master`: `.github/workflows/release.yml` runs
   `scripts/release.ts apply` on the latest `master`. That bumps
   `package.json`/`package-lock.json`, prepends an entry to
   `src/lib/release-notes/releases.json`, commits

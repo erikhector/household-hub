@@ -5,6 +5,8 @@ import {
   extractReleaseNotes,
   parsePrTitle,
   planRelease,
+  planTrainRelease,
+  prNumbersFromSubjects,
 } from "@/lib/release-notes/release-calc";
 
 const TEMPLATE_BODY = `## Summary
@@ -111,5 +113,76 @@ describe("planRelease", () => {
 
   it("flags an invalid title", () => {
     expect(planRelease({ ...base, title: "Barcode scan" }).status).toBe("invalid-title");
+  });
+});
+
+describe("prNumbersFromSubjects", () => {
+  it("reads squash-merge PR numbers oldest first and skips sync merges", () => {
+    const log = [
+      "fix: rounding (#12)",
+      "Merge master into next [skip ci]",
+      "feat(shopping): barcode scan (#10)",
+      "docs: tidy README (#9)",
+    ].join("\n");
+    expect(prNumbersFromSubjects(log)).toEqual([9, 10, 12]);
+  });
+
+  it("ignores a PR number mentioned mid-subject and duplicates", () => {
+    expect(prNumbersFromSubjects("revert: undo #4 (#5)\nfix: again (#5)\n")).toEqual([5]);
+  });
+});
+
+describe("planTrainRelease", () => {
+  const base = { pr: 99, currentVersion: "0.3.1", date: new Date("2026-10-14T08:00:00Z") };
+  const note = (en: string, sv?: string) =>
+    `## Release note\n\n### English\n\n${en}\n\n### Svenska\n\n${sv ?? ""}\n`;
+
+  it("takes the biggest bump and joins the releasing PRs' notes in order", () => {
+    const plan = planTrainRelease({
+      ...base,
+      prs: [
+        { number: 1, title: "fix: rounding", body: note("Rounding is fixed.", "Avrundningen är fixad.") },
+        { number: 2, title: "docs: tidy README", body: note("Ignored.") },
+        { number: 3, title: "feat(shopping): barcode scan", body: note("Scan barcodes.") },
+      ],
+    });
+    expect(plan).toMatchObject({
+      status: "release",
+      type: "minor",
+      entry: { version: "0.4.0", date: "2026-10-14", pr: 99, kind: "feat", breaking: false },
+    });
+    if (plan.status !== "release") throw new Error("expected a release");
+    expect(plan.entry.notes).toEqual({
+      en: "Rounding is fixed.\n\nScan barcodes.",
+      sv: "Avrundningen är fixad.\n\nScan barcodes.",
+    });
+    expect(plan.items.map((i) => i.type)).toEqual(["patch", null, "minor"]);
+  });
+
+  it("any breaking PR makes it a major release", () => {
+    const plan = planTrainRelease({
+      ...base,
+      prs: [
+        { number: 1, title: "feat: thing", body: null },
+        { number: 2, title: "refactor!: new data model", body: null },
+      ],
+    });
+    expect(plan).toMatchObject({ type: "major", entry: { version: "1.0.0", breaking: true } });
+  });
+
+  it("keeps the Swedish note null when no PR wrote one", () => {
+    const plan = planTrainRelease({ ...base, prs: [{ number: 1, title: "fix: rounding", body: null }] });
+    expect(plan).toMatchObject({ entry: { notes: { en: "Rounding", sv: null } } });
+  });
+
+  it("only internal or invalid titles ship nothing", () => {
+    const plan = planTrainRelease({
+      ...base,
+      prs: [
+        { number: 1, title: "chore: bump deps", body: null },
+        { number: 2, title: "Not conventional", body: null },
+      ],
+    });
+    expect(plan.status).toBe("no-release");
   });
 });

@@ -9,6 +9,17 @@ name: Release
 #
 # Triggered by the merged PR (not by `push`) so the PR's title and body are
 # at hand, and so the release commit this job pushes can't trigger itself.
+#
+# Two kinds of PR reach master:
+# - A release PR from a `release/*` branch cut from `next` (the release
+#   train): one release for every PR squash-merged into `next` up to the
+#   cut. It must be merged with a merge commit, whose second parent is the
+#   release branch's tip, so the train is exactly `<merge>^1..<merge>^2`. Their titles decide the bump and their
+#   notes are joined into one entry (planTrainRelease in release-calc.ts).
+# - Anything else (a hotfix straight into master): released on its own
+#   title and note, as before the train existed.
+# Either way master is then merged back into `next`, so `next` has the
+# release commit (and any hotfix) and the next train starts from it.
 
 on:
   pull_request:
@@ -17,6 +28,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   release:
@@ -45,12 +57,32 @@ jobs:
       # merges would silently lose a release. Each attempt starts again
       # from the latest master, so a release another run pushed in the
       # meantime is bumped from, not overwritten.
+      # The included PRs' titles and bodies, as the JSON file
+      # scripts/release.ts reads via TRAIN_PRS_FILE. Gathered once, before
+      # the retry loop below: the merge commit pins the set.
+      - name: Collect the release train's PRs
+        id: train
+        if: startsWith(github.event.pull_request.head.ref, 'release/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if ! git rev-parse -q --verify "$MERGE_SHA^2" > /dev/null; then
+            echo "::error::The release PR was squash-merged, not merged with a merge commit, so its PRs can't be read from history. Cut the release by hand (DEPLOYMENT.md, section 8)."
+            exit 1
+          fi
+          prs=$(node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release.ts train-prs "$MERGE_SHA^1..$MERGE_SHA^2")
+          echo "PRs in this release: $(echo $prs)"
+          for n in $prs; do gh pr view "$n" --json number,title,body; done | jq -s . > "$RUNNER_TEMP/train-prs.json"
+          echo "file=$RUNNER_TEMP/train-prs.json" >> "$GITHUB_OUTPUT"
+
       - name: Bump, commit, tag and push
         id: release
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          TRAIN_PRS_FILE: ${{ steps.train.outputs.file }}
           RELEASE_BODY_FILE: ${{ runner.temp }}/release-body.md
         run: |
           git config user.name "github-actions[bot]"
@@ -86,3 +118,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
         run: gh release create "v$VERSION" --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-body.md"
+
+      # Brings the release commit (and a hotfix's change) into `next`. A
+      # fast-forward when nothing merged into `next` meanwhile, otherwise a
+      # merge commit, which `train-prs` skips (no "(#N)" on its subject).
+      # Retries like the release push, in case a PR merges into `next` at
+      # the same moment. Skipped until the `next` branch exists.
+      - name: Sync master into next
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            if ! git fetch origin master next; then
+              echo "No next branch yet; nothing to sync."
+              exit 0
+            fi
+            git checkout -q -B next origin/next
+            if ! git merge --no-edit -m "chore: sync master into next [skip ci]" origin/master; then
+              echo "::error::master doesn't merge cleanly into next. Merge it by hand (a PR from master into next) before the next release."
+              exit 1
+            fi
+            if git push origin HEAD:next; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt), next moved; retrying."
+            sleep $((attempt * 3))
+          done
+          echo "::error::Could not push master into next after 5 attempts."
+          exit 1
