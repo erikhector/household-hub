@@ -14,6 +14,15 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
+// The worker's household is shared with every spec it runs, and a leftover
+// frozen item makes a phone card's badges crowd the next spec's layout
+// checks, so remove what these tests created (only this household's rows).
+test.afterEach(async () => {
+  await withClient((client) =>
+    client.query(`DELETE FROM "InventoryItem" WHERE "householdId" = $1 AND id LIKE 'e2e-freeze-%'`, [E2E_HOUSEHOLD.id]),
+  );
+});
+
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

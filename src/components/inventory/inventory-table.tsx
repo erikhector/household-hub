@@ -514,7 +514,7 @@ export function InventoryTable({
                       {item.location ? ` • ${item.location}` : ""}
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                  <div className="flex min-w-0 max-w-[55%] flex-wrap items-center justify-end gap-1">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                     <OnTheWayHint item={item} dict={dict} />
                     <ExpiryBadge
