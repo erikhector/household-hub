@@ -172,7 +172,7 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
                         checked={item.included}
                         onChange={() => toggleItem(item.key)}
                       />
-                      <span className="min-w-0 flex-1 truncate" title={item.name}>
+                      <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
                         {item.name}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">

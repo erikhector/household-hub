@@ -246,7 +246,7 @@ export function TaskFormDialog({
                           hint below says why. */}
                       {rotating && <input type="hidden" name="rotationMemberIds" value={id} />}
                       <span className="w-5 shrink-0 text-xs text-muted-foreground">{index + 1}.</span>
-                      <span className="flex-1 truncate text-sm">{memberName(id)}</span>
+                      <span className="flex-1 line-clamp-2 break-words sm:line-clamp-1 text-sm">{memberName(id)}</span>
                       <Button
                         type="button"
                         variant="ghost"

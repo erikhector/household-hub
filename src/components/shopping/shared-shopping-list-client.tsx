@@ -112,7 +112,7 @@ function SharedRow({
           same treatment as ShoppingListClient's rows. */}
       <span className="flex min-w-0 flex-1 flex-col">
         <span
-          className={`truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
+          className={`line-clamp-2 break-words sm:line-clamp-1 ${purchased ? "text-muted-foreground line-through" : ""}`}
           title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
         >
           {item.name} × {item.quantity} {unitLabel(item.unit)}

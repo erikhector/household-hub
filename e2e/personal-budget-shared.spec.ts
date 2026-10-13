@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
+import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV, E2E_USER } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // A shared household bill split by hand when it was logged (no split on
@@ -9,7 +10,7 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // stepped to next month. Rows are written straight to Postgres, like
 // item-page.spec.ts does, and named uniquely since the desktop and mobile
 // runs share the seeded household.
-const suffix = () => Date.now().toString(36);
+const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
@@ -25,8 +26,8 @@ async function seedHandSplitRent(): Promise<string> {
     // personal category, or it shows its onboarding instead.
     await client.query(
       `INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type)
-       VALUES ('e2e-personal-cat-food', $1, 'Food', 'EXPENSE') ON CONFLICT (id) DO NOTHING`,
-      [E2E_USER.id],
+       VALUES ($2, $1, 'Food', 'EXPENSE') ON CONFLICT (id) DO NOTHING`,
+      [E2E_USER.id, `e2e-personal-cat-food-${E2E_USER.id}`],
     );
     await client.query(
       `INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, 'Rent', 'EXPENSE')`,
@@ -45,8 +46,8 @@ async function seedHandSplitRent(): Promise<string> {
     );
     await client.query(
       `INSERT INTO "TransactionSplit" (id, "transactionId", "householdMemberId", "amountOwed", "amountPaid")
-       VALUES ($1, $3, 'e2e-member', 6000, 6000), ($2, $3, 'e2e-member-sv', 6000, 6000)`,
-      [`e2e-split-a-${tag}`, `e2e-split-b-${tag}`, `e2e-tx-${tag}`],
+       VALUES ($1, $3, $4, 6000, 6000), ($2, $3, $5, 6000, 6000)`,
+      [`e2e-split-a-${tag}`, `e2e-split-b-${tag}`, `e2e-tx-${tag}`, E2E_MEMBER, E2E_MEMBER_SV],
     );
   } finally {
     await client.end();

@@ -407,6 +407,7 @@ export function AiShelfScanDialog({
                   <li key={row.key} className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Input
+                        autoComplete="off"
                         value={row.name}
                         onChange={(e) => updateRow(row.key, { name: e.target.value })}
                         placeholder={dict.bulkScan.namePlaceholder}

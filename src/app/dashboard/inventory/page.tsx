@@ -1,17 +1,13 @@
 import { Suspense, cache } from "react";
 import Link from "next/link";
-import { ClipboardList, ListChecks, Plus, ScanBarcode, ScanLine, Sparkles } from "lucide-react";
+import { ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale, type Dictionary } from "@/lib/i18n/get-dictionary";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
-import { BulkScanDialog } from "@/components/inventory/bulk-scan-dialog";
-import { StockScanDialog } from "@/components/inventory/stock-scan-dialog";
-import { BulkPasteDialog } from "@/components/inventory/bulk-paste-dialog";
-import { AiShelfScanDialog } from "@/components/inventory/ai-shelf-scan-dialog";
 import { InventoryClient } from "@/components/inventory/inventory-client";
+import InventoryHeaderActionsClient from "@/components/inventory/inventory-header-actions";
 import { parseInventoryViewPrefs } from "@/components/inventory/inventory-table-utils";
 import { ExportButton } from "@/components/export/export-button";
 import { getStockStatus, type StockStatus } from "@/lib/stock-status";
@@ -95,87 +91,49 @@ function InventoryActionButtonsSkeleton() {
   );
 }
 
+// One duplicate-group count per render, shared by the desktop link and the
+// phone ⋯ menu (react `cache` dedupes it across both Suspense boundaries).
+const getDuplicateGroups = cache(async (householdId: string) => {
+  const { items } = await getInventoryData(householdId);
+  return countDuplicateGroups(householdId, items);
+});
+
 async function InventoryActionButtons({
   householdId,
   dict,
   barcodeDict,
+  exportLabel,
+  manageItemsLabel,
 }: {
   householdId: string;
   dict: Dictionary["inventory"];
   barcodeDict: Dictionary["barcodeScanner"];
+  exportLabel: string;
+  manageItemsLabel: string;
 }) {
   const { items, categories, locations, units } = await getInventoryData(householdId);
-
+  // The phone ⋯ menu carries the manage-items link, so it needs the same
+  // duplicate count + deep link ManageItemsLink gives desktop.
+  const groups = await getDuplicateGroups(householdId);
+  // Env vars are server-only; the client component can't read them.
+  const aiShelfScanConfigured = Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
+  // Render a client component that provides the labelled mobile header
+  // and preserves the desktop icon buttons.
   return (
-    <>
-      {/* AUTO-6: scan a remembered barcode to change its stock by one —
-          the everyday scan, as opposed to "Scan multiple"'s one-off bulk
-          add of new items. */}
-      <StockScanDialog
-        dict={dict}
-        barcodeDict={barcodeDict}
-        items={items.map((item) => ({ id: item.id, name: item.name }))}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ScanBarcode className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.stockScan.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <BulkPasteDialog
-        dict={dict}
-        categories={categories}
-        locations={locations}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ClipboardList className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.pasteList.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <BulkScanDialog
-        dict={dict}
-        barcodeDict={barcodeDict}
-        categories={categories}
-        locations={locations}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <ScanLine className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.bulkScan.triggerLabel}</span>
-          </Button>
-        }
-      />
-      <AiShelfScanDialog
-        dict={dict}
-        categories={categories}
-        locations={locations}
-        configured={Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)}
-        trigger={
-          <Button variant="outline" className="gap-1.5">
-            <Sparkles className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.aiShelfScan.triggerLabel}</span>
-            <Badge variant="secondary" className="hidden sm:inline-flex">
-              {dict.aiShelfScan.betaBadge}
-            </Badge>
-          </Button>
-        }
-      />
-      <ItemFormDialog
-        mode="create"
-        categories={categories}
-        locations={locations}
-        units={units}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
-        trigger={
-          <Button className="gap-1.5">
-            <Plus className="size-4" />
-            <span className="sr-only sm:not-sr-only">{dict.addItem}</span>
-          </Button>
-        }
-      />
-    </>
+    <InventoryHeaderActionsClient
+      items={items}
+      categories={categories}
+      locations={locations}
+      units={units}
+      dict={dict}
+      barcodeDict={barcodeDict}
+      exportLabel={exportLabel}
+      manageItemsLabel={manageItemsLabel}
+      manageItemsHref={groups > 0 ? "/dashboard/inventory/items?filter=duplicates" : "/dashboard/inventory/items"}
+      duplicateGroups={groups}
+      aiShelfScanConfigured={aiShelfScanConfigured}
+      aiCategoryFallbackEnabled={isAiCategoryFallbackConfigured()}
+    />
   );
 }
 
@@ -183,8 +141,7 @@ async function InventoryActionButtons({
 // from a bottom-nav tab, and the badge counts its open duplicate groups so
 // they get noticed. With groups open, the link lands on them.
 async function ManageItemsLink({ householdId, dict }: { householdId: string; dict: Dictionary["inventory"]["catalog"] }) {
-  const { items } = await getInventoryData(householdId);
-  const groups = await countDuplicateGroups(householdId, items);
+  const groups = await getDuplicateGroups(householdId);
   const href = groups > 0 ? "/dashboard/inventory/items?filter=duplicates" : "/dashboard/inventory/items";
 
   return (
@@ -296,12 +253,27 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
           </Suspense>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
-            <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
-          </Suspense>
-          <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
+          {/* Desktop-only like export above: on mobile manage-items
+              lives inside the ⋯ menu so it isn't duplicated. */}
+          <div className="hidden sm:block">
+            <Suspense fallback={<div className="h-9 w-9 animate-pulse rounded-md bg-muted sm:w-36" aria-hidden="true" />}>
+              <ManageItemsLink householdId={household.id} dict={dict.inventory.catalog} />
+            </Suspense>
+          </div>
+          {/* Page-level export stays desktop-only: on mobile it lives
+              inside the ⋯ menu (InventoryHeaderActionsClient) so there is
+              only one export action per viewport. */}
+          <div className="hidden sm:block">
+            <ExportButton href="/dashboard/inventory/export" label={dict.export.button} />
+          </div>
           <Suspense fallback={<InventoryActionButtonsSkeleton />}>
-            <InventoryActionButtons householdId={household.id} dict={dict.inventory} barcodeDict={dict.barcodeScanner} />
+            <InventoryActionButtons
+              householdId={household.id}
+              dict={dict.inventory}
+              barcodeDict={dict.barcodeScanner}
+              exportLabel={dict.export.button}
+              manageItemsLabel={dict.inventory.catalog.manageItems}
+            />
           </Suspense>
         </div>
       </div>

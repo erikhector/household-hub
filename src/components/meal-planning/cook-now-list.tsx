@@ -47,14 +47,14 @@ export function CookNowList({
               <div key={recipe.recipeId} className="flex items-center gap-3 px-3 py-2.5">
                 <ChefHat className="size-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium" title={recipe.recipeName}>
+                  <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={recipe.recipeName}>
                     {recipe.recipeName}
                   </p>
                   {recipe.missingIngredientNames.length === 0 ? (
                     <Badge variant="secondary">{dict.readyToCookBadge}</Badge>
                   ) : (
                     <p
-                      className="truncate text-sm text-muted-foreground"
+                      className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground"
                       title={recipe.missingIngredientNames.join(", ")}
                     >
                       {format(

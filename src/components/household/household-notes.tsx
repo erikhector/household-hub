@@ -79,6 +79,7 @@ export function HouseholdNotes({
           {dict.bodyLabel}
         </Label>
         <Textarea
+          autoComplete="off"
           id="household-note-body"
           name="body"
           value={body}

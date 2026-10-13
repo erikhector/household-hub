@@ -51,7 +51,7 @@ export default async function ProfilePage() {
           <EmailForm email={user.email} verified={Boolean(user.emailVerifiedAt)} dict={dict.profile.emailForm} />
         </div>
         <div className="rounded-md border p-4">
-          <PasswordForm dict={dict.profile.passwordForm} />
+          <PasswordForm email={user.email} dict={dict.profile.passwordForm} />
         </div>
         <InstallAppCard dict={dict.profile.installApp} />
         <PushNotificationsCard subscriptions={pushSubscriptions} dict={dict.profile.pushNotifications} />

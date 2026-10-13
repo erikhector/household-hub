@@ -141,7 +141,7 @@ export default async function HouseholdPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.household.title}</h1>
-          <p className="truncate text-sm text-muted-foreground" title={household.name}>
+          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={household.name}>
             {household.name}
           </p>
           <Suspense fallback={null}>

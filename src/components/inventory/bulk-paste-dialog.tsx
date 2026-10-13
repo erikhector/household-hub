@@ -181,6 +181,7 @@ export function BulkPasteDialog({
               <>
                 <p className="text-sm text-muted-foreground">{t.description}</p>
                 <Textarea
+                  autoComplete="off"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder={t.textareaPlaceholder}
@@ -210,7 +211,7 @@ export function BulkPasteDialog({
                     {t.uploadButtonLabel}
                   </Button>
                   {csvFile && (
-                    <span className="truncate text-sm text-muted-foreground">
+                    <span className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground">
                       {format(t.uploadFileSelected, { name: csvFile.name })}
                     </span>
                   )}
@@ -260,6 +261,7 @@ export function BulkPasteDialog({
               {rows.map((row) => (
                 <li key={row.key} className="flex items-center gap-2">
                   <Input
+                    autoComplete="off"
                     value={row.name}
                     onChange={(e) => updateRow(row.key, { name: e.target.value })}
                     maxLength={120}
@@ -278,6 +280,7 @@ export function BulkPasteDialog({
                     aria-label={dict.quantityLabel}
                   />
                   <Input
+                    autoComplete="off"
                     value={row.unit}
                     onChange={(e) => updateRow(row.key, { unit: e.target.value })}
                     maxLength={20}

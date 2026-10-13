@@ -17,6 +17,13 @@ if [ ! -d node_modules/.bin ]; then
   npm ci --no-audit --no-fund --loglevel=error >/dev/null
 fi
 
+# The vendored pstack skills read their model roles from
+# ~/.agents/pstack-models.md, not from the repo. Without that file they
+# fall back to their own defaults (other vendors' models), so install the
+# repo's copy, where every role is `inherit-parent` (the session model).
+mkdir -p "$HOME/.agents"
+cp .agents/pstack-models.md "$HOME/.agents/pstack-models.md"
+
 # End-to-end tests (npm run test:e2e) need a real Postgres. The web image
 # ships PostgreSQL 16 but not running; start it and create the same
 # database docker-compose.yml would, so agents can run the suite without

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import { en } from "@/lib/i18n/dictionaries/en";
 
 // The informational cookie notice (src/components/legal/cookie-notice.tsx).
@@ -9,7 +10,7 @@ import { en } from "@/lib/i18n/dictionaries/en";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 for (const path of ["/login", "/privacy"]) {
-  test(`the cookie notice on ${path} can be dismissed for good`, async ({ page }) => {
+  test(`the cookie notice on ${path} can be dismissed for good`, async ({ page, context }) => {
     await page.goto(path);
     const notice = page.getByRole("region", { name: en.cookieNotice.title });
     await expect(notice).toBeVisible();
@@ -20,6 +21,12 @@ for (const path of ["/login", "/privacy"]) {
 
     await notice.getByRole("button", { name: en.cookieNotice.dismiss }).click();
     await expect(notice).toHaveCount(0);
+    // A document.cookie write reaches Chromium's cookie store
+    // asynchronously, so a reload right after the click can go out without
+    // it (seen under parallel load). Wait until the browser has it.
+    await expect
+      .poll(async () => (await context.cookies()).some((cookie) => cookie.name === COOKIE_NOTICE_COOKIE))
+      .toBe(true);
     await page.reload();
     await expect(page.getByRole("region", { name: en.cookieNotice.title })).toHaveCount(0);
   });
