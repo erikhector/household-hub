@@ -189,6 +189,14 @@ export function CategoryManager({
   );
 }
 
+// UX-19 / M3: the chip's edit and delete icons are 12 px glyphs. With a
+// mouse they borrow 6 px of padding via a negative margin to stay a compact
+// chip; under a finger that padding would overlap the neighbouring button, so
+// each becomes a real 44 px box, 8 px apart (the chip's gap), and the chip
+// grows to hold them.
+const CHIP_ACTION =
+  "-m-1.5 shrink-0 p-1.5 max-sm:m-0 max-sm:inline-flex max-sm:size-11 max-sm:items-center max-sm:justify-center max-sm:p-0 pointer-coarse:m-0 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:p-0";
+
 function CategoryGroup({
   label,
   items,
@@ -213,7 +221,7 @@ function CategoryGroup({
           <Badge
             key={category.id}
             variant="outline"
-            className="max-w-[12rem] gap-1.5 py-1 pl-2.5"
+            className="max-w-[12rem] gap-1.5 py-1 pl-2.5 max-sm:h-auto max-sm:gap-2 max-sm:overflow-visible pointer-coarse:h-auto pointer-coarse:gap-2 pointer-coarse:overflow-visible"
           >
             <span className="min-w-0 truncate" title={category.name}>
               {category.name}
@@ -227,7 +235,7 @@ function CategoryGroup({
                   type="button"
                   aria-label={format(dict.categories.editAriaLabel, { name: category.name })}
                   disabled={isPending}
-                  className="-m-1.5 shrink-0 p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className={`${CHIP_ACTION} text-muted-foreground hover:text-foreground disabled:opacity-50`}
                 >
                   <Pencil className="size-3" />
                 </button>
@@ -239,7 +247,7 @@ function CategoryGroup({
                   type="button"
                   aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
                   disabled={isPending}
-                  className="-m-1.5 shrink-0 p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                  className={`${CHIP_ACTION} text-muted-foreground hover:text-destructive disabled:opacity-50`}
                 >
                   <Trash2 className="size-3" />
                 </button>

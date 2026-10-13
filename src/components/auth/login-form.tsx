@@ -74,7 +74,7 @@ export function LoginForm({ dict }: { dict: Dictionary["auth"]["login"] }) {
             <Label htmlFor="password">{dict.password}</Label>
             <Link
               href="/forgot-password"
-              className="text-xs font-medium text-primary underline underline-offset-4"
+              className="touch-target text-xs font-medium text-primary underline underline-offset-4"
             >
               {dict.forgotPassword}
             </Link>

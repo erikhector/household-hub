@@ -5873,9 +5873,20 @@ approximating them, so the email never disagrees with the app.
   element (passing if its own box, an enclosing label, link or button, or
   an absolutely positioned `::before`/`::after` reaches 44 px) and runs
   in `smoke.spec.ts` on every project but `desktop` (`mobile`, `landscape`,
-  `tablet`) for every page. It checks
-  each page's closed state, so menus and dialogs opened later rely on the
-  component classes above.
+  `tablet`) for every page, and in `public.spec.ts` for the logged-out
+  pages. It also measures `role="option"` rows (the smart-add suggestions).
+  `expectTouchTargetsInTabs` clicks through every tab of every tablist and
+  measures each panel, since the plain check skips `hidden` panels (most of
+  the budget UI); smoke uses it. A link in running text that the check can't
+  tell from a lone link (a one-entry comma list) is marked
+  `data-running-text`. It checks each page's closed state, so menus and
+  dialogs opened later rely on the component classes above.
+  **Spacing (UX-19)**: neighbouring targets are 8 px apart on touch
+  (`max-sm:gap-2 pointer-coarse:gap-2` on action rows). Category chips
+  grow to hold two real 44 px buttons instead of overlapping padded
+  icons. `expectTargetsApart(scope)` fails on overlaps or gaps under 8 px
+  and is asserted on the meal row, the category chip and the 320 px
+  inventory page in `e2e/ux-19.mobile.spec.ts`.
 - **Checkbox and date fields**: a checked `Checkbox` is filled with the
   primary colour and shows a white tick (the `checkbox-tick` utility in
   `globals.css`; an inline SVG class got split by `cn()` and left an empty

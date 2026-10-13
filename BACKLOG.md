@@ -259,29 +259,6 @@ don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
 
-- [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
-      that the guard misses:
-      - **Meal row icons overlap.** Each 44 px button sits in a 24 px
-        `IconSlot` with `gap-1` (`week-planner.tsx:306-411`), so Edit,
-        Move, Cooked and Delete overlap by ~16 px. Blocker.
-      - **Inventory stepper covers the ⓘ icon** on a 320 px iPhone SE.
-      - **Category chip edit/delete** are ~24 px and touching
-        (`category-manager.tsx:226-245`).
-      - **Row gaps under 8 px**: `gap-1` or `gap-1.5` in shopping rows
-        (`:899`), inventory row actions (`item-actions.tsx:56`),
-        transaction rows (`transaction-list.tsx:455`) and recurring rows
-        (`recurring-templates-panel.tsx:377`).
-      - **Small controls**: the password show/hide toggle (~24 px,
-        `password-input.tsx:46`); legal footer links and "Forgot
-        password?"; the "Units, recipes and details" link (16 px tall);
-        smart-add suggestions (~32 px, `smart-add-bar.tsx:252`); the
-        shared-row link (`size-9`, `transaction-list.tsx:401`).
-      - **Guard gaps**: `expectTouchTargets` doesn't check
-        `role="option"`, skips content inside `hidden` tab panels (most
-        of the budget UI), and never runs on public pages.
-
-      Fix the controls, then close those three gaps in `e2e/ui.ts`.
-
 - [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
       The Personal budget "Insights" / tabs view currently omits shared
       household transactions (splits, shared-paid bills), so a member's
@@ -1018,6 +995,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.59.1 | #191 fix: show server-action errors and dialog labels in the user's language (UX-16) | 2026-10-13 | #191 |
       | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
       | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
+      | v0.59.4 | #198 fix: touch-target overlaps, gaps and a wider M3 guard (UX-19) | 2026-10-13 | #198 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

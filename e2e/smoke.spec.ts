@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { DASHBOARD_ROUTES } from "./routes";
 import { STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, expectTouchTargets, LOCALES, saveScreenshot } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, expectTouchTargetsInTabs, LOCALES, saveScreenshot } from "./ui";
 
 // Every dashboard page, in both languages, on both the desktop and the
 // mobile project: it must render without hitting an error boundary or
@@ -28,7 +28,7 @@ for (const locale of LOCALES) {
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
         // M3 is a touch rule (UX-8: phones, landscape phones, tablets); the
         // desktop project, with a mouse, is deliberately denser.
-        if (testInfo.project.name !== "desktop") await expectTouchTargets(page);
+        if (testInfo.project.name !== "desktop") await expectTouchTargetsInTabs(page);
         // After the measurement: the screenshot resizes the viewport, and
         // on the wide touch projects the page was then measured as a mouse
         // layout (sidebar buttons back at 28 px) in screenshot runs.

@@ -18,14 +18,14 @@ export async function LegalFooter({ dict }: { dict: Dictionary["legal"] }) {
   const [locale, { language }] = await Promise.all([getLocale(), getDictionary()]);
   return (
     <footer className="flex flex-col items-center gap-1 py-4 text-xs text-muted-foreground">
-      <nav className="flex items-center gap-4">
-        <Link href="/terms" className="hover:text-foreground hover:underline">
+      <nav className="flex items-center gap-2">
+        <Link href="/terms" className="touch-target hover:text-foreground hover:underline">
           {dict.termsNavLabel}
         </Link>
-        <Link href="/privacy" className="hover:text-foreground hover:underline">
+        <Link href="/privacy" className="touch-target hover:text-foreground hover:underline">
           {dict.privacyNavLabel}
         </Link>
-        <Link href="/privacy#cookies" className="hover:text-foreground hover:underline">
+        <Link href="/privacy#cookies" className="touch-target hover:text-foreground hover:underline">
           {dict.cookiesNavLabel}
         </Link>
       </nav>

@@ -278,7 +278,7 @@ export function DueRecurringWidget({
                     )}
                   <Link
                     href={`/dashboard/budget?month=${monthKey}&household=${row.logPrefill.householdId}`}
-                    className="shrink-0 text-sm font-medium text-primary hover:underline"
+                    className="touch-target shrink-0 text-sm font-medium text-primary hover:underline"
                   >
                     {format(dict.shared?.viewInHouseholdBudget ?? "", { household: row.householdName })}
                   </Link>
