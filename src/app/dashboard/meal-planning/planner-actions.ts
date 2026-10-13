@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
-import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { LEFTOVERS_DAY_SEARCH_DAYS, nextFreeDinnerDay } from "@/app/dashboard/meal-planning/leftovers";
 import { fail, v, zodFail } from "@/lib/actions/errors";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
@@ -404,4 +405,29 @@ export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionStat
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
+}
+
+// GAP-39: the day "Plan leftovers" prefills — the first day after `afterDate`
+// with no dinner planned. Read-only: it only looks, and the add-to-plan
+// dialog the date lands in writes nothing until the household confirms. The
+// household comes from the session; the client only names the date to
+// search after.
+export async function suggestLeftoversDayAction(
+  afterDate: string,
+): Promise<{ date: string } | { error: string }> {
+  const { household } = await requireHousehold();
+  if (!isDateKey(afterDate) || Number.isNaN(parseDateKey(afterDate).getTime())) {
+    return await fail("invalidDate");
+  }
+
+  const start = parseDateKey(afterDate);
+  const dinners = await prisma.mealPlanEntry.findMany({
+    where: {
+      mealPlan: { householdId: household.id },
+      mealType: "DINNER",
+      date: { gt: start, lte: addDays(start, LEFTOVERS_DAY_SEARCH_DAYS) },
+    },
+    select: { date: true },
+  });
+  return { date: nextFreeDinnerDay(afterDate, dinners.map((d) => toDateKey(d.date))) };
 }

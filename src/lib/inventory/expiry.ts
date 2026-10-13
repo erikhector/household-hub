@@ -100,3 +100,58 @@ export function openedResetOnArrival(
   if (current.expiresAtEstimated) return { openedAt: null, expiresAt: null, expiresAtEstimated: false };
   return { openedAt: null };
 }
+
+// --- GAP-44: "Freeze it" ----------------------------------------------------
+
+/** How long frozen food is treated as good for when the item has no
+ * `useWithinDaysFrozen` of its own — roughly the three months most freezer
+ * guidance gives for meat, bread and cooked leftovers. */
+export const DEFAULT_USE_WITHIN_DAYS_FROZEN = 90;
+
+export type FrozenExpiryPatch = {
+  frozenAt: Date;
+  expiresAt: Date;
+  expiresAtEstimated: true;
+};
+
+/**
+ * The Prisma update patch for freezing an item: `frozenAt` is `now` and
+ * `expiresAt` becomes now + the item's `useWithinDaysFrozen` (the 90-day
+ * default when unset or not a positive whole number). Unlike
+ * openedExpiryUpdate this *replaces* the date even when it moves it later:
+ * extending the clock is the whole point of freezing.
+ *
+ * `expiresAtEstimated` is always true. "Frozen for N days" is a rule of
+ * thumb, not a date printed on the pack, so it gets the same soft "≈"
+ * treatment as the opened clock's date, and the arrival gate may replace it
+ * with a fresh estimate when a sealed pack comes in. The original date is
+ * not kept here; the toast's Undo restores it from a client-held snapshot.
+ */
+export function frozenExpiryUpdate(
+  useWithinDaysFrozen: number | null,
+  now: Date = new Date(),
+): FrozenExpiryPatch {
+  const days =
+    useWithinDaysFrozen != null && Number.isInteger(useWithinDaysFrozen) && useWithinDaysFrozen > 0
+      ? useWithinDaysFrozen
+      : DEFAULT_USE_WITHIN_DAYS_FROZEN;
+  return { frozenAt: now, expiresAt: new Date(now.getTime() + days * DAY_MS), expiresAtEstimated: true };
+}
+
+/**
+ * The patch a stock-arrival action merges in alongside openedResetOnArrival
+ * so a frozen item that ran out and was bought again stops showing "Frozen":
+ * a 0 → positive crossing is a new pack. Same rule as the opened reset: an
+ * estimated `expiresAt` (which every freeze writes) belonged to the old
+ * pack and is cleared for the estimator to refill, a typed date is kept.
+ */
+export function frozenResetOnArrival(
+  current: { frozenAt?: Date | null; expiresAtEstimated: boolean },
+  previousQuantity: number,
+  nextQuantity: number,
+): { frozenAt: null } | { frozenAt: null; expiresAt: null; expiresAtEstimated: false } | null {
+  if (!current.frozenAt) return null;
+  if (!(previousQuantity <= 0 && nextQuantity > 0)) return null;
+  if (current.expiresAtEstimated) return { frozenAt: null, expiresAt: null, expiresAtEstimated: false };
+  return { frozenAt: null };
+}

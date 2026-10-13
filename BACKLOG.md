@@ -284,27 +284,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-### Product decisions (2026-10-05)
-
-- [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
-      after "Mark as cooked" records leftover servings (GAP-8,
-      `src/app/dashboard/meal-planning/leftovers.ts`), the success toast
-      gains a "Plan leftovers" action. It opens the existing add-to-plan
-      flow (`add-to-plan-dialog.tsx`) prefilled with that recipe, the
-      leftover servings and the next day that has no dinner planned. The
-      user confirms or changes the day; nothing is added to the plan
-      unless they confirm, and a day that already has a dinner is never
-      overwritten. No schema change, no household setting, no automatic
-      scheduling. Acceptance: marking a meal cooked with leftovers shows
-      the toast action; tapping it opens the dialog prefilled as above;
-      confirming adds the entry (visible after reload), dismissing adds
-      nothing; an e2e test covers both on desktop and mobile; a unit test
-      covers the next-free-day helper.
-      Decided 2026-10-05 by autopilot-product: opt-in prompt after
-      cooking, no auto-scheduling. Why: it follows the "suggest, don't
-      silently mutate" guardrail and answers the scan's open questions
-      (which day, clashes, opt-in) without new state. See PRODUCT.md.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -679,24 +658,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-09-30 scan
 
-- [ ] **GAP-44. "Freeze it" on an inventory item (extends the expiry clock)** (impact: med, effort: M) —
-      Grocy tracks freezing as a stock state with its own "days until due
-      once frozen"; Squirrel has the mirror image for opening (`openedAt` +
-      `useWithinDaysOpened`, REQUIREMENTS.md "Expiry/best-before tracking",
-      `prisma/schema.prisma:326-336`) but nothing for the most common way
-      households avoid waste: freezing what would otherwise expire this
-      week. Today the only choice is to edit `expiresAt` by hand, which
-      loses the original date and looks like a real user-entered date.
-      Needs a small schema change (`frozenAt DateTime?`,
-      `useWithinDaysFrozen Int?`, one migration, so a Phase 2 item) and a
-      pure `frozenExpiryUpdate` beside `openedExpiryUpdate`
-      (`src/lib/inventory/expiry.ts`). Acceptance: an expiring item's row
-      offers "Freeze"; it sets `expiresAt = now + useWithinDaysFrozen`
-      (default 90 days, estimated flag per the existing ≈ rule), shows a
-      "Frozen" tag, drops out of EXPIRING_SOON, and has the same undo toast
-      as "Mark opened"; a unit test covers the pure helper and an e2e test
-      freezes an item, reloads and asserts the tag and later date.
-
 - [ ] **GAP-45. "Fill empty days" on the meal planner from favorites** (impact: low-med, effort: S) —
       Mealie's meal-plan rules and Mealime's auto-planned week fill a
       week with no effort; Squirrel has "Copy last week" (GAP-23) but an
@@ -996,6 +957,8 @@ credentials only the product owner can provision, or an architecture call.
       | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
       | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
       | v0.59.4 | #198 fix: touch-target overlaps, gaps and a wider M3 guard (UX-19) | 2026-10-13 | #198 |
+      | v0.60.0 | #200 feat: freeze an expiring inventory item to extend its date (GAP-44) | 2026-10-13 | #200 |
+      | v0.61.0 | #201 feat: offer to plan leftovers onto the next free dinner day (GAP-39) | 2026-10-13 | #201 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

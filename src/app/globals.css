@@ -304,6 +304,12 @@
     min-width: 44px;
     padding-inline: 0.75rem;
   }
+  /* A toast with two buttons (Undo + "Plan leftovers") sits them 6 px apart
+     by default; M3 wants 8 px, so Sonner's own button end margin adds a little
+     (its stylesheet applies it to the first button). */
+  [data-sonner-toast] {
+    --toast-button-margin-end: 4px;
+  }
 }
 
 /* Sonner switches to its phone offsets at 600 px, but the BottomNav shows

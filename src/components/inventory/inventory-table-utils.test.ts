@@ -18,6 +18,8 @@ function item(overrides: Partial<InventoryItemRow>): InventoryItemRow {
     shelfLifeDays: null,
     openedAt: null,
     useWithinDaysOpened: null,
+    frozenAt: null,
+    useWithinDaysFrozen: null,
     updatedAt: new Date(2026, 8, 1),
     updatedByUserId: null,
     ...overrides,

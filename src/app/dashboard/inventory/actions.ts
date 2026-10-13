@@ -21,7 +21,7 @@ import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { normalizeBarcode } from "@/lib/barcode";
 import { releaseBarcode } from "@/lib/inventory/barcode-link";
 import { estimatedExpiryUpdate, sameCalendarDay } from "@/lib/inventory/shelf-life";
-import { openedExpiryUpdate } from "@/lib/inventory/expiry";
+import { frozenExpiryUpdate, openedExpiryUpdate } from "@/lib/inventory/expiry";
 import { canonicalUnit } from "@/lib/units";
 
 const itemSchema = z.object({
@@ -730,6 +730,100 @@ export async function undoMarkItemOpenedAction(
   });
   if (!item) return await fail("itemNotFound");
   if (!item.openedAt || item.openedAt.getTime() !== markedOpenedAt.getTime()) return {};
+
+  try {
+    await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: { ...parsed.data, updatedByUserId: userId },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {};
+}
+
+// GAP-44: the expiry fields "Freeze" overwrites, captured before the write
+// so the toast's Undo can put them back exactly (same shape as
+// OpenedUndoSnapshot).
+export type FrozenUndoSnapshot = {
+  frozenAt: Date | null;
+  expiresAt: Date | null;
+  expiresAtEstimated: boolean;
+};
+
+// One click on the row's "Freeze" button: moves `expiresAt` out to now +
+// the item's freezer window (see frozenExpiryUpdate) and stamps `frozenAt`,
+// which drops the item out of EXPIRING_SOON and shows the "Frozen" tag.
+// Applied immediately with an Undo toast. Only offered for an item that has
+// an expiry date and isn't frozen yet, and re-checked here since the row
+// can be stale: a second click must not restart the freezer clock.
+export async function freezeItemAction(itemId: string): Promise<{
+  error?: string;
+  frozenAt?: Date;
+  expiresAt?: Date;
+  previous?: FrozenUndoSnapshot;
+}> {
+  const { household, userId } = await requireHousehold();
+
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId: household.id },
+  });
+  if (!item) return await fail("itemNotFound");
+  if (item.frozenAt) return await fail("itemAlreadyFrozen");
+  if (!item.expiresAt) return await fail("noExpiryToExtend");
+
+  const patch = frozenExpiryUpdate(item.useWithinDaysFrozen);
+
+  // The `frozenAt: null` filter makes the "not already frozen" check atomic:
+  // two concurrent clicks both pass the read above, but only one update
+  // matches, so the loser gets the same error instead of overwriting the
+  // winner's frozenAt/expiresAt (which would also break the winner's Undo).
+  try {
+    const { count } = await prisma.inventoryItem.updateMany({
+      where: { id: item.id, householdId: household.id, frozenAt: null },
+      data: { ...patch, updatedByUserId: userId },
+    });
+    if (count === 0) return await fail("itemAlreadyFrozen");
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {
+    frozenAt: patch.frozenAt,
+    expiresAt: patch.expiresAt,
+    previous: { frozenAt: item.frozenAt, expiresAt: item.expiresAt, expiresAtEstimated: item.expiresAtEstimated },
+  };
+}
+
+const frozenUndoSchema = z.object({
+  frozenAt: z.date().nullable(),
+  expiresAt: z.date().nullable(),
+  expiresAtEstimated: z.boolean(),
+});
+
+// The Undo on "Freeze"'s toast. Like undoMarkItemOpenedAction it restores
+// only while the item still carries exactly the `frozenAt` that click wrote,
+// so a stale Undo (restocked or re-frozen since) is a quiet no-op.
+export async function undoFreezeItemAction(
+  itemId: string,
+  markedFrozenAt: Date,
+  previous: FrozenUndoSnapshot,
+): Promise<ActionState> {
+  const { household, userId } = await requireHousehold();
+
+  const parsed = frozenUndoSchema.safeParse(previous);
+  if (!parsed.success || !(markedFrozenAt instanceof Date)) return await fail("invalidInput");
+
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, householdId: household.id },
+  });
+  if (!item) return await fail("itemNotFound");
+  if (!item.frozenAt || item.frozenAt.getTime() !== markedFrozenAt.getTime()) return {};
 
   try {
     await prisma.inventoryItem.update({

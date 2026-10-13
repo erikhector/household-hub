@@ -20,6 +20,8 @@ import {
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
 import { Input } from "@/components/ui/input";
+import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
+import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
@@ -32,7 +34,26 @@ type ReviewItem = CookedIngredientData & { included: boolean; quantity: string }
 
 const initialState: ActionState = {};
 
-export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entry: MealPlanEntryData }) {
+// GAP-39: what "Plan leftovers" hands up to WeekPlanner, which owns the
+// add-to-plan dialog it opens. It can't live here: once the meal is cooked
+// the row swaps this component for the cooked badge, which unmounts it
+// before the household has had a chance to tap the toast.
+export type PlanLeftoversRequest = {
+  recipeId: string;
+  recipeName: string;
+  date: string;
+  servings: number;
+};
+
+export function MarkCookedDialog({
+  dict,
+  entry,
+  onPlanLeftovers,
+}: {
+  dict: MealPlanningDict;
+  entry: MealPlanEntryData;
+  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
+}) {
   const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
@@ -79,8 +100,33 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
             ? format(plural(leftoverServings, dict.mealMarkedCookedLeftoversToast), { count: leftoverServings })
             : dict.mealMarkedCookedToast;
 
+      // GAP-39: offered only when this cook actually recorded leftovers of a
+      // recipe. It rides in Sonner's second button slot next to Undo.
+      const recipeId = entry.recipeId;
+      const planLeftovers =
+        leftovers && leftoverServings > 0 && recipeId
+          ? {
+              label: dict.planLeftoversAction,
+              onClick: () => {
+                const todayKey = toDateKey(new Date());
+                void suggestLeftoversDayAction(entry.date > todayKey ? entry.date : todayKey).then((suggestion) => {
+                  if ("error" in suggestion) toast.error(suggestion.error);
+                  else {
+                    onPlanLeftovers({
+                      recipeId,
+                      recipeName: entry.recipeName ?? "",
+                      date: suggestion.date,
+                      servings: leftoverServings,
+                    });
+                  }
+                });
+              },
+            }
+          : undefined;
+
       toast.success(message, {
         duration: 8000,
+        cancel: planLeftovers,
         action: {
           label: dict.undoMarkCooked,
           onClick: () => {
