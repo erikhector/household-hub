@@ -21,15 +21,24 @@ function utcDay(offset: number) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + offset * DAY_MS);
 }
 
+// The desktop and mobile runs share one household and its dinners, and other
+// specs plan dinners for the days around today, so "the next day with no
+// dinner" would depend on which ran first. Each test therefore plans on its
+// own days a long way ahead (1-14 years, picked at random) where nothing else
+// is, which keeps the expected suggestion exact.
+function farOffset() {
+  return 365 + Math.floor(Math.random() * 5000);
+}
+
 function mondayOf(day: Date) {
   return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * DAY_MS);
 }
 
 const key = (day: Date) => day.toISOString().slice(0, 10);
 
-// A recipe cooked-able tonight, plus a dinner already planned tomorrow, so
-// the suggestion has to skip a day: today + 2.
-async function planCookTonightAndDinnerTomorrow(recipeName: string) {
+// A recipe to cook on day `base`, plus a dinner already planned the day
+// after, so the suggestion has to skip a day: base + 2.
+async function planCookAndDinnerNextDay(recipeName: string, base: number) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -41,8 +50,8 @@ async function planCookTonightAndDinnerTomorrow(recipeName: string) {
       recipeName,
     ]);
     const rows = [
-      { day: utcDay(0), recipe: recipeId, freeform: null },
-      { day: utcDay(1), recipe: null, freeform: `Takeaway ${suffix}` },
+      { day: utcDay(base), recipe: recipeId, freeform: null },
+      { day: utcDay(base + 1), recipe: null, freeform: `Takeaway ${suffix}` },
     ];
     for (const [i, row] of rows.entries()) {
       const monday = mondayOf(row.day);
@@ -80,8 +89,8 @@ async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
 
 // Cooks the recipe's planned entry with 2 servings left over and taps
 // "Plan leftovers" on the toast.
-async function cookWithLeftoversAndPlan(page: Page, recipeName: string) {
-  await page.goto("/dashboard/meal-planning");
+async function cookWithLeftoversAndPlan(page: Page, recipeName: string, base: number) {
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base)))}`);
   const entry = page
     .locator("div")
     .filter({ has: page.getByText(recipeName) })
@@ -105,11 +114,12 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
   page,
 }) => {
   const recipeName = unique("Lasagna");
-  await planCookTonightAndDinnerTomorrow(recipeName);
+  const base = farOffset();
+  await planCookAndDinnerNextDay(recipeName, base);
 
-  const dialog = await cookWithLeftoversAndPlan(page, recipeName);
+  const dialog = await cookWithLeftoversAndPlan(page, recipeName, base);
   // Tomorrow already has a dinner, so the day after is suggested.
-  await expect(dialog.getByLabel("Date")).toHaveValue(key(utcDay(2)));
+  await expect(dialog.getByLabel("Date")).toHaveValue(key(utcDay(base + 2)));
   await expect(dialog.getByRole("spinbutton", { name: "Portions" })).toHaveValue("2");
   await expect(dialog.getByRole("combobox", { name: "Meal" })).toHaveText(/^Dinner/);
 
@@ -118,20 +128,21 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
 
   // Saved: still there after a reload, on the week that day falls in. That
   // week also holds tonight's cooked entry when both days share a week.
-  const sameWeek = key(mondayOf(utcDay(0))) === key(mondayOf(utcDay(2)));
-  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(2)))}`);
+  const sameWeek = key(mondayOf(utcDay(base))) === key(mondayOf(utcDay(base + 2)));
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base + 2)))}`);
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 2 : 1);
 });
 
 test("dismissing Plan leftovers adds nothing", async ({ page }) => {
   const recipeName = unique("Chili");
-  await planCookTonightAndDinnerTomorrow(recipeName);
+  const base = farOffset();
+  await planCookAndDinnerNextDay(recipeName, base);
 
-  const dialog = await cookWithLeftoversAndPlan(page, recipeName);
+  const dialog = await cookWithLeftoversAndPlan(page, recipeName, base);
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 
-  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(2)))}`);
-  const sameWeek = key(mondayOf(utcDay(0))) === key(mondayOf(utcDay(2)));
+  await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base + 2)))}`);
+  const sameWeek = key(mondayOf(utcDay(base))) === key(mondayOf(utcDay(base + 2)));
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 1 : 0);
 });
