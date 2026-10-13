@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice } from "./ui";
+import { E2E_HOUSEHOLD, STORAGE_STATE, STORAGE_STATE_SV } from "./seed";
+import { dismissCookieNotice, expectNoHorizontalOverflow, LOCALES } from "./ui";
 
 // GAP-44: "Freeze" on an expiring inventory item moves its best-before date
 // ~90 days out, tags it "Frozen", takes it out of "Expiring soon" and offers
@@ -53,7 +53,7 @@ const storedExpiry = (id: string) =>
 // the list, so wait for the single visible search field before typing.
 async function searchInventory(page: Page, query: string) {
   await page.goto("/dashboard/inventory");
-  const search = page.getByPlaceholder("Search by name…").filter({ visible: true });
+  const search = page.getByRole("searchbox").filter({ visible: true });
   await expect(search).toHaveCount(1);
   await search.fill(query);
 }
@@ -104,3 +104,76 @@ test("Undo on the freeze toast puts the original date back", async ({ page }) =>
   expect(stored.frozenAt).toBeNull();
   expect(stored.expiresAt.getTime()).toBeLessThan(Date.now() + 3 * DAY_MS);
 });
+
+// The phone card puts every status badge in a cluster beside the item name.
+// At 200% text a long badge ("≈ Expiring soon") must wrap inside the cluster
+// instead of spilling left over the name, which scrolls nothing, so
+// expectNoHorizontalOverflow alone can't see it: each badge's box is checked
+// against the card and the name.
+const WIDE_BADGE_ITEMS = [
+  {
+    label: "In stock and an estimated Expiring soon",
+    sql: `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "expiresAt", "expiresAtEstimated", "updatedAt")
+          VALUES ($1, $2, $3, 'Meat & fish', 1, 'pcs', now() + interval '1 day', true, now())`,
+  },
+  {
+    label: "Low stock, Opened and an estimated Expiring soon",
+    sql: `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "openedAt", "expiresAt", "expiresAtEstimated", "updatedAt")
+          VALUES ($1, $2, $3, 'Meat & fish', 1, 'pcs', 2, now(), now() + interval '1 day', true, now())`,
+  },
+  {
+    label: "In stock and Frozen",
+    sql: `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "frozenAt", "expiresAt", "expiresAtEstimated", "updatedAt")
+          VALUES ($1, $2, $3, 'Meat & fish', 1, 'pcs', now(), now() + interval '60 days', true, now())`,
+  },
+];
+
+for (const locale of LOCALES) {
+  test.describe(`phone card badges at 200% text (${locale})`, () => {
+    test.use({ storageState: locale === "sv" ? STORAGE_STATE_SV : STORAGE_STATE });
+
+    for (const { label, sql } of WIDE_BADGE_ITEMS) {
+      test(label, async ({ page }) => {
+        test.skip(test.info().project.name !== "mobile", "the stacked card list is the phone layout");
+        const tag = suffix();
+        const name = `Wide badges ${tag}`;
+        await withClient((client) => client.query(sql, [`e2e-freeze-${tag}`, E2E_HOUSEHOLD.id, name]));
+
+        await searchInventory(page, name);
+        const nameText = page.getByText(name, { exact: true }).filter({ visible: true });
+        await expect(nameText).toBeVisible();
+        await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+        await nameText.scrollIntoViewIfNeeded();
+        await expectNoHorizontalOverflow(page);
+
+        const problems = await page.evaluate((itemName) => {
+          // The name can be squeezed to nothing, so it's found by its text
+          // inside a card rather than by having a visible box.
+          const nameEl = [...document.querySelectorAll<HTMLElement>("p")].find(
+            (p) => p.textContent?.trim() === itemName && p.closest(".rounded-lg"),
+          );
+          const card = nameEl?.closest<HTMLElement>(".rounded-lg");
+          if (!nameEl || !card) return ["card not found"];
+          const cardBox = card.getBoundingClientRect();
+          const nameBox = nameEl.getBoundingClientRect();
+          const badges = [...card.querySelectorAll<HTMLElement>('[data-slot="badge"]')];
+          const found: string[] = badges.length < 2 ? [`expected at least 2 badges, found ${badges.length}`] : [];
+          if (nameBox.width < 40) found.push(`the item name is squeezed to ${Math.round(nameBox.width)}px`);
+          for (const badge of badges) {
+            const box = badge.getBoundingClientRect();
+            const text = (badge.textContent ?? "").trim();
+            if (box.left < cardBox.left - 1 || box.right > cardBox.right + 1) found.push(`${text} leaves the card`);
+            const overlapsName =
+              box.left < nameBox.right - 1 && box.right > nameBox.left + 1 && box.top < nameBox.bottom && box.bottom > nameBox.top;
+            if (overlapsName) found.push(`${text} overlaps the name`);
+            if (badge.scrollWidth > badge.clientWidth + 1 || badge.scrollHeight > badge.clientHeight + 1) {
+              found.push(`${text} is clipped`);
+            }
+          }
+          return found;
+        }, name);
+        expect(problems).toEqual([]);
+      });
+    }
+  });
+}

@@ -663,7 +663,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       `openedResetOnArrival` in the same arrival paths (`applyStockArrival`,
       `registerReceiptAction`): a 0 → positive crossing clears `frozenAt`
       and the estimated `expiresAt`. There's no "thaw" button; use Undo, or
-      edit the date.
+      edit the date. **Phone card badges**: the card's header row wraps, the
+      name keeps a 40% floor and the badge cluster may shrink and wrap, so at
+      200% text (stock + "Opened"/"Frozen" + "≈ Expiring soon") the badges
+      drop under the name instead of squeezing it to nothing; guarded in
+      `e2e/freeze-item.spec.ts` (en and sv).
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
