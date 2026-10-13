@@ -284,27 +284,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-### Product decisions (2026-10-05)
-
-- [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
-      after "Mark as cooked" records leftover servings (GAP-8,
-      `src/app/dashboard/meal-planning/leftovers.ts`), the success toast
-      gains a "Plan leftovers" action. It opens the existing add-to-plan
-      flow (`add-to-plan-dialog.tsx`) prefilled with that recipe, the
-      leftover servings and the next day that has no dinner planned. The
-      user confirms or changes the day; nothing is added to the plan
-      unless they confirm, and a day that already has a dinner is never
-      overwritten. No schema change, no household setting, no automatic
-      scheduling. Acceptance: marking a meal cooked with leftovers shows
-      the toast action; tapping it opens the dialog prefilled as above;
-      confirming adds the entry (visible after reload), dismissing adds
-      nothing; an e2e test covers both on desktop and mobile; a unit test
-      covers the next-free-day helper.
-      Decided 2026-10-05 by autopilot-product: opt-in prompt after
-      cooking, no auto-scheduling. Why: it follows the "suggest, don't
-      silently mutate" guardrail and answers the scan's open questions
-      (which day, clashes, opt-in) without new state. See PRODUCT.md.
-
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
@@ -979,6 +958,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
       | v0.59.4 | #198 fix: touch-target overlaps, gaps and a wider M3 guard (UX-19) | 2026-10-13 | #198 |
       | v0.60.0 | #200 feat: freeze an expiring inventory item to extend its date (GAP-44) | 2026-10-13 | #200 |
+      | v0.61.0 | #201 feat: offer to plan leftovers onto the next free dinner day (GAP-39) | 2026-10-13 | #201 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

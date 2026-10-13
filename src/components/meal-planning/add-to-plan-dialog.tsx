@@ -57,16 +57,29 @@ export function AddToPlanDialog({
   recipeName,
   defaultPortions,
   plannerWeekStartKey,
+  defaultDate,
+  hint,
+  controlled,
 }: {
   dict: MealPlanningDict;
   recipeId: string;
   recipeName: string;
   defaultPortions: number;
   plannerWeekStartKey: string;
+  // GAP-39: "Plan leftovers" opens this same dialog prefilled with a day
+  // (instead of today) and a line saying why, from a toast action rather
+  // than a button, so it's opened and closed by its parent, with no
+  // trigger of its own. Mount it with a fresh `key` per use, since the
+  // fields only read their defaults on mount.
+  defaultDate?: string;
+  hint?: string;
+  controlled?: { open: boolean; onOpenChange: (open: boolean) => void };
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(() => toDateKey(new Date()));
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlled ? controlled.open : ownOpen;
+  const setOpen = controlled ? controlled.onOpenChange : setOwnOpen;
+  const [date, setDate] = useState(() => defaultDate ?? toDateKey(new Date()));
   const [mealType, setMealType] = useState<MealType>("DINNER");
   const [portions, setPortions] = useState(String(defaultPortions));
 
@@ -95,18 +108,21 @@ export function AddToPlanDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" size="sm">
-            <CalendarPlus className="size-4" />
-            {dict.addToPlanButton}
-          </Button>
-        }
-      />
+      {!controlled && (
+        <DialogTrigger
+          render={
+            <Button type="button" variant="outline" size="sm">
+              <CalendarPlus className="size-4" />
+              {dict.addToPlanButton}
+            </Button>
+          }
+        />
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{format(dict.addToPlanDialogTitle, { recipe: recipeName })}</DialogTitle>
         </DialogHeader>
+        {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
         <form action={formAction} className="flex flex-col gap-4">
           <input type="hidden" name="recipeId" value={recipeId} />
           <input type="hidden" name="weekStartDate" value={weekStartKey} />

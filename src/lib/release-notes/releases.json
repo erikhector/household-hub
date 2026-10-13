@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.61.0",
+    "date": "2026-10-13",
+    "pr": 201,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "After you mark a meal as cooked with leftovers, you can tap \"Plan leftovers\" to put them on the next day without a dinner planned.",
+      "sv": "När du markerat en måltid som lagad med rester kan du trycka på \"Planera rester\" för att lägga in dem på nästa dag utan planerad middag."
+    }
+  },
+  {
     "version": "0.60.0",
     "date": "2026-10-13",
     "pr": 200,

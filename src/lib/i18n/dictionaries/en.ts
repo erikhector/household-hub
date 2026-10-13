@@ -1736,6 +1736,8 @@ export const en = {
       one: "Marked as cooked — {count} serving of leftovers added to inventory",
       other: "Marked as cooked — {count} servings of leftovers added to inventory",
     },
+    planLeftoversAction: "Plan leftovers",
+    planLeftoversHint: "Leftovers from your last cook. Pick the day you'll eat them.",
     cookNowTitle: "Cook now",
     cookNowSubtitle: "Recipes you already have everything (or almost everything) for.",
     emptyCookNow: "No recipes are close to ready yet — restock a few ingredients or add more recipes.",
