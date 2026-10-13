@@ -165,7 +165,7 @@ export async function scanStockChangeAction(barcode: string, delta: number): Pro
     await recordOutOfStockTransition(prisma, household.id, item.id, item.quantity, nextQuantity, userId);
     autoAdded = await addToDefaultListOnLowStock(prisma, household.id, item.id, item.quantity, nextQuantity);
   } catch (error) {
-    return { kind: "error", error: toFriendlyError(error).error ?? "Something went wrong" };
+    return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
   revalidateInventory();
@@ -255,7 +255,7 @@ export async function linkBarcodeAction(
       autoAdded = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
     });
   } catch (error) {
-    return { kind: "error", error: toFriendlyError(error).error ?? "Something went wrong" };
+    return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
   revalidateInventory();
@@ -317,7 +317,7 @@ export async function createItemFromBarcodeAction(input: {
     });
     if (!guessed) scheduleAiCategoryFallback(household.id, [parsed.data.name]);
   } catch (error) {
-    return { kind: "error", error: toFriendlyError(error).error ?? "Something went wrong" };
+    return { kind: "error", error: (await toFriendlyError(error)).error ?? "Something went wrong" };
   }
 
   revalidateInventory();
