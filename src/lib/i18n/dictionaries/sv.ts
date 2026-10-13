@@ -1571,6 +1571,8 @@ export const sv = {
       one: "Markerad som lagad — {count} portion rester tillagd i lagret",
       other: "Markerad som lagad — {count} portioner rester tillagda i lagret",
     },
+    planLeftoversAction: "Planera rester",
+    planLeftoversHint: "Rester från senaste matlagningen. Välj dagen ni äter dem.",
     cookNowTitle: "Laga nu",
     cookNowSubtitle: "Recept du redan har allt (eller nästan allt) till.",
     emptyCookNow: "Inga recept är nära att vara klara än — fyll på några ingredienser eller lägg till fler recept.",

@@ -3996,6 +3996,20 @@ actually used, once they've cooked it.
     already cover it. When both happen, the confirmation toast shows the
     AUTO-8 "added to Next shop" message instead of the leftovers one (only
     one toast). A single Undo still reverses both.
+- **Plan leftovers (GAP-39)**: when a cook recorded leftovers of a recipe,
+  the confirmation toast also has a "Plan leftovers" button next to Undo.
+  Tapping it calls `suggestLeftoversDayAction` (`planner-actions.ts`,
+  read-only): the first day after the later of today and the cooked meal's
+  date with no `DINNER` entry, found by `nextFreeDinnerDay` in `leftovers.ts`
+  over the next 60 days of the household's plan (colocated tests). It then
+  opens the existing `AddToPlanDialog` (now also usable controlled, without
+  its own trigger, with a prefilled date and a hint line) with that recipe,
+  the leftover servings as portions and the suggested day. Nothing is added
+  until the household presses "Add to plan"; closing the dialog adds
+  nothing. The day can be changed, and adding a meal never replaces another,
+  so a day that already has a dinner is never overwritten. No schema change,
+  setting or automatic scheduling. `e2e/plan-leftovers.spec.ts` covers
+  confirming and dismissing.
 
 ### "Use it up" recipe suggestions
 

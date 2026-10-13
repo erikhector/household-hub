@@ -6,6 +6,7 @@
 // transaction.
 
 import { z } from "zod";
+import { addDays, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 
 // Leftovers get a flat ~3-day estimate — the conservative end of the usual
 // "3–4 days in the fridge" guidance for cooked food, and the same number
@@ -114,3 +115,27 @@ export const leftoversChangeSchema = z.union([
     previousExpiresAtEstimated: z.boolean(),
   }),
 ]);
+
+// GAP-39: how far past the cook date the "Plan leftovers" prompt looks for a
+// dinner-free day. Two months is far beyond any real plan; it only bounds
+// the query suggestLeftoversDayAction runs.
+export const LEFTOVERS_DAY_SEARCH_DAYS = 60;
+
+/**
+ * The first day after `afterKey` (yyyy-mm-dd) that isn't in `dinnerDateKeys`
+ * — the day "Plan leftovers" prefills. Strictly after, since leftovers are
+ * eaten on a later day than the cook. It only ever suggests: the dialog
+ * lets the household change the day, and nothing is written until they
+ * confirm. If every day in the search window already has a dinner it
+ * returns the day just past the window (which the caller never queried, so
+ * it's unchecked but harmless: adding a meal never replaces another).
+ */
+export function nextFreeDinnerDay(afterKey: string, dinnerDateKeys: Iterable<string>): string {
+  const taken = new Set(dinnerDateKeys);
+  const start = parseDateKey(afterKey);
+  for (let offset = 1; offset <= LEFTOVERS_DAY_SEARCH_DAYS; offset++) {
+    const key = toDateKey(addDays(start, offset));
+    if (!taken.has(key)) return key;
+  }
+  return toDateKey(addDays(start, LEFTOVERS_DAY_SEARCH_DAYS + 1));
+}

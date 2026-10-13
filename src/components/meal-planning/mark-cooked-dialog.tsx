@@ -20,6 +20,9 @@ import {
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
 import { Input } from "@/components/ui/input";
+import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
+import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
+import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
@@ -32,7 +35,15 @@ type ReviewItem = CookedIngredientData & { included: boolean; quantity: string }
 
 const initialState: ActionState = {};
 
-export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entry: MealPlanEntryData }) {
+export function MarkCookedDialog({
+  dict,
+  entry,
+  plannerWeekStartKey,
+}: {
+  dict: MealPlanningDict;
+  entry: MealPlanEntryData;
+  plannerWeekStartKey: string;
+}) {
   const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
@@ -41,6 +52,10 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
   // Controlled (like the quantity inputs) so a rejected submit doesn't wipe
   // what was typed — React resets an uncontrolled form after its action runs.
   const [leftoverServings, setLeftoverServings] = useState("");
+  // GAP-39: set when the household taps "Plan leftovers" on the cooked toast;
+  // mounts the add-to-plan dialog prefilled with the suggested day. Nothing
+  // is written until they confirm in that dialog.
+  const [leftoversPlan, setLeftoversPlan] = useState<{ date: string; servings: number } | null>(null);
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -79,8 +94,25 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
             ? format(plural(leftoverServings, dict.mealMarkedCookedLeftoversToast), { count: leftoverServings })
             : dict.mealMarkedCookedToast;
 
+      // GAP-39: offered only when this cook actually recorded leftovers of a
+      // recipe. It rides in Sonner's second button slot next to Undo.
+      const planLeftovers =
+        leftovers && leftoverServings > 0 && entry.recipeId
+          ? {
+              label: dict.planLeftoversAction,
+              onClick: () => {
+                const todayKey = toDateKey(new Date());
+                void suggestLeftoversDayAction(entry.date > todayKey ? entry.date : todayKey).then((suggestion) => {
+                  if ("error" in suggestion) toast.error(suggestion.error);
+                  else setLeftoversPlan({ date: suggestion.date, servings: leftoverServings });
+                });
+              },
+            }
+          : undefined;
+
       toast.success(message, {
         duration: 8000,
+        cancel: planLeftovers,
         action: {
           label: dict.undoMarkCooked,
           onClick: () => {
@@ -135,6 +167,20 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
   }
 
   return (
+    <>
+    {leftoversPlan && entry.recipeId && (
+      <AddToPlanDialog
+        key={`${leftoversPlan.date}-${leftoversPlan.servings}`}
+        dict={dict}
+        recipeId={entry.recipeId}
+        recipeName={entry.recipeName ?? ""}
+        defaultPortions={leftoversPlan.servings}
+        plannerWeekStartKey={plannerWeekStartKey}
+        defaultDate={leftoversPlan.date}
+        hint={dict.planLeftoversHint}
+        controlled={{ open: true, onOpenChange: (next) => { if (!next) setLeftoversPlan(null); } }}
+      />
+    )}
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
@@ -246,5 +292,6 @@ export function MarkCookedDialog({ dict, entry }: { dict: MealPlanningDict; entr
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

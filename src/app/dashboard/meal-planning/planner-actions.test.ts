@@ -66,6 +66,7 @@ const {
   moveMealEntryAction,
   copyWeekAction,
   undoCopyWeekAction,
+  suggestLeftoversDayAction,
 } = await import(
   "@/app/dashboard/meal-planning/planner-actions"
 );
@@ -518,5 +519,34 @@ describe("undoCopyWeekAction", () => {
     expect(mealPlanEntryDeleteManyMock).toHaveBeenCalledWith({
       where: { id: { in: ["new-1", "new-2"] }, consumedAt: null, mealPlan: { householdId: "household-1" } },
     });
+  });
+});
+
+describe("suggestLeftoversDayAction", () => {
+  it("rejects a malformed date without querying", async () => {
+    expect(await suggestLeftoversDayAction("tomorrow")).toEqual({ error: "Invalid date" });
+    expect(await suggestLeftoversDayAction("2026-13-45")).toEqual({ error: "Invalid date" });
+    expect(mealPlanEntryFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("looks only at the caller's household's dinners after the date and suggests the first free day", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      { date: new Date("2026-01-06T00:00:00.000Z") },
+      { date: new Date("2026-01-07T00:00:00.000Z") },
+    ]);
+
+    expect(await suggestLeftoversDayAction("2026-01-05")).toEqual({ date: "2026-01-08" });
+
+    const where = mealPlanEntryFindManyMock.mock.calls[0][0].where;
+    expect(where.mealPlan).toEqual({ householdId: "household-1" });
+    expect(where.mealType).toBe("DINNER");
+    expect(where.date.gt).toEqual(new Date("2026-01-05T00:00:00.000Z"));
+  });
+
+  it("writes nothing", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+    await suggestLeftoversDayAction("2026-01-05");
+    expect(mealPlanEntryCreateMock).not.toHaveBeenCalled();
+    expect(mealPlanUpsertMock).not.toHaveBeenCalled();
   });
 });

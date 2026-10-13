@@ -432,7 +432,7 @@ function MealEntryRow({
             <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
           </span>
         ) : entry.recipeId ? (
-          <MarkCookedDialog dict={dict} entry={entry} />
+          <MarkCookedDialog dict={dict} entry={entry} plannerWeekStartKey={weekStartKey} />
         ) : (
           // Custom (non-recipe) entries have no ingredients to check inventory
           // against, so "mark cooked" is never available for them — surfaced
