@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.59.3",
+    "date": "2026-10-13",
+    "pr": 196,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Pages are now more reliable: if the database connection drops for a moment, Squirrel quietly retries instead of showing an error page.",
+      "sv": "Sidorna är nu mer pålitliga: om databasanslutningen tillfälligt bryts försöker Squirrel igen i stället för att visa en felsida."
+    }
+  },
+  {
     "version": "0.59.2",
     "date": "2026-10-13",
     "pr": 192,

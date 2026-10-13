@@ -96,22 +96,6 @@ enough to trust.
 
 Parallel-safe except where noted.
 
-### Bugs
-
-- [ ] **BUG-1. Survive a dropped pooled DB connection on page render** (impact: med, effort: S) —
-      Sentry JAVASCRIPT-NEXTJS-2 (2 events, 2026-10-04, `GET /dashboard`,
-      vercel-production, iPhone): `Error: Connection terminated unexpectedly`
-      from `pg-pool` inside a Prisma `queryRaw`, so the dashboard rendered the
-      error page. `src/lib/prisma.ts` builds the `Pool` with no
-      `pool.on("error", …)` handler and no `connectionTimeoutMillis`, so a
-      connection the pooler closed while idle is handed out and fails the
-      first query instead of being replaced. Add an `error` listener that logs
-      to Sentry and lets pg discard the client, set `connectionTimeoutMillis`,
-      and retry the read once on this specific error (not writes).
-      Acceptance: unit test with a mocked pool shows the `error` listener is
-      registered and a first-attempt "Connection terminated unexpectedly"
-      read succeeds on retry, while a write is not retried.
-
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -838,6 +822,29 @@ out to be a product-scope question rather than a scoped task should move to
       survives reload; marking it cooked removes it; unit test for the
       auto-clear rule; e2e on desktop and mobile.
 
+### 2026-10-13 scan
+
+- [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —
+      AnyList's Dec 2025 meal-plan update added saved templates, and Plan to
+      Eat has long had reusable plans. Squirrel's `copyWeekAction`
+      (REQUIREMENTS.md, "Meal planning", `week-planner.tsx`) only copies a
+      week that already happened, so a household's favourite rotations
+      ("school-week basics", "guests weekend") have to be found by
+      scrolling back through the calendar, and are lost once that week
+      is edited. Add `MealPlanTemplate` + `MealPlanTemplateEntry`
+      (`householdId`, `name`, entries with `dayOffset 0-6`, `mealType`,
+      `recipeId`/free-text title, `portions`; cascade on recipe delete
+      drops the entry), mirroring the shopping `ShoppingListTemplate`
+      pattern (GAP-4, `src/lib/shopping/list-templates.ts`). A "Save week
+      as template" action in the planner menu and a "Plan from template"
+      picker that stamps it onto the shown week, skipping slots already
+      filled and offering Undo like copy-week. Suggest, don't mutate:
+      nothing changes until the user confirms. Phase 2 (migration).
+      Acceptance: unit tests for the offset mapping and the
+      skip-filled-slots rule plus tenancy on both actions; an e2e step
+      saves the seeded week, applies it to the next empty week and asserts
+      the entries show, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
@@ -987,6 +994,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
       | v0.59.1 | #191 fix: show server-action errors and dialog labels in the user's language (UX-16) | 2026-10-13 | #191 |
       | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
+      | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

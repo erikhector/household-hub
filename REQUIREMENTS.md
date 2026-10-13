@@ -49,6 +49,14 @@ easy for AI coding agents to work in correctly:
   leak past a suspended Fluid compute instance (a documented no-op off
   Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
   interacts with the pooler `DATABASE_URL` must point at in production.
+  **Dropped connections (BUG-1)**: the pool also has a 10s
+  `connectionTimeoutMillis` and an `error` listener that reports an idle
+  client dying (via `reportError`, so it reaches Sentry) and lets pg discard
+  it, rather than crashing the process. The exported client is extended
+  (`src/lib/db-retry.ts`) so a *read* (`find*`, `count`, `aggregate`,
+  `groupBy`, `$queryRaw`) that fails with "Connection terminated
+  unexpectedly" is retried once on a fresh connection; writes are never
+  retried, since they may already have been applied.
 - **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
   only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
   `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`

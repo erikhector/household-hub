@@ -7,8 +7,16 @@
 // reads process.env.DATABASE_POOL_MAX at import time.
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { poolCtorMock, prismaPgMock, attachDatabasePoolMock } = vi.hoisted(() => ({
+const {
+  poolCtorMock,
+  poolOnMock,
+  reportErrorMock,
+  prismaPgMock,
+  attachDatabasePoolMock,
+} = vi.hoisted(() => ({
   poolCtorMock: vi.fn(),
+  poolOnMock: vi.fn(),
+  reportErrorMock: vi.fn(),
   prismaPgMock: vi.fn(),
   attachDatabasePoolMock: vi.fn(),
 }));
@@ -19,6 +27,10 @@ vi.mock("pg", () => ({
     constructor(options: Record<string, unknown>) {
       this.options = options;
       poolCtorMock(options);
+    }
+    on(event: string, handler: (error: Error) => void) {
+      poolOnMock(event, handler);
+      return this;
     }
   },
 }));
@@ -38,8 +50,16 @@ vi.mock("@vercel/functions", () => ({
 vi.mock("@/generated/prisma/client", () => ({
   // The real PrismaClient does real work in its constructor; the pool
   // config under test doesn't depend on it, so a bare stand-in is enough.
-  PrismaClient: class {},
+  PrismaClient: class {
+    // Stand-in for the retry extension: hands back the config so a test can
+    // call the $allOperations hook directly.
+    $extends(extension: unknown) {
+      return { extension };
+    }
+  },
 }));
+
+vi.mock("@/lib/report-error", () => ({ reportError: reportErrorMock }));
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -63,6 +83,50 @@ describe("prisma pool config", () => {
     const options = poolCtorMock.mock.calls[0][0];
     expect(options.max).toBe(20);
     expect(options.idleTimeoutMillis).toBe(10_000);
+    expect(options.connectionTimeoutMillis).toBe(10_000);
+  });
+
+  it("registers a pool error listener that reports and does not throw", async () => {
+    await import("@/lib/prisma");
+
+    expect(poolOnMock).toHaveBeenCalledWith("error", expect.any(Function));
+    const handler = poolOnMock.mock.calls.find((c) => c[0] === "error")![1];
+    const error = new Error("Connection terminated unexpectedly");
+    expect(() => handler(error)).not.toThrow();
+    expect(reportErrorMock).toHaveBeenCalledWith(expect.any(String), error);
+  });
+
+  it("retries a read once on a dropped connection but never a write", async () => {
+    const { prisma } = (await import("@/lib/prisma")) as unknown as {
+      prisma: {
+        extension: {
+          query: {
+            $allOperations: (a: {
+              operation: string;
+              args: unknown;
+              query: (args: unknown) => Promise<unknown>;
+            }) => Promise<unknown>;
+          };
+        };
+      };
+    };
+    const hook = prisma.extension.query.$allOperations;
+    const dropped = new Error("Connection terminated unexpectedly");
+
+    const readQuery = vi
+      .fn()
+      .mockRejectedValueOnce(dropped)
+      .mockResolvedValueOnce("ok");
+    await expect(
+      hook({ operation: "$queryRaw", args: {}, query: readQuery }),
+    ).resolves.toBe("ok");
+    expect(readQuery).toHaveBeenCalledTimes(2);
+
+    const writeQuery = vi.fn().mockRejectedValue(dropped);
+    await expect(
+      hook({ operation: "update", args: {}, query: writeQuery }),
+    ).rejects.toBe(dropped);
+    expect(writeQuery).toHaveBeenCalledTimes(1);
   });
 
   it("honors DATABASE_POOL_MAX when set", async () => {
