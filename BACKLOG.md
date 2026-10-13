@@ -903,7 +903,8 @@ credentials only the product owner can provision, or an architecture call.
       screens / developer credentials.
 - [ ] **INFRA-6. Backfill tags and GitHub Releases for versions cut
       while CI was paused** `[!]` — Actions runs again (`ci_gate:
-      github` since 2026-10-04, from v0.47.6 on), so this is unblocked
+      github` since 2026-10-13, after the 2026-10-04 to 2026-10-12
+      stretch), so this is unblocked
       but needs someone with push access to tags. `release.yml` tags `vX.Y.Z`
       and creates a GitHub Release. Versions cut in-PR under the
       `ci_gate: local` stopgap got neither, so they exist only in

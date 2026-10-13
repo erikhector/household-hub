@@ -153,9 +153,12 @@ jobs:
 
   # Browser tests against a real Postgres and a production build (see
   # playwright.config.ts and e2e/). A separate job so the fast checks above
-  # still report on their own when only this one fails.
+  # still report on their own when only this one fails. Only on PRs into
+  # `master` (see the top of this file).
   e2e:
     name: End-to-end (Playwright)
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.e2e != 'false' }}
     runs-on: ubuntu-latest
     services:
       postgres:

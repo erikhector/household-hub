@@ -115,7 +115,7 @@ An autopilot PR touching any of these must say so in its Summary under
 ## CI gate
 
 ```yaml
-ci_gate: local           # local | github
+ci_gate: github          # local | github
 ```
 
 `github`: `.github/workflows/ci.yml` runs on every PR. A feature PR
@@ -128,9 +128,13 @@ pushing so CI isn't the first to find a failure. `release.yml` cuts one
 release when the release PR merges, so a PR never bumps its own
 version.
 
-`local` (current, since 2026-10-12: the GitHub Actions minutes are used
-up until the month resets) is the stopgap for when GitHub Actions can't
-start runners (also 2026-09-26 to 2026-10-04): `ci.yml` goes back to manual dispatch, the
+`github` is current again since 2026-10-13, when the repository went
+public: public repositories get GitHub's standard runners free, so the
+Actions minutes can't run out again.
+
+`local` is the stopgap for when GitHub Actions can't start runners (used
+2026-09-26 to 2026-10-04, and 2026-10-12 to 2026-10-13 when the minutes
+ran out): `ci.yml` goes back to manual dispatch, the
 gate becomes `npm run ci:local` (lint, typecheck, unit tests, build, e2e)
 in the session before every push with its summary in the PR body, and
 GitHub check runs are ignored. The release workflow can't run either, so
