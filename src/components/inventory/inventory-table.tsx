@@ -541,7 +541,7 @@ export function InventoryTable({
                       isPending={isPending}
                       onMarkEmpty={handleMarkEmpty}
                       onMarkOpened={handleMarkOpened}
-                    onFreeze={handleFreeze}
+                      onFreeze={handleFreeze}
                       onDelete={handleDelete}
                       size="size-9"
                     />

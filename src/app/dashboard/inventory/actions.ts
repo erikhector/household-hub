@@ -777,11 +777,16 @@ export async function freezeItemAction(itemId: string): Promise<{
 
   const patch = frozenExpiryUpdate(item.useWithinDaysFrozen);
 
+  // The `frozenAt: null` filter makes the "not already frozen" check atomic:
+  // two concurrent clicks both pass the read above, but only one update
+  // matches, so the loser gets the same error instead of overwriting the
+  // winner's frozenAt/expiresAt (which would also break the winner's Undo).
   try {
-    await prisma.inventoryItem.update({
-      where: { id: item.id },
+    const { count } = await prisma.inventoryItem.updateMany({
+      where: { id: item.id, householdId: household.id, frozenAt: null },
       data: { ...patch, updatedByUserId: userId },
     });
+    if (count === 0) return { error: "Item is already frozen" };
   } catch (error) {
     return toFriendlyError(error);
   }

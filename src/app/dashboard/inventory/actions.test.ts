@@ -625,18 +625,18 @@ describe("freezeItemAction (GAP-44)", () => {
 
     expect(findFirstMock).toHaveBeenCalledWith({ where: { id: "other-household-item", householdId: "household-1" } });
     expect(result).toEqual({ error: "Item not found" });
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
   });
 
   it("sets frozenAt, moves expiresAt 90 days out as an estimate and returns the previous values", async () => {
     findFirstMock.mockResolvedValue(fresh);
-    updateMock.mockResolvedValue({});
+    updateManyMock.mockResolvedValue({ count: 1 });
 
     const result = await freezeItemAction("item-1");
 
     expect(result.error).toBeUndefined();
-    const data = updateMock.mock.calls[0][0].data;
-    expect(updateMock.mock.calls[0][0].where).toEqual({ id: "item-1" });
+    const data = updateManyMock.mock.calls[0][0].data;
+    expect(updateManyMock.mock.calls[0][0].where).toEqual({ id: "item-1", householdId: "household-1", frozenAt: null });
     expect(data.expiresAt.getTime()).toBe(data.frozenAt.getTime() + 90 * 24 * 60 * 60 * 1000);
     expect(data.expiresAtEstimated).toBe(true);
     expect(data.updatedByUserId).toBe("user-1");
@@ -646,11 +646,11 @@ describe("freezeItemAction (GAP-44)", () => {
 
   it("honours the item's own freezer window", async () => {
     findFirstMock.mockResolvedValue({ ...fresh, useWithinDaysFrozen: 30 });
-    updateMock.mockResolvedValue({});
+    updateManyMock.mockResolvedValue({ count: 1 });
 
     await freezeItemAction("item-1");
 
-    const data = updateMock.mock.calls[0][0].data;
+    const data = updateManyMock.mock.calls[0][0].data;
     expect(data.expiresAt.getTime()).toBe(data.frozenAt.getTime() + 30 * 24 * 60 * 60 * 1000);
   });
 
@@ -660,7 +660,20 @@ describe("freezeItemAction (GAP-44)", () => {
     const result = await freezeItemAction("item-1");
 
     expect(result.error).toBe("Item is already frozen");
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses when a concurrent freeze lands between the read and the write", async () => {
+    // The read sees an unfrozen item, but the guarded updateMany matches no
+    // row because another click froze it first: same error, no revalidate.
+    findFirstMock.mockResolvedValue(fresh);
+    updateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await freezeItemAction("item-1");
+
+    expect(result).toEqual({ error: "Item is already frozen" });
+    expect(updateManyMock.mock.calls[0][0].where).toEqual({ id: "item-1", householdId: "household-1", frozenAt: null });
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("refuses an item with no expiry date", async () => {
@@ -669,7 +682,7 @@ describe("freezeItemAction (GAP-44)", () => {
     const result = await freezeItemAction("item-1");
 
     expect(result.error).toBe("Item has no expiry date to extend");
-    expect(updateMock).not.toHaveBeenCalled();
+    expect(updateManyMock).not.toHaveBeenCalled();
   });
 });
 
