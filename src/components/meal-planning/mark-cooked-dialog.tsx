@@ -20,7 +20,6 @@ import {
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { undoAutoAddedItemsAction } from "@/app/dashboard/shopping-list/actions";
 import { Input } from "@/components/ui/input";
-import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
 import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
@@ -35,14 +34,25 @@ type ReviewItem = CookedIngredientData & { included: boolean; quantity: string }
 
 const initialState: ActionState = {};
 
+// GAP-39: what "Plan leftovers" hands up to WeekPlanner, which owns the
+// add-to-plan dialog it opens. It can't live here: once the meal is cooked
+// the row swaps this component for the cooked badge, which unmounts it
+// before the household has had a chance to tap the toast.
+export type PlanLeftoversRequest = {
+  recipeId: string;
+  recipeName: string;
+  date: string;
+  servings: number;
+};
+
 export function MarkCookedDialog({
   dict,
   entry,
-  plannerWeekStartKey,
+  onPlanLeftovers,
 }: {
   dict: MealPlanningDict;
   entry: MealPlanEntryData;
-  plannerWeekStartKey: string;
+  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
   const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
@@ -52,10 +62,6 @@ export function MarkCookedDialog({
   // Controlled (like the quantity inputs) so a rejected submit doesn't wipe
   // what was typed — React resets an uncontrolled form after its action runs.
   const [leftoverServings, setLeftoverServings] = useState("");
-  // GAP-39: set when the household taps "Plan leftovers" on the cooked toast;
-  // mounts the add-to-plan dialog prefilled with the suggested day. Nothing
-  // is written until they confirm in that dialog.
-  const [leftoversPlan, setLeftoversPlan] = useState<{ date: string; servings: number } | null>(null);
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
@@ -96,15 +102,23 @@ export function MarkCookedDialog({
 
       // GAP-39: offered only when this cook actually recorded leftovers of a
       // recipe. It rides in Sonner's second button slot next to Undo.
+      const recipeId = entry.recipeId;
       const planLeftovers =
-        leftovers && leftoverServings > 0 && entry.recipeId
+        leftovers && leftoverServings > 0 && recipeId
           ? {
               label: dict.planLeftoversAction,
               onClick: () => {
                 const todayKey = toDateKey(new Date());
                 void suggestLeftoversDayAction(entry.date > todayKey ? entry.date : todayKey).then((suggestion) => {
                   if ("error" in suggestion) toast.error(suggestion.error);
-                  else setLeftoversPlan({ date: suggestion.date, servings: leftoverServings });
+                  else {
+                    onPlanLeftovers({
+                      recipeId,
+                      recipeName: entry.recipeName ?? "",
+                      date: suggestion.date,
+                      servings: leftoverServings,
+                    });
+                  }
                 });
               },
             }
@@ -167,20 +181,6 @@ export function MarkCookedDialog({
   }
 
   return (
-    <>
-    {leftoversPlan && entry.recipeId && (
-      <AddToPlanDialog
-        key={`${leftoversPlan.date}-${leftoversPlan.servings}`}
-        dict={dict}
-        recipeId={entry.recipeId}
-        recipeName={entry.recipeName ?? ""}
-        defaultPortions={leftoversPlan.servings}
-        plannerWeekStartKey={plannerWeekStartKey}
-        defaultDate={leftoversPlan.date}
-        hint={dict.planLeftoversHint}
-        controlled={{ open: true, onOpenChange: (next) => { if (!next) setLeftoversPlan(null); } }}
-      />
-    )}
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
@@ -292,6 +292,5 @@ export function MarkCookedDialog({
         )}
       </DialogContent>
     </Dialog>
-    </>
   );
 }

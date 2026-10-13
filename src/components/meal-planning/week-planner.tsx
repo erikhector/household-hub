@@ -16,7 +16,8 @@ import {
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
-import { MarkCookedDialog } from "@/components/meal-planning/mark-cooked-dialog";
+import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
+import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
 import { MoveMealDialog } from "@/components/meal-planning/move-meal-dialog";
 import {
   copyWeekAction,
@@ -110,6 +111,10 @@ export function WeekPlanner({
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
 }) {
+  // GAP-39: the "Plan leftovers" toast action's dialog. Held here, not in the
+  // cooked row, because that row stops rendering MarkCookedDialog the moment
+  // the meal counts as cooked.
+  const [leftoversPlan, setLeftoversPlan] = useState<PlanLeftoversRequest | null>(null);
   const weekStart = parseDateKey(weekStartKey);
   const weekEnd = addDays(weekStart, 6);
   // UX-15: "28 sep.–4 okt. 2026" in sv, "Sep 28 – Oct 4, 2026" in en —
@@ -260,12 +265,31 @@ export function WeekPlanner({
                   weekStartKey={weekStartKey}
                   recipes={recipes}
                   entries={(entriesByDay.get(day.dateKey) ?? []).filter((e) => e.mealType === mealType)}
+                  onPlanLeftovers={setLeftoversPlan}
                 />
               ))}
             </CardContent>
           </Card>
         ))}
       </div>
+      {leftoversPlan && (
+        <AddToPlanDialog
+          key={`${leftoversPlan.recipeId}-${leftoversPlan.date}-${leftoversPlan.servings}`}
+          dict={dict}
+          recipeId={leftoversPlan.recipeId}
+          recipeName={leftoversPlan.recipeName}
+          defaultPortions={leftoversPlan.servings}
+          plannerWeekStartKey={weekStartKey}
+          defaultDate={leftoversPlan.date}
+          hint={dict.planLeftoversHint}
+          controlled={{
+            open: true,
+            onOpenChange: (next) => {
+              if (!next) setLeftoversPlan(null);
+            },
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -278,6 +302,7 @@ function MealTypeSlot({
   weekStartKey,
   recipes,
   entries,
+  onPlanLeftovers,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -286,6 +311,7 @@ function MealTypeSlot({
   weekStartKey: string;
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
+  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
   const label = dict[mealTypeDictKey[mealType]];
 
@@ -325,6 +351,7 @@ function MealTypeSlot({
             entry={entry}
             recipes={recipes}
             weekStartKey={weekStartKey}
+            onPlanLeftovers={onPlanLeftovers}
           />
         ))}
       </div>
@@ -348,12 +375,14 @@ function MealEntryRow({
   entry,
   recipes,
   weekStartKey,
+  onPlanLeftovers,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
   entry: MealPlanEntryData;
   recipes: RecipeData[];
   weekStartKey: string;
+  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
   const linkedRecipe = entry.recipeId ? recipes.find((recipe) => recipe.id === entry.recipeId) : undefined;
@@ -432,7 +461,7 @@ function MealEntryRow({
             <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
           </span>
         ) : entry.recipeId ? (
-          <MarkCookedDialog dict={dict} entry={entry} plannerWeekStartKey={weekStartKey} />
+          <MarkCookedDialog dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} />
         ) : (
           // Custom (non-recipe) entries have no ingredients to check inventory
           // against, so "mark cooked" is never available for them — surfaced
