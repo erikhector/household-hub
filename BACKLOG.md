@@ -978,6 +978,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
       | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
       | v0.59.4 | #198 fix: touch-target overlaps, gaps and a wider M3 guard (UX-19) | 2026-10-13 | #198 |
+      | v0.60.0 | #200 feat: freeze an expiring inventory item to extend its date (GAP-44) | 2026-10-13 | #200 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a
