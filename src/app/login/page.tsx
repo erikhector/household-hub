@@ -27,7 +27,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-12">
       <Link
         href="/"
-        className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
+        className="flex min-h-11 items-center gap-2 font-heading text-lg font-bold tracking-tight"
       >
         <BrandBadge />
         {dict.auth.brand}

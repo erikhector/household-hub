@@ -25,7 +25,7 @@ export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotP
         <p className="text-sm text-muted-foreground">{state.message}</p>
         <Link
           href="/login"
-          className="text-center text-sm font-medium text-primary underline underline-offset-4"
+          className="touch-target justify-center text-sm font-medium text-primary underline underline-offset-4"
         >
           {dict.backToLogin}
         </Link>
@@ -58,7 +58,7 @@ export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotP
         {pending ? dict.sending : dict.submit}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        <Link href="/login" className="font-medium text-primary underline underline-offset-4">
+        <Link href="/login" className="touch-target font-medium text-primary underline underline-offset-4">
           {dict.backToLogin}
         </Link>
       </p>

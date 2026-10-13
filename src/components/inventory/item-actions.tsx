@@ -62,7 +62,7 @@ export function ItemActions({
   // as the menu closes).
   const deleteRef = React.useRef<HTMLButtonElement | null>(null);
   return (
-    <div className="flex items-center gap-1 max-sm:gap-2">
+    <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
       {/* Desktop: show individual controls */}
       {canMarkOpened && (
         <Button

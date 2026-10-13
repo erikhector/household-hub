@@ -376,7 +376,7 @@ function TemplateRow({
           </p>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
         {actions}
         <RecurringTemplateDialog
           numberFormat={numberFormat}

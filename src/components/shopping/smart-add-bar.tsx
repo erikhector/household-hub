@@ -281,7 +281,7 @@ export function SmartAddBar({
                   onMouseMove={() => setActiveIndex(index)}
                   onClick={() => pick(suggestion)}
                   className={cn(
-                    "flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm",
+                    "flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm max-sm:min-h-11 pointer-coarse:min-h-11",
                     index === activeIndex && "bg-accent text-accent-foreground",
                   )}
                 >

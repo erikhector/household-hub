@@ -43,7 +43,7 @@ export function LastUpdatedCell({
         openOnHover
         delay={300}
         aria-label={fullLabel}
-        className="-m-2 block min-h-11 min-w-11 rounded p-2 text-left text-muted-foreground underline decoration-dotted decoration-from-font underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:pointer-fine:m-0 sm:pointer-fine:min-h-0 sm:pointer-fine:min-w-0 sm:pointer-fine:p-0"
+        className="flex min-h-11 min-w-11 items-center rounded text-left text-muted-foreground underline decoration-dotted decoration-from-font underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 sm:pointer-fine:block sm:pointer-fine:min-h-0 sm:pointer-fine:min-w-0"
       >
         {dateLabel}
       </PopoverPrimitive.Trigger>
