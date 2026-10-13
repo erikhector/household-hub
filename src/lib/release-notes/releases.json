@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.59.1",
+    "date": "2026-10-13",
+    "pr": 191,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Error messages and a few labels (for example \"Close\" on pop-ups) now appear in Swedish for Swedish users instead of English.",
+      "sv": "Felmeddelanden och några etiketter (till exempel \"Stäng\" i fönster) visas nu på svenska för dig som använder appen på svenska."
+    }
+  },
+  {
     "version": "0.59.0",
     "date": "2026-10-12",
     "pr": 193,
