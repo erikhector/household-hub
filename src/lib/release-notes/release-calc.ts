@@ -137,3 +137,78 @@ export function planRelease(input: {
     },
   };
 }
+
+// ── Release train ────────────────────────────────────────────────────────
+// Feature PRs squash-merge into `next` without releasing; one release PR (a
+// `release/*` branch cut from `next`, into `master`) later ships them
+// together as a single version (see
+// REQUIREMENTS.md, "Releases & What's new"). These two helpers turn that
+// release PR into one ReleaseEntry.
+
+// GitHub's squash commit subject is "<PR title> (#123)". Reads the PR
+// numbers out of `git log --first-parent --format=%s <master>..<release>`
+// output, oldest first, so the combined note reads in merge order. Lines
+// without a trailing "(#N)" (the "sync master into next" merges the release
+// workflow makes) are skipped.
+export function prNumbersFromSubjects(log: string): number[] {
+  const numbers: number[] = [];
+  for (const line of log.split("\n").reverse()) {
+    const match = /\(#(\d+)\)\s*$/.exec(line);
+    if (match && !numbers.includes(Number(match[1]))) numbers.push(Number(match[1]));
+  }
+  return numbers;
+}
+
+export type TrainPr = { number: number; title: string; body: string | null | undefined };
+
+export type TrainItem = { pr: number; title: string; type: ReleaseType | null };
+
+export type TrainPlan =
+  | { status: "no-release"; items: TrainItem[] }
+  | { status: "release"; type: ReleaseType; entry: ReleaseEntry; items: TrainItem[] };
+
+const RANK: Record<ReleaseType, number> = { patch: 1, minor: 2, major: 3 };
+
+// The biggest bump among the included PRs wins (one `feat` and three `fix`
+// → minor), and the releasing PRs' notes are joined as paragraphs, which
+// /dashboard/whats-new already renders (`whitespace-pre-line`). A PR with
+// no Swedish note contributes its English one to the Swedish text rather
+// than dropping out of it; the note is only `null` when no PR wrote one,
+// so the app's usual English fallback applies. A title that somehow isn't
+// a Conventional Commit counts as non-releasing: the preview on the PR into
+// `next` already failed it, and one bad title shouldn't block the train.
+export function planTrainRelease(input: {
+  prs: TrainPr[];
+  pr: number;
+  currentVersion: string;
+  date: Date;
+}): TrainPlan {
+  const items: TrainItem[] = [];
+  const releasing: { parsed: ParsedTitle; type: ReleaseType; notes: ReleaseNotes }[] = [];
+  for (const pr of input.prs) {
+    const parsed = parsePrTitle(pr.title);
+    const type = parsed ? releaseTypeFor(parsed) : null;
+    items.push({ pr: pr.number, title: pr.title, type });
+    if (parsed && type) releasing.push({ parsed, type, notes: extractReleaseNotes(pr.body, titleFallback(parsed)) });
+  }
+  if (releasing.length === 0) return { status: "no-release", items };
+
+  const top = releasing.reduce((best, r) => (RANK[r.type] > RANK[best.type] ? r : best));
+  const anySv = releasing.some((r) => r.notes.sv !== null);
+  return {
+    status: "release",
+    type: top.type,
+    items,
+    entry: {
+      version: bumpVersion(input.currentVersion, top.type),
+      date: input.date.toISOString().slice(0, 10),
+      pr: input.pr,
+      kind: top.parsed.kind,
+      breaking: releasing.some((r) => r.parsed.breaking),
+      notes: {
+        en: releasing.map((r) => r.notes.en).join("\n\n"),
+        sv: anySv ? releasing.map((r) => r.notes.sv ?? r.notes.en).join("\n\n") : null,
+      },
+    },
+  };
+}

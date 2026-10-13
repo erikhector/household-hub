@@ -87,9 +87,10 @@ npm run ci:local            # the full gate: check + build + e2e
 ```
 
 **CI runs on GitHub.** `.github/workflows/ci.yml` runs lint → typecheck →
-unit tests → build and a separate e2e job on every PR and push to
-`master`, and a PR merges only with both green on its head commit (see
-`ci_gate` in AUTOPILOT.md). Don't make CI the first to find a failure:
+unit tests → build on every PR into `next`, and adds the e2e job only on
+PRs into `master` (the release PR), so the browser suite runs once per
+release instead of once per PR. Docs-only PRs skip both. A PR merges only
+with its checks green on its head commit (see `ci_gate` in AUTOPILOT.md). Don't make CI the first to find a failure:
 run `npm run check` (plus the e2e specs you touched, or the whole
 `npm run ci:local` for UI work) before you push. In Claude Code on the web,
 `.claude/hooks/session-start.sh` runs `npm ci` and starts a migrated local
@@ -155,7 +156,8 @@ change, but don't skip one.
    UX rules and its checklist. For anything touching more than ~3 files or
    the schema, write a short plan first and check it against the
    Conventions above.
-2. **Branch.** Work on a feature branch, never `master`.
+2. **Branch.** Work on a feature branch off `next`, never on `next` or
+   `master` directly.
 3. **Implement.** Smallest diff that does the job. Follow the Conventions
    section. No drive-by refactors, reformatting or renamed symbols outside
    the task, since they bloat review and conflict with parallel work.
@@ -255,9 +257,18 @@ loop".
 
 ## Pull requests and releases
 
-- All work lands on `master` through a squash-merged PR. Never push to
-  `master` directly. Only the release workflow does that.
-- **PR title** must be a Conventional Commit. It sets the version bump:
+- **Release train.** Feature PRs target `next` (the default branch) and
+  are squash-merged there; nothing releases on that merge. To ship, a
+  `release/<date>` branch is cut from `next` and merged into `master`
+  through one release PR, **with a merge commit, never squash**. Its full
+  CI run is the e2e gate, and `release.yml` then cuts one version for
+  every PR in it, with their notes joined. The autopilot reviewer ships
+  once a day; the **Cut release** workflow (Actions tab) ships by hand.
+  A hotfix can go straight into `master` as its own squash-merged PR.
+- Never push to `next` or `master` directly. Only the release workflow
+  does that (the release commit, and merging `master` back into `next`).
+- **PR title** must be a Conventional Commit. It sets the version bump
+  (the release takes the biggest bump among its PRs):
   `feat:` minor, `fix:`/`perf:` patch, `type!:` major. `refactor`, `docs`,
   `test`, `ci`, `chore`, `build` and `style` don't release.
 - **Fill in the "Release note" section** of the PR template in English and

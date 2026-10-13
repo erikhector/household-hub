@@ -1,22 +1,86 @@
 name: CI
 
-# Runs on every PR and on every push to master (a PR branch's push is
-# covered by its pull_request run, so `push` is limited to master to avoid
-# running everything twice). The release commit release.yml pushes carries
-# `[skip ci]`. Also runnable by hand from the Actions tab. This is the gate
-# while AUTOPILOT.md says `ci_gate: github`.
+# Runs on every PR, whichever branch it targets, and by hand from the
+# Actions tab. Not on push: every commit reaching `next` or `master` came
+# through a PR whose head already ran this, and the release workflow's own
+# commits carry `[skip ci]`. This is the gate while AUTOPILOT.md says
+# `ci_gate: github`.
+#
+# Two tiers, for the release train (REQUIREMENTS.md, "Releases & What's
+# new"):
+# - PRs into `next` (all feature work) run the fast job only: lint,
+#   typecheck, unit tests and build. They merge without a browser run, so a
+#   day of PRs doesn't spend one e2e run each, plus another every time a
+#   branch is brought up to date.
+# - PRs into `master` (the release PR from a `release/*` branch cut from
+#   `next`, or a rare hotfix) also run the full Playwright suite, once, on
+#   everything about to ship. The release branch is a snapshot, so merges
+#   into `next` meanwhile don't restart it. A draft PR skips e2e until it's
+#   marked ready.
+# PRs that only touch docs (`*.md`, `docs/`, agent skills) skip both. A
+# skipped job counts as passing for a required status check, so the
+# rulesets need no change.
 on:
-  push:
-    branches: [master]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
-# This is a small, single-maintainer app — one job running everything in
-# sequence is simpler to read and debug than splitting into parallel jobs,
-# and the whole thing finishes in well under a minute.
+# A new push to the same PR cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# This is a small, single-maintainer app — one job running the fast checks
+# in sequence is simpler to read and debug than splitting them into
+# parallel jobs.
 jobs:
+  changes:
+    name: Decide what to run
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+      e2e: ${{ steps.decide.outputs.e2e }}
+    steps:
+      - name: Look at the PR's base, draft state and files
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$BASE_REF" = "master" ] && [ "$DRAFT" != "true" ]; then e2e=true; else e2e=false; fi
+          # Fails open: a file list it can't read runs everything.
+          if ! files=$(gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename'); then
+            echo "::warning::Couldn't list the PR's files, so every check runs."
+            code=true
+          elif printf '%s\n' "$files" | grep -qvE '(\.md$|^docs/|^\.claude/|^\.agents/)'; then
+            code=true
+          else
+            code=false
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "e2e=$e2e" >> "$GITHUB_OUTPUT"
+          echo "App code changed: $code. Full e2e: $e2e."
+
+  # The name stays "…, build" because the rulesets require it by name. On
+  # a PR into `master` the build happens once, in the e2e job, instead.
+  # The conditions compare against 'false' rather than test for 'true' so
+  # that if `changes` itself fails (empty outputs) these still run: a
+  # skipped job would count as a pass.
   ci:
     name: Lint, typecheck, test, build
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -73,7 +137,18 @@ jobs:
       # DATABASE_URL: postgresql://ci:ci@localhost:5432/ci and a 32+ char
       # dummy AUTH_SECRET) — never real secrets, since nothing at build time
       # actually connects with them.
+      # Next.js reuses compiled output from `.next/cache` across builds
+      # (the cache setup its docs recommend for GitHub Actions).
+      - name: Restore Next.js build cache
+        if: needs.changes.outputs.e2e == 'false'
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
       - name: Build
+        if: needs.changes.outputs.e2e == 'false'
         run: npm run build
 
   # Browser tests against a real Postgres and a production build (see
@@ -112,11 +187,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
+      # The browsers are ~400 MB; cached per lockfile (which pins the
+      # Playwright version). The OS packages they need aren't in the cache,
+      # so a hit still installs those.
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium webkit
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
 
       - name: Apply migrations
         run: npx prisma migrate deploy
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
 
       - name: Build
         run: npm run build

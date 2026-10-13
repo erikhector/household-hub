@@ -1,8 +1,13 @@
 name: Release preview
 
-# Runs on every PR into master. Validates the PR title (Conventional Commits),
-# then posts or updates one comment showing the version this PR will release
-# on merge and the user-facing note that will appear under "What's new".
+# Runs on every PR into `next` or `master`. Validates the PR title
+# (Conventional Commits), then posts or updates one comment showing the
+# user-facing note that will appear under "What's new": for a feature PR
+# into `next`, the bump it adds to the next release; for a hotfix into
+# `master`, the version it releases on merge. The release PR (a
+# `release/*` branch cut from `next`, into `master`) instead lists every PR it ships with the version and the
+# combined note, and its own title isn't checked (it doesn't decide the
+# bump; the included PRs' titles do).
 # Make the "Release preview" check required in the branch ruleset (see
 # DEPLOYMENT.md) so a PR with an invalid title can't be merged.
 #
@@ -13,7 +18,7 @@ name: Release preview
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [master]
+    branches: [master, next]
 
 permissions:
   contents: read
@@ -29,8 +34,11 @@ jobs:
     name: Release preview
     runs-on: ubuntu-latest
     steps:
+      # Full history so the release PR's range (master..release branch) can be read.
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Node 22.18+ runs scripts/release.ts directly (built-in type
       # stripping), so no `npm ci` is needed.
@@ -41,12 +49,26 @@ jobs:
 
       # PR title and body go through env vars and are never interpolated
       # into the script, so a crafted title can't inject shell commands.
+      # Same collection as release.yml, over what the PR would bring in.
+      - name: Collect the release train's PRs
+        id: train
+        if: github.event.pull_request.base.ref == 'master' && startsWith(github.event.pull_request.head.ref, 'release/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          prs=$(node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release.ts train-prs "origin/master..$HEAD_SHA")
+          for n in $prs; do gh pr view "$n" --json number,title,body; done | jq -s . > "$RUNNER_TEMP/train-prs.json"
+          echo "file=$RUNNER_TEMP/train-prs.json" >> "$GITHUB_OUTPUT"
+
       - name: Plan release
         id: plan
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          TRAIN_PRS_FILE: ${{ steps.train.outputs.file }}
         run: |
           set +e
           node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/release.ts preview > "$RUNNER_TEMP/preview.md"

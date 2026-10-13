@@ -521,27 +521,51 @@ The release workflows (see REQUIREMENTS.md, "Releases & What's new") work
 without any of this, but nothing stops a direct push to `master` until you
 set it up. Do it once, in the repo's GitHub settings:
 
-1. **Settings → General → Pull Requests**: enable only **Allow squash
-   merging**, with the default commit message set to **Pull request title**.
-   The PR title is what decides the release.
-2. **Settings → Rules → Rulesets → New branch ruleset**, targeting the
-   default branch (`master`), enforcement **Active**:
-   - **Require a pull request before merging** (0 approvals is fine for a
-     single maintainer).
-   - **Require status checks to pass**: add `Lint, typecheck, test, build`
-     and `Release preview`. They show up in the picker once each has run on
-     a PR.
-   - **Block force pushes** and **Restrict deletions**.
-   - **Bypass list**: add **Repository admin**, so the release token below
-     can push the release commit.
-3. **Release token**: create a fine-grained personal access token (GitHub →
+1. **Create `next` and make it the default branch.** Push it from
+   `master` (`git push origin origin/master:refs/heads/next`), then
+   **Settings → General → Default branch** → `next`. Feature PRs and
+   Claude sessions start from the default branch, so this is what routes
+   them through the release train. `master` stays the production branch
+   the hosting platform deploys.
+2. **Settings → General → Pull Requests**: enable **Allow squash merging**
+   (default commit message **Pull request title**, which is what decides
+   the release) *and* **Allow merge commits** (the release PR needs one).
+   Leave **Automatically delete head branches** on or off as you like: it
+   only ever deletes feature and `release/*` branches, never `next`.
+3. **Settings → Rules → Rulesets**, two branch rulesets, enforcement
+   **Active**, each with **Block force pushes**, **Restrict deletions** and
+   **Repository admin** on the bypass list (so the release token below can
+   push):
+   - **`next`**: **Require a pull request before merging** (0 approvals is
+     fine for a single maintainer), allowed merge methods **Squash**
+     (feature PRs) and **Merge** (only for a by-hand PR from `master` back
+     into `next`, which must keep `master`'s history);
+     **Require status checks to pass**: `Lint, typecheck, test, build` and
+     `Release preview`.
+   - **`master`**: **Require a pull request before merging**, allowed merge
+     methods **Merge** (release PRs) and **Squash** (hotfixes); **Require
+     status checks to pass**: `Lint, typecheck, test, build`,
+     `End-to-end (Playwright)` and `Release preview`.
+   Checks show up in the picker once each has run on a PR. A check that
+   CI skips (docs-only PRs, e2e on PRs into `next`) counts as passing.
+4. **Release token**: create a fine-grained personal access token (GitHub →
    Settings → Developer settings) from your admin account, scoped to this
-   repository only, with **Contents: Read and write**. Save it as the
-   Actions secret **`RELEASE_TOKEN`** (repo Settings → Secrets and variables
-   → Actions). Without it, `release.yml` falls back to the default
-   `GITHUB_TOKEN`, which the ruleset will refuse.
+   repository only, with **Contents** and **Pull requests: Read and
+   write**. Save it as the Actions secret **`RELEASE_TOKEN`** (repo
+   Settings → Secrets and variables → Actions). Without it, `release.yml`
+   falls back to the default `GITHUB_TOKEN`, which the rulesets refuse,
+   and a release PR opened by **Cut release** wouldn't trigger CI.
 
-Each merged releasing PR produces two commits on `master`: the squash merge
-and `chore(release): vX.Y.Z [skip ci]` a few seconds later. The hosting
+**Shipping**: Actions → **Cut release** → Run workflow (or let the
+autopilot reviewer do it daily). It cuts `release/<date>` from `next` and
+opens the release PR; when its checks are green, merge it with **Create a
+merge commit**. If it's squash-merged by mistake, `release.yml` stops with
+an error: cut that release by hand with `scripts/release.ts` as
+AUTOPILOT.md's `ci_gate: local` paragraph describes, then merge `master`
+into `next` through a PR.
+
+Each merged release PR produces, on `master`, its merge commit and
+`chore(release): vX.Y.Z [skip ci]` a few seconds later, then `master` is
+merged back into `next`. The hosting
 platform deploys both. The second one is the build that shows the new
 version under "What's new".
