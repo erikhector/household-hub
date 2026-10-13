@@ -9,6 +9,7 @@ export function ExpiryBadge({
   expiresAt,
   expiresAtEstimated = false,
   openedAt = null,
+  frozenAt = null,
   dict,
 }: {
   expiresAt: Date | null;
@@ -22,6 +23,9 @@ export function ExpiryBadge({
    * "this one's open, use it first" is worth seeing on its own, and it
    * explains why an opened item's (≈) date suddenly moved closer. */
   openedAt?: Date | null;
+  /** GAP-44: set once the item's been frozen — a "Frozen" tag, shown like
+   * "Opened", that explains why the (≈) date jumped months out. */
+  frozenAt?: Date | null;
   dict: Dictionary["inventory"];
 }) {
   // Read once via a lazy initializer rather than calling Date.now() directly
@@ -30,7 +34,15 @@ export function ExpiryBadge({
   const [now] = useState(() => Date.now());
   const status = getExpiryStatus(expiresAt, now);
   const openedTag = openedAt ? <Badge variant="outline">{dict.opened}</Badge> : null;
-  if (!status) return openedTag;
+  const frozenTag = frozenAt ? <Badge variant="outline">{dict.frozen}</Badge> : null;
+  if (!status) {
+    return (
+      <>
+        {openedTag}
+        {frozenTag}
+      </>
+    );
+  }
   const label = status === "expired" ? dict.expired : dict.expiringSoon;
   let statusBadge;
   if (expiresAtEstimated) statusBadge = <Badge variant="outline">≈ {label}</Badge>;
@@ -39,6 +51,7 @@ export function ExpiryBadge({
   return (
     <>
       {openedTag}
+      {frozenTag}
       {statusBadge}
     </>
   );

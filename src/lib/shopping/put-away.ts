@@ -13,7 +13,7 @@
 
 import type { InventoryItem, Prisma } from "@/generated/prisma/client";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
-import { openedResetOnArrival } from "@/lib/inventory/expiry";
+import { frozenResetOnArrival, openedResetOnArrival } from "@/lib/inventory/expiry";
 import { recordOutOfStockTransition, type RecordedPrice } from "@/lib/notifications";
 import { addToDefaultListOnLowStock, type AutoAddedItem } from "@/lib/shopping/default-list";
 
@@ -74,6 +74,7 @@ export async function applyStockArrival(
   const nextQuantity = Math.max(0, previousQuantity + quantity);
 
   const openedReset = openedResetOnArrival(current, previousQuantity, nextQuantity);
+  const frozenReset = frozenResetOnArrival(current, previousQuantity, nextQuantity);
   const expiryUpdate = options.expiresAt
     ? { expiresAt: options.expiresAt, expiresAtEstimated: false }
     : estimatedExpiryUpdate(current, previousQuantity, nextQuantity);
@@ -82,6 +83,7 @@ export async function applyStockArrival(
     ...(price != null ? { lastKnownPrice: price } : {}),
     ...(options.location ? { location: options.location } : {}),
     ...openedReset,
+    ...frozenReset,
     ...expiryUpdate,
   };
   await tx.inventoryItem.update({ where: { id: current.id }, data });

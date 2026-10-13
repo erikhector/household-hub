@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_USE_WITHIN_DAYS_FROZEN,
   EXPIRY_WARNING_DAYS,
+  frozenExpiryUpdate,
+  frozenResetOnArrival,
   getExpiryStatus,
   openedExpiryUpdate,
   openedResetOnArrival,
@@ -116,5 +119,52 @@ describe("openedResetOnArrival", () => {
 
   it("clears openedAt but leaves a real date alone when restocked from zero", () => {
     expect(openedResetOnArrival({ openedAt, expiresAtEstimated: false }, 0, 1)).toEqual({ openedAt: null });
+  });
+});
+
+describe("frozenExpiryUpdate (GAP-44)", () => {
+  const now = new Date("2026-06-15T12:00:00Z");
+
+  it("defaults to 90 days from now, flagged as an estimate", () => {
+    expect(DEFAULT_USE_WITHIN_DAYS_FROZEN).toBe(90);
+    expect(frozenExpiryUpdate(null, now)).toEqual({
+      frozenAt: now,
+      expiresAt: new Date(now.getTime() + 90 * DAY_MS),
+      expiresAtEstimated: true,
+    });
+  });
+
+  it("uses the item's own window when it has one", () => {
+    expect(frozenExpiryUpdate(30, now).expiresAt).toEqual(new Date(now.getTime() + 30 * DAY_MS));
+  });
+
+  it("falls back to the default for a non-positive or fractional window", () => {
+    for (const bad of [0, -5, 1.5]) {
+      expect(frozenExpiryUpdate(bad, now).expiresAt).toEqual(new Date(now.getTime() + 90 * DAY_MS));
+    }
+  });
+});
+
+describe("frozenResetOnArrival (GAP-44)", () => {
+  const frozenAt = new Date("2026-09-20T10:00:00Z");
+
+  it("does nothing for an item that was never frozen", () => {
+    expect(frozenResetOnArrival({ frozenAt: null, expiresAtEstimated: true }, 0, 2)).toBeNull();
+  });
+
+  it("keeps a frozen item frozen when topped up without running out", () => {
+    expect(frozenResetOnArrival({ frozenAt, expiresAtEstimated: true }, 1, 2)).toBeNull();
+  });
+
+  it("clears frozenAt and the estimated date when restocked from zero", () => {
+    expect(frozenResetOnArrival({ frozenAt, expiresAtEstimated: true }, 0, 1)).toEqual({
+      frozenAt: null,
+      expiresAt: null,
+      expiresAtEstimated: false,
+    });
+  });
+
+  it("leaves a real date alone when restocked from zero", () => {
+    expect(frozenResetOnArrival({ frozenAt, expiresAtEstimated: false }, 0, 1)).toEqual({ frozenAt: null });
   });
 });
