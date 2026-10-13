@@ -113,7 +113,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Apply migrations
         run: npx prisma migrate deploy
@@ -122,6 +122,9 @@ jobs:
         run: npm run build
 
       - name: Run end-to-end tests
+        # E2E_WEBKIT adds the `iphone` WebKit project (UX-32).
+        env:
+          E2E_WEBKIT: "1"
         run: npm run test:e2e
 
       - name: Upload report

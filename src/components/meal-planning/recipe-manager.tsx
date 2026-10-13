@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChefHat, CookingPot, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ChefHat, CookingPot, Copy, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -22,6 +22,8 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
+import { formatRecipeText } from "@/lib/recipe-text";
+import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -231,6 +233,29 @@ function RecipeRow({
         .join(" · ")
     : "";
 
+  // GAP-43: plain text on the clipboard, nothing stored or shared. The
+  // success toast waits for the write (clipboard.writeText rejects when the
+  // page is unfocused or permission is denied), same as CopyLinkButton.
+  const unitLabel = useUnitLabel();
+  const handleCopyText = async () => {
+    const text = formatRecipeText(
+      recipe,
+      {
+        servings: format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings }),
+        ingredients: dict.ingredientsLabel,
+        instructions: dict.instructionsLabel,
+      },
+      locale,
+      unitLabel,
+    );
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(dict.copyRecipeTextToast);
+    } catch {
+      toast.error(dict.copyRecipeTextFailedToast);
+    }
+  };
+
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteRecipeAction(recipe.id);
@@ -318,20 +343,27 @@ function RecipeRow({
         )}
         {/* GAP-42: only a recipe with steps has anything to cook from. Under
             the details, not among the icon buttons, so the row's name keeps
-            its width on a phone. */}
-        {recipe.instructions?.trim() && (
-          <CookModeDialog
-            dict={dict}
-            locale={locale}
-            recipe={recipe}
-            trigger={
-              <Button type="button" variant="outline" size="sm" className="mt-2">
-                <CookingPot className="size-3.5" />
-                {dict.cookModeButton}
-              </Button>
-            }
-          />
-        )}
+            its width on a phone. GAP-43's copy sits beside it for the same
+            reason; the wrap keeps both whole on a narrow screen. */}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {recipe.instructions?.trim() && (
+            <CookModeDialog
+              dict={dict}
+              locale={locale}
+              recipe={recipe}
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  <CookingPot className="size-3.5" />
+                  {dict.cookModeButton}
+                </Button>
+              }
+            />
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={handleCopyText}>
+            <Copy className="size-3.5" />
+            {dict.copyRecipeText}
+          </Button>
+        </div>
       </div>
       <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
         {format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings })}

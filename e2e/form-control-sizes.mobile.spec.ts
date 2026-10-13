@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { E2E_SHOPPING_LIST } from "./seed-data";
+import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
@@ -63,7 +63,7 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
 
 test("budget transaction and recurring dialogs use 16px fields", async ({ page }) => {
   // The dialogs' triggers stay disabled until the household has a category.
-  const categoryId = `e2e-fcs-cat-${Date.now().toString(36)}`;
+  const categoryId = `e2e-fcs-cat-${Date.now().toString(36)}-w${E2E_WORKER}`;
   // Removed in `finally` so specs sharing the seeded household stay isolated.
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

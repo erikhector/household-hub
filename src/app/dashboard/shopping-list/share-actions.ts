@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
 
 // Kept in its own file rather than folded into actions.ts (already large):
 // these two are household-member-scoped mutations on ShoppingListShareLink,
@@ -32,7 +32,7 @@ export async function createShareLinkAction(
   const list = await prisma.shoppingList.findFirst({
     where: { id: shoppingListId, householdId: household.id },
   });
-  if (!list) return { error: "Shopping list not found" };
+  if (!list) return await fail("shoppingListNotFound");
 
   let shareLink;
   try {
@@ -64,7 +64,7 @@ export async function revokeShareLinkAction(shareLinkId: string): Promise<Action
   const shareLink = await prisma.shoppingListShareLink.findFirst({
     where: { id: shareLinkId, shoppingList: { householdId: household.id } },
   });
-  if (!shareLink) return { error: "Share link not found" };
+  if (!shareLink) return await fail("shareLinkNotFound");
 
   try {
     await prisma.shoppingListShareLink.update({

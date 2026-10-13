@@ -96,9 +96,9 @@ async function AddTaskButton({ householdId, dict }: { householdId: string; dict:
   );
 }
 
-function TasksListSkeleton() {
+function TasksListSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="h-12 rounded-md border bg-muted/40" />
       ))}
@@ -135,7 +135,7 @@ export default async function TasksPage() {
           <AddTaskButton householdId={household.id} dict={dict.tasks} />
         </Suspense>
       </div>
-      <Suspense fallback={<TasksListSkeleton />}>
+      <Suspense fallback={<TasksListSkeleton label={dict.common.loading} />}>
         <TasksSection householdId={household.id} dict={dict.tasks} locale={locale} />
       </Suspense>
     </div>

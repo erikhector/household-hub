@@ -359,7 +359,7 @@ export async function previewMergeAction(
       preview: { keeper: loaded.keeper, items: loaded.merged.map(({ item, counts }) => ({ ...item, counts })) },
     };
   } catch (error) {
-    return { error: toFriendlyError(error).error! };
+    return { error: (await toFriendlyError(error)).error! };
   }
 }
 

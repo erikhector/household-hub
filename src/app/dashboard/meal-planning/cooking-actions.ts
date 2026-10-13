@@ -7,7 +7,7 @@ import { requireHousehold } from "@/lib/session";
 import { round2 } from "@/lib/math";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { datedName } from "@/lib/i18n/format";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import type { ActionState } from "@/lib/actions/auth";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import {
@@ -79,7 +79,7 @@ export async function previewMissingIngredientsAction(
   // dialog checks the same thing, but a Server Action is callable directly.
   const parsed = parseMissingIngredientsRange(range);
   if (!parsed) {
-    return { error: "Invalid date range" };
+    return await fail("invalidDateRange");
   }
 
   // Filters on each entry's own `date` rather than looking up one MealPlan
@@ -191,7 +191,7 @@ export async function previewMissingIngredientsAction(
 // preview used is, by construction, the range that gets applied — there's
 // no second meal-plan read here that could drift from it.
 const addMissingIngredientsSchema = z.object({
-  targetListId: z.string().min(1, "Choose a shopping list"),
+  targetListId: z.string().min(1, v("chooseShoppingList")),
   newListName: z.string().trim().max(120).optional(),
 });
 
@@ -206,12 +206,12 @@ export async function addMissingIngredientsToShoppingListAction(
     newListName: formData.get("newListName") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const names = formData.getAll("itemName").map((v) => String(v).trim());
   if (names.length > MAX_MISSING_INGREDIENT_ROWS) {
-    return { error: `Select at most ${MAX_MISSING_INGREDIENT_ROWS} ingredients at once` };
+    return await fail("selectAtMostIngredients", { max: MAX_MISSING_INGREDIENT_ROWS });
   }
   const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
   const units = formData.getAll("itemUnit").map((v) => String(v).trim());
@@ -229,7 +229,7 @@ export async function addMissingIngredientsToShoppingListAction(
     );
 
   if (rows.length === 0) {
-    return { error: "Select at least one ingredient to add" };
+    return await fail("selectAtLeastOneIngredient");
   }
 
   let listId: string;
@@ -248,7 +248,7 @@ export async function addMissingIngredientsToShoppingListAction(
     const list = await prisma.shoppingList.findFirst({
       where: { id: parsed.data.targetListId, householdId: household.id, status: "ACTIVE" },
     });
-    if (!list) return { error: "Shopping list not found" };
+    if (!list) return await fail("shoppingListNotFound");
     listId = list.id;
   }
 
@@ -359,8 +359,8 @@ export async function previewCookedIngredientsAction(
   const { household } = await requireHousehold();
 
   const entry = await loadCookableEntry(entryId, household.id);
-  if (!entry) return { error: "Meal not found" };
-  if (!entry.recipeId) return { error: "No recipe linked to this meal" };
+  if (!entry) return await fail("mealNotFound");
+  if (!entry.recipeId) return await fail("noRecipeLinked");
 
   const expanded = await expandRecipeIngredients(
     household.id,
@@ -431,7 +431,7 @@ export async function markMealEntryCookedAction(
 
   const entryId = String(formData.get("entryId") ?? "");
   const entry = await loadCookableEntry(entryId, household.id);
-  if (!entry) return { error: "Meal not found" };
+  if (!entry) return await fail("mealNotFound");
   // Idempotent no-op — a stale button re-click or a double-submit shouldn't
   // decrement inventory twice, mirroring RecurringTemplateAck's
   // repeat-click idempotency elsewhere in this app.
@@ -586,7 +586,7 @@ export async function undoMarkMealEntryCookedAction(
     where: { id: entryId, mealPlan: { householdId: household.id } },
     select: { id: true, consumedAt: true },
   });
-  if (!entry) return { error: "Meal not found" };
+  if (!entry) return await fail("mealNotFound");
   // Idempotent no-op — a stale/double-clicked undo shouldn't credit
   // inventory back twice, mirroring markMealEntryCookedAction's own guard.
   if (!entry.consumedAt) return {};

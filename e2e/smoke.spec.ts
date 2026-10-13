@@ -19,7 +19,9 @@ for (const locale of LOCALES) {
     });
 
     for (const route of DASHBOARD_ROUTES) {
-      test(`${route.path} renders cleanly`, async ({ page }, testInfo) => {
+      // Titled by pattern, not path: a seeded id in the path differs per
+      // worker (e2e/seed-data.ts), and a title must be the same in all.
+      test(`${route.pattern} renders cleanly`, async ({ page }, testInfo) => {
         const errors = collectErrors(page);
         await expectRendersCleanly(page, route);
         await expect(page.locator("main")).toBeVisible();
