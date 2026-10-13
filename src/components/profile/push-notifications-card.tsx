@@ -51,7 +51,12 @@ function getSupportSnapshot(): Support {
     standalone,
     hasServiceWorker: "serviceWorker" in navigator,
     hasPushManager: "PushManager" in window,
-    permission: Notification.permission,
+    // iOS Safari has no `Notification` global in a plain tab (only in a
+    // Home Screen web app), so reading it bare threw and crashed the profile
+    // page there (caught by the WebKit `iphone` e2e project, UX-32). No API
+    // means nothing was ever denied: "default" lets the iOS check above
+    // answer "ios-install".
+    permission: "Notification" in window ? Notification.permission : "default",
   });
 }
 const getSupportServerSnapshot = (): Support => "unsupported";

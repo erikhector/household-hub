@@ -100,13 +100,13 @@ export function InventoryHeaderActionsClient({
       </div>
 
       {/* Mobile: labelled Add item + a labelled ⋯ menu */}
-      <div className="flex items-center gap-2 sm:hidden">
+      <div className="flex flex-wrap items-center gap-2 sm:hidden">
         <Button className="gap-1.5" onClick={() => addRef.current?.click()}>
           <Plus className="size-4" />
           {dict.addItem}
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" className="gap-1.5"><Ellipsis className="size-4" /> {dict.moreInventoryActions}</Button>} />
+          <DropdownMenuTrigger render={<Button variant="outline" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 gap-1.5 py-1 whitespace-normal"><Ellipsis className="size-4" /> {dict.moreInventoryActions}</Button>} />
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => stockRef.current?.click()}>
               <ScanBarcode className="size-4" /> {dict.stockScan.triggerLabel}

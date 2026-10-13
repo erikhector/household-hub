@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_MEMBER, E2E_MEMBER_SV } from "./seed";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // PERF-12: the Balances card no longer loads every split bill the household
@@ -35,8 +35,8 @@ async function seedBills() {
       );
       await client.query(
         `INSERT INTO "TransactionSplit" (id, "transactionId", "householdMemberId", "amountOwed", "amountPaid")
-         VALUES ($1, $3, 'e2e-member', $4, $5), ($2, $3, 'e2e-member-sv', $4, $6)`,
-        [`${id}-a`, `${id}-b`, id, amount / 2, paid[0], paid[1]],
+         VALUES ($1, $3, $7, $4, $5), ($2, $3, $8, $4, $6)`,
+        [`${id}-a`, `${id}-b`, id, amount / 2, paid[0], paid[1], E2E_MEMBER, E2E_MEMBER_SV],
       );
     };
     // Open: nobody has paid, 777 left due — must be listed.

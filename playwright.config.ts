@@ -18,13 +18,34 @@ try {
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
+// UX-32: the real iPhone engine. WebKit is a separate browser download (and
+// `--with-deps` needs root), so the `iphone` project is opt-in: CI sets
+// E2E_WEBKIT=1 after `npx playwright install --with-deps webkit`; the
+// `ci:local` gate and local runs skip it unless it's set the same way once
+// WebKit is installed. Without it the project is NOT defined and this says
+// so, rather than the run failing on a missing browser or silently looking
+// like it covered iOS. Playwright loads this config in the runner and again
+// in every worker; TEST_WORKER_INDEX is set only in workers, so the warning
+// prints once per run.
+const withWebkit = process.env.E2E_WEBKIT === "1";
+if (!withWebkit && !process.env.TEST_WORKER_INDEX) {
+  console.warn(
+    "[playwright] E2E_WEBKIT is not set: the `iphone` (WebKit) project is skipped. Set E2E_WEBKIT=1 after `npx playwright install webkit` to run it.",
+  );
+}
+
 export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
-  // Specs share one seeded household, so run them one at a time rather
-  // than risk two specs racing on the same rows.
+  // Each worker gets its own seeded household and users (e2e/seed-data.ts),
+  // so spec files run in parallel without racing on the same rows. Tests
+  // inside a file still run in order, since some build on the one before.
+  // Three, because the one `next start` process is the bottleneck, not the
+  // browsers: on 4 cores, 1 worker took 10.1 min, 2 took 6.6, 3 took 5.6
+  // and 4 took 5.4 but queued requests long enough that a 5 s wait timed
+  // out. E2E_WORKERS overrides the count, like `--workers`.
   fullyParallel: false,
-  workers: 1,
+  workers: Number(process.env.E2E_WORKERS) || 3,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // Terse locally (agents read this output), HTML report in CI for humans.
@@ -41,9 +62,9 @@ export default defineConfig({
   // scrolls), so desktop-only coverage misses a whole class of bugs.
   // `*.desktop.spec.ts` / `*.mobile.spec.ts` are for the few checks that
   // only make sense at one size (e.g. which navigation is showing). Pixel 7
-  // rather than an iPhone: the iPhone presets need WebKit, and only
-  // Chromium is installed here and in CI; the viewport and touch
-  // emulation are what matter for layout.
+  // is the always-on phone: Chromium is all that's installed by default,
+  // and the viewport and touch emulation are what matter for layout. The
+  // `iphone` WebKit project below is opt-in (E2E_WEBKIT=1, set in CI).
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
@@ -85,6 +106,22 @@ export default defineConfig({
       dependencies: ["setup"],
       testMatch: /(smoke|navigation\.desktop|form-control-sizes\.mobile)\.spec\.ts$/,
     },
+    // UX-32: iOS Safari renders and zooms differently from Chromium
+    // (16 px field zoom, 100vh, number inputs, safe areas), so the Pixel 7
+    // run above can't catch those. Every page renders (`smoke`), the main
+    // user flows (`flows`) and the 16 px field-zoom check
+    // (`form-control-sizes`, the zoom only iOS does) run in WebKit with an
+    // iPhone 15. Only these three specs, to keep the extra runtime small.
+    ...(withWebkit
+      ? [
+          {
+            name: "iphone",
+            use: { ...devices["iPhone 15"], storageState: STORAGE_STATE },
+            dependencies: ["setup"],
+            testMatch: /(smoke|flows|form-control-sizes\.mobile)\.spec\.ts$/,
+          },
+        ]
+      : []),
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined

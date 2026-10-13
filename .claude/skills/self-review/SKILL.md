@@ -49,7 +49,12 @@ Stop at the first real problem in a hunk, note it, move on.
       UI *and* for the existing component or page the diff touches (targets
       ≥ 44 × 44 px with 8 px gaps, primary action in the thumb zone, right
       `type`/`inputMode`/`autoComplete` on fields, feedback on every tap,
-      no gesture-only action, loading/offline states). Fix what you find in
+      no gesture-only action, loading/offline states). Two misses recur in
+      review: a `p-*` in a className silently drops a base `safe-area-inset`
+      padding via tailwind-merge (re-add `pt-/pb-[max(…,env(safe-area-inset-…))]`
+      after it, and keep the only exit reachable without scrolling), and
+      resizing a target to 44 px inside a fixed-width row or breakpoint band
+      (check the 600-640 px band and sv long labels). Fix what you find in
       the touched component in this PR; an exception needs a reason in the
       PR Summary.
 - [ ] Every user-facing string is in `en.ts` **and** `sv.ts`, none hardcoded

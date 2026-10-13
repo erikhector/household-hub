@@ -144,16 +144,21 @@ then MAINT-7 per feature, to avoid churn.
       shopping link/unlink/apply-receipt/complete,
       `addMissingIngredientsToShoppingListAction`. Consider a
       `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
-- [ ] **MAINT-7. Translate server-returned error messages** (medium, L, one PR per feature) —
-      ~150 hardcoded English `error: "…"` strings and Zod messages reach
-      Swedish users (budget 34, household 23, shopping 22, personal budget
-      18, auth 13, planner 8, tasks 7), and `toFriendlyError` itself returns
-      English (`errors.ts:24`). Copy the `getDictionary()` + `dict.errors.*`
-      pattern from `template-actions.ts`/`recipe-actions.ts`. Also
-      `"Task not found"` in `components/tasks/task-form-dialog.tsx:128` and
-      12 hardcoded `aria-label="Loading"` in `page.tsx`/`loading.tsx` files.
-      Start with `errors.ts`, tasks, meal-planning; leave budget until
-      BUDGET-6 is decided.
+- [ ] **MAINT-7. Translate the remaining server-returned error messages**
+      (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
+      `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
+      REQUIREMENTS.md "Internationalization") and converted shopping list,
+      inventory, meal planning, tasks and the shared list link. Still
+      English: the ~125 string-literal `error:` values and Zod messages in
+      the files on `PENDING` in `src/lib/actions/error-strings.test.ts`
+      (budget 35, household 27, personal budget 19, auth 14, barcode,
+      receipt and inventory scans, profile, push, digest, household notes),
+      plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
+      feature at a time, add its keys to `dict.errors` (or a feature
+      namespace, as `template-actions.ts` does), and delete the file from
+      `PENDING`: the test fails if a clean file stays listed. Leave budget
+      until BUDGET-6 is decided.
 - [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
       `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
       is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
@@ -253,47 +258,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-- [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
-      200% (Android "Font size", iOS Larger Text in the PWA), these pages
-      scroll sideways or become unusable:
-      - **Shopping list detail (612 px wide).** The add-items field is
-        crushed to ~30 px by three fixed buttons, and "Match item" and
-        delete are pushed off-screen.
-      - **Meal planning (585 px).** "Jump to today" and "Add missing
-        ingredients…" are `nowrap`.
-      - **Inventory (449 px).** The stepper overlaps the info and "ban"
-        icons, the quantity disappears and delete is clipped.
-      - **Duplicates (425 px).** "Merge into …" doesn't wrap.
-      - **Landing (416 px).** Header "Log in" and the CTA.
-      - **Bottom-nav labels** break mid-word ("Inventor/y").
-
-      Fix: let rows wrap, give the add field its own row, put secondary
-      row actions in a ⋯ menu (as the inventory rows do), and size nav labels to avoid
-      mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
-      above ~1.5× text).
-
-      Acceptance: a spec sets `html { font-size: 200% }` and runs
-      `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
-      mobile project.
-
-- [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
-      languages** (high, M) — About 59 server-action and Zod messages are
-      English only, for example `shopping-list/actions.ts:163,212`,
-      `inventory/actions.ts:41`, `recipe-actions.ts:137`,
-      `planner-actions.ts:24` and `lib/actions/errors.ts:24`. Swedish users
-      see them in toasts and under fields.
-
-      Also hardcoded:
-      - `aria-label="Loading"` on 11 skeletons;
-      - `dialog.tsx`'s "Close" (twice);
-      - `invite-button.tsx`'s fallback error;
-      - `global-error.tsx`, which also uses raw hex and has no dark theme.
-
-      Fix: return dictionary keys, or resolve them with `getDictionary()`
-      in the action. Add `common.loading` and `common.close`.
-
-      Acceptance: a unit test greps `actions.ts` files for string-literal
-      `error:` values and fails on any.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
@@ -343,20 +307,6 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
-- [ ] **UX-32. Test the platforms we promise** (medium, M) — CI only runs
-      Desktop Chrome and a Pixel 7 in Chromium, so none of the iOS issues
-      above can fail a build.
-
-      Add Playwright projects:
-      - `iphone`: WebKit, `devices["iPhone 15"]`, running smoke and
-        flows. CI must run `npx playwright install --with-deps webkit`.
-      - `tablet`: 810×1080 touch.
-      - `landscape`: 863×393 touch.
-      - a 200% text pass.
-
-      Add the 16 px field assertion (`e2e/form-control-sizes.mobile.spec.ts`). Keep the runtime in check
-      by running only `smoke` on the extra projects.
-
 ### Product decisions (2026-10-05)
 
 - [ ] **GAP-39. Offer to plan leftovers onto a later day** (impact: med, effort: M) —
@@ -377,21 +327,6 @@ don't build these in parallel:
       cooking, no auto-scheduling. Why: it follows the "suggest, don't
       silently mutate" guardrail and answers the scan's open questions
       (which day, clashes, opt-in) without new state. See PRODUCT.md.
-
-- [ ] **GAP-43. Copy a recipe as plain text** (impact: low-med, effort: S) —
-      a "Copy as text" action on a recipe (name, servings, ingredients,
-      instructions) using the clipboard, with a toast on success.
-      No public link, no token, no import into another household: the app
-      keeps every read behind `requireHousehold()`. No schema change, no
-      new browser storage. Acceptance: the action puts the formatted text
-      on the clipboard and shows the toast; a unit test covers the pure
-      formatter (ingredients without quantity, no instructions, both
-      locales' labels); an e2e test clicks it on desktop and mobile and
-      asserts the toast.
-      Decided 2026-10-05 by autopilot-product: copy as text only; the
-      public share link is not being built. Why: it delivers "send a
-      recipe to a friend" without the app's first unauthenticated read.
-      See PRODUCT.md.
 
 ### Budget component unification
 
@@ -854,6 +789,9 @@ out to be a product-scope question rather than a scoped task should move to
       desktop and mobile.
 
 - [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
+      _Schema slice landed (PR #179): `PreparedBatch` and the two
+      `MealPlanEntry` fields exist; actions, UI and tests below are still
+      to do._
       Households often batch-cook (e.g. "8 portions chicken & rice") and
       re-use those portions across the week's meal plan. Add a Meal-Prep
       mode to record cooked batches, distribute portions to planner days,
@@ -906,6 +844,29 @@ out to be a product-scope question rather than a scoped task should move to
       Acceptance: toggling a seeded recipe moves it into the group and
       survives reload; marking it cooked removes it; unit test for the
       auto-clear rule; e2e on desktop and mobile.
+
+### 2026-10-13 scan
+
+- [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —
+      AnyList's Dec 2025 meal-plan update added saved templates, and Plan to
+      Eat has long had reusable plans. Squirrel's `copyWeekAction`
+      (REQUIREMENTS.md, "Meal planning", `week-planner.tsx`) only copies a
+      week that already happened, so a household's favourite rotations
+      ("school-week basics", "guests weekend") have to be found by
+      scrolling back through the calendar, and are lost once that week
+      is edited. Add `MealPlanTemplate` + `MealPlanTemplateEntry`
+      (`householdId`, `name`, entries with `dayOffset 0-6`, `mealType`,
+      `recipeId`/free-text title, `portions`; cascade on recipe delete
+      drops the entry), mirroring the shopping `ShoppingListTemplate`
+      pattern (GAP-4, `src/lib/shopping/list-templates.ts`). A "Save week
+      as template" action in the planner menu and a "Plan from template"
+      picker that stamps it onto the shown week, skipping slots already
+      filled and offering Undo like copy-week. Suggest, don't mutate:
+      nothing changes until the user confirms. Phase 2 (migration).
+      Acceptance: unit tests for the offset mapping and the
+      skip-filled-slots rule plus tenancy on both actions; an e2e step
+      saves the seeded week, applies it to the next empty week and asserts
+      the entries show, on desktop and mobile.
 
 ## Needs a decision before building
 
@@ -1053,6 +1014,9 @@ credentials only the product owner can provision, or an architecture call.
       | v0.58.0 | #183 feat: inventory mobile — one clear action, calmer rows (UX-20) | 2026-10-12 | #183 |
       | v0.58.1 | #186 fix: budget tabs scroll, no disabled primary, printed chart values (UX-23) | 2026-10-12 | #186 |
       | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
+      | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
+      | v0.59.1 | #191 fix: show server-action errors and dialog labels in the user's language (UX-16) | 2026-10-13 | #191 |
+      | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

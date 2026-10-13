@@ -31,6 +31,7 @@ import {
 import { canonicalUnit, classifyUnits, type ItemUnitConversionLike } from "@/lib/units";
 import { MAX_UNIT_FACTOR, MIN_UNIT_FACTOR } from "@/lib/recipes/unit-choice";
 import type { Prisma } from "@/generated/prisma/client";
+import { fail, v, zodFail } from "@/lib/actions/errors";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -97,10 +98,10 @@ type ParsedIngredientRow = IngredientRow & {
   overrideQuantity: number | null;
 };
 
-function parseIngredientRows(
+async function parseIngredientRows(
   formData: FormData,
   dict: MealPlanningDict,
-): { data: ParsedIngredientRow[] } | { error: string } {
+): Promise<{ data: ParsedIngredientRow[] } | { error: string }> {
   const field = (key: string) => formData.getAll(key).map((v) => String(v).trim());
   const names = field("ingredientName");
   const quantities = field("ingredientQuantity");
@@ -124,29 +125,29 @@ function parseIngredientRows(
       return { error: format(dict.ingredientRowLimitError, { max: MAX_INGREDIENT_ROWS }) };
     }
     if (name.length > MAX_INGREDIENT_NAME_LENGTH) {
-      return { error: `Ingredient names must be ${MAX_INGREDIENT_NAME_LENGTH} characters or fewer` };
+      return await fail("ingredientNameTooLong", { max: MAX_INGREDIENT_NAME_LENGTH });
     }
 
     const unit = units[i] || "pcs";
     if (unit.length > MAX_INGREDIENT_UNIT_LENGTH) {
-      return { error: `Ingredient units must be ${MAX_INGREDIENT_UNIT_LENGTH} characters or fewer` };
+      return await fail("ingredientUnitTooLong", { max: MAX_INGREDIENT_UNIT_LENGTH });
     }
 
     const quantity = Number(quantities[i] || "1");
     if (!Number.isFinite(quantity) || quantity <= 0 || quantity > MAX_INGREDIENT_QUANTITY) {
-      return { error: "Ingredient quantities must be greater than 0" };
+      return await fail("ingredientQuantityPositive");
     }
 
     const rawText = rawTexts[i] || null;
     const note = notes[i] || null;
     if ((rawText?.length ?? 0) > MAX_INGREDIENT_RAW_TEXT_LENGTH || (note?.length ?? 0) > MAX_INGREDIENT_NOTE_LENGTH) {
-      return { error: "Invalid input" };
+      return await fail("invalidInput");
     }
 
     let decision: IngredientDecision | null = null;
     if (decisions[i]) {
       const parsed = ingredientDecisionSchema.safeParse(decisions[i]);
-      if (!parsed.success) return { error: "Invalid input" };
+      if (!parsed.success) return await fail("invalidInput");
       decision = parsed.data;
     }
 
@@ -162,10 +163,10 @@ function parseIngredientRows(
     const newUnit = newUnits[i] || defaultNewItemUnit(unit);
     if (decision === "new") {
       if (newName.length > MAX_INGREDIENT_NAME_LENGTH) {
-        return { error: `Ingredient names must be ${MAX_INGREDIENT_NAME_LENGTH} characters or fewer` };
+        return await fail("ingredientNameTooLong", { max: MAX_INGREDIENT_NAME_LENGTH });
       }
       if (newCategory.length > MAX_ITEM_CATEGORY_LENGTH || newUnit.length > MAX_INGREDIENT_UNIT_LENGTH) {
-        return { error: "Invalid input" };
+        return await fail("invalidInput");
       }
     }
 
@@ -176,7 +177,7 @@ function parseIngredientRows(
     let overrideQuantity: number | null = null;
     if (unitActions[i] && (decision === "existing" || decision === "new")) {
       const parsed = ingredientUnitActionSchema.safeParse(unitActions[i]);
-      if (!parsed.success) return { error: "Invalid input" };
+      if (!parsed.success) return await fail("invalidInput");
       unitAction = parsed.data;
       if (unitAction === "remember") {
         unitFactor = Number(unitFactors[i] || "NaN");
@@ -522,7 +523,7 @@ export async function previewIngredientMatchesAction(
       const dict = await getDictionary();
       return { error: format(dict.mealPlanning.ingredientRowLimitError, { max: MAX_INGREDIENT_ROWS }) };
     }
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const [items, aliases] = await Promise.all([
@@ -580,7 +581,7 @@ const optionalNonNegativeNumber = z
   .optional()
   .transform((value) => (value ? Number(value) : null))
   .refine((value) => value === null || (Number.isFinite(value) && value >= 0), {
-    message: "Nutrition values can't be negative",
+    message: v("nutritionNegative"),
   });
 
 // Same as above but rounded to a whole number, matching
@@ -591,9 +592,9 @@ const optionalNonNegativeInt = optionalNonNegativeNumber.transform((value) =>
 );
 
 const recipeSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120),
+  name: z.string().trim().min(1, v("nameRequired")).max(120),
   instructions: z.string().trim().max(4000).optional(),
-  servings: z.coerce.number().int().min(1, "Servings must be at least 1").max(1_000),
+  servings: z.coerce.number().int().min(1, v("servingsMin")).max(1_000),
   caloriesPerServing: optionalNonNegativeInt,
   proteinGramsPerServing: optionalNonNegativeNumber,
   carbsGramsPerServing: optionalNonNegativeNumber,
@@ -681,10 +682,10 @@ export async function createRecipeAction(
     fatGramsPerServing: formData.get("fatGramsPerServing") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
-  const ingredientRows = parseIngredientRows(formData, dict.mealPlanning);
+  const ingredientRows = await parseIngredientRows(formData, dict.mealPlanning);
   if ("error" in ingredientRows) return { error: ingredientRows.error };
 
   const components = await parseComponentRows(formData, household.id, undefined, dict.mealPlanning);
@@ -739,15 +740,15 @@ export async function updateRecipeAction(
     fatGramsPerServing: formData.get("fatGramsPerServing") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const recipe = await prisma.recipe.findFirst({
     where: { id: recipeId, householdId: household.id },
   });
-  if (!recipe) return { error: "Recipe not found" };
+  if (!recipe) return await fail("recipeNotFound");
 
-  const ingredientRows = parseIngredientRows(formData, dict.mealPlanning);
+  const ingredientRows = await parseIngredientRows(formData, dict.mealPlanning);
   if ("error" in ingredientRows) return { error: ingredientRows.error };
 
   const components = await parseComponentRows(formData, household.id, recipe.id, dict.mealPlanning);

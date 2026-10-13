@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
 
 // UX-14: ticking is instant. A shopping row, a share-page row, a task and an
@@ -12,7 +13,19 @@ import { dismissCookieNotice } from "./ui";
 // reached the database. Rows are written straight to Postgres, named
 // uniquely since the desktop and mobile runs share the seeded household,
 // and removed again afterwards.
-const tag = () => Date.now().toString(36);
+const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
+
+// No service worker. The root layout registers one (src/lib/service-worker.js)
+// with a `fetch` handler, and it installs and claims each fresh test page
+// a moment after load. Playwright's page.route() can't see requests a
+// service worker handles, and when the claim lands while a test is running
+// the page's own fetches come back ERR_ABORTED without ever reaching the
+// route below: the held actions are never released or counted, and the
+// abort test can miss its abort. It hit about one run in fifteen to twenty with
+// three e2e workers, whose load slows the worker's install into the
+// window between goto and the taps. Playwright's own advice for request
+// interception is to block service workers; nothing here tests them.
+test.use({ serviceWorkers: "block" });
 
 function db() {
   return new Client({ connectionString: process.env.DATABASE_URL });
@@ -77,10 +90,12 @@ test.beforeEach(async ({ context, baseURL }) => {
 });
 
 test.afterAll(async () => {
-  // Lists cascade to their items and share links.
-  await sql(`DELETE FROM "ShoppingList" WHERE id LIKE 'e2e-ux14-%'`);
-  await sql(`DELETE FROM "HouseholdTask" WHERE id LIKE 'e2e-ux14-%'`);
-  await sql(`DELETE FROM "InventoryItem" WHERE id LIKE 'e2e-ux14-%'`);
+  // Lists cascade to their items and share links. Only this worker's
+  // household: another worker may be running this spec's other project
+  // right now, on rows with the same prefix.
+  for (const table of ["ShoppingList", "HouseholdTask", "InventoryItem"]) {
+    await sql(`DELETE FROM "${table}" WHERE id LIKE 'e2e-ux14-%' AND "householdId" = $1`, [E2E_HOUSEHOLD.id]);
+  }
 });
 
 test("ticking three shopping items shows all three before any save answers", async ({ page }) => {

@@ -35,7 +35,7 @@ export function InviteButton({ dict }: { dict: Dictionary["household"]["invite"]
           setLink(`${window.location.origin}${result.url}`);
           setToken(result.token);
         } else {
-          setError(result.error ?? "Could not create invite link");
+          setError(result.error ?? dict.createFailed);
         }
       });
     }

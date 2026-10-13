@@ -115,6 +115,26 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Server-action errors and shared labels (UX-16)**: what an action
+  returns as `{ error }` is in the request's language. `dict.errors` holds
+  the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
+  `toFriendlyError(error)` (all in `src/lib/actions/errors.ts`, all async)
+  resolve them with `getDictionary()`. A Zod schema is a module-level
+  constant and can't know the language, so its messages are `errors` keys
+  wrapped in `v("nameRequired")` (a typo is a compile error), and
+  `zodFail` translates the first issue; Zod's own English text is never
+  shown, it falls back to `errors.invalidInput`. `errorText` falls back to
+  English when the dictionary can't be read, so a failure path never throws
+  a second error. `dict.common` (`loading`, `close`, from
+  `src/lib/i18n/common.ts`) labels the loading skeletons and the dialog
+  Close buttons; `components/ui/dialog.tsx` has no `dict` prop, so it reads
+  `commonCopy[getDocumentLocale()]` (the page's `<html lang>`, which also
+  covers an account locale that has no cookie on this device yet). `global-error.tsx` follows the cookie
+  locale and the OS colour scheme, using the globals.css tokens instead of
+  hex. Guarded by `src/lib/actions/error-strings.test.ts`, which fails on a
+  string-literal `error:` in any action file that isn't on its `PENDING`
+  list (the files MAINT-7 still has to convert; a file that becomes clean
+  must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button, named after the language
   it switches to, that calls `setLocaleAction` like the dashboard toggle.
@@ -1351,6 +1371,13 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
+- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
+  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
+  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
+  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
+  none). Deleting the recipe deletes its batches; deleting a batch only
+  unlinks the entries, and a departing member leaves the batch unattributed.
+  No actions or UI use it yet.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -4133,6 +4160,29 @@ is a full-screen read view for cooking from a phone.
   closes back to the list on desktop and mobile. The seeded "Pancakes"
   recipe has two steps for it.
 
+### Copy a recipe as text (GAP-43)
+
+Sending a recipe to a friend used to mean retyping it. Each `RecipeManager`
+row has a "Copy as text" button (beside "Cook", under the details) that puts
+the recipe on the clipboard as plain text and confirms with a toast.
+
+- **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,
+  servings line, an "Ingredients" list (`- 3 dl Wheat flour`, prep note in
+  brackets, an ingredient with no quantity is just its name), then
+  "Instructions" as numbered steps (`splitSteps`). A recipe with no
+  ingredients or no instructions leaves that section out. Labels come from
+  the dictionary (`ingredientsLabel`, `instructionsLabel`, `servingsCount`),
+  so the text is in the viewer's language; amounts use `formatCookQuantity`
+  and the household's unit labels.
+- **Deliberately not built**: no public share link or token, no import into
+  another household. Every read stays behind `requireHousehold()` (decided
+  2026-10-05, see PRODUCT.md). No schema change, no new browser storage.
+- **Clipboard**: the success toast waits for `clipboard.writeText`; on a
+  rejection (unfocused page, denied permission) an error toast shows.
+- **Tests**: `recipe-text.test.ts` (both locales, no quantity, no
+  instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
+  button on desktop and mobile, asserts the toast and the clipboard text.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
@@ -5596,6 +5646,17 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- **200% text size (UX-9)**: with the root font-size doubled (Android "Font
+  size", iOS Larger Text in the installed app) no page scrolls sideways on a
+  phone. Rows of fixed-width siblings wrap (`flex-wrap`: shopping item
+  controls, inventory card actions and stepper, meal planner header, landing
+  header), grids use `minmax(min(16rem,100%),1fr)` so a column never exceeds
+  the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
+  `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
+  bottom-nav labels use `hyphens-auto` so a long word breaks at a syllable,
+  not mid-letter. Covered by `e2e/text-size.mobile.spec.ts`, which sets
+  `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
+  route in `e2e/routes.ts`, in English and Swedish.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
   the page when a smaller field is focused, at any width (an iPad, a phone in
   landscape). `Input`, `Combobox`/`Autocomplete` input groups
@@ -5715,18 +5776,33 @@ approximating them, so the email never disagrees with the app.
   a production build (`npm run build`, then `npm run test:e2e` starts
   `next start` itself) against a real Postgres, because the unit suite
   mocks every I/O boundary and so can't tell whether a page actually
-  renders or a form actually saves. `e2e/global-setup.ts` seeds a fixed,
-  already-verified household with two owners, one whose account language
+  renders or a form actually saves. `e2e/global-setup.ts` seeds, once per
+  Playwright worker, a fixed, already-verified household with two owners, one whose account language
   is English and one Swedish, plus a shopping list with two rows
   (`e2e/seed.ts`, fixed ids in `e2e/seed-data.ts`; login is gated on email
   verification, which a test can't click through) and refuses to run
   against a non-local `DATABASE_URL` unless `E2E_ALLOW_REMOTE_DB=true`.
-  `e2e/auth.setup.ts` logs both users in once through the real form and
-  saves their sessions for the specs. Signed-in pages take the locale
+  `e2e/auth.setup.ts` logs every worker's two users in once through the
+  real form and saves their sessions for the specs. Signed-in pages take the locale
   from the account rather than the cookie, which is why Swedish needs its
-  own user. Specs run serially (`workers: 1`) since they share the seeded
-  household, and name the rows they create uniquely so reruns don't
-  collide. `next start` gets
+  own user. Spec files run in parallel (`workers: 3`, `E2E_WORKERS` or
+  `--workers` to change it) without racing on rows, because each worker
+  has its own copy of the seeded household, users and rows: Playwright
+  sets `TEST_PARALLEL_INDEX` in the worker before it loads the config and
+  specs, and `e2e/seed-data.ts` suffixes every seeded id with it (ids are
+  primary keys across the database), so specs keep importing plain
+  constants (`E2E_HOUSEHOLD`, `E2E_SHOPPING_LIST`, `STORAGE_STATE`, …)
+  and get their worker's. Outside a worker those resolve to worker 0, so
+  a test title never contains one (`smoke.spec.ts` titles pages by route
+  pattern, and screenshots are named by pattern too). Tests inside a
+  file still run in order. A spec names the rows it creates uniquely,
+  with `E2E_WORKER` in inserted ids, since the desktop and mobile runs of
+  one file can now run at the same time; and it sets up what it needs
+  rather than counting on another spec having run first, and cleans up
+  only inside its own `E2E_HOUSEHOLD`. That took the suite from 10.1
+  minutes (`workers: 1`) to 5.6 on 4 cores. More workers don't help:
+  the single `next start` process is the bottleneck (4 workers: 5.4
+  minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
   with a Postgres service container, running on every PR and push to
@@ -5736,8 +5812,8 @@ approximating them, so the email never disagrees with the app.
   image's Postgres 16 and migrates it, so agents can run the suite too.
 - **UI test coverage, desktop and mobile**: `playwright.config.ts` runs
   every spec in two projects, `desktop` (Desktop Chrome, 1280×720) and
-  `mobile` (Pixel 7, 412 px wide with touch; an Android preset because
-  only Chromium is installed, and the iPhone presets need WebKit).
+  `mobile` (Pixel 7, 412 px wide with touch; the always-on phone, since
+  only Chromium is installed by default).
   `*.desktop.spec.ts` / `*.mobile.spec.ts` run in only one of them.
   Two more touch projects cover the in-between sizes (UX-7): `landscape`
   (Pixel 7 at 863×393) and `tablet` (810×1080). They run only
@@ -5745,6 +5821,15 @@ approximating them, so the email never disagrees with the app.
   `form-control-sizes.mobile.spec.ts` (every page without horizontal
   overflow and with 44 px touch targets (UX-8), every sidebar control
   reachable by scrolling the aside, back-links on one line, 16 px fields).
+  A fifth, `iphone` (WebKit, iPhone 15; UX-32), runs `smoke.spec.ts`,
+  `flows.spec.ts` and `form-control-sizes.mobile.spec.ts` (the 16 px
+  field-zoom check iOS needs) to catch iOS Safari differences. It exists
+  only when `E2E_WEBKIT=1`: GitHub CI sets it after `npx playwright
+  install --with-deps webkit`, and the `ci:local` gate skips the project
+  unless `E2E_WEBKIT=1` is set and WebKit is installed. Without it the
+  config prints a warning once and leaves the project out, so runs without
+  WebKit don't fail. Locally: `npx playwright install webkit`, then
+  `E2E_WEBKIT=1 npm run test:e2e -- --project=iphone`.
   `e2e/routes.ts` lists every page with a concrete URL (dynamic segments
   point at a seeded row, or at a bogus token so the "invalid link" state
   renders), and `src/app/page-coverage.test.ts` fails `npm test` if a
@@ -5761,7 +5846,19 @@ approximating them, so the email never disagrees with the app.
   under the bar. Both read `nav-items.ts` and the dictionary, so moving
   a section keeps them in step. `flows.spec.ts` covers core write paths
   (add and complete a task, create a shopping list and add items).
-  `npm run test:e2e:desktop` / `:mobile` run one project.
+  `npm run test:e2e:desktop` / `:mobile` run one project, and
+  `npm run test:e2e:quick` runs `desktop` and `mobile` only, skipping the
+  `landscape` and `tablet` reruns (78 of the ~400 tests) while
+  iterating. `ci:local` and CI always run every project.
+- **Local check speed**: `npm run check` runs lint, typecheck and unit
+  tests at the same time through `scripts/run-parallel.mjs`, which
+  buffers each one's output and prints it whole as it finishes (so the
+  three don't interleave), lets all of them finish so one run reports
+  every failure, and exits non-zero if any failed. `npm run lint` keeps an
+  ESLint cache in `node_modules/.cache/eslint/` (content-based, so a
+  branch switch that only touches mtimes doesn't invalidate it), which
+  takes a re-run from ~38 s to ~2 s. Together `check` went from ~92 s to
+  ~37 s cold and ~21 s warm.
 - **Touch targets (UX-6, UX-8, DESIGN.md rule M3)**: below `sm`, or on any
   touch screen (`pointer: coarse`, so also an iPad or a phone in landscape),
   every button,
@@ -5867,6 +5964,38 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   turns any mistake seen twice in autopilot PRs into a lint rule, test or
   checklist line, trims instructions nobody needed, and only *proposes*
   loosening limits.
+
+Every role works from two outside skill packs with one owner each, so
+they never compete (AGENTS.md, "Agent skills"):
+
+- **Superpowers** ([obra/superpowers](https://github.com/obra/superpowers),
+  pinned `v7.0.0`) owns the development process: brainstorming, writing
+  plans, test-driven implementation, systematic debugging, verification
+  and code review. It is installed, not vendored: OpenCode loads it from
+  the pin in `opencode.json`, and Claude Code users install the plugin
+  once from the official marketplace.
+- **pstack** ([backnotprop/pstack](https://github.com/backnotprop/pstack),
+  pinned commit `3a60467`) supplies specialist tools, vendored verbatim
+  under `.claude/skills/` (Claude Code) and `.agents/skills/` (OpenCode):
+  `how`, `why`, `interrogate`, `unslop`, `technical-writing`, `reflect`
+  and ten `principle-*` files. They never trigger on their own
+  (`disable-model-invocation`) and are called only by ID; the builder
+  names `how`, `why` and `interrogate` as aids within AGENTS.md's
+  workflow, and the reviewer may `interrogate` a contested design.
+  pstack's own process layer (`poteto-mode` playbooks, `tdd`,
+  `no-comments`) is left out: it overlaps Superpowers and conflicts with
+  this repo's rules (mandatory hand-off to other vendors' models,
+  rebasing, stripping explanatory comments). So is `architect`, which
+  needs pstack's unvendored `arena`. The skills read their model roles
+  from `~/.agents/pstack-models.md`; the web session-start hook installs
+  the repo's `.agents/pstack-models.md` there, with every role on
+  `inherit-parent`, so the loop runs on the session model.
+
+The builder coordinator is the human proxy for its sub-agents: they
+never block on a human. Their normal work (commits, pushes, opening and
+fixing their own PR) proceeds and is reported; anything irreversible
+beyond that (force-pushing, deleting branches or data, closing a PR)
+waits for the coordinator's explicit call.
 
 `AUTOPILOT.md` is the control file every session reads first: on/off
 switches per role, limits, which backlog prefixes the builder may pick,
