@@ -304,6 +304,11 @@
     min-width: 44px;
     padding-inline: 0.75rem;
   }
+  /* A toast with two buttons (Undo + "Plan leftovers") sits them 6 px apart
+     by default; M3 wants 8 px, so the cancel-slot button adds a little. */
+  [data-sonner-toast] [data-cancel] {
+    margin-inline-end: 4px;
+  }
 }
 
 /* Sonner switches to its phone offsets at 600 px, but the BottomNav shows

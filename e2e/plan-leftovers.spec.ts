@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
@@ -63,6 +63,21 @@ async function planCookTonightAndDinnerTomorrow(recipeName: string) {
   }
 }
 
+// DESIGN.md M3: on a phone both toast buttons are at least 44 x 44 px with
+// at least 8 px between them. Desktop keeps Sonner's compact buttons.
+async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
+  if (!(page.viewportSize() && page.viewportSize()!.width < 640)) return;
+  const undo = page.getByRole("button", { name: "Undo" });
+  const [a, b] = [await planLeftovers.boundingBox(), await undo.boundingBox()];
+  expect(a && b).toBeTruthy();
+  for (const box of [a!, b!]) {
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  const gap = Math.max(a!.x - (b!.x + b!.width), b!.x - (a!.x + a!.width));
+  expect(gap).toBeGreaterThanOrEqual(8);
+}
+
 // Cooks the recipe's planned entry with 2 servings left over and taps
 // "Plan leftovers" on the toast.
 async function cookWithLeftoversAndPlan(page: Page, recipeName: string) {
@@ -77,7 +92,10 @@ async function cookWithLeftoversAndPlan(page: Page, recipeName: string) {
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
   await cooked.getByRole("spinbutton", { name: "Servings left over" }).fill("2");
   await cooked.getByRole("button", { name: "Mark as cooked" }).click();
-  await page.getByRole("button", { name: "Plan leftovers" }).click();
+  const planLeftovers = page.getByRole("button", { name: "Plan leftovers" });
+  await expect(planLeftovers).toBeVisible();
+  await expectToastButtonsTappable(page, planLeftovers);
+  await planLeftovers.click();
   const dialog = page.getByRole("dialog", { name: `Add ${recipeName} to the plan` });
   await expect(dialog).toBeVisible();
   return dialog;
