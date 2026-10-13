@@ -771,9 +771,9 @@ export async function freezeItemAction(itemId: string): Promise<{
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
-  if (item.frozenAt) return { error: "Item is already frozen" };
-  if (!item.expiresAt) return { error: "Item has no expiry date to extend" };
+  if (!item) return await fail("itemNotFound");
+  if (item.frozenAt) return await fail("itemAlreadyFrozen");
+  if (!item.expiresAt) return await fail("noExpiryToExtend");
 
   const patch = frozenExpiryUpdate(item.useWithinDaysFrozen);
 
@@ -786,7 +786,7 @@ export async function freezeItemAction(itemId: string): Promise<{
       where: { id: item.id, householdId: household.id, frozenAt: null },
       data: { ...patch, updatedByUserId: userId },
     });
-    if (count === 0) return { error: "Item is already frozen" };
+    if (count === 0) return await fail("itemAlreadyFrozen");
   } catch (error) {
     return toFriendlyError(error);
   }
@@ -817,12 +817,12 @@ export async function undoFreezeItemAction(
   const { household, userId } = await requireHousehold();
 
   const parsed = frozenUndoSchema.safeParse(previous);
-  if (!parsed.success || !(markedFrozenAt instanceof Date)) return { error: "Invalid input" };
+  if (!parsed.success || !(markedFrozenAt instanceof Date)) return await fail("invalidInput");
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
   if (!item.frozenAt || item.frozenAt.getTime() !== markedFrozenAt.getTime()) return {};
 
   try {

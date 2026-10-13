@@ -41,6 +41,8 @@ export const en = {
     exchangeRateUnavailable: "Couldn't fetch a {currency} → {base} exchange rate right now. Try again shortly.",
     itemAlreadyOpened: "Item is already opened",
     noUseWithinDays: "Item has no use-within days set",
+    itemAlreadyFrozen: "Item is already frozen",
+    noExpiryToExtend: "Item has no expiry date to extend",
     noItemsSelected: "No items selected",
     tooManyItemsAtOnce: "You can update at most {max} items at once",
     recipeNotFound: "Recipe not found",

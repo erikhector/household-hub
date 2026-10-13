@@ -36,6 +36,8 @@ export const sv = {
     exchangeRateUnavailable: "Kunde inte hämta växelkursen {currency} → {base} just nu. Försök igen om en stund.",
     itemAlreadyOpened: "Varan är redan öppnad",
     noUseWithinDays: "Varan har inga dagar för hållbarhet efter öppning angivna",
+    itemAlreadyFrozen: "Varan är redan fryst",
+    noExpiryToExtend: "Varan har inget utgångsdatum att förlänga",
     noItemsSelected: "Inga varor valda",
     tooManyItemsAtOnce: "Du kan uppdatera högst {max} varor åt gången",
     recipeNotFound: "Receptet hittades inte",
