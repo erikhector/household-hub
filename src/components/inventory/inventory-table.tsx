@@ -526,9 +526,9 @@ export function InventoryTable({
                     />
                   </div>
                 </div>
-                <div className="flex min-w-0 items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                   <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                  <div className="shrink-0">
+                  <div className="ml-auto min-w-0">
                     <ItemActions
                       item={item}
                       categories={categories}

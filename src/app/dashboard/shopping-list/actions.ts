@@ -11,7 +11,7 @@ import { resolveShoppingExpenseCategory } from "@/lib/budget-groceries-category"
 import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import { fetchExchangeRate } from "@/lib/exchange-rate";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
 import { learnItemAlias } from "@/lib/item-alias";
 import { findInventoryMatches } from "@/lib/item-matching";
@@ -66,7 +66,7 @@ async function findFuzzyInventoryItem(householdId: string, name: string, preload
 }
 
 const createListSchema = z.object({
-  name: z.string().trim().max(120, "List name must be 120 characters or fewer").optional(),
+  name: z.string().trim().max(120, v("listNameTooLong")).optional(),
 });
 
 export async function createShoppingListAction(
@@ -77,7 +77,7 @@ export async function createShoppingListAction(
 
   const parsed = createListSchema.safeParse({ name: formData.get("name") || undefined });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const dict = await getDictionary();
@@ -160,7 +160,7 @@ export async function generateFromLowStockAction(
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
   });
-  if (!list) return { error: "This list can't be edited right now" };
+  if (!list) return await fail("listNotEditable");
 
   let added = 0;
   try {
@@ -209,9 +209,9 @@ export async function generateFromLowStockAction(
 
 const addItemSchema = z.object({
   listId: z.string().min(1),
-  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
-  quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
-  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
+  quantity: z.coerce.number().min(0.01, v("quantityPositive")),
+  unit: z.string().trim().max(20, v("unitTooLong")).optional(),
 });
 
 /**
@@ -240,7 +240,7 @@ async function createAdHocShoppingListItem(
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId, status: "ACTIVE" },
   });
-  if (!list) return { error: "This list can't be edited right now" } as const;
+  if (!list) return await fail("listNotEditable");
 
   let inventoryItem = await findExactInventoryItem(householdId, name);
   if (!inventoryItem && newItemDetails) {
@@ -303,7 +303,7 @@ export async function addAdHocItemAction(
     unit: formData.get("unit") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -330,8 +330,8 @@ export async function addAdHocItemAction(
 }
 
 const quickAddSchema = addItemSchema.extend({
-  category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
-  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+  category: z.string().trim().max(60, v("categoryTooLong")).optional(),
+  unit: z.string().trim().max(20, v("unitTooLong")).optional(),
 });
 
 /**
@@ -357,7 +357,7 @@ export async function quickAddShoppingListItemAction(
     unit: newItemDetails?.unit,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -385,13 +385,13 @@ export async function quickAddShoppingListItemAction(
 const SHOPPING_ITEM_NOTE_MAX_LENGTH = 200;
 
 const updateItemSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
-  quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
-  unit: z.string().trim().max(20, "Unit must be 20 characters or fewer").optional(),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
+  quantity: z.coerce.number().min(0.01, v("quantityPositive")),
+  unit: z.string().trim().max(20, v("unitTooLong")).optional(),
   note: z
     .string()
     .trim()
-    .max(SHOPPING_ITEM_NOTE_MAX_LENGTH, `Note must be ${SHOPPING_ITEM_NOTE_MAX_LENGTH} characters or fewer`)
+    .max(SHOPPING_ITEM_NOTE_MAX_LENGTH, v("noteTooLong"))
     .optional(),
 });
 
@@ -414,11 +414,11 @@ export async function updateShoppingListItemAction(
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { id: true, shoppingListId: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const parsed = updateItemSchema.safeParse(data);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -444,7 +444,7 @@ export async function updateShoppingListItemAction(
 }
 
 const updateItemPriceSchema = z.object({
-  price: z.coerce.number().min(0, "Price can't be negative").max(1_000_000, "Price is too large"),
+  price: z.coerce.number().min(0, v("priceNegative")).max(1_000_000, v("priceTooLarge")),
 });
 
 /**
@@ -466,11 +466,11 @@ export async function updateShoppingListItemPriceAction(
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { id: true, shoppingListId: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const parsed = updateItemPriceSchema.safeParse({ price });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   try {
@@ -507,12 +507,12 @@ export async function linkShoppingListItemAction(
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const inventoryItem = await prisma.inventoryItem.findFirst({
     where: { id: inventoryItemId, householdId: household.id },
   });
-  if (!inventoryItem) return { error: "Inventory item not found" };
+  if (!inventoryItem) return await fail("inventoryItemNotFound");
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -544,11 +544,11 @@ export async function createInventoryItemFromShoppingListItemAction(
   const item = await prisma.shoppingListItem.findFirst({
     where: { id: itemId, shoppingList: { householdId: household.id } },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const trimmedCategory = category.trim();
   if (trimmedCategory.length > 60) {
-    return { error: "Category must be 60 characters or fewer" };
+    return await fail("categoryTooLong");
   }
 
   try {
@@ -590,7 +590,7 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { id: true, shoppingListId: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   await prisma.shoppingListItem.update({
     where: { id: item.id },
@@ -604,7 +604,7 @@ export async function unlinkShoppingListItemAction(itemId: string): Promise<Acti
 const setItemCategorySchema = z
   .string()
   .trim()
-  .max(60, "Category must be 60 characters or fewer");
+  .max(60, v("categoryTooLong"));
 
 /**
  * Re-files a shopping-list row's linked InventoryItem under a different
@@ -628,12 +628,12 @@ export async function setShoppingListItemCategoryAction(
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { shoppingListId: true, inventoryItemId: true },
   });
-  if (!item) return { error: "Item not found" };
-  if (!item.inventoryItemId) return { error: "Link this item to your pantry first" };
+  if (!item) return await fail("itemNotFound");
+  if (!item.inventoryItemId) return await fail("linkItemToPantryFirst");
 
   const parsed = setItemCategorySchema.safeParse(category);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid category" };
+    return await zodFail(parsed.error, "invalidCategory");
   }
 
   try {
@@ -688,13 +688,13 @@ export async function importShoppingListItemsAction(
 
   const parsed = importItemsSchema.safeParse({ listId, items });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: parsed.data.listId, householdId: household.id, status: "ACTIVE" },
   });
-  if (!list) return { error: "This list can't be edited right now" };
+  if (!list) return await fail("listNotEditable");
 
   let added = 0;
   try {
@@ -779,13 +779,13 @@ export async function smartAddShoppingListItemsAction(
 
   const parsed = smartAddSchema.safeParse({ listId, items });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: parsed.data.listId, householdId: household.id, status: "ACTIVE" },
   });
-  if (!list) return { error: "This list can't be edited right now" };
+  if (!list) return await fail("listNotEditable");
 
   const addedIds: string[] = [];
   const alreadyOnList: string[] = [];
@@ -1044,7 +1044,7 @@ export async function togglePurchasedAction(
     where: { id: itemId, shoppingList: { householdId: household.id } },
     include: { inventoryItem: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const nextPurchased = !item.purchased;
   const arrivesNow = nextPurchased && !defersToPutAway(household);
@@ -1152,17 +1152,17 @@ const putAwaySchema = z.object({
       z.object({
         itemId: z.string().min(1),
         notBought: z.boolean().optional(),
-        quantity: z.number().min(0.01, "Quantity must be greater than 0").max(100000).optional(),
+        quantity: z.number().min(0.01, v("quantityPositive")).max(100000).optional(),
         expiresAt: z
           .string()
           .trim()
           .optional()
-          .refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid date")
+          .refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), v("invalidDate"))
           .transform((value) => (value ? new Date(value) : null)),
-        location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
+        location: z.string().trim().max(120, v("locationTooLong")).optional(),
       }),
     )
-    .min(1, "Nothing to put away")
+    .min(1, v("nothingToPutAway"))
     .max(300),
 });
 
@@ -1214,14 +1214,14 @@ export async function putAwayItemsAction(
 
   const parsed = putAwaySchema.safeParse({ listId, entries });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: parsed.data.listId, householdId: household.id, status: { in: ["ACTIVE", "COMPLETED"] } },
     select: { id: true },
   });
-  if (!list) return { error: "This list can't be edited right now" };
+  if (!list) return await fail("listNotEditable");
 
   const ids = [...new Set(parsed.data.entries.map((entry) => entry.itemId))];
   // Tenancy only — the transaction below re-reads each row after claiming it.
@@ -1229,7 +1229,7 @@ export async function putAwayItemsAction(
     where: { id: { in: ids }, shoppingListId: list.id },
     select: { id: true },
   });
-  if (rows.length !== ids.length) return { error: "Item not found" };
+  if (rows.length !== ids.length) return await fail("itemNotFound");
 
   // Last entry per row wins, in the order the dialog sent them.
   const entryById = new Map(parsed.data.entries.map((entry) => [entry.itemId, entry]));
@@ -1370,7 +1370,7 @@ export async function applyReceiptScanAction(
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
     include: { items: { include: { inventoryItem: true } } },
   });
-  if (!list) return { error: "This list can't be edited right now" };
+  if (!list) return await fail("listNotEditable");
 
   const itemsById = new Map(list.items.map((item) => [item.id, item]));
   // Belt-and-braces de-dupe: if the client ever sent the same shopping-list
@@ -1386,15 +1386,13 @@ export async function applyReceiptScanAction(
     seen.add(m.shoppingListItemId);
     return true;
   });
-  if (validMatches.length === 0) return { error: "Nothing to apply" };
+  if (validMatches.length === 0) return await fail("nothingToApply");
 
   let rate = 1;
   if (currency.toUpperCase() !== HOUSEHOLD_BASE_CURRENCY) {
     const fetched = await fetchExchangeRate(currency, HOUSEHOLD_BASE_CURRENCY);
     if (fetched === null) {
-      return {
-        error: `Couldn't fetch a ${currency} → ${HOUSEHOLD_BASE_CURRENCY} exchange rate right now. Try again shortly.`,
-      };
+      return await fail("exchangeRateUnavailable", { currency: currency, base: HOUSEHOLD_BASE_CURRENCY });
     }
     rate = fetched;
   }
@@ -1540,7 +1538,7 @@ const registerReceiptItemSchema = z.object({
   // receipt line has no legitimate reason to be this large.
   quantity: z.coerce.number().min(0.01).max(100_000),
   unit: z.string().trim().max(20).optional(),
-  price: z.coerce.number().min(0.01).max(1_000_000, "Price is too large"),
+  price: z.coerce.number().min(0.01).max(1_000_000, v("priceTooLarge")),
   inventoryItemId: z.string().trim().min(1).optional(),
   newItemCategory: z.string().trim().max(60).optional(),
 });
@@ -1552,7 +1550,7 @@ const registerReceiptSchema = z.object({
   // applyReceiptScanAction's doc comment for why this is per-receipt.
   store: z.string().trim().max(120).optional(),
   // 300 mirrors importItemsSchema/bulkCreateSchema's cap on bulk item rows.
-  items: z.array(registerReceiptItemSchema).min(1, "Add at least one item").max(300, "Too many items"),
+  items: z.array(registerReceiptItemSchema).min(1, v("addAtLeastOneItem")).max(300, v("tooManyItems")),
 });
 
 type LoggedExpense = { transactionId: string; amount: number; categoryName: string };
@@ -1642,7 +1640,7 @@ export async function registerReceiptAction(
 
   const parsed = registerReceiptSchema.safeParse({ name: listName, currency, store, items });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   const trimmedStore = parsed.data.store || null;
 
@@ -1651,9 +1649,7 @@ export async function registerReceiptAction(
   if (upperCurrency !== HOUSEHOLD_BASE_CURRENCY) {
     const fetched = await fetchExchangeRate(upperCurrency, HOUSEHOLD_BASE_CURRENCY);
     if (fetched === null) {
-      return {
-        error: `Couldn't fetch a ${upperCurrency} → ${HOUSEHOLD_BASE_CURRENCY} exchange rate right now. Try again shortly.`,
-      };
+      return await fail("exchangeRateUnavailable", { currency: upperCurrency, base: HOUSEHOLD_BASE_CURRENCY });
     }
     rate = fetched;
   }
@@ -1878,7 +1874,7 @@ export async function deleteShoppingListItemAction(itemId: string): Promise<Acti
     where: { id: itemId, shoppingList: { householdId: household.id } },
     select: { id: true, shoppingListId: true, purchased: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   try {
     if (item.purchased) {
@@ -1923,7 +1919,7 @@ export async function undoAutoAddedItemsAction(
   const { household } = await requireHousehold();
 
   const parsed = undoAutoAddSchema.safeParse(shoppingListItemIds);
-  if (!parsed.success) return { error: "Invalid input" };
+  if (!parsed.success) return await fail("invalidInput");
 
   const where = {
     id: { in: parsed.data },
@@ -1976,7 +1972,7 @@ async function learnStoreOrder(
   try {
     await prisma.household.update({ where: { id: householdId }, data: { categoryOrderLearned: next } });
   } catch (error) {
-    toFriendlyError(error);
+    await toFriendlyError(error);
   }
 }
 
@@ -1999,7 +1995,7 @@ const categoryOrderSchema = z.array(z.string().trim().min(1).max(200)).min(1).ma
 export async function saveCategoryOrderAction(keys: string[]): Promise<ActionState> {
   const { household } = await requireHousehold();
   const parsed = categoryOrderSchema.safeParse(keys);
-  if (!parsed.success) return { error: "Invalid section order" };
+  if (!parsed.success) return await fail("invalidSectionOrder");
 
   const current = {
     learned: parseLearnedOrder(household.categoryOrderLearned),
@@ -2162,7 +2158,7 @@ export async function uncompleteShoppingListAction(
     where: { id: listId, householdId: household.id },
     select: { id: true, status: true },
   });
-  if (!list) return { error: "List not found" };
+  if (!list) return await fail("listNotFound");
   if (list.status !== "COMPLETED") return {};
 
   try {

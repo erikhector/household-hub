@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { recordOutOfStockTransition, recordOutOfStockTransitions } from "@/lib/notifications";
 import {
@@ -25,24 +25,24 @@ import { frozenExpiryUpdate, openedExpiryUpdate } from "@/lib/inventory/expiry";
 import { canonicalUnit } from "@/lib/units";
 
 const itemSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120, "Name must be 120 characters or fewer"),
+  name: z.string().trim().min(1, v("nameRequired")).max(120, v("nameTooLong")),
   // Left blank on the create form or the quick-add bar, a new item gets a
   // category guessed from its name (AUTO-2, see createCategoryResolver),
   // falling back to the locale's "Uncategorized" label — never blocking the
   // add on picking a category up front. On the edit form, blank means the
   // user cleared it on purpose, so it's never re-guessed there.
-  category: z.string().trim().max(60, "Category must be 60 characters or fewer").optional(),
+  category: z.string().trim().max(60, v("categoryTooLong")).optional(),
   // Rounded to at most 2 decimal places at the boundary — the display and
   // meal-cooking decrement (cooking-actions.ts) assume the same precision,
   // and rounding here keeps stray float drift (e.g. entering 0.1 + 0.2) out
   // of storage rather than just hiding it later.
   quantity: z.coerce
     .number()
-    .min(0, "Quantity can't be negative")
+    .min(0, v("quantityNegative"))
     .transform((n) => Math.round(n * 100) / 100),
-  unit: z.string().trim().min(1).max(20, "Unit must be 20 characters or fewer").default("pcs"),
-  lowStockThreshold: z.coerce.number().min(0, "Threshold can't be negative"),
-  location: z.string().trim().max(120, "Location must be 120 characters or fewer").optional(),
+  unit: z.string().trim().min(1).max(20, v("unitTooLong")).default("pcs"),
+  lowStockThreshold: z.coerce.number().min(0, v("thresholdNegative")),
+  location: z.string().trim().max(120, v("locationTooLong")).optional(),
   // Native <input type="date"> value ("" when left blank). A date typed
   // here is always real (never AUTO-7's estimate) — see
   // expiresAtEstimated: false below, unconditional on both create and
@@ -70,7 +70,7 @@ const itemSchema = z.object({
     .transform((value) => (value && value.trim() !== "" ? Number(value) : null))
     .refine(
       (days) => days === null || (Number.isInteger(days) && days > 0 && days <= 3650),
-      "Use-within days must be a whole number above 0",
+      v("useWithinDaysInvalid"),
     ),
 });
 
@@ -97,7 +97,7 @@ export async function createInventoryItemAction(
     useWithinDaysOpened: formData.get("useWithinDaysOpened") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   // Split out of the spread below — neither is an InventoryItem column by
   // that name (see AUTO-7's expiresAt/shelfLifeDays handling just after).
@@ -167,7 +167,7 @@ export async function updateInventoryItemAction(
     useWithinDaysOpened: formData.get("useWithinDaysOpened") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
   // Split out of the spread below — see createInventoryItemAction's matching
   // comment.
@@ -176,7 +176,7 @@ export async function updateInventoryItemAction(
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   // MATCH-6 (design §4, §6.1): the form's unit field is a plain edit only
   // while nothing is measured in the old unit. With stock, or with saved
@@ -261,7 +261,7 @@ export async function quickAddInventoryItemAction(input: {
     lowStockThreshold: 1,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   // `neverExpires` is a form-only flag (itemSchema's transform always sets
@@ -326,7 +326,7 @@ export async function bulkCreateInventoryItemsAction(
 
   const parsed = bulkCreateSchema.safeParse({ items, category: shared?.category, location: shared?.location });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const dict = await getDictionary();
@@ -451,7 +451,7 @@ export async function bulkSetInventoryQuantitiesAction(
 
   const parsed = bulkSetQuantitySchema.safeParse({ updates });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   let updated = 0;
@@ -524,7 +524,7 @@ export async function addStarterKitItemsAction(
 
   const parsed = starterKitSchema.safeParse({ category, names });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   let added = 0;
@@ -568,7 +568,7 @@ export async function adjustQuantityAction(
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const nextQuantity = nextQuantityAfterDelta(item.quantity, delta);
   let autoAdded: AutoAddedItem | null = null;
@@ -613,7 +613,7 @@ export async function markItemEmptyAction(
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   let autoAdded: AutoAddedItem | null = null;
   try {
@@ -677,11 +677,11 @@ export async function markItemOpenedAction(itemId: string): Promise<{
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
-  if (item.openedAt) return { error: "Item is already opened" };
+  if (!item) return await fail("itemNotFound");
+  if (item.openedAt) return await fail("itemAlreadyOpened");
 
   const patch = openedExpiryUpdate(item, item.useWithinDaysOpened);
-  if (!patch) return { error: "Item has no use-within days set" };
+  if (!patch) return await fail("noUseWithinDays");
 
   try {
     await prisma.inventoryItem.update({
@@ -723,12 +723,12 @@ export async function undoMarkItemOpenedAction(
   const { household, userId } = await requireHousehold();
 
   const parsed = openedUndoSchema.safeParse(previous);
-  if (!parsed.success || !(markedOpenedAt instanceof Date)) return { error: "Invalid input" };
+  if (!parsed.success || !(markedOpenedAt instanceof Date)) return await fail("invalidInput");
 
   const item = await prisma.inventoryItem.findFirst({
     where: { id: itemId, householdId: household.id },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
   if (!item.openedAt || item.openedAt.getTime() !== markedOpenedAt.getTime()) return {};
 
   try {
@@ -867,18 +867,18 @@ export async function bulkUpdateFieldAction(
   const { household, userId } = await requireHousehold();
 
   const ids = [...new Set(itemIds)].filter(Boolean);
-  if (ids.length === 0) return { error: "No items selected" };
+  if (ids.length === 0) return await fail("noItemsSelected");
   if (ids.length > MAX_BULK_FIELD_ITEM_IDS) {
-    return { error: `You can update at most ${MAX_BULK_FIELD_ITEM_IDS} items at once` };
+    return await fail("tooManyItemsAtOnce", { max: MAX_BULK_FIELD_ITEM_IDS });
   }
 
   if (!bulkEditableFields.includes(field)) {
-    return { error: "Invalid field" };
+    return await fail("invalidField");
   }
 
   const parsed = bulkFieldSchemas[field].safeParse(rawValue);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid value" };
+    return await zodFail(parsed.error, "invalidValue");
   }
 
   let data: Parameters<typeof prisma.inventoryItem.updateMany>[0]["data"];

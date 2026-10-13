@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { repurchaseSnoozeUntil } from "@/lib/inventory/repurchase-calc";
 import { loadRepurchaseRhythm } from "@/lib/inventory/repurchase-suggestions";
 
@@ -40,8 +40,8 @@ export async function addRepurchaseSuggestionAction(
       select: { id: true, name: true, unit: true, lastKnownPrice: true },
     }),
   ]);
-  if (!list) return { error: "This list can't be edited right now" };
-  if (!inventoryItem) return { error: "Item not found" };
+  if (!list) return await fail("listNotEditable");
+  if (!inventoryItem) return await fail("itemNotFound");
 
   let itemId: string | undefined;
   try {

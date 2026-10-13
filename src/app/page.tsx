@@ -59,7 +59,7 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-6 [@media(max-height:500px)]:py-3">
+      <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-6 [@media(max-height:500px)]:py-3">
         <div className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight">
           <BrandBadge />
           {dict.auth.brand}
@@ -87,7 +87,7 @@ export default async function Home() {
             {dict.landing.heroDescription}
           </p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" className="text-base" render={<Link href="/signup" />}>
+            <Button size="lg" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
               <Sparkles className="size-4" />
               {dict.landing.getStarted}
               <ArrowRight className="size-4" />
@@ -95,7 +95,7 @@ export default async function Home() {
             <Button
               size="lg"
               variant="outline"
-              className="text-base"
+              className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal"
               render={<Link href="/login" />}
             >
               <LogIn className="size-4" />
@@ -154,7 +154,7 @@ export default async function Home() {
             {dict.landing.ctaTitle}
           </h2>
           <p className="max-w-md text-muted-foreground">{dict.landing.ctaDescription}</p>
-          <Button size="lg" className="text-base" render={<Link href="/signup" />}>
+          <Button size="lg" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-9 max-sm:min-h-11 pointer-coarse:min-h-11 py-2 text-base whitespace-normal" render={<Link href="/signup" />}>
             <Sparkles className="size-4" />
             {dict.landing.ctaButton}
           </Button>

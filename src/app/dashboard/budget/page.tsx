@@ -259,9 +259,9 @@ async function CostAnalyzerSection({
   );
 }
 
-function CostAnalyzerSkeleton() {
+function CostAnalyzerSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-4" role="status" aria-label={label}>
       <div className="h-40 rounded-lg border bg-muted/40" />
       <div className="grid gap-3 sm:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
@@ -841,7 +841,7 @@ async function BudgetTabsSection({
       />
       {/* SCALE-J: its own Suspense boundary/query — see CostAnalyzerSection's
           doc comment above. */}
-      <Suspense fallback={<CostAnalyzerSkeleton />}>
+      <Suspense fallback={<CostAnalyzerSkeleton label={dict.common.loading} />}>
         <CostAnalyzerSection
           householdId={householdId}
           dict={dict.budget.costAnalyzer}
@@ -903,9 +903,9 @@ async function BudgetTabsSection({
 // Mirrors the tab bar (MonthNavigator + pill buttons) BudgetTabs renders
 // once loaded, so the skeleton doesn't jump the page's layout when the real
 // content swaps in.
-function BudgetTabsSkeleton() {
+function BudgetTabsSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label={label}>
       <div className="flex items-center justify-between gap-2">
         <div className="h-9 w-9 rounded-md bg-muted" />
         <div className="h-6 w-32 rounded-md bg-muted" />
@@ -988,7 +988,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
         />
       )}
 
-      <Suspense fallback={<BudgetTabsSkeleton />}>
+      <Suspense fallback={<BudgetTabsSkeleton label={dict.common.loading} />}>
         <BudgetTabsSection
           householdId={householdId}
           userId={userId}
