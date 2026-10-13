@@ -642,6 +642,32 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       existing `openedAt` alone. One `openedAt` per row: with several packs
       counted on one item, opening one moves the whole row's date — the
       same one-`expiresAt`-per-item simplification as everywhere else.
+    - **"Freeze it" (GAP-44)**: the opened clock's mirror image for the
+      most common way to avoid waste. `InventoryItem.frozenAt` (`DateTime?`)
+      and `useWithinDaysFrozen` (`Int?`, no form field yet: null means the
+      default `DEFAULT_USE_WITHIN_DAYS_FROZEN` = 90 days). An inventory row
+      shows a "Freeze" button (snowflake icon on desktop, a menu item in the
+      phone row's ⋯ menu) only when the item has an `expiresAt` and isn't
+      frozen. `freezeItemAction` (household-scoped, refusing an
+      already-frozen or date-less item) sets `frozenAt = now` and
+      `expiresAt = now + useWithinDaysFrozen` via the pure
+      `frozenExpiryUpdate` (`src/lib/inventory/expiry.ts`, unit-tested).
+      Unlike the opened rule it *replaces* the date even when that moves it
+      later, since extending the clock is the point, and always flags
+      `expiresAtEstimated` ("≈", softer copy). Because the date jumps months
+      out, the item drops out of `EXPIRING_SOON` and the weekly digest.
+      Same Undo toast as "Mark opened" (`undoFreezeItemAction(itemId,
+      markedFrozenAt, previous)`, a no-op once the item has moved on).
+      `ExpiryBadge` shows an outline "Frozen" tag whenever `frozenAt` is
+      set. **Restock**: `frozenResetOnArrival` sits beside
+      `openedResetOnArrival` in the same arrival paths (`applyStockArrival`,
+      `registerReceiptAction`): a 0 → positive crossing clears `frozenAt`
+      and the estimated `expiresAt`. There's no "thaw" button; use Undo, or
+      edit the date. **Phone card badges**: the card's header row wraps, the
+      name keeps a 40% floor and the badge cluster may shrink and wrap, so at
+      200% text (stock + "Opened"/"Frozen" + "≈ Expiring soon") the badges
+      drop under the name instead of squeezing it to nothing; guarded in
+      `e2e/freeze-item.spec.ts` (en and sv).
   - **Remembered barcode (AUTO-6)**: an optional `barcode`, unique per
     household, set by linking a scanned code to the item — see "Remembered
     barcodes and Scan mode" under "Barcode scanning" below.
@@ -5887,9 +5913,20 @@ approximating them, so the email never disagrees with the app.
   element (passing if its own box, an enclosing label, link or button, or
   an absolutely positioned `::before`/`::after` reaches 44 px) and runs
   in `smoke.spec.ts` on every project but `desktop` (`mobile`, `landscape`,
-  `tablet`) for every page. It checks
-  each page's closed state, so menus and dialogs opened later rely on the
-  component classes above.
+  `tablet`) for every page, and in `public.spec.ts` for the logged-out
+  pages. It also measures `role="option"` rows (the smart-add suggestions).
+  `expectTouchTargetsInTabs` clicks through every tab of every tablist and
+  measures each panel, since the plain check skips `hidden` panels (most of
+  the budget UI); smoke uses it. A link in running text that the check can't
+  tell from a lone link (a one-entry comma list) is marked
+  `data-running-text`. It checks each page's closed state, so menus and
+  dialogs opened later rely on the component classes above.
+  **Spacing (UX-19)**: neighbouring targets are 8 px apart on touch
+  (`max-sm:gap-2 pointer-coarse:gap-2` on action rows). Category chips
+  grow to hold two real 44 px buttons instead of overlapping padded
+  icons. `expectTargetsApart(scope)` fails on overlaps or gaps under 8 px
+  and is asserted on the meal row, the category chip and the 320 px
+  inventory page in `e2e/ux-19.mobile.spec.ts`.
 - **Checkbox and date fields**: a checked `Checkbox` is filled with the
   primary colour and shows a white tick (the `checkbox-tick` utility in
   `globals.css`; an inline SVG class got split by `cn()` and left an empty

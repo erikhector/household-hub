@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Ban, Info, PackageOpen, Pencil, Trash2, Ellipsis } from "lucide-react";
+import { Ban, Info, PackageOpen, Pencil, Snowflake, Trash2, Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -32,6 +32,7 @@ export function ItemActions({
   isPending,
   onMarkEmpty,
   onMarkOpened,
+  onFreeze,
   onDelete,
   size = "size-7",
 }: {
@@ -46,6 +47,7 @@ export function ItemActions({
   isPending: boolean;
   onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
   onMarkOpened: (item: InventoryItemRow) => void;
+  onFreeze: (item: InventoryItemRow) => void;
   onDelete: (itemId: string) => void;
   size?: string;
 }) {
@@ -53,12 +55,14 @@ export function ItemActions({
   // and the pack isn't already open — a button that would only ever no-op
   // is noise on every other row.
   const canMarkOpened = item.useWithinDaysOpened != null && item.useWithinDaysOpened > 0 && !item.openedAt;
+  // GAP-44: only an item with an expiry date to extend, and not frozen yet.
+  const canFreeze = item.expiresAt != null && !item.frozenAt;
   // refs for dialog triggers so the mobile menu can open them without
   // rendering the dialogs inside the menu popup (which would unmount them
   // as the menu closes).
   const deleteRef = React.useRef<HTMLButtonElement | null>(null);
   return (
-    <div className="flex items-center gap-1 max-sm:gap-2">
+    <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
       {/* Desktop: show individual controls */}
       {canMarkOpened && (
         <Button
@@ -71,6 +75,19 @@ export function ItemActions({
           onClick={() => onMarkOpened(item)}
         >
           <PackageOpen className="size-3.5" />
+        </Button>
+      )}
+      {canFreeze && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
+          disabled={isPending}
+          aria-label={format(dict.freezeAriaLabel, { name: item.name })}
+          title={dict.freeze}
+          onClick={() => onFreeze(item)}
+        >
+          <Snowflake className="size-3.5" />
         </Button>
       )}
       <Link
@@ -170,6 +187,7 @@ export function ItemActions({
         />
         <DropdownMenuContent align="end">
           {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
+          {canFreeze && <DropdownMenuItem onClick={() => onFreeze(item)}>{dict.freeze}</DropdownMenuItem>}
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, false)}>{dict.markEmpty}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMarkEmpty(item, true)}>{dict.markEmptyAndAddToList}</DropdownMenuItem>

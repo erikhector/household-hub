@@ -29,7 +29,7 @@ import {
   type CheckOff,
 } from "@/lib/shopping/store-order";
 import { estimatedExpiryUpdate } from "@/lib/inventory/shelf-life";
-import { openedResetOnArrival } from "@/lib/inventory/expiry";
+import { frozenResetOnArrival, openedResetOnArrival } from "@/lib/inventory/expiry";
 import { applyStockArrival, reverseStockArrival } from "@/lib/shopping/put-away";
 import { awaitsReceiptPrice, defersToPutAway } from "@/lib/shopping/put-away-calc";
 import { loadIncomingByItem, coveredQuantity } from "@/lib/incoming-stock";
@@ -1820,9 +1820,11 @@ export async function registerReceiptAction(
         const expiryUpdate = estimatedExpiryUpdate(item, currentQuantity, nextQuantity);
         // GAP-28: same fresh-pack reset as togglePurchasedAction.
         const openedReset = openedResetOnArrival(item, currentQuantity, nextQuantity);
+        // GAP-44: and a restocked frozen item is no longer frozen.
+        const frozenReset = frozenResetOnArrival(item, currentQuantity, nextQuantity);
         await tx.inventoryItem.update({
           where: { id: inventoryItemId },
-          data: { quantity: nextQuantity, lastKnownPrice, ...openedReset, ...expiryUpdate },
+          data: { quantity: nextQuantity, lastKnownPrice, ...openedReset, ...frozenReset, ...expiryUpdate },
         });
       }
 

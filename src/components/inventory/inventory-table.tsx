@@ -28,6 +28,8 @@ import {
   markItemEmptyAction,
   markItemOpenedAction,
   undoMarkItemOpenedAction,
+  freezeItemAction,
+  undoFreezeItemAction,
 } from "@/app/dashboard/inventory/actions";
 import { bulkEditableFields, type BulkEditableField } from "@/lib/inventory/bulk-editable-fields";
 import { ItemFormDialog } from "@/components/inventory/add-item-dialog";
@@ -200,6 +202,32 @@ export function InventoryTable({
             void undoMarkItemOpenedAction(item.id, openedAt, previous).then((undoResult) => {
               if (undoResult.error) toast.error(undoResult.error);
               else toast.success(format(dict.markOpenedUndoneToast, { name: item.name }));
+            });
+          },
+        },
+      });
+    });
+  }
+
+  // GAP-44: same shape as handleMarkOpened: applied straight away, Undo on
+  // the toast restores the snapshot unless the item changed since.
+  function handleFreeze(item: InventoryItemRow) {
+    startTransition(async () => {
+      const result = await freezeItemAction(item.id);
+      if (result.error || !result.frozenAt || !result.expiresAt || !result.previous) {
+        if (result.error) toast.error(result.error);
+        return;
+      }
+      const { frozenAt, previous } = result;
+      const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(result.expiresAt);
+      toast.success(format(dict.frozenToast, { name: item.name, date }), {
+        duration: 8000,
+        action: {
+          label: dict.undoFreeze,
+          onClick: () => {
+            void undoFreezeItemAction(item.id, frozenAt, previous).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(format(dict.freezeUndoneToast, { name: item.name }));
             });
           },
         },
@@ -418,6 +446,7 @@ export function InventoryTable({
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
                       openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
                       dict={dict}
                     />
                   </div>
@@ -438,6 +467,7 @@ export function InventoryTable({
                     isPending={isPending}
                     onMarkEmpty={handleMarkEmpty}
                     onMarkOpened={handleMarkOpened}
+                    onFreeze={handleFreeze}
                     onDelete={handleDelete}
                   />
                 </TableCell>
@@ -468,14 +498,14 @@ export function InventoryTable({
                 data-state={selected.has(item.id) ? "selected" : undefined}
                 className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
               >
-                <div className="flex min-w-0 items-start gap-2">
+                <div className="flex min-w-0 flex-wrap items-start gap-2">
                   <Checkbox
                     checked={selected.has(item.id)}
                     onChange={() => toggleItem(item.id)}
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
                     className="mt-1"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[40%] flex-1">
                     <p className="truncate font-medium" title={item.name}>
                       {item.name}
                     </p>
@@ -484,13 +514,15 @@ export function InventoryTable({
                       {item.location ? ` • ${item.location}` : ""}
                     </p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                  {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                  <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
                     <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
                     <OnTheWayHint item={item} dict={dict} />
                     <ExpiryBadge
                       expiresAt={item.expiresAt}
                       expiresAtEstimated={item.expiresAtEstimated}
                       openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
                       dict={dict}
                     />
                   </div>
@@ -510,6 +542,7 @@ export function InventoryTable({
                       isPending={isPending}
                       onMarkEmpty={handleMarkEmpty}
                       onMarkOpened={handleMarkOpened}
+                      onFreeze={handleFreeze}
                       onDelete={handleDelete}
                       size="size-9"
                     />

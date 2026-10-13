@@ -58,7 +58,7 @@ export function ResetPasswordForm({
         {pending ? dict.saving : dict.submit}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        <Link href="/login" className="font-medium text-primary underline underline-offset-4">
+        <Link href="/login" className="touch-target font-medium text-primary underline underline-offset-4">
           {dict.backToLogin}
         </Link>
       </p>

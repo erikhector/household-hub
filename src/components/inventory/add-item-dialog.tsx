@@ -277,7 +277,7 @@ export function ItemFormDialog({
           {mode === "edit" && item && (
             <Link
               href={`/dashboard/inventory/items/${item.id}`}
-              className="-mt-2 w-fit text-xs text-primary underline-offset-4 hover:underline"
+              className="touch-target -mt-2 w-fit text-xs text-primary underline-offset-4 hover:underline"
             >
               {dict.unitsAndDetailsLink}
             </Link>
