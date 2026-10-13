@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.59.3",
+    "date": "2026-10-13",
+    "pr": 196,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Pages are now more reliable: if the database connection drops for a moment, Squirrel quietly retries instead of showing an error page.",
+      "sv": "Sidorna är nu mer pålitliga: om databasanslutningen tillfälligt bryts försöker Squirrel igen i stället för att visa en felsida."
+    }
+  },
+  {
+    "version": "0.59.2",
+    "date": "2026-10-13",
+    "pr": 192,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Squirrel now stays usable when your phone's text size is set to the largest setting: buttons wrap and pages no longer scroll sideways.",
+      "sv": "Squirrel fungerar nu även när telefonens textstorlek är inställd på störst: knappar radbryts och sidorna scrollar inte längre i sidled."
+    }
+  },
+  {
+    "version": "0.59.1",
+    "date": "2026-10-13",
+    "pr": 191,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "Error messages and a few labels (for example \"Close\" on pop-ups) now appear in Swedish for Swedish users instead of English.",
+      "sv": "Felmeddelanden och några etiketter (till exempel \"Stäng\" i fönster) visas nu på svenska för dig som använder appen på svenska."
+    }
+  },
+  {
     "version": "0.59.0",
     "date": "2026-10-12",
     "pr": 193,

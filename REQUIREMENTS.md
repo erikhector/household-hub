@@ -49,6 +49,14 @@ easy for AI coding agents to work in correctly:
   leak past a suspended Fluid compute instance (a documented no-op off
   Vercel). See DEPLOYMENT.md §3 ("Connection pooling") for how this
   interacts with the pooler `DATABASE_URL` must point at in production.
+  **Dropped connections (BUG-1)**: the pool also has a 10s
+  `connectionTimeoutMillis` and an `error` listener that reports an idle
+  client dying (via `reportError`, so it reaches Sentry) and lets pg discard
+  it, rather than crashing the process. The exported client is extended
+  (`src/lib/db-retry.ts`) so a *read* (`find*`, `count`, `aggregate`,
+  `groupBy`, `$queryRaw`) that fails with "Connection terminated
+  unexpectedly" is retried once on a fresh connection; writes are never
+  retried, since they may already have been applied.
 - **Sentry is kept out of the root bundle (PERF-8).** The browser SDK is
   only ever loaded through a dynamic `import("@sentry/nextjs")` behind a
   `NEXT_PUBLIC_SENTRY_DSN` check, in `src/instrumentation-client.ts`
@@ -107,6 +115,26 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Server-action errors and shared labels (UX-16)**: what an action
+  returns as `{ error }` is in the request's language. `dict.errors` holds
+  the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
+  `toFriendlyError(error)` (all in `src/lib/actions/errors.ts`, all async)
+  resolve them with `getDictionary()`. A Zod schema is a module-level
+  constant and can't know the language, so its messages are `errors` keys
+  wrapped in `v("nameRequired")` (a typo is a compile error), and
+  `zodFail` translates the first issue; Zod's own English text is never
+  shown, it falls back to `errors.invalidInput`. `errorText` falls back to
+  English when the dictionary can't be read, so a failure path never throws
+  a second error. `dict.common` (`loading`, `close`, from
+  `src/lib/i18n/common.ts`) labels the loading skeletons and the dialog
+  Close buttons; `components/ui/dialog.tsx` has no `dict` prop, so it reads
+  `commonCopy[getDocumentLocale()]` (the page's `<html lang>`, which also
+  covers an account locale that has no cookie on this device yet). `global-error.tsx` follows the cookie
+  locale and the OS colour scheme, using the globals.css tokens instead of
+  hex. Guarded by `src/lib/actions/error-strings.test.ts`, which fails on a
+  string-literal `error:` in any action file that isn't on its `PENDING`
+  list (the files MAINT-7 still has to convert; a file that becomes clean
+  must be removed from the list), and by `e2e/localised-errors.spec.ts`.
 - **Public language toggle**: `LegalFooter` (rendered by every logged-out
   page) carries a `PublicLanguageToggle` button, named after the language
   it switches to, that calls `setLocaleAction` like the dashboard toggle.
@@ -5632,6 +5660,17 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- **200% text size (UX-9)**: with the root font-size doubled (Android "Font
+  size", iOS Larger Text in the installed app) no page scrolls sideways on a
+  phone. Rows of fixed-width siblings wrap (`flex-wrap`: shopping item
+  controls, inventory card actions and stepper, meal planner header, landing
+  header), grids use `minmax(min(16rem,100%),1fr)` so a column never exceeds
+  the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
+  `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
+  bottom-nav labels use `hyphens-auto` so a long word breaks at a syllable,
+  not mid-letter. Covered by `e2e/text-size.mobile.spec.ts`, which sets
+  `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
+  route in `e2e/routes.ts`, in English and Swedish.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
   the page when a smaller field is focused, at any width (an iPad, a phone in
   landscape). `Input`, `Combobox`/`Autocomplete` input groups

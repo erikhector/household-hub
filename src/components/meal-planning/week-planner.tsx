@@ -179,7 +179,7 @@ export function WeekPlanner({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-1 max-sm:gap-2">
+      <div className="flex flex-wrap items-center gap-1 max-sm:gap-2">
         <Button variant="outline" size="icon-sm" aria-label={dict.previousWeek} render={
           <Link href={`/dashboard/meal-planning?week=${prevWeekKey}`} />
         }>
@@ -230,7 +230,7 @@ export function WeekPlanner({
         />
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
         {days.map((day) => (
           <Card
             key={day.dateKey}

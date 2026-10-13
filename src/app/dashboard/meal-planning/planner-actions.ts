@@ -8,12 +8,13 @@ import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { LEFTOVERS_DAY_SEARCH_DAYS, nextFreeDinnerDay } from "@/app/dashboard/meal-planning/leftovers";
+import { fail, v, zodFail } from "@/lib/actions/errors";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
 const addEntrySchema = z.object({
-  weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date"),
+  weekStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidWeek")),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDate")),
   mealType: z.enum(MEAL_TYPES),
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
@@ -22,7 +23,7 @@ const addEntrySchema = z.object({
   // freeform entry has no recipe to scale; when omitted for a recipe entry,
   // addMealEntryAction below falls back to that recipe's own `servings` (i.e.
   // "one full recipe"), matching pre-portions behavior.
-  portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
+  portions: z.coerce.number().int().min(1, v("portionsMin")).max(1_000).optional(),
 });
 
 export async function addMealEntryAction(
@@ -40,7 +41,7 @@ export async function addMealEntryAction(
     portions: formData.get("portions") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const { weekStartDate, date, mealType, recipeId, freeformName } = parsed.data;
@@ -55,11 +56,11 @@ export async function addMealEntryAction(
     const recipe = await prisma.recipe.findFirst({
       where: { id: recipeId, householdId: household.id },
     });
-    if (!recipe) return { error: "Recipe not found" };
+    if (!recipe) return await fail("recipeNotFound");
     linkedRecipeId = recipe.id;
     portions = parsed.data.portions ?? recipe.servings;
   } else {
-    if (!freeformName) return { error: "Choose a recipe or enter a meal name" };
+    if (!freeformName) return await fail("chooseRecipeOrMeal");
     freeformMealName = freeformName;
   }
 
@@ -96,7 +97,7 @@ const updateEntrySchema = z.object({
   entryId: z.string().min(1),
   recipeId: z.string().optional(),
   freeformName: z.string().trim().max(120).optional(),
-  portions: z.coerce.number().int().min(1, "Portions must be at least 1").max(1_000).optional(),
+  portions: z.coerce.number().int().min(1, v("portionsMin")).max(1_000).optional(),
 });
 
 export async function updateMealEntryAction(
@@ -112,7 +113,7 @@ export async function updateMealEntryAction(
     portions: formData.get("portions") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const { entryId, recipeId, freeformName } = parsed.data;
@@ -120,7 +121,7 @@ export async function updateMealEntryAction(
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, mealPlan: { householdId: household.id } },
   });
-  if (!entry) return { error: "Meal not found" };
+  if (!entry) return await fail("mealNotFound");
 
   let linkedRecipeId: string | null = null;
   let freeformMealName: string | null = null;
@@ -130,11 +131,11 @@ export async function updateMealEntryAction(
     const recipe = await prisma.recipe.findFirst({
       where: { id: recipeId, householdId: household.id },
     });
-    if (!recipe) return { error: "Recipe not found" };
+    if (!recipe) return await fail("recipeNotFound");
     linkedRecipeId = recipe.id;
     portions = parsed.data.portions ?? recipe.servings;
   } else {
-    if (!freeformName) return { error: "Choose a recipe or enter a meal name" };
+    if (!freeformName) return await fail("chooseRecipeOrMeal");
     freeformMealName = freeformName;
   }
 
@@ -156,11 +157,11 @@ export async function updateMealEntryAction(
 // meal somewhere the user never picked.
 const dateKeySchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDate"))
   .refine((key) => {
     const date = parseDateKey(key);
     return !Number.isNaN(date.getTime()) && toDateKey(date) === key;
-  }, "Invalid date");
+  }, v("invalidDate"));
 
 const moveEntrySchema = z.object({
   entryId: z.string().min(1),
@@ -200,7 +201,7 @@ export async function moveMealEntryAction(
     mealType: formData.get("mealType"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const { entryId, date, mealType } = parsed.data;
@@ -209,8 +210,8 @@ export async function moveMealEntryAction(
     where: { id: entryId, mealPlan: { householdId: household.id } },
     select: { id: true, consumedAt: true },
   });
-  if (!entry) return { error: "Meal not found" };
-  if (entry.consumedAt) return { error: "A cooked meal can't be moved" };
+  if (!entry) return await fail("mealNotFound");
+  if (entry.consumedAt) return await fail("cookedMealCantMove");
 
   const targetDate = parseDateKey(date);
   const weekStartDate = getWeekStart(targetDate);
@@ -270,15 +271,15 @@ export async function deleteMealEntryAction(entryId: string) {
 // MealPlan row whose weekStartDate no page view would ever look up.
 const weekKeySchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid week")
+  .regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidWeek"))
   .refine((key) => {
     const date = parseDateKey(key);
     return !Number.isNaN(date.getTime()) && toDateKey(getWeekStart(date)) === key;
-  }, "Invalid week");
+  }, v("invalidWeek"));
 
 const copyWeekSchema = z
   .object({ fromWeekStart: weekKeySchema, toWeekStart: weekKeySchema })
-  .refine((v) => v.fromWeekStart !== v.toWeekStart, "Choose a different week to copy from");
+  .refine((v) => v.fromWeekStart !== v.toWeekStart, v("chooseDifferentWeek"));
 
 export type CopyWeekResult = ActionState & {
   // How many entries were actually written (skipped slots excluded), and
@@ -304,7 +305,7 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
 
   const parsed = copyWeekSchema.safeParse({ fromWeekStart, toWeekStart });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const fromDate = parseDateKey(parsed.data.fromWeekStart);
@@ -396,7 +397,7 @@ export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionStat
   const { household } = await requireHousehold();
 
   const parsed = undoCopyWeekSchema.safeParse(entryIds);
-  if (!parsed.success) return { error: "Invalid input" };
+  if (!parsed.success) return await fail("invalidInput");
 
   await prisma.mealPlanEntry.deleteMany({
     where: { id: { in: parsed.data }, consumedAt: null, mealPlan: { householdId: household.id } },
@@ -416,7 +417,7 @@ export async function suggestLeftoversDayAction(
 ): Promise<{ date: string } | { error: string }> {
   const { household } = await requireHousehold();
   if (!isDateKey(afterDate) || Number.isNaN(parseDateKey(afterDate).getTime())) {
-    return { error: "Invalid date" };
+    return await fail("invalidDate");
   }
 
   const start = parseDateKey(afterDate);

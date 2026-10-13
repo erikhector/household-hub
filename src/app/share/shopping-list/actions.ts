@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { recordListClearedTransition, recordPriceSpikes, type RecordedPrice } from "@/lib/notifications";
@@ -130,7 +130,7 @@ export async function toggleItemViaShareTokenAction(
 
   const shareLink = await findActiveShareLink(token);
   if (!shareLink || shareLink.revokedAt) {
-    return { error: "This share link is invalid or has been revoked" };
+    return await fail("shareLinkInvalid");
   }
 
   // Scoped to shareLink.shoppingListId, not just "any item with this id" —
@@ -141,7 +141,7 @@ export async function toggleItemViaShareTokenAction(
     where: { id: itemId, shoppingListId: shareLink.shoppingListId },
     include: { inventoryItem: true },
   });
-  if (!item) return { error: "Item not found" };
+  if (!item) return await fail("itemNotFound");
 
   const nextPurchased = !item.purchased;
 

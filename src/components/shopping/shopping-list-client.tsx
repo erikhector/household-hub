@@ -918,7 +918,7 @@ function ShoppingRow({
             <input> the label is already wired to. Rendered even on a
             non-editable (view-only) row, just without the tap-to-correct
             affordance, since the estimate itself is still worth showing. */}
-        <div className={cn("flex shrink-0 items-center gap-1 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
+        <div className={cn("flex shrink-0 flex-wrap items-center gap-1 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
           {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
               Only on an editable, linked row — an unlinked one has no
               category yet (the mapping flow picks one), and a read-only

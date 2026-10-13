@@ -126,7 +126,7 @@ export function BottomNav({
               >
                 <Icon className="size-5" />
               </span>
-              <span className="w-full text-center leading-tight break-words">{dict.nav[key]}</span>
+              <span className="w-full text-center leading-tight break-words hyphens-auto">{dict.nav[key]}</span>
             </Link>
           );
         })}

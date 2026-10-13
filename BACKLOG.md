@@ -96,22 +96,6 @@ enough to trust.
 
 Parallel-safe except where noted.
 
-### Bugs
-
-- [ ] **BUG-1. Survive a dropped pooled DB connection on page render** (impact: med, effort: S) —
-      Sentry JAVASCRIPT-NEXTJS-2 (2 events, 2026-10-04, `GET /dashboard`,
-      vercel-production, iPhone): `Error: Connection terminated unexpectedly`
-      from `pg-pool` inside a Prisma `queryRaw`, so the dashboard rendered the
-      error page. `src/lib/prisma.ts` builds the `Pool` with no
-      `pool.on("error", …)` handler and no `connectionTimeoutMillis`, so a
-      connection the pooler closed while idle is handed out and fails the
-      first query instead of being replaced. Add an `error` listener that logs
-      to Sentry and lets pg discard the client, set `connectionTimeoutMillis`,
-      and retry the read once on this specific error (not writes).
-      Acceptance: unit test with a mocked pool shows the `error` listener is
-      registered and a first-attempt "Connection terminated unexpectedly"
-      read succeeds on retry, while a write is not retried.
-
 ### Security hardening (2026-09-26 audit)
 
 Tenancy held up everywhere the audit traced it (every client id is scoped by
@@ -160,16 +144,21 @@ then MAINT-7 per feature, to avoid churn.
       shopping link/unlink/apply-receipt/complete,
       `addMissingIngredientsToShoppingListAction`. Consider a
       `withFriendlyErrors` wrapper in `src/lib/actions/errors.ts`.
-- [ ] **MAINT-7. Translate server-returned error messages** (medium, L, one PR per feature) —
-      ~150 hardcoded English `error: "…"` strings and Zod messages reach
-      Swedish users (budget 34, household 23, shopping 22, personal budget
-      18, auth 13, planner 8, tasks 7), and `toFriendlyError` itself returns
-      English (`errors.ts:24`). Copy the `getDictionary()` + `dict.errors.*`
-      pattern from `template-actions.ts`/`recipe-actions.ts`. Also
-      `"Task not found"` in `components/tasks/task-form-dialog.tsx:128` and
-      12 hardcoded `aria-label="Loading"` in `page.tsx`/`loading.tsx` files.
-      Start with `errors.ts`, tasks, meal-planning; leave budget until
-      BUDGET-6 is decided.
+- [ ] **MAINT-7. Translate the remaining server-returned error messages**
+      (medium, M, one PR per feature) — UX-16 added `dict.errors`, `fail()`,
+      `zodFail()` and `v()` (`src/lib/actions/errors.ts`, see
+      REQUIREMENTS.md "Internationalization") and converted shopping list,
+      inventory, meal planning, tasks and the shared list link. Still
+      English: the ~125 string-literal `error:` values and Zod messages in
+      the files on `PENDING` in `src/lib/actions/error-strings.test.ts`
+      (budget 35, household 27, personal budget 19, auth 14, barcode,
+      receipt and inventory scans, profile, push, digest, household notes),
+      plus `lib/recipe-import.ts`, `lib/email.ts`, `parse-import-csv.ts`,
+      `savings-goal-calc.ts` and `budget-category-limit.ts`. Convert a
+      feature at a time, add its keys to `dict.errors` (or a feature
+      namespace, as `template-actions.ts` does), and delete the file from
+      `PENDING`: the test fails if a clean file stays listed. Leave budget
+      until BUDGET-6 is decided.
 - [ ] **MAINT-8. One tested AI provider chain** (medium, M) —
       `resolveAttempts`/`callGemini`/`callAnthropic`/deadline-fallback loop
       is copy-pasted in `lib/actions/inventory-scan.ts:247-480`,
@@ -269,47 +258,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-- [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
-      200% (Android "Font size", iOS Larger Text in the PWA), these pages
-      scroll sideways or become unusable:
-      - **Shopping list detail (612 px wide).** The add-items field is
-        crushed to ~30 px by three fixed buttons, and "Match item" and
-        delete are pushed off-screen.
-      - **Meal planning (585 px).** "Jump to today" and "Add missing
-        ingredients…" are `nowrap`.
-      - **Inventory (449 px).** The stepper overlaps the info and "ban"
-        icons, the quantity disappears and delete is clipped.
-      - **Duplicates (425 px).** "Merge into …" doesn't wrap.
-      - **Landing (416 px).** Header "Log in" and the CTA.
-      - **Bottom-nav labels** break mid-word ("Inventor/y").
-
-      Fix: let rows wrap, give the add field its own row, put secondary
-      row actions in a ⋯ menu (as the inventory rows do), and size nav labels to avoid
-      mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
-      above ~1.5× text).
-
-      Acceptance: a spec sets `html { font-size: 200% }` and runs
-      `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
-      mobile project.
-
-- [ ] **UX-16. Server-action errors and leftover hardcoded strings in both
-      languages** (high, M) — About 59 server-action and Zod messages are
-      English only, for example `shopping-list/actions.ts:163,212`,
-      `inventory/actions.ts:41`, `recipe-actions.ts:137`,
-      `planner-actions.ts:24` and `lib/actions/errors.ts:24`. Swedish users
-      see them in toasts and under fields.
-
-      Also hardcoded:
-      - `aria-label="Loading"` on 11 skeletons;
-      - `dialog.tsx`'s "Close" (twice);
-      - `invite-button.tsx`'s fallback error;
-      - `global-error.tsx`, which also uses raw hex and has no dark theme.
-
-      Fix: return dictionary keys, or resolve them with `getDictionary()`
-      in the action. Add `common.loading` and `common.close`.
-
-      Acceptance: a unit test greps `actions.ts` files for string-literal
-      `error:` values and fails on any.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
@@ -876,6 +824,29 @@ out to be a product-scope question rather than a scoped task should move to
       survives reload; marking it cooked removes it; unit test for the
       auto-clear rule; e2e on desktop and mobile.
 
+### 2026-10-13 scan
+
+- [ ] **GAP-52. Save a week of meals as a named, reusable template** (impact: med, effort: M) `[schema]` —
+      AnyList's Dec 2025 meal-plan update added saved templates, and Plan to
+      Eat has long had reusable plans. Squirrel's `copyWeekAction`
+      (REQUIREMENTS.md, "Meal planning", `week-planner.tsx`) only copies a
+      week that already happened, so a household's favourite rotations
+      ("school-week basics", "guests weekend") have to be found by
+      scrolling back through the calendar, and are lost once that week
+      is edited. Add `MealPlanTemplate` + `MealPlanTemplateEntry`
+      (`householdId`, `name`, entries with `dayOffset 0-6`, `mealType`,
+      `recipeId`/free-text title, `portions`; cascade on recipe delete
+      drops the entry), mirroring the shopping `ShoppingListTemplate`
+      pattern (GAP-4, `src/lib/shopping/list-templates.ts`). A "Save week
+      as template" action in the planner menu and a "Plan from template"
+      picker that stamps it onto the shown week, skipping slots already
+      filled and offering Undo like copy-week. Suggest, don't mutate:
+      nothing changes until the user confirms. Phase 2 (migration).
+      Acceptance: unit tests for the offset mapping and the
+      skip-filled-slots rule plus tenancy on both actions; an e2e step
+      saves the seeded week, applies it to the next empty week and asserts
+      the entries show, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
@@ -1023,6 +994,9 @@ credentials only the product owner can provision, or an architecture call.
       | v0.58.1 | #186 fix: budget tabs scroll, no disabled primary, printed chart values (UX-23) | 2026-10-12 | #186 |
       | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
       | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
+      | v0.59.1 | #191 fix: show server-action errors and dialog labels in the user's language (UX-16) | 2026-10-13 | #191 |
+      | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
+      | v0.59.3 | #196 fix: survive a dropped pooled DB connection on page render (BUG-1) | 2026-10-13 | #196 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

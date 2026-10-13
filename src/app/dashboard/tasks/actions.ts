@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import {
   MAX_ROTATION_MEMBERS,
@@ -22,9 +22,9 @@ import {
 
 const recurrenceIntervalDaysSchema = z.coerce
   .number()
-  .int("Repeat interval must be a whole number of days")
-  .min(1, "Repeat interval must be at least 1 day")
-  .max(90, "Repeat interval must be 90 days or fewer")
+  .int(v("repeatWhole"))
+  .min(1, v("repeatMin"))
+  .max(90, v("repeatMax"))
   .nullable()
   .optional();
 
@@ -35,11 +35,11 @@ const recurrenceIntervalDaysSchema = z.coerce
 const rotationMemberIdsSchema = z
   .array(z.string().trim().min(1))
   .max(MAX_ROTATION_MEMBERS, `Up to ${MAX_ROTATION_MEMBERS} people can take turns`)
-  .refine((ids) => new Set(ids).size === ids.length, "Each person can only take turns once")
+  .refine((ids) => new Set(ids).size === ids.length, v("eachPersonOnce"))
   .default([]);
 
 const createTaskSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(120, "Title must be 120 characters or fewer"),
+  title: z.string().trim().min(1, v("titleRequired")).max(120, v("titleTooLong")),
   assignedToMemberId: z.string().trim().min(1).optional(),
   recurrenceIntervalDays: recurrenceIntervalDaysSchema,
   rotationMemberIds: rotationMemberIdsSchema,
@@ -81,20 +81,20 @@ async function resolveTaskAssignment(
   let assignedToMemberId = input.assignedToMemberId;
 
   if (rotationMemberIds.length > 0) {
-    if (recurrenceIntervalDays === null) return { error: "Only repeating tasks can take turns" };
+    if (recurrenceIntervalDays === null) return await fail("onlyRepeatingTurns");
     if (rotationMemberIds.length < MIN_ROTATION_MEMBERS) {
-      return { error: "Pick at least two people to take turns" };
+      return await fail("pickTwoPeople");
     }
     const found = await prisma.householdMember.findMany({
       where: { id: { in: rotationMemberIds }, householdId },
       select: { id: true },
     });
-    if (found.length !== rotationMemberIds.length) return { error: "Member not found" };
+    if (found.length !== rotationMemberIds.length) return await fail("memberNotFound");
 
     if (assignedToMemberId === null) {
       assignedToMemberId = rotationMemberIds[0];
     } else if (!rotationMemberIds.includes(assignedToMemberId)) {
-      return { error: "The person assigned must be one of the people taking turns" };
+      return await fail("assigneeMustTakeTurns");
     }
   }
 
@@ -103,7 +103,7 @@ async function resolveTaskAssignment(
       where: { id: assignedToMemberId, householdId },
       select: { id: true },
     });
-    if (!member) return { error: "Member not found" };
+    if (!member) return await fail("memberNotFound");
     assignedToMemberId = member.id;
   }
 
@@ -131,7 +131,7 @@ export async function createTaskAction(
     rotationMemberIds: formData.getAll("rotationMemberIds"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const resolved = await resolveTaskAssignment(household.id, {
@@ -167,11 +167,11 @@ export async function updateTaskAction(
     where: { id: taskId, householdId: household.id },
     select: { id: true },
   });
-  if (!task) return { error: "Task not found" };
+  if (!task) return await fail("taskNotFound");
 
   const parsed = updateTaskSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return await zodFail(parsed.error);
   }
 
   const resolved = await resolveTaskAssignment(household.id, {
@@ -208,7 +208,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<ActionS
       rotationPreviousAssigneeId: true,
     },
   });
-  if (!task) return { error: "Task not found" };
+  if (!task) return await fail("taskNotFound");
 
   const now = new Date();
   const nextCompleted = isTaskOpen(task, now);
