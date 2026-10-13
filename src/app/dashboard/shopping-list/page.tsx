@@ -12,9 +12,9 @@ import { ListTemplatesSection } from "@/components/shopping/list-templates";
 // Vercel's 15s default Server Action timeout.
 export const maxDuration = 60;
 
-function ShoppingListsSkeleton() {
+function ShoppingListsSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-16 rounded-md border bg-muted/40" />
       ))}
@@ -110,7 +110,7 @@ export default async function ShoppingListPage() {
           <NewListDialog dict={dict.shoppingList} locale={locale} />
         </div>
       </div>
-      <Suspense fallback={<ShoppingListsSkeleton />}>
+      <Suspense fallback={<ShoppingListsSkeleton label={dict.common.loading} />}>
         <ShoppingListsSection householdId={household.id} dict={dict.shoppingList} />
       </Suspense>
     </div>

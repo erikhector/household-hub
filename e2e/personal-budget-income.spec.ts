@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_USER } from "./seed";
+import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // A recurring income (a salary) must count in the months it hasn't been
@@ -9,7 +10,7 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 // for them. Rows are written straight to Postgres, like
 // personal-budget-shared.spec.ts does, and named uniquely since the desktop
 // and mobile runs share the seeded user.
-const suffix = () => Date.now().toString(36);
+const suffix = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
 test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);

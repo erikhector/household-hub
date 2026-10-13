@@ -400,9 +400,9 @@ async function PersonalBudgetTabsSection({
 
 // Same shape as the household budget's BudgetTabsSkeleton — see
 // src/app/dashboard/budget/page.tsx.
-function PersonalBudgetTabsSkeleton() {
+function PersonalBudgetTabsSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label="Loading">
+    <div className="flex animate-pulse flex-col gap-6" role="status" aria-label={label}>
       <div className="flex items-center justify-between gap-2">
         <div className="h-9 w-9 rounded-md bg-muted" />
         <div className="h-6 w-32 rounded-md bg-muted" />
@@ -443,7 +443,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
         <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
       </div>
 
-      <Suspense fallback={<PersonalBudgetTabsSkeleton />}>
+      <Suspense fallback={<PersonalBudgetTabsSkeleton label={dict.common.loading} />}>
         <PersonalBudgetTabsSection
           userId={userId}
           dict={dict}

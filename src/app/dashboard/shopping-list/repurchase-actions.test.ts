@@ -33,7 +33,8 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("@/lib/inventory/repurchase-suggestions", () => ({ loadRepurchaseRhythm: loadRepurchaseRhythmMock }));
-vi.mock("@/lib/actions/errors", () => ({
+vi.mock("@/lib/actions/errors", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/actions/errors")>()),
   toFriendlyError: () => ({ error: "Something went wrong. Please try again." }),
 }));
 
