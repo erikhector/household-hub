@@ -5010,7 +5010,10 @@ version or the notes by hand.
   and a workflow one (v0.47.6, v0.47.8, v0.48.4). Only the workflow
   versions are tagged, and the in-PR ones aren't backfilled, since that
   would publish a second Release for the same PR. Releases are back to
-  after-merge only.
+  after-merge only. The stopgap was used once more, 2026-10-12 to
+  2026-10-13, when the Actions minutes ran out (v0.58.0 to v0.61.0, also
+  in INFRA-6). Making the repository public ended it: public
+  repositories get GitHub's standard runners free.
 - The pure logic (title parsing, bump, note extraction) lives in
   `src/lib/release-notes/release-calc.ts` with tests. It has no imports
   because `scripts/release.ts` runs it under Node's built-in type stripping
@@ -5872,8 +5875,9 @@ approximating them, so the email never disagrees with the app.
   minutes, with requests queued long enough to time out a 5 s wait). `next start` gets
   `AUTH_TRUST_HOST=true`, without which Auth.js rejects the localhost
   login callback. `.github/workflows/ci.yml` has it as a separate `e2e` job
-  with a Postgres service container, running on every PR and push to
-  `master` (`ci_gate: github` in AUTOPILOT.md). `npm run ci:local`
+  with a Postgres service container, running on PRs into `master` (the
+  release PR, see "Releases & What's new"; `ci_gate: github` in
+  AUTOPILOT.md). `npm run ci:local`
   (check + build + e2e) runs the same gate in a working session. In
   Claude Code on the web, `.claude/hooks/session-start.sh` starts the
   image's Postgres 16 and migrates it, so agents can run the suite too.
