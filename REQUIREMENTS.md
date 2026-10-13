@@ -5638,6 +5638,17 @@ approximating them, so the email never disagrees with the app.
   `text-overflow` only works on a block box, so don't put `flex` back on
   it; if a value ever needs an icon next to the text, wrap the text in its
   own `truncate` span. Covered by `e2e/select-ellipsis.desktop.spec.ts`.
+- **200% text size (UX-9)**: with the root font-size doubled (Android "Font
+  size", iOS Larger Text in the installed app) no page scrolls sideways on a
+  phone. Rows of fixed-width siblings wrap (`flex-wrap`: shopping item
+  controls, inventory card actions and stepper, meal planner header, landing
+  header), grids use `minmax(min(16rem,100%),1fr)` so a column never exceeds
+  the screen, user-text buttons (`Merge into <name>`, landing CTAs) opt out of
+  `Button`'s `whitespace-nowrap` with `h-auto whitespace-normal`, and
+  bottom-nav labels use `hyphens-auto` so a long word breaks at a syllable,
+  not mid-letter. Covered by `e2e/text-size.mobile.spec.ts`, which sets
+  `html { font-size: 200% }` and runs `expectNoHorizontalOverflow` on every
+  route in `e2e/routes.ts`, in English and Swedish.
 - Form fields never go below 16 px on touch screens (UX-10, UX-8): iOS zooms
   the page when a smaller field is focused, at any width (an iPad, a phone in
   landscape). `Input`, `Combobox`/`Autocomplete` input groups

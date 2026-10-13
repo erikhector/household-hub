@@ -274,28 +274,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-- [ ] **UX-9. Survive 200% text size** (high, M) — With root font-size at
-      200% (Android "Font size", iOS Larger Text in the PWA), these pages
-      scroll sideways or become unusable:
-      - **Shopping list detail (612 px wide).** The add-items field is
-        crushed to ~30 px by three fixed buttons, and "Match item" and
-        delete are pushed off-screen.
-      - **Meal planning (585 px).** "Jump to today" and "Add missing
-        ingredients…" are `nowrap`.
-      - **Inventory (449 px).** The stepper overlaps the info and "ban"
-        icons, the quantity disappears and delete is clipped.
-      - **Duplicates (425 px).** "Merge into …" doesn't wrap.
-      - **Landing (416 px).** Header "Log in" and the CTA.
-      - **Bottom-nav labels** break mid-word ("Inventor/y").
-
-      Fix: let rows wrap, give the add field its own row, put secondary
-      row actions in a ⋯ menu (as the inventory rows do), and size nav labels to avoid
-      mid-word breaks (`hyphens-auto`, or icon-only with `aria-label`
-      above ~1.5× text).
-
-      Acceptance: a spec sets `html { font-size: 200% }` and runs
-      `expectNoHorizontalOverflow` on every route in `e2e/routes.ts` on the
-      mobile project.
 
 - [ ] **UX-19. Touch-target overlaps and gaps** (high, M) — M3 failures
       that the guard misses:
@@ -1031,6 +1009,7 @@ credentials only the product owner can provision, or an architecture call.
       | v0.58.2 | #187 fix: screen-reader and small-screen semantics (UX-31) | 2026-10-12 | #187 |
       | v0.59.0 | #193 feat: copy a recipe as plain text (GAP-43) | 2026-10-12 | #193 |
       | v0.59.1 | #191 fix: show server-action errors and dialog labels in the user's language (UX-16) | 2026-10-13 | #191 |
+      | v0.59.2 | #192 fix: survive 200% text size without sideways scroll (UX-9) | 2026-10-13 | #192 |
 - [ ] **INFRA-5. True offline support** `[!]` — PWA installability and
       push are built, but `src/lib/service-worker.js` only handles
       `push`/`notificationclick`: no `fetch` handler, no Cache API, so a

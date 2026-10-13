@@ -238,7 +238,15 @@ function DuplicateGroupCard({ group, dict, locale }: { group: DuplicateGroup; di
         })}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="secondary" disabled={mergeIds.length === 0} onClick={() => setMergeOpen(true)}>
+        {/* UX-9: "Merge into <long name>" is user text, so at 200% text size it
+            has to wrap inside the button rather than push the page wide. */}
+        <Button
+          type="button"
+          variant="secondary"
+          className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 py-1 whitespace-normal"
+          disabled={mergeIds.length === 0}
+          onClick={() => setMergeOpen(true)}
+        >
           {format(plural(mergeIds.length, dict.mergeButton), { count: mergeIds.length, name: keeper.name })}
         </Button>
         <Button type="button" variant="outline" disabled={isPending} onClick={handleDismiss}>
