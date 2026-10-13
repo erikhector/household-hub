@@ -6,13 +6,12 @@ import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouc
 
 // UX-19 (M3): touch targets that were too small, overlapped or sat under 8 px
 // from their neighbour, in the places the per-control size guard couldn't see.
-// Phones only; a mouse keeps the denser sizing. The household is shared by the
-// desktop and mobile runs, so rows are named uniquely and the meal goes in a
-// far-future week of its own.
+// Phones only (hence `.mobile.spec.ts`); a mouse keeps the denser sizing. The
+// household is shared by every project that runs this spec, so rows are named
+// uniquely and the meal goes in a far-future week of its own.
 const suffix = () => Date.now().toString(36);
 
-test.beforeEach(async ({ context, baseURL }, testInfo) => {
-  test.skip(testInfo.project.name === "desktop", "M3 is a touch rule");
+test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 

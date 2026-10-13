@@ -5878,7 +5878,7 @@ approximating them, so the email never disagrees with the app.
   grow to hold two real 44 px buttons instead of overlapping padded
   icons. `expectTargetsApart(scope)` fails on overlaps or gaps under 8 px
   and is asserted on the meal row, the category chip and the 320 px
-  inventory page in `e2e/ux-19.spec.ts`.
+  inventory page in `e2e/ux-19.mobile.spec.ts`.
 - **Checkbox and date fields**: a checked `Checkbox` is filled with the
   primary colour and shows a white tick (the `checkbox-tick` utility in
   `globals.css`; an inline SVG class got split by `cn()` and left an empty
