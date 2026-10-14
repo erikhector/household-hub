@@ -139,12 +139,10 @@ export function ItemFormDialog({
   }, initialState);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} longForm>
       <DialogTrigger render={trigger} />
       <DialogContent
-        initialFocus={(interactionType) =>
-          interactionType === "touch" ? null : nameInputRef.current
-        }
+        initialFocus={nameInputRef}
       >
         <DialogHeader>
           <DialogTitle>{mode === "create" ? dict.addDialogTitle : dict.editDialogTitle}</DialogTitle>

@@ -530,13 +530,11 @@ export function RecipeFormDialog({
     );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} longForm>
       <DialogTrigger render={trigger} />
       <DialogContent
         className="sm:max-w-md"
-        initialFocus={(interactionType) =>
-          interactionType === "touch" ? null : nameInputRef.current
-        }
+        initialFocus={nameInputRef}
       >
         <DialogHeader>
           {step === "review" ? (

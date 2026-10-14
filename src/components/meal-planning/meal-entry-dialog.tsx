@@ -141,9 +141,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
         }
       />
       <DialogContent
-        initialFocus={(interactionType) =>
-          interactionType === "touch" ? null : freeformNameRef.current
-        }
+        initialFocus={freeformNameRef}
       >
         <DialogHeader>
           <DialogTitle>{isEdit ? dict.editMealDialogTitle : dict.addMealDialogTitle}</DialogTitle>
