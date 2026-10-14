@@ -14,7 +14,7 @@ import type { AutoAddedItem } from "@/lib/shopping/default-list";
 // bounds the transaction (one stock deduction per recipe) and the undo payload.
 export const MAX_PREP_DISHES = 5;
 
-// A plan covers at most four weeks of slots in one assignment.
+// At most 28 slots in one assignment: a full week of four meals a day.
 const MAX_ASSIGN_SLOTS = 28;
 
 // Same sanity bound as recipe-actions.ts / cooking-actions.ts. Kept local

@@ -7,7 +7,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Tab = "planner" | "recipes" | "cook" | "prep";
 
-// SCALE-J: the three tab bodies (and the variety/nutrition recaps above the tab bar)
+// SCALE-J: the tab bodies (and the variety/nutrition recaps above the tab bar)
 // are Server Components rendered by the page, each behind its own
 // `<Suspense>` — the same "Server Components passed as props to a Client
 // Component" pattern `BudgetTabs` uses (src/components/budget/budget-tabs.tsx),

@@ -13,9 +13,9 @@ import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashb
 import { expandRecipeIngredients, portionsMultiplier } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { CookedIngredientData } from "@/components/meal-planning/types";
 
-// Mirrors recipe-actions.ts's identical bounds on an ingredient's quantity,
-// name and unit — kept as its own copies here (rather than imported) to keep
-// this feature's action files self-contained.
+// Mirrors recipe-actions.ts's identical bound on an ingredient's quantity,
+// kept as its own copy here (rather than imported) to keep this feature's
+// action files self-contained.
 export const MAX_INGREDIENT_QUANTITY = 1_000_000;
 
 type CookedRow = { itemId: string; quantity: number };
