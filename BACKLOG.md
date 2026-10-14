@@ -414,8 +414,8 @@ benchmark is the best consumer apps on the same tasks:
 - **Copilot Money**: charts and numbers that feel alive.
 
 The UX items above make the app correct. These make it feel native and
-delightful. Today there are no view transitions, no swipe gestures, no
-haptics and no drag-to-dismiss sheets, the charts are hand-rolled
+delightful. Today there are no view transitions and no drag-to-dismiss
+sheets (swipe row actions shipped as UX-35), the charts are hand-rolled
 `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
@@ -447,16 +447,6 @@ decision and sit under "Needs a decision before building".
 
       Evaluate Base UI's own drawer primitive before writing pointer
       handling. Keep the close button, Escape and back gesture working.
-
-- [ ] **UX-35. Swipe row actions with haptics** (M) — On shopping, task and
-      inventory rows:
-      - swipe right to tick, complete or "+1";
-      - swipe left to reveal Delete (with an undo toast), or Edit.
-
-      The visible row buttons stay (M7). Fire `navigator.vibrate(10)` on
-      the commit threshold where supported (Android); iOS gets the visual
-      snap only. Keep clear of the 20 px screen edges, which belong to the
-      OS back gesture.
 
 - [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
       (AUTO-3) already groups by store order and holds a wake lock. Add:

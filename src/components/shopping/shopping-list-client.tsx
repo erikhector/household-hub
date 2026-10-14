@@ -64,6 +64,8 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
+import { SwipeRow } from "@/components/shared/swipe-row";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
@@ -854,153 +856,175 @@ function ShoppingRow({
       if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
     });
   };
+  // UX-35: swipe left → Delete hides the row with an Undo toast; the trash
+  // button below keeps its confirm dialog.
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteShoppingListItemAction(item.id), dict.saveFailedToast)) !== null,
+    message: format(dict.swipe.deletedToast, { name: item.name }),
+    undoLabel: dict.swipe.undo,
+  });
+
+  if (hidden) return null;
 
   return (
-    <div
-      ref={rowRef}
-      className={cn(
-        "flex flex-col gap-1 rounded-md border transition-colors duration-700",
-        // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
-        // mode) — rows are tapped one-handed, phone in the other hand, so
-        // this is when it matters most; a read-only list stays compact.
-        editable ? "px-3 py-3" : "px-3 py-2",
-        highlighted && "border-primary/50 bg-primary/10",
-      )}
+    <SwipeRow
+      className="rounded-md"
+      // A read-only (completed or archived) list has nothing to swipe to.
+      primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
+      primaryIcon={<Check className="size-4" />}
+      editLabel={editable ? dict.swipe.edit : undefined}
+      deleteLabel={dict.swipe.delete}
+      onDelete={editable ? remove : undefined}
+      disabled={isPending}
     >
-      {/* Below sm the row stacks: the name gets the full width on its own
-          line and the controls drop to a second line, indented under it.
-          On one line, the shrink-0 controls (category chip, price — wider
-          since GAP-13 added a currency symbol — edit, delete) left a phone
-          only a few pixels of truncated name, the one part of the row you
-          actually need to read in the aisle. */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-        <label
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-3",
-            // Stretches the label to the row's full height so tapping
-            // anywhere on the row (not just the checkbox glyph) toggles
-            // purchased — the label/input pairing (Checkbox is a native
-            // <input type="checkbox">) already gives this keyboard and
-            // screen-reader semantics for free, no extra handler needed.
-            editable && "cursor-pointer self-stretch max-sm:min-h-11 pointer-coarse:min-h-11",
-          )}
-        >
-          <Checkbox
-            checked={purchased}
-            disabled={isPending || !editable}
-            className={editable ? "size-5" : undefined}
-            onChange={handleTogglePurchased}
-          />
-          <span
-            className={`min-w-0 flex-1 break-words sm:truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
-            title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
+      <div
+        ref={rowRef}
+        className={cn(
+          "flex flex-col gap-1 rounded-md border transition-colors duration-700",
+          // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
+          // mode) — rows are tapped one-handed, phone in the other hand, so
+          // this is when it matters most; a read-only list stays compact.
+          editable ? "px-3 py-3" : "px-3 py-2",
+          highlighted && "border-primary/50 bg-primary/10",
+        )}
+      >
+        {/* Below sm the row stacks: the name gets the full width on its own
+            line and the controls drop to a second line, indented under it.
+            On one line, the shrink-0 controls (category chip, price — wider
+            since GAP-13 added a currency symbol — edit, delete) left a phone
+            only a few pixels of truncated name, the one part of the row you
+            actually need to read in the aisle. */}
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+          <label
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-3",
+              // Stretches the label to the row's full height so tapping
+              // anywhere on the row (not just the checkbox glyph) toggles
+              // purchased — the label/input pairing (Checkbox is a native
+              // <input type="checkbox">) already gives this keyboard and
+              // screen-reader semantics for free, no extra handler needed.
+              editable && "cursor-pointer self-stretch max-sm:min-h-11 pointer-coarse:min-h-11",
+            )}
           >
-            {item.name} × {item.quantity} {unitLabel(item.unit)}
-          </span>
-          {item.addedAutomatically && (
-            <Badge variant="secondary" className="shrink-0">
-              {dict.lowStockBadge}
-            </Badge>
-          )}
-          {awaitingPutAway && (
-            <Badge variant="outline" className="shrink-0">
-              {dict.putAway.awaitingBadge}
-            </Badge>
-          )}
-          {!editable && needsMapping && (
-            <Badge variant="outline" className="shrink-0 border-dashed">
-              {dict.needsMappingBadge}
-            </Badge>
-          )}
-        </label>
-        {/* Outside the label on purpose (AUTO-4) — anything inside it would
-            also toggle the checkbox on tap, since Checkbox is a native
-            <input> the label is already wired to. Rendered even on a
-            non-editable (view-only) row, just without the tap-to-correct
-            affordance, since the estimate itself is still worth showing. */}
-        <div className={cn("flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
-          {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
-              Only on an editable, linked row — an unlinked one has no
-              category yet (the mapping flow picks one), and a read-only
-              list already shows each row's category as its group header.
-              Rows under a group header skip it for the same reason
-              (UX-22), so it shows on the flat Purchased section. */}
-          {editable && item.category !== null && !groupedByCategory && (
-            <CategoryChip
-              itemId={item.id}
-              itemName={item.name}
-              category={item.category}
-              categories={categories}
-              disabled={isPending}
-              dict={dict.categoryChip}
+            <Checkbox
+              data-swipe-primary
+              checked={purchased}
+              disabled={isPending || !editable}
+              className={editable ? "size-5" : undefined}
+              onChange={handleTogglePurchased}
             />
-          )}
-          <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} />
-          {editable && (
-            <>
-              <ShoppingItemFormDialog
-                mode="edit"
-                item={item}
-                inventoryItems={inventoryItems}
+            <span
+              className={`min-w-0 flex-1 break-words sm:truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
+              title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
+            >
+              {item.name} × {item.quantity} {unitLabel(item.unit)}
+            </span>
+            {item.addedAutomatically && (
+              <Badge variant="secondary" className="shrink-0">
+                {dict.lowStockBadge}
+              </Badge>
+            )}
+            {awaitingPutAway && (
+              <Badge variant="outline" className="shrink-0">
+                {dict.putAway.awaitingBadge}
+              </Badge>
+            )}
+            {!editable && needsMapping && (
+              <Badge variant="outline" className="shrink-0 border-dashed">
+                {dict.needsMappingBadge}
+              </Badge>
+            )}
+          </label>
+          {/* Outside the label on purpose (AUTO-4) — anything inside it would
+              also toggle the checkbox on tap, since Checkbox is a native
+              <input> the label is already wired to. Rendered even on a
+              non-editable (view-only) row, just without the tap-to-correct
+              affordance, since the estimate itself is still worth showing. */}
+          <div className={cn("flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
+            {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
+                Only on an editable, linked row — an unlinked one has no
+                category yet (the mapping flow picks one), and a read-only
+                list already shows each row's category as its group header.
+                Rows under a group header skip it for the same reason
+                (UX-22), so it shows on the flat Purchased section. */}
+            {editable && item.category !== null && !groupedByCategory && (
+              <CategoryChip
+                itemId={item.id}
+                itemName={item.name}
+                category={item.category}
                 categories={categories}
-                units={units}
-                dict={dict}
-                editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
-                matchItemLabel={dict.matchItemButton}
+                disabled={isPending}
+                dict={dict.categoryChip}
               />
-              <ConfirmDialog
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 text-muted-foreground hover:text-destructive"
-                    disabled={isPending}
-                    aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                }
-                title={format(dict.confirmDeleteItem.title, { name: item.name })}
-                description={dict.confirmDeleteItem.description}
-                cancelLabel={dict.confirmDeleteItem.cancel}
-                confirmLabel={dict.confirmDeleteItem.confirm}
-                pendingLabel={dict.confirmDeleteItem.confirming}
-                onConfirm={() =>
-                  startTransition(async () => {
-                    const result = await deleteShoppingListItemAction(item.id);
-                    if (result.error) toast.error(result.error);
-                  })
-                }
-              />
-            </>
-          )}
+            )}
+            <PriceTag item={item} editable={editable} isPending={isPending} startTransition={startTransition} numberFormat={numberFormat} dict={dict} />
+            {editable && (
+              <>
+                <ShoppingItemFormDialog
+                  mode="edit"
+                  item={item}
+                  inventoryItems={inventoryItems}
+                  categories={categories}
+                  units={units}
+                  dict={dict}
+                  editAriaLabel={format(dict.editItemAriaLabel, { name: item.name })}
+                  matchItemLabel={dict.matchItemButton}
+                />
+                <ConfirmDialog
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      disabled={isPending}
+                      aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  }
+                  title={format(dict.confirmDeleteItem.title, { name: item.name })}
+                  description={dict.confirmDeleteItem.description}
+                  cancelLabel={dict.confirmDeleteItem.cancel}
+                  confirmLabel={dict.confirmDeleteItem.confirm}
+                  pendingLabel={dict.confirmDeleteItem.confirming}
+                  onConfirm={() =>
+                    startTransition(async () => {
+                      const result = await deleteShoppingListItemAction(item.id);
+                      if (result.error) toast.error(result.error);
+                    })
+                  }
+                />
+              </>
+            )}
+          </div>
         </div>
+        {/* GAP-5: the note as a muted second line, indented past the checkbox
+            (size-5 + gap-3 on an editable row, size-4 + gap-3 otherwise) so it
+            lines up under the item name. Outside the label so tapping it
+            doesn't toggle the row, and wrapped rather than truncated — unlike
+            the name, the note is the part someone needs to read in the aisle. */}
+        {item.note && (
+          <p
+            className={cn(
+              "text-xs break-words whitespace-pre-line text-muted-foreground",
+              editable ? "pl-8" : "pl-7",
+            )}
+          >
+            {item.note}
+          </p>
+        )}
+        {/* Persistent, always-visible explanation for as long as the item
+            stays unlinked — the "Match item" badge above (in
+            ShoppingItemFormDialog) is easy to miss on its own, so this spells
+            out the consequence (buying it won't update pantry stock) right
+            under the item the moment it's added, rather than only at
+            list-completion time (see unresolvedNotice). */}
+        {editable && needsMapping && (
+          <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
+        )}
       </div>
-      {/* GAP-5: the note as a muted second line, indented past the checkbox
-          (size-5 + gap-3 on an editable row, size-4 + gap-3 otherwise) so it
-          lines up under the item name. Outside the label so tapping it
-          doesn't toggle the row, and wrapped rather than truncated — unlike
-          the name, the note is the part someone needs to read in the aisle. */}
-      {item.note && (
-        <p
-          className={cn(
-            "text-xs break-words whitespace-pre-line text-muted-foreground",
-            editable ? "pl-8" : "pl-7",
-          )}
-        >
-          {item.note}
-        </p>
-      )}
-      {/* Persistent, always-visible explanation for as long as the item
-          stays unlinked — the "Match item" badge above (in
-          ShoppingItemFormDialog) is easy to miss on its own, so this spells
-          out the consequence (buying it won't update pantry stock) right
-          under the item the moment it's added, rather than only at
-          list-completion time (see unresolvedNotice). */}
-      {editable && needsMapping && (
-        <p className="pl-7 text-xs text-muted-foreground">{dict.needsMappingHint}</p>
-      )}
-    </div>
+    </SwipeRow>
   );
 }
 

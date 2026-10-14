@@ -5562,6 +5562,47 @@ than trust training data). `src/app/manifest.ts` is the app's manifest
 Covered by `e2e/ux-31.spec.ts` (the error boundary itself has no e2e: a
 render crash cannot be provoked from the UI).
 
+### Swipe row actions (UX-35)
+
+Shopping list rows (on an active list), task rows and the inventory phone
+cards answer a horizontal swipe, Todoist-style. Built as one shared wrapper,
+`SwipeRow` (`src/components/shared/swipe-row.tsx`), with its maths in
+`src/lib/swipe-row-calc.ts`. No gesture library.
+
+- **Swipe right** past 40% of the row runs the row's primary action:
+  tick (or untick) a shopping item, complete (or reopen) a task, +1 on an
+  inventory item. A coloured underlay with the action's name fills in
+  behind the row as it moves. On Android `navigator.vibrate(10)` buzzes
+  once as the swipe crosses the 40% line; iOS has no vibrate API and gets
+  the visual only.
+- **Swipe left** past half the tray's width leaves a tray open with
+  **Edit** and **Delete**. Any touch outside the row, or a tap on it,
+  closes the tray.
+  - Edit opens the row's usual edit dialog.
+  - Delete hides the row at once and shows a "Deleted "…"" toast with
+    **Undo** for 5 seconds. The delete only reaches the server when the
+    toast closes (times out or is swiped away), the page is hidden, or the
+    row unmounts. Undo just shows the row again, so no restore action
+    exists (`src/components/shared/deferred-delete.ts`,
+    `use-undoable-delete.ts`). If the browser is killed inside the
+    window, nothing was sent and the row is still there.
+- **Every swipe duplicates a visible button** (DESIGN.md M7), and the
+  swipe works by clicking that button: the elements marked
+  `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
+  optimistic update, rollback toast and disabled state as a tap. The
+  visible trash button keeps its confirm dialog: swipe-delete is the quick
+  path, the button the deliberate one.
+- **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
+  `touch-action: pan-y` leaves vertical scrolling to the browser, the
+  swipe only takes over once the finger has moved 8 px more sideways than
+  down, and a swipe that starts within 20 px of either screen edge is left
+  to the OS back gesture. Under reduced motion the snap back is instant
+  (the global rule from UX-29).
+
+Covered by `e2e/swipe-rows.mobile.spec.ts` (touch is driven through
+Chromium's DevTools protocol, since Playwright has no touch-drag API) and
+the unit tests beside `swipe-row-calc.ts` and `deferred-delete.ts`.
+
 ### Browser floor (UX-29)
 
 The minimum browser is whatever renders the design tokens: `oklch()` and
