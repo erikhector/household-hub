@@ -559,9 +559,12 @@ export async function fillEmptyDaysAction(
 const undoCopyWeekSchema = z.array(z.string().min(1)).min(1).max(500);
 
 // The Undo on copyWeekAction's toast. It only deletes entries that belong to
-// this household and haven't been marked cooked since. Cooking one of the
-// copied meals while the toast is still up means it's real now, and deleting
-// it would silently drop the record of that inventory decrement.
+// this household and haven't been marked cooked or linked to a prepared batch
+// since. Cooking one of the copied meals while the toast is still up means
+// it's real now, and deleting it would silently drop the record of that
+// inventory decrement. Linking one (GAP-49) is the same: the entry holds the
+// batch's portions, and deleting it would lose them, since only an unlink
+// hands portions back.
 export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionState> {
   const { household } = await requireHousehold();
 
@@ -569,7 +572,12 @@ export async function undoCopyWeekAction(entryIds: string[]): Promise<ActionStat
   if (!parsed.success) return await fail("invalidInput");
 
   await prisma.mealPlanEntry.deleteMany({
-    where: { id: { in: parsed.data }, consumedAt: null, mealPlan: { householdId: household.id } },
+    where: {
+      id: { in: parsed.data },
+      consumedAt: null,
+      preparedBatchId: null,
+      mealPlan: { householdId: household.id },
+    },
   });
 
   revalidatePath(MEAL_PLANNING_PATH);

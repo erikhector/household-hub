@@ -531,8 +531,25 @@ describe("undoCopyWeekAction", () => {
 
     expect(result).toEqual({});
     expect(mealPlanEntryDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["new-1", "new-2"] }, consumedAt: null, mealPlan: { householdId: "household-1" } },
+      where: {
+        id: { in: ["new-1", "new-2"] },
+        consumedAt: null,
+        preparedBatchId: null,
+        mealPlan: { householdId: "household-1" },
+      },
     });
+  });
+
+  // GAP-49: a copied entry linked to a prepared batch while the toast was up
+  // holds that batch's portions. Deleting it would lose them for good, since
+  // only an unlink hands portions back.
+  it("keeps a copied entry that was linked to a prepared batch since", async () => {
+    mealPlanEntryDeleteManyMock.mockResolvedValue({ count: 1 });
+
+    await undoCopyWeekAction(["new-1", "new-2"]);
+
+    const where = mealPlanEntryDeleteManyMock.mock.calls[0][0].where;
+    expect(where.preparedBatchId).toBeNull();
   });
 });
 
