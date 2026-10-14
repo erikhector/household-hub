@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type CategoryType = "INCOME" | "EXPENSE" | "SAVINGS";
 
@@ -330,7 +331,7 @@ function EditCategoryDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.categories.saving : dict.categories.save}
+              <PendingLabel pending={pending} busy={dict.categories.saving} idle={dict.categories.save} />
             </Button>
           </DialogFooter>
         </form>
@@ -419,7 +420,7 @@ export function AddCategoryDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.categories.adding : dict.categories.add}
+              <PendingLabel pending={pending} busy={dict.categories.adding} idle={dict.categories.add} />
             </Button>
           </DialogFooter>
         </form>

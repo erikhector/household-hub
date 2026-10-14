@@ -14,6 +14,7 @@ import { resendVerificationEmailForLoginAction, type ResendVerificationForLoginS
 import type { SignupState } from "@/lib/actions/auth";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 const initialState: SignupState = {};
 const initialResendState: ResendVerificationForLoginState = {};
@@ -146,7 +147,7 @@ export function JoinSignupForm({
         {legalDict.consentSuffix}
       </p>
       <Button type="submit" disabled={pending} className="w-full">
-        {pending ? dict.creating : dict.submit}
+        <PendingLabel pending={pending} busy={dict.creating} idle={dict.submit} />
       </Button>
       {/* Equal visual weight with the "create account" path above — an
           existing account is a real, first-class way through this page, not

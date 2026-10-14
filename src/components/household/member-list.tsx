@@ -18,6 +18,7 @@ import {
 import { leaveHouseholdAction, removeMemberAction, transferOwnershipAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type Member = {
   id: string;
@@ -166,7 +167,7 @@ export function MemberList({
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>{dict.transfer.cancel}</DialogClose>
             <Button disabled={isPending} onClick={handleTransfer}>
-              {isPending ? dict.transfer.transferring : dict.transfer.confirmButton}
+              <PendingLabel pending={isPending} busy={dict.transfer.transferring} idle={dict.transfer.confirmButton} />
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -181,7 +182,7 @@ export function MemberList({
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>{dict.leave.cancel}</DialogClose>
             <Button variant="destructive" disabled={isPending} onClick={handleLeave}>
-              {isPending ? dict.leave.leaving : dict.leave.confirmButton}
+              <PendingLabel pending={isPending} busy={dict.leave.leaving} idle={dict.leave.confirmButton} />
             </Button>
           </DialogFooter>
         </DialogContent>

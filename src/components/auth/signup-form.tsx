@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions/auth";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 const initialState: SignupState = {};
 const initialResendState: ResendVerificationForLoginState = {};
@@ -167,7 +168,7 @@ export function SignupForm({
       </p>
       <Button type="submit" disabled={pending} className="w-full">
         <Sparkles className="size-4" />
-        {pending ? dict.creating : dict.submit}
+        <PendingLabel pending={pending} busy={dict.creating} idle={dict.submit} />
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         {dict.haveAccount}{" "}

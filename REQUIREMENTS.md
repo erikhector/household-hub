@@ -5784,7 +5784,36 @@ body (`cards`, `rows`, `table` or `narrow`) close to the page's shape. It
 shows the moment a tab is tapped, and because the bottom bar's links are
 prefetched when they enter the viewport, the skeleton is already on hand.
 `src/app/loading-coverage.test.ts` fails when a dashboard feature route has
-no `loading.tsx`. Still open: see BACKLOG.md, UX-42.
+no `loading.tsx`. The nested detail pages (`shopping-list/[id]`,
+`inventory/items`, `inventory/items/[id]`) have one too, with `PageSkeleton`'s
+`back` prop adding the "back" link row they carry above the title; the
+coverage test walks nested folders.
+
+**Layout shift (UX-42).** `e2e/cls.spec.ts` reads the browser's
+`layout-shift` entries (what Lighthouse's CLS is made of, ignoring shifts
+within 500 ms of input) on a hard load of every dashboard route, on desktop
+and the Pixel 7 profile, and fails above 0.05. Locally every route measures
+0.0000, because the database is a few ms away and each Suspense section
+streams in before the first paint. Lighthouse itself isn't in the toolchain,
+and no run here has production latency, so the figure under real network and
+database delay is not measured; re-measure with Lighthouse's mobile profile
+against a deployed build before treating the acceptance as proven. The four
+`fallback={null}` slots above content (household `SharedWithNote`, inventory
+`InventoryWellStockedNote`, shopping list `RepurchaseSuggestionsSection`,
+the layout's email-verification banner) stay empty on purpose: each renders
+nothing in the common case (a solo household, a stock with something low, no
+suggestion, an already verified email), so a fixed-height placeholder would
+add a gap and a shift to every visit that has nothing to show. Reserve
+height for one only when a measurement shows it shifting.
+
+**Pending buttons keep their width.** `PendingLabel`
+(`src/components/ui/pending-label.tsx`) stacks the idle and pending labels
+in one grid cell and hides the inactive one with `invisible`, so a submit
+button reading "Saving…" is as wide as "Save changes" and nothing beside it
+moves; only the visible label is in the accessibility tree. Used by the
+text-swap submit buttons across the forms and dialogs;
+`e2e/pending-button-width.spec.ts` holds the server action and checks the
+width. Buttons that swap a spinner icon rather than text are unchanged.
 
 ## Testing
 

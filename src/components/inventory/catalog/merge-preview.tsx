@@ -15,6 +15,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { format, plural } from "@/lib/i18n/format";
 import { createMoneyFormat } from "@/lib/currency";
 import { useUnitLabel } from "@/components/units-provider";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
 type Counts = MergePreview["items"][number]["counts"];
@@ -201,7 +202,7 @@ export function MergePreviewBody({
           {copy.cancel}
         </Button>
         <Button type="button" variant="destructive" disabled={!ready || isPending} onClick={handleMerge}>
-          {isPending ? copy.merging : copy.merge}
+          <PendingLabel pending={isPending} busy={copy.merging} idle={copy.merge} />
         </Button>
       </DialogFooter>
     </>

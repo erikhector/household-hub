@@ -27,6 +27,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type ListSummary = {
   id: string;
@@ -80,7 +81,7 @@ export function NewListDialog({ dict, locale }: { dict: ShoppingListDict; locale
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.creating : dict.create}
+              <PendingLabel pending={pending} busy={dict.creating} idle={dict.create} />
             </Button>
           </DialogFooter>
         </form>

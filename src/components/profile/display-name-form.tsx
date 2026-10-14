@@ -9,6 +9,7 @@ import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updateProfileAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type FormState = { error?: string };
 
@@ -53,7 +54,7 @@ export function DisplayNameForm({
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
-        {pending ? dict.saving : dict.save}
+        <PendingLabel pending={pending} busy={dict.saving} idle={dict.save} />
       </Button>
     </form>
   );

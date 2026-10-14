@@ -38,6 +38,7 @@ import type { ActiveShoppingListOption, MissingIngredientData } from "@/componen
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -334,7 +335,7 @@ export function MissingIngredientsDialog({
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             <DialogFooter>
               <Button type="submit" disabled={pending || includedCount === 0}>
-                {pending ? dict.adding : dict.addMissingIngredientsSubmit}
+                <PendingLabel pending={pending} busy={dict.adding} idle={dict.addMissingIngredientsSubmit} />
               </Button>
             </DialogFooter>
           </form>

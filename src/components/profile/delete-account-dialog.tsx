@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { deleteAccountAction } from "@/app/dashboard/profile/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 // Mirrors DeleteHouseholdDialog's confirm-before-destroy shape
 // (src/components/household/delete-household-dialog.tsx), but the
@@ -78,7 +79,7 @@ export function DeleteAccountDialog({ dict }: { dict: Dictionary["profile"]["del
             onClick={handleDelete}
           >
             <Trash2 className="size-4" />
-            {isPending ? dict.deleting : dict.confirmButton}
+            <PendingLabel pending={isPending} busy={dict.deleting} idle={dict.confirmButton} />
           </Button>
         </DialogFooter>
       </DialogContent>

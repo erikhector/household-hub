@@ -18,6 +18,7 @@ import {
 import { deleteHouseholdAction, getHouseholdDeleteEligibilityAction } from "@/lib/actions/household";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export function DeleteHouseholdDialog({
   householdName,
@@ -108,7 +109,7 @@ export function DeleteHouseholdDialog({
               onClick={handleDelete}
             >
               <Trash2 className="size-4" />
-              {isPending ? dict.deleting : dict.confirmButton}
+              <PendingLabel pending={isPending} busy={dict.deleting} idle={dict.confirmButton} />
             </Button>
           </DialogFooter>
         </DialogContent>
