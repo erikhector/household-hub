@@ -16,10 +16,11 @@ export const getActiveBatches = cache(async (householdId: string): Promise<Prepa
     include: {
       recipe: { select: { name: true } },
       cookedByMember: { select: { user: { select: { displayName: true } } } },
-      // Every linked entry counts, consumed or not: an emptied batch whose
-      // last portions are planned (or just eaten) is still worth showing
-      // until isActiveBatch says otherwise.
-      _count: { select: { mealPlanEntries: true } },
+      // Only uneaten linked entries count: an emptied batch whose last
+      // portions are still planned is tomorrow's dinner and stays on the
+      // tab, but once every one of those meals is eaten the batch is done
+      // and isActiveBatch drops it.
+      _count: { select: { mealPlanEntries: { where: { consumedAt: null } } } },
     },
   });
 

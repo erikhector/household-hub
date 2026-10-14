@@ -34,15 +34,27 @@ function row(overrides: {
 }
 
 describe("getActiveBatches", () => {
-  it("scopes the query to the household and counts every linked entry", async () => {
+  it("scopes the query to the household and counts only uneaten linked entries", async () => {
     preparedBatchFindManyMock.mockResolvedValue([]);
     await getActiveBatches("household-1");
     expect(preparedBatchFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { householdId: "household-1" },
-        include: expect.objectContaining({ _count: { select: { mealPlanEntries: true } } }),
+        include: expect.objectContaining({
+          _count: { select: { mealPlanEntries: { where: { consumedAt: null } } } },
+        }),
       }),
     );
+  });
+
+  // An emptied batch whose every linked entry has been eaten is done: the
+  // query counts only uneaten entries, so its count comes back 0 and the
+  // filter drops it.
+  it("drops an empty batch whose linked entries were all eaten", async () => {
+    preparedBatchFindManyMock.mockResolvedValue([row({ id: "eaten", remainingPortions: 0, linked: 0 })]);
+    expect(await getActiveBatches("household-5")).toEqual([]);
+    const countArgs = preparedBatchFindManyMock.mock.calls[0][0].include._count.select.mealPlanEntries;
+    expect(countArgs).toEqual({ where: { consumedAt: null } });
   });
 
   it("drops an empty batch nothing is planned from, but keeps an empty planned one", async () => {

@@ -50,8 +50,8 @@ remaining count go down on assign and back up on unassign/delete.
   overridable per batch. Stored on `expiryDate`.
 - Bounds: 1–5 dishes per prep, 1–`MAX_LEFTOVER_SERVINGS` (100) portions per
   batch.
-- A batch is "active" while `remainingPortions > 0` or any entry still links
-  to it. Inactive batches are not shown anywhere; they are kept (no
+- A batch is "active" while `remainingPortions > 0` or any uneaten entry
+  (`consumedAt` null) still links to it. Inactive batches are not shown anywhere; they are kept (no
   background deletion) until discarded or until their recipe is deleted.
 
 ## Units

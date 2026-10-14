@@ -136,7 +136,7 @@ export type CookedIngredientData = {
 
 // GAP-49: one active PreparedBatch on the Prep tab — see getActiveBatches
 // (src/app/dashboard/meal-planning/prepared-batches.ts). Dates are ISO
-// instants; plannedCount is every meal-plan entry linked to the batch.
+// instants; plannedCount is every uneaten meal-plan entry linked to the batch.
 export type PreparedBatchData = {
   id: string;
   recipeId: string;

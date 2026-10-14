@@ -121,7 +121,9 @@ export function portionsAfterReturn(remaining: number, total: number, returned: 
 
 /**
  * A batch stays visible while it has portions left or is still planned
- * somewhere — an empty but planned batch is still tomorrow's dinner.
+ * somewhere — an empty but planned batch is still tomorrow's dinner. The
+ * caller passes the count of uneaten linked entries, so a batch whose last
+ * planned meals have all been eaten drops off.
  */
 export function isActiveBatch(remaining: number, linkedEntryCount: number): boolean {
   return remaining > 0 || linkedEntryCount > 0;

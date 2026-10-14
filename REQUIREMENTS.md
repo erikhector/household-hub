@@ -4115,7 +4115,8 @@ landed earlier (PR #179, see the data model above). No browser storage.
   are pure, in `prepared-batch-calc.ts` (`recordPrepSchema`,
   `assignPortionsSchema`, `portionsAfterReturn`, `isActiveBatch`, …,
   colocated tests). A batch is **active** while it has portions left or any
-  entry still links to it (eaten ones included); `getActiveBatches`
+  uneaten entry still links to it (once every linked meal is eaten, an
+  emptied batch is done); `getActiveBatches`
   (`prepared-batches.ts`, `cache()`-wrapped) loads only those, soonest
   eat-by first, then oldest cook. Inactive batches aren't shown anywhere
   and aren't cleaned up in the background; they go when discarded or with
