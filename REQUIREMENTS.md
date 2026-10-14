@@ -2146,6 +2146,22 @@ Component page function can't itself be unit-tested.
     other members or are owed, and their unpaid share of bills, with a
     "Settle up" link to that household's budget, Insights tab
     (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
+  - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
+    month totals and per-category bars come straight from the loader's
+    totals, so a split bill's share shows there as "<category> (Shared)".
+    The "Fixed income & costs" card (`computePersonalFixedInsights`,
+    `src/lib/personal-fixed-insights.ts`) adds the user's share of every
+    active shared recurring item (`sharedFixedTemplates`, the same shares as
+    above, due or not) to the fixed monthly totals, the recurring
+    income/costs breakdown ("<name> (Shared)") and so the
+    balanced/tight/deficit status; and their share of bills logged from a
+    household recurring item over the last 12 months to the trend chart.
+    That trend has its own query (the user's own `TransactionSplit` rows via
+    their memberships, `amountOwed > 0`), since it runs back from today
+    while the loader's split bills stop at the end of the viewed month.
+    Only the user's own share is ever read, never a whole bill or another
+    member's row. Personal savings goals still count only the user's own
+    transactions.
 - **The breakdown**: beneath the headline number, one line per term
   (income, expenses, savings, and — only when non-zero — expected income,
   owed from earlier months, due payments, due savings) adding up to
