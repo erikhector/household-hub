@@ -496,7 +496,15 @@ export function InventoryTable({
               </div>
             )}
             {group.items.map((item) => (
-              <SwipeableItemCard key={item.id} item={item} disabled={isPending} dict={dict}>
+              <SwipeableItemCard
+                key={item.id}
+                item={item}
+                disabled={isPending}
+                dict={dict}
+                onRemove={() => {
+                  if (selected.has(item.id)) toggleItem(item.id);
+                }}
+              >
                 <div
                   data-state={selected.has(item.id) ? "selected" : undefined}
                   className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
@@ -566,15 +574,20 @@ export function InventoryTable({
 // Delete with Undo (the ⋯ menu's Delete keeps its confirm dialog). Its own
 // component so each card gets its own useUndoableDelete. Phones only: the
 // desktop table is for a mouse, where SwipeRow does nothing anyway.
+// A hidden card also leaves the bulk selection (onRemove): the bulk bar must
+// not count an item the user can't see, and a bulk delete inside the Undo
+// window would race the deferred one.
 function SwipeableItemCard({
   item,
   disabled,
   dict,
+  onRemove,
   children,
 }: {
   item: InventoryItemRow;
   disabled: boolean;
   dict: Dictionary["inventory"];
+  onRemove: () => void;
   children: ReactNode;
 }) {
   const { hidden, remove } = useUndoableDelete({
@@ -591,7 +604,10 @@ function SwipeableItemCard({
       primaryIcon={<Plus className="size-4" />}
       editLabel={dict.swipe.edit}
       deleteLabel={dict.swipe.delete}
-      onDelete={remove}
+      onDelete={() => {
+        onRemove();
+        remove();
+      }}
       disabled={disabled}
     >
       {children}

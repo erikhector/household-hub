@@ -14,6 +14,9 @@ import {
 
 /** w-18, the width of each tray button. */
 const TRAY_BUTTON_PX = 72;
+/** gap-2 between them: M3's 8 px between neighbouring targets, so a thumb
+ * aimed at Edit doesn't land on Delete. */
+const TRAY_GAP_PX = 8;
 
 // UX-35: Todoist-style swipe actions on a list row, for touch only.
 //   - Swipe right past 40% of the row: its primary action (tick, complete,
@@ -70,7 +73,8 @@ export function SwipeRow({
   const canSwipeRight = primaryLabel !== undefined;
   const canSwipeLeft = editLabel !== undefined || onDelete !== undefined;
   // Fixed, not measured: the tray isn't rendered until the row moves.
-  const trayWidth = (editLabel !== undefined ? TRAY_BUTTON_PX : 0) + (onDelete ? TRAY_BUTTON_PX : 0);
+  const trayButtons = (editLabel !== undefined ? 1 : 0) + (onDelete ? 1 : 0);
+  const trayWidth = trayButtons * TRAY_BUTTON_PX + Math.max(trayButtons - 1, 0) * TRAY_GAP_PX;
 
   function geometry(): SwipeRowGeometry {
     return {
@@ -190,7 +194,7 @@ export function SwipeRow({
         </div>
       )}
       {canSwipeLeft && offset < 0 && (
-        <div className="absolute inset-y-0 right-0 flex bg-background">
+        <div className="absolute inset-y-0 right-0 flex gap-2 bg-background">
           {editLabel !== undefined && (
             <button
               type="button"
