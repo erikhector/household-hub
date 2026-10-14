@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -72,6 +72,15 @@ import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopp
 import type { StoreOrder } from "@/lib/shopping/store-order";
 import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
+import {
+  hasTicksInFlight,
+  NO_TICKS,
+  reconcileTicks,
+  shownPurchased,
+  tickSettled,
+  tickStarted,
+  type TickOverlay,
+} from "@/lib/shopping/tick-overlay";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
@@ -92,10 +101,6 @@ const ADDED_HIGHLIGHT_MS = 2000;
 // UX-37: how long a just-ticked row stays in its aisle, animating out,
 // before it moves into "In the cart". Matches the row's exit animation.
 const LEAVE_MS = 350;
-
-// useOptimistic's resting value: nothing toggled ahead of the server.
-// Module-level so it's the same Set on every render.
-const NO_TOGGLES: ReadonlySet<string> = new Set();
 
 type ShoppingListItemRow = {
   id: string;
@@ -197,25 +202,39 @@ export function ShoppingListClient({
   const numberFormat = createMoneyFormat(locale, currencyCode);
 
   // UX-14 + UX-37: ticking is instant. Every tick — a row's checkbox or the
-  // Next up dock — flips the row here, before the server answers, in one
-  // tick transition of its own rather than the list's shared one, so on weak
-  // in-store signal you can tick the next three items while the first save
-  // is still on its way, and nothing greys out meanwhile. The optimistic
-  // state is the set of rows toggled but not yet saved; a quick re-tap
-  // before the server answers takes the id back out, matching the two
-  // toggles it sends. It lives up here, not per row (as UX-14 had it),
-  // because a ticked row now *moves*: out of its aisle and into "In the
-  // cart" (and its dock button goes), and the ring and the all-done moment
-  // follow it at once. When the transition ends React drops the set and
-  // shows the server-rendered `purchased`, so a failed save puts the row
-  // back by itself; settleOptimisticAction adds the toast that says why.
-  const [isTicking, startTickTransition] = useTransition();
-  const [toggled, toggleOptimistic] = useOptimistic<ReadonlySet<string>, string>(NO_TOGGLES, (current, id) => {
-    const next = new Set(current);
-    if (!next.delete(id)) next.add(id);
-    return next;
+  // Next up dock — flips the row here, before the server answers, so on
+  // weak in-store signal you can tick the next three items while the first
+  // save is still on its way, and nothing greys out meanwhile. It lives up
+  // here, not per row (as UX-14 had it), because a ticked row now *moves*:
+  // out of its aisle and into "In the cart" (and its dock button goes), and
+  // the ring and the all-done moment follow it at once.
+  //
+  // Plain state (tick-overlay.ts), not useOptimistic in a transition: React
+  // 19 entangles concurrent async transitions, so one shared (or even
+  // per-row) optimistic transition only dropped a failed tick once *every*
+  // tick in flight had settled, leaving the row in "In the cart" after its
+  // save failed. Each tick now settles on its own: a failure puts its row
+  // back at once (settleOptimisticAction adds the toast that says why), and
+  // a success holds the tick until the revalidated list agrees.
+  const [ticks, setTicks] = useState<TickOverlay>(NO_TICKS);
+  // A new server list (a save's revalidation) retires the ticks it now
+  // agrees with: adjusted during render, React's pattern for state derived
+  // from a changed prop, so a saved row never shows one frame unticked.
+  const [reconciledItems, setReconciledItems] = useState(list.items);
+  if (reconciledItems !== list.items) {
+    setReconciledItems(list.items);
+    setTicks((current) => reconcileTicks(current, list.items));
+  }
+  // The latest server rows for a tick that settles after a re-render.
+  const serverItemsRef = useRef(list.items);
+  useEffect(() => {
+    serverItemsRef.current = list.items;
+  }, [list.items]);
+  const isTicking = hasTicksInFlight(ticks);
+  const items = list.items.map((item) => {
+    const purchased = shownPurchased(ticks, item.id, item.purchased);
+    return purchased === item.purchased ? item : { ...item, purchased };
   });
-  const items = list.items.map((item) => (toggled.has(item.id) ? { ...item, purchased: !item.purchased } : item));
 
   // Rows just ticked stay in their aisle for LEAVE_MS while they animate
   // out towards "In the cart", so the eye sees where they went. Skipped
@@ -244,14 +263,19 @@ export function ShoppingListClient({
     }
   };
 
+  // `item` is the row as shown (overlay applied); the overlay reads the
+  // server's own `purchased` for the row.
+  const serverPurchased = (id: string) => serverItemsRef.current.find((row) => row.id === id)?.purchased ?? false;
   const toggleItem = (item: ShoppingListItemRow) => {
     const ticking = !item.purchased;
     setLeavingRow(item.id, ticking && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    startTickTransition(async () => {
-      toggleOptimistic(item.id);
+    setTicks((current) => tickStarted(current, item.id, serverPurchased(item.id)));
+    void (async () => {
       const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
+      if (!result) setLeavingRow(item.id, false);
+      setTicks((current) => tickSettled(current, item.id, result !== null, serverPurchased(item.id)));
       if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
-    });
+    })();
   };
 
   const pendingItems = items.filter((item) => !item.purchased);

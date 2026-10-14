@@ -172,6 +172,63 @@ test("All done offers to put away what's still in the cart", async ({ page }) =>
   await expect(page.getByRole("dialog", { name: "Put away before you finish?" })).toBeVisible();
 });
 
+// Each tick settles on its own (DESIGN.md M5): with two saves in flight, the
+// one that fails rolls its row back into its aisle at once, without waiting
+// for the slow one. React 19 entangles concurrent async transitions, so the
+// old shared useOptimistic transition held the failed row in "In the cart"
+// until every tick had settled (tick-overlay.ts).
+test("a failed tick rolls back at once while another tick is still saving", async ({ page }) => {
+  const t = tag();
+  const slowName = `Bread ${t}`;
+  const failName = `Butter ${t}`;
+  const path = await seedList(t, [{ name: slowName }, { name: failName }, { name: `Jam ${t}` }]);
+  await page.goto(path);
+
+  const failItemId = `e2e-ux37-item-${t}-1`;
+  const slowItemId = `e2e-ux37-item-${t}-0`;
+  let releaseSlow!: () => void;
+  const slowHeld = new Promise<void>((resolve) => (releaseSlow = resolve));
+  let slowAnswered = false;
+  await page.route(path, async (route) => {
+    const request = route.request();
+    const body = request.postData() ?? "";
+    if (request.method() !== "POST" || !("next-action" in request.headers())) return route.continue();
+    if (body.includes(failItemId)) {
+      // Long enough for the second tap to start its own save behind this one.
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return route.abort("failed");
+    }
+    if (body.includes(slowItemId)) {
+      await slowHeld;
+      await route.continue();
+      slowAnswered = true;
+      return;
+    }
+    return route.continue();
+  });
+
+  const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName} ×`) });
+  const failing = page.getByRole("checkbox", { name: new RegExp(`^${failName} ×`) });
+  // Failing one first: Next.js sends a page's Server Actions one at a time,
+  // so its request goes (and fails after a second) while the slow one,
+  // tapped right after, waits behind it and is then held below. Both saves
+  // are in flight when the first one fails.
+  await failing.click();
+  await slow.click();
+
+  // The failed one is back in its aisle, unticked, with the save-failed
+  // toast, while the slow save is still being held.
+  await expect(failing).toBeVisible();
+  await expect(failing).not.toBeChecked();
+  await expect(page.getByRole("listitem").filter({ hasText: "Couldn't save that." })).toBeVisible();
+  expect(slowAnswered, "the slow save is still in flight").toBe(false);
+  // ...and the slow one still shows as ticked (in the cart).
+  await expect(slow).toBeHidden();
+
+  releaseSlow();
+  await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
+});
+
 // A row added from the smart-add box scrolls into view above the phone dock,
 // not behind it: main's scroll-padding only clears the BottomNav, so the
 // rows carry a scroll-margin the dock's height (--shopping-dock).

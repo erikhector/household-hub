@@ -842,9 +842,16 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       label/input pairing; the controls column (price, edit, delete) sits
       above it at `z-10`.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
-      row into `ShoppingListClient` (`useOptimistic` over the set of rows
-      toggled but not yet saved, in one tick transition separate from the
-      list's own), because a ticked row now changes section. It stays in
+      row into `ShoppingListClient`, because a ticked row now changes
+      section. It's plain state, not `useOptimistic`: React 19 entangles
+      concurrent async transitions, so an optimistic tick only rolled back
+      once every tick in flight had settled. `src/lib/shopping/tick-overlay.ts`
+      (unit-tested) keeps, per row, what it should show and how many toggles
+      are in flight; each tick settles on its own, so a failed save puts
+      its row back at once (with the save-failed toast) while other saves
+      are still pending, and a saved tick holds until the revalidated list
+      agrees. "Put things away"/"Done shopping" wait while any toggle is in
+      flight. It stays in
       its aisle for 350 ms animating down and out, then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that
       pops on each arrival; the rows stay mounted under `hidden`). A
@@ -873,7 +880,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
       the bottom half of a phone screen with no scrolling, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
-      the dock).
+      the dock, a failed tick rolling back while a slower one is still
+      saving).
   - *Bundle size (PERF-6)*: matching a category label in either locale
     (above) used to mean `shopping-mode-grouping.ts` imported the full
     `en`/`sv` dictionaries, which — since that module is reachable from the
