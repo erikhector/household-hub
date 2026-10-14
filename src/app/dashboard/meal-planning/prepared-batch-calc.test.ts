@@ -100,6 +100,8 @@ describe("prepUndoSchema / discardSnapshotSchema", () => {
     expect(prepUndoSchema.parse(undo)).toEqual(undo);
     expect(discardSnapshotSchema.parse(snapshot)).toEqual(snapshot);
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, expiryDate: null } }).success).toBe(true);
+    // A batch whose cook has left the household (cookedByMemberId SetNull).
+    expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, cookedByMemberId: null } }).success).toBe(true);
   });
   it("rejects a non-ISO date", () => {
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, cookedAt: "yesterday" } }).success).toBe(false);

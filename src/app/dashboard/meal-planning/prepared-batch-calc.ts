@@ -146,7 +146,8 @@ export type DiscardSnapshot = {
   batch: {
     id: string;
     recipeId: string;
-    cookedByMemberId: string;
+    // Null once the cook has left the household (PreparedBatch's SetNull).
+    cookedByMemberId: string | null;
     totalPortions: number;
     remainingPortions: number;
     cookedAt: string;
@@ -159,7 +160,7 @@ export const discardSnapshotSchema = z.object({
   batch: z.object({
     id: z.string().min(1),
     recipeId: z.string().min(1),
-    cookedByMemberId: z.string().min(1),
+    cookedByMemberId: z.string().min(1).nullable(),
     totalPortions: z.number().int().min(1).max(MAX_LEFTOVER_SERVINGS),
     remainingPortions: z.number().int().min(0).max(MAX_LEFTOVER_SERVINGS),
     cookedAt: isoInstant,

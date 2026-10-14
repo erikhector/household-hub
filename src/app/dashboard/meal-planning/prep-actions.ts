@@ -22,13 +22,22 @@ import {
   previewCookedIngredientsForRecipe,
 } from "@/app/dashboard/meal-planning/cook-inventory";
 import {
+  assignPortionsSchema,
   defaultBatchExpiry,
+  discardSnapshotSchema,
+  portionsAfterReturn,
   prepUndoSchema,
   recordPrepSchema,
+  type DiscardSnapshot,
   type PrepUndo,
 } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { parseDateKey } from "@/app/dashboard/meal-planning/date-utils";
-import { findSessionMemberId } from "@/app/dashboard/meal-planning/prep-assign";
+import {
+  assignInTx,
+  findSessionMemberId,
+  PrepAssignError,
+  type AssignSlot,
+} from "@/app/dashboard/meal-planning/prep-assign";
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
@@ -219,6 +228,230 @@ export async function undoRecordPrepAction(undo: PrepUndo): Promise<ActionState>
 
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard/inventory");
+  revalidatePath("/dashboard");
+  return {};
+}
+
+// --- Assign / unassign batch portions -----------------------------------------
+//
+// Handing a batch's portions out to planner slots. The arithmetic and slot
+// rules live in prep-assign.ts's assignInTx, which addMealEntryAction reuses
+// when a meal is added straight from a batch.
+export async function assignBatchPortionsAction(input: {
+  batchId: string;
+  slots: AssignSlot[];
+}): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = assignPortionsSchema.safeParse(input);
+  if (!parsed.success) return await zodFail(parsed.error);
+  const { batchId, slots } = parsed.data;
+
+  const batch = await prisma.preparedBatch.findFirst({
+    where: { id: batchId, householdId: household.id },
+    select: { id: true, recipeId: true },
+  });
+  if (!batch) return await fail("prepBatchNotFound");
+
+  try {
+    await prisma.$transaction((tx) => assignInTx(tx, household.id, batch, slots));
+  } catch (error) {
+    // Expected outcomes (out of portions, slot taken) roll the transaction
+    // back like any error, but are the household's to fix, not a bug.
+    if (error instanceof PrepAssignError) return await fail(error.key);
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
+  return {};
+}
+
+// Gives an entry's portions back to its batch and keeps the meal planned
+// (it just cooks fresh again). A missing, unlinked or cooked entry is a
+// no-op, as deleteMealEntryAction treats a missing entry: the button that
+// sent it is stale, and there's nothing to give back. A cooked meal ate its
+// portions, so they stay eaten.
+export async function unassignBatchPortionAction(entryId: string): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const entry = await prisma.mealPlanEntry.findFirst({
+    where: { id: entryId, mealPlan: { householdId: household.id } },
+    select: { id: true, preparedBatchId: true, preparedPortionsUsed: true, consumedAt: true },
+  });
+  if (!entry || entry.consumedAt) return {};
+  // A null batch with portions still counted means the batch went with its
+  // recipe (SetNull); the entry is still reset so the pair is back in step.
+  if (entry.preparedBatchId === null && entry.preparedPortionsUsed === 0) return {};
+  const { preparedBatchId, preparedPortionsUsed } = entry;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // The reset goes first and is guarded on the values just read, so a
+      // double-clicked Unplan returns the portions once: the second one
+      // matches no row and stops here.
+      const reset = await tx.mealPlanEntry.updateMany({
+        where: { id: entry.id, preparedBatchId, preparedPortionsUsed, consumedAt: null },
+        data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+      });
+      if (reset.count === 0 || preparedBatchId === null) return;
+
+      const batch = await tx.preparedBatch.findFirst({
+        where: { id: preparedBatchId, householdId: household.id },
+        select: { remainingPortions: true, totalPortions: true },
+      });
+      if (!batch) return;
+      await tx.preparedBatch.updateMany({
+        where: { id: preparedBatchId, householdId: household.id },
+        data: {
+          remainingPortions: portionsAfterReturn(batch.remainingPortions, batch.totalPortions, preparedPortionsUsed),
+        },
+      });
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
+  return {};
+}
+
+// --- Discard a batch and its Undo ---------------------------------------------
+//
+// Throwing a batch away keeps every meal planned from it (they keep their
+// recipe and just stop eating from the batch). The returned snapshot is
+// everything undoDiscardBatchAction needs to put it back, for the toast.
+export async function discardBatchAction(
+  batchId: string,
+): Promise<ActionState & { snapshot?: DiscardSnapshot }> {
+  const { household } = await requireHousehold();
+
+  let snapshot: DiscardSnapshot | null = null;
+  try {
+    await prisma.$transaction(async (tx) => {
+      const batch = await tx.preparedBatch.findFirst({
+        where: { id: batchId, householdId: household.id },
+        select: {
+          id: true,
+          recipeId: true,
+          cookedByMemberId: true,
+          totalPortions: true,
+          remainingPortions: true,
+          cookedAt: true,
+          expiryDate: true,
+        },
+      });
+      if (!batch) return;
+
+      const linkedWhere = { preparedBatchId: batch.id, mealPlan: { householdId: household.id } };
+      const entries = await tx.mealPlanEntry.findMany({
+        where: linkedWhere,
+        select: { id: true, preparedPortionsUsed: true },
+      });
+      // The FK's SetNull would clear the link on delete anyway; resetting
+      // here also zeroes preparedPortionsUsed so the pair stays in step.
+      await tx.mealPlanEntry.updateMany({
+        where: linkedWhere,
+        data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+      });
+      await tx.preparedBatch.deleteMany({ where: { id: batch.id, householdId: household.id } });
+
+      snapshot = {
+        batch: {
+          ...batch,
+          cookedAt: batch.cookedAt.toISOString(),
+          expiryDate: batch.expiryDate?.toISOString() ?? null,
+        },
+        // A linked entry that drew nothing has nothing to restore (and the
+        // snapshot schema only takes positive portions).
+        entries: entries
+          .filter((e) => e.preparedPortionsUsed > 0)
+          .map((e) => ({ id: e.id, portions: e.preparedPortionsUsed })),
+      };
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+  if (!snapshot) return await fail("prepBatchNotFound");
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
+  return { snapshot };
+}
+
+// Puts a discarded batch back under its old id and re-links the meals that
+// were eating from it. Like undoRecordPrepAction, a malformed snapshot (or
+// one that no longer fits: recipe deleted, batch already restored) is a
+// silent no-op rather than an error in the toast.
+export async function undoDiscardBatchAction(snapshot: DiscardSnapshot): Promise<ActionState> {
+  const { household } = await requireHousehold();
+
+  const parsed = discardSnapshotSchema.safeParse(snapshot);
+  if (!parsed.success) return {};
+  const { batch, entries } = parsed.data;
+
+  // The snapshot round-trips through the client, so its recipe and cook are
+  // re-checked against this household rather than trusted.
+  const recipe = await prisma.recipe.findFirst({
+    where: { id: batch.recipeId, householdId: household.id },
+    select: { id: true },
+  });
+  if (!recipe) return {};
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // A repeated Undo finds the batch already back; an id that belongs to
+      // some other row is left alone the same way.
+      const existing = await tx.preparedBatch.findUnique({ where: { id: batch.id }, select: { id: true } });
+      if (existing) return;
+
+      const cook = batch.cookedByMemberId
+        ? await tx.householdMember.findFirst({
+            where: { id: batch.cookedByMemberId, householdId: household.id },
+            select: { id: true },
+          })
+        : null;
+
+      await tx.preparedBatch.create({
+        data: {
+          id: batch.id,
+          householdId: household.id,
+          recipeId: batch.recipeId,
+          cookedByMemberId: cook?.id ?? null,
+          totalPortions: batch.totalPortions,
+          remainingPortions: batch.remainingPortions,
+          cookedAt: new Date(batch.cookedAt),
+          expiryDate: batch.expiryDate ? new Date(batch.expiryDate) : null,
+        },
+      });
+
+      // Only entries that are still this household's and still free are
+      // re-linked; one deleted or planned from another batch since keeps
+      // its new state, and its portions go back to the batch instead of
+      // vanishing.
+      let unclaimed = 0;
+      for (const entry of entries) {
+        const relinked = await tx.mealPlanEntry.updateMany({
+          where: { id: entry.id, mealPlan: { householdId: household.id }, preparedBatchId: null },
+          data: { preparedBatchId: batch.id, preparedPortionsUsed: entry.portions },
+        });
+        if (relinked.count === 0) unclaimed += entry.portions;
+      }
+      if (unclaimed > 0) {
+        await tx.preparedBatch.updateMany({
+          where: { id: batch.id, householdId: household.id },
+          data: {
+            remainingPortions: portionsAfterReturn(batch.remainingPortions, batch.totalPortions, unclaimed),
+          },
+        });
+      }
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
 }
