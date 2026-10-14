@@ -7,6 +7,6 @@ import type { Locale } from "@/lib/i18n/locales";
 // pulling both whole dictionaries into the browser bundle. en.ts and sv.ts
 // use these as `common`, so there is still one source per language.
 export const commonCopy: Record<Locale, { loading: string; close: string; expandSheet: string; collapseSheet: string }> = {
-  en: { loading: "Loading", close: "Close", expandSheet: "Show full sheet", collapseSheet: "Show half sheet" },
-  sv: { loading: "Laddar", close: "Stäng", expandSheet: "Visa hela", collapseSheet: "Visa halva" },
+  en: { loading: "Loading", close: "Close", expandSheet: "Expand sheet", collapseSheet: "Collapse sheet" },
+  sv: { loading: "Laddar", close: "Stäng", expandSheet: "Fäll ut arket", collapseSheet: "Fäll ihop arket" },
 };

@@ -4983,7 +4983,7 @@ components directly.
     opens full; a drag down rests at half (to peek at the page behind) and
     a further drag dismisses. At half, the sticky footer is lifted by the
     snap offset (`--drawer-snap-point-offset`, copied to an inheriting `--sheet-snap-offset` since Base UI registers its own with `inherits: false`), so Save stays on screen.
-    The grabber of a long form is a button ("Show half sheet" / "Show full
+    The grabber of a long form is a button ("Collapse sheet" / "Expand
     sheet") that does the same, so the gesture isn't the only way (M7).
   - **Background scale-down**: `SheetIndent`
     (`src/components/ui/sheet-indent.tsx`, wrapping the page in the root
