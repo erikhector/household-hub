@@ -49,16 +49,18 @@ const suffix = () => `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().t
 
 // A two-serving recipe whose one ingredient (100 g) is linked to an
 // inventory item holding 1000 g, so recording a batch takes something off
-// inventory and the spec can check that eating it takes nothing more.
-async function seedRecipe(recipeName: string) {
+// inventory and the spec can check that eating it takes nothing more. A
+// `lowStockThreshold` above 900 makes a two-portion prep cross the item
+// into low stock, so AUTO-8 puts it on "Next shop".
+async function seedRecipe(recipeName: string, lowStockThreshold = 1) {
   const id = suffix();
   const recipeId = `e2e-prep-recipe-${id}`;
   const itemId = `e2e-prep-item-${id}`;
   await withClient(async (client) => {
     await client.query(
-      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "updatedAt")
-       VALUES ($1, $2, $3, 'Pantry', 1000, 'g', now())`,
-      [itemId, E2E_HOUSEHOLD.id, `Rice ${id}`],
+      `INSERT INTO "InventoryItem" (id, "householdId", name, category, quantity, unit, "lowStockThreshold", "updatedAt")
+       VALUES ($1, $2, $3, 'Pantry', 1000, 'g', $4, now())`,
+      [itemId, E2E_HOUSEHOLD.id, `Rice ${id}`, lowStockThreshold],
     );
     await client.query(`INSERT INTO "Recipe" (id, "householdId", name, servings) VALUES ($1, $2, $3, 2)`, [
       recipeId,
@@ -322,6 +324,84 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
         `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
          WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,
         [E2E_HOUSEHOLD.id, recipeId],
+      );
+      await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+    });
+  }
+});
+
+// Undo record prep is refused once a portion is planned, and then must leave
+// the AUTO-8 "Next shop" row the prep added alone: the prep stays real, so
+// the item is still low. The portion is planned straight in the database
+// while the toast is up, since planning through the UI closes the toast.
+// With every portion planned, the card's Plan portions is disabled.
+test("a refused Undo record prep keeps what it put on Next shop", async ({ page }) => {
+  const recipeName = unique("Prep stew");
+  const { recipeId, itemId } = await seedRecipe(recipeName, 950);
+  const day = weekAhead(70 + Math.floor(Math.random() * 40));
+  const pendingRows = () =>
+    withClient(async (client) => {
+      const { rows } = await client.query(
+        `SELECT count(*)::int AS n FROM "ShoppingListItem" row
+         JOIN "ShoppingList" list ON list.id = row."shoppingListId"
+         WHERE list."householdId" = $1 AND row."inventoryItemId" = $2 AND NOT row.purchased`,
+        [E2E_HOUSEHOLD.id, itemId],
+      );
+      return rows[0].n as number;
+    });
+
+  try {
+    await page.goto("/dashboard/meal-planning?tab=prep");
+    await recordPrep(page, recipeName, 2);
+    const toast = page.getByRole("listitem").filter({ hasText: "Recorded 1 dish · 2 portions" });
+    await expect(toast).toBeVisible();
+    expect(await itemQuantity(itemId)).toBe(900);
+    expect(await pendingRows()).toBe(1);
+
+    // Someone plans both portions while the toast is still up.
+    const id = suffix();
+    await withClient(async (client) => {
+      await client.query(
+        `INSERT INTO "MealPlan" (id, "householdId", "weekStartDate") VALUES ($1, $2, $3)
+         ON CONFLICT ("householdId", "weekStartDate") DO NOTHING`,
+        [`e2e-prep-plan-${id}`, E2E_HOUSEHOLD.id, day],
+      );
+      const { rows } = await client.query(
+        `UPDATE "PreparedBatch" SET "remainingPortions" = "remainingPortions" - 2
+         WHERE "recipeId" = $1 AND "householdId" = $2 RETURNING id`,
+        [recipeId, E2E_HOUSEHOLD.id],
+      );
+      await client.query(
+        `INSERT INTO "MealPlanEntry" (id, "mealPlanId", date, "mealType", "recipeId", portions,
+           "preparedBatchId", "preparedPortionsUsed")
+         SELECT $1, plan.id, $2, 'DINNER', $3, 2, $4, 2
+         FROM "MealPlan" plan WHERE plan."householdId" = $5 AND plan."weekStartDate" = $2`,
+        [`e2e-prep-entry-${id}`, day, recipeId, rows[0].id, E2E_HOUSEHOLD.id],
+      );
+    });
+
+    await toast.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByText("Some of these portions are already planned. Unplan them first.")).toBeVisible();
+
+    // Nothing was undone: the batch, the deduction and the Next shop row stay.
+    // The emptied batch stays on the tab while its meal is uneaten, but has
+    // nothing left to plan.
+    await page.reload();
+    await expect(batchCard(page, recipeName)).toContainText("0 of 2 portions left");
+    await expect(batchCard(page, recipeName).getByRole("button", { name: "Plan portions" })).toBeDisabled();
+    expect(await itemQuantity(itemId)).toBe(900);
+    expect(await pendingRows()).toBe(1);
+  } finally {
+    await withClient(async (client) => {
+      await client.query(
+        `DELETE FROM "MealPlanEntry" entry USING "MealPlan" plan
+         WHERE entry."mealPlanId" = plan.id AND plan."householdId" = $1 AND entry."recipeId" = $2`,
+        [E2E_HOUSEHOLD.id, recipeId],
+      );
+      await client.query(
+        `DELETE FROM "ShoppingListItem" row USING "ShoppingList" list
+         WHERE row."shoppingListId" = list.id AND list."householdId" = $1 AND row."inventoryItemId" = $2`,
+        [E2E_HOUSEHOLD.id, itemId],
       );
       await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
     });

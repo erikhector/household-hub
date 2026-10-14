@@ -188,7 +188,14 @@ function BatchCard({
 
       {/* M2: Discard sits at the far end, away from Plan portions. */}
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="secondary" onClick={() => onPlanPortions(batch)}>
+        {/* Nothing left to hand out: a batch whose last portions are all
+            planned stays on the tab, but there's nothing more to plan. */}
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={batch.remainingPortions === 0}
+          onClick={() => onPlanPortions(batch)}
+        >
           <CalendarPlus />
           {dict.prepPlanPortions}
         </Button>

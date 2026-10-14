@@ -113,20 +113,25 @@ export function RecordPrepDialog({
             label: dict.prepUndo,
             onClick: () => {
               // As Mark as cooked: undoing the prep also takes anything it
-              // pushed onto "Next shop" (AUTO-8) back off the list.
-              void Promise.all([
-                undoRecordPrepAction(undo),
-                undo.autoAdded.length > 0
-                  ? undoAutoAddedItemsAction(undo.autoAdded.map((added) => added.shoppingListItemId))
-                  : Promise.resolve<ActionState>({}),
-              ]).then(([undoResult, undoAutoAddResult]) => {
-                const error = undoResult.error ?? undoAutoAddResult.error;
-                if (error) toast.error(error);
-                else {
-                  toast.success(dict.prepRecordUndoneToast);
-                  router.refresh();
+              // pushed onto "Next shop" (AUTO-8) back off the list. In
+              // sequence, not in parallel: the prep undo can be refused
+              // (a portion is planned already), and then the prep stands
+              // and its items are still low, so their rows must stay.
+              void (async () => {
+                const undoResult = await undoRecordPrepAction(undo);
+                if (undoResult.error) {
+                  toast.error(undoResult.error);
+                  return;
                 }
-              });
+                const undoAutoAddResult: ActionState =
+                  undo.autoAdded.length > 0
+                    ? await undoAutoAddedItemsAction(undo.autoAdded.map((added) => added.shoppingListItemId))
+                    : {};
+                if (undoAutoAddResult.error) toast.error(undoAutoAddResult.error);
+                else toast.success(dict.prepRecordUndoneToast);
+                // The prep itself was undone either way.
+                router.refresh();
+              })();
             },
           },
         },
