@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.63.0",
+    "date": "2026-10-14",
+    "pr": 215,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Planning a week is quicker: \"Fill empty days\" in the planner menu suggests a dinner from your favorite recipes for each empty day. Swap any suggestion, then add them all in one tap, and undo if you change your mind.",
+      "sv": "Det går snabbare att planera veckan: \"Fyll tomma dagar\" i planerarens meny föreslår en middag från dina favoritrecept för varje tom dag. Byt ut förslag du inte gillar, lägg till alla med ett tryck och ångra om du ändrar dig."
+    }
+  },
+  {
     "version": "0.62.0",
     "date": "2026-10-14",
     "pr": 211,
