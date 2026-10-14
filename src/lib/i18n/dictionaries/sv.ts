@@ -23,6 +23,7 @@ export const sv = {
     invalidDate: "Ogiltigt datum",
     prepPortionsInvalid: "Ange 1 till 100 portioner",
     prepTooManyDishes: "Du kan förbereda högst 5 rätter åt gången",
+    prepUndoAlreadyPlanned: "Några av portionerna är redan planerade. Ta bort dem från planen först.",
     invalidWeek: "Ogiltig vecka",
     invalidDateRange: "Ogiltigt datumintervall",
     invalidSectionOrder: "Ogiltig ordning på avdelningarna",

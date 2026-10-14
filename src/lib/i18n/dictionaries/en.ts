@@ -28,6 +28,7 @@ export const en = {
     invalidDate: "Invalid date",
     prepPortionsInvalid: "Enter 1 to 100 portions",
     prepTooManyDishes: "You can prep up to 5 dishes at once",
+    prepUndoAlreadyPlanned: "Some of these portions are already planned. Unplan them first.",
     invalidWeek: "Invalid week",
     invalidDateRange: "Invalid date range",
     invalidSectionOrder: "Invalid section order",
