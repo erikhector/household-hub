@@ -39,7 +39,11 @@ export function ProjectionChart({
   const { daysInMonth, daysElapsed, start, actual, dailyPace, projected } = projection;
   const today = actual[actual.length - 1];
   const values = [start, ...actual, projected];
-  const min = Math.min(0, ...values);
+  // Scaled to the line itself, not from zero: a healthy month whose
+  // balance moves a few percent would otherwise draw as a flat line along
+  // the top. Zero only enters the scale (and gets a baseline) once the
+  // line actually goes below it.
+  const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
   const x = (day: number) => PAD + (day / daysInMonth) * (WIDTH - PAD * 2);
@@ -55,7 +59,7 @@ export function ProjectionChart({
       <p className="text-xs font-medium text-muted-foreground">{dict.projectionTitle}</p>
       <div aria-hidden className="relative">
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" className="h-16 w-full">
-          {min < 0 && (
+          {min < 0 && max > 0 && (
             <line
               x1={PAD}
               x2={WIDTH - PAD}
