@@ -765,30 +765,6 @@ out to be a product-scope question rather than a scoped task should move to
       duplicates a seeded recipe and asserts both appear after reload, on
       desktop and mobile.
 
-- [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
-      _Schema slice landed (PR #179): `PreparedBatch` and the two
-      `MealPlanEntry` fields exist; actions, UI and tests below are still
-      to do._
-      Households often batch-cook (e.g. "8 portions chicken & rice") and
-      re-use those portions across the week's meal plan. Add a Meal-Prep
-      mode to record cooked batches, distribute portions to planner days,
-      and track remaining prepped servings so inventory and meal-plan stay
-      in sync.
-      - Data model: `PreparedBatch { recipeId, cookedByMemberId, totalPortions,
-        remainingPortions, cookedAt, expiryDate? }` and links from a
-        `MealPlanEntry` to a `PreparedBatch` portion when used.
-      - UX: a "Mark cooked (batch)" flow that records N portions, shows
-        a picker to distribute portions onto planned meals (or attach later),
-        and a dashboard card listing active batches and remaining portions.
-      - Behaviour: using a prepped portion on the planner decrements
-        `remainingPortions`; deleting an entry returns the portion; mark-as-eaten
-        optionally decrements inventory separately per ingredient (opt-in).
-      Acceptance: create a prepared batch, assign some portions to planner
-      days, see the remaining count update when portions are used or
-      unassigned; unit tests for the decrement/return logic, and an e2e
-      flow that cooks a batch, assigns portions and consumes one on both
-      desktop and mobile.
-
 ### 2026-10-12 scan
 
 - [ ] **GAP-50. Step timers in Cook mode** (impact: med, effort: S) —

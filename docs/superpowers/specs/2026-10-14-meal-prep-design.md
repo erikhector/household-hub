@@ -1,7 +1,8 @@
 # Meal prep (GAP-49) — design
 
-Status: approved in chat 2026-10-14, pending written-spec review.
-Backlog item: BACKLOG.md GAP-49. Schema slice already landed (PR #179):
+Status: implemented 2026-10-14 (shipped behaviour documented in REQUIREMENTS.md,
+"Meal prep (GAP-49)"; see "Refinements during implementation" below).
+Backlog item: GAP-49 (done, removed from BACKLOG.md). Schema slice already landed (PR #179):
 `PreparedBatch`, `MealPlanEntry.preparedBatchId`,
 `MealPlanEntry.preparedPortionsUsed`. **No schema change in this work.**
 
@@ -102,7 +103,8 @@ re-checked against the household; every write is one `$transaction`.
   of the inventory row; `LeftoversChange` becomes `{ batchId }` and undo
   deletes it (refusing if it has been planned, same as undoRecordPrep).
 - `suggestLeftoversDayAction`: becomes "assign 1 portion of this batch to
-  the next free dinner" via the assign logic.
+  the next free dinner" via the assign logic. *Refined: it stays a
+  read-only suggestion; see below.*
 - The meal-planning page query loads active batches (with recipe name,
   cook's name, linked-entry count) once and passes them to the tabs.
 
@@ -159,6 +161,35 @@ REQUIREMENTS.md: new "Meal prep (GAP-49)" section, update the Leftovers
 (GAP-8) section and the `PreparedBatch` data-model note; delete GAP-49 from
 BACKLOG.md. PR title `feat: meal prep batches (GAP-49)`, release note in en
 and sv.
+
+## Refinements during implementation
+
+- **Plan leftovers stays a suggestion and links the batch.** The toast's
+  "Plan leftovers" still only opens `AddToPlanDialog` prefilled with the
+  next free dinner; it doesn't assign anything by itself (Guardrails:
+  suggest, don't silently mutate). Confirming posts the leftovers batch's
+  id as `preparedBatchId`, so `addMealEntryAction` plans the slot through
+  `assignInTx` and it eats from the batch.
+- **Past days are not selectable** in the Plan portions dialog: days before
+  today are shown, disabled. Prepped food can't be eaten in the past. The
+  server still accepts such a slot, harmlessly.
+- **Editing a linked entry's recipe or portions unlinks it** (returning its
+  portions), so a linked entry always eats the batch's dish at the batch
+  size. Copy week and fill empty days never copy a batch link.
+- **Returning portions is an optimistic write** guarded on the
+  `remainingPortions` just read; a lost race rolls back and answers with
+  the generic "Something went wrong" error so the household retries.
+- **Undo discard re-links only entries that still fit** (same household,
+  unlinked, same dish and portions); the rest have their portions returned
+  to the batch.
+- **"Mark as eaten"** is the linked entry's cook action (not "Eaten"), and
+  its dialog posts no ingredient rows.
+- **Mixed units in the prep preview**: a merged row whose dishes use
+  different recipe units states the need in the item's own unit instead of
+  summing across units.
+- The shared inventory helper is `cook-inventory.ts` (not
+  `cooked-ingredients.ts`), and the assign/return plumbing is the plain
+  server module `prep-assign.ts`.
 
 ## Out of scope
 
