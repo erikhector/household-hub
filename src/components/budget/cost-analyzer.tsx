@@ -2,14 +2,12 @@
 // straight from the Server Component that fetches/aggregates the data
 // (src/app/dashboard/budget/page.tsx), same convention as PeriodSummary.
 //
-// Charting approach: no charting library is installed in this app (checked
-// package.json before writing this — no recharts/chart.js/etc.), so both
-// charts here are hand-rolled: the monthly totals use plain CSS bars (same
-// technique PeriodSummary's category-share bars already use), and the
-// per-item price trend uses a small inline SVG polyline. Both are styled
-// exclusively with the existing `--chart-1..5` tokens via Tailwind's
-// auto-generated `bg-chart-*`/`stroke-chart-*`/`fill-chart-*` utilities, so
-// they theme automatically in light/dark.
+// Charting approach: no charting library is installed in this app. UX-39
+// moved both charts here onto the shared kit in src/components/charts/
+// (plain CSS bars and inline SVG, coloured with the `--chart-1..5` tokens so
+// they theme with light/dark): the monthly totals are the tappable BarChart
+// (a client island; this card stays a Server Component), and each item's
+// price trend is a Sparkline.
 //
 // "Cheapest store" (GAP-6) is a third, much smaller section below the two
 // charts — a plain one-line-per-item list rather than a chart, since the
@@ -50,6 +48,8 @@ import type { StockValueSummary } from "@/lib/inventory/stock-value";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { BarChart } from "@/components/charts/bar-chart";
+import { Sparkline } from "@/components/charts/sparkline";
 
 export type MonthlySpendPoint = { month: string; total: number };
 export type PricePoint = { date: Date; price: number };
@@ -97,8 +97,6 @@ export function CostAnalyzer({
     signDisplay: "exceptZero",
   });
 
-  const maxMonthlyTotal = Math.max(0, ...monthlySpending.map((m) => m.total));
-
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -110,31 +108,18 @@ export function CostAnalyzer({
           {monthlySpending.length === 0 ? (
             <p className="text-sm text-muted-foreground">{dict.noSpendingData}</p>
           ) : (
-            <div className="flex h-52 items-end gap-2 overflow-x-auto">
-              {monthlySpending.map((point) => {
-                const heightPct =
-                  maxMonthlyTotal > 0 ? Math.max((point.total / maxMonthlyTotal) * 100, 3) : 3;
-                const label = monthFormat.format(new Date(`${point.month}-01T00:00:00`));
-                return (
-                  <div
-                    key={point.month}
-                    className="flex min-w-12 flex-1 flex-col items-center gap-2"
-                  >
-                    <div className="flex h-36 w-full items-end justify-center">
-                      <div
-                        className="w-full max-w-10 rounded-t-md bg-chart-1"
-                        style={{ height: `${heightPct}%` }}
-                        title={numberFormat.format(point.total)}
-                      />
-                    </div>
-                    <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-                      {numberFormat.format(point.total)}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">{label}</span>
-                  </div>
-                );
-              })}
-            </div>
+            <BarChart
+              caption={dict.spendingTitle}
+              groupHeader={dict.chartMonth}
+              series={[{ key: "spend", label: dict.chartSpend }]}
+              groups={monthlySpending.map((point) => ({
+                key: point.month,
+                label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
+                values: [point.total],
+              }))}
+              locale={locale}
+              currencyCode={currencyCode}
+            />
           )}
         </CardContent>
       </Card>
@@ -452,7 +437,12 @@ function ItemTrendCard({
           {percentFormat.format(item.changePercent / 100)}
         </span>
       </div>
-      <Sparkline points={item.points.map((p) => p.price)} />
+      <Sparkline
+        points={item.points.map((p) => p.price)}
+        label={item.points
+          .map((p) => `${dateFormat.format(p.date)} ${numberFormat.format(p.price)}`)
+          .join(", ")}
+      />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {dict.latestPrice} · {dateFormat.format(latest.date)}
@@ -460,41 +450,5 @@ function ItemTrendCard({
         <span className="tabular-nums text-foreground">{numberFormat.format(latest.price)}</span>
       </div>
     </div>
-  );
-}
-
-function Sparkline({ points }: { points: number[] }) {
-  const width = 200;
-  const height = 48;
-  const pad = 4;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const stepX = points.length > 1 ? (width - pad * 2) / (points.length - 1) : 0;
-  const coords = points.map((price, i) => ({
-    x: pad + i * stepX,
-    y: height - pad - ((price - min) / range) * (height - pad * 2),
-  }));
-  const polylinePoints = coords.map((c) => `${c.x},${c.y}`).join(" ");
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-12 w-full"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <polyline
-        points={polylinePoints}
-        fill="none"
-        className="stroke-chart-4"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {coords.map((c, i) => (
-        <circle key={i} cx={c.x} cy={c.y} r="2.5" className="fill-chart-4" />
-      ))}
-    </svg>
   );
 }

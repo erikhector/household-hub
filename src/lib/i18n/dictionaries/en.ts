@@ -1969,6 +1969,8 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Last {count} months: {values}",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -1997,6 +1999,14 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "At this pace",
+      projectionLeft: "About {amount} left at the end of the month.",
+      projectionOver: "About {amount} over by the end of the month.",
+      projectionPace: "Based on everyday spending of {amount} a day so far. Bills aren't in the pace.",
+      projectionToday: "Today",
+      projectionMonthEnd: "Month end",
+      projectionCaption: "Safe to spend today and projected for the end of the month",
       savingBadge: "Saving",
       incomeBadge: "Income",
       debtsTitle: "Your household balance",
@@ -2044,6 +2054,8 @@ export const en = {
     },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
+      chartMonth: "Month",
+      chartSpend: "Spend",
       spendingSubtitle:
         "Total estimated spend per month, from shopping list items marked purchased with a price.",
       noSpendingData:
@@ -2218,6 +2230,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      chartMonth: "Month",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",
@@ -2331,6 +2344,8 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Last {count} months: {values}",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2359,6 +2374,14 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "At this pace",
+      projectionLeft: "About {amount} left at the end of the month.",
+      projectionOver: "About {amount} over by the end of the month.",
+      projectionPace: "Based on everyday spending of {amount} a day so far. Bills aren't in the pace.",
+      projectionToday: "Today",
+      projectionMonthEnd: "Month end",
+      projectionCaption: "Safe to spend today and projected for the end of the month",
       savingBadge: "Saving",
       incomeBadge: "Income",
       debtsTitle: "Your household balance",
@@ -2482,6 +2505,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      chartMonth: "Month",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",

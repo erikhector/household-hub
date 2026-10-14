@@ -19,6 +19,7 @@ import { SavingsGoals } from "@/components/budget/savings-goals";
 import { savingsGoalRows } from "@/lib/savings-goal-calc";
 import { withCategoryLimits } from "@/lib/budget-category-limit";
 import { withCategoryRollover } from "@/lib/budget-rollover-calc";
+import { withSpendHistory } from "@/lib/chart-calc";
 import {
   acknowledgePersonalTemplatePeriodAction,
   createPersonalRecurringTemplateAction,
@@ -117,6 +118,7 @@ async function PersonalBudgetTabsSection({
     safeToSpend,
     safeToSpendStatus,
     safeToSpendBreakdown,
+    safeToSpendProjection,
     expectedRecurring,
   } = position;
 
@@ -314,12 +316,18 @@ async function PersonalBudgetTabsSection({
       // GAP-21: the loader's `transactions` is the user's whole history, so
       // the carried balance (at most back to January — see
       // src/lib/budget-rollover-calc.ts) needs no extra query either.
-      expenseByCategory={withCategoryRollover(
-        withCategoryLimits(expenseByCategory, categories),
-        categories,
+      // UX-39: each row's sparkline, from the same whole history.
+      expenseByCategory={withSpendHistory(
+        withCategoryRollover(
+          withCategoryLimits(expenseByCategory, categories),
+          categories,
+          transactions,
+          monthStart,
+        ),
         transactions,
         monthStart,
       )}
+      monthStart={monthStart}
       savingsByCategory={savingsByCategory}
       dict={dict.personalBudget.summary}
       locale={locale}
@@ -373,6 +381,7 @@ async function PersonalBudgetTabsSection({
       safeToSpendStatus={safeToSpendStatus}
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
+      safeToSpendProjection={safeToSpendProjection}
       householdDebts={householdDebts}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}

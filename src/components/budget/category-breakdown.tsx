@@ -2,10 +2,17 @@
 // (transaction totals by category), now also used by FixedBudgetSummary
 // (recurring template totals by item) so both "how is this split up" views
 // look and behave identically.
+//
+// UX-39: colours come from the shared chart kit (src/components/charts/),
+// chart-1 … chart-5 in row order, and a row with a `history` gets a
+// spending sparkline beside its bar: the last few months of that category,
+// this month last, so "is this normal for us?" is one glance away.
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
+import { chartFill } from "@/components/charts/chart-colors";
+import { Sparkline } from "@/components/charts/sparkline";
 
 export type CategoryTotal = {
   id: string;
@@ -21,6 +28,18 @@ export type CategoryTotal = {
    * limit + carried — this month's envelope, not just this month's
    * allowance. */
   carried?: number | null;
+  /** UX-39: the row's total per month, oldest first and this month last
+   * (withSpendHistory in src/lib/chart-calc.ts). Drawn as a sparkline when
+   * the breakdown is given `history` labels. */
+  history?: number[];
+};
+
+/** UX-39: what a row's sparkline needs to name its values for screen
+ * readers — one short month label per history entry, and the sentence
+ * they go into. */
+export type CategoryHistoryLabels = {
+  months: string[];
+  label: string;
 };
 
 /** The two strings a capped row needs — only PeriodSummary's expense
@@ -31,14 +50,6 @@ export type CategoryLimitDict = {
   carriedOver: string;
 };
 
-export const CHART_COLORS = [
-  "bg-chart-1",
-  "bg-chart-2",
-  "bg-chart-3",
-  "bg-chart-4",
-  "bg-chart-5",
-] as const;
-
 export function CategoryBreakdown({
   title,
   items,
@@ -46,6 +57,7 @@ export function CategoryBreakdown({
   emptyMessage,
   numberFormat,
   limitDict,
+  history,
 }: {
   title: string;
   items: CategoryTotal[];
@@ -53,6 +65,7 @@ export function CategoryBreakdown({
   emptyMessage: string;
   numberFormat: Intl.NumberFormat;
   limitDict?: CategoryLimitDict;
+  history?: CategoryHistoryLabels;
 }) {
   return (
     <Card>
@@ -84,7 +97,11 @@ export function CategoryBreakdown({
                   : 0;
               const barColor = progress?.over
                 ? "bg-destructive"
-                : CHART_COLORS[index % CHART_COLORS.length];
+                : chartFill(index);
+              const sparkline =
+                history && item.history && item.history.length === history.months.length
+                  ? item.history
+                  : null;
               return (
                 <div key={item.id} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between gap-2 text-sm">
@@ -115,15 +132,30 @@ export function CategoryBreakdown({
                       </span>
                     )}
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${barColor}`}
-                      // A capped category with nothing spent yet shows an
-                      // empty track rather than the 2% sliver an uncapped
-                      // row gets (that sliver only exists so a tiny share
-                      // stays visible next to bigger ones).
-                      style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
-                    />
+                  <div className="flex items-center gap-3">
+                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full ${barColor}`}
+                        // A capped category with nothing spent yet shows an
+                        // empty track rather than the 2% sliver an uncapped
+                        // row gets (that sliver only exists so a tiny share
+                        // stays visible next to bigger ones).
+                        style={{ width: `${progress ? share : Math.max(share, 2)}%` }}
+                      />
+                    </div>
+                    {sparkline && history && (
+                      <Sparkline
+                        points={sparkline}
+                        colorIndex={index}
+                        className="h-5 w-14 shrink-0"
+                        label={format(history.label, {
+                          count: sparkline.length,
+                          values: sparkline
+                            .map((v, i) => `${history.months[i]} ${numberFormat.format(v)}`)
+                            .join(", "),
+                        })}
+                      />
+                    )}
                   </div>
                   {progress && limitDict && carried > 0 && (
                     <p className="text-xs text-muted-foreground tabular-nums">
