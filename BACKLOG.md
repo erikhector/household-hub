@@ -455,13 +455,15 @@ decision and sit under "Needs a decision before building".
 
       Todoist sets this bar for productivity users on desktop.
 
-- [ ] **UX-42. Loading that looks instant** (S) —
-      - Each feature route gets a `loading.tsx` skeleton that matches its
-        final layout (same card heights, so CLS ≈ 0).
-      - Every `fallback={null}` above content is replaced with a
-        fixed-height placeholder.
+- [ ] **UX-42. Loading that looks instant** (S) — The `loading.tsx`
+      skeletons are done (see REQUIREMENTS.md, "Loading skeletons"). Left:
+      - Replace the remaining `fallback={null}` above content (household
+        `SharedWithNote`, inventory `InventoryWellStockedNote`, shopping
+        list `RepurchaseSuggestionsSection`, the layout's email-verification
+        banner) with fixed-height placeholders, once measured to shift.
       - Pending-state buttons keep their width.
-      - Link prefetch on hover and touchstart for the bottom bar.
+      - Skeleton card heights tuned per route against the real layout, and
+        `shopping-list/[id]` / `inventory/items` detail `loading.tsx`.
 
       Acceptance: Lighthouse CLS < 0.05 on every dashboard route on the
       mobile profile.
