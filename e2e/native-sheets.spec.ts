@@ -84,6 +84,15 @@ test.describe("on a phone", () => {
     await expect(dialog).toHaveAttribute("data-expanded", "");
 
     const viewport = page.viewportSize()!;
+    // M3: the grabber button's visible pill is 16px tall, but its hit area
+    // reaches 44px, down over the top of the sheet's body. The body paints
+    // later, so this checks the button, not the body, wins a tap there.
+    const grabber = await grabberPoint(dialog);
+    const hit = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label") ?? null,
+      { x: grabber.x, y: grabber.y + 20 },
+    );
+    expect(hit).toBe(en.common.collapseSheet);
     await dialog.getByRole("button", { name: en.common.collapseSheet }).click();
     await expect(dialog).not.toHaveAttribute("data-expanded", "");
     // Half: the sheet's top (its box includes the snap translate) sits at

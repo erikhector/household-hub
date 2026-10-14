@@ -207,20 +207,26 @@ function DialogOverlay({
 // there because the sheet really does drag now (UX-12 removed it while it
 // didn't). On a long form it's also the button that does what the half/full
 // drag does (M7: no gesture-only action); the pseudo-element gives it a
-// 44px-tall target (M3) without adding height to the sheet.
+// 44px-tall target (M3) without adding height to the sheet. That target runs
+// from the sheet's top edge (not above it: the popup's overflow-hidden would
+// clip it) 28px down over the top of the body, so the row is lifted with
+// z-10: the body is `relative` and later in the DOM, and would otherwise
+// paint over the pseudo-element and win the tap there. Only the centre 80px
+// is covered; the title sits left and the X right, so nothing tappable is
+// under it.
 function SheetGrabber() {
   const { snaps, expanded, toggleExpanded } = React.useContext(SheetContext)
   const copy = commonCopy[getDocumentLocale()]
   const pill = <span aria-hidden className="block h-1 w-10 rounded-full bg-muted-foreground/30" />
   return (
-    <div data-slot="dialog-grabber" className="flex h-4 shrink-0 touch-none items-end justify-center sm:hidden">
+    <div data-slot="dialog-grabber" className={cn("flex h-4 shrink-0 touch-none items-end justify-center sm:hidden", snaps && "relative z-10")}>
       {snaps ? (
         <button
           type="button"
           aria-label={expanded ? copy.collapseSheet : copy.expandSheet}
           aria-expanded={expanded}
           onClick={toggleExpanded}
-          className="relative flex h-4 w-16 items-end justify-center outline-none after:absolute after:-inset-x-2 after:-top-1 after:-bottom-6 focus-visible:ring-3 focus-visible:ring-ring/50 rounded-full"
+          className="relative flex h-4 w-16 items-end justify-center outline-none after:absolute after:-inset-x-2 after:top-0 after:-bottom-7 focus-visible:ring-3 focus-visible:ring-ring/50 rounded-full"
         >
           {pill}
         </button>
