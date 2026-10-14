@@ -1,11 +1,16 @@
 // Pure presentational — no client interactivity needed, so this renders
 // straight from the Server Component that fetches/aggregates the data
 // (src/app/dashboard/budget/page.tsx), same as the dashboard overview cards.
+// UX-39: the four totals count to their new value when the month changes
+// (AnimatedNumber, a small client island), and expense rows carrying a
+// `history` draw a spending sparkline.
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/category-breakdown";
 import { createMoneyFormat } from "@/lib/currency";
+import { AnimatedNumber } from "@/components/charts/animated-number";
+import { historyMonthLabels } from "@/lib/chart-calc";
 
 export type { CategoryTotal };
 
@@ -17,6 +22,7 @@ export function PeriodSummary({
   incomeByCategory,
   expenseByCategory,
   savingsByCategory,
+  monthStart,
   dict,
   locale,
   currencyCode,
@@ -35,6 +41,9 @@ export function PeriodSummary({
   incomeByCategory: CategoryTotal[];
   expenseByCategory: CategoryTotal[];
   savingsByCategory: CategoryTotal[];
+  /** UX-39: the viewed month, for labelling the expense sparklines'
+   * months. Without it the rows draw no sparkline. */
+  monthStart?: Date;
   // Narrowed to just the "summary" slice (rather than the full budget
   // dictionary) so this presentational component can be reused for the
   // personal budget too — see personal-budget/page.tsx.
@@ -44,6 +53,12 @@ export function PeriodSummary({
   currencyCode?: string | null;
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
+  const history = monthStart
+    ? { months: historyMonthLabels(monthStart, locale), label: dict.historyLabel }
+    : undefined;
+  const animated = (value: number, showPlus = false) => (
+    <AnimatedNumber value={value} locale={locale} currencyCode={currencyCode} showPlus={showPlus} />
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -59,7 +74,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-success">{numberFormat.format(income)}</p>
+            <p className="text-3xl font-semibold text-success">{animated(income)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -69,9 +84,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-destructive">
-              {numberFormat.format(expense)}
-            </p>
+            <p className="text-3xl font-semibold text-destructive">{animated(expense)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -82,8 +95,7 @@ export function PeriodSummary({
           </CardHeader>
           <CardContent>
             <p className={"text-3xl font-semibold " + (remaining >= 0 ? "text-success" : "text-destructive")}>
-              {remaining >= 0 ? "+" : ""}
-              {numberFormat.format(remaining)}
+              {animated(remaining, true)}
             </p>
           </CardContent>
         </Card>
@@ -94,7 +106,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-chart-2">{numberFormat.format(savings)}</p>
+            <p className="text-3xl font-semibold text-chart-2">{animated(savings)}</p>
           </CardContent>
         </Card>
       </div>
@@ -117,6 +129,7 @@ export function PeriodSummary({
           // categories never have one. GAP-21: a rollover row's `carried`
           // balance is added to that limit and shown under the bar.
           limitDict={dict}
+          history={history}
         />
         <CategoryBreakdown
           title={dict.savingsByCategory}

@@ -9,6 +9,10 @@
 // "fixedSummary" dictionary slice (rather than the full budget dictionary)
 // so it can be reused for the personal budget too, same trick PeriodSummary
 // already uses.
+//
+// UX-39: the trend is the shared BarChart (src/components/charts/): tap a
+// month to read its income, costs and savings. The four totals count to
+// their new value when they change (AnimatedNumber).
 
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +20,8 @@ import { CategoryBreakdown, type CategoryTotal } from "@/components/budget/categ
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import type { BudgetBalanceStatus } from "@/lib/recurring-template-calc";
 import { createMoneyFormat } from "@/lib/currency";
+import { AnimatedNumber } from "@/components/charts/animated-number";
+import { BarChart } from "@/components/charts/bar-chart";
 
 export type FixedMonthlyTotals = { month: string; income: number; expense: number; savings: number };
 
@@ -57,9 +63,8 @@ export function FixedBudgetSummary({
   const monthFormat = new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" });
   const netFixed = monthlyIncome - monthlyExpense;
   const hasTrendData = monthlyTotals.some((m) => m.income > 0 || m.expense > 0 || m.savings > 0);
-  const maxMonthlyTotal = Math.max(
-    0,
-    ...monthlyTotals.map((m) => Math.max(m.income, m.expense, m.savings)),
+  const animated = (value: number, showPlus = false) => (
+    <AnimatedNumber value={value} locale={locale} currencyCode={currencyCode} showPlus={showPlus} />
   );
   const statusLabel = {
     balanced: dict.statusBalanced,
@@ -97,9 +102,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-success">
-              {numberFormat.format(monthlyIncome)}
-            </p>
+            <p className="text-3xl font-semibold text-success">{animated(monthlyIncome)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -109,9 +112,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-destructive">
-              {numberFormat.format(monthlyExpense)}
-            </p>
+            <p className="text-3xl font-semibold text-destructive">{animated(monthlyExpense)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -122,8 +123,7 @@ export function FixedBudgetSummary({
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <p className={"text-3xl font-semibold " + STATUS_COLOR[balanceStatus]}>
-              {netFixed >= 0 ? "+" : ""}
-              {numberFormat.format(netFixed)}
+              {animated(netFixed, true)}
             </p>
             <p className={"text-xs font-medium " + STATUS_COLOR[balanceStatus]}>{statusLabel}</p>
           </CardContent>
@@ -135,9 +135,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <p className="text-3xl font-semibold text-chart-2">
-              {numberFormat.format(monthlySavings)}
-            </p>
+            <p className="text-3xl font-semibold text-chart-2">{animated(monthlySavings)}</p>
             <p className="text-xs text-muted-foreground">{dict.savingsNote}</p>
           </CardContent>
         </Card>
@@ -169,92 +167,25 @@ export function FixedBudgetSummary({
           {!hasTrendData ? (
             <p className="text-sm text-muted-foreground">{dict.noTrendData}</p>
           ) : (
-            <div className="flex min-w-0 flex-col gap-3">
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-chart-1" />
-                  {dict.legendIncome}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-chart-2" />
-                  {dict.legendExpense}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-chart-3" />
-                  {dict.legendSavings}
-                </span>
-              </div>
-              <div className="flex w-full min-w-0 items-end gap-3 overflow-x-auto">
-                {monthlyTotals.map((point) => {
-                  const label = monthFormat.format(new Date(`${point.month}-01T00:00:00`));
-                  return (
-                    <div
-                      key={point.month}
-                      className="flex min-w-24 flex-1 flex-col items-center gap-2"
-                    >
-                      <div className="flex h-36 w-full items-end justify-center gap-1">
-                        <MonthBar
-                          value={point.income}
-                          max={maxMonthlyTotal}
-                          className="bg-chart-1"
-                          title={numberFormat.format(point.income)}
-                        />
-                        <MonthBar
-                          value={point.expense}
-                          max={maxMonthlyTotal}
-                          className="bg-chart-2"
-                          title={numberFormat.format(point.expense)}
-                        />
-                        <MonthBar
-                          value={point.savings}
-                          max={maxMonthlyTotal}
-                          className="bg-chart-3"
-                          title={numberFormat.format(point.savings)}
-                        />
-                      </div>
-                      {/* UX-23: print the values (title is hover-only, so
-                          invisible on a phone), as CostAnalyzer does. */}
-                      <ul className="flex flex-col gap-0.5 text-[11px] tabular-nums text-muted-foreground">
-                        {[
-                          { dot: "bg-chart-1", name: dict.legendIncome, value: point.income },
-                          { dot: "bg-chart-2", name: dict.legendExpense, value: point.expense },
-                          { dot: "bg-chart-3", name: dict.legendSavings, value: point.savings },
-                        ].map((row) => (
-                          <li key={row.dot} className="relative flex items-center gap-1 whitespace-nowrap">
-                            <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${row.dot}`} />
-                            <span className="sr-only">{row.name}</span>
-                            {numberFormat.format(row.value)}
-                          </li>
-                        ))}
-                      </ul>
-                      <span className="text-[11px] text-muted-foreground">{label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <BarChart
+              caption={dict.trendTitle}
+              groupHeader={dict.chartMonth}
+              series={[
+                { key: "income", label: dict.legendIncome },
+                { key: "expense", label: dict.legendExpense },
+                { key: "savings", label: dict.legendSavings },
+              ]}
+              groups={monthlyTotals.map((point) => ({
+                key: point.month,
+                label: monthFormat.format(new Date(`${point.month}-01T00:00:00`)),
+                values: [point.income, point.expense, point.savings],
+              }))}
+              locale={locale}
+              currencyCode={currencyCode}
+            />
           )}
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function MonthBar({
-  value,
-  max,
-  className,
-  title,
-}: {
-  value: number;
-  max: number;
-  className: string;
-  title: string;
-}) {
-  const heightPct = value > 0 && max > 0 ? Math.max((value / max) * 100, 3) : 0;
-  return (
-    <div className="flex h-full w-full max-w-6 items-end">
-      <div className={`w-full rounded-t-sm ${className}`} style={{ height: `${heightPct}%` }} title={title} />
     </div>
   );
 }

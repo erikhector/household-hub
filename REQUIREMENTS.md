@@ -2159,6 +2159,19 @@ Component page function can't itself be unit-tested.
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
+- **Projected end of month (UX-39)**: in the current month, under the
+  number, a small line chart ("At this pace"): solid for what was safe to
+  spend at the end of each day so far, dashed from today to the last day at
+  the month's everyday pace, and a sentence with the projected figure
+  ("About 1 200 kr left at the end of the month", or "… over", in
+  `destructive` with a warning icon). `projectMonthEnd`
+  (`src/lib/chart-calc.ts`) sets the pace from *everyday* spending only:
+  `EXPENSE` transactions neither logged from a recurring item nor ticked
+  "this repeats", since bills are already in the number. No line for a
+  past or future month, or before any everyday spending. The household page
+  computes it from the month's transactions; `loadPersonalBudgetPosition`
+  returns it as `safeToSpendProjection`, so Personal Budget and the
+  dashboard card show the same line.
 
 ### Household expense splitting
 
@@ -2565,12 +2578,43 @@ never sits alone on a second row; Meal Planning gets the same behaviour.
 card is the next step until then) rather than as a disabled primary. On
 Overview, Safe to spend comes before the due-recurring widget. The starter
 category chips are left-aligned and a selected chip also shows a check mark
-(not colour alone). `FixedBudgetSummary`'s trend bars print each month's
-income, expense and savings under the bars (colours `chart-1..3`, matching
-the legend) instead of carrying them only in `title`. Deleting a
+(not colour alone). `FixedBudgetSummary`'s trend bars show each month's
+income, expense and savings without hover (since UX-39 through the shared
+`BarChart`, below). Deleting a
 transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
+**Budget charts (UX-39).** Both budgets draw every chart from one small kit
+in `src/components/charts/` (plain CSS bars and inline SVG, no chart
+library), so household and personal never diverge:
+
+- `BarChart` (client): `FixedBudgetSummary`'s "How it's changing" and
+  `CostAnalyzer`'s grocery spend. Each month is one button the full height
+  of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
+  (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
+  month's value per series with its colour dot, which doubles as the legend.
+  The latest month starts selected and scrolled into view, so nothing is
+  hover-only. Each button's accessible name carries its values, and the
+  whole series is also a visually hidden table (`sr-only`, captioned with
+  the card title).
+- `Sparkline`: `CategoryBreakdown` draws one beside each expense row's bar
+  — the category's spending over the last six months, this month last
+  (`withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
+  12-month lookback window or the personal page's whole history; a row with
+  nothing spent in the window gets none). Its accessible name lists the
+  months and amounts. `CostAnalyzer`'s price trends use it too.
+- `ProjectionChart`: Safe to spend's projected end-of-month line (see "Safe
+  to spend").
+- `AnimatedNumber` (client): Safe to spend's number and the four totals in
+  `PeriodSummary` and `FixedBudgetSummary` count to a new value when it
+  changes (600 ms, eased out), always in `tabular-nums`. The first render
+  is the real value, as the server sent it, so a page load never flashes a
+  wrong number; under `prefers-reduced-motion` the number just changes.
+- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series or
+  row order, for marks only (DESIGN.md, Colour).
+
+Covered by `src/lib/chart-calc.test.ts` and `e2e/ux-39.spec.ts`.
 
 ## Data export (CSV)
 

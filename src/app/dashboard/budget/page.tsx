@@ -49,6 +49,7 @@ import {
   updateTransactionAction,
 } from "@/app/dashboard/budget/actions";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
+import { projectMonthEnd, withSpendHistory } from "@/lib/chart-calc";
 import { resolveBudgetHouseholdView } from "@/lib/budget-household-view";
 import { ReadOnlyHouseholdBanner } from "@/components/budget/read-only-household-banner";
 import {
@@ -643,6 +644,14 @@ async function BudgetTabsSection({
       status: row.status,
     })),
   });
+  // UX-39: where that number lands at month end at this month's everyday
+  // pace — null unless the viewed month is the current one.
+  const safeToSpendProjection = projectMonthEnd({
+    safeToSpend,
+    transactions: monthTransactions,
+    monthStart,
+    today: now,
+  });
   const recurringTemplateRows: RecurringTemplateListRow[] = templateStatusRows.map((row) => {
     // F7: who ran "Mark accounted for" for this period, if it was
     // acknowledged rather than posted — resolved from the matching
@@ -796,12 +805,18 @@ async function BudgetTabsSection({
       // expense total above. GAP-21: rollover-enabled rows then get their
       // carried balance from earlier months, read from the lookback window
       // (see RECURRING_LOOKBACK_MONTHS) rather than monthTransactions.
-      expenseByCategory={withCategoryRollover(
-        withCategoryLimits(expenseByCategory, categories),
-        categories,
+      // UX-39: each row's sparkline comes from the same window.
+      expenseByCategory={withSpendHistory(
+        withCategoryRollover(
+          withCategoryLimits(expenseByCategory, categories),
+          categories,
+          recurringLookbackTransactions,
+          monthStart,
+        ),
         recurringLookbackTransactions,
         monthStart,
       )}
+      monthStart={monthStart}
       savingsByCategory={savingsByCategory}
       dict={dict.budget.summary}
       locale={locale}
@@ -881,6 +896,7 @@ async function BudgetTabsSection({
       safeToSpendStatus={safeToSpendStatus}
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
+      safeToSpendProjection={safeToSpendProjection}
       initialTab={initialTab}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}

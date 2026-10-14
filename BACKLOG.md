@@ -469,17 +469,6 @@ decision and sit under "Needs a decision before building".
       Acceptance: a whole shop can be done with the thumb, without
       scrolling to the top.
 
-- [ ] **UX-39. Charts and numbers that feel alive** (M) — Replace the
-      hand-rolled budget bars with one small chart component:
-      - tappable bars and segments that show their value (no hover-only);
-      - a spending sparkline per category;
-      - a projected end-of-month line on safe-to-spend;
-      - tabular numbers that animate between values (count-up, skipped
-        under reduced motion);
-      - a visually hidden data table for screen readers.
-
-      Use chart tokens in order. Copilot Money is the bar.
-
 - [ ] **UX-40. Large-title headers and a thumb-zone action bar on phones**
       (M) —
       - Page titles start large and collapse into a compact top bar on

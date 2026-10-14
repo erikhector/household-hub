@@ -382,5 +382,34 @@ describe("loadPersonalBudgetPosition", () => {
     expect(position.safeToSpend).toBe(1000);
     expect(position.householdDebts).toEqual([]);
     expect(transactionFindManyMock).not.toHaveBeenCalled();
+    // No `now` in September 2026 (the test runs later), so no projection.
+    expect(position.safeToSpendProjection).toBeNull();
+  });
+
+  it("projects the number to month end from everyday spending only (UX-39)", async () => {
+    personalTransactionFindManyMock.mockResolvedValue([
+      personalTx("Salary", "INCOME", 3000, 1),
+      personalTx("Food", "EXPENSE", 100, 2),
+      personalTx("Coffee", "EXPENSE", 50, 9),
+      // A bill logged from a recurring item is in the number, not the pace.
+      personalTx("Phone", "EXPENSE", 400, 3, "tpl-phone"),
+    ]);
+    personalTemplateFindManyMock.mockResolvedValue([]);
+    personalAckFindManyMock.mockResolvedValue([]);
+    householdMemberFindManyMock.mockResolvedValue([]);
+    templateSplitFindManyMock.mockResolvedValue([]);
+
+    const position = await loadPersonalBudgetPosition({
+      userId: "user-1",
+      monthStart,
+      monthEnd,
+      sharedLabel: "Shared",
+      now: new Date(2026, 8, 10, 12),
+    });
+
+    expect(position.safeToSpend).toBe(2450);
+    // 150 of everyday spending over 10 days → 15 a day, for 20 more days.
+    expect(position.safeToSpendProjection?.dailyPace).toBe(15);
+    expect(position.safeToSpendProjection?.projected).toBe(2450 - 15 * 20);
   });
 });

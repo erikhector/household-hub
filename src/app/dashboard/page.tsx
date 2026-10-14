@@ -182,6 +182,7 @@ export default async function DashboardOverviewPage() {
             expectedRecurring={personalPosition.expectedRecurring}
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
+            projection={personalPosition.safeToSpendProjection}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,
