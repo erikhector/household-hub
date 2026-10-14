@@ -384,6 +384,87 @@ export async function copyWeekAction(fromWeekStart: string, toWeekStart: string)
   return { copied: created.length, entryIds: created.map((e) => e.id) };
 }
 
+const fillEmptyDaysSchema = z.object({
+  weekStartDate: weekKeySchema,
+  // One pick per day, so at most seven; the dates and recipes must each be
+  // unique, which is the "no repeat within the week" rule the preview shows.
+  picks: z
+    .array(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDate")), recipeId: z.string().min(1) }))
+    .min(1)
+    .max(7),
+});
+
+// GAP-45: writes the dinners a household accepted in the "Fill empty days"
+// preview. The proposal itself is computed client-side from data the page
+// already has and writes nothing, so this is the only write. It's a click
+// action; the week and picks are re-validated here, never trusted.
+//
+// Everything is re-checked against the database because the preview can be
+// stale: recipes must belong to the household (one findMany), each date must
+// fall inside the named week, and a day that has gained any entry since the
+// preview opened is skipped, never stacked onto. Rows carry the recipe's own
+// `servings` as portions, like addMealEntryAction's default. The result
+// shape matches copyWeekAction's so the client reuses undoCopyWeekAction.
+export async function fillEmptyDaysAction(
+  weekStartDate: string,
+  picks: { date: string; recipeId: string }[],
+): Promise<CopyWeekResult> {
+  const { household } = await requireHousehold();
+
+  const parsed = fillEmptyDaysSchema.safeParse({ weekStartDate, picks });
+  if (!parsed.success) return await zodFail(parsed.error);
+
+  const weekStart = parseDateKey(parsed.data.weekStartDate);
+  const weekKeys = new Set(Array.from({ length: 7 }, (_, i) => toDateKey(addDays(weekStart, i))));
+  const dates = parsed.data.picks.map((p) => p.date);
+  const recipeIds = parsed.data.picks.map((p) => p.recipeId);
+  if (
+    dates.some((d) => !weekKeys.has(d)) ||
+    new Set(dates).size !== dates.length ||
+    new Set(recipeIds).size !== recipeIds.length
+  ) {
+    return await fail("invalidInput");
+  }
+
+  const [recipes, existing] = await Promise.all([
+    prisma.recipe.findMany({
+      where: { id: { in: recipeIds }, householdId: household.id },
+      select: { id: true, servings: true },
+    }),
+    prisma.mealPlanEntry.findMany({
+      where: { mealPlan: { householdId: household.id, weekStartDate: weekStart } },
+      select: { date: true },
+    }),
+  ]);
+  const servingsById = new Map(recipes.map((r) => [r.id, r.servings]));
+  if (servingsById.size !== recipeIds.length) return await fail("recipeNotFound");
+
+  const busyDays = new Set(existing.map((e) => toDateKey(e.date)));
+  const rows = parsed.data.picks
+    .filter((p) => !busyDays.has(p.date))
+    .map((p) => ({
+      date: parseDateKey(p.date),
+      mealType: "DINNER" as const,
+      recipeId: p.recipeId,
+      freeformName: null,
+      portions: servingsById.get(p.recipeId)!,
+    }));
+  if (rows.length === 0) return { copied: 0, entryIds: [] };
+
+  const plan = await prisma.mealPlan.upsert({
+    where: { householdId_weekStartDate: { householdId: household.id, weekStartDate: weekStart } },
+    update: {},
+    create: { householdId: household.id, weekStartDate: weekStart },
+  });
+  const created = await prisma.mealPlanEntry.createManyAndReturn({
+    data: rows.map((row) => ({ ...row, mealPlanId: plan.id })),
+    select: { id: true },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return { copied: created.length, entryIds: created.map((e) => e.id) };
+}
+
 // The cap is well above anything a real week produces (7 days x 4 meal
 // types, with room for stacked entries). It only stops a crafted call from
 // sending an unbounded id list.

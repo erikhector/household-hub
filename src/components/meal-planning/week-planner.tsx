@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
+import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
@@ -143,6 +144,7 @@ export function WeekPlanner({
   // The "Add missing ingredients" dialog is mounted only while open: a Dialog
   // inside the ⋯ menu would unmount with the menu, so it lives beside it.
   const [missingOpen, setMissingOpen] = useState(false);
+  const [fillOpen, setFillOpen] = useState(false);
 
   // UX-21: on a phone the week is one column and today can be several
   // screens down, so bring it into view on load. Only when it isn't already
@@ -176,6 +178,14 @@ export function WeekPlanner({
     list.push(entry);
     entriesByDay.set(entry.date, list);
   }
+
+  // GAP-45: days with nothing planned that haven't passed yet (filling
+  // Monday on a Thursday would plan a dinner nobody can cook), and the
+  // recipes already on the plan so a proposal never repeats one.
+  const emptyDays = days
+    .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
+    .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
+  const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
 
   return (
     <div className="flex flex-col gap-4">
@@ -214,6 +224,12 @@ export function WeekPlanner({
                 {dict.copyLastWeek}
               </DropdownMenuItem>
             )}
+            {emptyDays.length > 0 && (
+              <DropdownMenuItem onClick={() => setFillOpen(true)}>
+                <CalendarPlus className="size-4" />
+                {dict.fillEmptyDays}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => setMissingOpen(true)}>
               <ListPlus className="size-4" />
               {dict.addMissingIngredients}
@@ -221,6 +237,16 @@ export function WeekPlanner({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      {fillOpen && (
+        <FillEmptyDaysDialog
+          dict={dict}
+          weekStartKey={weekStartKey}
+          emptyDays={emptyDays}
+          recipes={recipes}
+          plannedRecipeIds={plannedRecipeIds}
+          onClose={() => setFillOpen(false)}
+        />
+      )}
       {missingOpen && (
         <MissingIngredientsDialog
           dict={dict}
