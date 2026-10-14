@@ -4960,7 +4960,8 @@ version or the notes by hand.
   previous flow that used up the Actions minutes in October 2026).
   `release.yml` reads the shipped PRs from the merge commit's second
   parent (`scripts/release.ts train-prs`, which picks the "(#N)" out of
-  each squash commit's subject), takes the biggest bump among their titles
+  each squash commit's subject, and asks GitHub by SHA for any commit
+  without one, failing the run if it can't), takes the biggest bump among their titles
   and joins their release notes, oldest first, into one entry. A PR with
   no Swedish note contributes its English one to the Swedish text. Then it
   merges `master` back into `next`. A hotfix PR straight into `master`

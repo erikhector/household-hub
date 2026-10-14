@@ -121,7 +121,7 @@ jobs:
 
       # Brings the release commit (and a hotfix's change) into `next`. A
       # fast-forward when nothing merged into `next` meanwhile, otherwise a
-      # merge commit, which `train-prs` skips (no "(#N)" on its subject).
+      # merge commit, which `train-prs` skips by its subject.
       # Retries like the release push, in case a PR merges into `next` at
       # the same moment. Skipped until the `next` branch exists.
       - name: Sync master into next

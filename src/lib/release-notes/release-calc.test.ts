@@ -6,7 +6,7 @@ import {
   parsePrTitle,
   planRelease,
   planTrainRelease,
-  prNumbersFromSubjects,
+  parseTrainLog,
 } from "@/lib/release-notes/release-calc";
 
 const TEMPLATE_BODY = `## Summary
@@ -116,19 +116,36 @@ describe("planRelease", () => {
   });
 });
 
-describe("prNumbersFromSubjects", () => {
-  it("reads squash-merge PR numbers oldest first and skips sync merges", () => {
+describe("parseTrainLog", () => {
+  it("reads squash-merge PR numbers oldest first and marks sync merges", () => {
     const log = [
-      "fix: rounding (#12)",
-      "Merge master into next [skip ci]",
-      "feat(shopping): barcode scan (#10)",
-      "docs: tidy README (#9)",
+      "aaaaaaa fix: rounding (#12)",
+      "bbbbbbb chore: sync master into next [skip ci]",
+      "ccccccc feat(shopping): barcode scan (#10)",
+      "ddddddd docs: tidy README (#9)",
+      "",
     ].join("\n");
-    expect(prNumbersFromSubjects(log)).toEqual([9, 10, 12]);
+    expect(parseTrainLog(log)).toEqual([
+      { sha: "ddddddd", pr: 9, sync: false },
+      { sha: "ccccccc", pr: 10, sync: false },
+      { sha: "bbbbbbb", pr: null, sync: true },
+      { sha: "aaaaaaa", pr: 12, sync: false },
+    ]);
   });
 
-  it("ignores a PR number mentioned mid-subject and duplicates", () => {
-    expect(prNumbersFromSubjects("revert: undo #4 (#5)\nfix: again (#5)\n")).toEqual([5]);
+  it("ignores a PR number mentioned mid-subject", () => {
+    expect(parseTrainLog("eeeeeee revert: undo #4 (#5)")).toEqual([
+      { sha: "eeeeeee", pr: 5, sync: false },
+    ]);
+  });
+
+  // Regression: release #211 shipped two PRs squash-merged with their bare
+  // title as the commit title. They came back as "no PR" and were skipped,
+  // so the release had no feat and cut nothing.
+  it("leaves a squash commit without (#N) for a lookup instead of dropping it", () => {
+    expect(parseTrainLog("48ce158 feat: loading skeletons for every dashboard page (UX-42)")).toEqual([
+      { sha: "48ce158", pr: null, sync: false },
+    ]);
   });
 });
 

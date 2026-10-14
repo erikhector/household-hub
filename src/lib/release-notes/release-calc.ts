@@ -145,18 +145,31 @@ export function planRelease(input: {
 // REQUIREMENTS.md, "Releases & What's new"). These two helpers turn that
 // release PR into one ReleaseEntry.
 
-// GitHub's squash commit subject is "<PR title> (#123)". Reads the PR
-// numbers out of `git log --first-parent --format=%s <master>..<release>`
-// output, oldest first, so the combined note reads in merge order. Lines
-// without a trailing "(#N)" (the "sync master into next" merges the release
-// workflow makes) are skipped.
-export function prNumbersFromSubjects(log: string): number[] {
-  const numbers: number[] = [];
+export type TrainCommit = { sha: string; pr: number | null; sync: boolean };
+
+// Parses `git log --first-parent --format="%H %s" <master>..<release>`
+// output, oldest first, so the combined note reads in merge order.
+// GitHub's default squash commit subject is "<PR title> (#123)", so `pr` is
+// that number when the subject ends in one. It can't be trusted to: a merge
+// through the API with an explicit commit title drops the suffix (release
+// #211 shipped #209 and #207 that way and released nothing), so a commit
+// with `pr: null` must be looked up on GitHub by SHA rather than skipped.
+// The one exception is `sync`: the "sync master into next" merge the
+// release workflow pushes itself, which never has a PR.
+export function parseTrainLog(log: string): TrainCommit[] {
+  const commits: TrainCommit[] = [];
   for (const line of log.split("\n").reverse()) {
-    const match = /\(#(\d+)\)\s*$/.exec(line);
-    if (match && !numbers.includes(Number(match[1]))) numbers.push(Number(match[1]));
+    const match = /^([0-9a-f]{7,40}) (.*)$/.exec(line.trim());
+    if (!match) continue;
+    const [, sha, subject] = match;
+    const pr = /\(#(\d+)\)\s*$/.exec(subject);
+    commits.push({
+      sha,
+      pr: pr ? Number(pr[1]) : null,
+      sync: !pr && subject.startsWith("chore: sync master into next"),
+    });
   }
-  return numbers;
+  return commits;
 }
 
 export type TrainPr = { number: number; title: string; body: string | null | undefined };
