@@ -240,6 +240,23 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
+### UX (2026-10-14 scout)
+
+- [ ] **UX-44. Compact inventory rows on phones** (impact: med, effort: S) —
+      On a 412 px screen each inventory card on `/dashboard/inventory` takes
+      three stacked rows (name and badge, stepper and actions, "Last updated
+      <date>"), about 125 px, so six items fill two screens and the
+      shopper scrolls a lot to find one (breaks M6: most important first, and
+      the hierarchy principle: the identical "Last updated" line repeats on
+      every row and carries the least information). Seen in
+      `mobile-en-dashboard-inventory.png`.
+      Acceptance: on the mobile project at least 8 seeded items fit in the
+      first viewport after the header; "Last updated" moves to the item
+      detail page or a tooltip-free secondary line shown only when the date
+      isn't today; the stepper and edit/more buttons keep 44 px targets (M3).
+      An `e2e/inventory` spec asserts the row count in view and that the
+      stepper still works.
+
 ### UX (2026-10-04 production-readiness audit)
 
 A full design audit of every page and every dialog, menu and popover:
