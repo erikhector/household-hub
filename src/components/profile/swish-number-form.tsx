@@ -15,6 +15,7 @@ import { useFormDirty } from "@/components/shared/use-form-dirty";
 import { updateSwishNumberAction } from "@/app/dashboard/profile/actions";
 import { INVALID_SWISH_NUMBER_ERROR, formatSwishNumber } from "@/lib/swish";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type FormState = { error?: string };
 
@@ -71,7 +72,7 @@ export function SwishNumberForm({
       </div>
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" variant={dirty ? "default" : "secondary"} disabled={pending} className="self-start">
-        {pending ? dict.saving : dict.save}
+        <PendingLabel pending={pending} busy={dict.saving} idle={dict.save} />
       </Button>
     </form>
   );

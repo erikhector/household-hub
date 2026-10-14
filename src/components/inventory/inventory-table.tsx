@@ -55,6 +55,7 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
@@ -366,7 +367,7 @@ export function InventoryTable({
             disabled={isPending || !isBulkValueValid(bulkField, bulkValue)}
             onClick={handleBulkApply}
           >
-            {isPending ? dict.bulkActions.applying : dict.bulkActions.apply}
+            <PendingLabel pending={isPending} busy={dict.bulkActions.applying} idle={dict.bulkActions.apply} />
           </Button>
           <Button
             variant="ghost"

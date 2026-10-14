@@ -35,6 +35,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { MemberOption } from "@/components/budget/transaction-dialog";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 // Shared by both createRecurringTemplateAction/updateRecurringTemplateAction
 // (household) and createPersonalRecurringTemplateAction/
@@ -306,7 +307,7 @@ export function RecurringTemplateDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending || splitMismatch}>
-              {pending ? dict.recurring.saving : isEdit ? dict.recurring.save : dict.recurring.add}
+              <PendingLabel pending={pending} busy={dict.recurring.saving} idle={isEdit ? dict.recurring.save : dict.recurring.add} />
             </Button>
           </DialogFooter>
         </form>

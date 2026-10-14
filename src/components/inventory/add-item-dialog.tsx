@@ -24,6 +24,7 @@ import type { HouseholdMemberOption, InventoryItemRow } from "@/components/inven
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 const initialState: ActionState = {};
 
@@ -338,7 +339,7 @@ export function ItemFormDialog({
                   keepOpenRef.current = true;
                 }}
               >
-                {pending ? dict.adding : dict.saveAndAddAnother}
+                <PendingLabel pending={pending} busy={dict.adding} idle={dict.saveAndAddAnother} />
               </Button>
             )}
             <Button

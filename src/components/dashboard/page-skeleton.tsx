@@ -49,11 +49,15 @@ function Body({ variant }: { variant: PageSkeletonVariant }) {
   }
 }
 
-export async function PageSkeleton({ variant }: { variant: PageSkeletonVariant }) {
+// `back` adds the "← Back" link row the detail pages (a shopping list, an
+// inventory item, the item catalogue) carry above their title, so those
+// don't render a skeleton that sits a link's height too high.
+export async function PageSkeleton({ variant, back = false }: { variant: PageSkeletonVariant; back?: boolean }) {
   const dict = await getDictionary();
   return (
     <div className="flex animate-pulse flex-col gap-6" role="status" aria-label={dict.common.loading}>
       <div className="flex flex-col gap-1">
+        {back && <div className="h-5 w-24 rounded-md bg-muted/60" />}
         <div className="h-8 w-48 rounded-md bg-muted" />
         <div className="h-5 w-64 max-w-full rounded-md bg-muted/60" />
       </div>

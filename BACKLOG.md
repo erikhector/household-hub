@@ -240,6 +240,23 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
+### UX (2026-10-14 scout)
+
+- [ ] **UX-45. Compact inventory rows on phones** (impact: med, effort: S) —
+      On a 412 px screen each inventory card on `/dashboard/inventory` takes
+      three stacked rows (name and badge, stepper and actions, "Last updated
+      <date>"), about 125 px, so six items fill two screens and the
+      shopper scrolls a lot to find one (breaks M6: most important first, and
+      the hierarchy principle: the identical "Last updated" line repeats on
+      every row and carries the least information). Seen in
+      `mobile-en-dashboard-inventory.png`.
+      Acceptance: on the mobile project at least 8 seeded items fit in the
+      first viewport after the header; "Last updated" moves to the item
+      detail page or a tooltip-free secondary line shown only when the date
+      isn't today; the stepper and edit/more buttons keep 44 px targets (M3).
+      An `e2e/inventory` spec asserts the row count in view and that the
+      stepper still works.
+
 ### UX (2026-10-04 production-readiness audit)
 
 A full design audit of every page and every dialog, menu and popover:
@@ -484,15 +501,22 @@ decision and sit under "Needs a decision before building".
 
       Todoist sets this bar for productivity users on desktop.
 
-- [ ] **UX-42. Loading that looks instant** (S) — The `loading.tsx`
-      skeletons are done (see REQUIREMENTS.md, "Loading skeletons"). Left:
+- [ ] **UX-42. Loading that looks instant** (S) — Done so far: the
+      `loading.tsx` skeletons (including the `shopping-list/[id]` and
+      `inventory/items` detail pages), fixed-width pending buttons
+      (`PendingLabel`), and `e2e/cls.spec.ts`; see REQUIREMENTS.md, "Loading
+      skeletons". Left:
+      - Close the acceptance under real latency: re-run Lighthouse's mobile
+        profile on a deployed build, or add latency to `e2e/cls.spec.ts`
+        (delay RSC/server responses with `page.route`) so the 0.05 budget is
+        exercised while Suspense sections stream in. Locally every route
+        measures 0.0000 because the database answers before first paint.
       - Replace the remaining `fallback={null}` above content (household
-        `SharedWithNote`, inventory `InventoryWellStockedNote`, shopping
-        list `RepurchaseSuggestionsSection`, the layout's email-verification
-        banner) with fixed-height placeholders, once measured to shift.
-      - Pending-state buttons keep their width.
-      - Skeleton card heights tuned per route against the real layout, and
-        `shopping-list/[id]` / `inventory/items` detail `loading.tsx`.
+        `SharedWithNote`, inventory `InventoryWellStockedNote`, shopping list
+        `RepurchaseSuggestionsSection`, the layout's email-verification
+        banner) with fixed-height placeholders only if that measurement
+        shows a shift.
+      - Skeleton card heights tuned per route against the real layout.
 
       Acceptance: Lighthouse CLS < 0.05 on every dashboard route on the
       mobile profile.

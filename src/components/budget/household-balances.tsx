@@ -45,6 +45,7 @@ import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export type MemberLabel = { id: string; displayName: string };
 
@@ -140,7 +141,7 @@ function ClearDebtDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.saving : dict.confirm}
+              <PendingLabel pending={pending} busy={dict.saving} idle={dict.confirm} />
             </Button>
           </DialogFooter>
         </form>

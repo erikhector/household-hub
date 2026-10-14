@@ -25,6 +25,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { format, plural } from "@/lib/i18n/format";
 import { TEMPLATE_NAME_MAX_LENGTH } from "@/lib/shopping/list-templates";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 // GAP-4: the UI half of shopping-list templates. Both pieces live here
 // rather than in shopping-list-client.tsx / shopping-lists-overview.tsx so
@@ -88,7 +89,7 @@ export function SaveTemplateDialog({
               {dict.cancel}
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.saving : dict.save}
+              <PendingLabel pending={pending} busy={dict.saving} idle={dict.save} />
             </Button>
           </DialogFooter>
         </form>
