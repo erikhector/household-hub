@@ -57,7 +57,20 @@ export function PrepTab({
         <p className="text-sm text-muted-foreground">{dict.prepSubtitle}</p>
       </div>
 
-      <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} />
+      {/* M2 (thumb zone): on phones Record prep moves below the cards and
+          sticks to the bottom of `main`'s scrollport, just above the bottom
+          bar, on an opaque strip so the cards scroll under it — the same
+          max-sm:sticky strip as the inventory table's bulk bar. Flex order
+          (not DOM order) moves it, so from `sm` it stays inline at the top
+          where the DOM puts it. It keeps its own space in the flow, so the
+          last card scrolls clear of it rather than hiding behind it.
+          The stick offset is -4px (padding grown to match): `main`'s bottom
+          reservation is 2px taller than the bar, and the bar's top border
+          is translucent, so a strip ending flush at the reservation left a
+          sliver of card showing between the button and the bar. */}
+      <div className="max-sm:sticky max-sm:-bottom-1 max-sm:z-10 max-sm:order-last max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-2 max-sm:pb-3">
+        <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} />
+      </div>
 
       {batches.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-md border border-dashed p-8 text-center">
