@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.63.1",
+    "date": "2026-10-14",
+    "pr": 216,
+    "kind": "perf",
+    "breaking": false,
+    "notes": {
+      "en": "Buttons no longer change size when they show \"Saving…\", and detail pages for shopping lists and inventory items now show a placeholder while they load.",
+      "sv": "Knappar ändrar inte längre storlek när de visar \"Sparar…\", och detaljsidor för inköpslistor och varor visar nu en platshållare medan de laddas."
+    }
+  },
+  {
     "version": "0.63.0",
     "date": "2026-10-14",
     "pr": 215,
