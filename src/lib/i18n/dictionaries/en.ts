@@ -26,6 +26,8 @@ export const en = {
     invalidField: "Invalid field",
     invalidCategory: "Invalid category",
     invalidDate: "Invalid date",
+    prepPortionsInvalid: "Enter 1 to 100 portions",
+    prepTooManyDishes: "You can prep up to 5 dishes at once",
     invalidWeek: "Invalid week",
     invalidDateRange: "Invalid date range",
     invalidSectionOrder: "Invalid section order",

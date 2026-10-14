@@ -21,6 +21,8 @@ export const sv = {
     invalidField: "Ogiltigt fält",
     invalidCategory: "Ogiltig kategori",
     invalidDate: "Ogiltigt datum",
+    prepPortionsInvalid: "Ange 1 till 100 portioner",
+    prepTooManyDishes: "Du kan förbereda högst 5 rätter åt gången",
     invalidWeek: "Ogiltig vecka",
     invalidDateRange: "Ogiltigt datumintervall",
     invalidSectionOrder: "Ogiltig ordning på avdelningarna",
