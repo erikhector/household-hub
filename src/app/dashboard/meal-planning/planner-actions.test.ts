@@ -65,6 +65,7 @@ const {
   deleteMealEntryAction,
   moveMealEntryAction,
   copyWeekAction,
+  fillEmptyDaysAction,
   undoCopyWeekAction,
   suggestLeftoversDayAction,
 } = await import(
@@ -547,6 +548,94 @@ describe("suggestLeftoversDayAction", () => {
     mealPlanEntryFindManyMock.mockResolvedValue([]);
     await suggestLeftoversDayAction("2026-01-05");
     expect(mealPlanEntryCreateMock).not.toHaveBeenCalled();
+    expect(mealPlanUpsertMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("fillEmptyDaysAction", () => {
+  const WEEK = "2026-01-05"; // Monday
+  const d = (key: string) => new Date(`${key}T00:00:00.000Z`);
+  const picks = [
+    { date: "2026-01-05", recipeId: "r1" },
+    { date: "2026-01-07", recipeId: "r2" },
+  ];
+
+  it.each([
+    ["a non-Monday week", "2026-01-06", picks],
+    ["no picks", WEEK, []],
+  ])("rejects %s", async (_label, week, p) => {
+    const result = await fillEmptyDaysAction(week, p);
+    expect(result.error).toBeTruthy();
+    expect(mealPlanEntryCreateManyAndReturnMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a date outside the week", [{ date: "2026-01-12", recipeId: "r1" }]],
+    ["the same day twice", [picks[0], { date: "2026-01-05", recipeId: "r2" }]],
+    ["the same recipe twice", [picks[0], { date: "2026-01-06", recipeId: "r1" }]],
+  ])("rejects %s", async (_label, p) => {
+    const result = await fillEmptyDaysAction(WEEK, p);
+    expect(result.error).toBe("Invalid input");
+    expect(recipeFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a recipe outside the household and writes nothing (IDOR guard)", async () => {
+    recipeFindManyMock.mockResolvedValue([{ id: "r1", servings: 4 }]);
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+
+    const result = await fillEmptyDaysAction(WEEK, picks);
+
+    expect(result.error).toBe("Recipe not found");
+    expect(recipeFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["r1", "r2"] }, householdId: "household-1" },
+      select: { id: true, servings: true },
+    });
+    expect(mealPlanUpsertMock).not.toHaveBeenCalled();
+    expect(mealPlanEntryCreateManyAndReturnMock).not.toHaveBeenCalled();
+  });
+
+  it("writes one dinner per day with the recipe's servings and returns the ids for Undo", async () => {
+    recipeFindManyMock.mockResolvedValue([
+      { id: "r1", servings: 4 },
+      { id: "r2", servings: 2 },
+    ]);
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateManyAndReturnMock.mockResolvedValue([{ id: "n1" }, { id: "n2" }]);
+
+    const result = await fillEmptyDaysAction(WEEK, picks);
+
+    expect(result).toEqual({ copied: 2, entryIds: ["n1", "n2"] });
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith({
+      where: { mealPlan: { householdId: "household-1", weekStartDate: d(WEEK) } },
+      select: { date: true },
+    });
+    expect(mealPlanEntryCreateManyAndReturnMock).toHaveBeenCalledWith({
+      data: [
+        { date: d("2026-01-05"), mealType: "DINNER", recipeId: "r1", freeformName: null, portions: 4, mealPlanId: "plan-1" },
+        { date: d("2026-01-07"), mealType: "DINNER", recipeId: "r2", freeformName: null, portions: 2, mealPlanId: "plan-1" },
+      ],
+      select: { id: true },
+    });
+  });
+
+  it("skips a day that gained an entry since the preview, and writes no plan when none are left", async () => {
+    recipeFindManyMock.mockResolvedValue([
+      { id: "r1", servings: 4 },
+      { id: "r2", servings: 2 },
+    ]);
+    mealPlanEntryFindManyMock.mockResolvedValue([{ date: d("2026-01-05") }]);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryCreateManyAndReturnMock.mockResolvedValue([{ id: "n2" }]);
+
+    const result = await fillEmptyDaysAction(WEEK, picks);
+
+    expect(result).toEqual({ copied: 1, entryIds: ["n2"] });
+    expect(mealPlanEntryCreateManyAndReturnMock.mock.calls[0][0].data).toHaveLength(1);
+
+    mealPlanEntryFindManyMock.mockResolvedValue([{ date: d("2026-01-05") }, { date: d("2026-01-07") }]);
+    mealPlanUpsertMock.mockClear();
+    expect(await fillEmptyDaysAction(WEEK, picks)).toEqual({ copied: 0, entryIds: [] });
     expect(mealPlanUpsertMock).not.toHaveBeenCalled();
   });
 });
