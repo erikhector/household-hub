@@ -458,17 +458,6 @@ decision and sit under "Needs a decision before building".
       snap only. Keep clear of the 20 px screen edges, which belong to the
       OS back gesture.
 
-- [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
-      (AUTO-3) already groups by store order and holds a wake lock. Add:
-      - large type and full-row targets;
-      - a progress ring ("12 of 18");
-      - ticked items animating to a collapsed "In the cart" section;
-      - an "All done" moment that offers to put things away;
-      - one-handed reach (the next aisle's items near the bottom).
-
-      Acceptance: a whole shop can be done with the thumb, without
-      scrolling to the top.
-
 - [ ] **UX-39. Charts and numbers that feel alive** (M) — Replace the
       hand-rolled budget bars with one small chart component:
       - tappable bars and segments that show their value (no hover-only);

@@ -833,6 +833,43 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+  - *A tool, not a list (UX-37)* — on an `ACTIVE` list:
+    - *Large type, full-row targets*: unticked rows set the name at 16 px
+      (18 px on phones and touch screens) with a bigger checkbox and a 56 px
+      minimum height. The row's `<label>` reaches the whole row through an
+      absolutely positioned `::after` (the row is `relative`), so a tap on
+      its padding, note or hint ticks it, still through the native
+      label/input pairing; the controls column (price, edit, delete) sits
+      above it at `z-10`.
+    - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
+      row into `ShoppingListClient` (`useOptimistic` over the set of rows
+      toggled but not yet saved, in one tick transition separate from the
+      list's own), because a ticked row now changes section. It stays in
+      its aisle for 350 ms animating down and out, then joins **"In the
+      cart"**, a collapsed section (a disclosure button with a count that
+      pops on each arrival; the rows stay mounted under `hidden`). A
+      completed or archived list keeps the always-open "Purchased" section.
+      Under `prefers-reduced-motion` the row moves at once.
+    - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
+      progress ring ("12 of 18", a real `progressbar` with that
+      valuetext), the aisle the shopper is in now (the first pending group,
+      `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
+      and its next three items as 48 px full-width tap rows. Ticking one is
+      the same optimistic tick; when an aisle is done the next aisle's items
+      move in, so a whole trip can be ticked off from the dock. Phones pin
+      it above the BottomNav (`fixed`, with a spacer the dock's measured
+      height at the end of the list so the last rows can scroll clear of
+      it); from `sm` it's sticky at the bottom of the column; a short
+      (landscape) screen shows one item. Every item it offers is also in the
+      list with its own checkbox (M7).
+    - *All done*: the cleared state shows the full ring with a tick and pops
+      in (motion-safe). When ticked rows still wait to be put away it says
+      how many and its primary action is "Put things away", which opens the
+      put-away dialog in finish mode; otherwise it's "Done shopping" as
+      before. Both wait for in-flight ticks to save.
+    - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
+      the bottom half of a phone screen with no scrolling, the collapsed
+      cart and full-row tap, the put-away offer).
   - *Bundle size (PERF-6)*: matching a category label in either locale
     (above) used to mean `shopping-mode-grouping.ts` imported the full
     `en`/`sv` dictionaries, which — since that module is reachable from the
@@ -5676,7 +5713,10 @@ approximating them, so the email never disagrees with the app.
   redirect signal is re-thrown, so an expired session still lands on
   login. A ticked row stays in its section until the save revalidates the
   page, then moves (to "Purchased"/"Completed"), so rows don't jump under
-  the thumb mid-tap. The steppers are named "Decrease {name}" / "Increase
+  the thumb mid-tap — except on an `ACTIVE` shopping list since UX-37,
+  where the optimistic state lives in `ShoppingListClient` instead of the
+  row and a ticked row animates out of its aisle and into "In the cart"
+  at once (see "Shopping mode" above). The steppers are named "Decrease {name}" / "Increase
   {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
   Server Action request, ticks three rows, checks all three before any
   answer, then releases and reloads.

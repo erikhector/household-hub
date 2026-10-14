@@ -521,6 +521,19 @@ export const sv = {
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
     clearedDismissAriaLabel: "Stäng",
     purchased: "Köpt",
+    shoppingMode: {
+      progress: "{done} av {total}",
+      progressAriaLabel: "Hur långt du har kommit",
+      nextUp: "Näst på tur",
+      tickAriaLabel: "{item}, i vagnen",
+      moreHere: { one: "+{count} till i den här avdelningen", other: "+{count} till i den här avdelningen" },
+      inCart: "I vagnen",
+      waitingToPutAway: {
+        one: "{count} vara väntar på att ställas in.",
+        other: "{count} varor väntar på att ställas in.",
+      },
+      putAwayNow: "Ställ in varorna",
+    },
     // "Ställ in" som i streckkodsskanningens "Ställt in (+1)", så att båda
     // läses som samma sak.
     putAway: {

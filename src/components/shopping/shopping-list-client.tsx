@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   Check,
   CheckCheck,
+  ChevronDown,
   ClipboardPaste,
   Download,
   Ellipsis,
@@ -48,6 +49,7 @@ import { CategoryChip } from "@/components/shopping/category-chip";
 import { ReorderSectionsDialog } from "@/components/shopping/reorder-sections-dialog";
 import { SaveTemplateDialog } from "@/components/shopping/list-templates";
 import { PutAwayDialog } from "@/components/shopping/put-away-dialog";
+import { NextUpDock, ProgressRing } from "@/components/shopping/shopping-mode";
 import {
   archiveShoppingListAction,
   completeShoppingListAction,
@@ -69,6 +71,7 @@ import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
 import type { StoreOrder } from "@/lib/shopping/store-order";
 import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
+import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
@@ -84,6 +87,14 @@ const BATCH_RESOLVE_THRESHOLD = 3;
 // How long a row the smart add line just added stays highlighted — long
 // enough to spot where it landed, short enough to be gone by the next add.
 const ADDED_HIGHLIGHT_MS = 2000;
+
+// UX-37: how long a just-ticked row stays in its aisle, animating out,
+// before it moves into "In the cart". Matches the row's exit animation.
+const LEAVE_MS = 350;
+
+// useOptimistic's resting value: nothing toggled ahead of the server.
+// Module-level so it's the same Set on every render.
+const NO_TOGGLES: ReadonlySet<string> = new Set();
 
 type ShoppingListItemRow = {
   id: string;
@@ -184,8 +195,70 @@ export function ShoppingListClient({
   // currency symbol once one is set (GAP-13) and none before that.
   const numberFormat = createMoneyFormat(locale, currencyCode);
 
-  const pendingItems = list.items.filter((item) => !item.purchased);
-  const purchasedItems = list.items.filter((item) => item.purchased);
+  // UX-14 + UX-37: ticking is instant. Every tick — a row's checkbox or the
+  // Next up dock — flips the row here, before the server answers, in one
+  // tick transition of its own rather than the list's shared one, so on weak
+  // in-store signal you can tick the next three items while the first save
+  // is still on its way, and nothing greys out meanwhile. The optimistic
+  // state is the set of rows toggled but not yet saved; a quick re-tap
+  // before the server answers takes the id back out, matching the two
+  // toggles it sends. It lives up here, not per row (as UX-14 had it),
+  // because a ticked row now *moves*: out of its aisle and into "In the
+  // cart" (and its dock button goes), and the ring and the all-done moment
+  // follow it at once. When the transition ends React drops the set and
+  // shows the server-rendered `purchased`, so a failed save puts the row
+  // back by itself; settleOptimisticAction adds the toast that says why.
+  const [isTicking, startTickTransition] = useTransition();
+  const [toggled, toggleOptimistic] = useOptimistic<ReadonlySet<string>, string>(NO_TOGGLES, (current, id) => {
+    const next = new Set(current);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
+  const items = list.items.map((item) => (toggled.has(item.id) ? { ...item, purchased: !item.purchased } : item));
+
+  // Rows just ticked stay in their aisle for LEAVE_MS while they animate
+  // out towards "In the cart", so the eye sees where they went. Skipped
+  // under prefers-reduced-motion: the row simply moves.
+  const [leaving, setLeaving] = useState<ReadonlySet<string>>(new Set());
+  const leaveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = leaveTimers.current;
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  const setLeavingRow = (id: string, on: boolean) => {
+    const timer = leaveTimers.current.get(id);
+    if (timer) clearTimeout(timer);
+    leaveTimers.current.delete(id);
+    setLeaving((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    if (on) {
+      leaveTimers.current.set(
+        id,
+        setTimeout(() => setLeavingRow(id, false), LEAVE_MS),
+      );
+    }
+  };
+
+  const toggleItem = (item: ShoppingListItemRow) => {
+    const ticking = !item.purchased;
+    setLeavingRow(item.id, ticking && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    startTickTransition(async () => {
+      toggleOptimistic(item.id);
+      const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
+      if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
+    });
+  };
+
+  const pendingItems = items.filter((item) => !item.purchased);
+  const purchasedItems = items.filter((item) => item.purchased);
+  // What the aisles show: everything pending, plus the rows still on their
+  // way out (see `leaving`).
+  const shownPendingItems = items.filter((item) => !item.purchased || leaving.has(item.id));
+  const progress = shoppingProgress(items);
   // Ticked but not yet in inventory — the put-away dialog's rows. Offered on
   // a completed list too (finishing the trip is exactly when there's
   // something to unpack), never an archived one.
@@ -198,6 +271,12 @@ export function ShoppingListClient({
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
   const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
+  const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
+  // UX-37: the aisle the thumb-zone dock offers (see NextUpDock).
+  const nextUpItems = nextUp(pendingGroups);
+  // "In the cart" starts collapsed on an ACTIVE list — mid-shop it's what
+  // you no longer need to see — and opens with its button.
+  const [cartOpen, setCartOpen] = useState(false);
   // AUTO-9: "Reorder sections" offers every section this list has, pending
   // or already ticked off (you might arrange the store before the next trip
   // with everything ticked), in the order shopping mode walks them. "Other"
@@ -641,11 +720,19 @@ export function ShoppingListClient({
         {showCleared ? (
           <ClearedState
             dict={dict}
+            progress={progress}
             onDismiss={() => setClearedDismissed(true)}
             // Only once something was actually bought — a list that was
             // simply emptied out has no trip to finish.
             onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
-            isPending={isPending}
+            // UX-37: the bags are in hand — offer the put-away straight from
+            // here (finishing the list once it's confirmed), on a list that
+            // isn't archived, whether or not it's still ACTIVE.
+            awaitingPutAway={awaitingPutAway.length}
+            onPutAway={() => setPutAwayMode(isActive ? "finish" : "putAway")}
+            // Wait for every tick to save first: the put-away rows and the
+            // completion both read what the server has.
+            isPending={isPending || isTicking}
           />
         ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
           <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -658,13 +745,15 @@ export function ShoppingListClient({
                 (AUTO-9: learned from check-offs, or arranged by hand) —
                 see groupPendingItemsByCategory. Purchased items below stay
                 a single flat "Purchased" section, unchanged. */}
-            {pendingGroups.map((group) => (
+            {shownPendingGroups.map((group) => (
               <Fragment key={group.key ?? ""}>
                 <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}
                     item={item}
+                    onToggle={() => toggleItem(item)}
+                    leaving={leaving.has(item.id)}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
                     groupedByCategory
@@ -675,35 +764,67 @@ export function ShoppingListClient({
                     units={units}
                     dict={dict}
                     numberFormat={numberFormat}
-                    autoAddDict={autoAddDict}
                   />
                 ))}
               </Fragment>
             ))}
-            {purchasedItems.length > 0 && (
-              <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.purchased}
-              </p>
-            )}
-            {purchasedItems.map((item) => (
-              <ShoppingRow
-                key={item.id}
-                item={item}
-                editable={isActive}
-                isPending={isPending}
-                startTransition={startTransition}
-                inventoryItems={inventoryItems}
-                categories={categories}
-                units={units}
-                dict={dict}
-                numberFormat={numberFormat}
-                autoAddDict={autoAddDict}
-                awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
-              />
-            ))}
+            {/* UX-37: on an ACTIVE list the ticked rows collapse into "In the
+                cart" — out of the way mid-shop, one tap to check or un-tick.
+                The rows stay mounted while it's closed (`hidden`), so the
+                count's bump is the only thing that moves. A finished or
+                archived list is all ticked rows, so there it's the plain,
+                always-open "Purchased" section it always was. */}
+            {purchasedItems.length > 0 &&
+              (isActive ? (
+                <Button
+                  variant="ghost"
+                  className="mt-4 w-fit justify-start gap-2 px-2 text-xs font-medium uppercase text-muted-foreground"
+                  aria-expanded={cartOpen}
+                  aria-controls="in-the-cart"
+                  onClick={() => setCartOpen((open) => !open)}
+                >
+                  <ChevronDown className={cn("size-4 transition-transform", !cartOpen && "-rotate-90")} />
+                  {dict.shoppingMode.inCart}
+                  <Badge
+                    // Re-keyed on the count, so each tick that lands here
+                    // replays the pop (motion-safe only).
+                    key={purchasedItems.length}
+                    variant="secondary"
+                    className="tabular-nums motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300"
+                  >
+                    {purchasedItems.length}
+                  </Badge>
+                </Button>
+              ) : (
+                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">{dict.purchased}</p>
+              ))}
+            <div id="in-the-cart" hidden={isActive && !cartOpen} className="flex flex-col gap-2">
+              {purchasedItems.map((item) => (
+                <ShoppingRow
+                  key={item.id}
+                  item={item}
+                  onToggle={() => toggleItem(item)}
+                  editable={isActive}
+                  isPending={isPending}
+                  startTransition={startTransition}
+                  inventoryItems={inventoryItems}
+                  categories={categories}
+                  units={units}
+                  dict={dict}
+                  numberFormat={numberFormat}
+                  awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
+                />
+              ))}
+            </div>
           </>
         )}
       </div>
+
+      {/* UX-37: one-handed reach. Last in the column so, sticky, it rides
+          the bottom of the screen in the thumb zone (DESIGN.md M2). */}
+      {isActive && !showCleared && nextUpItems && (
+        <NextUpDock next={nextUpItems} progress={progress} dict={dict.shoppingMode} onTick={toggleItem} />
+      )}
     </div>
   );
 }
@@ -756,27 +877,57 @@ function PrintableList({
   );
 }
 
+/**
+ * The "All done" moment: the ring full with a tick in it, and the one next
+ * step as the primary action. UX-37: with ticked rows still waiting to be
+ * put away (ON_PUT_AWAY households), that step is putting them away, which
+ * finishes the list once confirmed; otherwise it's "Done shopping" (AUTO-5).
+ * It pops in (motion-safe only).
+ */
 function ClearedState({
   dict,
+  progress,
   onDismiss,
   onDone,
+  awaitingPutAway,
+  onPutAway,
   isPending,
 }: {
   dict: ShoppingListDict;
+  progress: ShoppingProgress;
   onDismiss: () => void;
   /** AUTO-5: completes the list in one tap, with Undo on the toast. */
   onDone?: () => void;
+  awaitingPutAway: number;
+  onPutAway: () => void;
   isPending: boolean;
 }) {
   return (
-    <div className="relative flex flex-col items-center gap-1.5 rounded-md border border-dashed p-8 text-center">
-      <CheckCheck className="size-5 text-muted-foreground" />
-      <p className="text-sm font-medium">{dict.clearedTitle}</p>
-      <p className="text-sm text-muted-foreground">{dict.clearedDescription}</p>
-      {onDone && (
-        <Button className="mt-3" disabled={isPending} onClick={onDone}>
-          {dict.doneShopping}
+    <div className="relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
+      {progress.total > 0 ? (
+        <ProgressRing progress={progress} dict={dict.shoppingMode} className="mb-2 size-20">
+          <Check aria-hidden className="size-8 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
+        </ProgressRing>
+      ) : (
+        <CheckCheck className="size-5 text-muted-foreground" />
+      )}
+      <p className="font-heading text-xl font-semibold">{dict.clearedTitle}</p>
+      <p className="text-sm text-muted-foreground">
+        {awaitingPutAway > 0
+          ? format(plural(awaitingPutAway, dict.shoppingMode.waitingToPutAway), { count: awaitingPutAway })
+          : dict.clearedDescription}
+      </p>
+      {awaitingPutAway > 0 ? (
+        <Button className="mt-3" disabled={isPending} onClick={onPutAway}>
+          <PackageCheck className="size-4" />
+          {dict.shoppingMode.putAwayNow}
         </Button>
+      ) : (
+        onDone && (
+          <Button className="mt-3" disabled={isPending} onClick={onDone}>
+            {dict.doneShopping}
+          </Button>
+        )
       )}
       <Button
         variant="ghost"
@@ -793,6 +944,8 @@ function ClearedState({
 
 function ShoppingRow({
   item,
+  onToggle,
+  leaving = false,
   highlighted = false,
   editable,
   isPending,
@@ -802,11 +955,15 @@ function ShoppingRow({
   units,
   dict,
   numberFormat,
-  autoAddDict,
   awaitingPutAway = false,
   groupedByCategory = false,
 }: {
+  /** `purchased` is already the optimistic value (see ShoppingListClient). */
   item: ShoppingListItemRow;
+  /** The optimistic tick, owned by ShoppingListClient. */
+  onToggle: () => void;
+  /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
+  leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
   awaitingPutAway?: boolean;
   highlighted?: boolean;
@@ -821,10 +978,14 @@ function ShoppingRow({
   units: string[];
   dict: ShoppingListDict;
   numberFormat: Intl.NumberFormat;
-  autoAddDict: Dictionary["inventory"]["autoAdd"];
 }) {
   const unitLabel = useUnitLabel();
   const needsMapping = item.inventoryItemId === null;
+  const purchased = item.purchased;
+  // UX-37: an unticked row on an ACTIVE list is shopping mode proper — the
+  // row you're reading at arm's length in the aisle — so it gets large
+  // type. Ticked rows (In the cart) and read-only lists stay compact.
+  const large = editable && !purchased;
 
   // A just-added row scrolls into view if the list is long enough to have
   // hidden it ("nearest" leaves it alone if it's already on screen). New
@@ -836,35 +997,22 @@ function ShoppingRow({
     if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
-  // UX-14: ticking is instant. The box flips the moment it's tapped, in this
-  // row's own transition rather than the list's shared one, so on weak
-  // in-store signal you can tick the next three items while the first save
-  // is still on its way, and nothing greys out meanwhile. The reducer
-  // toggles from the *current* optimistic value, so a quick re-tap before
-  // the server answers un-ticks it again, matching the two toggles it sends.
-  // When the transition ends React swaps in the server-rendered
-  // `item.purchased`, so a failed save rolls the box back by itself;
-  // settleOptimisticAction adds the toast that says why.
-  const [, startTickTransition] = useTransition();
-  const [purchased, toggleOptimisticPurchased] = useOptimistic<boolean, void>(item.purchased, (current) => !current);
-  const handleTogglePurchased = () => {
-    startTickTransition(async () => {
-      toggleOptimisticPurchased();
-      const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
-      if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
-    });
-  };
-
   return (
     <div
       ref={rowRef}
       className={cn(
-        "flex flex-col gap-1 rounded-md border transition-colors duration-700",
+        "relative flex flex-col gap-1 rounded-md border transition-colors duration-700",
         // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
         // mode) — rows are tapped one-handed, phone in the other hand, so
         // this is when it matters most; a read-only list stays compact.
         editable ? "px-3 py-3" : "px-3 py-2",
+        large && "min-h-14",
         highlighted && "border-primary/50 bg-primary/10",
+        // UX-37: the just-ticked row drops and fades towards "In the cart"
+        // below for LEAVE_MS, then moves there. motion-safe only; under
+        // reduced motion it isn't held back at all (see toggleItem).
+        leaving &&
+          "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-4 motion-safe:fill-mode-forwards motion-safe:duration-350",
       )}
     >
       {/* Below sm the row stacks: the name gets the full width on its own
@@ -883,16 +1031,28 @@ function ShoppingRow({
             // <input type="checkbox">) already gives this keyboard and
             // screen-reader semantics for free, no extra handler needed.
             editable && "cursor-pointer self-stretch max-sm:min-h-11 pointer-coarse:min-h-11",
+            // UX-37: and past the label to the whole row — its padding, the
+            // note and the hint lines too — via a pseudo-element spread over
+            // the row (the row is `relative`, the label isn't). Hit-testing
+            // a label's ::after is the label, so it's the same native
+            // toggle; the controls column sits above it (`relative z-10`).
+            editable && "after:absolute after:inset-0 after:rounded-md after:content-['']",
           )}
         >
           <Checkbox
             checked={purchased}
             disabled={isPending || !editable}
-            className={editable ? "size-5" : undefined}
-            onChange={handleTogglePurchased}
+            // z-[1]: above the label's row-wide ::after (painted after it),
+            // so a tap on the box itself lands on the box.
+            className={cn(editable && "z-[1] size-5", large && "max-sm:size-6 pointer-coarse:size-6")}
+            onChange={onToggle}
           />
           <span
-            className={`min-w-0 flex-1 break-words sm:truncate ${purchased ? "text-muted-foreground line-through" : ""}`}
+            className={cn(
+              "min-w-0 flex-1 break-words sm:truncate",
+              large && "text-base max-sm:text-lg pointer-coarse:text-lg",
+              purchased && "text-muted-foreground line-through",
+            )}
             title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
           >
             {item.name} × {item.quantity} {unitLabel(item.unit)}
@@ -917,8 +1077,16 @@ function ShoppingRow({
             also toggle the checkbox on tap, since Checkbox is a native
             <input> the label is already wired to. Rendered even on a
             non-editable (view-only) row, just without the tap-to-correct
-            affordance, since the estimate itself is still worth showing. */}
-        <div className={cn("flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0", editable ? "pl-8" : "pl-7")}>
+            affordance, since the estimate itself is still worth showing.
+            `relative z-10` lifts it above the label's row-wide hit area
+            (UX-37), so these controls still get their own taps. */}
+        <div
+          className={cn(
+            "relative z-10 flex shrink-0 flex-wrap items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2 empty:hidden sm:pl-0",
+            editable ? "pl-8" : "pl-7",
+            large && "max-sm:pl-9",
+          )}
+        >
           {/* AUTO-2b: the in-place fix for a wrong auto-category guess.
               Only on an editable, linked row — an unlinked one has no
               category yet (the mapping flow picks one), and a read-only
@@ -977,15 +1145,18 @@ function ShoppingRow({
         </div>
       </div>
       {/* GAP-5: the note as a muted second line, indented past the checkbox
-          (size-5 + gap-3 on an editable row, size-4 + gap-3 otherwise) so it
-          lines up under the item name. Outside the label so tapping it
-          doesn't toggle the row, and wrapped rather than truncated — unlike
-          the name, the note is the part someone needs to read in the aisle. */}
+          (size-5 + gap-3 on an editable row, size-6 on a large one on a
+          phone, size-4 + gap-3 otherwise) so it lines up under the item name.
+          Outside the label, but on an editable row the label's row-wide hit
+          area (UX-37) covers it, so tapping it ticks the row like any other
+          part of it. Wrapped rather than truncated — unlike the name, the
+          note is the part someone needs to read in the aisle. */}
       {item.note && (
         <p
           className={cn(
             "text-xs break-words whitespace-pre-line text-muted-foreground",
             editable ? "pl-8" : "pl-7",
+            large && "max-sm:pl-9",
           )}
         >
           {item.note}
