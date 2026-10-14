@@ -1849,6 +1849,7 @@ export const en = {
     },
     prepLoadingWeek: "Loading the week…",
     prepRetry: "Try again",
+    prepConnectionError: "Couldn't reach the server. Check your connection and try again.",
     prepPlanSubmit: "Plan portions",
     prepPlanning: "Planning…",
     prepPlannedToast: {

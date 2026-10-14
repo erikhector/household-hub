@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,18 @@ export function PlanPortionsDialog({
   // Callers clear any earlier loadError first; the mount-time load has none.
   function load(week: string) {
     startLoad(async () => {
-      const result = await loadPlanSlotsAction(week);
+      // A request that never arrives (offline, weak signal) rejects rather
+      // than answering { error }; caught here so it lands in this dialog's
+      // error state instead of the page's error boundary (M8). Next's own
+      // redirect signals (an expired session) still go through.
+      let result: Awaited<ReturnType<typeof loadPlanSlotsAction>>;
+      try {
+        result = await loadPlanSlotsAction(week);
+      } catch (error) {
+        unstable_rethrow(error);
+        setLoadError({ week, message: dict.prepConnectionError });
+        return;
+      }
       if ("error" in result) {
         setLoadError({ week, message: result.error });
         return;
@@ -139,7 +150,16 @@ export function PlanPortionsDialog({
         return { date, mealType, portions };
       });
     startSave(async () => {
-      const result = await assignBatchPortionsAction({ batchId: batch.id, slots });
+      let result: Awaited<ReturnType<typeof assignBatchPortionsAction>>;
+      try {
+        result = await assignBatchPortionsAction({ batchId: batch.id, slots });
+      } catch (error) {
+        // As in load(): the request never arrived, so nothing was written
+        // and the selection is still good to retry.
+        unstable_rethrow(error);
+        setSaveError(dict.prepConnectionError);
+        return;
+      }
       if (result.error) {
         setSaveError(result.error);
         // Nothing was written (all or nothing), but someone else changed
@@ -173,6 +193,8 @@ export function PlanPortionsDialog({
     month: "short",
     timeZone: "UTC",
   });
+  // UTC like every planner date key, as week-planner computes today.
+  const todayKey = toDateKey(new Date());
   const entries = weeks[weekStartKey];
   const weekError = loadError?.week === weekStartKey ? loadError.message : null;
 
@@ -231,11 +253,14 @@ export function PlanPortionsDialog({
                   <h3 id={headingId} className="text-xs font-semibold text-muted-foreground uppercase">
                     {day}
                   </h3>
-                  <ul className="flex flex-col">
+                  {/* M3: gap-2 keeps neighbouring rows' 44px targets 8px apart. */}
+                  <ul className="flex flex-col gap-2">
                     {MEAL_TYPES.map((mealType) => {
                       const key = slotKey(date, mealType);
                       const inSlot = entriesInSlot(entries, key);
-                      const selectable = isSelectable(inSlot, batch.recipeId);
+                      // Prepped food can't be eaten in the past, so days
+                      // before today are shown but can't be picked.
+                      const selectable = date >= todayKey && isSelectable(inSlot, batch.recipeId);
                       const portions = selected[key];
                       const isSelected = portions !== undefined;
                       const mealLabel = dict[mealTypeDictKey[mealType]];

@@ -1762,6 +1762,7 @@ export const sv = {
     },
     prepLoadingWeek: "Laddar veckan…",
     prepRetry: "Försök igen",
+    prepConnectionError: "Kunde inte nå servern. Kontrollera anslutningen och försök igen.",
     prepPlanSubmit: "Planera portioner",
     prepPlanning: "Planerar…",
     prepPlannedToast: {
