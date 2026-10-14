@@ -5844,7 +5844,11 @@ each is for.
   a removed one fades out, and rows that shift because of either glide
   (200 ms). Because a name pairs across sections, a ticked shopping item or
   task slides into "Purchased"/"Completed" on the spring once the save lands,
-  and a completed list's card slides into its section. The optimistic tick
+  and a completed list's card slides into its section. Section labels
+  ("Purchased", "Completed", a category heading, an inventory group row)
+  glide with the rows (unnamed `ListRowTransition`s), and the shopping
+  list's header buttons, which gain "Put away" when an item is ticked,
+  glide aside (`ShiftTransition`, update only). The optimistic tick
   itself (UX-14) is a sync update, which React never animates, so the box
   still flips at once. `ListTransitionScope` wraps each of those lists: when
   a whole page leaves, React animates only the outermost `<ViewTransition>`s,
@@ -5879,6 +5883,15 @@ each is for.
 - Morphs need both ends on screen: React leaves out pairs it measures as
   off-screen.
 
+- Layout shift: on desktop `html` reserves the scrollbar gutter
+  (`scrollbar-gutter: stable`), so a list growing past one screen no longer
+  nudges right-aligned buttons sideways. A row moves only once the server
+  answers (UX-14), so when that takes over 500 ms the browser's CLS metric
+  counts the move, even though on screen it's the row gliding there. CLS
+  is 0 when the save comes back within 500 ms; above that, nothing moves
+  without an animation. Moving rows at tap time instead would undo UX-14's
+  choice to keep rows still under your thumb until the save lands.
+
 **Reduced motion.** The UX-29 rule in `globals.css` doesn't reach the
 view-transition pseudo-elements, so a second rule sets their animation
 duration and delay to 0: every change happens at once.
@@ -5886,9 +5899,12 @@ duration and delay to 0: every change happens at once.
 **Tests.** `e2e/motion.spec.ts` wraps `document.startViewTransition` in an
 init script and records each transition's running animations (pseudo-element,
 keyframes, duration). It asserts a shopping item's add (fade in), tick
-(the spring move) and delete (fade out) with zero layout shift outside the
-500 ms after input, both morphs, the tab fade, and all-zero durations under
-`reducedMotion: "reduce"`, on desktop and mobile.
+(the spring move) and delete (fade out), each with no layout shift outside
+the 500 ms after input except of elements the transition was animating (it
+names whatever moved on a failure). It also checks both morphs and the tab
+fade (each retried up to three times from where it started, since React
+leaves a navigation unanimated when an unrelated update shares its render),
+and all-zero durations under `reducedMotion: "reduce"`, on desktop and mobile.
 
 ## Testing
 

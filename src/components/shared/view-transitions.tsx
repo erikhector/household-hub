@@ -27,8 +27,13 @@ import { useParams } from "next/navigation";
  *
  * `default="none"` keeps unrelated transitions (a page change, a morph
  * elsewhere) from touching the row.
+ *
+ * Section labels in the list ("Purchased", a category) use it too, without
+ * a name, so they glide along with the rows instead of jumping while the
+ * rows around them move. React names those itself; a label never needs to
+ * pair with one elsewhere.
  */
-export function ListRowTransition({ name, children }: { name: string; children: ReactNode }) {
+export function ListRowTransition({ name, children }: { name?: string; children: ReactNode }) {
   return (
     <ViewTransition
       name={name}
@@ -54,6 +59,20 @@ export function ListRowTransition({ name, children }: { name: string; children: 
  */
 export function ListTransitionScope({ children }: { children: ReactNode }) {
   return <ViewTransition default="none">{children}</ViewTransition>;
+}
+
+/**
+ * Something outside the list whose layout changes with it (the shopping
+ * list's header buttons, which gain "Put away" when an item is ticked).
+ * It glides like a shifted row, and only then: no enter or exit, so it
+ * never fades in or out with the page.
+ */
+export function ShiftTransition({ children }: { children: ReactNode }) {
+  return (
+    <ViewTransition update="vt-row-shift" default="none">
+      {children}
+    </ViewTransition>
+  );
 }
 
 /** The shared names a list row and its detail page agree on. */

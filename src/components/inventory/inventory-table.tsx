@@ -405,13 +405,15 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
-                  <span className="block max-w-[28rem] truncate" title={group.key}>
-                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
-                  </span>
-                </TableCell>
-              </TableRow>
+              <ListRowTransition>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
+                    <span className="block max-w-[28rem] truncate" title={group.key}>
+                      {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                    </span>
+                  </TableCell>
+                </TableRow>
+              </ListRowTransition>
             )}
             {group.items.map((item) => (
               <ListRowTransition key={item.id} name={`inventory-row-${item.id}`}>
@@ -490,11 +492,13 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
-              <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                <span className="block truncate" title={group.key}>
-                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
-                </span>
-              </div>
+              <ListRowTransition>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                  <span className="block truncate" title={group.key}>
+                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                  </span>
+                </div>
+              </ListRowTransition>
             )}
             {group.items.map((item) => (
               // UX-33: its own name, not the table row's: both layouts are

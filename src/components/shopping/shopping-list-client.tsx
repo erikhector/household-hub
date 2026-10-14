@@ -75,7 +75,7 @@ import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
-import { ListRowTransition, ListTransitionScope, MorphTitle } from "@/components/shared/view-transitions";
+import { ListRowTransition, ListTransitionScope, MorphTitle, ShiftTransition } from "@/components/shared/view-transitions";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -404,137 +404,141 @@ export function ShoppingListClient({
             lives in the ⋯ menu; the dialogs those items open are rendered
             outside it (see the handles above) because the menu's popup
             unmounts as it closes. */}
-        <div className="flex flex-wrap items-center gap-2">
-          {awaitingPutAway.length > 0 && (
-            <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
-              <PackageCheck className="size-4" />
-              {format(dict.putAway.button, { count: awaitingPutAway.length })}
-            </Button>
-          )}
-          {isActive && (
-            <ReceiptScanDialog
-              listId={list.id}
-              pendingItems={receiptMatchable.map((item) => ({
-                id: item.id,
-                name: item.name,
-                barcode: item.barcode,
-                inventoryItemId: item.inventoryItemId,
-              }))}
-              inventoryItems={inventoryItems}
-              aliases={aliases}
-              categories={categories}
-              units={units}
-              dict={dict.receiptScan}
-              // In put-away mode the receipt only priced the rows; the
-              // stock still has to be confirmed, and now is when the bags
-              // are on the counter.
-              onApplied={defersToPutAway ? () => setPutAwayMode("putAway") : undefined}
-            />
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="outline" size="icon" disabled={isPending} aria-label={dict.moreActions}>
-                  <Ellipsis className="size-4" />
-                </Button>
-              }
-            />
-            <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
-              {isActive && (
-                <>
-                  <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
-                    <Plus />
-                    {dict.addItem}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
-                    <ClipboardPaste />
-                    {dict.importList.triggerLabel}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={addLowStock}>
-                    <PackagePlus />
-                    {dict.addLowStock}
-                  </DropdownMenuItem>
-                  {showResolveMappings && (
-                    <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
-                      <Link2 />
-                      {resolveMappingsLabel}
+        {/* UX-33: "Put away" appears here when an item is ticked; the
+            other buttons glide aside instead of jumping. */}
+        <ShiftTransition>
+          <div className="flex flex-wrap items-center gap-2">
+            {awaitingPutAway.length > 0 && (
+              <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
+                <PackageCheck className="size-4" />
+                {format(dict.putAway.button, { count: awaitingPutAway.length })}
+              </Button>
+            )}
+            {isActive && (
+              <ReceiptScanDialog
+                listId={list.id}
+                pendingItems={receiptMatchable.map((item) => ({
+                  id: item.id,
+                  name: item.name,
+                  barcode: item.barcode,
+                  inventoryItemId: item.inventoryItemId,
+                }))}
+                inventoryItems={inventoryItems}
+                aliases={aliases}
+                categories={categories}
+                units={units}
+                dict={dict.receiptScan}
+                // In put-away mode the receipt only priced the rows; the
+                // stock still has to be confirmed, and now is when the bags
+                // are on the counter.
+                onApplied={defersToPutAway ? () => setPutAwayMode("putAway") : undefined}
+              />
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="outline" size="icon" disabled={isPending} aria-label={dict.moreActions}>
+                    <Ellipsis className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
+                {isActive && (
+                  <>
+                    <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
+                      <Plus />
+                      {dict.addItem}
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
-                    <Share2 />
-                    {dict.shareLink.button}
+                    <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
+                      <ClipboardPaste />
+                      {dict.importList.triggerLabel}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={addLowStock}>
+                      <PackagePlus />
+                      {dict.addLowStock}
+                    </DropdownMenuItem>
+                    {showResolveMappings && (
+                      <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
+                        <Link2 />
+                        {resolveMappingsLabel}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
+                      <Share2 />
+                      {dict.shareLink.button}
+                    </DropdownMenuItem>
+                    {reorderSections.length >= 2 && (
+                      <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
+                        <ArrowUpDown />
+                        {dict.reorderSections.menuItem}
+                      </DropdownMenuItem>
+                    )}
+                    {hasManualOrder && (
+                      <DropdownMenuItem onClick={resetStoreOrder}>
+                        <RotateCcw />
+                        {dict.reorderSections.resetMenuItem}
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
+                {/* GAP-4: offered on any status — saving a finished trip as a
+                    template is the common case. */}
+                {list.items.length > 0 && (
+                  <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
+                    <ScrollText />
+                    {dict.templates.menuItem}
                   </DropdownMenuItem>
-                  {reorderSections.length >= 2 && (
-                    <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
-                      <ArrowUpDown />
-                      {dict.reorderSections.menuItem}
-                    </DropdownMenuItem>
-                  )}
-                  {hasManualOrder && (
-                    <DropdownMenuItem onClick={resetStoreOrder}>
-                      <RotateCcw />
-                      {dict.reorderSections.resetMenuItem}
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-              {/* GAP-4: offered on any status — saving a finished trip as a
-                  template is the common case. */}
-              {list.items.length > 0 && (
-                <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
-                  <ScrollText />
-                  {dict.templates.menuItem}
+                )}
+                <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
+                  <Download />
+                  {exportLabel}
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
-                <Download />
-                {exportLabel}
-              </DropdownMenuItem>
-              {/* GAP-24: the browser's own print dialog, fed by the
-                  print-only PrintableList below — no route, no PDF. */}
-              <DropdownMenuItem onClick={() => window.print()}>
-                <Printer />
-                {dict.print}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {isActive && list.items.length > 0 && (
-                <DropdownMenuItem onClick={() => finishTrip(true)}>
-                  <CheckCheck />
-                  {dict.completeList}
+                {/* GAP-24: the browser's own print dialog, fed by the
+                    print-only PrintableList below — no route, no PDF. */}
+                <DropdownMenuItem onClick={() => window.print()}>
+                  <Printer />
+                  {dict.print}
                 </DropdownMenuItem>
-              )}
-              {list.status === "ARCHIVED" ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await unarchiveShoppingListAction(list.id);
-                      if (result.error) toast.error(result.error);
-                    })
-                  }
-                >
-                  <ArchiveRestore />
-                  {dict.unarchive}
+                <DropdownMenuSeparator />
+                {isActive && list.items.length > 0 && (
+                  <DropdownMenuItem onClick={() => finishTrip(true)}>
+                    <CheckCheck />
+                    {dict.completeList}
+                  </DropdownMenuItem>
+                )}
+                {list.status === "ARCHIVED" ? (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await unarchiveShoppingListAction(list.id);
+                        if (result.error) toast.error(result.error);
+                      })
+                    }
+                  >
+                    <ArchiveRestore />
+                    {dict.unarchive}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      startTransition(async () => {
+                        const result = await archiveShoppingListAction(list.id);
+                        if (result.error) toast.error(result.error);
+                      })
+                    }
+                  >
+                    <Archive />
+                    {dict.archive}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
+                  <Trash2 />
+                  {dict.delete}
                 </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await archiveShoppingListAction(list.id);
-                      if (result.error) toast.error(result.error);
-                    })
-                  }
-                >
-                  <Archive />
-                  {dict.archive}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
-                <Trash2 />
-                {dict.delete}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </ShiftTransition>
       </div>
 
       {list.status !== "ARCHIVED" && (
@@ -664,7 +668,9 @@ export function ShoppingListClient({
                   a single flat "Purchased" section, unchanged. */}
               {pendingGroups.map((group) => (
                 <Fragment key={group.key ?? ""}>
-                  <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                  <ListRowTransition>
+                    <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                  </ListRowTransition>
                   {group.items.map((item) => (
                     <ListRowTransition key={item.id} name={`shopping-item-${item.id}`}>
                       <ShoppingRow
@@ -686,9 +692,11 @@ export function ShoppingListClient({
                 </Fragment>
               ))}
               {purchasedItems.length > 0 && (
-                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                  {dict.purchased}
-                </p>
+                <ListRowTransition>
+                  <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                    {dict.purchased}
+                  </p>
+                </ListRowTransition>
               )}
               {/* UX-33: the same name in both sections, so a ticked row
                   slides down here when the server confirms (and back up when

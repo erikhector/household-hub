@@ -213,6 +213,11 @@
   }
   html {
     @apply font-sans;
+    /* UX-33: on desktop the body scrolls, so the list growing past one
+       screen brought in the scrollbar and nudged everything right-aligned
+       (a list's ⋯ menu) sideways. The gutter is always reserved instead.
+       Overlay scrollbars (macOS, phones) take no room either way. */
+    scrollbar-gutter: stable;
   }
   /* iOS Safari draws date/time fields with its native appearance, which
      sizes the box to its own content and ignores `width: 100%` /

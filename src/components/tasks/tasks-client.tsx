@@ -80,9 +80,11 @@ export function TasksClient({
                 </ListRowTransition>
               ))}
               {completedTasks.length > 0 && (
-                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                  {dict.completedSectionLabel}
-                </p>
+                <ListRowTransition>
+                  <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                    {dict.completedSectionLabel}
+                  </p>
+                </ListRowTransition>
               )}
               {completedTasks.map((task) => (
                 <ListRowTransition key={task.id} name={`task-${task.id}`}>
