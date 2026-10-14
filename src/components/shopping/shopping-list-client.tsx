@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -72,10 +72,12 @@ import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
-import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
+import { awaitsReceiptPrice, isAwaitingPutAway, withLocalTick } from "@/lib/shopping/put-away-calc";
+import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
+import { MorphTitle } from "@/components/shared/view-transitions";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
-import { ListRowTransition, ListTransitionScope, MorphTitle, ShiftTransition } from "@/components/shared/view-transitions";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -180,31 +182,59 @@ export function ShoppingListClient({
   aliases?: ItemAliasLike[];
 }) {
   const [isPending, startTransition] = useTransition();
+  // UX-33: ticks and deletes show (and move their row) at tap time; see
+  // local-row-changes.ts. Everything below lays the list out from `items`,
+  // the server's rows with this device's unsaved changes applied, so the
+  // "Put away" button, the totals and the cleared state follow the tap too.
+  // Saves run in their own transition so a pending one never greys the
+  // list (UX-14).
+  const local = useLocalRowChanges();
+  const items = applyLocalRowChanges(list.items, local.changes, (item, purchased) =>
+    withLocalTick(item, purchased, defersToPutAway, new Date()),
+  );
+  const [, startSaveTransition] = useTransition();
+  const togglePurchased = (item: ShoppingListItemRow) => {
+    const settle = local.markDone(item.id, !item.purchased);
+    startSaveTransition(async () => {
+      const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
+      settle();
+      if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
+    });
+  };
+  // Called from the row's confirm dialog, which waits on it and toasts an
+  // error; the row has already gone by then and comes back if it failed.
+  const deleteItem = async (item: ShoppingListItemRow) => {
+    const settle = local.markDeleted(item.id);
+    const result = await deleteShoppingListItemAction(item.id);
+    settle();
+    return result;
+  };
+  const listRef = useFlipList<HTMLDivElement>();
   // Same formatter as the budget page's amounts (SafeToSpend,
   // TransactionList, …): locale-aware two decimals, with the household's
   // currency symbol once one is set (GAP-13) and none before that.
   const numberFormat = createMoneyFormat(locale, currencyCode);
 
-  const pendingItems = list.items.filter((item) => !item.purchased);
-  const purchasedItems = list.items.filter((item) => item.purchased);
+  const pendingItems = items.filter((item) => !item.purchased);
+  const purchasedItems = items.filter((item) => item.purchased);
   // Ticked but not yet in inventory — the put-away dialog's rows. Offered on
   // a completed list too (finishing the trip is exactly when there's
   // something to unpack), never an archived one.
-  const awaitingPutAway = list.status === "ARCHIVED" ? [] : list.items.filter(isAwaitingPutAway);
+  const awaitingPutAway = list.status === "ARCHIVED" ? [] : items.filter(isAwaitingPutAway);
   // Rows a receipt line may still match: everything unticked, plus rows
   // ticked in the store that no receipt has priced and that haven't been put
   // away (see awaitsReceiptPrice).
-  const receiptMatchable = list.items.filter(awaitsReceiptPrice);
+  const receiptMatchable = items.filter(awaitsReceiptPrice);
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
-  const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
+  const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
   // AUTO-9: "Reorder sections" offers every section this list has, pending
   // or already ticked off (you might arrange the store before the next trip
   // with everything ticked), in the order shopping mode walks them. "Other"
   // is left out — it has no aisle and always sorts last. Needs two to be
   // worth offering at all.
-  const reorderSections = groupPendingItemsByCategory(list.items, dict.otherCategory, storeOrder).flatMap(
+  const reorderSections = groupPendingItemsByCategory(items, dict.otherCategory, storeOrder).flatMap(
     (group) => (group.key === null ? [] : [{ key: group.key, label: group.label }]),
   );
   const hasManualOrder = storeOrder.manual.length > 0;
@@ -338,10 +368,10 @@ export function ShoppingListClient({
   // non-empty), or the list was emptied out entirely after having had items
   // this session (hadItems distinguishes that from a list that's simply
   // never had anything added to it, which gets the plain empty state).
-  const [hadItems, setHadItems] = useState(list.items.length > 0);
-  if (list.items.length > 0 && !hadItems) setHadItems(true);
+  const [hadItems, setHadItems] = useState(items.length > 0);
+  if (items.length > 0 && !hadItems) setHadItems(true);
   const isCleared =
-    pendingItems.length === 0 && (purchasedItems.length > 0 || (list.items.length === 0 && hadItems));
+    pendingItems.length === 0 && (purchasedItems.length > 0 || (items.length === 0 && hadItems));
 
   // Adjust-state-during-render pattern: re-arm the dismissal the moment the
   // list leaves the cleared state (e.g. a new item is added), so the next
@@ -404,141 +434,137 @@ export function ShoppingListClient({
             lives in the ⋯ menu; the dialogs those items open are rendered
             outside it (see the handles above) because the menu's popup
             unmounts as it closes. */}
-        {/* UX-33: "Put away" appears here when an item is ticked; the
-            other buttons glide aside instead of jumping. */}
-        <ShiftTransition>
-          <div className="flex flex-wrap items-center gap-2">
-            {awaitingPutAway.length > 0 && (
-              <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
-                <PackageCheck className="size-4" />
-                {format(dict.putAway.button, { count: awaitingPutAway.length })}
-              </Button>
-            )}
-            {isActive && (
-              <ReceiptScanDialog
-                listId={list.id}
-                pendingItems={receiptMatchable.map((item) => ({
-                  id: item.id,
-                  name: item.name,
-                  barcode: item.barcode,
-                  inventoryItemId: item.inventoryItemId,
-                }))}
-                inventoryItems={inventoryItems}
-                aliases={aliases}
-                categories={categories}
-                units={units}
-                dict={dict.receiptScan}
-                // In put-away mode the receipt only priced the rows; the
-                // stock still has to be confirmed, and now is when the bags
-                // are on the counter.
-                onApplied={defersToPutAway ? () => setPutAwayMode("putAway") : undefined}
-              />
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="outline" size="icon" disabled={isPending} aria-label={dict.moreActions}>
-                    <Ellipsis className="size-4" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
-                {isActive && (
-                  <>
-                    <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
-                      <Plus />
-                      {dict.addItem}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
-                      <ClipboardPaste />
-                      {dict.importList.triggerLabel}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={addLowStock}>
-                      <PackagePlus />
-                      {dict.addLowStock}
-                    </DropdownMenuItem>
-                    {showResolveMappings && (
-                      <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
-                        <Link2 />
-                        {resolveMappingsLabel}
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
-                      <Share2 />
-                      {dict.shareLink.button}
-                    </DropdownMenuItem>
-                    {reorderSections.length >= 2 && (
-                      <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
-                        <ArrowUpDown />
-                        {dict.reorderSections.menuItem}
-                      </DropdownMenuItem>
-                    )}
-                    {hasManualOrder && (
-                      <DropdownMenuItem onClick={resetStoreOrder}>
-                        <RotateCcw />
-                        {dict.reorderSections.resetMenuItem}
-                      </DropdownMenuItem>
-                    )}
-                  </>
-                )}
-                {/* GAP-4: offered on any status — saving a finished trip as a
-                    template is the common case. */}
-                {list.items.length > 0 && (
-                  <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
-                    <ScrollText />
-                    {dict.templates.menuItem}
+        <div className="flex flex-wrap items-center gap-2">
+          {awaitingPutAway.length > 0 && (
+            <Button variant="outline" disabled={isPending} onClick={() => setPutAwayMode("putAway")}>
+              <PackageCheck className="size-4" />
+              {format(dict.putAway.button, { count: awaitingPutAway.length })}
+            </Button>
+          )}
+          {isActive && (
+            <ReceiptScanDialog
+              listId={list.id}
+              pendingItems={receiptMatchable.map((item) => ({
+                id: item.id,
+                name: item.name,
+                barcode: item.barcode,
+                inventoryItemId: item.inventoryItemId,
+              }))}
+              inventoryItems={inventoryItems}
+              aliases={aliases}
+              categories={categories}
+              units={units}
+              dict={dict.receiptScan}
+              // In put-away mode the receipt only priced the rows; the
+              // stock still has to be confirmed, and now is when the bags
+              // are on the counter.
+              onApplied={defersToPutAway ? () => setPutAwayMode("putAway") : undefined}
+            />
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="outline" size="icon" disabled={isPending} aria-label={dict.moreActions}>
+                  <Ellipsis className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-auto min-w-52 print:hidden">
+              {isActive && (
+                <>
+                  <DropdownMenuItem onClick={() => dialogs.addItem.open(null)}>
+                    <Plus />
+                    {dict.addItem}
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
-                  <Download />
-                  {exportLabel}
+                  <DropdownMenuItem onClick={() => dialogs.importList.open(null)}>
+                    <ClipboardPaste />
+                    {dict.importList.triggerLabel}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={addLowStock}>
+                    <PackagePlus />
+                    {dict.addLowStock}
+                  </DropdownMenuItem>
+                  {showResolveMappings && (
+                    <DropdownMenuItem onClick={() => dialogs.resolveMappings.open(null)}>
+                      <Link2 />
+                      {resolveMappingsLabel}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => dialogs.share.open(null)}>
+                    <Share2 />
+                    {dict.shareLink.button}
+                  </DropdownMenuItem>
+                  {reorderSections.length >= 2 && (
+                    <DropdownMenuItem onClick={() => dialogs.reorderSections.open(null)}>
+                      <ArrowUpDown />
+                      {dict.reorderSections.menuItem}
+                    </DropdownMenuItem>
+                  )}
+                  {hasManualOrder && (
+                    <DropdownMenuItem onClick={resetStoreOrder}>
+                      <RotateCcw />
+                      {dict.reorderSections.resetMenuItem}
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
+              {/* GAP-4: offered on any status — saving a finished trip as a
+                  template is the common case. */}
+              {items.length > 0 && (
+                <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
+                  <ScrollText />
+                  {dict.templates.menuItem}
                 </DropdownMenuItem>
-                {/* GAP-24: the browser's own print dialog, fed by the
-                    print-only PrintableList below — no route, no PDF. */}
-                <DropdownMenuItem onClick={() => window.print()}>
-                  <Printer />
-                  {dict.print}
+              )}
+              <DropdownMenuItem render={<Link href={`/dashboard/shopping-list/${list.id}/export`} prefetch={false} />}>
+                <Download />
+                {exportLabel}
+              </DropdownMenuItem>
+              {/* GAP-24: the browser's own print dialog, fed by the
+                  print-only PrintableList below — no route, no PDF. */}
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer />
+                {dict.print}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {isActive && items.length > 0 && (
+                <DropdownMenuItem onClick={() => finishTrip(true)}>
+                  <CheckCheck />
+                  {dict.completeList}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {isActive && list.items.length > 0 && (
-                  <DropdownMenuItem onClick={() => finishTrip(true)}>
-                    <CheckCheck />
-                    {dict.completeList}
-                  </DropdownMenuItem>
-                )}
-                {list.status === "ARCHIVED" ? (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await unarchiveShoppingListAction(list.id);
-                        if (result.error) toast.error(result.error);
-                      })
-                    }
-                  >
-                    <ArchiveRestore />
-                    {dict.unarchive}
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await archiveShoppingListAction(list.id);
-                        if (result.error) toast.error(result.error);
-                      })
-                    }
-                  >
-                    <Archive />
-                    {dict.archive}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
-                  <Trash2 />
-                  {dict.delete}
+              )}
+              {list.status === "ARCHIVED" ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await unarchiveShoppingListAction(list.id);
+                      if (result.error) toast.error(result.error);
+                    })
+                  }
+                >
+                  <ArchiveRestore />
+                  {dict.unarchive}
                 </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </ShiftTransition>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() =>
+                    startTransition(async () => {
+                      const result = await archiveShoppingListAction(list.id);
+                      if (result.error) toast.error(result.error);
+                    })
+                  }
+                >
+                  <Archive />
+                  {dict.archive}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem variant="destructive" onClick={() => dialogs.deleteList.open(null)}>
+                <Trash2 />
+                {dict.delete}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {list.status !== "ARCHIVED" && (
@@ -571,7 +597,7 @@ export function ShoppingListClient({
         />
       )}
 
-      {list.items.length > 0 && (
+      {items.length > 0 && (
         <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
       )}
 
@@ -644,84 +670,77 @@ export function ShoppingListClient({
       )}
       {isActive && repurchaseSuggestions}
 
-      <ListTransitionScope>
-        <div className="flex flex-col gap-2">
-          {showCleared ? (
-            <ClearedState
-              dict={dict}
-              onDismiss={() => setClearedDismissed(true)}
-              // Only once something was actually bought — a list that was
-              // simply emptied out has no trip to finish.
-              onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
-              isPending={isPending}
-            />
-          ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              {isActive ? dict.emptyListActive : dict.emptyListOther}
-            </p>
-          ) : (
-            <>
-              {/* Shopping mode (AUTO-3): pending items grouped by the linked
-                  inventory item's category, in the household's store order
-                  (AUTO-9: learned from check-offs, or arranged by hand) —
-                  see groupPendingItemsByCategory. Purchased items below stay
-                  a single flat "Purchased" section, unchanged. */}
-              {pendingGroups.map((group) => (
-                <Fragment key={group.key ?? ""}>
-                  <ListRowTransition>
-                    <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
-                  </ListRowTransition>
-                  {group.items.map((item) => (
-                    <ListRowTransition key={item.id} name={`shopping-item-${item.id}`}>
-                      <ShoppingRow
-                        item={item}
-                        highlighted={highlightedIds.has(item.id)}
-                        editable={isActive}
-                        groupedByCategory
-                        isPending={isPending}
-                        startTransition={startTransition}
-                        inventoryItems={inventoryItems}
-                        categories={categories}
-                        units={units}
-                        dict={dict}
-                        numberFormat={numberFormat}
-                        autoAddDict={autoAddDict}
-                      />
-                    </ListRowTransition>
-                  ))}
-                </Fragment>
-              ))}
-              {purchasedItems.length > 0 && (
-                <ListRowTransition>
-                  <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                    {dict.purchased}
-                  </p>
-                </ListRowTransition>
-              )}
-              {/* UX-33: the same name in both sections, so a ticked row
-                  slides down here when the server confirms (and back up when
-                  unticked) instead of vanishing and reappearing. */}
-              {purchasedItems.map((item) => (
-                <ListRowTransition key={item.id} name={`shopping-item-${item.id}`}>
+      <div ref={listRef} className="relative flex flex-col gap-2">
+        {showCleared ? (
+          <ClearedState
+            dict={dict}
+            onDismiss={() => setClearedDismissed(true)}
+            // Only once something was actually bought — a list that was
+            // simply emptied out has no trip to finish.
+            onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
+            isPending={isPending}
+          />
+        ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
+          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            {isActive ? dict.emptyListActive : dict.emptyListOther}
+          </p>
+        ) : (
+          <>
+            {/* Shopping mode (AUTO-3): pending items grouped by the linked
+                inventory item's category, in the household's store order
+                (AUTO-9: learned from check-offs, or arranged by hand) —
+                see groupPendingItemsByCategory. Purchased items below stay
+                a single flat "Purchased" section, unchanged. */}
+            {pendingGroups.map((group) => (
+              <Fragment key={group.key ?? ""}>
+                <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
+                  {group.label}
+                </p>
+                {group.items.map((item) => (
                   <ShoppingRow
+                    key={item.id}
                     item={item}
+                    highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
+                    groupedByCategory
                     isPending={isPending}
                     startTransition={startTransition}
+                    onTogglePurchased={togglePurchased}
+                    onDelete={deleteItem}
                     inventoryItems={inventoryItems}
                     categories={categories}
                     units={units}
                     dict={dict}
                     numberFormat={numberFormat}
-                    autoAddDict={autoAddDict}
-                    awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
                   />
-                </ListRowTransition>
-              ))}
-            </>
-          )}
-        </div>
-      </ListTransitionScope>
+                ))}
+              </Fragment>
+            ))}
+            {purchasedItems.length > 0 && (
+              <p data-flip-key="label:purchased" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                {dict.purchased}
+              </p>
+            )}
+            {purchasedItems.map((item) => (
+              <ShoppingRow
+                key={item.id}
+                item={item}
+                editable={isActive}
+                isPending={isPending}
+                startTransition={startTransition}
+                onTogglePurchased={togglePurchased}
+                onDelete={deleteItem}
+                inventoryItems={inventoryItems}
+                categories={categories}
+                units={units}
+                dict={dict}
+                numberFormat={numberFormat}
+                awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
+              />
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -815,12 +834,13 @@ function ShoppingRow({
   editable,
   isPending,
   startTransition,
+  onTogglePurchased,
+  onDelete,
   inventoryItems,
   categories,
   units,
   dict,
   numberFormat,
-  autoAddDict,
   awaitingPutAway = false,
   groupedByCategory = false,
 }: {
@@ -834,12 +854,13 @@ function ShoppingRow({
   editable: boolean;
   isPending: boolean;
   startTransition: (fn: () => void) => void;
+  onTogglePurchased: (item: ShoppingListItemRow) => void;
+  onDelete: (item: ShoppingListItemRow) => Promise<{ error?: string }>;
   inventoryItems: InventoryItemOption[];
   categories: string[];
   units: string[];
   dict: ShoppingListDict;
   numberFormat: Intl.NumberFormat;
-  autoAddDict: Dictionary["inventory"]["autoAdd"];
 }) {
   const unitLabel = useUnitLabel();
   const needsMapping = item.inventoryItemId === null;
@@ -854,28 +875,20 @@ function ShoppingRow({
     if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
-  // UX-14: ticking is instant. The box flips the moment it's tapped, in this
-  // row's own transition rather than the list's shared one, so on weak
-  // in-store signal you can tick the next three items while the first save
-  // is still on its way, and nothing greys out meanwhile. The reducer
-  // toggles from the *current* optimistic value, so a quick re-tap before
-  // the server answers un-ticks it again, matching the two toggles it sends.
-  // When the transition ends React swaps in the server-rendered
-  // `item.purchased`, so a failed save rolls the box back by itself;
-  // settleOptimisticAction adds the toast that says why.
-  const [, startTickTransition] = useTransition();
-  const [purchased, toggleOptimisticPurchased] = useOptimistic<boolean, void>(item.purchased, (current) => !current);
-  const handleTogglePurchased = () => {
-    startTickTransition(async () => {
-      toggleOptimisticPurchased();
-      const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
-      if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
-    });
-  };
+  // UX-14 and UX-33: the tick shows the moment it's tapped and the row
+  // moves to its section at once. The list owns the save
+  // (ShoppingListClient's togglePurchased), so on weak in-store signal you
+  // can tick the next three items while the first is still on its way, and
+  // a failed save moves the row back with a toast. Each tap flips from what
+  // the row shows now, so a quick re-tap unticks it again, matching the two
+  // toggles it sends.
+  const purchased = item.purchased;
+  const handleTogglePurchased = () => onTogglePurchased(item);
 
   return (
     <div
       ref={rowRef}
+      data-flip-key={item.id}
       className={cn(
         "flex flex-col gap-1 rounded-md border transition-colors duration-700",
         // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
@@ -983,12 +996,10 @@ function ShoppingRow({
                 cancelLabel={dict.confirmDeleteItem.cancel}
                 confirmLabel={dict.confirmDeleteItem.confirm}
                 pendingLabel={dict.confirmDeleteItem.confirming}
-                // The dialog waits for the delete (showing "Deleting…") and
-                // closes with it, like a task's. Handing it off to the list's
-                // transition closed the dialog at once, and its close
-                // landing while the row's exit animation (UX-33) was about
-                // to start made React skip the animation.
-                onConfirm={() => deleteShoppingListItemAction(item.id)}
+                // UX-33: the row goes at once; the dialog waits on the save
+                // (showing "Deleting…" if it's still there) and toasts an
+                // error, and the row comes back.
+                onConfirm={() => onDelete(item)}
               />
             </>
           )}

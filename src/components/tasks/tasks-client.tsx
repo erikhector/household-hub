@@ -6,7 +6,7 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useOptimistic, useTransition } from "react";
+import { useTransition } from "react";
 import { Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,9 +15,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
-import { ListRowTransition, ListTransitionScope } from "@/components/shared/view-transitions";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
-import { TasksWeeklyRecap, type WeeklyRecapGroupView } from "@/components/tasks/tasks-weekly-recap";
+import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
+import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
+import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
+import { withLocalCompletion } from "@/lib/task-rotation";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 
@@ -41,66 +44,104 @@ type TasksDict = Dictionary["tasks"];
 export function TasksClient({
   dict,
   members,
-  tasks,
-  recapGroups,
+  currentMemberId,
+  tasks: serverTasks,
+  now,
   locale,
 }: {
   dict: TasksDict;
   members: MemberOption[];
+  /** Who's ticking, for a completion shown before the server answers. */
+  currentMemberId: string | null;
   tasks: TaskRow[];
-  recapGroups: WeeklyRecapGroupView[];
+  /** The server's clock, which sets the weekly recap's week. */
+  now: Date;
   locale: Locale;
 }) {
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
 
+  // UX-33: a tick or a delete shows, and moves its row, at tap time (see
+  // local-row-changes.ts); the weekly recap above follows it too. Saves run
+  // in their own transitions, so ticking several chores in a row never
+  // waits on (or greys out behind) an earlier save (UX-14), and a failed
+  // one moves the row back with a toast.
+  const local = useLocalRowChanges();
+  const tasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
+    withLocalCompletion(task, completed, currentMemberId, new Date()),
+  );
+  const [, startSaveTransition] = useTransition();
+  const toggleCompleted = (task: TaskRow) => {
+    const settle = local.markDone(task.id, !task.completed);
+    startSaveTransition(async () => {
+      await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
+      settle();
+    });
+  };
+  // From the row's confirm dialog, which waits on it and toasts an error.
+  const deleteTask = async (task: TaskRow) => {
+    const settle = local.markDeleted(task.id);
+    const result = await deleteTaskAction(task.id);
+    settle();
+    return result;
+  };
+  const containerRef = useFlipList<HTMLDivElement>();
+
   const openTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
+  const recapGroups = computeWeeklyTaskRecap({
+    tasks: tasks
+      .filter((t) => t.completedAt !== null)
+      .sort((a, b) => a.completedAt!.getTime() - b.completedAt!.getTime()),
+    now,
+  }).map((group) => ({
+    memberName: group.completedByMemberId ? (memberNameById.get(group.completedByMemberId) ?? null) : null,
+    titles: group.titles,
+  }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div ref={containerRef} className="relative flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
 
-      <ListTransitionScope>
-        <div className="flex flex-col gap-2">
-          {tasks.length === 0 ? (
-            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-              {dict.emptyState}
-            </p>
-          ) : (
-            <>
-              {openTasks.map((task) => (
-                <ListRowTransition key={task.id} name={`task-${task.id}`}>
-                  <TaskItemRow
-                    task={task}
-                    members={members}
-                    memberNameById={memberNameById}
-                    dict={dict}
-                    locale={locale}
-                  />
-                </ListRowTransition>
-              ))}
-              {completedTasks.length > 0 && (
-                <ListRowTransition>
-                  <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                    {dict.completedSectionLabel}
-                  </p>
-                </ListRowTransition>
-              )}
-              {completedTasks.map((task) => (
-                <ListRowTransition key={task.id} name={`task-${task.id}`}>
-                  <TaskItemRow
-                    task={task}
-                    members={members}
-                    memberNameById={memberNameById}
-                    dict={dict}
-                    locale={locale}
-                  />
-                </ListRowTransition>
-              ))}
-            </>
-          )}
-        </div>
-      </ListTransitionScope>
+      {/* Keyed too, so the list glides down when the recap above grows. */}
+      <div data-flip-key="tasks" className="relative flex flex-col gap-2">
+        {tasks.length === 0 ? (
+          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            {dict.emptyState}
+          </p>
+        ) : (
+          <>
+            {openTasks.map((task) => (
+              <TaskItemRow
+                key={task.id}
+                task={task}
+                members={members}
+                memberNameById={memberNameById}
+                onToggleCompleted={toggleCompleted}
+                onDelete={deleteTask}
+                dict={dict}
+                locale={locale}
+              />
+            ))}
+            {completedTasks.length > 0 && (
+              <p data-flip-key="label:completed" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                {dict.completedSectionLabel}
+              </p>
+            )}
+            {completedTasks.map((task) => (
+              <TaskItemRow
+                key={task.id}
+                task={task}
+                members={members}
+                memberNameById={memberNameById}
+                onToggleCompleted={toggleCompleted}
+                onDelete={deleteTask}
+                dict={dict}
+                locale={locale}
+              />
+            ))}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -109,30 +150,23 @@ function TaskItemRow({
   task,
   members,
   memberNameById,
+  onToggleCompleted,
+  onDelete,
   dict,
   locale,
 }: {
   task: TaskRow;
   members: MemberOption[];
   memberNameById: Map<string, string>;
+  onToggleCompleted: (task: TaskRow) => void;
+  onDelete: (task: TaskRow) => Promise<{ error?: string }>;
   dict: TasksDict;
   locale: Locale;
 }) {
-  // UX-14: the tick shows at once, in this row's own transition, so ticking
-  // off several chores in a row never waits on (or greys out behind) an
-  // earlier save. The row stays where it is until the server answers and
-  // only then moves to "Completed" (no list jumping under your thumb; UX-33
-  // slides it there, see ListRowTransition), and a
-  // failed save rolls the tick back with a toast. Same pattern as the
-  // shopping list's ShoppingRow.
-  const [, startToggleTransition] = useTransition();
-  const [completed, toggleOptimisticCompleted] = useOptimistic<boolean, void>(task.completed, (current) => !current);
-  const handleToggleCompleted = () => {
-    startToggleTransition(async () => {
-      toggleOptimisticCompleted();
-      await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
-    });
-  };
+  // UX-14 and UX-33: the tick shows, and the row moves to "Completed", at
+  // tap time; TasksClient owns the save (toggleCompleted).
+  const completed = task.completed;
+  const handleToggleCompleted = () => onToggleCompleted(task);
 
   const assigneeName = task.assignedToMemberId ? memberNameById.get(task.assignedToMemberId) : undefined;
   const completerName = task.completedByMemberId ? memberNameById.get(task.completedByMemberId) : undefined;
@@ -154,7 +188,7 @@ function TaskItemRow({
     : null;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+    <div data-flip-key={task.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
       {/* basis-full forces the title onto its own line on narrow screens —
           otherwise the recurrence/assignee badges and the edit/delete
           buttons (all shrink-0) crowd the flex-1 title span down to just a
@@ -245,7 +279,8 @@ function TaskItemRow({
           cancelLabel={dict.confirmDelete.cancel}
           confirmLabel={dict.confirmDelete.confirm}
           pendingLabel={dict.confirmDelete.confirming}
-          onConfirm={() => deleteTaskAction(task.id)}
+          // UX-33: the row goes at once and comes back if the delete fails.
+          onConfirm={() => onDelete(task)}
         />
       </div>
     </div>

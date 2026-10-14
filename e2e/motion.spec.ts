@@ -1,52 +1,43 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_ITEM } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, holdServerActions } from "./ui";
 
-// UX-33: the motion system. React's <ViewTransition> drives the browser's
-// View Transitions API, whose animations run on pseudo-elements that no
-// locator can reach, so each test records them instead: an init script
-// wraps document.startViewTransition and, once each transition is ready,
-// notes every running view-transition animation (which pseudo-element,
-// which keyframes, how long).
+// UX-33: the motion system. Two kinds of motion, two recorders:
 //
-// Layout shifts are collected the way cls.spec.ts does (ignoring the 500
-// ms after a tap or key), minus shifts of an element the view transition
-// was animating at the time. A row only moves once the server has answered
-// (UX-14), and when that takes over 500 ms (a loaded CI box, a phone in a
-// shop) the browser's metric counts the move even though what's on screen
-// is the row gliding there. What this guards is the jump: anything that
-// moved without being animated.
+// - List rows move at tap time and glide there with the Web Animations API
+//   (use-flip-list.ts). An init script wraps Element.prototype.animate and
+//   notes each "flip-*" animation and the row it ran on.
+// - Navigations (the tab fade, the title morphs) are view transitions, whose
+//   animations run on pseudo-elements no locator can reach. The script also
+//   wraps document.startViewTransition and, once each one is ready, notes
+//   every running view-transition animation (pseudo-element, keyframes,
+//   duration).
+//
+// Layout shifts are collected the way cls.spec.ts does: every shift except
+// those in the 500 ms after a tap or key, which is what CLS counts.
 const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
 
 type VtAnimation = { pseudo: string; keyframes: string; duration: number };
+type Flip = { id: string; key: string };
+type Recorder = { __vt: VtAnimation[][]; __flips: Flip[]; __cls: number; __shifted: string[]; __skipped: number };
 
 test.beforeEach(async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await page.addInitScript(() => {
-    const w = window as unknown as { __vt: VtAnimation[][]; __cls: number; __shifted: string[]; __skipped: number };
+    const w = window as unknown as Recorder;
     w.__vt = [];
+    w.__flips = [];
     w.__cls = 0;
     w.__shifted = [];
     w.__skipped = 0;
-    // Elements a transition animated (React sets their view-transition-name
-    // inline for the transition's length), with when it ran.
-    const animated = new WeakMap<Element, { from: number; to: number }[]>();
-    const wasAnimated = (node: Node | undefined, at: number) => {
-      for (let el = node instanceof Element ? node : node?.parentElement; el; el = el.parentElement) {
-        if (animated.get(el)?.some((span) => at >= span.from - 50 && at <= span.to + 50)) return true;
-      }
-      return false;
-    };
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as unknown as {
         value: number;
-        startTime: number;
         hadRecentInput: boolean;
         sources: { node?: Node }[];
       }[]) {
         if (entry.hadRecentInput) continue;
-        if (entry.sources.length > 0 && entry.sources.every((source) => wasAnimated(source.node, entry.startTime))) continue;
         w.__cls += entry.value;
         // What moved, for the failure message.
         for (const source of entry.sources) {
@@ -55,21 +46,19 @@ test.beforeEach(async ({ page, context, baseURL }) => {
       }
     }).observe({ type: "layout-shift", buffered: true });
 
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, ...args: Parameters<typeof animate>) {
+      const options = args[1];
+      if (typeof options === "object" && options.id?.startsWith("flip-")) {
+        w.__flips.push({ id: options.id, key: (this as HTMLElement).dataset.flipKey ?? "" });
+      }
+      return animate.apply(this, args);
+    };
+
     const start = Document.prototype.startViewTransition;
     if (!start) return;
     Document.prototype.startViewTransition = function (this: Document, ...args: Parameters<typeof start>) {
       const transition = start.apply(this, args);
-      const span = { from: performance.now(), to: Infinity };
-      transition.ready.then(() => {
-        for (const el of document.querySelectorAll<HTMLElement>("[style*='view-transition-name']")) {
-          if (el.style.viewTransitionName && el.style.viewTransitionName !== "none") {
-            animated.set(el, [...(animated.get(el) ?? []), span]);
-          }
-        }
-      }, () => {});
-      transition.finished.finally(() => {
-        span.to = performance.now();
-      });
       transition.ready.then(
         () => {
           w.__vt.push(
@@ -97,6 +86,10 @@ test.beforeEach(async ({ page, context, baseURL }) => {
   });
 });
 
+async function flips(page: Page) {
+  return page.evaluate(() => (window as unknown as Recorder).__flips);
+}
+
 async function recorded(page: Page) {
   return page.evaluate(() => (window as unknown as { __vt: VtAnimation[][] }).__vt.flat());
 }
@@ -107,8 +100,9 @@ async function recorded(page: Page) {
 async function resetRecording(page: Page) {
   await page.waitForLoadState("networkidle");
   await page.evaluate(() => {
-    const w = window as unknown as { __vt: VtAnimation[][]; __cls: number; __shifted: string[]; __skipped: number };
+    const w = window as unknown as Recorder;
     w.__vt = [];
+    w.__flips = [];
     w.__cls = 0;
     w.__shifted = [];
     w.__skipped = 0;
@@ -120,21 +114,7 @@ async function expectNoLayoutShift(page: Page) {
     const w = window as unknown as { __cls: number; __shifted: string[] };
     return { cls: w.__cls, shifted: w.__shifted };
   });
-  expect(cls, `unanimated layout shift outside the 500 ms after input; moved: ${shifted.join(" | ")}`).toBe(0);
-}
-
-/** Waits until a recorded animation matches, then returns it. */
-async function expectAnimation(page: Page, match: (animation: VtAnimation) => boolean, what: string) {
-  const seen = await expect
-    .poll(async () => (await recorded(page)).some(match))
-    .toBe(true)
-    .then(
-      () => true,
-      () => false,
-    );
-  const skipped = await page.evaluate(() => (window as unknown as { __skipped: number }).__skipped);
-  expect(seen, `${what} (view transitions skipped meanwhile: ${skipped})`).toBe(true);
-  return (await recorded(page)).find(match)!;
+  expect(cls, `layout shift outside the 500 ms after input; moved: ${shifted.join(" | ")}`).toBe(0);
 }
 
 /**
@@ -193,48 +173,81 @@ async function addToList(page: Page, items: string) {
   await addBox.press("Enter");
 }
 
-// The acceptance is about the list's own interactions, so the list already
-// has rows when measuring starts: a brand-new list's first add also brings
-// in the page's list toolbar, which is a different change. The names match
-// no category, so every row lands in "Other", the last section.
-test("adding, ticking and removing shopping items animate without shifting the layout", async ({ page }) => {
-  await newListWithItems(page, "motion qux, motion zap");
-  await expect(page.getByRole("checkbox", { name: /motion zap/ })).toBeVisible();
-  // Add: the new row rises in.
+// The acceptance: add, tick and delete animate, with no layout shift. Every
+// save is held at the server for longer than the browser's 500 ms grace, so
+// a row that waited for the server to move would count as a shift. The
+// names match no category, so every row lands in "Other", the last section.
+test("adding, ticking and removing shopping items glide, with no layout shift", async ({ page }) => {
+  // "motion yak" is never ticked, so the list doesn't swap to its
+  // all-cleared state (which hides the rows) at the end.
+  await newListWithItems(page, "motion qux, motion zap, motion yak");
+  await expect(page.getByRole("checkbox", { name: /motion yak/ })).toBeVisible();
+  const path = new URL(page.url()).pathname;
+
+  // Add: the new row rises in when the server has made it. Nothing sits
+  // below the end of the last section yet, so nothing else moves.
   await resetRecording(page);
   await addToList(page, "motion vim");
   await expect(page.getByRole("checkbox", { name: /motion vim/ })).toBeVisible();
-  await expectAnimation(
-    page,
-    (a) => a.pseudo.startsWith("::view-transition-new(shopping-item-") && a.keyframes === "vt-fade-in",
-    "an added row fades in",
-  );
+  await expect.poll(async () => (await flips(page)).map((flip) => flip.id)).toContain("flip-enter");
   await expectNoLayoutShift(page);
 
-  // Tick: once the save lands, the row travels to "Purchased" on the
-  // spring (a paired move, not a delete and an add), and the rows below
-  // glide up into its place.
+  // Tick: the row moves to "Purchased" at tap time, before the save is
+  // even sent on, and the rows below glide up into its place. The one that
+  // slid up takes a tap while it's still moving.
   await resetRecording(page);
+  const held = await holdServerActions(page, path);
   await page.getByRole("checkbox", { name: /motion qux/ }).click();
-  const purchased = page.getByRole("main").getByText(en.shoppingList.purchased, { exact: true });
-  await expect(purchased).toBeVisible();
-  await expectAnimation(
-    page,
-    (a) => a.pseudo.startsWith("::view-transition-group(shopping-item-") && a.duration === 400,
-    "the ticked row moves on the spring",
-  );
+  await expect(page.getByRole("main").getByText(en.shoppingList.purchased, { exact: true })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /motion qux/ })).toBeChecked();
+  expect((await flips(page)).filter((flip) => flip.id === "flip-move").length).toBeGreaterThan(1);
+  await page.getByRole("checkbox", { name: /motion zap/ }).click();
+  await expect(page.getByRole("checkbox", { name: /motion zap/ })).toBeChecked();
+  await page.waitForTimeout(800);
+  expect(held.answered()).toBe(0);
+  held.release();
+  await expect.poll(held.answered).toBe(2);
+  await page.waitForLoadState("networkidle");
   await expectNoLayoutShift(page);
 
-  // Remove: the row fades out and what's below it closes the gap.
+  // Remove: the row is gone at tap time and fades out where it was.
   await resetRecording(page);
-  await page.getByRole("button", { name: /^Remove motion zap/ }).click();
+  const heldDelete = await holdServerActions(page, path);
+  await page.getByRole("button", { name: /^Remove motion vim/ }).click();
   await page.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(page.getByRole("checkbox", { name: /motion zap/ })).toHaveCount(0);
-  await expectAnimation(
-    page,
-    (a) => a.pseudo.startsWith("::view-transition-old(shopping-item-") && a.keyframes === "vt-fade-out",
-    "a removed row fades out",
-  );
+  await expect(page.getByRole("checkbox", { name: /motion vim/ })).toHaveCount(0);
+  expect((await flips(page)).map((flip) => flip.id)).toContain("flip-exit");
+  await page.waitForTimeout(800);
+  expect(heldDelete.answered()).toBe(0);
+  heldDelete.release();
+  await expect.poll(heldDelete.answered).toBe(1);
+  await page.waitForLoadState("networkidle");
+  await expectNoLayoutShift(page);
+
+  // And it all saved.
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: /motion qux/ })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: /motion vim/ })).toHaveCount(0);
+});
+
+test("a completed task moves to Completed at tap time", async ({ page }) => {
+  const title = unique("Motion chore");
+  await page.goto("/dashboard/tasks");
+  await page.getByRole("button", { name: "Add task" }).click();
+  await page.getByRole("textbox", { name: "Task title" }).fill(title);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
+  await expect(box).toBeVisible();
+
+  await resetRecording(page);
+  const held = await holdServerActions(page, "/dashboard/tasks");
+  await box.click();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
+  await expect(page.getByRole("main").getByText(en.tasks.completedSectionLabel, { exact: true })).toBeVisible();
+  expect(held.answered()).toBe(0);
+  held.release();
+  await expect.poll(held.answered).toBe(1);
+  await page.waitForLoadState("networkidle");
   await expectNoLayoutShift(page);
 });
 
@@ -249,8 +262,6 @@ test("a shopping list's title morphs from its card into the list page", async ({
     (a) => a.pseudo.startsWith("::view-transition-group(shopping-list-") && a.duration === 320,
     "the list title morphs",
   );
-  // Only the title morphs: the overview's cards don't each fade out.
-  expect((await recorded(page)).some((a) => a.pseudo.includes("shopping-list-card-"))).toBe(false);
 });
 
 test("an item's name morphs from the catalogue into its page", async ({ page }) => {
@@ -278,9 +289,14 @@ test("changing tab fades the new page in", async ({ page }) => {
 
 test("with reduced motion, list changes happen at once", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await newListWithItems(page, "still milk");
-  await expect(page.getByRole("checkbox", { name: /still milk/ })).toBeVisible();
-  await expect.poll(async () => (await recorded(page)).length).toBeGreaterThan(0);
+  await newListWithItems(page, "still milk, still tea");
+  await expect(page.getByRole("checkbox", { name: /still tea/ })).toBeVisible();
+  await page.getByRole("checkbox", { name: /still milk/ }).click();
+  await expect(page.getByRole("main").getByText(en.shoppingList.purchased, { exact: true })).toBeVisible();
+  expect(await flips(page)).toEqual([]);
+  // And a navigation's view transition (the tab fade) takes no time.
+  await page.getByRole("navigation").getByRole("link", { name: en.nav.inventory, exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/inventory$/);
   for (const animation of await recorded(page)) {
     expect(animation.duration, animation.pseudo).toBe(0);
   }

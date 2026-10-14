@@ -285,14 +285,13 @@
   );
 }
 
-/* UX-33: view transitions. React's <ViewTransition> (on by default in
-   Next 16.3's App Router, no config flag) runs the browser's View
-   Transitions API on navigations and on any update inside a Transition,
-   tagging each animating element with one of these classes:
+/* UX-33: view transitions, for navigations. React's <ViewTransition> (on
+   by default in Next 16.3's App Router, no config flag) runs the browser's
+   View Transitions API, tagging each animating element with a class:
    - vt-page-*: the dashboard's tab changes (src/app/dashboard/template.tsx);
-   - vt-row-*: rows entering, leaving, shifting and moving inside a list
-     (ListRowTransition), including a ticked row moving to "Done";
    - vt-morph: a list row's title flying into the detail page it opens.
+   List rows don't use these: they move at tap time, which React never
+   animates, so use-flip-list.ts glides them with the same tokens.
    A browser without the API (or with it off) just swaps instantly. */
 @keyframes vt-fade-in {
   from {
@@ -307,11 +306,6 @@
 @keyframes vt-rise {
   from {
     translate: 0 8px;
-  }
-}
-@keyframes vt-shrink {
-  to {
-    scale: 0.96;
   }
 }
 
@@ -339,35 +333,6 @@
   animation:
     var(--motion-duration-base) var(--motion-ease-out) var(--motion-duration-fast) both vt-fade-in,
     var(--motion-duration-slow) var(--motion-ease-out) both vt-rise;
-}
-
-::view-transition-new(.vt-row-enter):only-child {
-  animation:
-    var(--motion-duration-base) var(--motion-ease-out) both vt-fade-in,
-    var(--motion-duration-slow) var(--motion-ease-out) both vt-rise;
-}
-::view-transition-old(.vt-row-exit):only-child {
-  animation:
-    var(--motion-duration-fast) var(--motion-ease-in) both vt-fade-out,
-    var(--motion-duration-fast) var(--motion-ease-in) both vt-shrink;
-}
-/* A row ticked into "Done" (or back) travels there on the spring, its old
-   and new snapshots crossfading on the way. */
-::view-transition-group(.vt-row-move) {
-  animation-duration: var(--motion-duration-spring);
-  animation-timing-function: var(--motion-ease-spring);
-}
-::view-transition-image-pair(.vt-row-move) {
-  animation-duration: var(--motion-duration-base);
-}
-/* Rows that only shift (a neighbour came or went) or whose content
-   changed glide quickly instead. Short on purpose: an element that's
-   animating can't be tapped, and the row that slid up into a ticked row's
-   place is exactly the one the thumb goes to next. */
-::view-transition-group(.vt-row-shift),
-::view-transition-image-pair(.vt-row-shift) {
-  animation-duration: var(--motion-duration-base);
-  animation-timing-function: var(--motion-ease-out);
 }
 
 ::view-transition-group(.vt-morph) {

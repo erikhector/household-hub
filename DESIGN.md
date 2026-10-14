@@ -394,13 +394,15 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
     (slight overshoot) for an object that physically moves to a new place.
   - Exits are quicker than entrances: what's leaving shouldn't compete with
     what's arriving.
-- **View transitions** (React `<ViewTransition>`): a tab change fades the
-  page in with a small rise; list rows rise in, fade out and glide when
-  neighbours change (`ListRowTransition`), and a ticked row slides to
-  "Done"; a row's title morphs into its detail page's heading
-  (`MorphTitle`). Keep the phone header and bottom bar still. A row can't
-  be tapped while it animates, so anything the thumb hits next moves for
-  `duration-base` at most.
+- **List rows move at tap time** (a tick, an untick, a delete), with the
+  save in the background and a visible roll-back if it fails. They glide
+  there with `useFlipList` on the real element, so a moving row can still
+  be tapped: rows rise in, fade out, and glide (`duration-spring`) when
+  they or their neighbours move, and a ticked row slides to "Done". Key new
+  list rows with `data-flip-key`.
+- **Navigations** are view transitions: a tab change fades the page in with
+  a small rise, and a row's title morphs into its detail page's heading
+  (`MorphTitle`). Keep the phone header and bottom bar still.
 - Motion is never the only signal (M5), and with `prefers-reduced-motion`
   every animation, view transitions included, is instant.
 

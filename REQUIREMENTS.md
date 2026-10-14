@@ -5817,20 +5817,80 @@ width. Buttons that swap a spinner icon rather than text are unchanged.
 
 ## Motion and view transitions
 
-UX-33. One set of motion tokens and React's `<ViewTransition>` (Next 16.3's
-App Router has it on by default, with no `experimental.viewTransition` flag
-any more) on top of the browser's View Transitions API. A browser without
-the API swaps instantly.
+UX-33. One set of motion tokens, used two ways: list rows move at tap time
+and glide with FLIP animations, and navigations run as React
+`<ViewTransition>`s on the browser's View Transitions API. Next 16.3's App
+Router has those on by default, with no `experimental.viewTransition` flag
+any more. A browser without the API swaps pages instantly.
 
 **Tokens.** `globals.css` defines `--motion-duration-fast` (120 ms, exits),
-`-base` (200 ms, entrances, shifts), `-slow` (320 ms, morphs) and `-spring`
-(400 ms), with `--motion-ease-out`, `-in`, `-in-out` and `-spring` (a
+`-base` (200 ms, entrances), `-slow` (320 ms, morphs) and `-spring`
+(400 ms, moves), with `--motion-ease-out`, `-in`, `-in-out` and `-spring` (a
 sampled damped spring as `linear()`, about 5% overshoot). They're plain
 custom properties, not `@theme` entries, so Tailwind's own `ease-*`
 utilities are unchanged. DESIGN.md's "Depth, motion and states" says what
 each is for.
 
-**What animates.**
+**List rows: moved at tap time.** A tick, an untick or a delete changes the
+list the moment it's tapped, and the save follows in the background
+(`useLocalRowChanges`, `src/components/shared/local-row-changes.ts`). This
+replaces UX-14's "the box flips at once but the row stays put until the
+server answers". When the server took over 500 ms, that later move counted
+as layout shift. Now:
+- The list keeps this device's unsaved ticks and deletes as marks and lays
+  itself out from the server's rows with them applied
+  (`applyLocalRowChanges`). A mark is applied with `flushSync`, so it shows
+  on the next frame even from inside a confirm dialog's transition or while
+  an earlier save is still pending.
+- Once a save settles, its mark is dropped in a transition, which commits
+  together with the server's refreshed list. On success the two agree and
+  nothing moves. On failure the row moves back, and
+  `settleOptimisticAction` or the confirm dialog toasts why (M5). Marks
+  carry a sequence number, so a quick tick then untick only drops the
+  finished save's mark.
+- A local tick mirrors the server's write, so nothing changes when it
+  answers. `withLocalTick` (`put-away-calc.ts`) sets the shopping row's
+  `putAwayAt`/`priceRecordedAt` the way `togglePurchasedAction` does in
+  either inventory sync mode, so the "Put away" button and badges appear
+  at the tap. `withLocalCompletion` (`task-rotation.ts`) sets the task's
+  completer (the page passes the viewer's member id), `completedAt` and a
+  rotating task's next assignee. The tasks page's weekly recap is worked out
+  in `TasksClient` from those same rows (against the server's `now`), so a
+  completion shows in it at once instead of the recap growing when the
+  server answers and pushing the list down.
+- Used by the shopping list (tick, delete), the task list (tick, delete) and
+  inventory (delete).
+
+Adding is the exception: the server decides a new item's category, or that
+it merges into a row already there, so a new row appears when the server
+answers. Rows are kept in creation order, so it lands at the end of its
+section, and only what's below it moves.
+
+**List rows: the glide.** `useFlipList` (`src/components/shared/use-flip-list.ts`)
+runs after every commit of a list:
+- It measures each element with `data-flip-key` against its parent (or the
+  viewport if it changed parent) and plays the difference from where it was
+  back on the real element with the Web Animations API (FLIP). Keys pair
+  across sections, so a ticked row glides into "Purchased" or "Completed",
+  and a completed list's card into its section on the overview.
+- A new row rises in.
+- A removed row's node is put back in its list, absolutely positioned and
+  inert, to fade where it was (not table rows, which don't lay out alone).
+- Section labels, inventory group rows and the task list itself (below the
+  recap) are keyed too.
+- A new view of the list doesn't animate: inventory passes its search,
+  filters and grouping as the hook's `view`, and when that changes the rows
+  are re-measured without playing anything (hidden rows haven't gone
+  anywhere). More than 20 rows arriving or leaving at once is also treated
+  as a different list.
+
+Since it animates the real element and not a snapshot, a row stays
+tappable at the place it's drawn while it moves. A view transition, which
+this first used, makes an animating element untappable, and that's the row
+the thumb goes to next. Used on the shopping list, the shopping lists
+overview, tasks, and inventory (table rows and phone cards).
+
+**Navigations: view transitions.**
 - *Tab changes.* `src/app/dashboard/template.tsx` mounts afresh whenever
   the dashboard's child segment changes, so its `<ViewTransition>` fades
   the old page out (fast) and the new one in with an 8 px rise. The phone
@@ -5838,73 +5898,55 @@ each is for.
   `app-bottom-nav`) and are pinned above the animation: a page's snapshot is
   its whole box, not just what `main` scrolls into view, and would
   otherwise paint over both bars.
-- *List rows.* `ListRowTransition` (`src/components/shared/view-transitions.tsx`)
-  wraps each shopping item, task, inventory row and card, and shopping list
-  card, under a name made of a prefix and the row's id. A new row rises in,
-  a removed one fades out, and rows that shift because of either glide
-  (200 ms). Because a name pairs across sections, a ticked shopping item or
-  task slides into "Purchased"/"Completed" on the spring once the save lands,
-  and a completed list's card slides into its section. Section labels
-  ("Purchased", "Completed", a category heading, an inventory group row)
-  glide with the rows (unnamed `ListRowTransition`s), and the shopping
-  list's header buttons, which gain "Put away" when an item is ticked,
-  glide aside (`ShiftTransition`, update only). The optimistic tick
-  itself (UX-14) is a sync update, which React never animates, so the box
-  still flips at once. `ListTransitionScope` wraps each of those lists: when
-  a whole page leaves, React animates only the outermost `<ViewTransition>`s,
-  and without that inert boundary every row would fade out on the way to a
-  detail page.
-- *Shared-element morphs.* `MorphTitle` gives a list row's title and its
-  detail page's `h1` the same name: a shopping list card into the list page,
-  and an item catalogue row (`/dashboard/inventory/items`) into the item
-  page. Both detail routes have a `loading.tsx`, so a navigation usually
-  commits the skeleton first: `PageSkeleton`'s `morph` prop names its title
-  bar the same way (`MorphTitleSkeleton` reads the id with `useParams`), so
-  the title flies to the header at once and hands over to the real heading
-  when the page arrives. Recipes have no detail page (a recipe opens in a
-  dialog), so there is no recipe morph yet.
-
-**Limits, on purpose.**
+- *Shared-element morphs.* `MorphTitle` (`src/components/shared/view-transitions.tsx`)
+  gives a list row's title and its detail page's `h1` the same name: a
+  shopping list card into the list page, and an item catalogue row
+  (`/dashboard/inventory/items`) into the item page. Both detail routes have
+  a `loading.tsx`, so a navigation usually commits the skeleton first.
+  `PageSkeleton`'s `morph` prop gives its title bar the same name
+  (`MorphTitleSkeleton` reads the id with `useParams`), so the title flies
+  to the header at once and hands over to the real heading when the page
+  arrives. Recipes have no detail page (a recipe opens in a dialog), so
+  there is no recipe morph yet.
 - The document root is never captured (`:root { view-transition-name:
   none }`). React crossfades the root whenever something outside a
-  `<ViewTransition>` changes (a dialog closing in its portal), and while it
-  runs the whole page ignores taps. Unnamed content updates at once instead.
-- An element that is animating can't be tapped (the browser skips it in
-  hit-testing for the transition's length; taps elsewhere reach the live
-  page since `::view-transition` has `pointer-events: none`). That's why the
-  shift that moves the next row up into a ticked row's place is short.
-- React skips a view transition when an urgent update lands just before its
-  snapshot, and doesn't start one for a navigation tapped while the page is
-  still hydrating or before the link's prefetch is back. The change still
-  happens, without the animation. `ConfirmDialog` closes inside its
-  transition (`startTransition(() => setOpen(false))` after the `await`),
-  and the shopping row's delete hands its promise to the dialog like a
-  task's, so a confirmed delete's fade isn't cut by the dialog closing.
-- Morphs need both ends on screen: React leaves out pairs it measures as
-  off-screen.
+  `<ViewTransition>` changes (a dialog closing in its portal), and while
+  that runs the whole page ignores taps. Unnamed content updates at once
+  instead.
+- React leaves a navigation unanimated when an unrelated update shares its
+  render, or when it's tapped while the page is still hydrating. A morph
+  also needs both ends on screen. In all these cases the page still
+  changes, just without the animation.
 
-- Layout shift: on desktop `html` reserves the scrollbar gutter
-  (`scrollbar-gutter: stable`), so a list growing past one screen no longer
-  nudges right-aligned buttons sideways. A row moves only once the server
-  answers (UX-14), so when that takes over 500 ms the browser's CLS metric
-  counts the move, even though on screen it's the row gliding there. CLS
-  is 0 when the save comes back within 500 ms; above that, nothing moves
-  without an animation. Moving rows at tap time instead would undo UX-14's
-  choice to keep rows still under your thumb until the save lands.
+**Layout shift.** A tick or a delete moves rows inside the 500 ms the CLS
+metric leaves for a response to input, so it measures 0 however slow the
+save is. On desktop `html` reserves the scrollbar gutter
+(`scrollbar-gutter: stable`), so a list growing past one screen no longer
+nudges right-aligned buttons sideways.
 
-**Reduced motion.** The UX-29 rule in `globals.css` doesn't reach the
-view-transition pseudo-elements, so a second rule sets their animation
-duration and delay to 0: every change happens at once.
+**Reduced motion.** `useFlipList` plays nothing under
+`prefers-reduced-motion`. The UX-29 rule in `globals.css` doesn't reach the
+view-transition pseudo-elements, so a second rule sets their duration and
+delay to 0. Every change happens at once.
 
-**Tests.** `e2e/motion.spec.ts` wraps `document.startViewTransition` in an
-init script and records each transition's running animations (pseudo-element,
-keyframes, duration). It asserts a shopping item's add (fade in), tick
-(the spring move) and delete (fade out), each with no layout shift outside
-the 500 ms after input except of elements the transition was animating (it
-names whatever moved on a failure). It also checks both morphs and the tab
-fade (each retried up to three times from where it started, since React
-leaves a navigation unanimated when an unrelated update shares its render),
-and all-zero durations under `reducedMotion: "reduce"`, on desktop and mobile.
+**Tests.** `e2e/motion.spec.ts` records each FLIP animation (wrapping
+`Element.prototype.animate`) and each view transition's animations (wrapping
+`document.startViewTransition`), on desktop and mobile:
+- With every save held at the server well past 500 ms
+  (`holdServerActions`, now shared in `e2e/ui.ts`), a shopping tick moves
+  the row to "Purchased" before the save answers, the rows below glide, the
+  row that slid up takes a tap mid-glide, and a delete removes and fades
+  the row. CLS is strictly 0, an added row rises in, and a reload shows it
+  all saved.
+- A task completed with its save held moves to "Completed" at once.
+- Both morphs and the tab fade animate (each navigation retried up to three
+  times from where it started, for the reason above).
+- Under `reducedMotion: "reduce"` no FLIP plays and view transitions take
+  no time.
+
+Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
+`withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
+UX-14's rapid ticks and the rollback toast.
 
 ## Testing
 

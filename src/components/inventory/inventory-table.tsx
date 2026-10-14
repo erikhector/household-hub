@@ -56,12 +56,13 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
-import { ListRowTransition } from "@/components/shared/view-transitions";
+import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
 export function InventoryTable({
-  items,
+  items: serverItems,
   categories,
   locations,
   units,
@@ -73,6 +74,7 @@ export function InventoryTable({
   dict,
   barcodeDict,
   aiCategoryFallbackEnabled = false,
+  view,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -90,8 +92,17 @@ export function InventoryTable({
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
   aiCategoryFallbackEnabled?: boolean;
+  /** The search, filters and grouping being shown: changing it isn't a row
+   * coming or going, so the rows don't animate (useFlipList). */
+  view?: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  // UX-33: a deleted item leaves the list at tap time (see
+  // local-row-changes.ts) and the rows below glide up; it comes back if
+  // the delete fails.
+  const local = useLocalRowChanges();
+  const items = applyLocalRowChanges(serverItems, local.changes, (item) => item);
+  const containerRef = useFlipList<HTMLDivElement>(view);
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
   const [bulkField, setBulkField] = useState<BulkEditableField>("location");
   const [bulkValue, setBulkValue] = useState("");
@@ -237,11 +248,12 @@ export function InventoryTable({
     });
   }
 
-  function handleDelete(itemId: string) {
-    startTransition(async () => {
-      const result = await deleteInventoryItemAction(itemId);
-      if (result.error) toast.error(result.error);
-    });
+  // From the row's confirm dialog, which waits on it and toasts an error.
+  async function handleDelete(itemId: string) {
+    const settle = local.markDeleted(itemId);
+    const result = await deleteInventoryItemAction(itemId);
+    settle();
+    return result;
   }
 
   function toggleItem(itemId: string) {
@@ -300,7 +312,7 @@ export function InventoryTable({
   const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
-    <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
+    <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
           <span className="text-sm font-medium">
@@ -405,61 +417,134 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
-              <ListRowTransition>
-                <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
-                    <span className="block max-w-[28rem] truncate" title={group.key}>
-                      {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
-                    </span>
-                  </TableCell>
-                </TableRow>
-              </ListRowTransition>
+              <TableRow data-flip-key={`label:${group.key}`} className="hover:bg-transparent">
+                <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
+                  <span className="block max-w-[28rem] truncate" title={group.key}>
+                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                  </span>
+                </TableCell>
+              </TableRow>
             )}
             {group.items.map((item) => (
-              <ListRowTransition key={item.id} name={`inventory-row-${item.id}`}>
-                <TableRow data-state={selected.has(item.id) ? "selected" : undefined}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(item.id)}
-                      onChange={() => toggleItem(item.id)}
-                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+              <TableRow key={item.id} data-flip-key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(item.id)}
+                    onChange={() => toggleItem(item.id)}
+                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                  />
+                </TableCell>
+                <TableCell className="font-medium">
+                  <span className="block max-w-[16rem] truncate" title={item.name}>
+                    {item.name}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  <span className="block max-w-[10rem] truncate" title={item.category}>
+                    {item.category}
+                  </span>
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
+                    {item.location ?? "—"}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <QuantityStepper item={item} layout="table" disabled={isPending} dict={dict} />
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <OnTheWayHint item={item} dict={dict} />
+                    <ExpiryBadge
+                      expiresAt={item.expiresAt}
+                      expiresAtEstimated={item.expiresAtEstimated}
+                      openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
+                      dict={dict}
                     />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <span className="block max-w-[16rem] truncate" title={item.name}>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
+                </TableCell>
+                <TableCell>
+                  <ItemActions
+                    item={item}
+                    categories={categories}
+                    locations={locations}
+                    units={units}
+                    members={members}
+                    locale={locale}
+                    dict={dict}
+                    barcodeDict={barcodeDict}
+                    isPending={isPending}
+                    onMarkEmpty={handleMarkEmpty}
+                    onMarkOpened={handleMarkOpened}
+                    onFreeze={handleFreeze}
+                    onDelete={handleDelete}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </Fragment>
+        ))}
+      </TableBody>
+      </Table>
+      </div>
+
+      {/* Mobile: a stacked card list instead of the table above — a 6-column
+          table can't fit a 375px screen without horizontal scrolling, so
+          phones get the same data reshaped into cards instead. */}
+      <div className="relative flex min-w-0 flex-col gap-2 sm:hidden">
+        {groups.map((group) => (
+          <Fragment key={`m-${group.key || "__ungrouped__"}`}>
+            {groupBy !== "none" && (
+              <div data-flip-key={`card-label:${group.key}`} className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                <span className="block truncate" title={group.key}>
+                  {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
+                </span>
+              </div>
+            )}
+            {group.items.map((item) => (
+              <div
+                key={item.id}
+                data-flip-key={`card:${item.id}`}
+                data-state={selected.has(item.id) ? "selected" : undefined}
+                className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+              >
+                <div className="flex min-w-0 flex-wrap items-start gap-2">
+                  <Checkbox
+                    checked={selected.has(item.id)}
+                    onChange={() => toggleItem(item.id)}
+                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                    className="mt-1"
+                  />
+                  <div className="min-w-[40%] flex-1">
+                    <p className="truncate font-medium" title={item.name}>
                       {item.name}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    <span className="block max-w-[10rem] truncate" title={item.category}>
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
                       {item.category}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
-                      {item.location ?? "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <QuantityStepper item={item} layout="table" disabled={isPending} dict={dict} />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                      <OnTheWayHint item={item} dict={dict} />
-                      <ExpiryBadge
-                        expiresAt={item.expiresAt}
-                        expiresAtEstimated={item.expiresAtEstimated}
-                        openedAt={item.openedAt}
-                        frozenAt={item.frozenAt}
-                        dict={dict}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-                  </TableCell>
-                  <TableCell>
+                      {item.location ? ` • ${item.location}` : ""}
+                    </p>
+                  </div>
+                  {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                  <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                    <OnTheWayHint item={item} dict={dict} />
+                    <ExpiryBadge
+                      expiresAt={item.expiresAt}
+                      expiresAtEstimated={item.expiresAtEstimated}
+                      openedAt={item.openedAt}
+                      frozenAt={item.frozenAt}
+                      dict={dict}
+                    />
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                  <div className="ml-auto min-w-0">
                     <ItemActions
                       item={item}
                       categories={categories}
@@ -474,93 +559,12 @@ export function InventoryTable({
                       onMarkOpened={handleMarkOpened}
                       onFreeze={handleFreeze}
                       onDelete={handleDelete}
+                      size="size-9"
                     />
-                  </TableCell>
-                </TableRow>
-              </ListRowTransition>
-            ))}
-          </Fragment>
-        ))}
-      </TableBody>
-      </Table>
-      </div>
-
-      {/* Mobile: a stacked card list instead of the table above — a 6-column
-          table can't fit a 375px screen without horizontal scrolling, so
-          phones get the same data reshaped into cards instead. */}
-      <div className="flex min-w-0 flex-col gap-2 sm:hidden">
-        {groups.map((group) => (
-          <Fragment key={`m-${group.key || "__ungrouped__"}`}>
-            {groupBy !== "none" && (
-              <ListRowTransition>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                  <span className="block truncate" title={group.key}>
-                    {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
-                  </span>
-                </div>
-              </ListRowTransition>
-            )}
-            {group.items.map((item) => (
-              // UX-33: its own name, not the table row's: both layouts are
-              // in the DOM (one hidden), and names must be unique.
-              <ListRowTransition key={item.id} name={`inventory-card-${item.id}`}>
-                <div
-                  data-state={selected.has(item.id) ? "selected" : undefined}
-                  className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
-                >
-                  <div className="flex min-w-0 flex-wrap items-start gap-2">
-                    <Checkbox
-                      checked={selected.has(item.id)}
-                      onChange={() => toggleItem(item.id)}
-                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                      className="mt-1"
-                    />
-                    <div className="min-w-[40%] flex-1">
-                      <p className="truncate font-medium" title={item.name}>
-                        {item.name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {item.category}
-                        {item.location ? ` • ${item.location}` : ""}
-                      </p>
-                    </div>
-                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                    <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                      <OnTheWayHint item={item} dict={dict} />
-                      <ExpiryBadge
-                        expiresAt={item.expiresAt}
-                        expiresAtEstimated={item.expiresAtEstimated}
-                        openedAt={item.openedAt}
-                        frozenAt={item.frozenAt}
-                        dict={dict}
-                      />
-                    </div>
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                    <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                    <div className="ml-auto min-w-0">
-                      <ItemActions
-                        item={item}
-                        categories={categories}
-                        locations={locations}
-                        units={units}
-                        members={members}
-                        locale={locale}
-                        dict={dict}
-                        barcodeDict={barcodeDict}
-                        isPending={isPending}
-                        onMarkEmpty={handleMarkEmpty}
-                        onMarkOpened={handleMarkOpened}
-                        onFreeze={handleFreeze}
-                        onDelete={handleDelete}
-                        size="size-9"
-                      />
-                    </div>
-                  </div>
-                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
                 </div>
-              </ListRowTransition>
+                <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
+              </div>
             ))}
           </Fragment>
         ))}

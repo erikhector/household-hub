@@ -61,11 +61,7 @@ export function ConfirmDialog({
         toast.error(result.error);
         return;
       }
-      // A state update after an `await` isn't part of the transition any
-      // more unless it's wrapped again. On its own it was an urgent update
-      // landing right as the deleted row's exit animation (UX-33) started,
-      // and React skips a view transition when that happens.
-      startTransition(() => setOpen(false));
+      setOpen(false);
     });
   }
 

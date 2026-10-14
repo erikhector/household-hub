@@ -48,7 +48,7 @@ export function ItemActions({
   onMarkEmpty: (item: InventoryItemRow, addToShoppingList: boolean) => void;
   onMarkOpened: (item: InventoryItemRow) => void;
   onFreeze: (item: InventoryItemRow) => void;
-  onDelete: (itemId: string) => void;
+  onDelete: (itemId: string) => Promise<{ error?: string }>;
   size?: string;
 }) {
   // GAP-28: hidden (not disabled) unless there's an opened window to apply

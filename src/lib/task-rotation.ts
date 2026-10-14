@@ -84,3 +84,33 @@ export function activeRotationMembers(rotation: readonly string[], activeMemberI
   }
   return result;
 }
+
+/**
+ * UX-33: a task as toggleTaskCompletedAction will leave it, so the task
+ * list can show a tick (and move the row, and update the weekly recap) at
+ * tap time. Completing records who did it and when, and passes a rotating
+ * task on to whoever's next (the page shows a completed rotating task's
+ * assignee as next, so that stays the same). Reopening clears only
+ * `completedAt`, keeping "last done by"; a rotating task's hand-back to the
+ * previous assignee is the server's to work out and shows when it answers.
+ */
+export function withLocalCompletion<
+  T extends {
+    completed: boolean;
+    completedAt: Date | null;
+    completedByMemberId: string | null;
+    assignedToMemberId: string | null;
+    recurrenceIntervalDays: number | null;
+    rotationMemberIds: readonly string[];
+    nextInRotationMemberId: string | null;
+  },
+>(task: T, completed: boolean, completedByMemberId: string | null, now: Date): T {
+  if (!completed) return { ...task, completed: false, completedAt: null };
+  return {
+    ...task,
+    completed: true,
+    completedAt: now,
+    completedByMemberId,
+    ...(isRotating(task) ? { assignedToMemberId: task.nextInRotationMemberId } : {}),
+  };
+}
