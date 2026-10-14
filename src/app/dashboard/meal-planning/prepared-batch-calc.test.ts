@@ -105,6 +105,10 @@ describe("prepUndoSchema / discardSnapshotSchema", () => {
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, cookedAt: "yesterday" } }).success).toBe(false);
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, expiryDate: "2026-10-14" } }).success).toBe(false);
   });
+  it("rejects remaining portions above the total", () => {
+    const bad = { ...snapshot, batch: { ...snapshot.batch, totalPortions: 1, remainingPortions: 100 } };
+    expect(discardSnapshotSchema.safeParse(bad).success).toBe(false);
+  });
   it("bounds undo batches and quantities", () => {
     expect(prepUndoSchema.safeParse({ ...undo, batchIds: [] }).success).toBe(false);
     expect(prepUndoSchema.safeParse({ ...undo, batchIds: ["1", "2", "3", "4", "5", "6"] }).success).toBe(false);

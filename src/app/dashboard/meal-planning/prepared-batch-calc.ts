@@ -164,7 +164,9 @@ export const discardSnapshotSchema = z.object({
     remainingPortions: z.number().int().min(0).max(MAX_LEFTOVER_SERVINGS),
     cookedAt: isoInstant,
     expiryDate: isoInstant.nullable(),
-  }),
+  })
+    // Restoring a batch with more left than was cooked would invent portions.
+    .refine((b) => b.remainingPortions <= b.totalPortions, v("invalidValue")),
   entries: z
     .array(
       z.object({
