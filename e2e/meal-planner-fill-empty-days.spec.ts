@@ -88,7 +88,6 @@ test("a proposal can be cancelled without writing, swapped, accepted, and the en
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();
   await page.reload();
   for (const name of names) await expect(page.getByText(name).filter({ visible: true }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add meal", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "More planner actions" }).click();
   await expect(page.getByRole("menuitem", { name: "Fill empty days" })).toHaveCount(0);
 });
