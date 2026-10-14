@@ -1755,7 +1755,7 @@ export const sv = {
     prepRecordUndoneToast: "Ångrat — lagret återställt",
     // Dialogen Planera portioner: fördela en matlådas portioner över veckan.
     prepPlanDialogTitle: "Planera portioner av {recipe}",
-    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Måltider där något annat redan är planerat är gråade.",
+    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Dagar som har passerat och måltider där något annat redan är planerat är gråade.",
     prepSlotPortions: "Portioner till {meal}, {day}",
     prepLeftAfter: "{left} av {remaining} kvar efter detta",
     prepTooManyPortions: {
