@@ -94,12 +94,15 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
     if (done < names.length) await expect(progress).toHaveAttribute("aria-valuetext", `${done} of 4`);
   }
 
-  // The "All done" moment, with the ring full and the next step offered.
-  await expect(page.getByText("All done", { exact: true })).toBeVisible();
-  await expect(page.getByRole("progressbar", { name: "Shopping progress" })).toHaveAttribute("aria-valuetext", "4 of 4");
+  // The "All done" moment, with the ring full and the next step offered:
+  // the seeded household puts away later (ON_PUT_AWAY, the default), so
+  // that's putting the four away.
+  const main = page.getByRole("main");
+  await expect(main.getByText("All done", { exact: true })).toBeVisible();
+  await expect(main.getByRole("progressbar", { name: "Shopping progress" })).toHaveAttribute("aria-valuetext", "4 of 4");
   await expect(dock).toHaveCount(0);
-  const doneShopping = page.getByRole("button", { name: "Done shopping" });
-  await expect(doneShopping).toBeEnabled();
+  await expect(main.getByText("4 things are waiting to be put away.")).toBeVisible();
+  await expect(main.getByRole("button", { name: "Put things away" })).toBeEnabled();
 
   // Never scrolled: neither the page nor (on a phone) main, its scroller.
   const scrolled = await page.evaluate(() => window.scrollY + (document.querySelector("main")?.scrollTop ?? 0));
@@ -107,7 +110,7 @@ test("a whole shop is ticked off from the dock in the thumb zone, without scroll
 
   // Every tick saved.
   await page.reload();
-  await expect(page.getByRole("button", { name: "Done shopping" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Put things away" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -125,7 +128,7 @@ test("ticked rows collapse into In the cart, and the whole row is the target", a
   // Tapping the note — not the checkbox or the name — ticks the row.
   // A real tap at the note's centre: what's hit there is the label's
   // row-wide hit area, not the note.
-  const noteBox = (await page.getByText(note).boundingBox())!;
+  const noteBox = (await page.getByRole("main").getByText(note).boundingBox())!;
   await page.mouse.click(noteBox.x + noteBox.width / 2, noteBox.y + noteBox.height / 2);
   await expect(box).toBeChecked();
   await expect(cart).toHaveAttribute("aria-expanded", "false");
@@ -154,9 +157,10 @@ test("All done offers to put away what's still in the cart", async ({ page }) =>
   await page.goto(path);
 
   await page.getByRole("region", { name: "Next up" }).getByRole("button", { name: /^Beans .*, into the cart$/ }).click();
-  await expect(page.getByText("All done", { exact: true })).toBeVisible();
-  // At least the seeded row waits (Beans too, if the household puts away later).
-  await expect(page.getByText(/things? (is|are) waiting to be put away\.$/)).toBeVisible();
+  const main = page.getByRole("main");
+  await expect(main.getByText("All done", { exact: true })).toBeVisible();
+  // The seeded household puts away later (ON_PUT_AWAY), so both wait.
+  await expect(main.getByText("2 things are waiting to be put away.")).toBeVisible();
   await page.getByRole("button", { name: "Put things away" }).click();
   await expect(page.getByRole("dialog", { name: "Put away before you finish?" })).toBeVisible();
 });

@@ -108,6 +108,11 @@ test("ticking three shopping items shows all three before any save answers", asy
 
   const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) }));
   for (const box of boxes) await box.click();
+  // UX-37: ticked rows move at once into the collapsed "In the cart"
+  // section, still before any save answers; open it to see them.
+  const cart = page.getByRole("button", { name: /^In the cart/ });
+  await expect(cart).toContainText("3");
+  await cart.click();
   for (const box of boxes) {
     await expect(box).toBeChecked();
     await expect(box).toBeEnabled();
@@ -117,6 +122,7 @@ test("ticking three shopping items shows all three before any save answers", asy
   held.release();
   await expect.poll(held.answered).toBe(3);
   await page.reload();
+  await cart.click();
   for (const box of boxes) await expect(box).toBeChecked();
 });
 
