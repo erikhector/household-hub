@@ -242,7 +242,7 @@ judgement calls, not failures.
 
 ### UX (2026-10-14 scout)
 
-- [ ] **UX-44. Compact inventory rows on phones** (impact: med, effort: S) —
+- [ ] **UX-45. Compact inventory rows on phones** (impact: med, effort: S) —
       On a 412 px screen each inventory card on `/dashboard/inventory` takes
       three stacked rows (name and badge, stepper and actions, "Last updated
       <date>"), about 125 px, so six items fill two screens and the
