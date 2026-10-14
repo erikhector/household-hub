@@ -606,7 +606,7 @@ describe("unassignBatchPortionAction", () => {
       select: { remainingPortions: true, totalPortions: true },
     });
     expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "batch-1", householdId: household.id },
+      where: { id: "batch-1", householdId: household.id, remainingPortions: 4 },
       data: { remainingPortions: 7 },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
@@ -621,11 +621,12 @@ describe("unassignBatchPortionAction", () => {
     });
     mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 1 });
     preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 6, totalPortions: 8 });
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
 
     await unassignBatchPortionAction("entry-1");
 
     expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "batch-1", householdId: household.id },
+      where: { id: "batch-1", householdId: household.id, remainingPortions: 6 },
       data: { remainingPortions: 8 },
     });
   });
@@ -660,6 +661,27 @@ describe("unassignBatchPortionAction", () => {
 
     expect(await unassignBatchPortionAction("entry-1")).toEqual({});
     expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("rolls back when the batch changed between the read and the write", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 3,
+      consumedAt: null,
+    });
+    mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 1 });
+    preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 4, totalPortions: 8 });
+    // A concurrent assign decremented the batch after it was read.
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await unassignBatchPortionAction("entry-1");
+
+    expect(result).toEqual({ error: "Something went wrong. Please try again." });
+    // The callback rejected, so the entry reset it already made rolls back.
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalled();
+    await expect(transactionMock.mock.results[0].value).rejects.toThrow();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("is a no-op on an entry from another household", async () => {
@@ -799,11 +821,23 @@ describe("undoDiscardBatchAction", () => {
       },
     });
     expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "entry-1", mealPlan: { householdId: household.id }, preparedBatchId: null },
+      where: {
+        id: "entry-1",
+        mealPlan: { householdId: household.id },
+        preparedBatchId: null,
+        recipeId: "recipe-a",
+        portions: 2,
+      },
       data: { preparedBatchId: "batch-1", preparedPortionsUsed: 2 },
     });
     expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "entry-2", mealPlan: { householdId: household.id }, preparedBatchId: null },
+      where: {
+        id: "entry-2",
+        mealPlan: { householdId: household.id },
+        preparedBatchId: null,
+        recipeId: "recipe-a",
+        portions: 3,
+      },
       data: { preparedBatchId: "batch-1", preparedPortionsUsed: 3 },
     });
     expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
@@ -819,6 +853,25 @@ describe("undoDiscardBatchAction", () => {
     expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "batch-1", householdId: household.id },
       data: { remainingPortions: 6 },
+    });
+  });
+
+  it("skips an entry whose recipe changed and returns its portions", async () => {
+    // entry-1 was switched to another dish since the discard, so it no
+    // longer matches the recipe/portions filter.
+    mealPlanEntryUpdateManyMock.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      count: where.id === "entry-1" ? 0 : 1,
+    }));
+
+    await undoDiscardBatchAction(snapshot);
+
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "entry-1", recipeId: "recipe-a", portions: 2 }),
+      data: { preparedBatchId: "batch-1", preparedPortionsUsed: 2 },
+    });
+    expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id },
+      data: { remainingPortions: 5 },
     });
   });
 

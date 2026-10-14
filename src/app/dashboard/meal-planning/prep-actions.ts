@@ -267,6 +267,10 @@ export async function assignBatchPortionsAction(input: {
   return {};
 }
 
+// A lost optimistic write in unassignBatchPortionAction: an expected race,
+// not a bug, so it rolls back and asks for a retry without reaching Sentry.
+class BatchChangedError extends Error {}
+
 // Gives an entry's portions back to its batch and keeps the meal planned
 // (it just cooks fresh again). A missing, unlinked or cooked entry is a
 // no-op, as deleteMealEntryAction treats a missing entry: the button that
@@ -301,14 +305,21 @@ export async function unassignBatchPortionAction(entryId: string): Promise<Actio
         select: { remainingPortions: true, totalPortions: true },
       });
       if (!batch) return;
-      await tx.preparedBatch.updateMany({
-        where: { id: preparedBatchId, householdId: household.id },
+      // Optimistic: only writes if remainingPortions is still the value
+      // read above. A concurrent assign that decremented in between would
+      // otherwise be overwritten and its portions handed out twice. On a
+      // miss the throw rolls back the entry reset too, and the household
+      // retries.
+      const returned = await tx.preparedBatch.updateMany({
+        where: { id: preparedBatchId, householdId: household.id, remainingPortions: batch.remainingPortions },
         data: {
           remainingPortions: portionsAfterReturn(batch.remainingPortions, batch.totalPortions, preparedPortionsUsed),
         },
       });
+      if (returned.count === 0) throw new BatchChangedError();
     });
   } catch (error) {
+    if (error instanceof BatchChangedError) return await fail("generic");
     return toFriendlyError(error);
   }
 
@@ -426,14 +437,22 @@ export async function undoDiscardBatchAction(snapshot: DiscardSnapshot): Promise
         },
       });
 
-      // Only entries that are still this household's and still free are
-      // re-linked; one deleted or planned from another batch since keeps
-      // its new state, and its portions go back to the batch instead of
-      // vanishing.
+      // Only entries that are still this household's, still free, and still
+      // the same dish and size are re-linked, so a linked entry keeps
+      // recipeId = batch.recipeId and portions = preparedPortionsUsed even
+      // if it was edited after the discard (or the snapshot is forged). One
+      // that no longer matches keeps its new state, and its portions go
+      // back to the batch instead of vanishing.
       let unclaimed = 0;
       for (const entry of entries) {
         const relinked = await tx.mealPlanEntry.updateMany({
-          where: { id: entry.id, mealPlan: { householdId: household.id }, preparedBatchId: null },
+          where: {
+            id: entry.id,
+            mealPlan: { householdId: household.id },
+            preparedBatchId: null,
+            recipeId: batch.recipeId,
+            portions: entry.portions,
+          },
           data: { preparedBatchId: batch.id, preparedPortionsUsed: entry.portions },
         });
         if (relinked.count === 0) unclaimed += entry.portions;
