@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.62.0",
+    "date": "2026-10-14",
+    "pr": 211,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pages in the app now show a placeholder of their layout the instant you open them, instead of staying blank or showing the previous page.",
+      "sv": "Sidorna i appen visar nu direkt en platshållare med sidans layout när du öppnar dem, i stället för att vara tomma eller visa föregående sida."
+    }
+  },
+  {
     "version": "0.61.0",
     "date": "2026-10-13",
     "pr": 201,
