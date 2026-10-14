@@ -128,21 +128,28 @@ test("ticked rows collapse into In the cart, and the whole row is the target", a
   // Tapping the note — not the checkbox or the name — ticks the row.
   // A real tap at the note's centre: what's hit there is the label's
   // row-wide hit area, not the note.
+  // Each tick's save is awaited before the next step: a reload that races
+  // one drops the request.
+  const saved = () =>
+    page.waitForResponse((r) => r.request().method() === "POST" && "next-action" in r.request().headers());
+  const ticked = saved();
   const noteBox = (await page.getByRole("main").getByText(note).boundingBox())!;
   await page.mouse.click(noteBox.x + noteBox.width / 2, noteBox.y + noteBox.height / 2);
-  await expect(box).toBeChecked();
   await expect(cart).toHaveAttribute("aria-expanded", "false");
   await expect(cart).toContainText("1");
   await expect(box).toBeHidden();
+  await ticked;
 
-  // Opening the section shows it, and un-ticking there puts it back.
+  // Opening the section shows it ticked, and un-ticking there puts it back.
   await cart.click();
   await expect(cart).toHaveAttribute("aria-expanded", "true");
-  await expect(box).toBeVisible();
+  await expect(box).toBeChecked();
+  const unticked = saved();
   await box.click();
   await expect(box).not.toBeChecked();
   await expect(cart).toHaveCount(0);
   await expect(box).toBeVisible();
+  await unticked;
 
   await page.reload();
   await expect(box).not.toBeChecked();
