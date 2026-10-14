@@ -6,7 +6,9 @@ import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
 
 // BUDGET-7: Personal Budget's Insights tab counts the user's share of a
 // split household bill — in the month's totals (PeriodSummary) and in the
-// "Fixed income & costs" card (its recurring-costs breakdown and trend).
+// "Fixed income & costs" card's recurring-costs breakdown. The card's trend
+// is pinned by personal-fixed-insights.test.ts instead: other specs' bills
+// in the same household reach it too, so it can't be isolated here.
 // Rows are written straight to Postgres, like personal-budget-shared.spec.ts,
 // and named uniquely since the desktop and mobile runs share the worker's
 // household (which also collects other specs' shared bills, so amounts are
@@ -77,7 +79,9 @@ test("a shared bill's share shows in the personal Insights totals and fixed cost
   await expect(fixedRow).toBeVisible();
   await expect(fixedRow.locator("..")).toContainText(half);
 
-  // The logged share also feeds the fixed trend, so it has history to show.
+  // Smoke check only: the trend renders. Other specs' template-linked bills
+  // in this household can fill it too, so this can't prove it counts this
+  // share; the unit test does.
   await expect(main.getByText(/Not enough history yet/).filter({ visible: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
