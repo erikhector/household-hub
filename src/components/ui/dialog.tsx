@@ -291,7 +291,10 @@ function DialogContent({
             // dismiss settles back with a transition; no transition while
             // the finger is down, or the sheet lags behind it; and none under
             // reduced motion, where it just jumps to rest.
-            "[transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] transition-transform ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:transition-none data-swiping:select-none motion-reduce:transition-none",
+            // Base UI registers its drag variables with `inherits: false`,
+            // so the snap offset is copied into --sheet-snap-offset here for
+            // DialogFooter (a descendant) to read.
+            "[--sheet-snap-offset:var(--drawer-snap-point-offset,0px)] [transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] transition-transform ease-[cubic-bezier(0.32,0.72,0,1)] data-swiping:transition-none data-swiping:select-none motion-reduce:transition-none",
             // sm:inset-x-auto must precede sm:left-1/2: both are in tailwind-merge's
             // "left" conflict group, and it keeps only the later class — reversing
             // this order silently drops sm:left-1/2, leaving the dialog at left:0
@@ -379,10 +382,11 @@ function DialogFooter({
         // same `max(1rem, env(safe-area-inset-bottom))` puts the border box
         // exactly at the sheet bottom at every safe-area size.
         // UX-34: a long form resting at its half snap point is pushed down
-        // by --drawer-snap-point-offset, so its bottom part is off screen;
+        // by the snap offset (--sheet-snap-offset, copied from Base UI's
+        // --drawer-snap-point-offset on the popup), so its bottom part is off screen;
         // the same offset lifts the footer to the visible bottom edge, and
         // Save stays reachable at half height too (0 everywhere else).
-        "max-sm:sticky max-sm:bottom-[calc(var(--drawer-snap-point-offset,0px)-max(1rem,env(safe-area-inset-bottom)))] -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 max-sm:bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
+        "max-sm:sticky max-sm:bottom-[calc(var(--sheet-snap-offset,0px)_-_max(1rem,env(safe-area-inset-bottom)))] -mx-4 -mb-[max(1rem,env(safe-area-inset-bottom))] flex flex-col-reverse gap-2 border-t bg-muted/50 max-sm:bg-popover p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mb-4 sm:flex-row sm:justify-end sm:rounded-b-xl sm:pb-4",
         className
       )}
       {...props}

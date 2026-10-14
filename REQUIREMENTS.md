@@ -4963,10 +4963,48 @@ components directly.
   the sheet lifted. The footer's stick offset negates its full-bleed
   negative margin (`position: sticky` constrains the margin box), so the
   footer sits exactly at the sheet bottom instead of that margin above it.
-  The grabber line is gone:
-  it suggested drag-to-dismiss without doing anything (real drag is
-  UX-34). Covered by `e2e/sheet-keyboard.mobile.spec.ts`,
+  Covered by `e2e/sheet-keyboard.mobile.spec.ts`,
   `e2e/sheet-footer.mobile.spec.ts` and `keyboard-inset.test.ts`.
+- **Native-grade bottom sheets (UX-34, DESIGN.md M2/M7)**: every `Dialog`
+  is a Base UI **Drawer** (`src/components/ui/dialog.tsx`; Drawer is
+  Dialog plus gestures, sharing its Title/Description/Close, focus trap and
+  dismissal), so Base UI's own pointer handling does the work instead of a
+  hand-written one:
+  - **Drag to dismiss** on phones: the sheet follows a touch drag from the
+    grabber pill, the header or anywhere in its body once the body is
+    scrolled to the top. A flick (velocity) or a pull past half the sheet
+    dismisses; anything less springs back. Pulling up past the top
+    rubber-bands. The backdrop fades with the drag. A dismissing drag
+    closes through `onOpenChange` like the X does, so the UX-11 history
+    entry goes with it. From `sm` the centred modal doesn't drag
+    (`data-base-ui-swipe-ignore`). The X, Escape and back still close.
+  - **Snap points for long forms**: `<Dialog longForm>` (the recipe form,
+    add/edit inventory item) gets half and full snap points on phones. It
+    opens full; a drag down rests at half (to peek at the page behind) and
+    a further drag dismisses. At half, the sticky footer is lifted by the
+    snap offset (`--drawer-snap-point-offset`, copied to an inheriting `--sheet-snap-offset` since Base UI registers its own with `inherits: false`), so Save stays on screen.
+    The grabber of a long form is a button ("Show half sheet" / "Show full
+    sheet") that does the same, so the gesture isn't the only way (M7).
+  - **Background scale-down**: `SheetIndent`
+    (`src/components/ui/sheet-indent.tsx`, wrapping the page in the root
+    layout) shrinks the page to 94%, drops it below the status bar and
+    rounds its top corners over a black ground while any sheet is open,
+    growing back as the sheet is dragged down. Phones only. The wrapper has
+    no transform at rest, so it never becomes the fixed bottom bar's
+    containing block.
+  - **Focus without the keyboard**: a touch open focuses the sheet itself
+    (screen readers read its title; the first swipe or Tab reaches the
+    first field), so the on-screen keyboard doesn't pop over the sheet
+    before it's read. A mouse or keyboard open focuses the first field, or
+    the field the dialog's `initialFocus` names. An open with no pointer of
+    its own (a menu item, a handle) counts as touch on a coarse-pointer
+    device (`sheet-focus.ts`).
+  - The sheet is a grabber row above a scrolling body
+    (`data-slot="dialog-body"`), the only scroller in the dialog.
+  - Under `prefers-reduced-motion` the sheet jumps to rest instead of
+    animating and the page behind doesn't scale.
+
+  Covered by `e2e/native-sheets.spec.ts` and `sheet-focus.test.ts`.
 
 ## Releases & What's new
 

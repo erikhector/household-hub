@@ -438,16 +438,6 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
-      - Drag the grabber or header to dismiss, with velocity and
-        rubber-band.
-      - Snap points (half and full) for long forms.
-      - Background scale-down on iOS-style presentation.
-      - Focus kept on the first field without popping the keyboard on open.
-
-      Evaluate Base UI's own drawer primitive before writing pointer
-      handling. Keep the close button, Escape and back gesture working.
-
 - [ ] **UX-35. Swipe row actions with haptics** (M) — On shopping, task and
       inventory rows:
       - swipe right to tick, complete or "+1";

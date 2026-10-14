@@ -5,22 +5,24 @@ import { expect, test, type Locator } from "@playwright/test";
 // sheet's own scroller. iOS Safari doesn't hand a swipe from one scroller
 // over to the other, so the sheet got stuck partway and the save button was
 // unreachable. Chromium chains the scroll, so it can't reproduce the stall
-// itself; instead this pins down its cause: the sheet is the dialog's only
-// scroll container, and scrolling it brings the footer button on screen.
+// itself; instead this pins down its cause: the sheet's body (UX-34: the
+// sheet is a grabber above a scrolling body, dialog.tsx) is the dialog's
+// only scroll container, and scrolling it brings the footer button on screen.
 async function expectScrollsAsOneSheet(dialog: Locator, button: Locator) {
-  const nestedScrollers = await dialog.evaluate((root) =>
+  const scrollers = await dialog.evaluate((root) =>
     Array.from(root.querySelectorAll<HTMLElement>("*"))
       .filter((el) => {
         const { overflowY } = getComputedStyle(el);
         return /auto|scroll/.test(overflowY) && el.scrollHeight > el.clientHeight;
       })
-      .map((el) => el.tagName.toLowerCase()),
+      .map((el) => el.dataset.slot ?? el.tagName.toLowerCase()),
   );
-  expect(nestedScrollers).toEqual([]);
+  expect(scrollers.filter((slot) => slot !== "dialog-body")).toEqual([]);
 
-  // The sheet itself mustn't scroll sideways either (DialogFooter bleeds
-  // -mx-4 into the sheet's padding).
-  expect(await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  // The sheet mustn't scroll sideways either (DialogFooter bleeds -mx-4
+  // into the body's padding).
+  const body = dialog.locator('[data-slot="dialog-body"]');
+  expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
 
   await button.scrollIntoViewIfNeeded();
   await expect(button).toBeInViewport();
