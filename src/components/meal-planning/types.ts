@@ -65,6 +65,9 @@ export type MealPlanEntryData = {
   // ISO timestamp once inventory has been decremented for this entry (see
   // MealPlanEntry.consumedAt's doc comment in schema.prisma), else null.
   consumedAt: string | null;
+  // GAP-49: the PreparedBatch this slot eats from, or null when it's cooked
+  // fresh (MealPlanEntry.preparedBatchId).
+  preparedBatchId: string | null;
 };
 
 // One ingredient the planned week's recipes need more of than the household

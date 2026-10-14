@@ -1752,9 +1752,6 @@ export const en = {
     leftoverServingsLabel: "Servings left over",
     leftoverServingsHint: "Optional — adds them to inventory so they show up before they expire.",
     leftoverServingsInvalid: "Servings left over must be a whole number from 0 to 100",
-    leftoversNamePrefix: "Leftovers",
-    leftoversCategory: "Leftovers",
-    leftoversUnit: "servings",
     mealMarkedCookedLeftoversToast: {
       one: "Marked as cooked — {count} serving of leftovers added to inventory",
       other: "Marked as cooked — {count} servings of leftovers added to inventory",

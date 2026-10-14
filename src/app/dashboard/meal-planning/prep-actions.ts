@@ -34,8 +34,10 @@ import {
 import { parseDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import {
   assignInTx,
+  BatchChangedError,
   findSessionMemberId,
   PrepAssignError,
+  returnEntryPortionsInTx,
   type AssignSlot,
 } from "@/app/dashboard/meal-planning/prep-assign";
 import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
@@ -267,10 +269,6 @@ export async function assignBatchPortionsAction(input: {
   return {};
 }
 
-// A lost optimistic write in unassignBatchPortionAction: an expected race,
-// not a bug, so it rolls back and asks for a retry without reaching Sentry.
-class BatchChangedError extends Error {}
-
 // Gives an entry's portions back to its batch and keeps the meal planned
 // (it just cooks fresh again). A missing, unlinked or cooked entry is a
 // no-op, as deleteMealEntryAction treats a missing entry: the button that
@@ -298,25 +296,8 @@ export async function unassignBatchPortionAction(entryId: string): Promise<Actio
         where: { id: entry.id, preparedBatchId, preparedPortionsUsed, consumedAt: null },
         data: { preparedBatchId: null, preparedPortionsUsed: 0 },
       });
-      if (reset.count === 0 || preparedBatchId === null) return;
-
-      const batch = await tx.preparedBatch.findFirst({
-        where: { id: preparedBatchId, householdId: household.id },
-        select: { remainingPortions: true, totalPortions: true },
-      });
-      if (!batch) return;
-      // Optimistic: only writes if remainingPortions is still the value
-      // read above. A concurrent assign that decremented in between would
-      // otherwise be overwritten and its portions handed out twice. On a
-      // miss the throw rolls back the entry reset too, and the household
-      // retries.
-      const returned = await tx.preparedBatch.updateMany({
-        where: { id: preparedBatchId, householdId: household.id, remainingPortions: batch.remainingPortions },
-        data: {
-          remainingPortions: portionsAfterReturn(batch.remainingPortions, batch.totalPortions, preparedPortionsUsed),
-        },
-      });
-      if (returned.count === 0) throw new BatchChangedError();
+      if (reset.count === 0) return;
+      await returnEntryPortionsInTx(tx, household.id, entry);
     });
   } catch (error) {
     if (error instanceof BatchChangedError) return await fail("generic");

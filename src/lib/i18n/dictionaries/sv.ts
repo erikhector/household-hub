@@ -1665,9 +1665,6 @@ export const sv = {
     leftoverServingsLabel: "Portioner över",
     leftoverServingsHint: "Valfritt — lägger till dem i lagret så att de syns innan de blir dåliga.",
     leftoverServingsInvalid: "Portioner över måste vara ett heltal från 0 till 100",
-    leftoversNamePrefix: "Rester",
-    leftoversCategory: "Rester",
-    leftoversUnit: "portioner",
     mealMarkedCookedLeftoversToast: {
       one: "Markerad som lagad — {count} portion rester tillagd i lagret",
       other: "Markerad som lagad — {count} portioner rester tillagda i lagret",

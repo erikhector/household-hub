@@ -8,7 +8,13 @@ import type { ActionState } from "@/lib/actions/auth";
 import { MEAL_TYPES, CUSTOM_RECIPE_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { LEFTOVERS_DAY_SEARCH_DAYS, nextFreeDinnerDay } from "@/app/dashboard/meal-planning/leftovers";
-import { fail, v, zodFail } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail } from "@/lib/actions/errors";
+import {
+  assignInTx,
+  BatchChangedError,
+  PrepAssignError,
+  returnEntryPortionsInTx,
+} from "@/app/dashboard/meal-planning/prep-assign";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -24,6 +30,9 @@ const addEntrySchema = z.object({
   // addMealEntryAction below falls back to that recipe's own `servings` (i.e.
   // "one full recipe"), matching pre-portions behavior.
   portions: z.coerce.number().int().min(1, v("portionsMin")).max(1_000).optional(),
+  // GAP-49: eat this slot from a prepared batch. The batch decides the dish,
+  // so recipeId/freeformName are ignored when it's sent.
+  preparedBatchId: z.string().min(1).optional(),
 });
 
 export async function addMealEntryAction(
@@ -39,12 +48,35 @@ export async function addMealEntryAction(
     recipeId: formData.get("recipeId") || undefined,
     freeformName: formData.get("freeformName") || undefined,
     portions: formData.get("portions") || undefined,
+    preparedBatchId: formData.get("preparedBatchId") || undefined,
   });
   if (!parsed.success) {
     return await zodFail(parsed.error);
   }
 
-  const { weekStartDate, date, mealType, recipeId, freeformName } = parsed.data;
+  const { weekStartDate, date, mealType, recipeId, freeformName, preparedBatchId } = parsed.data;
+
+  if (preparedBatchId) {
+    const batch = await prisma.preparedBatch.findFirst({
+      where: { id: preparedBatchId, householdId: household.id },
+      select: { id: true, recipeId: true },
+    });
+    if (!batch) return await fail("prepBatchNotFound");
+    // assignInTx derives the week from the date itself, so the client's
+    // weekStartDate isn't needed here. One portion unless the form says
+    // otherwise: a batch slot is one person's meal, not "one full recipe".
+    try {
+      await prisma.$transaction((tx) =>
+        assignInTx(tx, household.id, batch, [{ date, mealType, portions: parsed.data.portions ?? 1 }]),
+      );
+    } catch (error) {
+      if (error instanceof PrepAssignError) return await fail(error.key);
+      return toFriendlyError(error);
+    }
+    revalidatePath(MEAL_PLANNING_PATH);
+    revalidatePath("/dashboard");
+    return {};
+  }
 
   let linkedRecipeId: string | null = null;
   let freeformMealName: string | null = null;
@@ -139,16 +171,49 @@ export async function updateMealEntryAction(
     freeformMealName = freeformName;
   }
 
-  await prisma.mealPlanEntry.update({
+  const edit = {
     where: { id: entry.id },
-    data: {
-      recipeId: linkedRecipeId,
-      freeformName: freeformMealName,
-      portions,
-    },
-  });
+    data: { recipeId: linkedRecipeId, freeformName: freeformMealName, portions },
+  };
+
+  // GAP-49: an entry eating from a batch eats that batch's dish, its
+  // portions taken out of it. A new dish or portion count breaks both, so
+  // the entry is unlinked first, in the same transaction as the edit: its
+  // portions go back to the batch and it cooks fresh, as "Unplan" does. A
+  // cooked entry ate its portions, so it's unlinked without returning them.
+  const unlink =
+    !!entry.preparedBatchId && (linkedRecipeId !== entry.recipeId || portions !== entry.portions);
+  if (!unlink) {
+    await prisma.mealPlanEntry.update(edit);
+    revalidatePath(MEAL_PLANNING_PATH);
+    return {};
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Guarded on the values just read, like unassignBatchPortionAction,
+      // so a concurrent unplan, delete or cook can't make this return the
+      // portions a second time (or return eaten ones).
+      const reset = await tx.mealPlanEntry.updateMany({
+        where: {
+          id: entry.id,
+          preparedBatchId: entry.preparedBatchId,
+          preparedPortionsUsed: entry.preparedPortionsUsed,
+          consumedAt: entry.consumedAt ? { not: null } : null,
+        },
+        data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+      });
+      if (reset.count === 0) throw new BatchChangedError();
+      if (!entry.consumedAt) await returnEntryPortionsInTx(tx, household.id, entry);
+      await tx.mealPlanEntry.update(edit);
+    });
+  } catch (error) {
+    if (error instanceof BatchChangedError) return await fail("generic");
+    return toFriendlyError(error);
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
   return {};
 }
 
@@ -256,13 +321,46 @@ export async function deleteMealEntryAction(entryId: string) {
 
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, mealPlan: { householdId: household.id } },
-    select: { id: true },
+    select: { id: true, preparedBatchId: true, preparedPortionsUsed: true, consumedAt: true },
   });
   if (!entry) return;
 
-  await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
+  // GAP-49: an uneaten meal planned from a batch gives its portions back,
+  // in the same transaction as the delete. An eaten one keeps them eaten,
+  // and one whose batch went with its recipe (SetNull, a stale count left
+  // behind) has nothing to give back to: both just delete.
+  if (!entry.preparedBatchId || entry.consumedAt) {
+    await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
+    revalidatePath(MEAL_PLANNING_PATH);
+    return;
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Guarded on the values just read, so a double-clicked delete (or one
+      // racing an unplan or a cook) returns the portions at most once.
+      const deleted = await tx.mealPlanEntry.deleteMany({
+        where: {
+          id: entry.id,
+          preparedBatchId: entry.preparedBatchId,
+          preparedPortionsUsed: entry.preparedPortionsUsed,
+          consumedAt: null,
+        },
+      });
+      if (deleted.count === 0) return;
+      await returnEntryPortionsInTx(tx, household.id, entry);
+    });
+  } catch (error) {
+    // The batch moved under us and everything rolled back, so the meal is
+    // still planned. This action has no error channel (the confirm dialog
+    // just closes), so it returns quietly and the household can delete
+    // again; re-throwing would hit the error boundary instead.
+    if (error instanceof BatchChangedError) return;
+    throw error;
+  }
 
   revalidatePath(MEAL_PLANNING_PATH);
+  revalidatePath("/dashboard");
 }
 
 // A week key must be a real `yyyy-mm-dd` date *and* a Monday. The planner

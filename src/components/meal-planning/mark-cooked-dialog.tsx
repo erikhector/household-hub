@@ -84,8 +84,8 @@ export function MarkCookedDialog({
       // the message says so and the same Undo takes those rows back off the
       // list too — undoing the cook should undo everything it caused.
       const autoAdded = result.autoAdded ?? [];
-      // GAP-8: the leftovers change (a created row, or a merged row's
-      // previous quantity/expiry) rides along on the same Undo too.
+      // GAP-8: the leftovers batch this cook created rides along on the
+      // same Undo too.
       const leftovers = result.leftovers;
       const leftoverServings = Number(formData.get("leftoverServings")) || 0;
       // One toast, so only one message: the auto-add note wins when both

@@ -133,6 +133,7 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
     freeformName: entry.freeformName,
     portions: entry.portions,
     consumedAt: entry.consumedAt ? entry.consumedAt.toISOString() : null,
+    preparedBatchId: entry.preparedBatchId,
   }));
 
   // Feeds the "nutrition recap" (BACKLOG GAP-2) — scoped to just the

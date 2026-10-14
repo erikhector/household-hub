@@ -1,12 +1,12 @@
-// Shared plumbing for GAP-49's meal-prep actions (prep-actions.ts and the
-// batch assign/discard actions). A plain server module rather than a
+// Shared plumbing for GAP-49's meal-prep actions (prep-actions.ts, and the
+// planner actions that add, edit or delete an entry eating from a batch). A plain server module rather than a
 // "use server" file, so these helpers stay callable from inside another
 // action's transaction without becoming client-callable endpoints of their
 // own.
 import type { Prisma } from "@/generated/prisma/client";
 import { getWeekStart, parseDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
-import { totalRequested } from "@/app/dashboard/meal-planning/prepared-batch-calc";
+import { portionsAfterReturn, totalRequested } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 
 type MemberLookupClient = Pick<Prisma.TransactionClient, "householdMember">;
 
@@ -118,4 +118,53 @@ export async function assignInTx(
     entryIds.push(target.id);
   }
   return entryIds;
+}
+
+/**
+ * A lost optimistic write in returnEntryPortionsInTx: an expected race, not
+ * a bug. Thrown inside the transaction so it rolls back; the calling action
+ * catches it and asks for a retry without reaching Sentry.
+ */
+export class BatchChangedError extends Error {
+  constructor() {
+    super("batch changed");
+    this.name = "BatchChangedError";
+  }
+}
+
+type ReturnClient = Pick<Prisma.TransactionClient, "preparedBatch">;
+export type ReturnEntry = { id: string; preparedBatchId: string | null; preparedPortionsUsed: number };
+
+/**
+ * Gives `entry`'s portions back to its batch, inside the caller's
+ * transaction. Only the batch side: the caller unlinks or deletes the entry
+ * first, guarded on the values it read, so a double click returns the
+ * portions once. A null batch (it went with its recipe, SetNull) or one no
+ * longer in the household has nothing to give back to. Throws
+ * BatchChangedError when the batch moved since it was read here.
+ */
+export async function returnEntryPortionsInTx(
+  tx: ReturnClient,
+  householdId: string,
+  entry: ReturnEntry,
+): Promise<void> {
+  const { preparedBatchId, preparedPortionsUsed } = entry;
+  if (preparedBatchId === null) return;
+
+  const batch = await tx.preparedBatch.findFirst({
+    where: { id: preparedBatchId, householdId },
+    select: { remainingPortions: true, totalPortions: true },
+  });
+  if (!batch) return;
+  // Optimistic: only writes if remainingPortions is still the value read
+  // above. A concurrent assign that decremented in between would otherwise
+  // be overwritten and its portions handed out twice. On a miss the throw
+  // rolls back the caller's entry write too, and the household retries.
+  const returned = await tx.preparedBatch.updateMany({
+    where: { id: preparedBatchId, householdId, remainingPortions: batch.remainingPortions },
+    data: {
+      remainingPortions: portionsAfterReturn(batch.remainingPortions, batch.totalPortions, preparedPortionsUsed),
+    },
+  });
+  if (returned.count === 0) throw new BatchChangedError();
 }
