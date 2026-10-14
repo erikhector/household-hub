@@ -122,29 +122,34 @@ export function BarChart({
           );
         })}
       </div>
-      <table className="sr-only">
-        <caption>{caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{groupHeader}</th>
-            {series.map((s) => (
-              <th key={s.key} scope="col">
-                {s.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => (
-            <tr key={group.key}>
-              <th scope="row">{group.label}</th>
-              {series.map((s, i) => (
-                <td key={s.key}>{numberFormat.format(group.values[i] ?? 0)}</td>
+      {/* The table sits in an sr-only div rather than being sr-only
+          itself: a table never shrinks below its content, so a 1 px
+          `sr-only` table still widened the page (horizontal scroll). */}
+      <div className="sr-only">
+        <table>
+          <caption>{caption}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{groupHeader}</th>
+              {series.map((s) => (
+                <th key={s.key} scope="col">
+                  {s.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <tr key={group.key}>
+                <th scope="row">{group.label}</th>
+                {series.map((s, i) => (
+                  <td key={s.key}>{numberFormat.format(group.values[i] ?? 0)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

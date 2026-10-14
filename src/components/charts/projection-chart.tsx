@@ -119,19 +119,24 @@ export function ProjectionChart({
       <p className="text-xs text-muted-foreground">
         {format(dict.projectionPace, { amount: numberFormat.format(dailyPace) })}
       </p>
-      <table className="sr-only">
-        <caption>{dict.projectionCaption}</caption>
-        <tbody>
-          <tr>
-            <th scope="row">{dict.projectionToday}</th>
-            <td>{numberFormat.format(today)}</td>
-          </tr>
-          <tr>
-            <th scope="row">{dict.projectionMonthEnd}</th>
-            <td>{numberFormat.format(projected)}</td>
-          </tr>
-        </tbody>
-      </table>
+      {/* The table sits in an sr-only div rather than being sr-only
+          itself: a table never shrinks below its content, so a 1 px
+          `sr-only` table still widened the page (horizontal scroll). */}
+      <div className="sr-only">
+        <table>
+          <caption>{dict.projectionCaption}</caption>
+          <tbody>
+            <tr>
+              <th scope="row">{dict.projectionToday}</th>
+              <td>{numberFormat.format(today)}</td>
+            </tr>
+            <tr>
+              <th scope="row">{dict.projectionMonthEnd}</th>
+              <td>{numberFormat.format(projected)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
