@@ -4,7 +4,6 @@ import { useActionState, useState, useTransition } from "react";
 import { ChefHat } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,15 +22,17 @@ import { Input } from "@/components/ui/input";
 import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
-import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
+import type { MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { useUnitLabel } from "@/components/units-provider";
+import {
+  CookedIngredientsChecklist,
+  toReviewItems,
+  type ReviewItem,
+} from "@/components/meal-planning/cooked-ingredients-checklist";
 import { PendingLabel } from "@/components/ui/pending-label";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
-
-type ReviewItem = CookedIngredientData & { included: boolean; quantity: string };
 
 const initialState: ActionState = {};
 
@@ -55,7 +56,6 @@ export function MarkCookedDialog({
   entry: MealPlanEntryData;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
-  const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
@@ -162,9 +162,7 @@ export function MarkCookedDialog({
       if ("error" in result) {
         setPreviewError(result.error);
       } else {
-        setItems(
-          result.items.map((item) => ({ ...item, included: true, quantity: String(item.suggestedQuantity) })),
-        );
+        setItems(toReviewItems(result.items));
       }
     });
   }
@@ -211,52 +209,7 @@ export function MarkCookedDialog({
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground">{dict.noCookedIngredientsLinked}</p>
             ) : (
-              <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.key} className="flex flex-col gap-1 rounded-md bg-muted px-2 py-1.5 text-sm">
-                    <label className="flex items-center gap-2">
-                      <Checkbox
-                        checked={item.included}
-                        onChange={() => toggleItem(item.key)}
-                      />
-                      <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
-                        {item.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {format(dict.onHandQuantityLabel, { quantity: item.onHandQuantity, unit: unitLabel(item.unit) })}
-                      </span>
-                    </label>
-                    <div className="flex items-center gap-2 pl-6">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        className="w-24"
-                        value={item.quantity}
-                        disabled={!item.included}
-                        onChange={(e) => updateQuantity(item.key, e.target.value)}
-                        aria-label={format(dict.cookedQuantityAriaLabel, { name: item.name })}
-                      />
-                      <span className="text-xs text-muted-foreground">{unitLabel(item.unit)}</span>
-                      {item.unitMismatch && (
-                        <span className="text-xs text-warning">
-                          {format(dict.cookedIngredientUnitMismatchNote, {
-                            quantity: item.requiredQuantity,
-                            unit: item.requiredUnit,
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    {item.included && (
-                      <>
-                        <input type="hidden" name="itemId" value={item.inventoryItemId} />
-                        <input type="hidden" name="itemQuantity" value={item.quantity} />
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <CookedIngredientsChecklist dict={dict} items={items} onToggle={toggleItem} onQuantityChange={updateQuantity} />
             )}
 
             {/* GAP-8: blank by default — leftovers are only ever recorded

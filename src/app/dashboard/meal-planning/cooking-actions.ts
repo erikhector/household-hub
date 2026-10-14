@@ -16,16 +16,20 @@ import {
   type IngredientNeed,
   type MissingIngredientsRange,
 } from "@/app/dashboard/meal-planning/missing-ingredients";
-import { computeCookedIngredients, type CookedIngredientNeed } from "@/app/dashboard/meal-planning/cooked-ingredients";
 import {
-  expandRecipeIngredients,
   loadRecipeGraph,
   expandFromGraph,
   portionsMultiplier,
 } from "@/app/dashboard/meal-planning/recipe-expansion";
 import type { MissingIngredientData, CookedIngredientData } from "@/components/meal-planning/types";
-import { recordOutOfStockTransition } from "@/lib/notifications";
-import { addToDefaultListOnLowStock, revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
+import {
+  MAX_INGREDIENT_QUANTITY,
+  creditCookedIngredients,
+  deductCookedIngredients,
+  parseCookedRows,
+  previewCookedIngredientsForRecipe,
+} from "@/app/dashboard/meal-planning/cook-inventory";
+import { revalidateAutoAdded, type AutoAddedItem } from "@/lib/shopping/default-list";
 import { createInventoryLinker } from "@/lib/shopping/inventory-link";
 import {
   LEFTOVERS_SHELF_LIFE_DAYS,
@@ -38,10 +42,6 @@ import {
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
-// Mirrors recipe-actions.ts's identical bounds on an ingredient's quantity,
-// name and unit — kept as its own copies here (rather than imported) to keep
-// this feature's action files self-contained.
-const MAX_INGREDIENT_QUANTITY = 1_000_000;
 const MAX_MISSING_INGREDIENT_NAME_LENGTH = 120;
 const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
 // The row cap follows the shopping-list side's 300 rather than a recipe's
@@ -362,65 +362,9 @@ export async function previewCookedIngredientsAction(
   if (!entry) return await fail("mealNotFound");
   if (!entry.recipeId) return await fail("noRecipeLinked");
 
-  const expanded = await expandRecipeIngredients(
-    household.id,
-    entry.recipeId,
-    portionsMultiplier(entry.portions, entry.recipe?.servings),
-    new Set(),
-  );
-
-  // Same fallback as previewMissingIngredientsAction: an ingredient's
-  // inventoryItemId is normally always set (find-or-create-linked at
-  // recipe-save time), but the relation is `onDelete: SetNull`, so a
-  // since-deleted inventory item can leave one unlinked.
-  const looseNames = new Set<string>();
-  for (const ingredient of expanded) {
-    if (!ingredient.inventoryItemId) looseNames.add(ingredient.name.toLowerCase());
-  }
-  const looseMatches =
-    looseNames.size > 0
-      ? await prisma.inventoryItem.findMany({
-          where: { householdId: household.id },
-          include: { unitConversions: { select: { fromUnit: true, factor: true } } },
-        })
-      : [];
-  const looseByName = new Map(
-    looseMatches
-      .filter((item) => looseNames.has(item.name.toLowerCase()))
-      .map((item) => [item.name.toLowerCase(), item]),
-  );
-
-  const needs: CookedIngredientNeed[] = [];
-  for (const ingredient of expanded) {
-    if (ingredient.inventoryItemId) {
-      needs.push({
-        inventoryItemId: ingredient.inventoryItemId,
-        name: ingredient.inventoryItemName ?? ingredient.name,
-        onHandQuantity: ingredient.onHandQuantity ?? 0,
-        onHandUnit: ingredient.onHandUnit ?? "pcs",
-        requiredQuantity: ingredient.quantity,
-        requiredUnit: ingredient.unit,
-        conversions: ingredient.conversions,
-      });
-      continue;
-    }
-    const loose = looseByName.get(ingredient.name.toLowerCase());
-    // Nothing to decrement for an ingredient with no matching inventory
-    // item — unlike the shopping-list bridge, this can't propose creating
-    // one, so it's simply dropped from the review list.
-    if (!loose) continue;
-    needs.push({
-      inventoryItemId: loose.id,
-      name: loose.name,
-      onHandQuantity: loose.quantity,
-      onHandUnit: loose.unit,
-      requiredQuantity: ingredient.quantity,
-      requiredUnit: ingredient.unit,
-      conversions: loose.unitConversions,
-    });
-  }
-
-  return { items: computeCookedIngredients(needs) };
+  return {
+    items: await previewCookedIngredientsForRecipe(household.id, entry.recipeId, entry.portions, entry.recipe?.servings),
+  };
 }
 
 export async function markMealEntryCookedAction(
@@ -447,18 +391,7 @@ export async function markMealEntryCookedAction(
   }
   const leftoverServings = parsedLeftovers.data;
 
-  const itemIds = formData.getAll("itemId").map((v) => String(v).trim());
-  const quantities = formData.getAll("itemQuantity").map((v) => Number(v));
-
-  const rows = itemIds
-    .map((itemId, i) => ({ itemId, quantity: round2(quantities[i]) }))
-    .filter(
-      (row) =>
-        row.itemId &&
-        Number.isFinite(row.quantity) &&
-        row.quantity >= 0 &&
-        row.quantity <= MAX_INGREDIENT_QUANTITY,
-    );
+  const rows = parseCookedRows(formData);
 
   // Returned so MarkCookedDialog's existing Undo can take these rows back
   // off "Next shop" along with crediting inventory — one Undo for the whole
@@ -469,25 +402,7 @@ export async function markMealEntryCookedAction(
   let leftovers: LeftoversChange | undefined;
   try {
     await prisma.$transaction(async (tx) => {
-      if (rows.length > 0) {
-        const items = await tx.inventoryItem.findMany({
-          where: { id: { in: rows.map((r) => r.itemId) }, householdId: household.id },
-        });
-        const itemsById = new Map(items.map((item) => [item.id, item]));
-
-        for (const row of rows) {
-          const item = itemsById.get(row.itemId);
-          if (!item) continue; // not this household's item — silently skip, mirrors bulkUpdateFieldAction
-          const nextQuantity = round2(Math.max(0, item.quantity - row.quantity));
-          await tx.inventoryItem.update({
-            where: { id: item.id },
-            data: { quantity: nextQuantity, updatedByUserId: userId },
-          });
-          await recordOutOfStockTransition(tx, household.id, item.id, item.quantity, nextQuantity, userId);
-          const added = await addToDefaultListOnLowStock(tx, household.id, item.id, item.quantity, nextQuantity);
-          if (added) autoAdded.push(added);
-        }
-      }
+      autoAdded.push(...(await deductCookedIngredients(tx, household.id, userId, rows)));
 
       // GAP-8: leftovers, in the same transaction as the cook so the two
       // can never disagree (a cook that rolls back never leaves a stray
@@ -591,34 +506,9 @@ export async function undoMarkMealEntryCookedAction(
   // inventory back twice, mirroring markMealEntryCookedAction's own guard.
   if (!entry.consumedAt) return {};
 
-  const validRows = rows
-    .map((row) => ({ ...row, quantity: round2(row.quantity) }))
-    .filter(
-      (row) =>
-        row.itemId &&
-        Number.isFinite(row.quantity) &&
-        row.quantity >= 0 &&
-        row.quantity <= MAX_INGREDIENT_QUANTITY,
-    );
-
   try {
     await prisma.$transaction(async (tx) => {
-      if (validRows.length > 0) {
-        const items = await tx.inventoryItem.findMany({
-          where: { id: { in: validRows.map((r) => r.itemId) }, householdId: household.id },
-        });
-        const itemsById = new Map(items.map((item) => [item.id, item]));
-
-        for (const row of validRows) {
-          const item = itemsById.get(row.itemId);
-          if (!item) continue; // not this household's item — silently skip, mirrors markMealEntryCookedAction
-          const nextQuantity = round2(item.quantity + row.quantity);
-          await tx.inventoryItem.update({
-            where: { id: item.id },
-            data: { quantity: nextQuantity, updatedByUserId: userId },
-          });
-        }
-      }
+      await creditCookedIngredients(tx, household.id, userId, rows);
 
       // GAP-8: reverse the leftovers change too — undoing the cook should
       // undo everything it caused, same as the AUTO-8 auto-add rows. The
