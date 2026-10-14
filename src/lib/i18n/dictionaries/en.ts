@@ -550,6 +550,24 @@ export const en = {
     clearedDescription: "Everything on this list is checked off or gone.",
     clearedDismissAriaLabel: "Dismiss",
     purchased: "Purchased",
+    // UX-37: shopping mode as a tool — the progress ring ("12 of 18"), the
+    // thumb-zone "Next up" dock, the collapsed "In the cart" section and the
+    // all-done moment's offer to put things away.
+    shoppingMode: {
+      progress: "{done} of {total}",
+      progressAriaLabel: "Shopping progress",
+      nextUp: "Next up",
+      // {item} is the row's own "Milk × 1 l", first so the button's name
+      // starts with what it shows (WCAG 2.5.3, label in name).
+      tickAriaLabel: "{item}, into the cart",
+      moreHere: { one: "+{count} more in this aisle", other: "+{count} more in this aisle" },
+      inCart: "In the cart",
+      waitingToPutAway: {
+        one: "{count} thing is waiting to be put away.",
+        other: "{count} things are waiting to be put away.",
+      },
+      putAwayNow: "Put things away",
+    },
     // The two-phase "in the cart, then put away" flow (PutAwayDialog,
     // putAwayItemsAction). "Put away" is the same phrase barcode Scan mode
     // uses for adding stock, so both read as the same act.
