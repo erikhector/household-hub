@@ -458,6 +458,17 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     quantity steppers, the bare "last updated" date reads "Last updated
     4 Oct", the bulk-edit bar sticks to the bottom on phones, and the
     mobile filter selects have real `Label`s.
+  - **Compact inventory rows on phones (UX-45)**: below `sm` the list is
+    a bordered `<ul>` (one per group) of two-line rows, about 80 px each, so
+    eight or more items fit on a Pixel 7 screen: name with "· category •
+    location" muted and truncated on one line beside the badges, then the
+    −/+ stepper and Edit / ⋯ on the next. The selection checkbox sits in
+    its own column 14 px from the content, so its 44 px tap halo never
+    covers the − button. The "Last updated" line is gone from phone rows
+    (the desktop table keeps its column); the item page shows "Last
+    updated {date} by {name}" under the stock line instead (name dropped
+    when the updater left or isn't recorded). `e2e/inventory-compact-rows.spec.ts`
+    counts the rows in one screen and checks the stepper and item page.
   - **Item catalog (MATCH-7)**: `/dashboard/inventory/items` (design §6.2,
     §6.3), reached from "Manage items" in the inventory page's header
     actions (decision 5: no bottom-nav tab). That link carries a badge

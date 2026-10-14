@@ -480,9 +480,18 @@ export function InventoryTable({
       </Table>
       </div>
 
-      {/* Mobile: a stacked card list instead of the table above — a 6-column
+      {/* Mobile: a compact list instead of the table above — a 6-column
           table can't fit a 375px screen without horizontal scrolling, so
-          phones get the same data reshaped into cards instead. */}
+          phones get the same data reshaped into rows. UX-45: each row is
+          two lines (name, place and badges; stepper and actions), about
+          80px, so eight or more fit on a Pixel 7 where the old three-row
+          cards fitted under five. "Last updated" isn't on the row: it was
+          the same line on every item and the least useful one, so it lives
+          on the item page (Details in the ⋯ menu) instead. The checkbox
+          sits in its own column, centred on both lines, 14px from the
+          content: its 44px tap halo reaches 14px past the box (see
+          checkbox.tsx), so nearer than that it would sit over the − button
+          and swallow taps meant for it. */}
       <div className="flex min-w-0 flex-col gap-2 sm:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
@@ -493,65 +502,66 @@ export function InventoryTable({
                 </span>
               </div>
             )}
-            {group.items.map((item) => (
-              <div
-                key={item.id}
-                data-state={selected.has(item.id) ? "selected" : undefined}
-                className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
-              >
-                <div className="flex min-w-0 flex-wrap items-start gap-2">
+            <ul className="min-w-0 divide-y rounded-lg border">
+              {group.items.map((item) => (
+                <li
+                  key={item.id}
+                  data-state={selected.has(item.id) ? "selected" : undefined}
+                  className="flex min-w-0 items-center gap-3.5 px-2 py-1.5 first:rounded-t-lg last:rounded-b-lg data-[state=selected]:bg-muted/40"
+                >
                   <Checkbox
                     checked={selected.has(item.id)}
                     onChange={() => toggleItem(item.id)}
                     aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                    className="mt-1"
                   />
-                  <div className="min-w-[40%] flex-1">
-                    <p className="truncate font-medium" title={item.name}>
-                      {item.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {item.category}
-                      {item.location ? ` • ${item.location}` : ""}
-                    </p>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="min-w-[40%] flex-1 truncate" title={item.name}>
+                        <span className="font-medium">{item.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {" · "}
+                          {item.category}
+                          {item.location ? ` • ${item.location}` : ""}
+                        </span>
+                      </p>
+                      <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                        <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                        <OnTheWayHint item={item} dict={dict} />
+                        <ExpiryBadge
+                          expiresAt={item.expiresAt}
+                          expiresAtEstimated={item.expiresAtEstimated}
+                          openedAt={item.openedAt}
+                          frozenAt={item.frozenAt}
+                          dict={dict}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                      <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                      <div className="ml-auto min-w-0">
+                        <ItemActions
+                          item={item}
+                          categories={categories}
+                          locations={locations}
+                          units={units}
+                          members={members}
+                          locale={locale}
+                          dict={dict}
+                          barcodeDict={barcodeDict}
+                          isPending={isPending}
+                          onMarkEmpty={handleMarkEmpty}
+                          onMarkOpened={handleMarkOpened}
+                          onFreeze={handleFreeze}
+                          onDelete={handleDelete}
+                          size="size-9"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                  <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <OnTheWayHint item={item} dict={dict} />
-                    <ExpiryBadge
-                      expiresAt={item.expiresAt}
-                      expiresAtEstimated={item.expiresAtEstimated}
-                      openedAt={item.openedAt}
-                      frozenAt={item.frozenAt}
-                      dict={dict}
-                    />
-                  </div>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                  <div className="ml-auto min-w-0">
-                    <ItemActions
-                      item={item}
-                      categories={categories}
-                      locations={locations}
-                      units={units}
-                      members={members}
-                      locale={locale}
-                      dict={dict}
-                      barcodeDict={barcodeDict}
-                      isPending={isPending}
-                      onMarkEmpty={handleMarkEmpty}
-                      onMarkOpened={handleMarkOpened}
-                      onFreeze={handleFreeze}
-                      onDelete={handleDelete}
-                      size="size-9"
-                    />
-                  </div>
-                </div>
-                <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-              </div>
-            ))}
+                </li>
+              ))}
+            </ul>
           </Fragment>
         ))}
       </div>
