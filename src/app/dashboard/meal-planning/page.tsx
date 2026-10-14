@@ -6,12 +6,15 @@ import { MealPlanningView } from "@/components/meal-planning/meal-planning-view"
 import { WeekPlanner } from "@/components/meal-planning/week-planner";
 import { RecipeManager } from "@/components/meal-planning/recipe-manager";
 import { CookNowList } from "@/components/meal-planning/cook-now-list";
+import { PrepTab } from "@/components/meal-planning/prep-tab";
 import { MealVarietyRecap } from "@/components/meal-planning/meal-variety-recap";
 import { MealNutritionRecap } from "@/components/meal-planning/meal-nutrition-recap";
 import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
+import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
+import { MAX_PREP_DISHES } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
 import { getExpiryStatus } from "@/lib/inventory/expiry";
 import { getStockStatus } from "@/lib/stock-status";
@@ -462,6 +465,52 @@ function CookTabSkeleton({ label }: { label: string }) {
   );
 }
 
+// GAP-49: the active meal-prep batches are their own query (not part of the
+// shared core fetch the other tabs wait on), so the Prep tab gets its own
+// Suspense boundary like Cook now. The recipes come from the core fetch for
+// the Record prep dialog's recipe picker.
+async function PrepTabSection({
+  householdId,
+  dict,
+  inventoryDict,
+  weekStartKey,
+}: {
+  householdId: string;
+  dict: MealPlanningDict;
+  inventoryDict: Dictionary["inventory"];
+  weekStartKey: string;
+}) {
+  const [{ recipeRows }, batches, locale] = await Promise.all([
+    getMealPlanningCoreData(householdId, weekStartKey),
+    getActiveBatches(householdId),
+    getLocale(),
+  ]);
+  return (
+    <PrepTab
+      dict={dict}
+      inventoryDict={inventoryDict}
+      locale={locale}
+      batches={batches}
+      recipes={recipeRows}
+      maxDishes={MAX_PREP_DISHES}
+      plannerWeekStartKey={weekStartKey}
+    />
+  );
+}
+
+// The heading, the full-width Record prep button and a few batch cards.
+function PrepTabSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex animate-pulse flex-col gap-3" role="status" aria-label={label}>
+      <div className="h-14 rounded-md bg-muted/40" />
+      <div className="h-11 rounded-lg border bg-muted/40" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-36 rounded-xl border bg-muted/40" />
+      ))}
+    </div>
+  );
+}
+
 export default async function MealPlanningPage(props: PageProps<"/dashboard/meal-planning">) {
   const [{ household }, dict, searchParams] = await Promise.all([
     requireHousehold(),
@@ -511,6 +560,16 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
         cookTab={
           <Suspense key="cook-tab" fallback={<CookTabSkeleton label={dict.common.loading} />}>
             <CookTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
+          </Suspense>
+        }
+        prepTab={
+          <Suspense key="prep-tab" fallback={<PrepTabSkeleton label={dict.common.loading} />}>
+            <PrepTabSection
+              householdId={household.id}
+              dict={dict.mealPlanning}
+              inventoryDict={dict.inventory}
+              weekStartKey={weekStartKey}
+            />
           </Suspense>
         }
       />
