@@ -18,6 +18,7 @@ import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import type { ItemUnitConversionLike } from "@/lib/units";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -476,7 +477,7 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.mealPlanning.title}</h1>
+        <PageTitle>{dict.mealPlanning.title}</PageTitle>
         <p className="text-sm text-muted-foreground">{dict.mealPlanning.subtitle}</p>
       </div>
 

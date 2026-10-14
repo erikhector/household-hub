@@ -9,6 +9,8 @@ import { TasksClient } from "@/components/tasks/tasks-client";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
+import { PageTitle } from "@/components/dashboard/page-title";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 // The task list (and the member roster the "Add task"/edit dialogs need) is
 // the one per-request DB round trip on this page — see getInventoryData in
@@ -128,12 +130,14 @@ export default async function TasksPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.tasks.title}</h1>
+          <PageTitle>{dict.tasks.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.tasks.subtitle}</p>
         </div>
-        <Suspense fallback={<div className="h-9 w-28 animate-pulse rounded-md bg-muted" aria-hidden="true" />}>
-          <AddTaskButton householdId={household.id} dict={dict.tasks} />
-        </Suspense>
+        <PrimaryAction>
+          <Suspense fallback={<div className="h-9 w-28 animate-pulse rounded-md bg-muted max-sm:h-12 max-sm:rounded-full" aria-hidden="true" />}>
+            <AddTaskButton householdId={household.id} dict={dict.tasks} />
+          </Suspense>
+        </PrimaryAction>
       </div>
       <Suspense fallback={<TasksListSkeleton label={dict.common.loading} />}>
         <TasksSection householdId={household.id} dict={dict.tasks} locale={locale} />

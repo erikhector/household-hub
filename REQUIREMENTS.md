@@ -4919,6 +4919,29 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **Large titles and a thumb-zone primary action (UX-40, DESIGN.md M2,
+  M7)**: every dashboard page sets its H1 through `PageTitle`
+  (`src/components/dashboard/page-title.tsx`). On a phone it starts large
+  (30 px) and scrolls away with the page; once it has gone above `main`
+  (an `IntersectionObserver`, phone shell only), a compact copy is
+  portalled over the top bar's household switcher (the empty
+  `COMPACT_TITLE_SLOT_ID` slot in `layout.tsx`), so the title stays on
+  screen without a second bar. Tapping it ("Back to top") moves focus to
+  the H1 and scrolls `main` to the top, which brings the switcher back.
+  It fades in via `@starting-style`, with no transition and an instant
+  scroll under `prefers-reduced-motion`, and is only in the DOM while
+  collapsed. The page's primary action is wrapped in `PrimaryAction`
+  (`src/components/dashboard/primary-action.tsx`): on a phone it floats
+  bottom right, 0.75rem above the bottom bar and the safe area, as a
+  48 px pill; from `sm` it stays in the header where it was. Used for
+  "Add item" (inventory), "Add task", "New list" (shopping lists), "Add
+  transaction" (household budget) and "Invite member"; secondary actions
+  (the inventory ⋯ menu, "Register receipt") stay in the header. `main`
+  adds 4.5rem to its bottom padding while it `has-[[data-primary-action]]`,
+  so the last row scrolls out from under the button. Pages without a
+  page-level primary action (meal planning, personal budget, profile, …)
+  only get the large title; the shopping list detail page keeps its own
+  header. Covered by `e2e/large-title.spec.ts`.
 - **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
   page's main call to action is a solid `default` Button. Profile's four
   save buttons (display name, Swish number, email, password) are `secondary`

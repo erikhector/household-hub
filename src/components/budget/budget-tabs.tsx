@@ -81,6 +81,7 @@ import type {
 import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 export type BudgetTab = "overview" | "manage" | "transactions" | "insights";
 type Tab = BudgetTab;
@@ -261,17 +262,19 @@ export function BudgetTabs({
               Overview is the next step, so the button appears once it is
               possible. */}
           {hasCategories && (
-            <TransactionDialog
-              numberFormat={numberFormat}
-              dict={dict}
-              categories={categories}
-              members={members}
-              currentMemberId={currentMemberId}
-              monthKey={monthKey}
-              createAction={createTransactionAction}
-              updateAction={updateTransactionAction}
-              trigger={<Button>{dict.addTransaction}</Button>}
-            />
+            <PrimaryAction>
+              <TransactionDialog
+                numberFormat={numberFormat}
+                dict={dict}
+                categories={categories}
+                members={members}
+                currentMemberId={currentMemberId}
+                monthKey={monthKey}
+                createAction={createTransactionAction}
+                updateAction={updateTransactionAction}
+                trigger={<Button>{dict.addTransaction}</Button>}
+              />
+            </PrimaryAction>
           )}
         </fieldset>
       </div>

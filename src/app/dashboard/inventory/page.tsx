@@ -16,6 +16,7 @@ import { isAiCategoryFallbackConfigured } from "@/lib/inventory/ai-category-fall
 import { loadIncomingByItem } from "@/lib/incoming-stock";
 import { countDuplicateGroups } from "@/lib/inventory/catalog-data";
 import { format, plural } from "@/lib/i18n/format";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Vercel caps a Server Action's own runtime well below a Route Handler's
 // (15s by default, regardless of function region/plan) — too tight for
@@ -246,7 +247,7 @@ export default async function InventoryPage(props: PageProps<"/dashboard/invento
     <div className="flex flex-col gap-6 roomy:h-[calc(100dvh-4rem)] roomy:min-h-0">
       <div className="flex flex-col gap-3 sm:shrink-0 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.inventory.title}</h1>
+          <PageTitle>{dict.inventory.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.inventory.subtitle}</p>
           <Suspense fallback={null}>
             <InventoryWellStockedNote householdId={household.id} dict={dict.inventory} />

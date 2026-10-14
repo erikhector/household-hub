@@ -480,17 +480,6 @@ decision and sit under "Needs a decision before building".
 
       Use chart tokens in order. Copilot Money is the bar.
 
-- [ ] **UX-40. Large-title headers and a thumb-zone action bar on phones**
-      (M) —
-      - Page titles start large and collapse into a compact top bar on
-        scroll, iOS style, which wins back ~120 px on every page.
-      - Each page's primary action ("Add item", "Add task", "Add
-        transaction", "Invite member") moves into a consistent
-        bottom-right floating button or a sticky bar above the bottom nav
-        (M2), replacing the top-corner buttons.
-
-      Builds on the inventory header clean-up (done).
-
 - [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
       - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
         tasks and categories, and runs actions ("Add milk to Groceries",

@@ -71,6 +71,7 @@ import { swishNumbersForPayer } from "@/lib/swish";
 import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
 import type { BudgetTab } from "@/components/budget/budget-tabs";
 import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // An item needs at least this many recorded prices before its trend is
 // considered meaningful enough to show — see REQUIREMENTS.md's "Cost
@@ -974,7 +975,7 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.budget.title}</h1>
+        <PageTitle>{dict.budget.title}</PageTitle>
         <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
       </div>
 

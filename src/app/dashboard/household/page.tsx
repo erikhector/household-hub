@@ -15,6 +15,8 @@ import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
 import { calendarFeedPath } from "@/lib/calendar-feed";
+import { PageTitle } from "@/components/dashboard/page-title";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 
 // Wrapped in `cache()` so the "shared with" note and the member list below
@@ -140,7 +142,7 @@ export default async function HouseholdPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.household.title}</h1>
+          <PageTitle>{dict.household.title}</PageTitle>
           <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={household.name}>
             {household.name}
           </p>
@@ -148,9 +150,9 @@ export default async function HouseholdPage() {
             <SharedWithNote householdId={household.id} userId={userId} dict={dict.household} />
           </Suspense>
         </div>
-        <div className="shrink-0">
+        <PrimaryAction>
           <InviteButton dict={dict.household.invite} />
-        </div>
+        </PrimaryAction>
       </div>
       <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
         <HouseholdMemberList householdId={household.id} userId={userId} isOwner={isOwner} dict={dict.household} />

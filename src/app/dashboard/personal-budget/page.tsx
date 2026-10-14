@@ -50,6 +50,7 @@ import {
   deletePersonalCategoryAction,
   updatePersonalCategoryAction,
 } from "./actions";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Same cap as the household budget's cost analyzer / fixed trend chart.
 const MAX_FIXED_TREND_MONTHS = 12;
@@ -439,7 +440,7 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.personalBudget.title}</h1>
+        <PageTitle>{dict.personalBudget.title}</PageTitle>
         <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
       </div>
 
