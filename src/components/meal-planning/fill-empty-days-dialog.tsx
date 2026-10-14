@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Shuffle } from "lucide-react";
+import { Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { fillEmptyDaysAction, undoCopyWeekAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { type DinnerProposal, nextSwap, proposeDinners } from "@/app/dashboard/meal-planning/fill-empty-days";
@@ -32,43 +31,36 @@ export type EmptyDay = { dateKey: string; label: string };
 // favorite (nextSwap), so the no-repeat rule holds without a free-form
 // picker; Cancel (or closing) discards the lot. Accepting calls
 // fillEmptyDaysAction, which re-validates everything, and offers the same
-// by-id Undo that "Copy last week" has.
+// by-id Undo that "Copy last week" has. Opened from the planner's ⋯ menu so
+// the control row stays one row on a phone (UX-21).
 export function FillEmptyDaysDialog({
   dict,
   weekStartKey,
   emptyDays,
   recipes,
   plannedRecipeIds,
+  onClose,
 }: {
   dict: MealPlanningDict;
   weekStartKey: string;
   emptyDays: EmptyDay[];
   recipes: RecipeData[];
   plannedRecipeIds: string[];
+  onClose: () => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [proposal, setProposal] = useState<DinnerProposal[]>([]);
   const [pending, startTransition] = useTransition();
 
   const favorites = recipes.filter((r) => r.isFavorite);
   const recipeName = new Map(recipes.map((r) => [r.id, r.name]));
   const planned = new Set(plannedRecipeIds);
 
-  // Re-propose on every open, so a cancelled or stale preview never lingers
-  // and the rows always reflect the week as it is now.
-  function handleOpenChange(next: boolean) {
-    if (next) {
-      setProposal(
-        proposeDinners({
-          emptyDays: emptyDays.map((d) => d.dateKey),
-          favorites,
-          plannedRecipeIds: planned,
-        }),
-      );
-    }
-    setOpen(next);
-  }
+  // Mounted only while open (the planner's ⋯ menu item opens it), so the
+  // proposal is made fresh from the week as it is now on every open and a
+  // cancelled preview never lingers.
+  const [proposal, setProposal] = useState<DinnerProposal[]>(() =>
+    proposeDinners({ emptyDays: emptyDays.map((d) => d.dateKey), favorites, plannedRecipeIds: planned }),
+  );
 
   function swap(dateKey: string) {
     setProposal((rows) => {
@@ -91,7 +83,7 @@ export function FillEmptyDaysDialog({
         toast.error(result.error);
         return;
       }
-      setOpen(false);
+      onClose();
       const entryIds = result.entryIds ?? [];
       if (entryIds.length === 0) {
         toast(dict.fillEmptyDaysNothingToast);
@@ -120,15 +112,12 @@ export function FillEmptyDaysDialog({
   const noneLeft = !noFavorites && proposal.length === 0;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" size="sm">
-            <CalendarPlus className="size-4" />
-            {dict.fillEmptyDays}
-          </Button>
-        }
-      />
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{dict.fillEmptyDays}</DialogTitle>

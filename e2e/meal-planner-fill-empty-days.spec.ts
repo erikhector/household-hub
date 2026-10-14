@@ -52,6 +52,11 @@ test.afterEach(async ({}, testInfo) => {
   await cleanUp(weekFor(testInfo.project.name));
 });
 
+async function openFill(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "More planner actions" }).click();
+  await page.getByRole("menuitem", { name: "Fill empty days" }).click();
+}
+
 // The proposed recipe names, in day order, read from the preview rows.
 const proposedNames = (rows: import("@playwright/test").Locator) => rows.locator("span.font-medium").allInnerTexts();
 
@@ -60,7 +65,7 @@ test("a proposal can be cancelled without writing, swapped, accepted, and the en
   await page.goto(`/dashboard/meal-planning?week=${week}`);
 
   // Cancel writes nothing.
-  await page.getByRole("button", { name: "Fill empty days" }).click();
+  await openFill(page);
   const dialog = page.getByRole("dialog", { name: "Fill empty days" });
   await expect(dialog.getByRole("listitem")).toHaveCount(7);
   await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -69,7 +74,7 @@ test("a proposal can be cancelled without writing, swapped, accepted, and the en
   await expect(page.getByRole("button", { name: "Add meal", exact: true })).toHaveCount(7);
 
   // Swap the first day's dinner: it changes and every dinner stays unique.
-  await page.getByRole("button", { name: "Fill empty days" }).click();
+  await openFill(page);
   const rows = dialog.getByRole("listitem");
   const [first] = await proposedNames(rows);
   await dialog.getByRole("button", { name: /^Swap the dinner on/ }).first().click();
@@ -82,16 +87,17 @@ test("a proposal can be cancelled without writing, swapped, accepted, and the en
   await dialog.getByRole("button", { name: "Add dinners" }).click();
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();
   await page.reload();
-  for (const name of names) await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  for (const name of names) await expect(page.getByText(name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Add meal", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Fill empty days" })).toHaveCount(0);
+  await page.getByRole("button", { name: "More planner actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Fill empty days" })).toHaveCount(0);
 });
 
 test("Undo on the toast removes exactly the dinners that were added", async ({ page }, testInfo) => {
   const week = weekFor(testInfo.project.name);
   await page.goto(`/dashboard/meal-planning?week=${week}`);
 
-  await page.getByRole("button", { name: "Fill empty days" }).click();
+  await openFill(page);
   await page.getByRole("dialog", { name: "Fill empty days" }).getByRole("button", { name: "Add dinners" }).click();
   await expect(page.getByText("Planned 7 dinners")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();

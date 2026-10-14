@@ -3393,8 +3393,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
-- **Fill empty days** (BACKLOG GAP-45): a "Fill empty days" button in the
-  planner header (`FillEmptyDaysDialog`,
+- **Fill empty days** (BACKLOG GAP-45): a "Fill empty days" item in the
+  planner header's ⋯ menu, which keeps the controls one row on a phone
+  (`FillEmptyDaysDialog`,
   `src/components/meal-planning/fill-empty-days-dialog.tsx`), shown while at
   least one day has no entries and hasn't passed yet. It opens a preview with
   one proposed dinner per such day, taken from favorites
