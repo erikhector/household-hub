@@ -859,7 +859,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       move in, so a whole trip can be ticked off from the dock. Phones pin
       it above the BottomNav (`fixed`, with a spacer the dock's measured
       height at the end of the list so the last rows can scroll clear of
-      it); from `sm` it's sticky at the bottom of the column; a short
+      it, and its height plus its gap on `main` as `--shopping-dock`, which
+      every row uses as its phone `scroll-margin-bottom`, so a row just
+      added from the smart-add box scrolls into view above the dock rather
+      than behind it); from `sm` it's sticky at the bottom of the column; a short
       (landscape) screen shows one item. Every item it offers is also in the
       list with its own checkbox (M7).
     - *All done*: the cleared state shows the full ring with a tick and pops
@@ -869,7 +872,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       before. Both wait for in-flight ticks to save.
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
       the bottom half of a phone screen with no scrolling, the collapsed
-      cart and full-row tap, the put-away offer).
+      cart and full-row tap, the put-away offer, a new row landing above
+      the dock).
   - *Bundle size (PERF-6)*: matching a category label in either locale
     (above) used to mean `shopping-mode-grouping.ts` imported the full
     `en`/`sv` dictionaries, which — since that module is reachable from the
@@ -5026,8 +5030,9 @@ components directly.
   adds 4.5rem to its bottom padding while it `has-[[data-primary-action]]`,
   so the last row scrolls out from under the button. Pages without a
   page-level primary action (meal planning, personal budget, profile, …)
-  only get the large title; the shopping list detail page keeps its own
-  header. Covered by `e2e/large-title.spec.ts`.
+  only get the large title, and so does the shopping list detail page,
+  whose bottom slot belongs to shopping mode's Next up dock (UX-37), so it
+  has no floating button. Covered by `e2e/large-title.spec.ts`.
 - **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
   page's main call to action is a solid `default` Button. Profile's four
   save buttons (display name, Swish number, email, password) are `secondary`

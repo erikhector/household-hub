@@ -104,9 +104,21 @@ export function NextUpDock<T extends DockItem>({
   useEffect(() => {
     const dock = dockRef.current;
     if (!dock) return;
-    const observer = new ResizeObserver(() => setDockHeight(dock.offsetHeight));
+    // --shopping-dock on main: the room a just-added row's scrollIntoView
+    // has to leave below it (the rows' scroll-margin in
+    // shopping-list-client.tsx), since main's scroll-padding only clears the
+    // BottomNav and the fixed dock sits above that. 0.5rem is the dock's
+    // gap above the bar.
+    const main = dock.closest("main");
+    const observer = new ResizeObserver(() => {
+      setDockHeight(dock.offsetHeight);
+      main?.style.setProperty("--shopping-dock", `calc(${dock.offsetHeight}px + 0.5rem)`);
+    });
     observer.observe(dock);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      main?.style.removeProperty("--shopping-dock");
+    };
   }, []);
 
   return (

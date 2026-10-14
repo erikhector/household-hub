@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart } from "./ui";
 
 // UX-39: the budget charts are tappable, say their values without hover,
 // and carry a hidden data table for screen readers; expense categories
@@ -95,7 +95,7 @@ test("safe to spend projects to month end and categories draw a sparkline", asyn
   expect(errors).toEqual([]);
 });
 
-test("the trend chart's bars are tappable and say their values", async ({ page }) => {
+test("the trend chart's bars are tappable and say their values", async ({ page, isMobile }) => {
   await seedSpending();
   const errors = collectErrors(page);
   await page.goto("/dashboard/personal-budget");
@@ -127,6 +127,8 @@ test("the trend chart's bars are tappable and say their values", async ({ page }
   const box = await previous.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(44);
   expect(box!.height).toBeGreaterThanOrEqual(44);
+  // ...and 8 px from its neighbours (M3), checked on the bar row itself.
+  if (isMobile) await expectTargetsApart(previous.locator("xpath=.."));
 
   await expectNoHorizontalOverflow(page);
   expect(errors).toEqual([]);

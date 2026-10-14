@@ -78,6 +78,7 @@ import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -464,7 +465,7 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">{list.name}</h1>
+            <PageTitle>{list.name}</PageTitle>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
           {/* AUTO-4: hidden until at least one pending item has a price —
@@ -991,7 +992,9 @@ function ShoppingRow({
   // hidden it ("nearest" leaves it alone if it's already on screen). New
   // rows always land at the bottom of the pending section, so the sticky add
   // line above never covers them; the phone BottomNav below is cleared by
-  // main's scroll-padding in the dashboard layout.
+  // main's scroll-padding in the dashboard layout, and the shopping-mode
+  // dock above it by the row's scroll-margin (--shopping-dock, set by
+  // NextUpDock while it's shown).
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
@@ -1001,7 +1004,7 @@ function ShoppingRow({
     <div
       ref={rowRef}
       className={cn(
-        "relative flex flex-col gap-1 rounded-md border transition-colors duration-700",
+        "relative flex flex-col gap-1 rounded-md border transition-colors duration-700 max-sm:scroll-mb-[var(--shopping-dock,0px)]",
         // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
         // mode) — rows are tapped one-handed, phone in the other hand, so
         // this is when it matters most; a read-only list stays compact.

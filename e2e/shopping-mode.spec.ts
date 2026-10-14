@@ -171,3 +171,34 @@ test("All done offers to put away what's still in the cart", async ({ page }) =>
   await page.getByRole("button", { name: "Put things away" }).click();
   await expect(page.getByRole("dialog", { name: "Put away before you finish?" })).toBeVisible();
 });
+
+// A row added from the smart-add box scrolls into view above the phone dock,
+// not behind it: main's scroll-padding only clears the BottomNav, so the
+// rows carry a scroll-margin the dock's height (--shopping-dock).
+test("a row just added scrolls into view above the dock", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "the dock is fixed only on phones");
+  const t = tag();
+  const path = await seedList(
+    t,
+    Array.from({ length: 14 }, (_, i) => ({ name: `Item ${i} ${t}`, category: `Aisle ${i % 3} ${t}` })),
+  );
+  await page.goto(path);
+  const dock = page.getByRole("region", { name: "Next up" });
+  await expect(dock).toBeVisible();
+
+  const added = `Added ${t}`;
+  const addBox = page.getByRole("combobox", { name: "Add to the list" });
+  await addBox.fill(added);
+  await addBox.press("Enter");
+  const row = page.getByRole("checkbox", { name: new RegExp(`^${added} ×`) });
+  await expect(row).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const [rowBox, dockBox] = await Promise.all([row.boundingBox(), dock.boundingBox()]);
+        return rowBox && dockBox ? dockBox.y - (rowBox.y + rowBox.height) : -1;
+      },
+      { message: "the new row ends above the dock" },
+    )
+    .toBeGreaterThanOrEqual(0);
+});
