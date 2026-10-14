@@ -56,6 +56,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { ListRowTransition } from "@/components/shared/view-transitions";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
@@ -413,66 +414,68 @@ export function InventoryTable({
               </TableRow>
             )}
             {group.items.map((item) => (
-              <TableRow key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
-                <TableCell>
-                  <Checkbox
-                    checked={selected.has(item.id)}
-                    onChange={() => toggleItem(item.id)}
-                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">
-                  <span className="block max-w-[16rem] truncate" title={item.name}>
-                    {item.name}
-                  </span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[10rem] truncate" title={item.category}>
-                    {item.category}
-                  </span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
-                    {item.location ?? "—"}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <QuantityStepper item={item} layout="table" disabled={isPending} dict={dict} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <OnTheWayHint item={item} dict={dict} />
-                    <ExpiryBadge
-                      expiresAt={item.expiresAt}
-                      expiresAtEstimated={item.expiresAtEstimated}
-                      openedAt={item.openedAt}
-                      frozenAt={item.frozenAt}
-                      dict={dict}
+              <ListRowTransition key={item.id} name={`inventory-row-${item.id}`}>
+                <TableRow data-state={selected.has(item.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
                     />
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-                </TableCell>
-                <TableCell>
-                  <ItemActions
-                    item={item}
-                    categories={categories}
-                    locations={locations}
-                    units={units}
-                    members={members}
-                    locale={locale}
-                    dict={dict}
-                    barcodeDict={barcodeDict}
-                    isPending={isPending}
-                    onMarkEmpty={handleMarkEmpty}
-                    onMarkOpened={handleMarkOpened}
-                    onFreeze={handleFreeze}
-                    onDelete={handleDelete}
-                  />
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <span className="block max-w-[16rem] truncate" title={item.name}>
+                      {item.name}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="block max-w-[10rem] truncate" title={item.category}>
+                      {item.category}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="block max-w-[10rem] truncate" title={item.location ?? undefined}>
+                      {item.location ?? "—"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <QuantityStepper item={item} layout="table" disabled={isPending} dict={dict} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                      <OnTheWayHint item={item} dict={dict} />
+                      <ExpiryBadge
+                        expiresAt={item.expiresAt}
+                        expiresAtEstimated={item.expiresAtEstimated}
+                        openedAt={item.openedAt}
+                        frozenAt={item.frozenAt}
+                        dict={dict}
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
+                  </TableCell>
+                  <TableCell>
+                    <ItemActions
+                      item={item}
+                      categories={categories}
+                      locations={locations}
+                      units={units}
+                      members={members}
+                      locale={locale}
+                      dict={dict}
+                      barcodeDict={barcodeDict}
+                      isPending={isPending}
+                      onMarkEmpty={handleMarkEmpty}
+                      onMarkOpened={handleMarkOpened}
+                      onFreeze={handleFreeze}
+                      onDelete={handleDelete}
+                    />
+                  </TableCell>
+                </TableRow>
+              </ListRowTransition>
             ))}
           </Fragment>
         ))}
@@ -494,63 +497,66 @@ export function InventoryTable({
               </div>
             )}
             {group.items.map((item) => (
-              <div
-                key={item.id}
-                data-state={selected.has(item.id) ? "selected" : undefined}
-                className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
-              >
-                <div className="flex min-w-0 flex-wrap items-start gap-2">
-                  <Checkbox
-                    checked={selected.has(item.id)}
-                    onChange={() => toggleItem(item.id)}
-                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                    className="mt-1"
-                  />
-                  <div className="min-w-[40%] flex-1">
-                    <p className="truncate font-medium" title={item.name}>
-                      {item.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {item.category}
-                      {item.location ? ` • ${item.location}` : ""}
-                    </p>
-                  </div>
-                  {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                  <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <OnTheWayHint item={item} dict={dict} />
-                    <ExpiryBadge
-                      expiresAt={item.expiresAt}
-                      expiresAtEstimated={item.expiresAtEstimated}
-                      openedAt={item.openedAt}
-                      frozenAt={item.frozenAt}
-                      dict={dict}
+              // UX-33: its own name, not the table row's: both layouts are
+              // in the DOM (one hidden), and names must be unique.
+              <ListRowTransition key={item.id} name={`inventory-card-${item.id}`}>
+                <div
+                  data-state={selected.has(item.id) ? "selected" : undefined}
+                  className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+                >
+                  <div className="flex min-w-0 flex-wrap items-start gap-2">
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                      className="mt-1"
                     />
+                    <div className="min-w-[40%] flex-1">
+                      <p className="truncate font-medium" title={item.name}>
+                        {item.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.category}
+                        {item.location ? ` • ${item.location}` : ""}
+                      </p>
+                    </div>
+                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                    <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                      <OnTheWayHint item={item} dict={dict} />
+                      <ExpiryBadge
+                        expiresAt={item.expiresAt}
+                        expiresAtEstimated={item.expiresAtEstimated}
+                        openedAt={item.openedAt}
+                        frozenAt={item.frozenAt}
+                        dict={dict}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                  <div className="ml-auto min-w-0">
-                    <ItemActions
-                      item={item}
-                      categories={categories}
-                      locations={locations}
-                      units={units}
-                      members={members}
-                      locale={locale}
-                      dict={dict}
-                      barcodeDict={barcodeDict}
-                      isPending={isPending}
-                      onMarkEmpty={handleMarkEmpty}
-                      onMarkOpened={handleMarkOpened}
-                      onFreeze={handleFreeze}
-                      onDelete={handleDelete}
-                      size="size-9"
-                    />
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                    <div className="ml-auto min-w-0">
+                      <ItemActions
+                        item={item}
+                        categories={categories}
+                        locations={locations}
+                        units={units}
+                        members={members}
+                        locale={locale}
+                        dict={dict}
+                        barcodeDict={barcodeDict}
+                        isPending={isPending}
+                        onMarkEmpty={handleMarkEmpty}
+                        onMarkOpened={handleMarkOpened}
+                        onFreeze={handleFreeze}
+                        onDelete={handleDelete}
+                        size="size-9"
+                      />
+                    </div>
                   </div>
+                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
                 </div>
-                <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-              </div>
+              </ListRowTransition>
             ))}
           </Fragment>
         ))}

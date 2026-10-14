@@ -384,6 +384,25 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   `muted-foreground` label — white on a faded primary was ~1.5:1). Other
   controls fade to 50% opacity. Everything disabled has no pointer events.
 - Dialogs slide up from the bottom on phones and zoom in (95%) from `sm`.
+- **Motion tokens** (`globals.css`, `--motion-*`), for anything new that
+  moves:
+  - `duration-fast` 120 ms for exits, `duration-base` 200 ms for entrances
+    and small shifts, `duration-slow` 320 ms for morphs,
+    `duration-spring` 400 ms with `ease-spring`.
+  - `ease-out` for things arriving, `ease-in` for things leaving,
+    `ease-in-out` for things going from one place to another, `ease-spring`
+    (slight overshoot) for an object that physically moves to a new place.
+  - Exits are quicker than entrances: what's leaving shouldn't compete with
+    what's arriving.
+- **View transitions** (React `<ViewTransition>`): a tab change fades the
+  page in with a small rise; list rows rise in, fade out and glide when
+  neighbours change (`ListRowTransition`), and a ticked row slides to
+  "Done"; a row's title morphs into its detail page's heading
+  (`MorphTitle`). Keep the phone header and bottom bar still. A row can't
+  be tapped while it animates, so anything the thumb hits next moves for
+  `duration-base` at most.
+- Motion is never the only signal (M5), and with `prefers-reduced-motion`
+  every animation, view transitions included, is instant.
 
 ### Iconography
 

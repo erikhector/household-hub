@@ -422,22 +422,6 @@ gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
 decision and sit under "Needs a decision before building".
 
-- [ ] **UX-33. Motion system and view transitions** (L) — Define motion
-      tokens in `globals.css` (durations, easing curves, one spring-like
-      curve) and document them in DESIGN.md.
-
-      Use React 19.2's `<ViewTransition>` with Next 16's
-      `experimental.viewTransition` for:
-      - tab and page changes;
-      - shared-element morphs from a list row to its detail page
-        (inventory item, shopping list, recipe);
-      - items entering, leaving and re-sorting a list. A ticked item
-        slides to "Done" instead of jumping.
-
-      Under reduced motion everything falls back to an instant change.
-      Acceptance: list add, remove and tick animate, and no layout jumps
-      (CLS 0 on those interactions).
-
 - [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
       - Drag the grabber or header to dismiss, with velocity and
         rubber-band.

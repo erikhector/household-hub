@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteTaskAction, toggleTaskCompletedAction } from "@/app/dashboard/tasks/actions";
 import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { ListRowTransition, ListTransitionScope } from "@/components/shared/view-transitions";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { TasksWeeklyRecap, type WeeklyRecapGroupView } from "@/components/tasks/tasks-weekly-recap";
 import { format, plural } from "@/lib/i18n/format";
@@ -59,41 +60,45 @@ export function TasksClient({
     <div className="flex flex-col gap-6">
       {recapGroups.length > 0 && <TasksWeeklyRecap groups={recapGroups} dict={dict} />}
 
-      <div className="flex flex-col gap-2">
-        {tasks.length === 0 ? (
-          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {dict.emptyState}
-          </p>
-        ) : (
-          <>
-            {openTasks.map((task) => (
-              <TaskItemRow
-                key={task.id}
-                task={task}
-                members={members}
-                memberNameById={memberNameById}
-                dict={dict}
-                locale={locale}
-              />
-            ))}
-            {completedTasks.length > 0 && (
-              <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.completedSectionLabel}
-              </p>
-            )}
-            {completedTasks.map((task) => (
-              <TaskItemRow
-                key={task.id}
-                task={task}
-                members={members}
-                memberNameById={memberNameById}
-                dict={dict}
-                locale={locale}
-              />
-            ))}
-          </>
-        )}
-      </div>
+      <ListTransitionScope>
+        <div className="flex flex-col gap-2">
+          {tasks.length === 0 ? (
+            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+              {dict.emptyState}
+            </p>
+          ) : (
+            <>
+              {openTasks.map((task) => (
+                <ListRowTransition key={task.id} name={`task-${task.id}`}>
+                  <TaskItemRow
+                    task={task}
+                    members={members}
+                    memberNameById={memberNameById}
+                    dict={dict}
+                    locale={locale}
+                  />
+                </ListRowTransition>
+              ))}
+              {completedTasks.length > 0 && (
+                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                  {dict.completedSectionLabel}
+                </p>
+              )}
+              {completedTasks.map((task) => (
+                <ListRowTransition key={task.id} name={`task-${task.id}`}>
+                  <TaskItemRow
+                    task={task}
+                    members={members}
+                    memberNameById={memberNameById}
+                    dict={dict}
+                    locale={locale}
+                  />
+                </ListRowTransition>
+              ))}
+            </>
+          )}
+        </div>
+      </ListTransitionScope>
     </div>
   );
 }
@@ -114,7 +119,8 @@ function TaskItemRow({
   // UX-14: the tick shows at once, in this row's own transition, so ticking
   // off several chores in a row never waits on (or greys out behind) an
   // earlier save. The row stays where it is until the server answers and
-  // only then moves to "Completed" (no list jumping under your thumb), and a
+  // only then moves to "Completed" (no list jumping under your thumb; UX-33
+  // slides it there, see ListRowTransition), and a
   // failed save rolls the tick back with a toast. Same pattern as the
   // shopping list's ShoppingRow.
   const [, startToggleTransition] = useTransition();

@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/dashboard/page-skeleton";
 
 export default function Loading() {
-  return <PageSkeleton variant="rows" back />;
+  return <PageSkeleton variant="rows" back morph="shopping-list" />;
 }

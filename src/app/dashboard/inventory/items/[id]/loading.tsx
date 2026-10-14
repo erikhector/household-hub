@@ -1,5 +1,5 @@
 import { PageSkeleton } from "@/components/dashboard/page-skeleton";
 
 export default function Loading() {
-  return <PageSkeleton variant="narrow" back />;
+  return <PageSkeleton variant="narrow" back morph="inventory-item" />;
 }

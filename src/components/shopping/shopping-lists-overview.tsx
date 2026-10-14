@@ -28,6 +28,7 @@ import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { ListRowTransition, ListTransitionScope, MorphTitle } from "@/components/shared/view-transitions";
 
 type ListSummary = {
   id: string;
@@ -104,7 +105,10 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={list.name}>{list.name}</p>
+            {/* UX-33: flies up into the list page's title on the way in. */}
+            <MorphTitle kind="shopping-list" id={list.id}>
+              <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={list.name}>{list.name}</p>
+            </MorphTitle>
             {list.isDefault && (
               <Badge variant="secondary" className="shrink-0" title={dict.defaultListHint}>
                 {dict.defaultListBadge}
@@ -195,7 +199,11 @@ function ListSection({
       <p className="text-xs font-medium uppercase text-muted-foreground">{title}</p>
       <div className="flex flex-col gap-2">
         {lists.map((list) => (
-          <ListCard key={list.id} list={list} dict={dict} />
+          // Same name in every section: completing or archiving a list
+          // slides its card into the section below.
+          <ListRowTransition key={list.id} name={`shopping-list-card-${list.id}`}>
+            <ListCard list={list} dict={dict} />
+          </ListRowTransition>
         ))}
       </div>
     </div>
@@ -218,10 +226,12 @@ export function ShoppingListsOverview({
   return isEmpty ? (
     <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">{dict.empty}</p>
   ) : (
-    <div className="flex flex-col gap-6">
-      <ListSection title={dict.sectionActive} lists={active} dict={dict} />
-      <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
-      <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />
-    </div>
+    <ListTransitionScope>
+      <div className="flex flex-col gap-6">
+        <ListSection title={dict.sectionActive} lists={active} dict={dict} />
+        <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
+        <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />
+      </div>
+    </ListTransitionScope>
   );
 }

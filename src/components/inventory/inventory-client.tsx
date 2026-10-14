@@ -34,6 +34,7 @@ import {
 } from "@/components/inventory/inventory-table-utils";
 import { setInventoryViewPrefsAction } from "@/lib/actions/preferences";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { ListTransitionScope } from "@/components/shared/view-transitions";
 
 const ALL = "__all__";
 const UNASSIGNED = "__unassigned__";
@@ -378,20 +379,23 @@ export function InventoryClient({
           </Select>
         </div>
       </div>
-      <InventoryTable
-        items={filtered}
-        categories={categories}
-        locations={locations}
-        units={units}
-        members={members}
-        locale={locale}
-        groupBy={groupBy}
-        dict={dict}
-        barcodeDict={barcodeDict}
-        emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
-        isHouseholdEmpty={items.length === 0}
-        aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
-      />
+      {/* UX-33: see ListTransitionScope. */}
+      <ListTransitionScope>
+        <InventoryTable
+          items={filtered}
+          categories={categories}
+          locations={locations}
+          units={units}
+          members={members}
+          locale={locale}
+          groupBy={groupBy}
+          dict={dict}
+          barcodeDict={barcodeDict}
+          emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
+          isHouseholdEmpty={items.length === 0}
+          aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
+        />
+      </ListTransitionScope>
     </div>
   );
 }

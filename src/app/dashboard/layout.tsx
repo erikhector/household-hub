@@ -118,7 +118,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         unseenRelease={unseenRelease}
       />
       <div className="flex min-w-0 flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
-        <header className="shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
+        {/* Named for view transitions (UX-33): it stays still and on top
+            while the page below animates, like BottomNav. */}
+        <header className="shrink-0 border-b bg-background px-4 [view-transition-name:app-header] pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
         </header>
         {/* Below the header, not above it: the header is what carries the

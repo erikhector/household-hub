@@ -5815,6 +5815,81 @@ text-swap submit buttons across the forms and dialogs;
 `e2e/pending-button-width.spec.ts` holds the server action and checks the
 width. Buttons that swap a spinner icon rather than text are unchanged.
 
+## Motion and view transitions
+
+UX-33. One set of motion tokens and React's `<ViewTransition>` (Next 16.3's
+App Router has it on by default, with no `experimental.viewTransition` flag
+any more) on top of the browser's View Transitions API. A browser without
+the API swaps instantly.
+
+**Tokens.** `globals.css` defines `--motion-duration-fast` (120 ms, exits),
+`-base` (200 ms, entrances, shifts), `-slow` (320 ms, morphs) and `-spring`
+(400 ms), with `--motion-ease-out`, `-in`, `-in-out` and `-spring` (a
+sampled damped spring as `linear()`, about 5% overshoot). They're plain
+custom properties, not `@theme` entries, so Tailwind's own `ease-*`
+utilities are unchanged. DESIGN.md's "Depth, motion and states" says what
+each is for.
+
+**What animates.**
+- *Tab changes.* `src/app/dashboard/template.tsx` mounts afresh whenever
+  the dashboard's child segment changes, so its `<ViewTransition>` fades
+  the old page out (fast) and the new one in with an 8 px rise. The phone
+  header and bottom bar carry `view-transition-name`s (`app-header`,
+  `app-bottom-nav`) and are pinned above the animation: a page's snapshot is
+  its whole box, not just what `main` scrolls into view, and would
+  otherwise paint over both bars.
+- *List rows.* `ListRowTransition` (`src/components/shared/view-transitions.tsx`)
+  wraps each shopping item, task, inventory row and card, and shopping list
+  card, under a name made of a prefix and the row's id. A new row rises in,
+  a removed one fades out, and rows that shift because of either glide
+  (200 ms). Because a name pairs across sections, a ticked shopping item or
+  task slides into "Purchased"/"Completed" on the spring once the save lands,
+  and a completed list's card slides into its section. The optimistic tick
+  itself (UX-14) is a sync update, which React never animates, so the box
+  still flips at once. `ListTransitionScope` wraps each of those lists: when
+  a whole page leaves, React animates only the outermost `<ViewTransition>`s,
+  and without that inert boundary every row would fade out on the way to a
+  detail page.
+- *Shared-element morphs.* `MorphTitle` gives a list row's title and its
+  detail page's `h1` the same name: a shopping list card into the list page,
+  and an item catalogue row (`/dashboard/inventory/items`) into the item
+  page. Both detail routes have a `loading.tsx`, so a navigation usually
+  commits the skeleton first: `PageSkeleton`'s `morph` prop names its title
+  bar the same way (`MorphTitleSkeleton` reads the id with `useParams`), so
+  the title flies to the header at once and hands over to the real heading
+  when the page arrives. Recipes have no detail page (a recipe opens in a
+  dialog), so there is no recipe morph yet.
+
+**Limits, on purpose.**
+- The document root is never captured (`:root { view-transition-name:
+  none }`). React crossfades the root whenever something outside a
+  `<ViewTransition>` changes (a dialog closing in its portal), and while it
+  runs the whole page ignores taps. Unnamed content updates at once instead.
+- An element that is animating can't be tapped (the browser skips it in
+  hit-testing for the transition's length; taps elsewhere reach the live
+  page since `::view-transition` has `pointer-events: none`). That's why the
+  shift that moves the next row up into a ticked row's place is short.
+- React skips a view transition when an urgent update lands just before its
+  snapshot, and doesn't start one for a navigation tapped while the page is
+  still hydrating or before the link's prefetch is back. The change still
+  happens, without the animation. `ConfirmDialog` closes inside its
+  transition (`startTransition(() => setOpen(false))` after the `await`),
+  and the shopping row's delete hands its promise to the dialog like a
+  task's, so a confirmed delete's fade isn't cut by the dialog closing.
+- Morphs need both ends on screen: React leaves out pairs it measures as
+  off-screen.
+
+**Reduced motion.** The UX-29 rule in `globals.css` doesn't reach the
+view-transition pseudo-elements, so a second rule sets their animation
+duration and delay to 0: every change happens at once.
+
+**Tests.** `e2e/motion.spec.ts` wraps `document.startViewTransition` in an
+init script and records each transition's running animations (pseudo-element,
+keyframes, duration). It asserts a shopping item's add (fade in), tick
+(the spring move) and delete (fade out) with zero layout shift outside the
+500 ms after input, both morphs, the tab fade, and all-zero durations under
+`reducedMotion: "reduce"`, on desktop and mobile.
+
 ## Testing
 
 - **Stack**: **Vitest** — confirmed as the appropriate pick by checking

@@ -75,6 +75,7 @@ import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
+import { ListRowTransition, ListTransitionScope, MorphTitle } from "@/components/shared/view-transitions";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -385,7 +386,9 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">{list.name}</h1>
+            <MorphTitle kind="shopping-list" id={list.id}>
+              <h1 className="font-heading text-2xl font-semibold tracking-tight">{list.name}</h1>
+            </MorphTitle>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
           {/* AUTO-4: hidden until at least one pending item has a price —
@@ -637,37 +640,64 @@ export function ShoppingListClient({
       )}
       {isActive && repurchaseSuggestions}
 
-      <div className="flex flex-col gap-2">
-        {showCleared ? (
-          <ClearedState
-            dict={dict}
-            onDismiss={() => setClearedDismissed(true)}
-            // Only once something was actually bought — a list that was
-            // simply emptied out has no trip to finish.
-            onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
-            isPending={isPending}
-          />
-        ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
-          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {isActive ? dict.emptyListActive : dict.emptyListOther}
-          </p>
-        ) : (
-          <>
-            {/* Shopping mode (AUTO-3): pending items grouped by the linked
-                inventory item's category, in the household's store order
-                (AUTO-9: learned from check-offs, or arranged by hand) —
-                see groupPendingItemsByCategory. Purchased items below stay
-                a single flat "Purchased" section, unchanged. */}
-            {pendingGroups.map((group) => (
-              <Fragment key={group.key ?? ""}>
-                <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
-                {group.items.map((item) => (
+      <ListTransitionScope>
+        <div className="flex flex-col gap-2">
+          {showCleared ? (
+            <ClearedState
+              dict={dict}
+              onDismiss={() => setClearedDismissed(true)}
+              // Only once something was actually bought — a list that was
+              // simply emptied out has no trip to finish.
+              onDone={isActive && purchasedItems.length > 0 ? () => finishTrip(false) : undefined}
+              isPending={isPending}
+            />
+          ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
+            <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+              {isActive ? dict.emptyListActive : dict.emptyListOther}
+            </p>
+          ) : (
+            <>
+              {/* Shopping mode (AUTO-3): pending items grouped by the linked
+                  inventory item's category, in the household's store order
+                  (AUTO-9: learned from check-offs, or arranged by hand) —
+                  see groupPendingItemsByCategory. Purchased items below stay
+                  a single flat "Purchased" section, unchanged. */}
+              {pendingGroups.map((group) => (
+                <Fragment key={group.key ?? ""}>
+                  <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                  {group.items.map((item) => (
+                    <ListRowTransition key={item.id} name={`shopping-item-${item.id}`}>
+                      <ShoppingRow
+                        item={item}
+                        highlighted={highlightedIds.has(item.id)}
+                        editable={isActive}
+                        groupedByCategory
+                        isPending={isPending}
+                        startTransition={startTransition}
+                        inventoryItems={inventoryItems}
+                        categories={categories}
+                        units={units}
+                        dict={dict}
+                        numberFormat={numberFormat}
+                        autoAddDict={autoAddDict}
+                      />
+                    </ListRowTransition>
+                  ))}
+                </Fragment>
+              ))}
+              {purchasedItems.length > 0 && (
+                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                  {dict.purchased}
+                </p>
+              )}
+              {/* UX-33: the same name in both sections, so a ticked row
+                  slides down here when the server confirms (and back up when
+                  unticked) instead of vanishing and reappearing. */}
+              {purchasedItems.map((item) => (
+                <ListRowTransition key={item.id} name={`shopping-item-${item.id}`}>
                   <ShoppingRow
-                    key={item.id}
                     item={item}
-                    highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
-                    groupedByCategory
                     isPending={isPending}
                     startTransition={startTransition}
                     inventoryItems={inventoryItems}
@@ -676,34 +706,14 @@ export function ShoppingListClient({
                     dict={dict}
                     numberFormat={numberFormat}
                     autoAddDict={autoAddDict}
+                    awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
                   />
-                ))}
-              </Fragment>
-            ))}
-            {purchasedItems.length > 0 && (
-              <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">
-                {dict.purchased}
-              </p>
-            )}
-            {purchasedItems.map((item) => (
-              <ShoppingRow
-                key={item.id}
-                item={item}
-                editable={isActive}
-                isPending={isPending}
-                startTransition={startTransition}
-                inventoryItems={inventoryItems}
-                categories={categories}
-                units={units}
-                dict={dict}
-                numberFormat={numberFormat}
-                autoAddDict={autoAddDict}
-                awaitingPutAway={list.status !== "ARCHIVED" && isAwaitingPutAway(item)}
-              />
-            ))}
-          </>
-        )}
-      </div>
+                </ListRowTransition>
+              ))}
+            </>
+          )}
+        </div>
+      </ListTransitionScope>
     </div>
   );
 }
@@ -965,12 +975,12 @@ function ShoppingRow({
                 cancelLabel={dict.confirmDeleteItem.cancel}
                 confirmLabel={dict.confirmDeleteItem.confirm}
                 pendingLabel={dict.confirmDeleteItem.confirming}
-                onConfirm={() =>
-                  startTransition(async () => {
-                    const result = await deleteShoppingListItemAction(item.id);
-                    if (result.error) toast.error(result.error);
-                  })
-                }
+                // The dialog waits for the delete (showing "Deleting…") and
+                // closes with it, like a task's. Handing it off to the list's
+                // transition closed the dialog at once, and its close
+                // landing while the row's exit animation (UX-33) was about
+                // to start made React skip the animation.
+                onConfirm={() => deleteShoppingListItemAction(item.id)}
               />
             </>
           )}
