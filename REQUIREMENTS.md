@@ -5748,6 +5748,19 @@ approximating them, so the email never disagrees with the app.
   Desktop layouts are unchanged. `e2e/form-field-room.mobile.spec.ts`
   fails if any combobox in those dialogs has under 120 px for its text.
 
+## Loading skeletons
+
+UX-42 (part). Every top-level dashboard feature route (inventory, shopping
+list, tasks, budget, personal budget, household, meal planning,
+notifications, profile, what's new) has a `loading.tsx` that renders
+`PageSkeleton` (`src/components/dashboard/page-skeleton.tsx`): a
+header block the height of the real title and subtitle, then a fixed-height
+body (`cards`, `rows`, `table` or `narrow`) close to the page's shape. It
+shows the moment a tab is tapped, and because the bottom bar's links are
+prefetched when they enter the viewport, the skeleton is already on hand.
+`src/app/loading-coverage.test.ts` fails when a dashboard feature route has
+no `loading.tsx`. Still open: see BACKLOG.md, UX-42.
+
 ## Testing
 
 - **Stack**: **Vitest** — confirmed as the appropriate pick by checking
