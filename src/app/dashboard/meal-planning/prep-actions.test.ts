@@ -397,8 +397,46 @@ describe("previewPrepIngredientsAction", () => {
     expect(result).toEqual({
       items: [
         row({ key: "item-oil", inventoryItemId: "item-oil", name: "Oil", unit: "ml", requiredUnit: "ml", suggestedQuantity: 20, requiredQuantity: 20 }),
-        row({ suggestedQuantity: 300, requiredQuantity: 301, unitMismatch: true }),
+        // 300 g + 1 cup can't be added; the need is the converted 300 g.
+        row({ suggestedQuantity: 300, requiredQuantity: 300, unitMismatch: true }),
       ],
+    });
+  });
+
+  // Regression: buns needing 1125 g of flour and pancakes 3 dl showed up as
+  // "Recipe needs 1128 dl". Amounts in different recipe units can't be
+  // added, so the merged row states its need in the item's own unit, from
+  // the already-converted suggested amounts.
+  it("doesn't add amounts in different recipe units for a shared item", async () => {
+    recipeFindManyMock.mockResolvedValue([
+      { id: "recipe-buns", servings: 12 },
+      { id: "recipe-pancakes", servings: 4 },
+    ]);
+    const flour = (over: Partial<Record<string, unknown>>) => ({
+      key: "item-flour",
+      inventoryItemId: "item-flour",
+      name: "Wheat flour",
+      unit: "kg",
+      onHandQuantity: 2,
+      suggestedQuantity: 0,
+      requiredQuantity: 0,
+      requiredUnit: "g",
+      unitMismatch: false,
+      ...over,
+    });
+    previewCookedIngredientsForRecipeMock.mockImplementation(async (_h, recipeId: string) =>
+      recipeId === "recipe-buns"
+        ? [flour({ suggestedQuantity: 1.13, requiredQuantity: 1125, requiredUnit: "g" })]
+        : [flour({ suggestedQuantity: 0.18, requiredQuantity: 3, requiredUnit: "dl" })],
+    );
+
+    const result = await previewPrepIngredientsAction([
+      { recipeId: "recipe-buns", portions: 12 },
+      { recipeId: "recipe-pancakes", portions: 4 },
+    ]);
+
+    expect(result).toEqual({
+      items: [flour({ suggestedQuantity: 1.31, requiredQuantity: 1.31, requiredUnit: "kg" })],
     });
   });
 

@@ -65,18 +65,29 @@ async function loadHouseholdRecipeServings(
 // dish's preview is folded into a single row per item. Both quantities are
 // already scaled per dish; suggestedQuantity is in the item's own unit (0
 // for a row whose units couldn't be reconciled), so summing it keeps the
-// single-recipe meaning. Sorted by name like computeCookedIngredients.
+// single-recipe meaning. requiredQuantity is in each recipe's own unit, so
+// it only adds up while the dishes agree on that unit: 1125 g of flour plus
+// 3 dl isn't "1128" of anything. Once they differ, the merged row states the
+// need in the item's own unit instead, from the summed (already converted)
+// suggestedQuantity. Sorted by name like computeCookedIngredients.
 function mergeCookedIngredients(lists: CookedIngredientData[][]): CookedIngredientData[] {
   const byItem = new Map<string, CookedIngredientData>();
+  const mixedUnits = new Set<string>();
   for (const row of lists.flat()) {
     const existing = byItem.get(row.inventoryItemId);
     if (!existing) {
       byItem.set(row.inventoryItemId, { ...row });
       continue;
     }
-    existing.requiredQuantity = round2(existing.requiredQuantity + row.requiredQuantity);
     existing.suggestedQuantity = round2(existing.suggestedQuantity + row.suggestedQuantity);
     existing.unitMismatch = existing.unitMismatch || row.unitMismatch;
+    if (mixedUnits.has(row.inventoryItemId) || row.requiredUnit !== existing.requiredUnit) {
+      mixedUnits.add(row.inventoryItemId);
+      existing.requiredQuantity = existing.suggestedQuantity;
+      existing.requiredUnit = existing.unit;
+    } else {
+      existing.requiredQuantity = round2(existing.requiredQuantity + row.requiredQuantity);
+    }
   }
   return [...byItem.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
