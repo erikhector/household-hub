@@ -387,7 +387,7 @@ describe("deleteMealEntryAction", () => {
   it("no-ops for an entry outside the caller's household (IDOR guard)", async () => {
     mealPlanEntryFindFirstMock.mockResolvedValue(null);
 
-    await deleteMealEntryAction("someone-elses-entry");
+    expect(await deleteMealEntryAction("someone-elses-entry")).toEqual({});
 
     expect(mealPlanEntryDeleteMock).not.toHaveBeenCalled();
   });
@@ -396,7 +396,7 @@ describe("deleteMealEntryAction", () => {
     mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
     mealPlanEntryDeleteMock.mockResolvedValue({});
 
-    await deleteMealEntryAction("entry-1");
+    expect(await deleteMealEntryAction("entry-1")).toEqual({});
 
     expect(mealPlanEntryDeleteMock).toHaveBeenCalledWith({ where: { id: "entry-1" } });
   });
@@ -747,7 +747,7 @@ describe("planner actions × prepared batches (GAP-49)", () => {
     preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 3, totalPortions: 8 });
     preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
 
-    await deleteMealEntryAction("entry-1");
+    expect(await deleteMealEntryAction("entry-1")).toEqual({});
 
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(mealPlanEntryDeleteManyMock).toHaveBeenCalledWith({
@@ -785,7 +785,11 @@ describe("planner actions × prepared batches (GAP-49)", () => {
     preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 3, totalPortions: 8 });
     preparedBatchUpdateManyMock.mockResolvedValue({ count: 0 });
 
-    await expect(deleteMealEntryAction("entry-1")).resolves.toBeUndefined();
+    // The meal is still planned, so the confirm dialog says so instead of
+    // closing as if it had been deleted.
+    await expect(deleteMealEntryAction("entry-1")).resolves.toEqual({
+      error: "Something went wrong. Please try again.",
+    });
     // The callback rejected, so Prisma rolls the delete back too.
     await expect(transactionMock.mock.results[0].value).rejects.toThrow();
     expect(revalidatePathMock).not.toHaveBeenCalled();

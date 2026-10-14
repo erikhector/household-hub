@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { ChefHat } from "lucide-react";
+import { ChefHat, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,10 +39,12 @@ const initialState: ActionState = {};
 // GAP-39: what "Plan leftovers" hands up to WeekPlanner, which owns the
 // add-to-plan dialog it opens. It can't live here: once the meal is cooked
 // the row swaps this component for the cooked badge, which unmounts it
-// before the household has had a chance to tap the toast.
+// before the household has had a chance to tap the toast. GAP-49: the
+// leftovers are a meal-prep batch now, so the slot it plans eats from it.
 export type PlanLeftoversRequest = {
   recipeId: string;
   recipeName: string;
+  batchId: string;
   date: string;
   servings: number;
 };
@@ -63,13 +65,33 @@ export function MarkCookedDialog({
   // Controlled (like the quantity inputs) so a rejected submit doesn't wipe
   // what was typed — React resets an uncontrolled form after its action runs.
   const [leftoverServings, setLeftoverServings] = useState("");
+  // GAP-49: a meal planned from a meal-prep batch was cooked when the batch
+  // was, so "Eaten" only marks it consumed: no ingredient checklist (the
+  // batch's own ingredients came off at prep time) and no leftovers field.
+  const fromBatch = !!entry.preparedBatchId;
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
   ) => {
     const result = await markMealEntryCookedAction(prevState, formData);
-    if (!result.error) {
+    if (!result.error && fromBatch) {
+      setOpen(false);
+      // No item rows on purpose, even if the entry was edited since the
+      // dialog opened: nothing was deducted, so Undo must credit nothing back.
+      toast.success(dict.prepEatenToast, {
+        duration: 8000,
+        action: {
+          label: dict.undoMarkCooked,
+          onClick: () => {
+            void undoMarkMealEntryCookedAction(entry.id, [], undefined).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(dict.prepEatenUndoneToast);
+            });
+          },
+        },
+      });
+    } else if (!result.error) {
       setOpen(false);
 
       // Captured from the just-submitted form (not the `items` state, which
@@ -116,6 +138,7 @@ export function MarkCookedDialog({
                     onPlanLeftovers({
                       recipeId,
                       recipeName: entry.recipeName ?? "",
+                      batchId: leftovers.batchId,
                       date: suggestion.date,
                       servings: leftoverServings,
                     });
@@ -157,6 +180,7 @@ export function MarkCookedDialog({
     setItems(null);
     setPreviewError(null);
     setLeftoverServings("");
+    if (fromBatch) return;
     startPreviewTransition(async () => {
       const result = await previewCookedIngredientsAction(entry.id);
       if ("error" in result) {
@@ -188,18 +212,30 @@ export function MarkCookedDialog({
             variant="ghost"
             size="icon-xs"
             className="shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={dict.markCookedAriaLabel}
+            aria-label={fromBatch ? dict.prepEatenAction : dict.markCookedAriaLabel}
+            title={fromBatch ? dict.prepEatenAction : undefined}
           >
-            <ChefHat className="size-3" />
+            {fromBatch ? <Utensils className="size-3" /> : <ChefHat className="size-3" />}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{dict.markCookedDialogTitle}</DialogTitle>
+          <DialogTitle>{fromBatch ? dict.prepEatenDialogTitle : dict.markCookedDialogTitle}</DialogTitle>
         </DialogHeader>
 
-        {isPreviewPending || items === null ? (
+        {fromBatch ? (
+          <form action={formAction} className="flex flex-col gap-4">
+            <input type="hidden" name="entryId" value={entry.id} />
+            <p className="text-sm text-muted-foreground">{dict.prepEatenDialogHint}</p>
+            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                <PendingLabel pending={pending} busy={dict.markingCooked} idle={dict.prepEatenSubmit} />
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : isPreviewPending || items === null ? (
           <p className="text-sm text-muted-foreground">{previewError ?? dict.loadingCookedIngredients}</p>
         ) : (
           <form action={formAction} className="flex flex-col gap-4">

@@ -317,14 +317,14 @@ export async function moveMealEntryAction(
   return {};
 }
 
-export async function deleteMealEntryAction(entryId: string) {
+export async function deleteMealEntryAction(entryId: string): Promise<ActionState> {
   const { household } = await requireHousehold();
 
   const entry = await prisma.mealPlanEntry.findFirst({
     where: { id: entryId, mealPlan: { householdId: household.id } },
     select: { id: true, preparedBatchId: true, preparedPortionsUsed: true, consumedAt: true },
   });
-  if (!entry) return;
+  if (!entry) return {};
 
   // GAP-49: an uneaten meal planned from a batch gives its portions back,
   // in the same transaction as the delete. An eaten one keeps them eaten,
@@ -333,7 +333,7 @@ export async function deleteMealEntryAction(entryId: string) {
   if (!entry.preparedBatchId || entry.consumedAt) {
     await prisma.mealPlanEntry.delete({ where: { id: entry.id } });
     revalidatePath(MEAL_PLANNING_PATH);
-    return;
+    return {};
   }
 
   try {
@@ -353,15 +353,16 @@ export async function deleteMealEntryAction(entryId: string) {
     });
   } catch (error) {
     // The batch moved under us and everything rolled back, so the meal is
-    // still planned. This action has no error channel (the confirm dialog
-    // just closes), so it returns quietly and the household can delete
-    // again; re-throwing would hit the error boundary instead.
-    if (error instanceof BatchChangedError) return;
+    // still planned. The confirm dialog toasts the error, so the household
+    // knows to try again rather than wondering why the meal is still there;
+    // re-throwing would hit the error boundary instead.
+    if (error instanceof BatchChangedError) return await fail("generic");
     throw error;
   }
 
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
+  return {};
 }
 
 const copyWeekSchema = z

@@ -210,8 +210,9 @@ async function PlannerTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const [{ recipeRows, entries, activeShoppingLists }, locale] = await Promise.all([
+  const [{ recipeRows, entries, activeShoppingLists }, batches, locale] = await Promise.all([
     getMealPlanningCoreData(householdId, weekStartKey),
+    getActiveBatches(householdId),
     getLocale(),
   ]);
   return (
@@ -222,6 +223,7 @@ async function PlannerTabSection({
       recipes={recipeRows}
       entries={entries}
       activeShoppingLists={activeShoppingLists}
+      batches={batches}
     />
   );
 }
