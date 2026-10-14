@@ -6,7 +6,7 @@
 // as "Mark as cooked" (cooking-actions.ts), shared through cook-inventory.ts,
 // so a prep and a cook can never disagree on how stock is decremented or
 // when an item lands on "Next shop" (AUTO-8). See
-// docs/superpowers/specs/2026-10-14-meal-prep-design.md.
+// docs/archive/MEAL_PREP_DESIGN.md.
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";

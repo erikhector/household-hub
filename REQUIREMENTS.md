@@ -4098,7 +4098,7 @@ actually used, once they've cooked it.
 A household that batch-cooks ("Sunday: 8 portions of chili, 6 of curry")
 records each dish as a `PreparedBatch` and spends its portions across the
 planner, so the plan and the fridge agree on how much is left. Design:
-`docs/superpowers/specs/2026-10-14-meal-prep-design.md`. It lives on a
+`docs/archive/MEAL_PREP_DESIGN.md`. It lives on a
 fourth meal-planning tab, **Meal prep** (`?tab=prep`, `PrepTab` in
 `src/components/meal-planning/prep-tab.tsx`), plus a "From meal prep"
 source in the add-meal dialog and a card on the home dashboard. No schema
