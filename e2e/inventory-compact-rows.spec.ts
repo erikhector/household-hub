@@ -85,6 +85,13 @@ test("a phone shows at least eight items in one screen, without a Last updated l
   await expect(rows.first()).not.toContainText("Last updated");
   await expectTouchTargets(page);
   await expectTargetsApart(rows.first());
+
+  // A selected row is marked by more than its ticked box: a primary
+  // accent down its left edge, since the tint alone is faint in sunlight.
+  const first = rows.first();
+  await expect(first).toHaveCSS("box-shadow", "none");
+  await first.getByRole("checkbox").check();
+  await expect(first).toHaveCSS("box-shadow", /inset/);
 });
 
 test("the row's stepper still changes the quantity, and the item page says when it was updated", async ({ page }) => {

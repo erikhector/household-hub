@@ -491,7 +491,10 @@ export function InventoryTable({
           sits in its own column, centred on both lines, 14px from the
           content: its 44px tap halo reaches 14px past the box (see
           checkbox.tsx), so nearer than that it would sit over the − button
-          and swallow taps meant for it. */}
+          and swallow taps meant for it. A selected row gets a primary
+          accent down its left edge as well as a tint: the rows share one
+          border now, so there's no per-card border to colour, and a tint
+          alone is hard to see in sunlight. */}
       <div className="flex min-w-0 flex-col gap-2 sm:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
@@ -507,7 +510,7 @@ export function InventoryTable({
                 <li
                   key={item.id}
                   data-state={selected.has(item.id) ? "selected" : undefined}
-                  className="flex min-w-0 items-center gap-3.5 px-2 py-1.5 first:rounded-t-lg last:rounded-b-lg data-[state=selected]:bg-muted/40"
+                  className="flex min-w-0 items-center gap-3.5 px-2 py-1.5 first:rounded-t-lg last:rounded-b-lg data-[state=selected]:bg-primary/10 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-primary)]"
                 >
                   <Checkbox
                     checked={selected.has(item.id)}
