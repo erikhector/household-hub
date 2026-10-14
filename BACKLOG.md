@@ -455,13 +455,15 @@ decision and sit under "Needs a decision before building".
 
       Todoist sets this bar for productivity users on desktop.
 
-- [ ] **UX-42. Loading that looks instant** (S) —
-      - Each feature route gets a `loading.tsx` skeleton that matches its
-        final layout (same card heights, so CLS ≈ 0).
-      - Every `fallback={null}` above content is replaced with a
-        fixed-height placeholder.
+- [ ] **UX-42. Loading that looks instant** (S) — The `loading.tsx`
+      skeletons are done (see REQUIREMENTS.md, "Loading skeletons"). Left:
+      - Replace the remaining `fallback={null}` above content (household
+        `SharedWithNote`, inventory `InventoryWellStockedNote`, shopping
+        list `RepurchaseSuggestionsSection`, the layout's email-verification
+        banner) with fixed-height placeholders, once measured to shift.
       - Pending-state buttons keep their width.
-      - Link prefetch on hover and touchstart for the bottom bar.
+      - Skeleton card heights tuned per route against the real layout, and
+        `shopping-list/[id]` / `inventory/items` detail `loading.tsx`.
 
       Acceptance: Lighthouse CLS < 0.05 on every dashboard route on the
       mobile profile.
@@ -805,6 +807,30 @@ out to be a product-scope question rather than a scoped task should move to
       skip-filled-slots rule plus tenancy on both actions; an e2e step
       saves the seeded week, applies it to the next empty week and asserts
       the entries show, on desktop and mobile.
+
+### 2026-10-14 scan
+
+- [ ] **GAP-53. Copy the shopping list as plain text** (impact: med, effort: S) —
+      Shopt (2.4.0) and most list apps (AnyList, Bring!) can send the list
+      as text to someone outside the app: a partner who is at the shop
+      without an account, or a neighbour picking things up. Squirrel's
+      shopping list can import pasted text (`ClipboardPaste` in
+      `shopping-list-client.tsx`) but has no way out; recipes got
+      "Copy as text" (GAP-43, REQUIREMENTS.md "Copy a recipe as text") and
+      the list has nothing equivalent. Add a "Copy as text" action in the
+      list's overflow menu that writes the open (unchecked) items to the
+      clipboard, one `- 2 dl Milk` line each, grouped under category
+      headings when the list is grouped, via a pure `formatShoppingListText`
+      (mirror `src/lib/recipe-text.ts`, reuse `formatCookQuantity`/unit
+      labels). Confirm with a toast; error toast on a rejected write;
+      on a coarse-pointer device with `navigator.share`, offer Share like
+      the invite link does. Same stance as GAP-43: no public link, no
+      schema change, no new browser storage, so every read stays behind
+      `requireHousehold()`.
+      Acceptance: `shopping-list-text.test.ts` covers both locales, no
+      quantity, grouped vs flat, and checked items left out; an e2e step
+      adds two unique items, clicks the action on desktop and mobile and
+      asserts the toast and clipboard text.
 
 ## Needs a decision before building
 
