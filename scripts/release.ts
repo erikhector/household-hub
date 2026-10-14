@@ -15,7 +15,10 @@
 //   node scripts/release.ts train-prs <master>..<release branch>
 //     Prints the numbers of the PRs squash-merged into `next` in that range,
 //     one per line, oldest first. The workflows fetch each one's title and
-//     body with `gh` into the JSON file below.
+//     body with `gh` into the JSON file below. A commit whose subject has no
+//     "(#N)" is looked up on GitHub by SHA with `gh api` (GH_TOKEN), and if
+//     that fails the command exits 1: silently dropping a PR means a
+//     release that ships its code without its version or note.
 //
 // PR data comes in via env vars (PR_TITLE, PR_BODY, PR_NUMBER) rather than
 // being interpolated into the workflow's shell script, so a PR title can't
@@ -32,7 +35,7 @@ import {
   ALLOWED_TYPES,
   planRelease,
   planTrainRelease,
-  prNumbersFromSubjects,
+  parseTrainLog,
   type ReleaseEntry,
   type TrainPr,
 } from "../src/lib/release-notes/release-calc.ts";
@@ -63,8 +66,36 @@ if (mode === "train-prs") {
     console.error("Usage: node scripts/release.ts train-prs <master>..<release branch>");
     process.exit(2);
   }
-  const log = execFileSync("git", ["log", "--first-parent", "--format=%s", range], { encoding: "utf8" });
-  console.log(prNumbersFromSubjects(log).join("\n"));
+  const log = execFileSync("git", ["log", "--first-parent", "--format=%H %s", range], { encoding: "utf8" });
+  const repo = process.env.GITHUB_REPOSITORY ?? "{owner}/{repo}";
+  const numbers: number[] = [];
+  for (const commit of parseTrainLog(log)) {
+    if (commit.sync) continue;
+    let pr = commit.pr;
+    if (pr === null) {
+      // The PR whose squash (or merge) commit this is. Matching on
+      // merge_commit_sha, not just "PRs containing this commit", keeps the
+      // release PR itself (which contains every commit) out.
+      let found: string;
+      try {
+        found = execFileSync(
+          "gh",
+          ["api", `repos/${repo}/commits/${commit.sha}/pulls`, "--jq", `.[] | select(.merge_commit_sha == "${commit.sha}") | .number`],
+          { encoding: "utf8" },
+        ).trim();
+      } catch {
+        console.error(`Commit ${commit.sha} has no "(#N)" in its subject and GitHub couldn't be asked which PR it came from (is gh installed and GH_TOKEN set?).`);
+        process.exit(1);
+      }
+      if (!found) {
+        console.error(`Commit ${commit.sha} came from no PR (pushed straight to the branch); nothing to release for it.`);
+        continue;
+      }
+      pr = Number(found.split("\n")[0]);
+    }
+    if (!numbers.includes(pr)) numbers.push(pr);
+  }
+  console.log(numbers.join("\n"));
   process.exit(0);
 }
 

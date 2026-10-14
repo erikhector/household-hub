@@ -195,7 +195,7 @@ GitHub CI conclusion, the `npm run check` and build summary if it pushed,
 or "docs only").
 
 **Validate** before the next candidate: the PR is `MERGED` into `next` on
-GitHub with the PR title as the commit title, `origin/next` (after `git
+GitHub with `<PR title> (#N)` as the commit title, `origin/next` (after `git
 fetch origin next`) has that commit, and the branch is deleted. A
 blocked report must match a `changes` review on the PR saying why, and
 stops further merges for this run if the cause was a failing check.
@@ -234,8 +234,9 @@ The merge sub-agent's steps:
    check runs, up to 20 minutes, not bare `sleep`). On failure, don't fix
    it: comment the failing step's last lines, verdict `changes`, don't
    merge, and stop merging for this run.
-6. **Merge.** Squash-merge into `next` with the PR title as the commit
-   title, delete the branch, and `git fetch origin next` so the
+6. **Merge.** Squash-merge into `next` with `<PR title> (#N)` as the
+   commit title (GitHub's default; leave `commit_title` unset or include
+   the number: the release reads it to name the PR), delete the branch, and `git fetch origin next` so the
    coordinator and the next merge sub-agent start from the new `next`.
 
 ## 4b. Ship the release train (coordinator, once per run, after merging)
