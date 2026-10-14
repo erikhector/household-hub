@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { resetPasswordAction, type ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 const initialState: ActionState = {};
 
@@ -55,7 +56,7 @@ export function ResetPasswordForm({
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-full">
         <KeyRound className="size-4" />
-        {pending ? dict.saving : dict.submit}
+        <PendingLabel pending={pending} busy={dict.saving} idle={dict.submit} />
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/login" className="touch-target font-medium text-primary underline underline-offset-4">

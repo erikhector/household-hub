@@ -21,6 +21,7 @@ import {
   DialogTrigger,
   type DialogHandle,
 } from "@/components/ui/dialog";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export function ConfirmDialog({
   trigger,
@@ -77,7 +78,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button variant={variant} disabled={isPending} onClick={handleConfirm}>
-            {isPending ? pendingLabel : confirmLabel}
+            <PendingLabel pending={isPending} busy={pendingLabel} idle={confirmLabel} />
           </Button>
         </DialogFooter>
       </DialogContent>

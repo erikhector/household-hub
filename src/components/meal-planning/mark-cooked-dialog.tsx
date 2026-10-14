@@ -27,6 +27,7 @@ import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -285,7 +286,7 @@ export function MarkCookedDialog({
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
             <DialogFooter>
               <Button type="submit" disabled={pending}>
-                {pending ? dict.markingCooked : dict.markCookedSubmit}
+                <PendingLabel pending={pending} busy={dict.markingCooked} idle={dict.markCookedSubmit} />
               </Button>
             </DialogFooter>
           </form>

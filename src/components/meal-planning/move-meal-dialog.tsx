@@ -29,6 +29,7 @@ import { format } from "@/lib/i18n/format";
 import type { MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -160,7 +161,7 @@ export function MoveMealDialog({
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
-              {pending ? dict.moving : dict.moveMealSubmit}
+              <PendingLabel pending={pending} busy={dict.moving} idle={dict.moveMealSubmit} />
             </Button>
           </DialogFooter>
         </form>

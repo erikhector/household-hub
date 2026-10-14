@@ -22,6 +22,7 @@ import {
   type MappingResolution,
 } from "@/app/dashboard/shopping-list/actions";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type UnresolvedItem = { id: string; name: string };
 type InventoryItemOption = { id: string; name: string; category: string };
@@ -239,7 +240,7 @@ export function ResolveMappingsDialog({
             {dict.cancel}
           </Button>
           <Button type="button" onClick={handleApply} disabled={pending}>
-            {pending ? dict.applying : dict.apply}
+            <PendingLabel pending={pending} busy={dict.applying} idle={dict.apply} />
           </Button>
         </DialogFooter>
       </DialogContent>

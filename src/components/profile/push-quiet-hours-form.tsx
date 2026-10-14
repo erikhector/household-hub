@@ -16,6 +16,7 @@ import { clearPushQuietHoursAction, setPushQuietHoursAction } from "@/lib/action
 import type { ActionState } from "@/lib/actions/auth";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 // A sensible first suggestion for someone who's never set quiet hours:
 // most people who want this want "not while I'm asleep".
@@ -138,7 +139,7 @@ export function PushQuietHoursForm({
       {state.error && <p className="text-sm text-destructive">{dict.error}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" disabled={pending || sameHours}>
-          {saving ? dict.saving : dict.save}
+          <PendingLabel pending={saving} busy={dict.saving} idle={dict.save} />
         </Button>
         {active && (
           <Button type="button" variant="outline" size="sm" onClick={handleClear} disabled={pending}>

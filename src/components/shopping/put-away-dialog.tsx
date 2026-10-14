@@ -18,6 +18,7 @@ import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export type PutAwayItem = {
   id: string;
@@ -281,7 +282,7 @@ export function PutAwayDialog({
             </Button>
           )}
           <Button type="button" disabled={pending} onClick={() => submit(finishing)}>
-            {pending ? t.confirming : finishing ? t.finishConfirm : confirmLabel}
+            <PendingLabel pending={pending} busy={t.confirming} idle={finishing ? t.finishConfirm : confirmLabel} />
           </Button>
         </DialogFooter>
       </DialogContent>

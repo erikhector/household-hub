@@ -18,6 +18,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import { NOTE_BODY_MAX_LENGTH } from "@/lib/household-notes";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 type NotesDict = Dictionary["household"]["notes"];
 
@@ -91,7 +92,7 @@ export function HouseholdNotes({
         />
         <div className="flex justify-end">
           <Button type="submit" variant="secondary" disabled={pending || body.trim().length === 0}>
-            {pending ? dict.adding : dict.add}
+            <PendingLabel pending={pending} busy={dict.adding} idle={dict.add} />
           </Button>
         </div>
       </form>

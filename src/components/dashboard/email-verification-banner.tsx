@@ -23,6 +23,7 @@ import { MailWarning, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resendVerificationEmailAction, type ResendVerificationState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 export const EMAIL_VERIFICATION_DISMISSED_COOKIE = "email_verification_dismissed";
 
@@ -56,7 +57,7 @@ export function EmailVerificationBanner({ dict }: { dict: Dictionary["emailVerif
           disabled={pending || state.sent}
           className="h-7 border-warning/30 bg-transparent text-xs text-warning hover:bg-warning/10"
         >
-          {pending ? dict.resending : dict.resend}
+          <PendingLabel pending={pending} busy={dict.resending} idle={dict.resend} />
         </Button>
       </form>
       <Button

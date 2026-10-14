@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPasswordResetAction, type RequestPasswordResetState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { PendingLabel } from "@/components/ui/pending-label";
 
 const initialState: RequestPasswordResetState = {};
 
@@ -55,7 +56,7 @@ export function ForgotPasswordForm({ dict }: { dict: Dictionary["auth"]["forgotP
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
       <Button type="submit" disabled={pending} className="w-full">
         <Send className="size-4" />
-        {pending ? dict.sending : dict.submit}
+        <PendingLabel pending={pending} busy={dict.sending} idle={dict.submit} />
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/login" className="touch-target font-medium text-primary underline underline-offset-4">
