@@ -284,6 +284,35 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
+### Dependencies
+
+- [ ] **DEPS-1. Upgrade Next.js 16.3.4 → 16.4.0 (critical advisories)** (impact: high, effort: S) —
+      `npm audit --omit=dev` flags `next` as critical: RCE in `next/og`
+      `ImageResponse` (GHSA-vcvr-r3jv-pc5j), plus cache poisoning of SSG/ISR
+      pages, SSRF in Image Optimization and a Draft Mode leak, all fixed in
+      16.4.0. Bump `next` and `eslint-config-next` together (16.4.0). Check
+      the version-matched guide in `node_modules/next/dist/docs/` for
+      breaking changes.
+      Acceptance: `npm audit --omit=dev` no longer lists `next`;
+      `npm run ci:local` is green.
+
+- [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
+      `brace-expansion` (under `glob`), `sharp`, `source-map-js` (all high)
+      and `fast-uri` (moderate) all have fixes available via
+      `npm audit fix` or an `overrides` entry. Leave the Prisma-owned
+      `mysql2`/`deepmerge-ts`/`@prisma/config` findings to SEC-12.
+      Acceptance: `npm audit --omit=dev` lists only the SEC-12 findings;
+      `npm run check && npm run build` is green.
+
+- [ ] **DEPS-3. Bump patch/minor dependencies in one PR** (impact: low, effort: S) —
+      `@base-ui/react` 1.8→1.9, `@sentry/nextjs` 10.73→10.76, `@upstash/redis`
+      1.38→1.39, `@vercel/functions` 3.9→3.10, `lucide-react` 1.43→1.57,
+      `pg` 8.23.0→8.23.1, `resend` 6.26→6.33, `shadcn` 4.21.0→4.21.5,
+      `vitest` 5.0.0→5.0.4, `zod` 4.5→4.6, `@types/react(-dom)` 19.3, `@types/node`
+      22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
+      19.3 is fine to include if `check` passes); each needs its own item.
+      Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
