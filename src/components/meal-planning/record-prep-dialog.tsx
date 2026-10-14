@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,17 @@ export function RecordPrepDialog({
   const allChosen = dishes.every((dish) => dish.recipeId !== "");
 
   const [state, formAction, pending] = useActionState(async (prevState: ActionState, formData: FormData) => {
-    const result = await recordPrepAction(prevState, formData);
+    // M8: a dropped connection rejects the action. Caught here (as
+    // plan-portions-dialog.tsx does) so the dialog shows the error and the
+    // reviewed checklist stays filled in, instead of the error boundary
+    // replacing the tab.
+    let result: Awaited<ReturnType<typeof recordPrepAction>>;
+    try {
+      result = await recordPrepAction(prevState, formData);
+    } catch (error) {
+      unstable_rethrow(error);
+      return { error: dict.prepConnectionError };
+    }
     if (!result.error && result.undo) {
       setOpen(false);
       const { undo } = result;
@@ -118,15 +128,30 @@ export function RecordPrepDialog({
               // (a portion is planned already), and then the prep stands
               // and its items are still low, so their rows must stay.
               void (async () => {
-                const undoResult = await undoRecordPrepAction(undo);
+                // Offline, a failed undo would otherwise fail silently.
+                let undoResult: ActionState;
+                try {
+                  undoResult = await undoRecordPrepAction(undo);
+                } catch (error) {
+                  unstable_rethrow(error);
+                  toast.error(dict.prepConnectionError);
+                  return;
+                }
                 if (undoResult.error) {
                   toast.error(undoResult.error);
                   return;
                 }
-                const undoAutoAddResult: ActionState =
-                  undo.autoAdded.length > 0
-                    ? await undoAutoAddedItemsAction(undo.autoAdded.map((added) => added.shoppingListItemId))
-                    : {};
+                let undoAutoAddResult: ActionState = {};
+                try {
+                  if (undo.autoAdded.length > 0) {
+                    undoAutoAddResult = await undoAutoAddedItemsAction(
+                      undo.autoAdded.map((added) => added.shoppingListItemId),
+                    );
+                  }
+                } catch (error) {
+                  unstable_rethrow(error);
+                  undoAutoAddResult = { error: dict.prepConnectionError };
+                }
                 if (undoAutoAddResult.error) toast.error(undoAutoAddResult.error);
                 else toast.success(dict.prepRecordUndoneToast);
                 // The prep itself was undone either way.
@@ -163,9 +188,18 @@ export function RecordPrepDialog({
   function goToReview() {
     setPreviewError(null);
     startPreviewTransition(async () => {
-      const result = await previewPrepIngredientsAction(
-        dishes.map((dish) => ({ recipeId: dish.recipeId, portions: dish.portions })),
-      );
+      // M8: offline, the rejection would reach the error boundary and lose
+      // the dishes entered so far; show it in the dialog instead.
+      let result: Awaited<ReturnType<typeof previewPrepIngredientsAction>>;
+      try {
+        result = await previewPrepIngredientsAction(
+          dishes.map((dish) => ({ recipeId: dish.recipeId, portions: dish.portions })),
+        );
+      } catch (error) {
+        unstable_rethrow(error);
+        setPreviewError(dict.prepConnectionError);
+        return;
+      }
       if ("error" in result) setPreviewError(result.error);
       else setItems(toReviewItems(result.items));
     });

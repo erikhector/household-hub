@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { CalendarPlus, CookingPot, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -148,13 +148,20 @@ function BatchCard({
       action: {
         label: dict.prepUndo,
         onClick: () => {
-          void undoDiscardBatchAction(snapshot).then((undoResult) => {
-            if (undoResult.error) toast.error(undoResult.error);
-            else {
-              toast.success(dict.prepDiscardUndoneToast);
-              router.refresh();
-            }
-          });
+          void undoDiscardBatchAction(snapshot).then(
+            (undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else {
+                toast.success(dict.prepDiscardUndoneToast);
+                router.refresh();
+              }
+            },
+            // Offline, a failed undo would otherwise fail silently.
+            (error) => {
+              unstable_rethrow(error);
+              toast.error(dict.prepConnectionError);
+            },
+          );
         },
       },
     });
