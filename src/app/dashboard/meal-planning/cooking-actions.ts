@@ -47,12 +47,6 @@ const MAX_MISSING_INGREDIENT_UNIT_LENGTH = 20;
 // MAX_MISSING_INGREDIENTS_RANGE_DAYS of meals), not one recipe's ingredients.
 const MAX_MISSING_INGREDIENT_ROWS = 300;
 
-// Inventory quantities are stored to at most 2 decimal places (matches the
-// precision cooked-ingredients.ts already suggests in the confirm dialog).
-// cook-inventory.ts applies round2 (src/lib/math.ts) to both the submitted
-// decrement/increment amount and the resulting stored quantity to keep float arithmetic (e.g. 0.1 - 0.03) from drifting
-// into long repeating decimals like 0.06999999999999999.
-
 // --- Meal-plan → shopping-list bridge ---------------------------------------
 //
 // Diffs the planned recipe ingredients in a date range against current

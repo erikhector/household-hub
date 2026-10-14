@@ -1403,8 +1403,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   `expiryDate`. Recorded by a prep session or by a cook's "Servings left
   over" (GAP-8). A `MealPlanEntry` can draw portions from one via
   `preparedBatchId` + `preparedPortionsUsed` (0 when it draws none).
-  Deleting the recipe deletes its batches; deleting a batch only unlinks
-  the entries, and a departing member leaves the batch unattributed.
+  Deleting the recipe deletes its batches (unlinking their entries
+  first); deleting a batch only unlinks the entries, and a departing member leaves the batch unattributed.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -3159,7 +3159,8 @@ where this feature has none.
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
-between "Planner" and "Recipes" — no new route needed for the split) covers
+between four tabs, "Planner", "Recipes", "Cook now" and "Meal prep" — no
+new route needed for the split) covers
 the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 
 - **Recipes**: full CRUD (`createRecipeAction` / `updateRecipeAction` /
@@ -3390,7 +3391,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   with one `createManyAndReturn`. The toast shows how many meals were
   copied, with an Undo that calls `undoCopyWeekAction(entryIds)`. That
   deletes exactly those ids, scoped to the household and to entries not
-  marked cooked since. When last week has nothing to copy, the toast says
+  marked cooked, or linked to a prepared batch (GAP-49), since: either
+  makes the entry real, and deleting a linked one would lose the batch's
+  portions. When last week has nothing to copy, the toast says
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
@@ -4149,8 +4152,14 @@ landed earlier (PR #179, see the data model above). No browser storage.
   whole transaction (the entry write too) rolls back, and the action
   returns the translated generic error, "Something went wrong. Please try
   again.", without reporting it to Sentry: it's an expected race, and the
-  household just retries. A batch already gone (deleted with its recipe,
-  `SetNull`) has nothing to take portions back.
+  household just retries. A batch already gone has nothing to take
+  portions back.
+- **Deleting the recipe.** `deleteRecipeAction` deletes the recipe's
+  batches with it (cascade), but first, in the same transaction, unlinks
+  every entry eating from them (`preparedBatchId` null and
+  `preparedPortionsUsed` 0), since the FK's `SetNull` alone would clear
+  only the id and leave the pair out of step. The meals stay planned and
+  cook fresh.
 - **Record prep.** The tab's full-width "Record prep" button
   (`RecordPrepDialog`, `record-prep-dialog.tsx`) opens a two-step dialog:
   dish rows (recipe select, a `PortionStepper` defaulting to the recipe's
@@ -4174,13 +4183,17 @@ landed earlier (PR #179, see the data model above). No browser storage.
   one-dish prep, a "Plan portions" shortcut. **Undo**
   (`undoRecordPrepAction`) deletes the batches and credits the rows back
   (`creditCookedIngredients`), and the client takes the auto-added rows
-  off "Next shop" with `undoAutoAddedItemsAction`, as mark-cooked does. It
+  off "Next shop" with `undoAutoAddedItemsAction`, as mark-cooked does,
+  but only after the prep undo has succeeded: the two run in sequence, so
+  a refused undo leaves the prep and its "Next shop" rows in place and
+  toasts the refusal. It
   is idempotent (batches already gone credit nothing) and **refuses** with
   "Some of these portions are already planned. Unplan them first." once
   any portion is on the plan: by then the prep is real, and undoing it
   would silently unplan meals. Like mark-cooked's undo, a deduction that
   was clamped at 0 is credited back in full.
-- **Plan portions.** Each batch card's primary action opens
+- **Plan portions.** Each batch card's primary action (disabled while the
+  batch has no portions left) opens
   `PlanPortionsDialog` (`plan-portions-dialog.tsx`), starting on the week
   of the later of today and the cook date. It reads weeks itself with
   `loadPlanSlotsAction` rather than the page's `?week=`, so paging weeks
@@ -4193,10 +4206,11 @@ landed earlier (PR #179, see the data model above). No browser storage.
   prepped food can't be eaten in the past (the server would still accept
   such a slot, harmlessly). A selected slot gets a portions stepper
   (default 1), and a live "3 of 5 left after this" counter turns into
-  "2 portions too many — only 5 left" and disables save when over. One
-  save is at most 28 slots (`assignPortionsSchema`, a week of four meals
-  a day); the dialog doesn't guard it, so a 29th is rejected by the
-  server as invalid input. When a save fails (out of portions, a slot
+  "2 portions too many — only 5 left" and disables save when over. Each
+  save is capped at 28 selected slots in total, however many weeks they
+  span (`assignPortionsSchema`; 28 is one week of four meals a day). The
+  dialog doesn't guard the cap, so a save with a 29th slot is rejected by
+  the server as invalid input. When a save fails (out of portions, a slot
   taken since it was read), nothing was written, so the dialog reloads
   the week and drops selections that are no longer selectable. When the
   request never arrives (offline, weak signal), loading and saving both
@@ -4246,12 +4260,15 @@ landed earlier (PR #179, see the data model above). No browser storage.
   which also rejects `remainingPortions` above `totalPortions`), re-checks
   the recipe and the cook against the household (a cook who left since is
   dropped, unattributed), and recreates the batch under its old id; a
-  repeated Undo finds it back and does nothing. It re-links only entries
-  that are still the household's, still unlinked, and still the batch's
-  dish and portion count, so an entry edited after the discard keeps its
-  new state rather than breaking the linked-entry invariant. An entry that
-  can't be re-linked has its portions returned to the batch instead of
-  vanishing. A malformed or no-longer-fitting snapshot is a silent no-op.
+  repeated Undo finds it back and does nothing. The snapshot records
+  whether each entry was already eaten at the discard. It re-links only
+  entries that are still the household's, still unlinked, still the
+  batch's dish and portion count, and still eaten or uneaten as they were,
+  so an entry edited after the discard keeps its new state rather than
+  breaking the linked-entry invariant, and an uneaten one cooked fresh
+  since isn't claimed by the batch. An entry that can't be re-linked has
+  its portions returned to the batch instead of vanishing, unless it was
+  eaten at the discard: those portions were spent then. A malformed or no-longer-fitting snapshot is a silent no-op.
 - **Home dashboard card.** `src/app/dashboard/page.tsx` shows a "Meal
   prep" card only when some active batch has portions left: up to three,
   soonest eat-by first, each with "5 of 8 portions left · Eat by <day>"

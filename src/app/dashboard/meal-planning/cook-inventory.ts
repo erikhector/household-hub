@@ -20,6 +20,13 @@ export const MAX_INGREDIENT_QUANTITY = 1_000_000;
 
 type CookedRow = { itemId: string; quantity: number };
 
+// Inventory quantities are stored to at most 2 decimal places (matches the
+// precision cooked-ingredients.ts already suggests in the confirm dialog).
+// The helpers below apply round2 (src/lib/math.ts) to both the submitted
+// decrement/increment amount and the resulting stored quantity, to keep
+// float arithmetic (e.g. 0.1 - 0.03) from drifting into long repeating
+// decimals like 0.06999999999999999.
+
 // Read-only: which of a recipe's ingredients resolve to an inventory item, and
 // how much of each a cook would use. No rows are written.
 export async function previewCookedIngredientsForRecipe(
