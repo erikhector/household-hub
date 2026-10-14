@@ -19,7 +19,9 @@ export function PrimaryAction({ children }: { children: ReactNode }) {
   return (
     <div
       data-primary-action=""
-      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+0.75rem)] max-sm:z-30 max-sm:[&_button]:h-12 max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 print:hidden"
+      // max-w + whitespace-normal + min-h: a long Swedish label at 200% text
+      // wraps inside the screen instead of running off its left edge.
+      className="max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom))+0.75rem)] max-sm:z-30 max-sm:max-w-[calc(100vw-2rem)] max-sm:[&_button]:h-auto max-sm:[&_button]:min-h-12 max-sm:[&_button]:max-w-full max-sm:[&_button]:rounded-full max-sm:[&_button]:px-5 max-sm:[&_button]:whitespace-normal print:hidden"
     >
       {children}
     </div>

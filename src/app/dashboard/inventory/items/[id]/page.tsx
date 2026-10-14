@@ -109,7 +109,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           {backLabel}
         </Link>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <PageTitle className="break-words">{item.name}</PageTitle>
+          <PageTitle>{item.name}</PageTitle>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

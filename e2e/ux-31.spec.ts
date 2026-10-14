@@ -37,7 +37,9 @@ test("an unread notification says 'Unread' in text, not only with a dot", async 
   }
 });
 
-test("long list names clamp to two lines on phones and one on desktop", async ({ page }, testInfo) => {
+test("long list names clamp to two lines on phones and one on desktop", async ({ page, context, baseURL }, testInfo) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   const name = `Clamp ${Date.now().toString(36)} ${"very long name ".repeat(12)}`.trim();
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();
@@ -54,7 +56,9 @@ test("long list names clamp to two lines on phones and one on desktop", async ({
   expect(clamp).toBe(testInfo.project.name === "mobile" ? "2" : "1");
 });
 
-test("new list name does not autofill", async ({ page }) => {
+test("new list name does not autofill", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();
   await expect(page.getByRole("textbox", { name: "Name" })).toHaveAttribute("autocomplete", "off");

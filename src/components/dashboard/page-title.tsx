@@ -17,7 +17,7 @@ const subscribeNoop = () => () => {};
 // eating the screen. Tapping the compact title scrolls back to the top, which
 // also brings the household switcher back. On desktop the slot's header is
 // `sm:hidden`, so this is just the H1.
-export function PageTitle({ children, className }: { children: ReactNode; className?: string }) {
+export function PageTitle({ children }: { children: ReactNode }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -70,10 +70,9 @@ export function PageTitle({ children, className }: { children: ReactNode; classN
       <h1
         ref={titleRef}
         tabIndex={-1}
-        className={cn(
-          "font-heading text-2xl font-semibold tracking-tight outline-none max-sm:text-3xl",
-          className,
-        )}
+        // break-words: a long name (the overview greeting, an item) or a
+        // long Swedish word at 200% text would otherwise widen the page.
+        className="font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl"
       >
         {children}
       </h1>

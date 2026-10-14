@@ -124,7 +124,7 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <PageTitle className="break-words">
+        <PageTitle>
           {format(dict.dashboard.greeting[greetingKey(now)], { name: user.displayName })}
         </PageTitle>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
