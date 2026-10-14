@@ -94,7 +94,7 @@ describe("prepUndoSchema / discardSnapshotSchema", () => {
       cookedAt: "2026-10-11T18:00:00.000Z",
       expiryDate: "2026-10-14T18:00:00.000Z",
     },
-    entries: [{ id: "e1", portions: 5 }],
+    entries: [{ id: "e1", portions: 5, consumed: false }],
   };
   it("round-trips a valid payload", () => {
     expect(prepUndoSchema.parse(undo)).toEqual(undo);
@@ -102,6 +102,9 @@ describe("prepUndoSchema / discardSnapshotSchema", () => {
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, expiryDate: null } }).success).toBe(true);
     // A batch whose cook has left the household (cookedByMemberId SetNull).
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, cookedByMemberId: null } }).success).toBe(true);
+  });
+  it("requires each entry to say whether it was eaten", () => {
+    expect(discardSnapshotSchema.safeParse({ ...snapshot, entries: [{ id: "e1", portions: 5 }] }).success).toBe(false);
   });
   it("rejects a non-ISO date", () => {
     expect(discardSnapshotSchema.safeParse({ ...snapshot, batch: { ...snapshot.batch, cookedAt: "yesterday" } }).success).toBe(false);

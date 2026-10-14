@@ -180,8 +180,9 @@ and sv.
   `remainingPortions` just read; a lost race rolls back and answers with
   the generic "Something went wrong" error so the household retries.
 - **Undo discard re-links only entries that still fit** (same household,
-  unlinked, same dish and portions); the rest have their portions returned
-  to the batch.
+  unlinked, same dish and portions, and eaten or uneaten as at the
+  discard); the rest have their portions returned to the batch, except
+  entries already eaten at the discard, whose portions were spent.
 - **"Mark as eaten"** is the linked entry's cook action (not "Eaten"), and
   its dialog posts no ingredient rows.
 - **Mixed units in the prep preview**: a merged row whose dishes use

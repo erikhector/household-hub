@@ -170,7 +170,9 @@ export type DiscardSnapshot = {
     cookedAt: string;
     expiryDate: string | null;
   };
-  entries: { id: string; portions: number }[];
+  // `consumed`: the entry was already eaten when the batch was discarded,
+  // so its portions were spent then (see undoDiscardBatchAction).
+  entries: { id: string; portions: number; consumed: boolean }[];
 };
 
 export const discardSnapshotSchema = z.object({
@@ -190,6 +192,7 @@ export const discardSnapshotSchema = z.object({
       z.object({
         id: z.string().min(1),
         portions: z.number().int().min(1).max(MAX_LEFTOVER_SERVINGS),
+        consumed: z.boolean(),
       }),
     )
     .max(MAX_ASSIGN_SLOTS * 4),

@@ -408,7 +408,7 @@ export async function discardBatchAction(
       const linkedWhere = { preparedBatchId: batch.id, mealPlan: { householdId: household.id } };
       const entries = await tx.mealPlanEntry.findMany({
         where: linkedWhere,
-        select: { id: true, preparedPortionsUsed: true },
+        select: { id: true, preparedPortionsUsed: true, consumedAt: true },
       });
       // The FK's SetNull would clear the link on delete anyway; resetting
       // here also zeroes preparedPortionsUsed so the pair stays in step.
@@ -428,7 +428,7 @@ export async function discardBatchAction(
         // snapshot schema only takes positive portions).
         entries: entries
           .filter((e) => e.preparedPortionsUsed > 0)
-          .map((e) => ({ id: e.id, portions: e.preparedPortionsUsed })),
+          .map((e) => ({ id: e.id, portions: e.preparedPortionsUsed, consumed: e.consumedAt !== null })),
       };
     });
   } catch (error) {
@@ -487,12 +487,16 @@ export async function undoDiscardBatchAction(snapshot: DiscardSnapshot): Promise
         },
       });
 
-      // Only entries that are still this household's, still free, and still
-      // the same dish and size are re-linked, so a linked entry keeps
+      // Only entries that are still this household's, still free, still
+      // the same dish and size, and still eaten or uneaten as they were at
+      // the discard are re-linked, so a linked entry keeps
       // recipeId = batch.recipeId and portions = preparedPortionsUsed even
-      // if it was edited after the discard (or the snapshot is forged). One
-      // that no longer matches keeps its new state, and its portions go
-      // back to the batch instead of vanishing.
+      // if it was edited after the discard (or the snapshot is forged). The
+      // eaten state matters too: an uneaten entry cooked fresh since used
+      // its own ingredients, and linking it would say it ate from the
+      // batch. One that no longer matches keeps its new state. If it was
+      // uneaten at the discard, its portions go back to the batch instead
+      // of vanishing; if it was eaten, they were spent then, and stay spent.
       let unclaimed = 0;
       for (const entry of entries) {
         const relinked = await tx.mealPlanEntry.updateMany({
@@ -502,10 +506,11 @@ export async function undoDiscardBatchAction(snapshot: DiscardSnapshot): Promise
             preparedBatchId: null,
             recipeId: batch.recipeId,
             portions: entry.portions,
+            consumedAt: entry.consumed ? { not: null } : null,
           },
           data: { preparedBatchId: batch.id, preparedPortionsUsed: entry.portions },
         });
-        if (relinked.count === 0) unclaimed += entry.portions;
+        if (relinked.count === 0 && !entry.consumed) unclaimed += entry.portions;
       }
       if (unclaimed > 0) {
         await tx.preparedBatch.updateMany({

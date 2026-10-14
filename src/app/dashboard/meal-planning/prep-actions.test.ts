@@ -756,8 +756,8 @@ describe("discardBatchAction", () => {
   beforeEach(() => {
     preparedBatchFindFirstMock.mockResolvedValue(stored);
     mealPlanEntryFindManyMock.mockResolvedValue([
-      { id: "entry-1", preparedPortionsUsed: 2 },
-      { id: "entry-2", preparedPortionsUsed: 3 },
+      { id: "entry-1", preparedPortionsUsed: 2, consumedAt: null },
+      { id: "entry-2", preparedPortionsUsed: 3, consumedAt: new Date("2026-10-12T18:00:00.000Z") },
     ]);
     mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 2 });
     preparedBatchDeleteManyMock.mockResolvedValue({ count: 1 });
@@ -771,7 +771,7 @@ describe("discardBatchAction", () => {
     );
     expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith({
       where: { preparedBatchId: "batch-1", mealPlan: { householdId: household.id } },
-      select: { id: true, preparedPortionsUsed: true },
+      select: { id: true, preparedPortionsUsed: true, consumedAt: true },
     });
     expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
       where: { preparedBatchId: "batch-1", mealPlan: { householdId: household.id } },
@@ -783,7 +783,7 @@ describe("discardBatchAction", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
   });
 
-  it("returns a snapshot", async () => {
+  it("returns a snapshot, recording which entries were already eaten", async () => {
     const result = await discardBatchAction("batch-1");
 
     expect(result).toEqual({
@@ -798,8 +798,8 @@ describe("discardBatchAction", () => {
           expiryDate: "2026-10-14T18:00:00.000Z",
         },
         entries: [
-          { id: "entry-1", portions: 2 },
-          { id: "entry-2", portions: 3 },
+          { id: "entry-1", portions: 2, consumed: false },
+          { id: "entry-2", portions: 3, consumed: true },
         ],
       },
     });
@@ -826,8 +826,8 @@ describe("undoDiscardBatchAction", () => {
       expiryDate: "2026-10-14T18:00:00.000Z",
     },
     entries: [
-      { id: "entry-1", portions: 2 },
-      { id: "entry-2", portions: 3 },
+      { id: "entry-1", portions: 2, consumed: false },
+      { id: "entry-2", portions: 3, consumed: false },
     ],
   };
 
@@ -866,6 +866,7 @@ describe("undoDiscardBatchAction", () => {
         preparedBatchId: null,
         recipeId: "recipe-a",
         portions: 2,
+        consumedAt: null,
       },
       data: { preparedBatchId: "batch-1", preparedPortionsUsed: 2 },
     });
@@ -876,6 +877,7 @@ describe("undoDiscardBatchAction", () => {
         preparedBatchId: null,
         recipeId: "recipe-a",
         portions: 3,
+        consumedAt: null,
       },
       data: { preparedBatchId: "batch-1", preparedPortionsUsed: 3 },
     });
@@ -912,6 +914,47 @@ describe("undoDiscardBatchAction", () => {
       where: { id: "batch-1", householdId: household.id },
       data: { remainingPortions: 5 },
     });
+  });
+
+  // An entry that was uneaten at discard time and has been cooked fresh
+  // since used its own ingredients: linking it would claim it ate from the
+  // batch. It stays unlinked and its portions go back to the batch.
+  it("doesn't re-link an entry cooked fresh since the discard, and returns its portions", async () => {
+    mealPlanEntryUpdateManyMock.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      count: where.id === "entry-1" ? 0 : 1,
+    }));
+
+    await undoDiscardBatchAction(snapshot);
+
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "entry-1", consumedAt: null }),
+      data: { preparedBatchId: "batch-1", preparedPortionsUsed: 2 },
+    });
+    expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id },
+      data: { remainingPortions: 5 },
+    });
+  });
+
+  // An entry eaten at discard time already spent its portions. It is
+  // re-linked only while still eaten, and if it can't be (un-marked or
+  // edited since), its portions don't come back: they were eaten.
+  it("re-links an entry eaten at discard time only while still eaten, never returning its portions", async () => {
+    const withEaten = {
+      ...snapshot,
+      entries: [snapshot.entries[0], { id: "entry-2", portions: 3, consumed: true }],
+    };
+    mealPlanEntryUpdateManyMock.mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      count: where.id === "entry-2" ? 0 : 1,
+    }));
+
+    await undoDiscardBatchAction(withEaten);
+
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "entry-2", consumedAt: { not: null } }),
+      data: { preparedBatchId: "batch-1", preparedPortionsUsed: 3 },
+    });
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
   });
 
   it("drops a cook who is no longer a household member", async () => {
