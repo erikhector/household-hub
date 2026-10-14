@@ -15,6 +15,7 @@ import {
   PrepAssignError,
   returnEntryPortionsInTx,
 } from "@/app/dashboard/meal-planning/prep-assign";
+import { weekKeySchema } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 
 const MEAL_PLANNING_PATH = "/dashboard/meal-planning";
 
@@ -362,18 +363,6 @@ export async function deleteMealEntryAction(entryId: string) {
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
 }
-
-// A week key must be a real `yyyy-mm-dd` date *and* a Monday. The planner
-// only ever addresses weeks by their Monday (see getWeekStart), and a
-// non-Monday key here would re-date entries onto the wrong days and write a
-// MealPlan row whose weekStartDate no page view would ever look up.
-const weekKeySchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidWeek"))
-  .refine((key) => {
-    const date = parseDateKey(key);
-    return !Number.isNaN(date.getTime()) && toDateKey(getWeekStart(date)) === key;
-  }, v("invalidWeek"));
 
 const copyWeekSchema = z
   .object({ fromWeekStart: weekKeySchema, toWeekStart: weekKeySchema })

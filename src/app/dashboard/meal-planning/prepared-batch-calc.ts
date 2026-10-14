@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { v } from "@/lib/actions/errors";
-import { isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { LEFTOVERS_SHELF_LIFE_DAYS, MAX_LEFTOVER_SERVINGS } from "@/app/dashboard/meal-planning/leftovers";
 import { MEAL_TYPES } from "@/app/dashboard/meal-planning/meal-types";
 import type { AutoAddedItem } from "@/lib/shopping/default-list";
@@ -32,6 +32,21 @@ const dateKey = z
     (key) => isDateKey(key) && toDateKey(parseDateKey(key)) === key,
     v("invalidDate"),
   );
+
+// A week key must be a real `yyyy-mm-dd` date *and* a Monday. The planner
+// only ever addresses weeks by their Monday (see getWeekStart), and a
+// non-Monday key here would re-date entries onto the wrong days and write a
+// MealPlan row whose weekStartDate no page view would ever look up. Shared
+// by planner-actions.ts (copy week, fill empty days) and prep-actions.ts
+// (the Plan portions dialog's week read); it lives here because a
+// "use server" file may only export async functions.
+export const weekKeySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidWeek"))
+  .refine((key) => {
+    const date = parseDateKey(key);
+    return !Number.isNaN(date.getTime()) && toDateKey(getWeekStart(date)) === key;
+  }, v("invalidWeek"));
 
 // Strict ISO instant, as produced by Date#toISOString — the undo/discard
 // payloads round-trip through the client, so reject anything else.

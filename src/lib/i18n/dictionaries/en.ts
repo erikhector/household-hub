@@ -1838,6 +1838,23 @@ export const en = {
       other: "Recorded {dishes} · {portions} portions",
     },
     prepRecordUndoneToast: "Undone — inventory restored",
+    // The Plan portions dialog: spreading a batch's portions over the week.
+    prepPlanDialogTitle: "Plan portions of {recipe}",
+    prepPlanDialogHint: "Tick the meals that eat from this batch. Slots with something else planned are greyed out.",
+    prepSlotPortions: "Portions for {meal}, {day}",
+    prepLeftAfter: "{left} of {remaining} left after this",
+    prepTooManyPortions: {
+      one: "{count} portion too many — only {remaining} left",
+      other: "{count} portions too many — only {remaining} left",
+    },
+    prepLoadingWeek: "Loading the week…",
+    prepRetry: "Try again",
+    prepPlanSubmit: "Plan portions",
+    prepPlanning: "Planning…",
+    prepPlannedToast: {
+      one: "Planned {count} portion",
+      other: "Planned {count} portions",
+    },
   },
   tasks: {
     title: "Tasks",

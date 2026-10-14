@@ -493,7 +493,6 @@ async function PrepTabSection({
       batches={batches}
       recipes={recipeRows}
       maxDishes={MAX_PREP_DISHES}
-      plannerWeekStartKey={weekStartKey}
     />
   );
 }

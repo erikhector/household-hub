@@ -63,6 +63,7 @@ export function RecordPrepDialog({
   dict,
   recipes,
   maxDishes,
+  onPlanPortions,
 }: {
   dict: MealPlanningDict;
   recipes: RecipeData[];
@@ -70,6 +71,8 @@ export function RecordPrepDialog({
   // prepared-batch-calc.ts pulls in the server error helpers (Sentry, the
   // English dictionary), which have no business in the client bundle.
   maxDishes: number;
+  // Opens the Plan portions dialog for a batch this prep just recorded.
+  onPlanPortions: (batchId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -89,6 +92,15 @@ export function RecordPrepDialog({
       const { undo } = result;
       const portions = result.portions ?? 0;
       const dishCount = result.dishCount ?? 0;
+      // Planning the portions is the natural next step, offered in Sonner's
+      // second button slot (as Mark as cooked offers "Plan leftovers") when
+      // there's one batch to plan. With several dishes there's no one batch
+      // the button could mean; each card has its own Plan portions.
+      const [onlyBatchId] = undo.batchIds;
+      const planPortions =
+        undo.batchIds.length === 1
+          ? { label: dict.prepPlanPortions, onClick: () => onPlanPortions(onlyBatchId) }
+          : undefined;
       toast.success(
         format(plural(portions, dict.prepRecordedToast), {
           dishes: format(plural(dishCount, dict.prepDishCount), { count: dishCount }),
@@ -96,6 +108,7 @@ export function RecordPrepDialog({
         }),
         {
           duration: 8000,
+          cancel: planPortions,
           action: {
             label: dict.prepUndo,
             onClick: () => {

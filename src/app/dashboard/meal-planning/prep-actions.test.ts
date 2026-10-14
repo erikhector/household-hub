@@ -83,7 +83,7 @@ vi.mock("@/lib/prisma", () => ({
     inventoryItem: { findMany: inventoryItemFindManyMock },
     householdMember: { findUnique: householdMemberFindUniqueMock },
     preparedBatch: { findFirst: preparedBatchFindFirstMock },
-    mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock },
+    mealPlanEntry: { findFirst: mealPlanEntryFindFirstMock, findMany: mealPlanEntryFindManyMock },
     $transaction: transactionMock,
   },
 }));
@@ -111,6 +111,7 @@ const {
   unassignBatchPortionAction,
   discardBatchAction,
   undoDiscardBatchAction,
+  loadPlanSlotsAction,
 } = await import("@/app/dashboard/meal-planning/prep-actions");
 
 const household = { id: "household-1" };
@@ -953,5 +954,76 @@ describe("undoDiscardBatchAction", () => {
     }
     expect(recipeFindFirstMock).not.toHaveBeenCalled();
     expect(preparedBatchCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadPlanSlotsAction", () => {
+  it("rejects a non-Monday key", async () => {
+    // 2026-10-14 is a Wednesday.
+    for (const key of ["2026-10-14", "2026-13-01", "not-a-date"]) {
+      expect(await loadPlanSlotsAction(key)).toEqual({ error: "Invalid week" });
+    }
+    expect(mealPlanEntryFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes by household and maps each entry to its slot", async () => {
+    mealPlanEntryFindManyMock.mockResolvedValue([
+      {
+        date: new Date("2026-10-12T00:00:00.000Z"),
+        mealType: "DINNER",
+        recipeId: "recipe-a",
+        freeformName: null,
+        preparedBatchId: "batch-1",
+        consumedAt: null,
+        recipe: { name: "Lasagna" },
+      },
+      {
+        date: new Date("2026-10-13T00:00:00.000Z"),
+        mealType: "LUNCH",
+        recipeId: null,
+        freeformName: "Takeaway",
+        preparedBatchId: null,
+        consumedAt: new Date("2026-10-13T12:00:00.000Z"),
+        recipe: null,
+      },
+    ]);
+
+    const result = await loadPlanSlotsAction("2026-10-12");
+
+    expect(mealPlanEntryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          mealPlan: { householdId: household.id, weekStartDate: new Date("2026-10-12T00:00:00.000Z") },
+        },
+      }),
+    );
+    expect(result).toEqual({
+      entries: [
+        {
+          date: "2026-10-12",
+          mealType: "DINNER",
+          recipeId: "recipe-a",
+          label: "Lasagna",
+          preparedBatchId: "batch-1",
+          consumed: false,
+        },
+        {
+          date: "2026-10-13",
+          mealType: "LUNCH",
+          recipeId: null,
+          label: "Takeaway",
+          preparedBatchId: null,
+          consumed: true,
+        },
+      ],
+    });
+  });
+
+  it("returns a friendly error when the read fails", async () => {
+    mealPlanEntryFindManyMock.mockRejectedValue(new Error("db down"));
+
+    expect(await loadPlanSlotsAction("2026-10-12")).toEqual({
+      error: "Something went wrong. Please try again.",
+    });
   });
 });

@@ -28,10 +28,12 @@ import {
   portionsAfterReturn,
   prepUndoSchema,
   recordPrepSchema,
+  weekKeySchema,
   type DiscardSnapshot,
   type PrepUndo,
 } from "@/app/dashboard/meal-planning/prepared-batch-calc";
-import { parseDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import { parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
+import type { MealType } from "@/app/dashboard/meal-planning/meal-types";
 import {
   assignInTx,
   BatchChangedError,
@@ -278,6 +280,62 @@ export async function assignBatchPortionsAction(input: {
   revalidatePath(MEAL_PLANNING_PATH);
   revalidatePath("/dashboard");
   return {};
+}
+
+// --- Plan portions: one week's slots -------------------------------------------
+//
+// The Plan portions dialog walks week by week without leaving the Prep tab,
+// so it reads each week's entries itself rather than through the page's
+// ?week= param (which drives the Planner tab). Just enough per entry for the
+// dialog to tell a free or reusable slot (empty, or this dish planned fresh)
+// from a taken one, and to name what's in a taken one. assignInTx re-checks
+// every slot on save, so a slot that changes after this read still can't be
+// overwritten.
+export type PlanSlotEntry = {
+  date: string;
+  mealType: MealType;
+  recipeId: string | null;
+  label: string;
+  preparedBatchId: string | null;
+  consumed: boolean;
+};
+
+export async function loadPlanSlotsAction(
+  weekStartKey: string,
+): Promise<{ entries: PlanSlotEntry[] } | { error: string }> {
+  const { household } = await requireHousehold();
+
+  const parsed = weekKeySchema.safeParse(weekStartKey);
+  if (!parsed.success) return await zodFail(parsed.error);
+
+  try {
+    const entries = await prisma.mealPlanEntry.findMany({
+      where: { mealPlan: { householdId: household.id, weekStartDate: parseDateKey(parsed.data) } },
+      select: {
+        date: true,
+        mealType: true,
+        recipeId: true,
+        freeformName: true,
+        preparedBatchId: true,
+        consumedAt: true,
+        recipe: { select: { name: true } },
+      },
+      orderBy: [{ date: "asc" }, { id: "asc" }],
+    });
+    return {
+      entries: entries.map((entry) => ({
+        date: toDateKey(entry.date),
+        mealType: entry.mealType,
+        recipeId: entry.recipeId,
+        label: entry.recipe?.name ?? entry.freeformName ?? "",
+        preparedBatchId: entry.preparedBatchId,
+        consumed: entry.consumedAt !== null,
+      })),
+    };
+  } catch (error) {
+    const friendly = await toFriendlyError(error);
+    return { error: friendly.error ?? "" };
+  }
 }
 
 // Gives an entry's portions back to its batch and keeps the meal planned

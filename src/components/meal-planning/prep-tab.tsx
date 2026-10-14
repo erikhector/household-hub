@@ -9,6 +9,8 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ExpiryBadge } from "@/components/inventory/expiry-badge";
 import { RecordPrepDialog } from "@/components/meal-planning/record-prep-dialog";
+import { PlanPortionsDialog } from "@/components/meal-planning/plan-portions-dialog";
+import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { discardBatchAction, undoDiscardBatchAction } from "@/app/dashboard/meal-planning/prep-actions";
 import { format, plural } from "@/lib/i18n/format";
 import type { PreparedBatchData, RecipeData } from "@/components/meal-planning/types";
@@ -33,12 +35,16 @@ export function PrepTab({
   batches: PreparedBatchData[];
   recipes: RecipeData[];
   maxDishes: number;
-  // The week the Planner tab shows; the Plan portions dialog opens on it.
-  plannerWeekStartKey: string;
 }) {
-  // The batch whose Plan portions dialog is open. The dialog itself is the
-  // next step of GAP-49, so for now the button only records the choice.
-  const [, setPlanningBatch] = useState<PreparedBatchData | null>(null);
+  // The batch whose Plan portions dialog is open, by id: the batch itself is
+  // read from `batches` on every render, so its count stays current after a
+  // refresh, and the Record prep toast can open a batch it only knows the id
+  // of (recordPrepAction's revalidation has put it in `batches` by the time
+  // the toast shows). `openedAt` pins the dialog's first week for as long
+  // as it stays open.
+  const [planning, setPlanning] = useState<{ batchId: string; openedAt: number } | null>(null);
+  const planningBatch = planning && batches.find((batch) => batch.id === planning.batchId);
+  const openPlanning = (batchId: string) => setPlanning({ batchId, openedAt: Date.now() });
 
   // Batch dates are instants; formatted in UTC, as the planner formats its
   // days, so the server render and every browser name the same day.
@@ -69,7 +75,7 @@ export function PrepTab({
           is translucent, so a strip ending flush at the reservation left a
           sliver of card showing between the button and the bar. */}
       <div className="max-sm:sticky max-sm:-bottom-1 max-sm:z-10 max-sm:order-last max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:pt-2 max-sm:pb-3">
-        <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} />
+        <RecordPrepDialog dict={dict} recipes={recipes} maxDishes={maxDishes} onPlanPortions={openPlanning} />
       </div>
 
       {batches.length === 0 ? (
@@ -87,11 +93,31 @@ export function PrepTab({
                 inventoryDict={inventoryDict}
                 batch={batch}
                 formatDay={formatDay}
-                onPlanPortions={setPlanningBatch}
+                onPlanPortions={(planned) => openPlanning(planned.id)}
               />
             </li>
           ))}
         </ul>
+      )}
+
+      {planning && planningBatch && (
+        <PlanPortionsDialog
+          key={`${planning.batchId}-${planning.openedAt}`}
+          dict={dict}
+          locale={locale}
+          batch={planningBatch}
+          // The week of today, or of the cook date if that's later (a batch
+          // can't be eaten before it's cooked).
+          initialWeekStartKey={toDateKey(
+            getWeekStart(new Date(Math.max(planning.openedAt, Date.parse(planningBatch.cookedAt)))),
+          )}
+          controlled={{
+            open: true,
+            onOpenChange: (next) => {
+              if (!next) setPlanning(null);
+            },
+          }}
+        />
       )}
     </div>
   );

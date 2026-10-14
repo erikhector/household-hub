@@ -1751,6 +1751,23 @@ export const sv = {
       other: "Registrerade {dishes} · {portions} portioner",
     },
     prepRecordUndoneToast: "Ångrat — lagret återställt",
+    // Dialogen Planera portioner: fördela en matlådas portioner över veckan.
+    prepPlanDialogTitle: "Planera portioner av {recipe}",
+    prepPlanDialogHint: "Bocka för måltiderna som ska ätas från matlådan. Måltider där något annat redan är planerat är gråade.",
+    prepSlotPortions: "Portioner till {meal}, {day}",
+    prepLeftAfter: "{left} av {remaining} kvar efter detta",
+    prepTooManyPortions: {
+      one: "{count} portion för mycket — bara {remaining} kvar",
+      other: "{count} portioner för mycket — bara {remaining} kvar",
+    },
+    prepLoadingWeek: "Laddar veckan…",
+    prepRetry: "Försök igen",
+    prepPlanSubmit: "Planera portioner",
+    prepPlanning: "Planerar…",
+    prepPlannedToast: {
+      one: "Planerade {count} portion",
+      other: "Planerade {count} portioner",
+    },
   },
   tasks: {
     title: "Uppgifter",
