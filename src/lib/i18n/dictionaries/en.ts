@@ -1431,6 +1431,23 @@ export const en = {
     copyLastWeekNothingToast: "Last week has no meals to copy",
     copyLastWeekUndo: "Undo",
     copyLastWeekUndoneToast: "Copied meals removed",
+    // "Fill empty days" (BACKLOG GAP-45) — a preview of one favorite dinner
+    // per empty day; nothing is saved until "Add dinners" (fillEmptyDaysAction).
+    fillEmptyDays: "Fill empty days",
+    fillEmptyDaysDescription: "Dinners picked from your favorites for the days with nothing planned. Nothing is saved until you add them.",
+    fillEmptyDaysNoFavorites: "No favorites to pick from yet. Star a few recipes in the Recipes tab and they will show up here.",
+    fillEmptyDaysNoneLeft: "Every favorite is already planned this week, so there is nothing new to propose.",
+    fillEmptyDaysShort: "You have fewer unplanned favorites than empty days, so the other days stay empty.",
+    fillEmptyDaysSwapAriaLabel: "Swap the dinner on {day}",
+    fillEmptyDaysSubmit: "Add dinners",
+    fillEmptyDaysCancel: "Cancel",
+    fillEmptyDaysToast: {
+      one: "Planned {count} dinner",
+      other: "Planned {count} dinners",
+    },
+    fillEmptyDaysNothingToast: "Those days were filled in the meantime, so nothing was added",
+    fillEmptyDaysUndo: "Undo",
+    fillEmptyDaysUndoneToast: "Added dinners removed",
     weekdayMon: "Mon",
     weekdayTue: "Tue",
     weekdayWed: "Wed",

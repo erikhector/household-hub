@@ -1,0 +1,181 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarPlus, Shuffle } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { fillEmptyDaysAction, undoCopyWeekAction } from "@/app/dashboard/meal-planning/planner-actions";
+import { type DinnerProposal, nextSwap, proposeDinners } from "@/app/dashboard/meal-planning/fill-empty-days";
+import { format, plural } from "@/lib/i18n/format";
+import type { RecipeData } from "@/components/meal-planning/types";
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
+
+type MealPlanningDict = Dictionary["mealPlanning"];
+
+export type EmptyDay = { dateKey: string; label: string };
+
+// GAP-45: proposes a dinner from the household's favorites for each day with
+// nothing planned, as a preview. The proposal is computed here from data the
+// page already loaded and lives only in this component's state, so nothing is
+// written until "Add dinners". Swapping a row walks to the next unused
+// favorite (nextSwap), so the no-repeat rule holds without a free-form
+// picker; Cancel (or closing) discards the lot. Accepting calls
+// fillEmptyDaysAction, which re-validates everything, and offers the same
+// by-id Undo that "Copy last week" has.
+export function FillEmptyDaysDialog({
+  dict,
+  weekStartKey,
+  emptyDays,
+  recipes,
+  plannedRecipeIds,
+}: {
+  dict: MealPlanningDict;
+  weekStartKey: string;
+  emptyDays: EmptyDay[];
+  recipes: RecipeData[];
+  plannedRecipeIds: string[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [proposal, setProposal] = useState<DinnerProposal[]>([]);
+  const [pending, startTransition] = useTransition();
+
+  const favorites = recipes.filter((r) => r.isFavorite);
+  const recipeName = new Map(recipes.map((r) => [r.id, r.name]));
+  const planned = new Set(plannedRecipeIds);
+
+  // Re-propose on every open, so a cancelled or stale preview never lingers
+  // and the rows always reflect the week as it is now.
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setProposal(
+        proposeDinners({
+          emptyDays: emptyDays.map((d) => d.dateKey),
+          favorites,
+          plannedRecipeIds: planned,
+        }),
+      );
+    }
+    setOpen(next);
+  }
+
+  function swap(dateKey: string) {
+    setProposal((rows) => {
+      const used = new Set([...planned, ...rows.map((r) => r.recipeId)]);
+      return rows.map((row) => {
+        if (row.dateKey !== dateKey) return row;
+        const replacement = nextSwap({ currentId: row.recipeId, favorites, usedRecipeIds: used });
+        return replacement ? { ...row, recipeId: replacement } : row;
+      });
+    });
+  }
+
+  function accept() {
+    startTransition(async () => {
+      const result = await fillEmptyDaysAction(
+        weekStartKey,
+        proposal.map((p) => ({ date: p.dateKey, recipeId: p.recipeId })),
+      );
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      setOpen(false);
+      const entryIds = result.entryIds ?? [];
+      if (entryIds.length === 0) {
+        toast(dict.fillEmptyDaysNothingToast);
+        return;
+      }
+      toast.success(format(plural(entryIds.length, dict.fillEmptyDaysToast), { count: entryIds.length }), {
+        duration: 8000,
+        action: {
+          label: dict.fillEmptyDaysUndo,
+          onClick: () => {
+            void undoCopyWeekAction(entryIds).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else {
+                toast.success(dict.fillEmptyDaysUndoneToast);
+                router.refresh();
+              }
+            });
+          },
+        },
+      });
+    });
+  }
+
+  const dayLabel = new Map(emptyDays.map((d) => [d.dateKey, d.label]));
+  const noFavorites = favorites.length === 0;
+  const noneLeft = !noFavorites && proposal.length === 0;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          <Button type="button" variant="outline" size="sm">
+            <CalendarPlus className="size-4" />
+            {dict.fillEmptyDays}
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{dict.fillEmptyDays}</DialogTitle>
+          <DialogDescription>{dict.fillEmptyDaysDescription}</DialogDescription>
+        </DialogHeader>
+
+        {noFavorites && <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysNoFavorites}</p>}
+        {noneLeft && <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysNoneLeft}</p>}
+
+        {proposal.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {proposal.map((row) => {
+              const label = dayLabel.get(row.dateKey) ?? row.dateKey;
+              const used = new Set([...planned, ...proposal.map((r) => r.recipeId)]);
+              const canSwap = nextSwap({ currentId: row.recipeId, favorites, usedRecipeIds: used }) !== null;
+              return (
+                <li key={row.dateKey} className="flex items-center gap-2">
+                  <span className="w-24 shrink-0 text-sm text-muted-foreground">{label}</span>
+                  <span className="min-w-0 flex-1 break-words text-sm font-medium">
+                    {recipeName.get(row.recipeId)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    disabled={!canSwap || pending}
+                    aria-label={format(dict.fillEmptyDaysSwapAriaLabel, { day: label })}
+                    onClick={() => swap(row.dateKey)}
+                  >
+                    <Shuffle className="size-4" />
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {proposal.length > 0 && proposal.length < emptyDays.length && (
+          <p className="text-sm text-muted-foreground">{dict.fillEmptyDaysShort}</p>
+        )}
+
+        <DialogFooter>
+          <DialogClose render={<Button type="button" variant="outline" />}>{dict.fillEmptyDaysCancel}</DialogClose>
+          <Button type="button" disabled={proposal.length === 0 || pending} onClick={accept}>
+            {dict.fillEmptyDaysSubmit}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

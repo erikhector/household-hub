@@ -3393,6 +3393,29 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
+- **Fill empty days** (BACKLOG GAP-45): a "Fill empty days" button in the
+  planner header (`FillEmptyDaysDialog`,
+  `src/components/meal-planning/fill-empty-days-dialog.tsx`), shown while at
+  least one day has no entries and hasn't passed yet. It opens a preview with
+  one proposed dinner per such day, taken from favorites
+  (`Recipe.isFavorite`) that aren't already on the week's plan and never the
+  same recipe twice (`proposeDinners` in `fill-empty-days.ts`, name order).
+  With fewer unplanned favorites than empty days the later days are simply
+  left out, and the dialog says so; with no favorites it says to star some.
+  The proposal is computed on the client from data the page already has and
+  **nothing is written** until "Add dinners"; Cancel or closing discards it,
+  and reopening re-proposes. Each row has a swap button that moves to the
+  next unused favorite (`nextSwap`), so the no-repeat rule holds without a
+  free picker. Accepting calls `fillEmptyDaysAction(weekStart, picks)` in
+  `planner-actions.ts`: the week must be a Monday, picks are at most seven
+  with unique in-week dates and unique recipes, the recipes are re-checked
+  against the household in one `findMany`, a day that gained an entry since
+  the preview opened is skipped, and the DINNER rows get the recipe's own
+  `servings` as portions. The `MealPlan` is upserted lazily and only if
+  there's a row to write. The toast ("Planned N dinners") has an Undo that
+  reuses `undoCopyWeekAction` with the written ids. No schema change.
+  `e2e/meal-planner-fill-empty-days.spec.ts` covers cancel, swap, accept
+  (entries present after reload) and undo.
 - **Editing a meal entry**: an entry that hasn't been cooked yet has a
   pencil button. It opens the same `MealEntryDialog` in `mode="edit"`,
   backed by `updateMealEntryAction`, which changes the entry's recipe or

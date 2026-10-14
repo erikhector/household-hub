@@ -656,22 +656,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-09-30 scan
-
-- [ ] **GAP-45. "Fill empty days" on the meal planner from favorites** (impact: low-med, effort: S) —
-      Mealie's meal-plan rules and Mealime's auto-planned week fill a
-      week with no effort; Squirrel has "Copy last week" (GAP-23) but an
-      empty first week, or one that only copies last week's repeats, still
-      means adding every dinner by hand. Recipe favorites exist
-      (REQUIREMENTS.md "Recipe favorites") and "Use it up" suggestions
-      already rank by stock, so the ingredients for a suggestion exist. No
-      schema change. Acceptance: a planner-header button proposes a
-      dinner for each empty day from favorites (not repeating within the
-      week), shown as a preview the user can accept, swap per day or
-      cancel, with an undo toast after accepting; nothing is written
-      until accepted; an e2e test accepts a proposal and asserts the
-      entries appear after reload.
-
 ### 2026-10-05 scan
 
 - [ ] **GAP-46. "Last cooked / cooked N times" on each recipe** (impact: med, effort: S) —

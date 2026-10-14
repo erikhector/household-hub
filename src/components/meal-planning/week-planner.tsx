@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
+import { FillEmptyDaysDialog } from "@/components/meal-planning/fill-empty-days-dialog";
 import { MealEntryDialog } from "@/components/meal-planning/meal-entry-dialog";
 import { MissingIngredientsDialog } from "@/components/meal-planning/missing-ingredients-dialog";
 import { MarkCookedDialog, type PlanLeftoversRequest } from "@/components/meal-planning/mark-cooked-dialog";
@@ -177,6 +178,14 @@ export function WeekPlanner({
     entriesByDay.set(entry.date, list);
   }
 
+  // GAP-45: days with nothing planned that haven't passed yet (filling
+  // Monday on a Thursday would plan a dinner nobody can cook), and the
+  // recipes already on the plan so a proposal never repeats one.
+  const emptyDays = days
+    .filter((day) => !entriesByDay.has(day.dateKey) && day.dateKey >= todayKey)
+    .map((day) => ({ dateKey: day.dateKey, label: `${day.weekdayLabel} ${day.dayOfMonth}` }));
+  const plannedRecipeIds = [...new Set(entries.flatMap((e) => (e.recipeId ? [e.recipeId] : [])))];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-1 max-sm:gap-2">
@@ -195,6 +204,15 @@ export function WeekPlanner({
           <Button variant="outline" size="sm" render={<Link href="/dashboard/meal-planning" />}>
             {dict.thisWeek}
           </Button>
+        )}
+        {emptyDays.length > 0 && (
+          <FillEmptyDaysDialog
+            dict={dict}
+            weekStartKey={weekStartKey}
+            emptyDays={emptyDays}
+            recipes={recipes}
+            plannedRecipeIds={plannedRecipeIds}
+          />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger
