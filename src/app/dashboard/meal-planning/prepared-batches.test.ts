@@ -34,12 +34,16 @@ function row(overrides: {
 }
 
 describe("getActiveBatches", () => {
-  it("scopes the query to the household and counts only uneaten linked entries", async () => {
+  it("scopes the query to the household, filters to active batches and counts only uneaten linked entries", async () => {
     preparedBatchFindManyMock.mockResolvedValue([]);
     await getActiveBatches("household-1");
     expect(preparedBatchFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { householdId: "household-1" },
+        // The active rule runs in the query, so finished batches never load.
+        where: {
+          householdId: "household-1",
+          OR: [{ remainingPortions: { gt: 0 } }, { mealPlanEntries: { some: { consumedAt: null } } }],
+        },
         include: expect.objectContaining({
           _count: { select: { mealPlanEntries: { where: { consumedAt: null } } } },
         }),

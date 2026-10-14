@@ -12,7 +12,14 @@ import type { PreparedBatchData } from "@/components/meal-planning/types";
 
 export const getActiveBatches = cache(async (householdId: string): Promise<PreparedBatchData[]> => {
   const batches = await prisma.preparedBatch.findMany({
-    where: { householdId },
+    // isActiveBatch's rule, pushed into the query: finished batches are
+    // never deleted (and every "Servings left over" makes one), so loading
+    // them all and filtering in JS would get slower with every week of use.
+    // The JS filter below stays as a cheap guard on the same rule.
+    where: {
+      householdId,
+      OR: [{ remainingPortions: { gt: 0 } }, { mealPlanEntries: { some: { consumedAt: null } } }],
+    },
     include: {
       recipe: { select: { name: true } },
       cookedByMember: { select: { user: { select: { displayName: true } } } },
