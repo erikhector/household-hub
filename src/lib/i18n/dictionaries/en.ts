@@ -574,6 +574,12 @@ export const en = {
     // when there's nothing pending left to print.
     print: "Print",
     printEmpty: "Nothing left to buy.",
+    // GAP-53: the ⋯ menu's "Copy as text" (open items as plain text), and
+    // "Share as text" beside it on a phone with the system share sheet.
+    copyText: "Copy as text",
+    copyTextToast: "List copied as text",
+    copyTextFailedToast: "Couldn't copy the list",
+    shareText: "Share as text",
     doneShopping: "Done shopping",
     completedToast: "List completed",
     undo: "Undo",
