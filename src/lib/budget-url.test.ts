@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetHref, parseBudgetTab } from "@/lib/budget-url";
+import { budgetHref, parseBudgetTab, resolveCategoryFilter } from "@/lib/budget-url";
 
 describe("parseBudgetTab", () => {
   it("accepts each known tab", () => {
@@ -33,5 +33,22 @@ describe("budgetHref", () => {
 
   it("leaves out empty and missing values", () => {
     expect(budgetHref("/x", { month: "2026-10", category: "", household: undefined })).toBe("/x?month=2026-10");
+  });
+});
+
+describe("resolveCategoryFilter", () => {
+  const categories = [{ id: "c1" }, { id: "c2" }];
+
+  it("keeps an id that names one of the viewer's own categories", () => {
+    expect(resolveCategoryFilter("c1", categories)).toBe("c1");
+    expect(resolveCategoryFilter(["c2", "c1"], categories)).toBe("c2");
+  });
+
+  it("ignores anything else, such as another household's category", () => {
+    expect(resolveCategoryFilter("other-household-cat", categories)).toBeNull();
+    expect(resolveCategoryFilter("", categories)).toBeNull();
+    expect(resolveCategoryFilter(undefined, categories)).toBeNull();
+    expect(resolveCategoryFilter(null, categories)).toBeNull();
+    expect(resolveCategoryFilter("c1", [])).toBeNull();
   });
 });

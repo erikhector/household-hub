@@ -26,6 +26,7 @@ export function PeriodSummary({
   dict,
   locale,
   currencyCode,
+  categoryHref,
 }: {
   income: number;
   expense: number;
@@ -51,7 +52,12 @@ export function PeriodSummary({
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
   currencyCode?: string | null;
+  /** Phone pass (Oct 2026), P3: the Transactions tab filtered to a
+   * category, for that category's breakdown row; null for a row that isn't
+   * one of the viewer's own categories (Personal Budget's shared rows). */
+  categoryHref?: (categoryId: string) => string | null;
 }) {
+  const hrefFor = categoryHref ? (item: CategoryTotal) => categoryHref(item.id) : undefined;
   const numberFormat = createMoneyFormat(locale, currencyCode);
   const history = monthStart
     ? { months: historyMonthLabels(monthStart, locale), label: dict.historyLabel }
@@ -117,6 +123,7 @@ export function PeriodSummary({
           total={income}
           emptyMessage={dict.noIncome}
           numberFormat={numberFormat}
+          hrefFor={hrefFor}
         />
         <CategoryBreakdown
           title={dict.expensesByCategory}
@@ -130,6 +137,7 @@ export function PeriodSummary({
           // balance is added to that limit and shown under the bar.
           limitDict={dict}
           history={history}
+          hrefFor={hrefFor}
         />
         <CategoryBreakdown
           title={dict.savingsByCategory}
@@ -137,6 +145,7 @@ export function PeriodSummary({
           total={savings}
           emptyMessage={dict.noSavings}
           numberFormat={numberFormat}
+          hrefFor={hrefFor}
         />
       </div>
     </div>

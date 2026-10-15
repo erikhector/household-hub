@@ -14,6 +14,7 @@ import {
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
+import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
@@ -349,6 +350,13 @@ async function PersonalBudgetTabsSection({
       )}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
+      // P3: each of the viewer's own categories drills into Transactions,
+      // filtered to it, for the same month.
+      categoryHref={(id) =>
+        resolveCategoryFilter(id, categoryRows)
+          ? budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions", category: id })
+          : null
+      }
       dict={dict.personalBudget.summary}
       locale={locale}
     />

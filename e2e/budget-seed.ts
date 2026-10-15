@@ -1,5 +1,5 @@
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 
 // Direct Postgres inserts for the budget phone-pass specs (budget-*.spec.ts),
@@ -65,5 +65,42 @@ export async function insertHouseholdTransaction(
     // A zone-less timestamp, as Prisma writes it: the column has no time
     // zone, so node-pg's local-time Date serialisation could shift it.
     [id, E2E_HOUSEHOLD.id, categoryId, amount, type, description, date.toISOString().replace("Z", "")],
+  );
+}
+
+export async function insertPersonalCategory(
+  client: Client,
+  { id, name, type = "EXPENSE" }: { id: string; name: string; type?: "INCOME" | "EXPENSE" | "SAVINGS" },
+) {
+  await client.query(`INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type) VALUES ($1, $2, $3, $4)`, [
+    id,
+    E2E_USER.id,
+    name,
+    type,
+  ]);
+}
+
+export async function insertPersonalTransaction(
+  client: Client,
+  {
+    id,
+    categoryId,
+    amount,
+    description = null,
+    date = todayUtc(),
+    type = "EXPENSE",
+  }: {
+    id: string;
+    categoryId: string;
+    amount: number;
+    description?: string | null;
+    date?: Date;
+    type?: "INCOME" | "EXPENSE" | "SAVINGS";
+  },
+) {
+  await client.query(
+    `INSERT INTO "PersonalTransaction" (id, "userId", "categoryId", amount, type, description, date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, E2E_USER.id, categoryId, amount, type, description, date.toISOString().replace("Z", "")],
   );
 }

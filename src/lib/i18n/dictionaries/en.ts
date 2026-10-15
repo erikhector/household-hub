@@ -2043,6 +2043,13 @@ export const en = {
       undo: "Undo",
     },
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // Phone pass (Oct 2026): the Transactions tab's category filter.
+    filter: {
+      label: "Category",
+      all: "All categories",
+      clear: "Clear filter",
+      empty: "Nothing logged in {category} this month.",
+    },
     emptyTransactions: "No transactions yet. Add your first one to start tracking the budget.",
     recurringBadge: "Recurring",
     type: {
@@ -2428,6 +2435,13 @@ export const en = {
       undo: "Undo",
     },
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // Phone pass (Oct 2026): the Transactions tab's category filter.
+    filter: {
+      label: "Category",
+      all: "All categories",
+      clear: "Clear filter",
+      empty: "Nothing logged in {category} this month.",
+    },
     emptyTransactions: "No transactions yet. Add your first one to start tracking your own budget.",
     type: {
       income: "Income",

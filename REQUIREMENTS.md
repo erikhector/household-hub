@@ -2715,6 +2715,27 @@ drops the year from its dates. "Export CSV" moved from the top of the tab
 to below the list. Covered by `src/lib/budget-transaction-days.test.ts`,
 `e2e/budget-transaction-rows.spec.ts` and `e2e/swipe-rows.mobile.spec.ts`.
 
+**Category filter and drill-down (phone pass, Oct 2026).** The
+Transactions tab opens with a category select ("All categories" or one
+category; its own full-width row on a phone, M1), stored in `?category=`
+with `history.replaceState`, so it filters at once without a refetch and
+survives a reload; `MonthNavigator` keeps it when paging months. While a
+filter is on, a "Clear filter" link shows (a link, so it also works in
+the read-only household view where the select is disabled with every
+other control), shared rows on Personal Budget are left out (they belong
+to a household category), and a category with nothing that month gets
+"Nothing logged in {category} this month." with the same Clear. Every row
+of the income, expense and savings breakdowns in `PeriodSummary` is a link
+(whole row, chevron, at least 44 px) to that month's Transactions filtered
+to the category (`categoryHref`, built by `budgetHref`). The id is only
+honoured when it names one of the categories the server loaded for the
+signed-in household or user (`resolveCategoryFilter` in
+`src/lib/budget-url.ts`): anything else, another household's id
+included, is no filter, and no query ever runs on it. Rows that aren't
+the viewer's own categories (Personal Budget's "(Shared)" rows,
+`FixedBudgetSummary`'s recurring items) stay plain. Covered by
+`src/lib/budget-url.test.ts` and `e2e/budget-category-filter.spec.ts`.
+
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:

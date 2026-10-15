@@ -33,3 +33,17 @@ export function budgetHref(
   const search = query.toString().replaceAll("+", "%20");
   return search ? `${basePath}?${search}` : basePath;
 }
+
+/** `?category=` → the id, but only when it names one of `categories`: the
+ * categories the server loaded for the signed-in household (or user, on
+ * Personal Budget). Anything else — a stale link, another household's
+ * category, garbage — is no filter at all. Nothing is ever queried by this
+ * id; it only narrows rows that are already the viewer's own. */
+export function resolveCategoryFilter(
+  value: string | string[] | null | undefined,
+  categories: { id: string }[],
+): string | null {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (!first) return null;
+  return categories.some((category) => category.id === first) ? first : null;
+}

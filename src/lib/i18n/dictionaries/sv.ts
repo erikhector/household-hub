@@ -1949,6 +1949,12 @@ export const sv = {
       undo: "Ångra",
     },
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    filter: {
+      label: "Kategori",
+      all: "Alla kategorier",
+      clear: "Rensa filter",
+      empty: "Inget loggat i {category} den här månaden.",
+    },
     emptyTransactions: "Inga transaktioner än. Lägg till den första för att börja hålla koll på budgeten.",
     recurringBadge: "Återkommande",
     type: {
@@ -2330,6 +2336,12 @@ export const sv = {
       undo: "Ångra",
     },
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    filter: {
+      label: "Kategori",
+      all: "Alla kategorier",
+      clear: "Rensa filter",
+      empty: "Inget loggat i {category} den här månaden.",
+    },
     emptyTransactions: "Inga transaktioner än. Lägg till din första för att börja spåra din budget.",
     type: {
       income: "Inkomst",

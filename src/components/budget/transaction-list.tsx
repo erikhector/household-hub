@@ -2,7 +2,8 @@
 
 import { useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
-import { ExternalLink, Pencil, Repeat, Trash2, Users } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { ExternalLink, Pencil, Repeat, Trash2, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   TransactionDialog,
   type MemberOption,
@@ -31,6 +33,7 @@ import { SwipeRow } from "@/components/shared/swipe-row";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { dayHeading, groupByDay, localDateKey } from "@/lib/budget-transaction-days";
+import { resolveCategoryFilter } from "@/lib/budget-url";
 
 export type TransactionListRow = TransactionRow & {
   categoryName: string;
@@ -94,6 +97,10 @@ function amountSign(type: Kind) {
   if (type === "SAVINGS") return "→";
   return "\u2212";
 }
+
+// The category filter's "All categories" value (Base UI's Select needs a
+// string; no category id looks like this).
+const ALL_CATEGORIES = "__all__";
 
 // Never subscribes: the day only matters at render, see TransactionList.
 const subscribeNever = () => () => {};
@@ -164,6 +171,28 @@ export function TransactionList({
   // re-renders with the browser's — no hydration mismatch at midnight.
   const today = useSyncExternalStore(subscribeNever, () => localDateKey(new Date()), () => todayKey);
   const memberName = (id: string) => members.find((m) => m.id === id)?.displayName ?? "?";
+
+  // Phone pass (Oct 2026), P3: `?category=` narrows the list to one
+  // category — set by the select below or by a category row on Insights.
+  // Only honoured when it names one of `categories` (this household's, or
+  // this user's, as loaded by the server; see resolveCategoryFilter). The
+  // select writes the URL with replaceState like the tab bar does, so
+  // nothing refetches; "Clear filter" is a link so it also works in the
+  // read-only household view, where the select is disabled with every
+  // other control.
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryFilter = resolveCategoryFilter(searchParams.get("category"), categories);
+  const filteredCategory = categories.find((c) => c.id === categoryFilter);
+  function setCategoryFilter(next: string) {
+    const url = new URL(window.location.href);
+    if (next === ALL_CATEGORIES) url.searchParams.delete("category");
+    else url.searchParams.set("category", next);
+    window.history.replaceState(null, "", url);
+  }
+  const clearParams = new URLSearchParams(searchParams.toString());
+  clearParams.delete("category");
+  const clearHref = clearParams.size > 0 ? `${pathname}?${clearParams}` : pathname;
 
   // Who paid a split bill, for the "Split" badge's tooltip — several members
   // can each have paid part of it (TransactionSplit.amountPaid).
@@ -251,12 +280,17 @@ export function TransactionList({
   // no-op there (a stable sort over an already date-desc-ordered array keeps
   // same-day ties in their original, createdAt-desc order) — see
   // SharedPostedRow's doc comment.
-  const rows: Row[] = [
+  const allRows: Row[] = [
     ...transactions.map((row): Row => ({ kind: "own", row, date: row.date, amount: row.amount, type: row.type })),
     ...sharedRows.map((row): Row => ({ kind: "shared", row, date: row.date, amount: row.amount, type: row.type })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
+  // A shared row is a household category, never one of the viewer's own,
+  // so a filter always leaves it out.
+  const rows = categoryFilter
+    ? allRows.filter((item) => item.kind === "own" && item.row.categoryId === categoryFilter)
+    : allRows;
 
-  if (rows.length === 0) {
+  if (allRows.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
         {dict.emptyTransactions}
@@ -264,8 +298,45 @@ export function TransactionList({
     );
   }
 
+  const clearButton = (
+    <Button variant="outline" render={<Link href={clearHref} replace scroll={false} />}>
+      <X className="size-4" />
+      {dict.filter.clear}
+    </Button>
+  );
+
   return (
-    <>
+    <div className="flex flex-col gap-4">
+      {/* Pick, don't type (M4); on a phone the select has its own row (M1)
+          and Clear sits under it. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Select value={categoryFilter ?? ALL_CATEGORIES} onValueChange={(v) => setCategoryFilter(String(v))}>
+          <SelectTrigger aria-label={dict.filter.label} className="w-full sm:w-64">
+            <SelectValue>
+              {(v: string) => categories.find((c) => c.id === v)?.name ?? dict.filter.all}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_CATEGORIES}>{dict.filter.all}</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {categoryFilter && rows.length > 0 && <div className="flex">{clearButton}</div>}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-md border border-dashed p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            {format(dict.filter.empty, { category: filteredCategory?.name ?? "" })}
+          </p>
+          {clearButton}
+        </div>
+      ) : (
+      <>
       <div className="hidden sm:block">
       <Table>
       <TableHeader>
@@ -456,7 +527,9 @@ export function TransactionList({
           </section>
         ))}
       </div>
-    </>
+      </>
+      )}
+    </div>
   );
 }
 

@@ -35,6 +35,7 @@ import {
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
+import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
@@ -819,6 +820,13 @@ async function BudgetTabsSection({
       )}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
+      // P3: each of the viewer's own categories drills into Transactions,
+      // filtered to it, for the same month.
+      categoryHref={(id) =>
+        resolveCategoryFilter(id, categoryRows)
+          ? budgetHref("/dashboard/budget", { month: monthKey, household: householdParam, tab: "transactions", category: id })
+          : null
+      }
       dict={dict.budget.summary}
       locale={locale}
       currencyCode={currencyCode}

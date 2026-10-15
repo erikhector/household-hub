@@ -60,6 +60,13 @@ export type BudgetDict = {
     undo: string;
   };
   saveFailedToast: string;
+  // Phone pass (Oct 2026): TransactionList's category filter.
+  filter: {
+    label: string;
+    all: string;
+    clear: string;
+    empty: string;
+  };
   frequencyLabel: string;
   frequencyMonthly: string;
   frequencyWeekly: string;
