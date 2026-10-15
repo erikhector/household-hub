@@ -54,14 +54,13 @@ test("category chips are 44 px targets kept apart, in every budget tab", async (
   }
   await page.goto("/dashboard/budget");
   // Every tab is measured (the guard used to skip the hidden panels); the
-  // chips live in one of them.
+  // chips live in Manage. Go there by name and let the assertion wait: the
+  // tab now switches through `?tab=` (history.replaceState), so its panel
+  // shows a render after the click, and the old probe-each-tab loop's
+  // non-waiting isVisible() could run past Manage on a slow CI runner.
   await expectTouchTargetsInTabs(page);
+  await page.getByRole("tab", { name: "Manage" }).click();
   const edit = page.getByRole("button", { name: /^Edit Hobbies / });
-  const tabs = page.getByRole("tab");
-  for (let t = 0; t < (await tabs.count()); t++) {
-    await tabs.nth(t).click();
-    if (await edit.first().isVisible()) break;
-  }
   await expect(edit.first()).toBeVisible();
   await expectTargetsApart(edit.first().locator("xpath=.."));
 });
