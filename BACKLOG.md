@@ -271,16 +271,6 @@ don't build these in parallel:
 
 ### Dependencies
 
-- [ ] **DEPS-1. Upgrade Next.js 16.3.4 → 16.4.0 (critical advisories)** (impact: high, effort: S) —
-      `npm audit --omit=dev` flags `next` as critical: RCE in `next/og`
-      `ImageResponse` (GHSA-vcvr-r3jv-pc5j), plus cache poisoning of SSG/ISR
-      pages, SSRF in Image Optimization and a Draft Mode leak, all fixed in
-      16.4.0. Bump `next` and `eslint-config-next` together (16.4.0). Check
-      the version-matched guide in `node_modules/next/dist/docs/` for
-      breaking changes.
-      Acceptance: `npm audit --omit=dev` no longer lists `next`;
-      `npm run ci:local` is green.
-
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
       `brace-expansion` (under `glob`), `sharp`, `source-map-js` (all high)
       and `fast-uri` (moderate) all have fixes available via
