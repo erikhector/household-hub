@@ -1570,6 +1570,10 @@ export const en = {
       one: "{count} ingredient not priced",
       other: "{count} ingredients not priced",
     },
+    recipeCookedValue: {
+      one: "Cooked {count} time, last {date}",
+      other: "Cooked {count} times, last {date}",
+    },
     recipeCostHint: "Estimated from what you last paid for each ingredient",
     ingredientsLabel: "Ingredients",
     ingredientNamePlaceholder: "Ingredient",
