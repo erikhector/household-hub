@@ -1170,6 +1170,10 @@ function ShoppingRow({
       // its aisle, which has its own animation (it then arrives in "In the
       // cart" as a new row and rises in there).
       flipKey={leaving ? undefined : item.id}
+      // MAINT-19: the optimistic overlay already lists this item in "In the
+      // cart", so the fading aisle copy must not be a second checkbox for
+      // a screen reader (or a test) to find.
+      inert={leaving}
       // A read-only (completed or archived) list has nothing to swipe to.
       primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
       primaryIcon={<Check className="size-4" />}
