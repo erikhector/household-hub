@@ -78,9 +78,11 @@ import type {
   SafeToSpendBreakdown,
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
+import type { MonthProjection } from "@/lib/chart-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 export type BudgetTab = "overview" | "manage" | "transactions" | "insights";
 type Tab = BudgetTab;
@@ -119,6 +121,7 @@ export function BudgetTabs({
   safeToSpendStatus,
   safeToSpendBreakdown,
   safeToSpendExpectedRecurring,
+  safeToSpendProjection = null,
   householdDebts = [],
   initialTab = "overview",
   dueTemplates,
@@ -167,6 +170,8 @@ export function BudgetTabs({
   safeToSpendStatus: SafeToSpendStatus;
   safeToSpendBreakdown: SafeToSpendBreakdown;
   safeToSpendExpectedRecurring: ExpectedRecurringExpense[];
+  /** UX-39 — see SafeToSpend's `projection` prop. */
+  safeToSpendProjection?: MonthProjection | null;
   /** Personal budget only — see SafeToSpend's identical prop. */
   householdDebts?: HouseholdDebt[];
   /** Which tab to open on — from the page's `?tab=` param, so a link (e.g.
@@ -261,17 +266,19 @@ export function BudgetTabs({
               Overview is the next step, so the button appears once it is
               possible. */}
           {hasCategories && (
-            <TransactionDialog
-              numberFormat={numberFormat}
-              dict={dict}
-              categories={categories}
-              members={members}
-              currentMemberId={currentMemberId}
-              monthKey={monthKey}
-              createAction={createTransactionAction}
-              updateAction={updateTransactionAction}
-              trigger={<Button>{dict.addTransaction}</Button>}
-            />
+            <PrimaryAction>
+              <TransactionDialog
+                numberFormat={numberFormat}
+                dict={dict}
+                categories={categories}
+                members={members}
+                currentMemberId={currentMemberId}
+                monthKey={monthKey}
+                createAction={createTransactionAction}
+                updateAction={updateTransactionAction}
+                trigger={<Button>{dict.addTransaction}</Button>}
+              />
+            </PrimaryAction>
           )}
         </fieldset>
       </div>
@@ -288,6 +295,7 @@ export function BudgetTabs({
                 expectedRecurring={safeToSpendExpectedRecurring}
                 householdDebts={householdDebts}
                 showHouseholdName={showHouseholdName}
+                projection={safeToSpendProjection}
                 dict={dict.safeToSpend}
                 locale={locale}
                 currencyCode={currencyCode}

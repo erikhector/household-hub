@@ -13,6 +13,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
+import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
 // The "View …" link at the foot of each overview card (UX-26). `mt-auto`
@@ -138,9 +139,9 @@ export default async function DashboardOverviewPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">
+        <PageTitle>
           {format(dict.dashboard.greeting[greetingKey(now)], { name: user.displayName })}
-        </h1>
+        </PageTitle>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
 
@@ -197,6 +198,7 @@ export default async function DashboardOverviewPage() {
             expectedRecurring={personalPosition.expectedRecurring}
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
+            projection={personalPosition.safeToSpendProjection}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,

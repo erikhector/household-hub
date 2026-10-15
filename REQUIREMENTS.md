@@ -847,6 +847,60 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   screen doesn't dim mid-shop; it feature-detects `navigator.wakeLock` and
   silently does nothing if it's unsupported or the request fails — no
   permission prompt, and nothing stored in the browser.
+  - *A tool, not a list (UX-37)* — on an `ACTIVE` list:
+    - *Large type, full-row targets*: unticked rows set the name at 16 px
+      (18 px on phones and touch screens) with a bigger checkbox and a 56 px
+      minimum height. The row's `<label>` reaches the whole row through an
+      absolutely positioned `::after` (the row is `relative`), so a tap on
+      its padding, note or hint ticks it, still through the native
+      label/input pairing; the controls column (price, edit, delete) sits
+      above it at `z-10`.
+    - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
+      row into `ShoppingListClient`, because a ticked row now changes
+      section. It's plain state, not `useOptimistic`: React 19 entangles
+      concurrent async transitions, so an optimistic tick only rolled back
+      once every tick in flight had settled. `src/lib/shopping/tick-overlay.ts`
+      (unit-tested) keeps, per row, what it should show and how many toggles
+      are in flight; each tick settles on its own, so a failed save puts
+      its row back at once (with the save-failed toast) while other saves
+      are still pending. A saved tick goes at once if the current list
+      already shows it, and otherwise holds until the next server list,
+      which wins even where it disagrees (another member unticked the
+      row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
+      flight. It stays in
+      its aisle for 350 ms animating down and out, then joins **"In the
+      cart"**, a collapsed section (a disclosure button with a count that
+      pops on each arrival; the rows stay mounted under `hidden`). A
+      completed or archived list keeps the always-open "Purchased" section.
+      Under `prefers-reduced-motion` the row moves at once.
+    - *Next up dock* (`src/components/shopping/shopping-mode.tsx`): the
+      progress ring ("12 of 18", a real `progressbar` with that
+      valuetext), the aisle the shopper is in now (the first pending group,
+      `nextUp()` in `src/lib/shopping/shopping-progress.ts`, unit-tested)
+      and its next three items as 48 px full-width tap rows. Ticking one is
+      the same optimistic tick; when an aisle is done the next aisle's items
+      move in, so a whole trip can be ticked off from the dock. Phones pin
+      it above the BottomNav (`fixed`, with a spacer the dock's measured
+      height at the end of the list so the last rows can scroll clear of
+      it, and its height plus its gap on `main` as `--shopping-dock`, which
+      every row's swipe wrapper (`SwipeRow`, UX-35) uses as its phone
+      `scroll-margin-bottom`, so a row just added from the smart-add box
+      scrolls into view above the dock rather than behind it. The wrapper,
+      not the row inside it, is what scrolls into view: its
+      `overflow-hidden` makes it a scroll container, and Chrome clips an
+      inner target's scroll-margin to it); from `sm` it's sticky at the bottom of the column; a short
+      (landscape) screen shows one item. Every item it offers is also in the
+      list with its own checkbox (M7).
+    - *All done*: the cleared state shows the full ring with a tick and pops
+      in (motion-safe). When ticked rows still wait to be put away it says
+      how many and its primary action is "Put things away", which opens the
+      put-away dialog in finish mode; otherwise it's "Done shopping" as
+      before. Both wait for in-flight ticks to save.
+    - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
+      the bottom half of a phone screen with no scrolling, the collapsed
+      cart and full-row tap, the put-away offer, a new row landing above
+      the dock, a failed tick rolling back while a slower one is still
+      saving).
   - *Bundle size (PERF-6)*: matching a category label in either locale
     (above) used to mean `shopping-mode-grouping.ts` imported the full
     `en`/`sv` dictionaries, which — since that module is reachable from the
@@ -2190,6 +2244,19 @@ Component page function can't itself be unit-tested.
   Budgeting (GAP-13); the headline number is colored `text-success` (safe/positive)
   or `text-destructive` (negative — spending is on track to exceed income)
   the same way `PeriodSummary`'s net figure is.
+- **Projected end of month (UX-39)**: in the current month, under the
+  number, a small line chart ("At this pace"): solid for what was safe to
+  spend at the end of each day so far, dashed from today to the last day at
+  the month's everyday pace, and a sentence with the projected figure
+  ("About 1 200 kr left at the end of the month", or "… over", in
+  `destructive` with a warning icon). `projectMonthEnd`
+  (`src/lib/chart-calc.ts`) sets the pace from *everyday* spending only:
+  `EXPENSE` transactions neither logged from a recurring item nor ticked
+  "this repeats", since bills are already in the number. No line for a
+  past or future month, or before any everyday spending. The household page
+  computes it from the month's transactions; `loadPersonalBudgetPosition`
+  returns it as `safeToSpendProjection`, so Personal Budget and the
+  dashboard card show the same line.
 
 ### Household expense splitting
 
@@ -2596,12 +2663,43 @@ never sits alone on a second row; Meal Planning gets the same behaviour.
 card is the next step until then) rather than as a disabled primary. On
 Overview, Safe to spend comes before the due-recurring widget. The starter
 category chips are left-aligned and a selected chip also shows a check mark
-(not colour alone). `FixedBudgetSummary`'s trend bars print each month's
-income, expense and savings under the bars (colours `chart-1..3`, matching
-the legend) instead of carrying them only in `title`. Deleting a
+(not colour alone). `FixedBudgetSummary`'s trend bars show each month's
+income, expense and savings without hover (since UX-39 through the shared
+`BarChart`, below). Deleting a
 transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
+**Budget charts (UX-39).** Both budgets draw every chart from one small kit
+in `src/components/charts/` (plain CSS bars and inline SVG, no chart
+library), so household and personal never diverge:
+
+- `BarChart` (client): `FixedBudgetSummary`'s "How it's changing" and
+  `CostAnalyzer`'s grocery spend. Each month is one button the full height
+  of the chart, at least 44 px wide and 8 px apart (M3); tapping selects it
+  (`aria-pressed`) and a readout above the bars (`role="status"`) shows that
+  month's value per series with its colour dot, which doubles as the legend.
+  The latest month starts selected and scrolled into view, so nothing is
+  hover-only. Each button's accessible name carries its values, and the
+  whole series is also a visually hidden table (`sr-only`, captioned with
+  the card title).
+- `Sparkline`: `CategoryBreakdown` draws one beside each expense row's bar
+  — the category's spending over the last six months, this month last
+  (`withSpendHistory` in `src/lib/chart-calc.ts`, from the household page's
+  12-month lookback window or the personal page's whole history; a row with
+  nothing spent in the window gets none). Its accessible name lists the
+  months and amounts. `CostAnalyzer`'s price trends use it too.
+- `ProjectionChart`: Safe to spend's projected end-of-month line (see "Safe
+  to spend").
+- `AnimatedNumber` (client): Safe to spend's number and the four totals in
+  `PeriodSummary` and `FixedBudgetSummary` count to a new value when it
+  changes (600 ms, eased out), always in `tabular-nums`. The first render
+  is the real value, as the server sent it, so a page load never flashes a
+  wrong number; under `prefers-reduced-motion` the number just changes.
+- Colours come from `chart-colors.ts`: `chart-1` … `chart-5` in series or
+  row order, for marks only (DESIGN.md, Colour).
+
+Covered by `src/lib/chart-calc.test.ts` and `e2e/ux-39.spec.ts`.
 
 ## Data export (CSV)
 
@@ -5156,6 +5254,35 @@ components directly.
   newline, dates use the native picker). Auth and profile fields already
   carry `autoComplete` (`email`, `current-password`, `new-password`,
   `name`, `tel`). Covered by `e2e/input-keyboards.spec.ts`.
+- **Large titles and a thumb-zone primary action (UX-40, DESIGN.md M2,
+  M7)**: every dashboard page sets its H1 through `PageTitle`
+  (`src/components/dashboard/page-title.tsx`). On a phone it starts large
+  (30 px) and scrolls away with the page; once it has gone above `main`
+  (an `IntersectionObserver`, phone shell only), a compact copy is
+  portalled over the top bar's household switcher (the empty
+  `COMPACT_TITLE_SLOT_ID` slot in `layout.tsx`), so the title stays on
+  screen without a second bar. Tapping it ("Back to top") moves focus to
+  the H1 and scrolls `main` to the top, which brings the switcher back.
+  It fades in via `@starting-style`, with no transition and an instant
+  scroll under `prefers-reduced-motion`, and is only in the DOM while
+  collapsed. The page's primary action is wrapped in `PrimaryAction`
+  (`src/components/dashboard/primary-action.tsx`): on a phone it floats
+  bottom right, 0.75rem above the bottom bar and the safe area, as a
+  48 px pill (a long label wraps within the screen at 200% text); from
+  `sm` it stays in the header where it was. The first-visit cookie notice
+  sits over it until dismissed, so e2e specs that tap a primary action on
+  a phone call `dismissCookieNotice` first, and `expectTargetsApart`
+  doesn't pair the floating button with the content scrolling under it.
+  Used for
+  "Add item" (inventory), "Add task", "New list" (shopping lists), "Add
+  transaction" (household budget) and "Invite member"; secondary actions
+  (the inventory ⋯ menu, "Register receipt") stay in the header. `main`
+  adds 4.5rem to its bottom padding while it `has-[[data-primary-action]]`,
+  so the last row scrolls out from under the button. Pages without a
+  page-level primary action (meal planning, personal budget, profile, …)
+  only get the large title, and so does the shopping list detail page,
+  whose bottom slot belongs to shopping mode's Next up dock (UX-37), so it
+  has no floating button. Covered by `e2e/large-title.spec.ts`.
 - **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
   page's main call to action is a solid `default` Button. Profile's four
   save buttons (display name, Swish number, email, password) are `secondary`
@@ -5992,7 +6119,10 @@ approximating them, so the email never disagrees with the app.
   redirect signal is re-thrown, so an expired session still lands on
   login. A ticked row stays in its section until the save revalidates the
   page, then moves (to "Purchased"/"Completed"), so rows don't jump under
-  the thumb mid-tap. The steppers are named "Decrease {name}" / "Increase
+  the thumb mid-tap — except on an `ACTIVE` shopping list since UX-37,
+  where the optimistic state lives in `ShoppingListClient` instead of the
+  row and a ticked row animates out of its aisle and into "In the cart"
+  at once (see "Shopping mode" above). The steppers are named "Decrease {name}" / "Increase
   {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
   Server Action request, ticks three rows, checks all three before any
   answer, then releases and reloads.

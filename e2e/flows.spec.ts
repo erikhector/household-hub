@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { dismissCookieNotice } from "./ui";
 
 // Core write paths through the real UI, server actions and database. Each
 // test creates its own uniquely named data, so reruns against the same
@@ -15,7 +16,9 @@ test("the Add task button shows its label", async ({ page }) => {
   await expect(button).toHaveText("Add task");
 });
 
-test("add a task and mark it done", async ({ page }) => {
+test("add a task and mark it done", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   const title = unique("Take out the bins");
   await page.goto("/dashboard/tasks");
   await page.getByRole("button", { name: "Add task" }).click();
@@ -42,7 +45,9 @@ test("add a task and mark it done", async ({ page }) => {
   await expect(notDone).toBeChecked();
 });
 
-test("create a shopping list and add items to it", async ({ page }) => {
+test("create a shopping list and add items to it", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   const name = unique("Weekly shop");
   await page.goto("/dashboard/shopping-list");
   await page.getByRole("button", { name: "New list" }).click();

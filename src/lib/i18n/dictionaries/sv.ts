@@ -539,6 +539,19 @@ export const sv = {
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
     clearedDismissAriaLabel: "Stäng",
     purchased: "Köpt",
+    shoppingMode: {
+      progress: "{done} av {total}",
+      progressAriaLabel: "Hur långt du har kommit",
+      nextUp: "Näst på tur",
+      tickAriaLabel: "{item}, i vagnen",
+      moreHere: { one: "+{count} till i den här avdelningen", other: "+{count} till i den här avdelningen" },
+      inCart: "I vagnen",
+      waitingToPutAway: {
+        one: "{count} vara väntar på att ställas in.",
+        other: "{count} varor väntar på att ställas in.",
+      },
+      putAwayNow: "Ställ in varorna",
+    },
     // "Ställ in" som i streckkodsskanningens "Ställt in (+1)", så att båda
     // läses som samma sak.
     putAway: {
@@ -1817,7 +1830,7 @@ export const sv = {
     unassignedOption: "Ingen tilldelad",
     add: "Lägg till",
     adding: "Lägger till…",
-    emptyState: "Inga uppgifter än — använd knappen Lägg till uppgift ovan för att lägga till en.",
+    emptyState: "Inga uppgifter än — använd Lägg till uppgift för att lägga till en.",
     completedSectionLabel: "Klara",
     unassignedBadge: "Ingen tilldelad",
     completedByLabel: "Klar av {name}",
@@ -1985,6 +1998,8 @@ export const sv = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
       carriedOver: "varav {amount} överfört",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Senaste {count} månaderna: {values}",
     },
     savingsGoals: {
       title: "Sparmål",
@@ -2013,6 +2028,14 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "I den här takten",
+      projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
+      projectionOver: "Ungefär {amount} över i slutet av månaden.",
+      projectionPace: "Utifrån vardagsutgifter på {amount} om dagen hittills. Räkningar räknas inte in i takten.",
+      projectionToday: "I dag",
+      projectionMonthEnd: "Månadsslut",
+      projectionCaption: "Säkert att spendera i dag och beräknat för slutet av månaden",
       savingBadge: "Sparande",
       incomeBadge: "Inkomst",
       debtsTitle: "Ditt saldo i hushållet",
@@ -2060,6 +2083,8 @@ export const sv = {
     },
     costAnalyzer: {
       spendingTitle: "Matinköp över tid",
+      chartMonth: "Månad",
+      chartSpend: "Utgift",
       spendingSubtitle:
         "Total uppskattad utgift per månad, från varor på inköpslistan som markerats köpta med ett pris.",
       noSpendingData:
@@ -2232,6 +2257,7 @@ export const sv = {
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
+      chartMonth: "Månad",
       incomeBreakdownTitle: "Återkommande inkomst",
       expenseBreakdownTitle: "Återkommande utgifter",
       noIncomeItems: "Inga aktiva återkommande inkomstposter.",
@@ -2345,6 +2371,8 @@ export const sv = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} över",
       carriedOver: "varav {amount} överfört",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Senaste {count} månaderna: {values}",
     },
     savingsGoals: {
       title: "Sparmål",
@@ -2373,6 +2401,14 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "I den här takten",
+      projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
+      projectionOver: "Ungefär {amount} över i slutet av månaden.",
+      projectionPace: "Utifrån vardagsutgifter på {amount} om dagen hittills. Räkningar räknas inte in i takten.",
+      projectionToday: "I dag",
+      projectionMonthEnd: "Månadsslut",
+      projectionCaption: "Säkert att spendera i dag och beräknat för slutet av månaden",
       savingBadge: "Sparande",
       incomeBadge: "Inkomst",
       debtsTitle: "Ditt saldo i hushållet",
@@ -2493,6 +2529,7 @@ export const sv = {
       legendIncome: "Inkomst",
       legendExpense: "Utgifter",
       legendSavings: "Sparande",
+      chartMonth: "Månad",
       incomeBreakdownTitle: "Återkommande inkomst",
       expenseBreakdownTitle: "Återkommande utgifter",
       noIncomeItems: "Inga aktiva återkommande inkomstposter.",

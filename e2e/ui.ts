@@ -157,6 +157,14 @@ export async function expectTargetsApart(scope: Locator, gap = 8) {
         const a = els[i];
         const b = els[j];
         if (a.contains(b) || b.contains(a)) continue;
+        // The floating primary action (PrimaryAction, UX-40) is a layer over
+        // the scrolling page, not a neighbour in it: content passes under it
+        // by design, and main's extra bottom padding lets every row scroll
+        // out from under it (asserted in large-title.spec.ts).
+        if (!!a.closest("[data-primary-action]") !== !!b.closest("[data-primary-action]")) {
+          const floating = (a.closest("[data-primary-action]") ?? b.closest("[data-primary-action]"))!;
+          if (getComputedStyle(floating).position === "fixed") continue;
+        }
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
         const dx = Math.max(rb.left - ra.right, ra.left - rb.right);

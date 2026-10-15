@@ -24,7 +24,10 @@ test("the weekly task recap stays dismissed after a reload", async ({ page, cont
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
 
   await page.reload();
-  const recap = page.getByText("This week, the household handled:");
+  // Scoped to main: while the reload streams in, React can briefly hold a
+  // second, hidden copy of the recap outside main, which a page-wide
+  // getByText counts as a strict-mode violation.
+  const recap = page.getByRole("main").getByText("This week, the household handled:");
   await expect(recap).toBeVisible();
 
   await page.getByRole("button", { name: "Dismiss" }).click();

@@ -406,38 +406,6 @@ decision and sit under "Needs a decision before building".
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
 
-- [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
-      (AUTO-3) already groups by store order and holds a wake lock. Add:
-      - large type and full-row targets;
-      - a progress ring ("12 of 18");
-      - ticked items animating to a collapsed "In the cart" section;
-      - an "All done" moment that offers to put things away;
-      - one-handed reach (the next aisle's items near the bottom).
-
-      Acceptance: a whole shop can be done with the thumb, without
-      scrolling to the top.
-
-- [ ] **UX-39. Charts and numbers that feel alive** (M) — Replace the
-      hand-rolled budget bars with one small chart component:
-      - tappable bars and segments that show their value (no hover-only);
-      - a spending sparkline per category;
-      - a projected end-of-month line on safe-to-spend;
-      - tabular numbers that animate between values (count-up, skipped
-        under reduced motion);
-      - a visually hidden data table for screen readers.
-
-      Use chart tokens in order. Copilot Money is the bar.
-
-- [ ] **UX-40. Large-title headers and a thumb-zone action bar on phones**
-      (M) —
-      - Page titles start large and collapse into a compact top bar on
-        scroll, iOS style, which wins back ~120 px on every page.
-      - Each page's primary action ("Add item", "Add task", "Add
-        transaction", "Invite member") moves into a consistent
-        bottom-right floating button or a sticky bar above the bottom nav
-        (M2), replacing the top-corner buttons.
-
-      Builds on the inventory header clean-up (done).
 
 - [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
       - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
