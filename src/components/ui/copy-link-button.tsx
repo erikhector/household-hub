@@ -14,7 +14,7 @@ export type CopyLinkDict = {
 
 const subscribeNever = () => () => {};
 
-function canNativeShare() {
+export function canNativeShare() {
   return typeof navigator.share === "function" && window.matchMedia("(pointer: coarse)").matches;
 }
 
