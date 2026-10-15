@@ -27,7 +27,15 @@ const {
   transactionMock,
   revalidatePathMock,
   addToDefaultListOnLowStockMock,
+  preparedBatchCreateMock,
+  preparedBatchDeleteManyMock,
+  mealPlanEntryCountMock,
+  householdMemberFindUniqueMock,
 } = vi.hoisted(() => ({
+  preparedBatchCreateMock: vi.fn(),
+  preparedBatchDeleteManyMock: vi.fn(),
+  mealPlanEntryCountMock: vi.fn(),
+  householdMemberFindUniqueMock: vi.fn(),
   requireHouseholdMock: vi.fn(),
   inventoryItemFindManyMock: vi.fn(),
   itemAliasFindManyMock: vi.fn(async () => [] as { normalizedName: string; inventoryItemId: string | null }[]),
@@ -59,7 +67,9 @@ const txClient = {
     updateMany: inventoryItemUpdateManyMock,
     deleteMany: inventoryItemDeleteManyMock,
   },
-  mealPlanEntry: { update: mealPlanEntryUpdateMock },
+  mealPlanEntry: { update: mealPlanEntryUpdateMock, count: mealPlanEntryCountMock },
+  preparedBatch: { create: preparedBatchCreateMock, deleteMany: preparedBatchDeleteManyMock },
+  householdMember: { findUnique: householdMemberFindUniqueMock },
 };
 transactionMock.mockImplementation(async (cb: (tx: typeof txClient) => unknown) => cb(txClient));
 
@@ -83,8 +93,8 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
   return {
     getDictionary: vi.fn(async () => ({
       shoppingList: { defaultNamePrefix: "Shopping list" },
-      // Leftovers name prefix/category/unit and the invalid-servings error
-      // (GAP-8) come from the real English strings.
+      // The invalid-servings error (GAP-8) comes from the real English
+      // strings.
       mealPlanning: en.mealPlanning,
       // Backs createCategoryResolver's dictionary tier (AUTO-2b).
       inventory: { uncategorized: "Uncategorized", autoCategories: en.inventory.autoCategories },
@@ -120,9 +130,9 @@ const household = { id: "household-1" };
 
 afterEach(() => {
   vi.clearAllMocks();
-  requireHouseholdMock.mockResolvedValue({ household });
+  requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
 });
-requireHouseholdMock.mockResolvedValue({ household });
+requireHouseholdMock.mockResolvedValue({ household, userId: "user-1" });
 
 describe("previewMissingIngredientsAction", () => {
   it("rejects a malformed or over-long range without querying anything (GAP-32)", async () => {
@@ -663,6 +673,7 @@ describe("markMealEntryCookedAction → leftovers (GAP-8)", () => {
     recipeId: "recipe-1",
     portions: 2,
     consumedAt: null,
+    preparedBatchId: null,
     recipe: { servings: 4, name: "Lasagna" },
   };
 
@@ -673,7 +684,7 @@ describe("markMealEntryCookedAction → leftovers (GAP-8)", () => {
     return fd;
   }
 
-  it("writes nothing to inventory for leftovers when the field is left blank or 0 (never auto-created)", async () => {
+  it("records no leftovers when the field is left blank or 0 (never auto-created)", async () => {
     mealPlanEntryFindFirstMock.mockResolvedValue(cookableEntry);
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
@@ -682,9 +693,8 @@ describe("markMealEntryCookedAction → leftovers (GAP-8)", () => {
       expect(result).toEqual({});
     }
 
-    expect(inventoryItemFindFirstMock).not.toHaveBeenCalled();
+    expect(preparedBatchCreateMock).not.toHaveBeenCalled();
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
-    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledTimes(3);
   });
 
@@ -699,144 +709,142 @@ describe("markMealEntryCookedAction → leftovers (GAP-8)", () => {
     expect(transactionMock).not.toHaveBeenCalled();
   });
 
-  it("creates a household-scoped leftovers item with a ~3-day estimated expiry, inside the cook's transaction", async () => {
+  it("leftovers create a prepared batch", async () => {
     mealPlanEntryFindFirstMock.mockResolvedValue(cookableEntry);
-    inventoryItemFindFirstMock.mockResolvedValue(null);
-    inventoryItemCreateMock.mockResolvedValue({ id: "leftovers-1" });
+    householdMemberFindUniqueMock.mockResolvedValue({ id: "member-1" });
+    preparedBatchCreateMock.mockResolvedValue({ id: "batch-1" });
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
     const before = Date.now();
     const result = await markMealEntryCookedAction({}, cookForm("2"));
 
-    expect(inventoryItemFindFirstMock).toHaveBeenCalledWith({
-      where: { householdId: "household-1", name: { equals: "Leftovers: Lasagna", mode: "insensitive" } },
+    expect(householdMemberFindUniqueMock).toHaveBeenCalledWith({
+      where: { householdId_userId: { householdId: "household-1", userId: "user-1" } },
+      select: { id: true },
     });
-    const data = inventoryItemCreateMock.mock.calls[0][0].data;
+    const { data, select } = preparedBatchCreateMock.mock.calls[0][0];
+    expect(select).toEqual({ id: true });
     expect(data).toMatchObject({
       householdId: "household-1",
-      name: "Leftovers: Lasagna",
-      category: "Leftovers",
-      quantity: 2,
-      unit: "servings",
-      lowStockThreshold: 0,
-      shelfLifeDays: 3,
-      expiresAtEstimated: true,
+      recipeId: "recipe-1",
+      cookedByMemberId: "member-1",
+      totalPortions: 2,
+      remainingPortions: 2,
     });
-    const days = (data.expiresAt.getTime() - before) / (24 * 60 * 60 * 1000);
-    expect(days).toBeGreaterThanOrEqual(3);
-    expect(days).toBeLessThan(3.01);
-    expect(result).toEqual({ leftovers: { itemId: "leftovers-1", created: true } });
-    expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(mealPlanEntryUpdateMock).toHaveBeenCalled();
-  });
-
-  it("merges into an existing leftovers item of the same name instead of duplicating it", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue(cookableEntry);
-    const oldExpiry = new Date("2026-09-20T12:00:00.000Z");
-    inventoryItemFindFirstMock.mockResolvedValue({
-      id: "leftovers-1",
-      quantity: 1,
-      expiresAt: oldExpiry,
-      expiresAtEstimated: true,
-      shelfLifeDays: 3,
-    });
-    inventoryItemUpdateMock.mockResolvedValue({});
-    mealPlanEntryUpdateMock.mockResolvedValue({});
-
-    const result = await markMealEntryCookedAction({}, cookForm("3"));
-
+    // defaultBatchExpiry: the 3-day leftovers shelf life after the cook.
+    expect(data.expiryDate.getTime() - data.cookedAt.getTime()).toBe(3 * 24 * 60 * 60 * 1000);
+    expect(data.cookedAt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(result).toEqual({ leftovers: { batchId: "batch-1" } });
+    // No "Leftovers: …" inventory row any more — the batch is the record.
+    expect(inventoryItemFindFirstMock).not.toHaveBeenCalled();
     expect(inventoryItemCreateMock).not.toHaveBeenCalled();
-    expect(inventoryItemUpdateMock).toHaveBeenCalledWith({
-      where: { id: "leftovers-1" },
-      data: expect.objectContaining({ quantity: 4, expiresAtEstimated: true, expiresAt: expect.any(Date) }),
-    });
-    const newExpiry = inventoryItemUpdateMock.mock.calls[0][0].data.expiresAt as Date;
-    expect(newExpiry.getTime()).toBeGreaterThan(oldExpiry.getTime());
-    expect(result).toEqual({
-      leftovers: {
-        itemId: "leftovers-1",
-        created: false,
-        previousQuantity: 1,
-        previousExpiresAt: oldExpiry.toISOString(),
-        previousExpiresAtEstimated: true,
-      },
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { consumedAt: expect.any(Date) },
     });
   });
 
-  it("keeps a real (user-typed) expiry date when merging", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue(cookableEntry);
-    inventoryItemFindFirstMock.mockResolvedValue({
-      id: "leftovers-1",
-      quantity: 1,
-      expiresAt: new Date("2026-09-30T00:00:00.000Z"),
-      expiresAtEstimated: false,
-      shelfLifeDays: null,
-    });
-    inventoryItemUpdateMock.mockResolvedValue({});
+  it("records no leftovers for a freeform meal (no recipe to batch)", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ ...cookableEntry, recipeId: null, recipe: null });
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
-    await markMealEntryCookedAction({}, cookForm("1"));
+    expect(await markMealEntryCookedAction({}, cookForm("2"))).toEqual({});
+    expect(preparedBatchCreateMock).not.toHaveBeenCalled();
+  });
 
-    const data = inventoryItemUpdateMock.mock.calls[0][0].data;
-    expect(data.quantity).toBe(2);
-    expect(data).not.toHaveProperty("expiresAt");
+  it("marks a prepped entry eaten without touching inventory", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ ...cookableEntry, preparedBatchId: "batch-1" });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    // A stale dialog might still post ingredient rows and leftovers; a
+    // prepped meal was cooked at prep time, so neither applies.
+    const fd = cookForm("3");
+    fd.append("itemId", "inv-1");
+    fd.append("itemQuantity", "2");
+    const result = await markMealEntryCookedAction({}, fd);
+
+    expect(result).toEqual({});
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(preparedBatchCreateMock).not.toHaveBeenCalled();
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { consumedAt: expect.any(Date) },
+    });
   });
 });
 
 describe("undoMarkMealEntryCookedAction → leftovers (GAP-8)", () => {
-  it("deletes a leftovers item the cook created, scoped to the household", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date() });
+  it("undo deletes the leftovers batch", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date(), preparedBatchId: null });
+    mealPlanEntryCountMock.mockResolvedValue(0);
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
-    const result = await undoMarkMealEntryCookedAction("entry-1", [], { itemId: "leftovers-1", created: true });
+    const result = await undoMarkMealEntryCookedAction("entry-1", [], { batchId: "batch-1" });
 
     expect(result).toEqual({});
-    expect(inventoryItemDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: "leftovers-1", householdId: "household-1" },
+    expect(mealPlanEntryCountMock).toHaveBeenCalledWith({
+      where: { preparedBatchId: "batch-1", mealPlan: { householdId: "household-1" } },
     });
-    expect(inventoryItemUpdateManyMock).not.toHaveBeenCalled();
+    expect(preparedBatchDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: "household-1" },
+    });
     expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({ where: { id: "entry-1" }, data: { consumedAt: null } });
   });
 
-  it("restores a merged item's previous quantity and expiry, scoped to the household", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date() });
+  it("undo keeps a leftovers batch that was planned", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date(), preparedBatchId: null });
+    // "Plan leftovers" already put a portion on Thursday.
+    mealPlanEntryCountMock.mockResolvedValue(1);
+    inventoryItemFindManyMock.mockResolvedValue([{ id: "inv-1", quantity: 3, lowStockThreshold: 1 }]);
+    inventoryItemUpdateMock.mockResolvedValue({});
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
-    await undoMarkMealEntryCookedAction("entry-1", [], {
-      itemId: "leftovers-1",
-      created: false,
-      previousQuantity: 1,
-      previousExpiresAt: "2026-09-20T12:00:00.000Z",
-      previousExpiresAtEstimated: true,
+    const result = await undoMarkMealEntryCookedAction("entry-1", [{ itemId: "inv-1", quantity: 2 }], {
+      batchId: "batch-1",
     });
 
-    expect(inventoryItemDeleteManyMock).not.toHaveBeenCalled();
-    expect(inventoryItemUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: "leftovers-1", householdId: "household-1" },
-      data: expect.objectContaining({
-        quantity: 1,
-        expiresAt: new Date("2026-09-20T12:00:00.000Z"),
-        expiresAtEstimated: true,
-      }),
+    expect(result).toEqual({});
+    expect(preparedBatchDeleteManyMock).not.toHaveBeenCalled();
+    // The rest of the undo still happens.
+    expect(inventoryItemUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "inv-1" }, data: expect.objectContaining({ quantity: 5 }) }),
+    );
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({ where: { id: "entry-1" }, data: { consumedAt: null } });
+  });
+
+  it("undo of a prepped entry only clears consumedAt", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date(), preparedBatchId: "batch-1" });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    const result = await undoMarkMealEntryCookedAction("entry-1", [{ itemId: "inv-1", quantity: 2 }], {
+      batchId: "batch-9",
     });
+
+    expect(result).toEqual({});
+    expect(inventoryItemFindManyMock).not.toHaveBeenCalled();
+    expect(inventoryItemUpdateMock).not.toHaveBeenCalled();
+    expect(preparedBatchDeleteManyMock).not.toHaveBeenCalled();
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({ where: { id: "entry-1" }, data: { consumedAt: null } });
   });
 
   it("doesn't touch leftovers when the undo is a stale no-op", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: null });
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: null, preparedBatchId: null });
 
-    await undoMarkMealEntryCookedAction("entry-1", [], { itemId: "leftovers-1", created: true });
+    await undoMarkMealEntryCookedAction("entry-1", [], { batchId: "batch-1" });
 
-    expect(inventoryItemDeleteManyMock).not.toHaveBeenCalled();
+    expect(preparedBatchDeleteManyMock).not.toHaveBeenCalled();
   });
 
   it("ignores a malformed leftovers payload but still undoes the cook", async () => {
-    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date() });
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: new Date(), preparedBatchId: null });
     mealPlanEntryUpdateMock.mockResolvedValue({});
 
-    const result = await undoMarkMealEntryCookedAction("entry-1", [], { itemId: "", created: true });
+    const result = await undoMarkMealEntryCookedAction("entry-1", [], { batchId: "" });
 
     expect(result).toEqual({});
-    expect(inventoryItemDeleteManyMock).not.toHaveBeenCalled();
+    expect(preparedBatchDeleteManyMock).not.toHaveBeenCalled();
     expect(mealPlanEntryUpdateMock).toHaveBeenCalled();
   });
 });

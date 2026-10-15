@@ -239,7 +239,9 @@ first.
   dialog or returns to the previous view, never leaves the app by
   surprise.
 - Every gesture (swipe to delete, drag to reorder, pull to refresh) has a
-  visible button that does the same. Nothing is gesture-only.
+  visible button that does the same. Nothing is gesture-only. Row swipes
+  go through `SwipeRow`, which works by clicking that visible button (see
+  REQUIREMENTS.md, "Swipe row actions").
 - A gesture that destroys data is undoable.
 - Don't take over system gestures: the screen edges belong to the OS back
   swipe.

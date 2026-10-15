@@ -256,6 +256,11 @@ describe("loadPersonalBudgetPosition", () => {
       }),
     ]);
     expect(position.safeToSpendBreakdown.duePayments).toBe(6500);
+    // BUDGET-7: the same share feeds the Insights tab's fixed costs; the
+    // payer-only electricity bill isn't one of mine.
+    expect(position.sharedFixedTemplates).toEqual([
+      expect.objectContaining({ id: "tpl-rent", name: "Rent", amount: 6500, type: "EXPENSE", active: true }),
+    ]);
   });
 
   it("drops a hand-split bill once a later one is logged without the user", async () => {
@@ -363,6 +368,9 @@ describe("loadPersonalBudgetPosition", () => {
         expect.objectContaining({ categoryName: "Room rental", type: "INCOME", source: "shared", amount: 2000 }),
       ]),
     );
+    expect(position.sharedFixedTemplates).toEqual([
+      expect.objectContaining({ id: "tpl-room", amount: 2000, type: "INCOME", frequency: "MONTHLY" }),
+    ]);
   });
 
   it("works with no household at all", async () => {
@@ -381,6 +389,7 @@ describe("loadPersonalBudgetPosition", () => {
 
     expect(position.safeToSpend).toBe(1000);
     expect(position.householdDebts).toEqual([]);
+    expect(position.sharedFixedTemplates).toEqual([]);
     expect(transactionFindManyMock).not.toHaveBeenCalled();
   });
 });
