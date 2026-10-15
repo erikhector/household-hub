@@ -2762,6 +2762,22 @@ due widget and savings goals:
 
 Covered by `e2e/budget-overview.spec.ts`.
 
+**Manage on a phone (phone pass, Oct 2026).** A recurring item is one
+line: name, then amount, frequency, due day and category in caption size,
+its one action ("Log" when due, "Undo" once accounted for, "Resume" when
+paused, none once logged) and a "More actions for {name}" menu with Mark
+as accounted for (due items), Edit, Pause and, last behind a separator,
+Delete (confirmed). Five buttons used to wrap, leaving pause and delete
+alone on a second line beside each other. Edit opens from the menu
+through a hidden trigger and Delete through a dialog handle, since a
+dialog inside the menu would unmount as it closes. A category chip is
+now one button (named "Edit {name}") that opens its edit sheet, which
+ends in "Delete {name}" with its confirm dialog, a footer away from Save;
+the chips dropped their own pencil and bin (delete right beside edit, M2)
+and the `12rem` cap that cut off names like "Kids activities" with room
+to spare, so a name only truncates when it's wider than the row. Covered
+by `e2e/budget-manage.spec.ts` and `e2e/ux-19.mobile.spec.ts`.
+
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:

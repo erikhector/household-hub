@@ -2336,7 +2336,6 @@ export const en = {
       sectionDue: "Due this period",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
-      logTransaction: "Log transaction",
       logAsIs: "Log as-is",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
@@ -2344,8 +2343,6 @@ export const en = {
       loggedAsIsToast: "{name} logged as-is for this period.",
       acknowledgedToast: "{name} marked as accounted for.",
       undoToast: "{name} moved back to due.",
-      editAriaLabel: "Edit {name}",
-      deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -2634,7 +2631,6 @@ export const en = {
       sectionDue: "Due this period",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
-      logTransaction: "Log transaction",
       logAsIs: "Log as-is",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
@@ -2642,8 +2638,6 @@ export const en = {
       loggedAsIsToast: "{name} logged as-is for this period.",
       acknowledgedToast: "{name} marked as accounted for.",
       undoToast: "{name} moved back to due.",
-      editAriaLabel: "Edit {name}",
-      deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
         description: "This can't be undone.",

@@ -2237,7 +2237,6 @@ export const sv = {
       sectionDue: "Att göra denna period",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
-      logTransaction: "Logga transaktion",
       logAsIs: "Logga direkt",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
@@ -2245,8 +2244,6 @@ export const sv = {
       loggedAsIsToast: "{name} loggad direkt för denna period.",
       acknowledgedToast: "{name} markerad som klar.",
       undoToast: "{name} flyttad tillbaka till att göra.",
-      editAriaLabel: "Redigera {name}",
-      deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",
@@ -2527,7 +2524,6 @@ export const sv = {
       sectionDue: "Att göra denna period",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
-      logTransaction: "Logga transaktion",
       logAsIs: "Logga direkt",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
@@ -2535,8 +2531,6 @@ export const sv = {
       loggedAsIsToast: "{name} loggad direkt för denna period.",
       acknowledgedToast: "{name} markerad som klar.",
       undoToast: "{name} flyttad tillbaka till att göra.",
-      editAriaLabel: "Redigera {name}",
-      deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",

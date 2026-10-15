@@ -134,15 +134,12 @@ export type BudgetDict = {
     };
     dayOfMonthLabel: string;
     dayOfMonthPlaceholder: string;
-    deleteAriaLabel: string;
     dueDayLabel: string;
-    editAriaLabel: string;
     editDialogTitle: string;
     empty: string;
     logAsIs: string;
     loggedAsIsToast: string;
     loggedToast: string;
-    logTransaction: string;
     markAccountedFor: string;
     nameLabel: string;
     namePlaceholder: string;
