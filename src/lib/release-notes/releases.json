@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.64.0",
+    "date": "2026-10-15",
+    "pr": 225,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Your personal budget's \"Fixed income & costs\" now includes your share of shared household bills like rent, in the totals, the breakdown and the monthly trend.\n\nMeal prep: record dishes you've batch-cooked, see how many portions are left, and plan those portions onto days in the meal planner. Leftovers from a cooked meal now go to Meal prep too.\n\nOn your phone, swipe a shopping item, task or pantry item to the right to tick it off, complete it or add one more. Swipe left to edit or delete it, and a quick Undo brings back anything you delete by mistake.\n\nSheets on your phone now feel native: drag one down to close it, long forms can rest at half height, and the page behind shrinks back while a sheet is open.",
+      "sv": "\"Fasta inkomster & utgifter\" i din personliga budget räknar nu med din andel av hushållets delade räkningar, som hyran, i summorna, uppdelningen och månadstrenden.\n\nMatlådor: registrera rätter du har förberett, se hur många portioner som finns kvar och planera in dem på dagar i måltidsplaneraren. Rester från en lagad måltid hamnar nu också under Matlådor.\n\nPå mobilen kan du svepa en vara, en uppgift eller något i skafferiet åt höger för att bocka av, markera som klar eller lägga till en till. Svep åt vänster för att redigera eller ta bort, och med Ångra får du snabbt tillbaka något du tagit bort av misstag.\n\nArken i mobilen känns nu som i en riktig app: dra nedåt för att stänga, långa formulär kan vila på halv höjd och sidan bakom krymper medan ett ark är öppet."
+    }
+  },
+  {
     "version": "0.63.1",
     "date": "2026-10-14",
     "pr": 216,
