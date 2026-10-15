@@ -7041,16 +7041,42 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   never money, credentials, new personal data, deletion or the loop's
   own limits). Each decided item becomes a normal buildable item with
   acceptance criteria and a "Decided … by autopilot-product" line; the
-  rest get a recommendation in PRODUCT.md's "Owner inbox". It also keeps
+  rest get a recommendation in PRODUCT.md's "Owner inbox" and a
+  `decision` issue with numbered options, which the owner answers by
+  replying with a number or "yes"; the next run applies the answer and
+  closes the issue. It also keeps
   PRODUCT.md's "Direction" and "Focus" current; the builder takes Focus
   IDs right after `UX-` items, and scouts don't re-add what its Decision
   log turned down. Output is one `docs(backlog): product decisions` PR
   (BACKLOG.md and PRODUCT.md only) that the reviewer merges unless the
   owner labels it `hold`.
-- **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
-  turns any mistake seen twice in autopilot PRs into a lint rule, test or
-  checklist line, trims instructions nobody needed, and only *proposes*
-  loosening limits.
+- **Retro** (`autopilot-retro`, weekly) records metrics in
+  `docs/autopilot-metrics.md`, turns any mistake seen twice in autopilot
+  PRs into a lint rule, test or checklist line, trims instructions nobody
+  needed, and only *proposes* loosening limits. The reviewer merges its
+  PR unless it touches `never_merge_paths`.
+
+Three things keep the owner's part small (AUTOPILOT.md, "Owner inbox"
+and "Chaining"):
+
+- **Owner inbox.** The reviewer rewrites one pinned issue, "Owner inbox"
+  (label `owner-inbox`), at the end of every run: PRs labelled
+  `needs-human`, open `decision` issues, PRs from untrusted accounts and
+  anything a routine couldn't do. Every routine report ends with an
+  `Owner action needed:` line, and the reviewer, product and retro
+  routines send a push notification, so the owner opens GitHub only when
+  something needs them. Loop comments carry a `🤖 autopilot-<role>`
+  marker; since the routines run as the owner's account, a comment
+  without it is the owner's.
+- **Chaining.** The reviewer starts the builder once it has merged
+  something, and the builder starts the reviewer once it has opened or
+  fixed a PR, via `fire_trigger`, each only when the other wasn't started
+  within `chain_min_gap_hours`. The cron schedules stay as the fallback.
+- **Flaky tests first.** The release train and the builder file every
+  e2e test that fails and then passes on the same commit (or fails on
+  clean `next`) as a `MAINT-` item titled `Flaky: …`, and the builder
+  takes one of those before any `UX-` item, since `ci:local` has no
+  retry and each flake costs every builder a gate re-run.
 
 Every role works from two outside skill packs with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
@@ -7097,7 +7123,8 @@ routine where AUTOPILOT.md allows it, otherwise by the owner.
 
 ### Routine prompts
 
-Each routine starts a fresh session on `master` in the household-hub
+Each routine starts a fresh session on `next` (the default branch, where
+AUTOPILOT.md and the skills are edited) in the household-hub
 environment (create with "new session on each run"). The prompts are
 deliberately short: the procedure lives in the skills, so it's versioned
 with the code and every run starts with a small context. Suggested
@@ -7111,8 +7138,8 @@ runs don't queue behind everyone else's.
 | Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, and merge the PRs that pass, one merge sub-agent at a time. Follow AUTOPILOT.md; stop if it disables you. |
+| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
 | Product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 

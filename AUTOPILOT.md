@@ -44,12 +44,20 @@ eligible, parallel-safe items as fit under `max_open_autopilot_prs` and
 
 ## What the builder may pick
 
-**`UX-` items first.** While any eligible `UX-` item exists, the builder
+**Flaky-test fixes before everything.** A `MAINT-` item whose title
+starts with "Flaky" (an e2e test that fails on clean `next` without any
+change) outranks every other item, `UX-` included: each one costs every
+builder a re-run of its gate and can turn a release PR red. The builder
+takes at most one per run, so it doesn't spend every slot on them. The
+release train and the builder file these items themselves (see the
+`autopilot-review` and `autopilot-build` skills).
+
+**`UX-` items next.** While any eligible `UX-` item exists, the builder
 fills its slots with `UX-` items (highest impact per effort first) before
 it considers any other prefix, whatever their phase. Only the slots left
 over go to other items: lowest phase first, then highest impact per effort
 (see BACKLOG.md's "Picking an item"). Fixing open autopilot PRs still
-comes before any new item. Right after the `UX-` items come the IDs in
+comes before any new item, and a flaky-test fix before any `UX-` item. Right after the `UX-` items come the IDs in
 PRODUCT.md's "Focus" list, in its order. Allowed prefixes, in priority order:
 
 ```yaml
@@ -97,6 +105,63 @@ Its PRs are `docs(backlog): product decisions <date>` touching only
 BACKLOG.md and PRODUCT.md, and the reviewer merges them like any other.
 The owner vetoes by labelling the PR `hold`, or later by reverting it or
 editing PRODUCT.md.
+
+Each item it can't decide also gets a **decision issue** (label
+`decision`): the question, numbered options and the recommended one, so
+the owner answers by replying with a number (or "yes" for the
+recommendation) from their phone. The next product run reads the reply,
+applies it as the owner's decision (even inside `never_decide`, since the
+owner made it) and closes the issue. A reply asking for something only
+the owner can set up (an account, a dashboard setting) becomes a
+buildable item once the owner says it's done.
+
+## Owner inbox
+
+```yaml
+owner_inbox: true        # false = no inbox issue; read the routine reports instead
+```
+
+Everything the loop needs from the owner is in **one pinned GitHub issue
+titled "Owner inbox"** (label `owner-inbox`), so the owner never has to go
+looking. The reviewer rewrites its body at the end of every run (see the
+`autopilot-review` skill, step 6); nobody edits it by hand. It lists, each
+with a link and one line on what's needed:
+
+- PRs labelled `needs-human` (they touch `never_merge_paths`, or a
+  release went red and couldn't be reverted cleanly);
+- open `decision` issues;
+- PRs from accounts outside `trusted_authors`, left untouched;
+- the "Owner inbox" items in PRODUCT.md that have no decision issue yet;
+- anything a routine reported it couldn't do.
+
+An empty list says "Nothing needs you." Routine reports end with one
+line, `Owner action needed: none` or a short list, so a push
+notification alone says whether to open GitHub.
+
+Comments the loop posts carry a `🤖 autopilot-<role>` marker. The routines
+run as the owner's account, so that marker is how the loop tells its own
+comments from the owner's: a comment from a `trusted_authors` account
+**without** the marker is the owner.
+
+## Chaining
+
+```yaml
+chain: true              # false = routines run only on their cron schedules
+chain_min_gap_hours:     # don't start a routine that was started this recently
+  builder: 3             # a builder run, with its sub-agents' gates, takes hours
+  reviewer: 5            # review_listen_hours + 1, so two reviewers never overlap
+```
+
+The cron schedules are the fallback; work shouldn't wait for them. When
+the reviewer merged anything into `next` this run and the builder has
+headroom, it starts the "Autopilot builder" routine at the end of its
+run. When the builder opened or fixed a PR, it starts the "Autopilot
+reviewer" routine. Start one with `fire_trigger`, finding its id by name
+with `list_triggers`, and only when its `last_fired_at` is older than its
+`chain_min_gap_hours` and its next scheduled run is more than an hour
+away. Two coordinators of the same role running at once would pick the
+same items or merge the same PRs, which is what the gap prevents. No
+scheduling tools in the session: skip chaining and say so in the report.
 
 ## Human-only areas
 
@@ -185,11 +250,7 @@ doesn't need a human again). The builder never merges.
 
 ## Metrics
 
-The retro appends one row per week. Autopilot "improving" means these move
-the right way.
-
-| Week | Merged | Reverted | Review rounds/PR | Unit tests | E2E tests | Lint warnings | Open backlog |
-|---|---|---|---|---|---|---|---|
-| 2026-09-27 | 3 | 0 | 0 | 2170 | 20 | 0 | 57 |
-| 2026-10-04 | 23 | 0 | 1 | 2451 | 44 | 0 | 44 |
-| 2026-10-11 | 32 | 0 | 1 | 2549 | 116 | 0 | 66 |
+The retro appends one row per week to
+[docs/autopilot-metrics.md](./docs/autopilot-metrics.md). It lives there,
+not here, so the weekly retro PR doesn't touch `never_merge_paths` and
+the reviewer can merge it like any other.

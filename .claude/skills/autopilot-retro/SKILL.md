@@ -6,7 +6,8 @@ description: Weekly retrospective for household-hub's autonomous loop. Measures 
 # Autopilot retro
 
 Improve the process, not the app. Output: one metrics row plus at most 3
-process changes, in one `chore:` PR a human merges.
+process changes, in one `chore:` PR. The reviewer merges it unless it
+touches AUTOPILOT.md's `never_merge_paths`; then a human does.
 
 ## 0. Gate
 
@@ -40,9 +41,15 @@ builder's verification missed and close that gap first.
 
 ## 3. Ship
 
-Append the metrics row to AUTOPILOT.md's table. Make at most 3 process
-changes. Branch `autopilot/retro-<date>`, PR `chore: autopilot retro <date>`,
+Append the metrics row to `docs/autopilot-metrics.md`'s table (not
+AUTOPILOT.md, so the PR stays mergeable by the reviewer). Make at most 3
+process changes. Branch `autopilot/retro-<date>`, PR `chore: autopilot retro <date>`,
 label `autopilot`. Body: the metrics, each finding with the PRs that show
 it, and the change made. If the numbers justify loosening AUTOPILOT.md's
 merge policy or limits, **propose** it in the body; never change those
 settings yourself.
+
+Also count, for the body, how many items the Owner inbox issue listed
+this week and how many decision issues waited more than 3 days: the loop
+should need the owner less each week. Report ends with `Owner action
+needed: none` or the PR link when it touches `never_merge_paths`.

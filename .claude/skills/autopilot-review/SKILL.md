@@ -256,7 +256,11 @@ says `ship_release: false`.
    re-cut it, so its full run isn't restarted.
 2. **Verify** (one merge sub-agent, `run_in_background: false`): check
    out the release branch and run the full gate once, `npm run ci:local`
-   under the shared lock as the builder does, nothing skipped. With
+   under the shared lock as the builder does, nothing skipped. Have it
+   also report every e2e test that failed and then passed: in its local
+   run (re-run a failing spec once on the same commit to tell) and in the
+   GitHub `End-to-end (Playwright)` job, whose one retry marks such tests
+   `flaky` in its log. Those go to step 4c whatever the train's outcome. With
    `ci_gate: github`, also wait for both `ci.yml` jobs (`Lint, typecheck,
    test, build` and `End-to-end (Playwright)`) on its head (Monitor
    until-loop, up to 45 minutes). With `ci_gate: local`, cut the release
@@ -276,6 +280,16 @@ says `ship_release: false`.
    carries the version the "Release preview" comment announced (once
    `release.yml` has run, with `ci_gate: github`), and `origin/next`
    contains `origin/master`.
+
+## 4c. File the flaky tests (coordinator)
+
+A test that failed and then passed on the same commit is a flake, even
+when the release went green: `ci:local` has no retry, so it will fail a
+builder's gate soon. For each one, open or extend a backlog item in one
+`docs(backlog): flaky e2e <date>` PR (BACKLOG.md only, label
+`autopilot`), merged like any other docs PR. The format is in the
+`autopilot-build` skill, step 3b. AUTOPILOT.md ranks these items first,
+so the next builder run picks one up.
 
 A release PR touches whatever its PRs touched, including
 `never_merge_paths` that a human already merged into `next`; those don't
@@ -329,9 +343,31 @@ after `review_listen_hours` since the run started arrives: then unsubscribe
 from everything and report. Nothing is lost by stopping: the next daily
 run's triage (step 1) notices every head that moved.
 
-## 6. Report (coordinator)
+## 6. Chain and update the Owner inbox (coordinator)
+
+1. **Chain.** If AUTOPILOT.md says `chain: true` and this run merged at
+   least one PR into `next`, start the "Autopilot builder" routine as
+   AUTOPILOT.md's "Chaining" section describes, unless the builder's
+   headroom (its step 0 count) is 0 and no open autopilot PR needs a fix.
+   Do this as soon as step 4c is done, before step 5's listening, so the
+   builder doesn't wait out the listen window.
+2. **Owner inbox.** If AUTOPILOT.md says `owner_inbox: true`, find the
+   open issue labelled `owner-inbox` (create it, titled "Owner inbox",
+   and pin it if none exists) and replace its body with the list
+   AUTOPILOT.md's "Owner inbox" section describes, built fresh from
+   GitHub: `is:open is:pr label:needs-human`, `is:open is:issue
+   label:decision`, open PRs from outside `trusted_authors`, PRODUCT.md's
+   "Owner inbox" lines with no matching decision issue, and anything this
+   run couldn't do. Start the body with `🤖 autopilot-review` and the
+   date; end with "Nothing needs you." when the list is empty. Edit the
+   body, don't comment, so the issue doesn't notify the owner on every
+   run.
+
+## 7. Report (coordinator)
 
 Final message, one line per PR touched: number, what happened (N
 findings / N threads resolved / N review rounds / merged into `next` /
 blocked: why), then one line for the release train (shipped as vX.Y.Z
-with #…, waiting on CI, red: why, or nothing to ship). Nothing else.
+with #…, waiting on CI, red: why, or nothing to ship), one for flaky
+tests filed, one for chaining, and a last line `Owner action needed:
+none` or the inbox's items. Nothing else.

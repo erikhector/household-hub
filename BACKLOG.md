@@ -6,8 +6,9 @@ yet**; everything already shipped is documented in
 are kept for their design rationale in [`docs/archive/`](./docs/archive/)
 (code comments still cite them by item).
 
-**Picking an item:** `UX-` items go first, whatever their phase (see
-AUTOPILOT.md, "What the builder may pick"). Otherwise take the lowest phase you can. Within Phase 1, anything
+**Picking an item:** one `MAINT-` item titled `Flaky: …` goes first,
+then `UX-` items, whatever their phase (see AUTOPILOT.md, "What the
+builder may pick"). Otherwise take the lowest phase you can. Within Phase 1, anything
 can run in parallel except the file conflicts listed at the top of that phase. Phase 2
 items each add a Prisma migration, so land them **one at a time**, each
 rebased on the previous one's merge, to avoid migration-ordering conflicts.
@@ -224,7 +225,7 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky "Next up" layout shift in `motion.spec.ts`**
+- [ ] **MAINT-18. Flaky: "Next up" layout shift in `motion.spec.ts`**
       (medium, S) — `[mobile] e2e/motion.spec.ts:180` ("adding, ticking
       and removing shopping items glide, with no layout shift") fails
       about 1 run in 10 on `master` (v0.66.0) and on v0.67.0, always the
@@ -237,7 +238,7 @@ then MAINT-7 per feature, to avoid churn.
       safe-area settle on the fixed panel) and fix the cause. Don't
       loosen the assertion. Acceptance: `npx playwright test
       e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-19. Ticked shopping row is in the list twice for 350 ms**
+- [ ] **MAINT-19. Flaky: ticked shopping row is in the list twice for 350 ms**
       (medium, S) — `e2e/optimistic-ticking.spec.ts:76` fails about 1 run
       in 10 on `master` (v0.67.0) and failed both CI attempts on release
       #239: `getByRole('checkbox', { name: /^Coffee … ×/ })` matches two

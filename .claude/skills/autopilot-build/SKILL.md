@@ -47,8 +47,9 @@ write it.
 
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
-Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
-`UX-` item comes first** (best impact/effort among them), then the
+Apply AUTOPILOT.md's allowed prefixes and exclusions. **One eligible
+`MAINT-` item titled `Flaky: …` comes first** (at most one per run), then
+**every eligible `UX-` item** (best impact/effort among them), then the
 eligible IDs in PRODUCT.md's "Focus" list in its order; only the slots
 left after those go to other items, lowest phase first, then best
 impact/effort. Confirm no open PR mentions each ID. Read only the
@@ -104,7 +105,10 @@ GitHub and on disk before accepting it:
    --git-dir)/ci-local.log` starts with that SHA and its tail shows lint,
    typecheck, unit tests, build and e2e all passing with nothing skipped
    (`tail -n 30`, `grep -E 'skipped|failed|✘'`). The PR's Verification
-   section matches it.
+   section matches it. The one exception is an e2e failure the sub-agent
+   showed also fails on clean `origin/next` (the same spec run there,
+   without its change, under the lock): accept it as pre-existing, say so
+   on the PR, and collect it for step 3b.
 3. **The PR is well-formed**: Conventional Commit title ending in the
    item ID, label `autopilot`, template filled in, release note in English
    and Swedish for a releasing type, and "⚠️ Needs careful review" if the
@@ -115,6 +119,21 @@ GitHub and on disk before accepting it:
    new logic has a colocated `*.test.ts`, and a user-visible change has an
    `e2e/` spec. Don't re-review the code line by line: the
    `autopilot-review` routine does that.
+
+### 3b. File the flaky tests
+
+Every pre-existing e2e failure collected in step 3 is a flaky test
+nobody owns yet. Once all PRs are validated, file them in one
+`docs(backlog): flaky e2e <date>` PR (BACKLOG.md only, label
+`autopilot`; the reviewer merges it). A **flaky-test item** goes in Phase 1 under `### Maintainability`, as
+the next free `MAINT-` ID, titled `Flaky: <what the test sees>` with the
+spec path and line, the project (`desktop`/`mobile`), how often it fails
+and on which commits, the failing assertion, and the acceptance line
+`npx playwright test <spec> --project=<project> --repeat-each=30` passes
+30/30. The fix is in the app or the test's waiting, never a loosened
+assertion, a skip or a retry. Before filing, grep BACKLOG.md for the spec
+path: if an item already names it, add the new sighting to that item
+instead.
 
 Any check fails: send the specific failure back to that sub-agent with
 `SendMessage` (its context is intact) and validate again when it
@@ -130,9 +149,16 @@ the `autopilot-review` routine reviews and merges every PR.
 
 ## 4. Report (coordinator)
 
+Before the report, if AUTOPILOT.md says `chain: true` and this run
+opened or fixed at least one PR, start the "Autopilot reviewer" routine
+as AUTOPILOT.md's "Chaining" section describes, so the PRs don't wait for
+its schedule.
+
 Final message, one line per item or PR: ID, PR link, status (validated /
 fixed / draft: why), what was tested. Then the run's totals (built,
-fixed, failed, headroom left). Nothing else.
+fixed, failed, headroom left), whether the reviewer was chained, and a
+last line `Owner action needed: none` or what's needed (drafts that need
+a person, items marked `[!]` mid-build). Nothing else.
 
 ---
 
