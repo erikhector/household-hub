@@ -37,6 +37,7 @@ import {
   type SafeToSpendBreakdown,
   type SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
+import { getPlannedExpenseStatus, isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
 import { projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
@@ -334,6 +335,7 @@ export async function loadPersonalBudgetPosition({
         type: row.template.type,
         amount: split.amountOwed,
         householdName: householdByMemberId.get(split.householdMemberId)?.name ?? "",
+        householdId: row.template.householdId,
         logPrefill: {
           householdId: row.template.householdId,
           templateId: row.template.id,
@@ -345,6 +347,57 @@ export async function loadPersonalBudgetPosition({
         },
       };
     });
+
+  // Planned bills (BUDGET-8): the user's share of every household one-off
+  // bill that is still unpaid as of the viewed month's end (due or overdue —
+  // see planned-expense-calc.ts). Appended to sharedDueRows *before*
+  // expectedRecurring folds them in, so the existing fold counts them in
+  // Safe to spend. Bills due after this month are "upcoming" and stay out;
+  // a payer-only split (amountOwed 0) isn't a cost, hence the `gt: 0`. No
+  // logPrefill: paying one is done from the household's Budget page, where
+  // the bill's own "Log payment" links the transaction to it.
+  const plannedSplits =
+    householdMemberIds.length > 0
+      ? await prisma.plannedExpenseSplit.findMany({
+          where: {
+            householdMemberId: { in: householdMemberIds },
+            amountOwed: { gt: 0 },
+            // Paid before the month started is history (never outstanding):
+            // leave it to the database so this doesn't grow with every bill
+            // ever paid. A payment dated later still counts as unpaid here.
+            plannedExpense: {
+              dueDate: { lt: monthEnd },
+              OR: [{ transaction: { is: null } }, { transaction: { is: { date: { gte: monthStart } } } }],
+            },
+          },
+          include: {
+            plannedExpense: {
+              include: {
+                category: { select: { name: true } },
+                transaction: { select: { date: true } },
+              },
+            },
+          },
+        })
+      : [];
+  for (const split of plannedSplits) {
+    const bill = split.plannedExpense;
+    const status = getPlannedExpenseStatus(
+      { dueDate: bill.dueDate, paidAt: bill.transaction?.date ?? null },
+      monthStart,
+      monthEnd,
+    );
+    if (!isPlannedExpenseOutstanding(status)) continue;
+    sharedDueRows.push({
+      id: bill.id,
+      name: bill.name,
+      categoryName: bill.category.name,
+      type: "EXPENSE",
+      amount: split.amountOwed,
+      householdName: householdByMemberId.get(split.householdMemberId)?.name ?? "",
+      householdId: bill.householdId,
+    });
+  }
 
   // Every shared template the user still pays a share of, reduced to that
   // share — the Insights tab's "Fixed income & costs" counts it next to

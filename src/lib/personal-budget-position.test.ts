@@ -4,7 +4,7 @@
 // REQUIREMENTS.md's "Testing" section. The pure pieces it's built from have
 // their own tests (safe-to-spend-calc.test.ts, settle-up-calc.test.ts); this
 // one pins down how they're combined.
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   personalTransactionFindManyMock,
@@ -16,6 +16,7 @@ const {
   templateSplitFindManyMock,
   templateAckFindManyMock,
   templateFindManyMock,
+  plannedSplitFindManyMock,
 } = vi.hoisted(() => ({
   personalTransactionFindManyMock: vi.fn(),
   personalTemplateFindManyMock: vi.fn(),
@@ -26,6 +27,7 @@ const {
   templateSplitFindManyMock: vi.fn(),
   templateAckFindManyMock: vi.fn(),
   templateFindManyMock: vi.fn(),
+  plannedSplitFindManyMock: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -39,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
     recurringTemplateSplit: { findMany: templateSplitFindManyMock },
     recurringTemplateAck: { findMany: templateAckFindManyMock },
     recurringTemplate: { findMany: templateFindManyMock },
+    plannedExpenseSplit: { findMany: plannedSplitFindManyMock },
   },
 }));
 
@@ -89,6 +92,10 @@ function split(memberId: string, name: string, amountOwed: number, amountPaid: n
     householdMember: { user: { displayName: name } },
   };
 }
+
+beforeEach(() => {
+  plannedSplitFindManyMock.mockResolvedValue([]);
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -420,5 +427,72 @@ describe("loadPersonalBudgetPosition", () => {
     // 150 of everyday spending over 10 days → 15 a day, for 20 more days.
     expect(position.safeToSpendProjection?.dailyPace).toBe(15);
     expect(position.safeToSpendProjection?.projected).toBe(2450 - 15 * 20);
+  });
+  describe("planned bills (BUDGET-8)", () => {
+    function setup(plannedSplits: unknown[]) {
+      personalTransactionFindManyMock.mockResolvedValue([personalTx("Salary", "INCOME", 30000, 5)]);
+      personalTemplateFindManyMock.mockResolvedValue([]);
+      personalAckFindManyMock.mockResolvedValue([]);
+      householdMemberFindManyMock.mockResolvedValue([{ id: "m1", household: { id: "h1", name: "Home" } }]);
+      transactionFindManyMock.mockResolvedValue([]);
+      settlementFindManyMock.mockResolvedValue([]);
+      templateSplitFindManyMock.mockResolvedValue([]);
+      templateAckFindManyMock.mockResolvedValue([]);
+      templateFindManyMock.mockResolvedValue([]);
+      plannedSplitFindManyMock.mockResolvedValue(plannedSplits);
+    }
+    const bill = (transaction: { date: Date } | null) => ({
+      householdMemberId: "m1",
+      amountOwed: 1500,
+      plannedExpense: {
+        id: "p1",
+        name: "Car repair",
+        amount: 3000,
+        householdId: "h1",
+        dueDate: new Date(2026, 8, 15),
+        category: { name: "Car" },
+        transaction,
+      },
+    });
+    const load = () =>
+      loadPersonalBudgetPosition({ userId: "user-1", monthStart, monthEnd, sharedLabel: "Shared" });
+
+    it("adds the user's share of an outstanding planned bill", async () => {
+      setup([bill(null)]);
+      const position = await load();
+      expect(position.sharedDueRows).toEqual([
+        expect.objectContaining({ id: "p1", name: "Car repair", categoryName: "Car", amount: 1500, type: "EXPENSE", householdName: "Home" }),
+      ]);
+      expect(position.sharedDueRows[0].logPrefill).toBeUndefined();
+      expect(position.safeToSpendBreakdown.duePayments).toBe(1500);
+    });
+
+    it("bounds the query to the user's members and the viewed month", async () => {
+      setup([]);
+      await load();
+      expect(plannedSplitFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            householdMemberId: { in: ["m1"] },
+            amountOwed: { gt: 0 },
+            plannedExpense: {
+              dueDate: { lt: monthEnd },
+              // Bills paid before the month are history; leave them in the DB.
+              OR: [
+                { transaction: { is: null } },
+                { transaction: { is: { date: { gte: monthStart } } } },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    it("does not add a bill paid before the month ends", async () => {
+      setup([bill({ date: new Date(2026, 8, 20) })]);
+      const position = await load();
+      expect(position.sharedDueRows).toEqual([]);
+      expect(position.safeToSpendBreakdown.duePayments).toBe(0);
+    });
   });
 });

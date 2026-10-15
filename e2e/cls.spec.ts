@@ -14,6 +14,54 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
+// The hard load below has no latency, so each Suspense section streams in
+// before the first paint. A client navigation with every RSC payload held
+// back is the slow-network case: the route's `loading.tsx` skeleton (or the
+// previous page) shows, then the real page replaces it, and that swap must
+// not move the layout.
+const RSC_DELAY_MS = 800;
+const SETTLE_MS = 1200;
+
+for (const route of DASHBOARD_ROUTES) {
+  test(`${route.pattern} does not shift when it replaces its skeleton`, async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __cls: number };
+      w.__cls = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+          if (!entry.hadRecentInput) w.__cls += entry.value;
+        }
+      }).observe({ type: "layout-shift", buffered: true });
+    });
+    // Start somewhere else so the navigation is a real route change.
+    const start = route.path.startsWith("/dashboard/profile") ? "/dashboard/tasks" : "/dashboard/profile";
+    await page.goto(start);
+    await expect(page.locator("main")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    await page.route(
+      (url) => url.searchParams.has("_rsc"),
+      async (r) => {
+        await new Promise((resolve) => setTimeout(resolve, RSC_DELAY_MS));
+        await r.continue().catch(() => {});
+      },
+    );
+    await page.evaluate(() => {
+      (window as unknown as { __cls: number }).__cls = 0;
+    });
+    await page.evaluate((path) => {
+      (window as unknown as { next: { router: { push: (p: string) => void } } }).next.router.push(path);
+    }, route.path);
+    // A prefetched route (the bottom bar's links) paints its skeleton at
+    // once; one that wasn't keeps the old page until the payload lands. Both
+    // end in a swap, and that swap is what's measured.
+    await page.waitForTimeout(RSC_DELAY_MS + SETTLE_MS);
+    await expect(page.locator("main")).toBeVisible();
+    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+    expect(cls, `CLS swapping in ${route.pattern}`).toBeLessThan(CLS_BUDGET);
+  });
+}
+
 for (const route of DASHBOARD_ROUTES) {
   test(`${route.pattern} does not shift while loading`, async ({ page }) => {
     await page.addInitScript(() => {

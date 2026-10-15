@@ -9,6 +9,7 @@ import { defaultLocale, isLocale } from "@/lib/i18n/locales";
 import { EXPIRY_WARNING_DAYS } from "@/lib/inventory/expiry";
 import { computeSafeToSpend } from "@/lib/safe-to-spend-calc";
 import { computeTemplateStatuses } from "@/lib/recurring-template-calc";
+import { getPlannedExpenseStatus } from "@/lib/planned-expense-calc";
 import { addMonths, getMonthEnd, getMonthStart } from "@/lib/budget-date-utils";
 import { getWeekStart, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { createDigestUnsubscribeToken } from "@/lib/digest-unsubscribe-token";
@@ -104,7 +105,7 @@ export async function loadHouseholdDigestInput(householdId: string, now: Date): 
 // feed it.
 async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, monthEnd: Date) {
   const lookbackStart = addMonths(monthStart, -RECURRING_LOOKBACK_MONTHS);
-  const [transactions, templates, acks] = await Promise.all([
+  const [transactions, templates, acks, plannedExpenses] = await Promise.all([
     prisma.transaction.findMany({
       where: { householdId, date: { gte: lookbackStart, lt: monthEnd } },
       select: {
@@ -134,6 +135,20 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
     prisma.recurringTemplateAck.findMany({
       where: { recurringTemplate: { householdId } },
       select: { recurringTemplateId: true, periodKey: true },
+    }),
+    // BUDGET-8: planned bills, same filter as the Budget page — unpaid ones
+    // plus any paid this month or later (a bill paid after the month it was
+    // due in still counts as due in that month). Bills paid before this
+    // month can never be due or overdue now, so they're left out.
+    prisma.plannedExpense.findMany({
+      where: {
+        householdId,
+        OR: [
+          { transaction: { is: null } },
+          { transaction: { is: { date: { gte: monthStart } } } },
+        ],
+      },
+      select: { id: true, name: true, amount: true, dueDate: true, transaction: { select: { date: true } } },
     }),
   ]);
 
@@ -176,6 +191,16 @@ async function loadHouseholdSafeToSpend(householdId: string, monthStart: Date, m
       type: row.template.type,
       amount: row.template.amount,
       status: row.status,
+    })),
+    plannedExpenses: plannedExpenses.map((p) => ({
+      id: p.id,
+      name: p.name,
+      amount: p.amount,
+      status: getPlannedExpenseStatus(
+        { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },
+        monthStart,
+        monthEnd,
+      ),
     })),
   });
 }
