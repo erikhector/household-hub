@@ -123,6 +123,11 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
   await expect(stripRow).toBeVisible();
   await expect(stripRow.getByRole("button", { name: "Log payment" })).toBeVisible();
+  if (testInfo.project.name.startsWith("mobile")) {
+    await expectTouchTargets(page);
+    await expectTargetsApart(dueStrip);
+    await expectNoHorizontalOverflow(page);
+  }
 
   // --- Log its payment -----------------------------------------------------
   await page.getByRole("tab", { name: "Manage" }).click();
