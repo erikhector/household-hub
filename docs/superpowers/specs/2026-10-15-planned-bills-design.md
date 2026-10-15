@@ -167,7 +167,7 @@ Follows DESIGN.md, including the hard mobile rules M1–M10.
   column makes no sense before anything is paid. One primary action: Save.
   Inline errors next to fields; pending state on submit.
 - **Log payment** opens the existing `TransactionDialog` pre-filled through
-  the existing `SharedExpensePrefill` path, extended with an optional
+  the existing `TransactionTemplatePrefill` path, extended with an optional
   `plannedExpenseId`: name as description, planned amount, category,
   planned shares, current member as payer. Everything is editable. The
   transaction actions accept the hidden `plannedExpenseId`.

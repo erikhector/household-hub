@@ -2536,6 +2536,11 @@ opposite of "carry forward until paid". Migration
   same rule as `RecurringTemplateSplit`. No rows means unsplit, which still
   counts in the household's safe to spend. Only the expectation: who really
   paid is whatever the logged transaction's own `TransactionSplit` rows say.
+  When a member leaves, their share rows go with them (cascade), the same
+  tradeoff as `RecurringTemplateSplit`: the remaining shares no longer sum
+  to the amount. The household total is unaffected (it counts the bill's
+  `amount`), and opening the bill's edit dialog shows the mismatch and
+  blocks Save until the shares are fixed or the split is turned off.
 - **`Transaction.plannedExpenseId`**, nullable and `@unique`. A bill is
   **paid** when a transaction links to it, so "paid" is derived and never
   stored, and the database guarantees a bill is logged at most once.
@@ -2564,7 +2569,8 @@ settled later.
   untouched: an unpaid bill is never "spent" in its category.
 - *Personal budget*: `loadPersonalBudgetPosition` reads the user's
   `PlannedExpenseSplit` rows (their member ids, bill due before the month's
-  end) and adds each `due`/`overdue` bill at their `amountOwed` as a shared
+  end and not paid before the month's start, the Budget page's filter) and
+  adds each `due`/`overdue` bill at their `amountOwed` as a shared
   due row, folded into the same "not yet logged" reduction as shared
   recurring items. Only members with a share see it.
 - *Budget page* (`src/app/dashboard/budget/page.tsx`): loads bills due before
@@ -2574,24 +2580,33 @@ settled later.
 **UI.** `PlannedExpensesPanel` (`src/components/budget/planned-expenses-panel.tsx`)
 sits in the Manage tab under the recurring items, grouped Overdue, Due this
 month, Upcoming and Paid (paid in the viewed month only). Rows offer Log
-payment, Edit and Delete (confirmed); a paid row offers only Edit.
+payment, Edit and Delete (confirmed); a row with a linked payment offers
+only Edit. That includes a past month's bill paid later: it still shows as
+due there, with "Paid {date}" after its due date, since a second payment
+would be refused and deleting it would silently detach the real one
+(`PlannedExpenseRow.paidAt`). The dialog keeps the typed name and category
+when the server rejects a save (UX-13).
 `PlannedExpenseDialog` has name, amount, category (a searchable combobox),
 due date and, when the household has more than one member, an opt-in
 share-only split section pre-filled with `evenSplitAmounts`, the same UI
 `RecurringTemplateDialog` uses rather than `SplitEditor`, whose "Paid" column
 means nothing before anything is paid. `DueRecurringWidget` also lists due
-and overdue bills with the same Log payment action.
+and overdue bills with the same Log payment action (likewise hidden once a
+payment is linked).
 
 **Logging a payment.** Log payment opens the normal `TransactionDialog`
 pre-filled (name, amount, category, planned shares, the current member as
-payer) through `SharedExpensePrefill`, extended with `plannedExpenseId`.
+payer) through `TransactionTemplatePrefill`, extended with
+`plannedExpenseId`. Saving toasts "{name} marked as paid." rather than the
+recurring item's "logged for this period".
 Everything stays editable, so the transaction may differ from the plan and
 one payment closes the bill at whatever amount was logged. In Personal
 Budget, `SharedDueRow` gained `householdId` and an optional `logPrefill`,
 left unset for planned bills. `createTransactionAction`
 (`src/app/dashboard/budget/actions.ts`) sets the link only on creation
 (editing a transaction leaves it alone) and rejects a bill from another
-household or one already paid. A race between two payments hits the unique
+household, one already paid, or a payment in a non-`EXPENSE` category, with
+localised errors (`fail()`). A race between two payments hits the unique
 index, and the `P2002` on `Transaction_plannedExpenseId_key` is mapped to the
 same "already paid" error. With the pg driver adapter the violated
 constraint is under `meta.driverAdapterError`, not `meta.target`, so
@@ -2610,11 +2625,15 @@ personal budget and dashboard.
 
 **Deleting.** Deleting a bill sets its transaction's `plannedExpenseId` to
 null (`onDelete: SetNull`): the transaction survives as an ordinary one.
-Deleting the transaction makes the bill unpaid again.
+Deleting the transaction makes the bill unpaid again. A category a bill
+uses can't be deleted (the relation is `Restrict`): `deleteCategoryAction`
+names the bill, as it does a recurring item, instead of failing on the
+foreign key.
 
 Covered by `planned-expense-calc.test.ts`, `planned-expense-actions.test.ts`,
 the `safe-to-spend-calc` and `personal-budget-position` tests, and
-`e2e/planned-expenses.spec.ts` (desktop and mobile). Touches
+`weekly-digest.test.ts`, the budget `actions.test.ts`, the export route's
+test, and `e2e/planned-expenses.spec.ts` (desktop and mobile). Touches
 `AUTOPILOT.md`'s human-only money areas, so the owner reviews and merges.
 
 ### Budget component unification
@@ -2860,8 +2879,9 @@ shape is deliberate:
   wrote; `householdTasks` assigned to or last completed by them
   (`assignedToMe`/`completedByMe`, no rotation list, since a task keeps only
   its latest completion this is all the task history there is);
-  `transactionSplits` and `recurringTemplateSplits` (their share of a split
-  bill plus the bill's description/name, amount and date);
+  `transactionSplits`, `recurringTemplateSplits` and `plannedExpenseSplits`
+  (their share of a split bill plus the bill's description/name, amount and
+  date or due date);
   `memberSettlements` they paid or received (`direction`, the other
   member's display name, amount, date). Other members' shares and the
   household's full transaction list stay out.
@@ -6192,7 +6212,8 @@ approximating them, so the email never disagrees with the app.
   - *Household budget*: this month's household "Remaining after expenses
     and savings" headline and its healthy/tight/over line, computed exactly
     as the Budget page does (`computeTemplateStatuses` +
-    `computeSafeToSpend` over the same 12-month lookback). Left out when the
+    `computeSafeToSpend` over the same 12-month lookback, and the same
+    due and overdue planned bills, see "Planned bills"). Left out when the
     household has no categories, or nothing logged or due this month.
   - Lists are capped at 10 entries with "…and N more". All user-entered
     text is HTML-escaped.
