@@ -761,6 +761,51 @@ out to be a product-scope question rather than a scoped task should move to
       adds two unique items, clicks the action on desktop and mobile and
       asserts the toast and clipboard text.
 
+### 2026-10-15 scan
+
+- [ ] **GAP-54. Import a recipe from a photo (cookbook page, recipe card)** (impact: med, effort: M) —
+      Plan to Eat's late-2025 update added photo scanning of recipe cards
+      and cookbook pages. Squirrel imports only from a URL
+      (REQUIREMENTS.md, "Recipe import from URL",
+      `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
+      retyped by hand. Add a "Import from a photo" button beside the URL
+      input in `RecipeFormDialog`, reusing the vision receipt-scan
+      upload and provider path (`scanReceiptPhotoAction` in
+      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
+      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
+      party, no stored image) to extract name, instructions and
+      ingredient rows into the same pre-fill state. Same stance as the
+      URL import: never auto-save, the user reviews and edits first, and
+      a failed or empty parse shows an error toast and leaves the form
+      untouched. Gate it on the same check as that action:
+      `resolveAttempts` is empty (`not_configured`) when neither
+      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
+      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
+      not used here, so with neither key set the button is hidden. Fold
+      the photo parser's output through the existing ingredient-line
+      parser so units and quantities match URL imports.
+      Acceptance: unit tests for the output-to-prefill mapping and the
+      unconfigured/failed-parse paths plus the tenancy check on the
+      action; an e2e step (AI mocked as in the receipt specs) uploads a
+      fixture image in the dialog and asserts the name and ingredient
+      rows are pre-filled and nothing is saved until Save, on desktop
+      and mobile.
+
+- [ ] **GAP-55. Show when a recipe is planned on its detail view** (impact: low-med, effort: S) —
+      AnyList's recipe details now list past and upcoming meal-plan dates
+      for a recipe. Squirrel's recipe view says nothing about whether a
+      recipe is already on this week's plan, so a household can plan the
+      same dish twice or not realise a favourite was cooked last week.
+      (GAP-46 covers "last cooked"; this is the upcoming side.) Add a
+      read-only "Planned: Tue 21 Oct, Sat 25 Oct" line to the recipe card
+      or dialog from a household-scoped query of `MealPlanEntry` rows with
+      `date >= today` for that `recipeId` (limit 3), each date linking to
+      `?week=` for its week. Nothing shown when there are none. No schema
+      change.
+      Acceptance: a loader test covers household scoping, past dates
+      excluded and the limit; an e2e step plans a seeded recipe and
+      asserts the date text on the recipe view on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
