@@ -435,6 +435,45 @@ decision and sit under "Needs a decision before building".
 
 ---
 
+- [ ] **UX-36. Offline in the shop** (L) — first version: the active shopping
+      list survives a dead zone, ticks sync later.
+      - Cache the open shopping list and shopping mode for offline reads
+        (service worker, `src/lib/service-worker.js`, which today shows
+        only the offline page). Only the shopping list is cached; auth,
+        money and everything else stay network-only.
+      - Queue only **ticks (check/uncheck)** while offline and replay them
+        on reconnect, with a visible "3 changes waiting" chip. Conflict
+        rule: last write wins per item, and an item deleted meanwhile is
+        skipped silently.
+      - Offline adds and price edits are parked as a later item: they need
+        id/merge rules that ticks don't.
+      - Use the existing optimistic rows (UX-14) as the foundation. Any
+        browser storage for the queue goes in `cookie-inventory.ts` and is
+        cleared on logout.
+      Acceptance: an e2e test loads the list, goes offline
+      (`context.setOffline(true)`), ticks an item, sees the chip, goes
+      online and asserts the tick persisted after reload, on desktop and
+      mobile.
+      Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
+      the shopping list. Why: it's the in-store case Bring! and AnyList
+      cover and the smallest slice with no merge conflicts. See PRODUCT.md.
+
+- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) — use
+      the squirrel in every empty state (no items, no lists, no meals, no
+      tasks, all caught up), and one subtle celebration when a shopping
+      list is completed.
+      - Raster mark only, per DESIGN.md's Brand mark rules, no emoji, no
+        new illustration assets, served through `next/image`. Under
+        reduced motion, show a static image.
+      - The budget-under-plan celebration is dropped: no celebrations on
+        money (Guardrails: no loss-aversion or streaks on money).
+      Acceptance: an e2e test opens an empty list page and asserts the
+      mark with its accessible name, and the completion celebration
+      appears once after the last item is ticked, on desktop and mobile.
+      Decided 2026-10-15 by autopilot-product: existing mark only, no
+      budget celebration. Why: ships without waiting for assets and keeps
+      money surfaces calm. See PRODUCT.md.
+
 ## Competitive gap scan
 
 A running log, appended to at most once a day, of feature gaps found by
@@ -792,27 +831,6 @@ out to be a product-scope question rather than a scoped task should move to
       asserts the date text on the recipe view on desktop and mobile.
 
 ## Needs a decision before building
-
-- [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
-      scope and conflict rules.
-      - Cache the active shopping list and shopping mode.
-      - Queue ticks, adds and price edits while offline, and sync with a
-        visible "3 changes waiting" chip.
-      - Use the existing optimistic rows (UX-14) as the foundation.
-
-      Bring! and AnyList both work in a basement supermarket; today
-      Squirrel shows the offline page (`service-worker.js:34-45`).
-
-- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) `[!]` —
-      needs illustration assets. Use the squirrel in:
-      - every empty state (no items, no lists, no meals, no tasks, all
-        caught up);
-      - a subtle celebration when a list is completed or the budget ends
-        the month under plan.
-
-      Use the raster mark only, per DESIGN.md's Brand mark rules, with no
-      emoji, served through `next/image`. Under reduced motion, show a
-      static image.
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
       household onboarding offers a one-click `StarterCategoryPicker`; personal onboarding
