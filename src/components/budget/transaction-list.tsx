@@ -126,6 +126,7 @@ export function TransactionList({
   onDelete,
   createAction,
   updateAction,
+  readOnly = false,
 }: {
   transactions: TransactionListRow[];
   /** This user's own share of posted split household transactions this
@@ -156,6 +157,10 @@ export function TransactionList({
   onDelete: (id: string) => Promise<ActionState>;
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
+  /** The household budget is showing another household (`?household=`):
+   * BudgetTabs' disabled fieldset already turns off every button, but a
+   * swipe isn't a button, so the rows need telling to stay put. */
+  readOnly?: boolean;
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
   // No year: the month is the one picked right above the list.
@@ -520,6 +525,7 @@ export function TransactionList({
                     onDelete={onDelete}
                     createAction={createAction}
                     updateAction={updateAction}
+                    readOnly={readOnly}
                   />
                 ),
               )}
@@ -547,6 +553,7 @@ function TransactionPhoneRow({
   onDelete,
   createAction,
   updateAction,
+  readOnly,
 }: {
   row: TransactionListRow;
   badges: ReactNode;
@@ -559,6 +566,7 @@ function TransactionPhoneRow({
   onDelete: (id: string) => Promise<ActionState>;
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
+  readOnly: boolean;
 }) {
   // The description is what the user typed to tell rows apart ("ICA",
   // "Netflix"); without one the category is the best name the row has.
@@ -572,7 +580,7 @@ function TransactionPhoneRow({
 
   return (
     <li>
-      <SwipeRow editLabel={dict.swipe.edit} deleteLabel={dict.swipe.delete} onDelete={remove}>
+      <SwipeRow editLabel={dict.swipe.edit} deleteLabel={dict.swipe.delete} onDelete={remove} disabled={readOnly}>
         <TransactionDialog
           numberFormat={numberFormat}
           dict={dict}

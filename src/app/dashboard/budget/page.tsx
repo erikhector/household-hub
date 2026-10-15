@@ -777,6 +777,7 @@ async function BudgetTabsSection({
         onDelete={deleteTransactionAction}
         createAction={createTransactionAction}
         updateAction={updateTransactionAction}
+        readOnly={readOnly}
       />
       {/* Below the list (phone pass, Oct 2026): exporting is rare, and at
           the top it was the first thing on the tab, above the rows people
