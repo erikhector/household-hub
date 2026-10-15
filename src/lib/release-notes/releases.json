@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.70.0",
+    "date": "2026-10-15",
+    "pr": 251,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Cook mode can now time your steps: when a step says how long to cook, tap \"Start timer\" and a countdown runs on screen, with an alert when it is done.\n\nAn inventory item's page now shows its recent prices: date, store and price per purchase, with the price per unit.\n\nEmpty pages now greet you with the Squirrel mascot, and when you tick off the last thing on your shopping list, the squirrel pops into the finished ring.",
+      "sv": "Tillagningsläget kan nu ta tid på stegen: när ett steg anger hur länge något ska koka, tryck på \"Starta timer\" så räknar en nedräkning ner på skärmen och du får en varning när den är klar.\n\nVarans sida i lagret visar nu senaste priser: datum, butik och pris per inköp, med pris per enhet.\n\nTomma sidor hälsar nu med Squirrel-maskoten, och när du bockar av det sista på inköpslistan hoppar ekorren in i den fyllda ringen."
+    }
+  },
+  {
     "version": "0.69.0",
     "date": "2026-10-15",
     "pr": 243,
