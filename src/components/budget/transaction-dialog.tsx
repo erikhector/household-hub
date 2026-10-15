@@ -140,14 +140,20 @@ function defaultDateForMonth(monthKey: string | undefined): Date {
 }
 
 /** Seeds a new transaction's fields from a recurring template's "Log
- * transaction" action (RecurringTemplatesPanel) — only meaningful when
- * `transaction` isn't set (never overrides editing an existing one). */
+ * transaction" action (RecurringTemplatesPanel) or a planned bill's "Log
+ * payment" (PlannedExpensesPanel, BUDGET-8) — only meaningful when
+ * `transaction` isn't set (never overrides editing an existing one). Exactly
+ * one of `templateId`/`plannedExpenseId` is set: each becomes its hidden
+ * form field, which is what links the new transaction to its source. Only a
+ * template's payment starts with "This repeats" ticked; a planned bill is
+ * one-off. */
 export type TransactionTemplatePrefill = {
-  templateId: string;
+  templateId?: string;
+  plannedExpenseId?: string;
   categoryId: string;
   amount: number;
   description?: string;
-  frequency: RecurrenceFrequency;
+  frequency?: RecurrenceFrequency;
   /** The template's saved split (RecurringTemplateSplit), when it has one —
    * carried forward as this new transaction's default split (F2) instead of
    * opening with the split checkbox unchecked and the shares lost. */
@@ -208,7 +214,7 @@ export function TransactionDialog({
     [categories],
   );
   const [isRecurring, setIsRecurring] = useState(
-    transaction?.isRecurring ?? !!prefillFromTemplate,
+    transaction?.isRecurring ?? !!prefillFromTemplate?.templateId,
   );
   const [amount, setAmount] = useState(
     transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
@@ -246,7 +252,7 @@ export function TransactionDialog({
   }, initialState);
 
   function resetForTransaction() {
-    setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate);
+    setIsRecurring(transaction?.isRecurring ?? !!prefillFromTemplate?.templateId);
     setAmount(
       transaction ? String(transaction.amount) : prefillFromTemplate ? String(prefillFromTemplate.amount) : "",
     );
@@ -297,8 +303,11 @@ export function TransactionDialog({
         </DialogHeader>
         <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={transaction.id} />}
-          {!isEdit && prefillFromTemplate && (
+          {!isEdit && prefillFromTemplate?.templateId && (
             <input type="hidden" name="recurringTemplateId" value={prefillFromTemplate.templateId} />
+          )}
+          {!isEdit && prefillFromTemplate?.plannedExpenseId && (
+            <input type="hidden" name="plannedExpenseId" value={prefillFromTemplate.plannedExpenseId} />
           )}
           <div className="flex flex-col gap-2">
             <Label htmlFor="tx-category">{dict.categoryLabel}</Label>
