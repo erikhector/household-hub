@@ -1,19 +1,13 @@
 // Pure tests for GAP-8's leftovers helpers — no mocks needed, same as
-// cooked-ingredients.test.ts. The Prisma side (find-or-create/merge, undo)
-// is covered through the Server Actions in cooking-actions.test.ts.
+// cooked-ingredients.test.ts. The Prisma side (the leftovers batch and its
+// undo) is covered through the Server Actions in cooking-actions.test.ts.
 import { describe, expect, it } from "vitest";
 import {
   LEFTOVERS_DAY_SEARCH_DAYS,
-  LEFTOVERS_SHELF_LIFE_DAYS,
   leftoverServingsSchema,
   leftoversChangeSchema,
-  leftoversExpiryUpdate,
-  leftoversItemName,
   nextFreeDinnerDay,
 } from "@/app/dashboard/meal-planning/leftovers";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-const now = new Date("2026-09-25T10:00:00.000Z");
 
 describe("leftoverServingsSchema", () => {
   it("treats blank/missing as 0 (no leftovers)", () => {
@@ -35,77 +29,15 @@ describe("leftoverServingsSchema", () => {
   });
 });
 
-describe("leftoversItemName", () => {
-  it("prefixes the recipe name", () => {
-    expect(leftoversItemName("Leftovers", " Lasagna ")).toBe("Leftovers: Lasagna");
-    expect(leftoversItemName("Rester", "Lasagne")).toBe("Rester: Lasagne");
-  });
-
-  it("truncates a very long recipe name to fit the 120-character item name limit", () => {
-    const name = leftoversItemName("Leftovers", "x".repeat(300));
-    expect(name).toHaveLength(120);
-    expect(name.startsWith("Leftovers: ")).toBe(true);
-  });
-});
-
-describe("leftoversExpiryUpdate", () => {
-  it("estimates 3 days out for a fresh item", () => {
-    const patch = leftoversExpiryUpdate({ expiresAt: null, expiresAtEstimated: false, shelfLifeDays: null }, now);
-    expect(patch).toEqual({
-      expiresAt: new Date(now.getTime() + LEFTOVERS_SHELF_LIFE_DAYS * DAY_MS),
-      expiresAtEstimated: true,
-    });
-  });
-
-  it("resets an existing estimate to the fresh batch's date", () => {
-    const patch = leftoversExpiryUpdate(
-      { expiresAt: new Date("2026-09-20T00:00:00.000Z"), expiresAtEstimated: true, shelfLifeDays: null },
-      now,
-    );
-    expect(patch?.expiresAt).toEqual(new Date(now.getTime() + 3 * DAY_MS));
-  });
-
-  it("honours a per-item shelf-life override", () => {
-    const patch = leftoversExpiryUpdate({ expiresAt: null, expiresAtEstimated: false, shelfLifeDays: 5 }, now);
-    expect(patch?.expiresAt).toEqual(new Date(now.getTime() + 5 * DAY_MS));
-  });
-
-  it("never overwrites a real date or a 'never expires' item", () => {
-    expect(
-      leftoversExpiryUpdate(
-        { expiresAt: new Date("2026-10-01T00:00:00.000Z"), expiresAtEstimated: false, shelfLifeDays: null },
-        now,
-      ),
-    ).toBeNull();
-    expect(leftoversExpiryUpdate({ expiresAt: null, expiresAtEstimated: false, shelfLifeDays: -1 }, now)).toBeNull();
-  });
-});
-
 describe("leftoversChangeSchema", () => {
-  it("accepts both change shapes", () => {
-    expect(leftoversChangeSchema.safeParse({ itemId: "a", created: true }).success).toBe(true);
-    expect(
-      leftoversChangeSchema.safeParse({
-        itemId: "a",
-        created: false,
-        previousQuantity: 2,
-        previousExpiresAt: null,
-        previousExpiresAtEstimated: false,
-      }).success,
-    ).toBe(true);
+  it("accepts a batch id", () => {
+    expect(leftoversChangeSchema.safeParse({ batchId: "batch-1" }).success).toBe(true);
   });
 
-  it("rejects a malformed payload", () => {
-    expect(leftoversChangeSchema.safeParse({ itemId: "", created: true }).success).toBe(false);
-    expect(
-      leftoversChangeSchema.safeParse({
-        itemId: "a",
-        created: false,
-        previousQuantity: -1,
-        previousExpiresAt: "not a date",
-        previousExpiresAtEstimated: false,
-      }).success,
-    ).toBe(false);
+  it("rejects a malformed payload, including the old inventory-row shape", () => {
+    expect(leftoversChangeSchema.safeParse({ batchId: "" }).success).toBe(false);
+    expect(leftoversChangeSchema.safeParse({ batchId: 7 }).success).toBe(false);
+    expect(leftoversChangeSchema.safeParse({ itemId: "a", created: true }).success).toBe(false);
   });
 });
 

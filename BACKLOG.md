@@ -240,23 +240,6 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
-### UX (2026-10-14 scout)
-
-- [ ] **UX-45. Compact inventory rows on phones** (impact: med, effort: S) —
-      On a 412 px screen each inventory card on `/dashboard/inventory` takes
-      three stacked rows (name and badge, stepper and actions, "Last updated
-      <date>"), about 125 px, so six items fill two screens and the
-      shopper scrolls a lot to find one (breaks M6: most important first, and
-      the hierarchy principle: the identical "Last updated" line repeats on
-      every row and carries the least information). Seen in
-      `mobile-en-dashboard-inventory.png`.
-      Acceptance: on the mobile project at least 8 seeded items fit in the
-      first viewport after the header; "Last updated" moves to the item
-      detail page or a tooltip-free secondary line shown only when the date
-      isn't today; the stepper and edit/more buttons keep 44 px targets (M3).
-      An `e2e/inventory` spec asserts the row count in view and that the
-      stepper still works.
-
 ### UX (2026-10-04 production-readiness audit)
 
 A full design audit of every page and every dialog, menu and popover:
@@ -274,21 +257,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 **File conflicts.** Several items touch the same shared primitives, so
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
-
-
-- [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
-      The Personal budget "Insights" / tabs view currently omits shared
-      household transactions (splits, shared-paid bills), so a member's
-      personal view under-counts their effective spending and safe-to-spend.
-      - Include `TransactionSplit` / shared `Transaction` rows in the
-        personal insights calculations and charts (month totals, category
-        breakdowns, trend lines), attributing only the member's owed share.
-      - Keep tenancy: every query still uses `requireHousehold()` and
-        members only see their own split share.
-      Acceptance: the Insights tabs show numbers that include the member's
-      share of split transactions (unit test comparing before/after dataset);
-      an e2e spec covers a seeded shared transaction that appears in the
-      personal charts and month totals on both desktop and mobile.
 
 - [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
       (high if it reproduces, S) — There are 48 `type="number"
@@ -414,33 +382,14 @@ benchmark is the best consumer apps on the same tasks:
 - **Copilot Money**: charts and numbers that feel alive.
 
 The UX items above make the app correct. These make it feel native and
-delightful. Today there are no view transitions, no swipe gestures, no
-haptics and no drag-to-dismiss sheets, the charts are hand-rolled
-`div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+delightful. Motion and view transitions shipped as UX-33, swipe row
+actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
+charts are hand-rolled `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
 decision and sit under "Needs a decision before building".
 
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
-      - Drag the grabber or header to dismiss, with velocity and
-        rubber-band.
-      - Snap points (half and full) for long forms.
-      - Background scale-down on iOS-style presentation.
-      - Focus kept on the first field without popping the keyboard on open.
-
-      Evaluate Base UI's own drawer primitive before writing pointer
-      handling. Keep the close button, Escape and back gesture working.
-
-- [ ] **UX-35. Swipe row actions with haptics** (M) — On shopping, task and
-      inventory rows:
-      - swipe right to tick, complete or "+1";
-      - swipe left to reveal Delete (with an undo toast), or Edit.
-
-      The visible row buttons stay (M7). Fire `navigator.vibrate(10)` on
-      the commit threshold where supported (Android); iOS gets the visual
-      snap only. Keep clear of the 20 px screen edges, which belong to the
-      OS back gesture.
 
 - [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
       (AUTO-3) already groups by store order and holds a wake lock. Add:
@@ -747,30 +696,6 @@ out to be a product-scope question rather than a scoped task should move to
       share ingredient rows with the original (editing one leaves the
       other unchanged); strings in both dictionaries; an e2e test
       duplicates a seeded recipe and asserts both appear after reload, on
-      desktop and mobile.
-
-- [ ] **GAP-49. Meal-prep mode: cook-to-batch and reuse prepped meals** (impact: med-high, effort: M)
-      _Schema slice landed (PR #179): `PreparedBatch` and the two
-      `MealPlanEntry` fields exist; actions, UI and tests below are still
-      to do._
-      Households often batch-cook (e.g. "8 portions chicken & rice") and
-      re-use those portions across the week's meal plan. Add a Meal-Prep
-      mode to record cooked batches, distribute portions to planner days,
-      and track remaining prepped servings so inventory and meal-plan stay
-      in sync.
-      - Data model: `PreparedBatch { recipeId, cookedByMemberId, totalPortions,
-        remainingPortions, cookedAt, expiryDate? }` and links from a
-        `MealPlanEntry` to a `PreparedBatch` portion when used.
-      - UX: a "Mark cooked (batch)" flow that records N portions, shows
-        a picker to distribute portions onto planned meals (or attach later),
-        and a dashboard card listing active batches and remaining portions.
-      - Behaviour: using a prepped portion on the planner decrements
-        `remainingPortions`; deleting an entry returns the portion; mark-as-eaten
-        optionally decrements inventory separately per ingredient (opt-in).
-      Acceptance: create a prepared batch, assign some portions to planner
-      days, see the remaining count update when portions are used or
-      unassigned; unit tests for the decrement/return logic, and an e2e
-      flow that cooks a batch, assigns portions and consumes one on both
       desktop and mobile.
 
 ### 2026-10-12 scan

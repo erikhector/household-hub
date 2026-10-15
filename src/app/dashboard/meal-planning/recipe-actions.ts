@@ -813,9 +813,24 @@ export async function deleteRecipeAction(recipeId: string): Promise<ActionState>
     };
   }
 
-  await prisma.recipe.delete({ where: { id: recipe.id } });
+  // GAP-49: the recipe's prepared batches cascade with it, and the
+  // SET NULL on MealPlanEntry.preparedBatchId would clear each linked
+  // entry's link but leave its preparedPortionsUsed behind, breaking "an
+  // unlink always resets the pair". So the entries are unlinked properly
+  // first, in the same transaction as the delete. Scoped through the batch
+  // to this household, like every other query here.
+  await prisma.$transaction(async (tx) => {
+    await tx.mealPlanEntry.updateMany({
+      where: { preparedBatch: { recipeId: recipe.id, householdId: household.id } },
+      data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+    });
+    await tx.recipe.delete({ where: { id: recipe.id } });
+  });
 
   revalidatePath(MEAL_PLANNING_PATH);
+  // The dashboard's meal-prep card lists active batches, which may just
+  // have gone with the recipe.
+  revalidatePath("/dashboard");
   return {};
 }
 

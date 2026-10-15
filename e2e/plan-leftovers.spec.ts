@@ -131,6 +131,12 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
   const sameWeek = key(mondayOf(utcDay(base))) === key(mondayOf(utcDay(base + 2)));
   await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base + 2)))}`);
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 2 : 1);
+  // GAP-49: the leftovers are a meal-prep batch, and the new slot eats from
+  // it, so it (and not the cooked entry) carries the Prepped badge, which
+  // sits beside the meal's name.
+  await expect(
+    page.getByText(recipeName).filter({ visible: true }).locator("..").getByText("Prepped", { exact: true }),
+  ).toHaveCount(1);
 });
 
 test("dismissing Plan leftovers adds nothing", async ({ page }) => {

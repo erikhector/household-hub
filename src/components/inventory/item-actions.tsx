@@ -148,6 +148,7 @@ export function ItemActions({
           <Button
             variant="ghost"
             size="icon"
+            data-swipe-edit
             className={cn(size, "text-muted-foreground hover:text-primary inline-flex")}
             aria-label={dict.editAriaLabel}
             title={dict.edit}
