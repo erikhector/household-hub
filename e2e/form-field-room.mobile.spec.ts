@@ -81,7 +81,9 @@ test("a filled combobox shows only its clear button on a phone", async ({ page, 
 test("the shopping edit item dialog gives every combobox room on a phone", async ({ page, context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
-  await page.getByRole("button", { name: "Edit Apples" }).click();
+  // On a phone the row's Edit sits behind its ⋯ (RowActionsMenu).
+  await page.getByRole("button", { name: "More actions for Apples" }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expectComboboxesHaveRoom(page.getByRole("dialog"));
 });
 

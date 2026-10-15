@@ -6326,8 +6326,8 @@ Todoist-style. Built as one shared wrapper,
 `src/lib/swipe-row-calc.ts`. No gesture library.
 
 - **Swipe right** past 40% of the row runs the row's primary action:
-  tick (or untick) a shopping item, complete (or reopen) a task, +1 on an
-  inventory item. A coloured underlay with the action's name fills in
+  tick (or untick) a shopping item, complete (or reopen) a task. A
+  coloured underlay with the action's name fills in
   behind the row as it moves. On Android `navigator.vibrate(10)` buzzes
   once as the swipe crosses the 40% line; iOS has no vibrate API and gets
   the visual only.
@@ -6342,19 +6342,30 @@ Todoist-style. Built as one shared wrapper,
     exists (`src/components/shared/deferred-delete.ts`,
     `use-undoable-delete.ts`). If the browser is killed inside the
     window, nothing was sent and the row is still there.
-- **Every swipe duplicates a visible button** (DESIGN.md M7), and the
-  swipe works by clicking that button: the elements marked
+- **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
+  works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
   optimistic update, rollback toast and disabled state as a tap. The
-  visible trash button keeps its confirm dialog: swipe-delete is the quick
-  path, the button the deliberate one.
+  trash button keeps its confirm dialog: swipe-delete is the quick path,
+  the button the deliberate one.
+- **No action shows twice on a phone.** Below `sm`, a swipeable row
+  doesn't also show Edit and Delete icons: they sit behind the row's ⋯
+  menu instead. Task and shopping rows get `RowActionsMenu`
+  (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
+  own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
+  `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
+  `sm` up the icons show as before.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
-  down, and a swipe that starts within 20 px of either screen edge is left
+  down, and from then on the page doesn't scroll under it (a non-passive
+  `touchmove` listener cancels the scroll, which iOS Safari otherwise
+  started whenever the finger drifted mid-swipe), and a swipe that starts within 20 px of either screen edge is left
   to the OS back gesture. Under reduced motion the snap back is instant
   (the global rule from UX-29).
 
+- **Inventory cards** swipe left only. A right swipe used to add one, but
+  the card's own + button beside it is the easier tap.
 - **Budget transaction rows** swipe left only (no primary action to run
   on a right swipe). The whole row is the edit button (`data-swipe-edit`),
   so Edit opens the edit sheet; Delete has Undo as above. The row's named

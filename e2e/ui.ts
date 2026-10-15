@@ -275,3 +275,19 @@ export async function holdServerActions(page: Page, path: string) {
   );
   return { release, answered: () => answered };
 }
+
+/** Clicks a swipeable row's Edit or Delete the way the current viewport
+ * shows it. From `sm` up that's the row's own icon button, named `button`;
+ * on a phone those icons are hidden (the row's left swipe shows them) and
+ * the row's ⋯, named `menu` (RowActionsMenu), reaches the same button. */
+export async function clickRowAction(
+  page: Page,
+  { button, menu, item }: { button: string; menu: string; item: "Edit" | "Delete" },
+) {
+  if ((page.viewportSize()?.width ?? 1280) >= 640) {
+    await page.getByRole("button", { name: button, exact: true }).click();
+    return;
+  }
+  await page.getByRole("button", { name: menu, exact: true }).click();
+  await page.getByRole("menuitem", { name: item, exact: true }).click();
+}
