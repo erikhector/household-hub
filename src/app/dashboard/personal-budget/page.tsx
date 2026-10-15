@@ -321,9 +321,8 @@ async function PersonalBudgetTabsSection({
     </div>
   );
 
-  // Selected month's income/expense/savings breakdown — shown on both
-  // Overview and Insights, see BudgetTabs's identical periodSummary comment
-  // (src/components/budget/budget-tabs.tsx).
+  // Selected month's income/expense/savings breakdown, on Insights only —
+  // see the household page's identical comment.
   const periodSummary = (
     <PeriodSummary
       income={income}
@@ -422,7 +421,6 @@ async function PersonalBudgetTabsSection({
       updateTransactionAction={updatePersonalTransactionAction}
       onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
       onLogTemplateAsIs={logPersonalRecurringTemplateAction}
-      periodSummary={periodSummary}
       savingsGoals={savingsGoals}
       onboarding={
         <PersonalBudgetOnboarding

@@ -2045,6 +2045,7 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
@@ -2097,6 +2098,8 @@ export const sv = {
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
       manageButton: "Hantera återkommande poster",
+      log: "Logga",
+      moreAriaLabel: "Fler åtgärder för {name}",
     },
     costAnalyzer: {
       spendingTitle: "Matinköp över tid",
@@ -2431,6 +2434,7 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
@@ -2498,6 +2502,8 @@ export const sv = {
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
       manageButton: "Hantera återkommande poster",
+      log: "Logga",
+      moreAriaLabel: "Fler åtgärder för {name}",
     },
     recurring: {
       title: "Återkommande poster",

@@ -2140,6 +2140,8 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
+      breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
@@ -2192,6 +2194,9 @@ export const en = {
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
       manageButton: "Manage recurring items",
+      // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
+      log: "Log",
+      moreAriaLabel: "More actions for {name}",
     },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
@@ -2531,6 +2536,8 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
+      breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
@@ -2601,6 +2608,9 @@ export const en = {
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
       manageButton: "Manage recurring items",
+      // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
+      log: "Log",
+      moreAriaLabel: "More actions for {name}",
     },
     recurring: {
       title: "Recurring items",

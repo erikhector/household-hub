@@ -47,7 +47,7 @@
 // product decision (a personal starter-category set, reusing household's, or
 // staying manual-only) not a mechanical merge — but threading the already-
 // built element through as a prop here, the same way manage/transactions/
-// insights/periodSummary already work, needs no decision at all.
+// insights already work, needs no decision at all.
 //
 // `readOnly` (the household page is showing a household other than the
 // active one via `?household=`, see src/lib/budget-household-view.ts): every
@@ -138,7 +138,6 @@ export function BudgetTabs({
   updateTransactionAction,
   onAcknowledgeTemplate,
   onLogTemplateAsIs,
-  periodSummary,
   savingsGoals,
   onboarding,
   manage,
@@ -212,10 +211,7 @@ export function BudgetTabs({
   /** logRecurringTemplateAction (household) or
    * logPersonalRecurringTemplateAction (personal). */
   onLogTemplateAsIs: (id: string) => Promise<ActionState>;
-  /** Selected month's income/expense/savings breakdown (PeriodSummary) —
-   * rendered on both Overview and Insights, see page.tsx's doc comment. */
-  periodSummary: ReactNode;
-  /** GAP-22's SavingsGoals card, prebuilt by the page like periodSummary
+  /** GAP-22's SavingsGoals card, prebuilt by the page like `insights`
    * (it renders nothing when no SAVINGS category has a goal). */
   savingsGoals?: ReactNode;
   /** BudgetOnboarding or PersonalBudgetOnboarding, prebuilt by the page —
@@ -315,6 +311,7 @@ export function BudgetTabs({
                 householdDebts={householdDebts}
                 showHouseholdName={showHouseholdName}
                 projection={safeToSpendProjection}
+                variant="compact"
                 dict={dict.safeToSpend}
                 locale={locale}
                 currencyCode={currencyCode}
@@ -339,8 +336,11 @@ export function BudgetTabs({
                 createTransactionAction={createTransactionAction}
                 updateTransactionAction={updateTransactionAction}
               />
+              {/* Phone pass (Oct 2026), P4: PeriodSummary ("This month")
+                  used to follow here too, repeating Safe to spend's
+                  income/expenses/remaining as four more full-width stat
+                  cards; it lives on Insights only now. */}
               {savingsGoals}
-              {periodSummary}
             </>
           ) : (
             onboarding

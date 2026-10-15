@@ -43,6 +43,8 @@ export type BudgetDict = {
     allCaughtUpBody: string;
     allCaughtUpTitle: string;
     manageButton: string;
+    log: string;
+    moreAriaLabel: string;
     noTemplatesBody: string;
     subtitle: string;
     title: string;

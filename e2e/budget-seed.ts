@@ -104,3 +104,16 @@ export async function insertPersonalTransaction(
     [id, E2E_USER.id, categoryId, amount, type, description, date.toISOString().replace("Z", "")],
   );
 }
+
+/** An active monthly recurring item, due this month until it's logged or
+ * marked accounted for. */
+export async function insertHouseholdTemplate(
+  client: Client,
+  { id, categoryId, name, amount }: { id: string; categoryId: string; name: string; amount: number },
+) {
+  await client.query(
+    `INSERT INTO "RecurringTemplate" (id, "householdId", "categoryId", name, amount, type, frequency, "dayOfMonth")
+     VALUES ($1, $2, $3, $4, $5, 'EXPENSE', 'MONTHLY', 1)`,
+    [id, E2E_HOUSEHOLD.id, categoryId, name, amount],
+  );
+}

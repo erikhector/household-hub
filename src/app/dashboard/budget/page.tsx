@@ -791,9 +791,9 @@ async function BudgetTabsSection({
     </div>
   );
 
-  // Selected month's income/expense/savings breakdown — shown on both
-  // Overview (so it's visible the moment you flip months, without switching
-  // tabs) and Insights (its original home, for the fuller analysis context).
+  // Selected month's income/expense/savings breakdown, on Insights. It used
+  // to sit on Overview too, where it repeated Safe to spend's totals as four
+  // more stat cards (phone pass, Oct 2026).
   const periodSummary = (
     <PeriodSummary
       income={income}
@@ -915,7 +915,6 @@ async function BudgetTabsSection({
       updateTransactionAction={updateTransactionAction}
       onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
       onLogTemplateAsIs={logRecurringTemplateAction}
-      periodSummary={periodSummary}
       savingsGoals={savingsGoals}
       onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
       manage={manage}

@@ -1679,7 +1679,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   All aggregation happens in the page's Server Component (grouping the
   month's transactions by `categoryId`); the summary components themselves
   are plain presentational functions, not Client Components, since nothing
-  on them is interactive.
+  on them is interactive. It lives on the Insights tab only (it used to
+  open Overview too, repeating Safe to spend's totals), and its four stat
+  cards, like `FixedBudgetSummary`'s, sit two by two on a phone at a
+  smaller stat size (`text-xl`, `text-3xl` from `sm`). Expense and savings
+  totals are plain `foreground` (DESIGN.md Colour); income stays `success`
+  and the remaining total keeps its status colour.
 - **Month navigation**: the Budget page defaults to the current calendar
   month (`[monthStart, monthEnd)`, computed server-side from `new Date()`)
   but isn't stuck there — a `?month=YYYY-MM` search param (validated by
@@ -2135,7 +2140,7 @@ Print is the reading-oriented one.
 ### Safe to spend
 
 A hero stat card at the top of the Budget page's Overview tab, directly
-above `PeriodSummary` (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
+above the due-recurring widget (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
 — the PocketGuard-style "what's actually left" number, per the competitive
 analysis. Like `PeriodSummary`/`CostAnalyzer`, it's a plain presentational
 component; all aggregation happens in `src/app/dashboard/budget/page.tsx`,
@@ -2735,6 +2740,27 @@ included, is no filter, and no query ever runs on it. Rows that aren't
 the viewer's own categories (Personal Budget's "(Shared)" rows,
 `FixedBudgetSummary`'s recurring items) stay plain. Covered by
 `src/lib/budget-url.test.ts` and `e2e/budget-category-filter.spec.ts`.
+
+**One Overview, nothing twice (phone pass, Oct 2026).** Overview used to
+run to about five phone screens, with income, expenses and what's left
+shown three times and the due list twice. Now it is Safe to spend, the
+due widget and savings goals:
+
+- `SafeToSpend` takes `variant="compact"` here: the summary sentence, the
+  number, the projection, then one totals line (income, expenses,
+  savings) and a "How we got this number" disclosure (`<details>`) that
+  holds the full arithmetic, the caveat and the "Still due this month"
+  list. The dashboard's "Your budget" card keeps the default `"full"`
+  layout, since it has no due widget beside it. Due amounts in the list
+  are plain text (income stays `success`).
+- `DueRecurringWidget` is the one list of what's due, one line per item:
+  the name, then amount and category in caption size, a "Log" button
+  (opens the prefilled transaction sheet) and a "More actions for {name}"
+  menu holding "Log as-is" and "Mark as accounted for". Three buttons per
+  item used to wrap each one to about 370 px on a phone.
+- `PeriodSummary` moved to Insights (see "Period summary").
+
+Covered by `e2e/budget-overview.spec.ts`.
 
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart

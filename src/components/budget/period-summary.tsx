@@ -72,7 +72,9 @@ export function PeriodSummary({
         <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
         <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Phone pass (Oct 2026): two by two on a phone, at a smaller stat
+          size, instead of four full-width cards one under another. */}
+      <div className="grid grid-cols-2 gap-3 *:min-w-0 sm:gap-4 lg:grid-cols-4 [&_p]:break-words">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -80,7 +82,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-success">{animated(income)}</p>
+            <p className="text-xl font-semibold text-success sm:text-3xl">{animated(income)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -90,7 +92,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-destructive">{animated(expense)}</p>
+            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(expense)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -100,7 +102,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={"text-3xl font-semibold " + (remaining >= 0 ? "text-success" : "text-destructive")}>
+            <p className={"text-xl font-semibold sm:text-3xl " + (remaining >= 0 ? "text-success" : "text-destructive")}>
               {animated(remaining, true)}
             </p>
           </CardContent>
@@ -112,7 +114,7 @@ export function PeriodSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-chart-2">{animated(savings)}</p>
+            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(savings)}</p>
           </CardContent>
         </Card>
       </div>

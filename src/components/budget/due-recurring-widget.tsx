@@ -14,11 +14,17 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { Check, CheckCircle2, Users, Zap } from "lucide-react";
+import { Check, CheckCircle2, Ellipsis, Users, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   TransactionDialog,
   type MemberOption,
@@ -157,84 +163,90 @@ export function DueRecurringWidget({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
+            {/* Phone pass (Oct 2026), P4: one line per item — name, then
+                amount and category in caption size, with one "Log" and a
+                "More" menu for the two rarer actions. Three buttons in a
+                row used to wrap each item to ~370 px on a phone. */}
             {templates.map((template) => (
-              <div
-                key={template.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-              >
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="min-w-0 truncate font-medium" title={template.name}>
-                      {template.name}
+              <div key={template.id} className="flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate font-medium" title={template.name}>
+                    {template.name}
+                  </span>
+                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="shrink-0 tabular-nums">{numberFormat.format(template.amount)}</span>
+                    <span aria-hidden>·</span>
+                    <span className="min-w-0 truncate" title={template.categoryName}>
+                      {template.categoryName}
                     </span>
-                    <Badge variant="secondary" className="max-w-[10rem]">
-                      <span className="min-w-0 truncate" title={template.categoryName}>
-                        {template.categoryName}
-                      </span>
-                    </Badge>
                     {template.splits.length > 0 && (
                       <Badge variant="secondary">{dict.recurring.split?.splitBadge}</Badge>
                     )}
-                  </div>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {numberFormat.format(template.amount)}
-                  </p>
+                  </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <TransactionDialog
-                    numberFormat={numberFormat}
-                    dict={dict}
-                    categories={categories}
-                    members={members}
-                    currentMemberId={currentMemberId}
-                    monthKey={monthKey}
-                    prefillFromTemplate={{
-                      templateId: template.id,
-                      categoryId: template.categoryId,
-                      amount: template.amount,
-                      description: template.name,
-                      frequency: template.frequency,
-                      splits: template.splits,
-                    }}
-                    createAction={createTransactionAction}
-                    updateAction={updateTransactionAction}
-                    trigger={
-                      <Button size="xs" variant="secondary">
-                        {dict.recurring.logTransaction}
+                <TransactionDialog
+                  numberFormat={numberFormat}
+                  dict={dict}
+                  categories={categories}
+                  members={members}
+                  currentMemberId={currentMemberId}
+                  monthKey={monthKey}
+                  prefillFromTemplate={{
+                    templateId: template.id,
+                    categoryId: template.categoryId,
+                    amount: template.amount,
+                    description: template.name,
+                    frequency: template.frequency,
+                    splits: template.splits,
+                  }}
+                  createAction={createTransactionAction}
+                  updateAction={updateTransactionAction}
+                  trigger={
+                    <Button size="sm" variant="secondary">
+                      {dict.dueWidget.log}
+                    </Button>
+                  }
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={isPending}
+                        aria-label={format(dict.dueWidget.moreAriaLabel, { name: template.name })}
+                      >
+                        <Ellipsis className="size-4" />
                       </Button>
                     }
                   />
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await onLogAsIs(template.id);
-                        if (result.error) toast.error(result.error);
-                        else toast.success(format(dict.recurring.loggedAsIsToast, { name: template.name }));
-                      })
-                    }
-                  >
-                    <Zap className="size-3.5" />
-                    {dict.recurring.logAsIs}
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        const result = await onAcknowledge(template.id);
-                        if (result.error) toast.error(result.error);
-                        else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
-                      })
-                    }
-                  >
-                    <Check className="size-3.5" />
-                    {dict.recurring.markAccountedFor}
-                  </Button>
-                </div>
+                  <DropdownMenuContent align="end" className="w-auto">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await onLogAsIs(template.id);
+                          if (result.error) toast.error(result.error);
+                          else toast.success(format(dict.recurring.loggedAsIsToast, { name: template.name }));
+                        })
+                      }
+                    >
+                      <Zap />
+                      {dict.recurring.logAsIs}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        startTransition(async () => {
+                          const result = await onAcknowledge(template.id);
+                          if (result.error) toast.error(result.error);
+                          else toast.success(format(dict.recurring.acknowledgedToast, { name: template.name }));
+                        })
+                      }
+                    >
+                      <Check />
+                      {dict.recurring.markAccountedFor}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
             {sharedDueRows.map((row) => (
