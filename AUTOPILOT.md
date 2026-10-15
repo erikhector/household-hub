@@ -174,8 +174,9 @@ their whole run: one open issue per run, labelled `autopilot-lock-<role>`
 
 1. **Take.** Open an issue titled `<role> run lock <UTC time>`, body
    starting `🤖 autopilot-<role>`, with that label.
-2. **Check.** List the *open* issues with that label (a short list, since
-   every run closes its own). Ignore any not opened by a
+2. **Check.** List the *open* issues with that label with the REST list
+   call (`list_issues`, never search, which can lag behind a just-opened
+   issue). It's a short list, since every run closes its own. Ignore any not opened by a
    `trusted_authors` account (the repository is public; outsiders can't
    label issues, but check anyway), and close, as stale, any older than
    `run_lock_hours` (a crashed run's). If a remaining one has a lower

@@ -184,6 +184,10 @@ validated, so no review is still reading a branch that a merge moves.
 
 ## 4. Merge into `next` (one merge sub-agent per PR, one at a time)
 
+Before starting each merge sub-agent here, and before the release merge
+in step 4b, check your run-lock issue is still open (AUTOPILOT.md, "Run
+lock", step 3); if it was closed as stale, stop at once.
+
 Feature PRs target `next` and squash-merge there; nothing is released
 until the release train ships (step 4b). The full browser suite runs
 once per release on the release PR, so a merge into `next` doesn't wait
@@ -364,7 +368,8 @@ against `max_parallel_subagents`, and validate its report the same way.
 
 When step 5 starts, schedule a wake-up for `review_listen_hours` after
 the run started (`send_later`), so a quiet afternoon still ends the run
-inside its lock. Before each merge in this step, check the run lock is
+inside its lock. Keep the id it returns: if the run ends before it
+fires, cancel it with `delete_trigger` before releasing the lock. Before each merge in this step, check the run lock is
 still yours (AUTOPILOT.md, "Run lock", step 3).
 
 **Stop listening** once no subscribed PR is left, or when that wake-up
