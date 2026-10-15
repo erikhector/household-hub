@@ -399,8 +399,8 @@ benchmark is the best consumer apps on the same tasks:
 - **Copilot Money**: charts and numbers that feel alive.
 
 The UX items above make the app correct. These make it feel native and
-delightful. Today there are no view transitions and no drag-to-dismiss
-sheets (swipe row actions shipped as UX-35), the charts are hand-rolled
+delightful. Today there are no view transitions (swipe row actions
+shipped as UX-35, drag-to-dismiss sheets as UX-34), the charts are hand-rolled
 `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
@@ -422,16 +422,6 @@ decision and sit under "Needs a decision before building".
       Under reduced motion everything falls back to an instant change.
       Acceptance: list add, remove and tick animate, and no layout jumps
       (CLS 0 on those interactions).
-
-- [ ] **UX-34. Native-grade bottom sheets** (L, after UX-12) —
-      - Drag the grabber or header to dismiss, with velocity and
-        rubber-band.
-      - Snap points (half and full) for long forms.
-      - Background scale-down on iOS-style presentation.
-      - Focus kept on the first field without popping the keyboard on open.
-
-      Evaluate Base UI's own drawer primitive before writing pointer
-      handling. Keep the close button, Escape and back gesture working.
 
 - [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
       (AUTO-3) already groups by store order and holds a wake lock. Add:

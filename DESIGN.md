@@ -386,6 +386,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   `muted-foreground` label — white on a faded primary was ~1.5:1). Other
   controls fade to 50% opacity. Everything disabled has no pointer events.
 - Dialogs slide up from the bottom on phones and zoom in (95%) from `sm`.
+  On phones the sheet drags down to dismiss (a grabber pill marks it), a
+  long form rests at half or full height, and the page behind scales down
+  while a sheet is open; none of it animates under reduced motion.
 
 ### Iconography
 
