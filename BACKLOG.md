@@ -369,8 +369,9 @@ decision and sit under "Needs a decision before building".
       from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
       palette on desktop, mounted once in the dashboard layout. Static
       commands first ("Go to budget", "Add task", "Add to Groceries"),
-      filtered as you type, arrow keys + Enter, Esc closes. Needs the
-      cookie-inventory untouched (no storage), dict entries in en/sv, and
+      filtered as you type, arrow keys + Enter, Esc closes. The palette
+      stores nothing in the browser, so cookie-inventory.ts stays
+      unchanged. Needs dict entries in en/sv, and
       an e2e spec for open, filter, run. No data search yet (UX-41b).
       Builds on: nothing.
 
