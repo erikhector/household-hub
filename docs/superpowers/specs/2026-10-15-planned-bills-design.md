@@ -175,8 +175,10 @@ Follows DESIGN.md, including the hard mobile rules M1–M10.
   as such, with the same Log payment action.
 - **Safe to spend** breakdown lists them among due payments by name.
 - **Personal Budget**: the user's share shows as a "Shared" due row with the
-  household name, linking to the household budget (no log controls there),
-  as for shared templates.
+  household name, linking to the household budget. Unlike shared templates
+  (which offer Log payment there via LogSharedExpenseDialog), a planned
+  bill is only logged from the household budget, so `SharedDueRow.logPrefill`
+  becomes optional and is left unset for these rows.
 - All strings in `en.ts` and `sv.ts` (e.g. "Planned bills" / "Planerade
   räkningar", "Overdue" / "Försenad", "Upcoming" / "Kommande").
 
@@ -196,8 +198,9 @@ The transaction-action change below stays in `actions.ts`:
   Updating a paid bill is allowed (fixing a typo) and doesn't touch its
   transaction.
 - `deletePlannedExpenseAction(id)`: click action, scoped by household.
-- `createTransactionAction` / `updateTransactionAction`: accept an optional
-  `plannedExpenseId`. When present, it must belong to the household and not
+- `createTransactionAction`: accepts an optional `plannedExpenseId` (the
+  link is only ever set when the payment is created; editing a transaction
+  leaves it as is). When present, it must belong to the household and not
   already be linked to another transaction; otherwise a validation error
   (the `@unique` constraint is the backstop for races, mapped to the same
   error).
