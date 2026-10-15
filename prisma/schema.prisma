@@ -194,6 +194,8 @@ model Household {
   budgetCategories   BudgetCategory[]
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  // One-off planned bills (BUDGET-8) — see PlannedExpense's doc comment.
+  plannedExpenses    PlannedExpense[]
   memberSettlements  MemberSettlement[]
   notifications      Notification[]
   tasks              HouseholdTask[]
@@ -222,6 +224,8 @@ model HouseholdMember {
   // Recurring-bill splitting (see RecurringTemplateSplit's doc comment
   // below) — mirrors transactionSplits above.
   recurringTemplateSplits RecurringTemplateSplit[]
+  // Expected shares of planned bills (BUDGET-8), see PlannedExpenseSplit.
+  plannedExpenseSplits    PlannedExpenseSplit[]
   assignedTasks           HouseholdTask[]          @relation("TaskAssignedTo")
   completedTasks          HouseholdTask[]          @relation("TaskCompletedBy")
   authoredNotes           HouseholdNote[]
@@ -1037,6 +1041,7 @@ model BudgetCategory {
   household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]
+  plannedExpenses    PlannedExpense[]
   // Back-relation of Household.shoppingExpenseCategory.
   shoppingExpenseFor Household[]         @relation("ShoppingExpenseCategory")
 
@@ -1060,6 +1065,8 @@ model Transaction {
   // so the template's checklist can tell that period is fulfilled. Null on
   // every transaction not logged that way — unaffected.
   recurringTemplateId String?
+  // Planned-bill link: see the plannedExpense relation below.
+  plannedExpenseId    String?              @unique
 
   household         Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category          BudgetCategory     @relation(fields: [categoryId], references: [id])
@@ -1072,6 +1079,16 @@ model Transaction {
   // SetNull: deleting a template must never delete the transactions it
   // already produced — the transaction itself must survive.
   recurringTemplate RecurringTemplate? @relation(fields: [recurringTemplateId], references: [id], onDelete: SetNull)
+  // One-off planned bill this transaction paid (BUDGET-8). `@unique` makes
+  // "a bill is logged at most once" a database guarantee rather than a check
+  // the action has to win a race for: a second log of the same bill fails
+  // with P2002 instead of double-counting the expense. Paid is *derived*
+  // from this link and never stored on PlannedExpense, so there is no second
+  // flag to drift out of sync: deleting the transaction makes the bill
+  // unpaid again with no extra bookkeeping. SetNull (not Cascade) for the
+  // opposite direction: deleting a planned bill must never delete the real
+  // transaction it already produced, same tradeoff recurringTemplate makes.
+  plannedExpense    PlannedExpense?    @relation(fields: [plannedExpenseId], references: [id], onDelete: SetNull)
 
   @@index([householdId])
   @@index([categoryId])
@@ -1242,6 +1259,65 @@ model RecurringTemplateAck {
 
   @@unique([recurringTemplateId, periodKey])
   @@index([recurringTemplateId])
+}
+
+// A one-off bill the household knows is coming on a specific date, e.g. a
+// car service or an insurance premium, as opposed to RecurringTemplate's
+// standing every-period expectation. It is always an expense (no `type`
+// column), and it is not money spent yet: nothing here touches budget totals
+// until a real Transaction is logged against it.
+//
+// "Paid" is derived, never stored: a bill is paid exactly when a Transaction
+// links to it via `Transaction.plannedExpenseId` (see the comment there for
+// why that column is `@unique` and `SetNull`). `dueDate` is a date only; the
+// time is ignored and it is compared against month bounds, so the bill shows
+// up in the month it falls in. `createdByUserId` is a plain string with no
+// @relation, mirroring Transaction.createdByUserId.
+model PlannedExpense {
+  id              String   @id @default(cuid())
+  householdId     String
+  categoryId      String
+  name            String
+  amount          Float
+  // Date only; time is ignored, compared against month bounds.
+  dueDate         DateTime
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  household   Household             @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category    BudgetCategory        @relation(fields: [categoryId], references: [id])
+  // Opt-in split of the bill's expected cost, see PlannedExpenseSplit.
+  // Empty means unsplit.
+  splits      PlannedExpenseSplit[]
+  // At most one: the transaction that paid this bill (see above).
+  transaction Transaction?
+
+  @@index([householdId, dueDate])
+  @@index([categoryId])
+}
+
+// One row per household member included in a planned bill's expected cost
+// share, mirroring RecurringTemplateSplit (see its doc comment): absolute
+// currency amounts, validated server-side to sum to the bill's `amount`
+// within ±0.01. No `amountPaid` counterpart: the planned split is only the
+// expectation. When the bill is logged, the resulting Transaction's own
+// TransactionSplit rows (amountOwed / amountPaid) still record who actually
+// paid. No householdId column; it is scoped through the parent PlannedExpense.
+model PlannedExpenseSplit {
+  id                String   @id @default(cuid())
+  plannedExpenseId  String
+  householdMemberId String
+  amountOwed        Float
+  createdAt         DateTime @default(now())
+
+  plannedExpense  PlannedExpense  @relation(fields: [plannedExpenseId], references: [id], onDelete: Cascade)
+  // Cascade: an ex-member's own split rows are simply removed with them,
+  // same tradeoff RecurringTemplateSplit.householdMember makes.
+  householdMember HouseholdMember @relation(fields: [householdMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([plannedExpenseId, householdMemberId])
+  @@index([plannedExpenseId])
+  @@index([householdMemberId])
 }
 
 // --- Personal budget ---------------------------------------------------------
