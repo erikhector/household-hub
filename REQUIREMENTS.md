@@ -6103,29 +6103,39 @@ approximating them, so the email never disagrees with the app.
   with `useActionState`. Actions triggered by a plain click (toggle, delete,
   quantity +/-) are called directly from a `useTransition` callback instead.
 - **Ticking is instant (UX-14).** The taps people make in a row, often on
-  weak in-store signal, are optimistic and per row: the shopping-list
-  checkbox (`ShoppingRow`), the share page's checkbox (`SharedRow`), a
-  task's checkbox (`TaskItemRow`) and the inventory −/+ stepper
-  (`QuantityStepper`). Each row has its own `useTransition` and a
-  `useOptimistic` value that flips (or steps, via the server's own
-  `nextQuantityAfterDelta`) on tap, so ticking three items shows all three
-  at once and one pending save never disables the other rows. The reducer
-  works from the current optimistic value, so a re-tap before the server
-  answers undoes the first. The server call goes through
-  `settleOptimisticAction` (`src/components/shared/`): when the action
-  returns `{ error }`, or the request never arrives (offline, a dropped
-  connection, which used to reach the error boundary), it toasts and the
-  row snaps back to the server value as the transition ends. Next's
-  redirect signal is re-thrown, so an expired session still lands on
-  login. A ticked row stays in its section until the save revalidates the
-  page, then moves (to "Purchased"/"Completed"), so rows don't jump under
-  the thumb mid-tap — except on an `ACTIVE` shopping list since UX-37,
-  where the optimistic state lives in `ShoppingListClient` instead of the
-  row and a ticked row animates out of its aisle and into "In the cart"
-  at once (see "Shopping mode" above). The steppers are named "Decrease {name}" / "Increase
-  {name}". Covered by `e2e/optimistic-ticking.spec.ts`, which holds every
-  Server Action request, ticks three rows, checks all three before any
-  answer, then releases and reloads.
+  weak in-store signal, show at once and never wait on (or grey out
+  behind) an earlier save, so ticking three items shows all three straight
+  away. A re-tap before the server answers undoes the first. Each tap has
+  one owner:
+  - *Shopping-list ticks* (`ShoppingRow`, and the Next up dock): the
+    list's tick overlay in `ShoppingListClient`
+    (`src/lib/shopping/tick-overlay.ts`, see UX-37 under "Shopping mode").
+  - *Task ticks* (`TaskItemRow`) and the shopping list's, the task list's
+    and inventory's confirmed deletes: the list's local marks
+    (`useLocalRowChanges`, see UX-33 under "Motion and view transitions").
+  - *The share page's checkbox* (`SharedRow`) and *the inventory −/+
+    stepper* (`QuantityStepper`): a per-row `useOptimistic` in the row's
+    own `useTransition`, the stepper going through the server's own
+    `nextQuantityAfterDelta`. Neither moves a row.
+
+  The list-level owners are plain state rather than `useOptimistic`:
+  React 19 entangles concurrent async transitions, so an optimistic tick
+  only rolled back once every save in flight had settled. In both, each
+  save settles on its own: a failure puts its row back at once, and a
+  success holds until the next server list, which then wins. A ticked row
+  moves at tap time. On an `ACTIVE` shopping list it animates out of its
+  aisle into "In the cart"; a task glides to "Completed". So the move
+  follows the tap and isn't counted as layout shift, however slow the save.
+  Every tick's save goes through `settleOptimisticAction` (`src/components/shared/`):
+  when the action returns `{ error }`, or the request never arrives
+  (offline, a dropped connection, which used to reach the error boundary),
+  it toasts and the row goes back. Next's redirect signal is re-thrown, so
+  an expired session still lands on login. The steppers are named
+  "Decrease {name}" / "Increase {name}". Covered by
+  `e2e/optimistic-ticking.spec.ts`, which holds every Server Action
+  request, ticks three rows, checks all three before any answer, then
+  releases and reloads, and by `e2e/shopping-mode.spec.ts` and
+  `e2e/motion.spec.ts`.
 - **A failed submit keeps what the user typed (UX-13).** React 19 resets an
   uncontrolled `<form action>` once the action settles, even when it came
   back with `{ error }`. Forms whose fields are uncontrolled use
@@ -6260,6 +6270,152 @@ moves; only the visible label is in the accessibility tree. Used by the
 text-swap submit buttons across the forms and dialogs;
 `e2e/pending-button-width.spec.ts` holds the server action and checks the
 width. Buttons that swap a spinner icon rather than text are unchanged.
+
+## Motion and view transitions
+
+UX-33. One set of motion tokens, used two ways: list rows move at tap time
+and glide with FLIP animations, and navigations run as React
+`<ViewTransition>`s on the browser's View Transitions API. Next 16.3's App
+Router has those on by default, with no `experimental.viewTransition` flag
+any more. A browser without the API swaps pages instantly.
+
+**Tokens.** `globals.css` defines `--motion-duration-fast` (120 ms, exits),
+`-base` (200 ms, entrances), `-slow` (320 ms, morphs) and `-spring`
+(400 ms, moves), with `--motion-ease-out`, `-in`, `-in-out` and `-spring` (a
+sampled damped spring as `linear()`, about 5% overshoot). They're plain
+custom properties, not `@theme` entries, so Tailwind's own `ease-*`
+utilities are unchanged. DESIGN.md's "Depth, motion and states" says what
+each is for.
+
+**List rows: moved at tap time.** A tick, an untick or a delete changes the
+list the moment it's tapped, and the save follows in the background
+(`useLocalRowChanges`, `src/components/shared/local-row-changes.ts`). This
+replaces UX-14's "the box flips at once but the row stays put until the
+server answers". When the server took over 500 ms, that later move counted
+as layout shift. Now:
+- The list keeps this device's unsaved ticks and deletes as marks and lays
+  itself out from the server's rows with them applied
+  (`applyLocalRowChanges`). A mark is applied with `flushSync`, so it shows
+  on the next frame even from inside a confirm dialog's transition or while
+  an earlier save is still pending.
+- Each save settles its own mark, outside any transition: React 19
+  entangles concurrent async transitions, so a mark dropped in one waited
+  for every save in flight. A failure (an `{ error }`, or a request that
+  throws) drops the mark at once and the row moves back;
+  `settleOptimisticAction` or the confirm dialog toasts why (M5). A
+  confirmed delete goes through `settleDelete`, which turns a request that
+  never arrives into the save-failed toast instead of the error boundary. A
+  success keeps the mark until the next server list arrives, which already
+  has the change, so nothing moves. Marks carry a sequence number, so after
+  a quick tick then untick only the latest save's answer counts.
+- A local tick mirrors the server's write, so nothing changes when it
+  answers. `withLocalTick` (`put-away-calc.ts`) sets a shopping row's
+  `putAwayAt`/`priceRecordedAt` the way `togglePurchasedAction` does in
+  either inventory sync mode, applied to the rows the tick overlay flips,
+  so the "Put away" button and badges appear at the tap. `withLocalCompletion` (`task-rotation.ts`) sets the task's
+  completer (the page passes the viewer's member id), `completedAt` and a
+  rotating task's next assignee. The tasks page's weekly recap is worked out
+  in `TasksClient` from those same rows (against the server's `now`), so a
+  completion shows in it at once instead of the recap growing when the
+  server answers and pushing the list down.
+- Used by the task list (tick, delete), the shopping list (delete) and
+  inventory (delete). Shopping ticks have their own overlay with the same
+  rules (`tick-overlay.ts`, UX-37), so each tap has one owner.
+
+Adding is the exception: the server decides a new item's category, or that
+it merges into a row already there, so a new row appears when the server
+answers. Rows are kept in creation order, so it lands at the end of its
+section, and only what's below it moves.
+
+**List rows: the glide.** `useFlipList` (`src/components/shared/use-flip-list.ts`)
+runs after every commit of a list:
+- It measures each element with `data-flip-key` against its parent (or the
+  viewport if it changed parent) and plays the difference from where it was
+  back on the real element with the Web Animations API (FLIP). Keys pair
+  across sections, so a ticked row glides into "Purchased" or "Completed",
+  and a completed list's card into its section on the overview.
+- A new row rises in.
+- A removed row's node is put back in its list, absolutely positioned and
+  inert, to fade where it was (not table rows, which don't lay out alone).
+- Section labels, inventory group rows and the task list itself (below the
+  recap) are keyed too.
+- A new view of the list doesn't animate: inventory passes its search,
+  filters and grouping as the hook's `view`, and when that changes the rows
+  are re-measured without playing anything (hidden rows haven't gone
+  anywhere). More than 20 rows arriving or leaving at once is also treated
+  as a different list.
+
+A shopping row leaving its aisle (UX-37's 350 ms drop towards "In the
+cart") carries no flip key meanwhile, so it has one animation, not two.
+It then arrives in "In the cart" as a new row and rises in there, and the
+aisle closes up with a glide. Since it animates the real element and not
+a snapshot, a row stays tappable at the place it's drawn while it moves. A view transition, which
+this first used, makes an animating element untappable, and that's the row
+the thumb goes to next. Used on the shopping list, the shopping lists
+overview, tasks, and inventory (table rows and phone cards).
+
+**Navigations: view transitions.**
+- *Tab changes.* `src/app/dashboard/template.tsx` mounts afresh whenever
+  the dashboard's child segment changes, so its `<ViewTransition>` fades
+  the old page out (fast) and the new one in with an 8 px rise. The phone
+  header and bottom bar carry `view-transition-name`s (`app-header`,
+  `app-bottom-nav`) and are pinned above the animation: a page's snapshot is
+  its whole box, not just what `main` scrolls into view, and would
+  otherwise paint over both bars.
+- *Shared-element morphs.* `MorphTitle` (`src/components/shared/view-transitions.tsx`)
+  gives a list row's title and its detail page's `h1` (`PageTitle`'s
+  `morph` prop, which wraps only the large title, never its compact copy
+  in the bar) the same name: a
+  shopping list card into the list page, and an item catalogue row
+  (`/dashboard/inventory/items`) into the item page. Both detail routes have
+  a `loading.tsx`, so a navigation usually commits the skeleton first.
+  `PageSkeleton`'s `morph` prop gives its title bar the same name
+  (`MorphTitleSkeleton` reads the id with `useParams`), so the title flies
+  to the header at once and hands over to the real heading when the page
+  arrives. Recipes have no detail page (a recipe opens in a dialog), so
+  there is no recipe morph yet.
+- The document root is never captured (`:root { view-transition-name:
+  none }`). React crossfades the root whenever something outside a
+  `<ViewTransition>` changes (a dialog closing in its portal), and while
+  that runs the whole page ignores taps. Unnamed content updates at once
+  instead.
+- React leaves a navigation unanimated when an unrelated update shares its
+  render, or when it's tapped while the page is still hydrating. A morph
+  also needs both ends on screen. In all these cases the page still
+  changes, just without the animation.
+
+**Layout shift.** A tick or a delete moves rows inside the 500 ms the CLS
+metric leaves for a response to input, so it measures 0 however slow the
+save is. On desktop `html` reserves the scrollbar gutter
+(`scrollbar-gutter: stable`), so a list growing past one screen no longer
+nudges right-aligned buttons sideways.
+
+**Reduced motion.** `useFlipList` plays nothing under
+`prefers-reduced-motion`. The UX-29 rule in `globals.css` doesn't reach the
+view-transition pseudo-elements, so a second rule sets their duration and
+delay to 0. Every change happens at once.
+
+**Tests.** `e2e/motion.spec.ts` records each FLIP animation (wrapping
+`Element.prototype.animate`) and each view transition's animations (wrapping
+`document.startViewTransition`), on desktop and mobile:
+- `optimistic-ticking.spec.ts`: a failed task tick rolls back at once
+  while another is still saving, and an offline task delete brings the row
+  back with a toast.
+- With every save held at the server well past 500 ms
+  (`holdServerActions`, now shared in `e2e/ui.ts`), a shopping tick moves
+  the row to "Purchased" before the save answers, the rows below glide, the
+  row that slid up takes a tap mid-glide, and a delete removes and fades
+  the row. CLS is strictly 0, an added row rises in, and a reload shows it
+  all saved.
+- A task completed with its save held moves to "Completed" at once.
+- Both morphs and the tab fade animate (each navigation retried up to three
+  times from where it started, for the reason above).
+- Under `reducedMotion: "reduce"` no FLIP plays and view transitions take
+  no time.
+
+Unit tests cover `applyLocalRowChanges`, `withLocalTick` and
+`withLocalCompletion`. `e2e/optimistic-ticking.spec.ts` still covers
+UX-14's rapid ticks and the rollback toast.
 
 ## Testing
 

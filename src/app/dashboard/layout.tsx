@@ -120,8 +120,10 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
       <div className="flex min-w-0 flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
         {/* relative + the empty slot: once a page's large title scrolls
             away, its PageTitle portals a compact copy over this bar
-            (UX-40, page-title.tsx), iOS style, instead of adding a bar. */}
-        <header className="relative shrink-0 border-b bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
+            (UX-40, page-title.tsx), iOS style, instead of adding a bar.
+            Named for view transitions (UX-33): it stays still and on top
+            while the page below animates, like BottomNav. */}
+        <header className="relative shrink-0 border-b bg-background px-4 [view-transition-name:app-header] pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
           <div id={COMPACT_TITLE_SLOT_ID} className="contents" />
         </header>

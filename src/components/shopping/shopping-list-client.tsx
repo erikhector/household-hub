@@ -86,7 +86,9 @@ import {
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
-import { awaitsReceiptPrice, isAwaitingPutAway } from "@/lib/shopping/put-away-calc";
+import { awaitsReceiptPrice, isAwaitingPutAway, withLocalTick } from "@/lib/shopping/put-away-calc";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
 import { PageTitle } from "@/components/dashboard/page-title";
@@ -237,10 +239,27 @@ export function ShoppingListClient({
   }
   const ticks = tickState.overlay;
   const isTicking = hasTicksInFlight(ticks);
-  const items = list.items.map((item) => {
-    const purchased = shownPurchased(ticks, item.id, item.purchased);
-    return purchased === item.purchased ? item : { ...item, purchased };
-  });
+  // UX-33: deletes go at tap time too (local-row-changes.ts), and a tick
+  // shows the row the way the server will leave it (withLocalTick: put
+  // away at once, or waiting in the cart in put-away mode), so the "Put
+  // away" button comes with the tap rather than when the server answers.
+  const local = useLocalRowChanges(list.items);
+  const items = applyLocalRowChanges(
+    list.items.map((item) => {
+      const purchased = shownPurchased(ticks, item.id, item.purchased);
+      return purchased === item.purchased ? item : withLocalTick(item, purchased, defersToPutAway, new Date());
+    }),
+    local.changes,
+    (item) => item,
+  );
+  // Called from the row's confirm dialog, which waits on it and toasts an
+  // error; the row has already gone by then and comes back if it failed.
+  const deleteItem = async (item: ShoppingListItemRow) => {
+    return settleDelete(local.markDeleted(item.id), deleteShoppingListItemAction(item.id), dict.saveFailedToast);
+  };
+  // UX-33: rows glide when they move (use-flip-list.ts). A row leaving its
+  // aisle (`leaving` below) has its own drop-out animation instead.
+  const listRef = useFlipList<HTMLDivElement>();
 
   // Rows just ticked stay in their aisle for LEAVE_MS while they animate
   // out towards "In the cart", so the eye sees where they went. Skipped
@@ -300,14 +319,14 @@ export function ShoppingListClient({
   // Ticked but not yet in inventory — the put-away dialog's rows. Offered on
   // a completed list too (finishing the trip is exactly when there's
   // something to unpack), never an archived one.
-  const awaitingPutAway = list.status === "ARCHIVED" ? [] : list.items.filter(isAwaitingPutAway);
+  const awaitingPutAway = list.status === "ARCHIVED" ? [] : items.filter(isAwaitingPutAway);
   // Rows a receipt line may still match: everything unticked, plus rows
   // ticked in the store that no receipt has priced and that haven't been put
   // away (see awaitsReceiptPrice).
-  const receiptMatchable = list.items.filter(awaitsReceiptPrice);
+  const receiptMatchable = items.filter(awaitsReceiptPrice);
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
-  const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
+  const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
   const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
   // UX-37: the aisle the thumb-zone dock offers (see NextUpDock).
@@ -320,7 +339,7 @@ export function ShoppingListClient({
   // with everything ticked), in the order shopping mode walks them. "Other"
   // is left out — it has no aisle and always sorts last. Needs two to be
   // worth offering at all.
-  const reorderSections = groupPendingItemsByCategory(list.items, dict.otherCategory, storeOrder).flatMap(
+  const reorderSections = groupPendingItemsByCategory(items, dict.otherCategory, storeOrder).flatMap(
     (group) => (group.key === null ? [] : [{ key: group.key, label: group.label }]),
   );
   const hasManualOrder = storeOrder.manual.length > 0;
@@ -454,10 +473,10 @@ export function ShoppingListClient({
   // non-empty), or the list was emptied out entirely after having had items
   // this session (hadItems distinguishes that from a list that's simply
   // never had anything added to it, which gets the plain empty state).
-  const [hadItems, setHadItems] = useState(list.items.length > 0);
-  if (list.items.length > 0 && !hadItems) setHadItems(true);
+  const [hadItems, setHadItems] = useState(items.length > 0);
+  if (items.length > 0 && !hadItems) setHadItems(true);
   const isCleared =
-    pendingItems.length === 0 && (purchasedItems.length > 0 || (list.items.length === 0 && hadItems));
+    pendingItems.length === 0 && (purchasedItems.length > 0 || (items.length === 0 && hadItems));
 
   // Adjust-state-during-render pattern: re-arm the dismissal the moment the
   // list leaves the cleared state (e.g. a new item is added), so the next
@@ -502,7 +521,7 @@ export function ShoppingListClient({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <PageTitle>{list.name}</PageTitle>
+            <PageTitle morph={{ kind: "shopping-list", id: list.id }}>{list.name}</PageTitle>
             {!isActive && <Badge variant="secondary">{statusLabel}</Badge>}
           </div>
           {/* AUTO-4: hidden until at least one pending item has a price —
@@ -594,7 +613,7 @@ export function ShoppingListClient({
               )}
               {/* GAP-4: offered on any status — saving a finished trip as a
                   template is the common case. */}
-              {list.items.length > 0 && (
+              {items.length > 0 && (
                 <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
                   <ScrollText />
                   {dict.templates.menuItem}
@@ -611,7 +630,7 @@ export function ShoppingListClient({
                 {dict.print}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {isActive && list.items.length > 0 && (
+              {isActive && items.length > 0 && (
                 <DropdownMenuItem onClick={() => finishTrip(true)}>
                   <CheckCheck />
                   {dict.completeList}
@@ -681,7 +700,7 @@ export function ShoppingListClient({
         />
       )}
 
-      {list.items.length > 0 && (
+      {items.length > 0 && (
         <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
       )}
 
@@ -754,7 +773,7 @@ export function ShoppingListClient({
       )}
       {isActive && repurchaseSuggestions}
 
-      <div className="flex flex-col gap-2">
+      <div ref={listRef} className="relative flex flex-col gap-2">
         {showCleared ? (
           <ClearedState
             dict={dict}
@@ -785,12 +804,15 @@ export function ShoppingListClient({
                 a single flat "Purchased" section, unchanged. */}
             {shownPendingGroups.map((group) => (
               <Fragment key={group.key ?? ""}>
-                <p className="text-xs font-medium uppercase text-muted-foreground">{group.label}</p>
+                <p data-flip-key={`label:${group.key ?? ""}`} className="text-xs font-medium uppercase text-muted-foreground">
+                  {group.label}
+                </p>
                 {group.items.map((item) => (
                   <ShoppingRow
                     key={item.id}
                     item={item}
                     onToggle={() => toggleItem(item)}
+                    onDelete={deleteItem}
                     leaving={leaving.has(item.id)}
                     highlighted={highlightedIds.has(item.id)}
                     editable={isActive}
@@ -815,6 +837,7 @@ export function ShoppingListClient({
             {purchasedItems.length > 0 &&
               (isActive ? (
                 <Button
+                  data-flip-key="label:purchased"
                   variant="ghost"
                   className="mt-4 w-fit justify-start gap-2 px-2 text-xs font-medium uppercase text-muted-foreground"
                   aria-expanded={cartOpen}
@@ -834,14 +857,22 @@ export function ShoppingListClient({
                   </Badge>
                 </Button>
               ) : (
-                <p className="mt-4 text-xs font-medium uppercase text-muted-foreground">{dict.purchased}</p>
+                <p data-flip-key="label:purchased" className="mt-4 text-xs font-medium uppercase text-muted-foreground">
+                  {dict.purchased}
+                </p>
               ))}
-            <div id="in-the-cart" hidden={isActive && !cartOpen} className="flex flex-col gap-2">
+            <div
+              id="in-the-cart"
+              data-flip-key="cart"
+              hidden={isActive && !cartOpen}
+              className="relative flex flex-col gap-2"
+            >
               {purchasedItems.map((item) => (
                 <ShoppingRow
                   key={item.id}
                   item={item}
                   onToggle={() => toggleItem(item)}
+                  onDelete={deleteItem}
                   editable={isActive}
                   isPending={isPending}
                   startTransition={startTransition}
@@ -983,6 +1014,7 @@ function ClearedState({
 function ShoppingRow({
   item,
   onToggle,
+  onDelete,
   leaving = false,
   highlighted = false,
   editable,
@@ -1000,6 +1032,8 @@ function ShoppingRow({
   item: ShoppingListItemRow;
   /** The optimistic tick, owned by ShoppingListClient. */
   onToggle: () => void;
+  /** The confirmed delete, owned by ShoppingListClient (UX-33). */
+  onDelete: (item: ShoppingListItemRow) => Promise<{ error?: string }>;
   /** UX-37: just ticked, animating out of its aisle towards "In the cart". */
   leaving?: boolean;
   /** Ticked but not in inventory yet — gets a small "Not put away" tag. */
@@ -1056,6 +1090,10 @@ function ShoppingRow({
   return (
     <SwipeRow
       className="rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
+      // UX-33: the row glides when the list moves; not while it's leaving
+      // its aisle, which has its own animation (it then arrives in "In the
+      // cart" as a new row and rises in there).
+      flipKey={leaving ? undefined : item.id}
       // A read-only (completed or archived) list has nothing to swipe to.
       primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
       primaryIcon={<Check className="size-4" />}
@@ -1200,12 +1238,9 @@ function ShoppingRow({
                   cancelLabel={dict.confirmDeleteItem.cancel}
                   confirmLabel={dict.confirmDeleteItem.confirm}
                   pendingLabel={dict.confirmDeleteItem.confirming}
-                  onConfirm={() =>
-                    startTransition(async () => {
-                      const result = await deleteShoppingListItemAction(item.id);
-                      if (result.error) toast.error(result.error);
-                    })
-                  }
+                  // UX-33: the row goes at once; the dialog waits on the save
+                  // and toasts an error, and the row comes back.
+                  onConfirm={() => onDelete(item)}
                 />
               </>
             )}

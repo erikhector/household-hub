@@ -26,6 +26,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
 import { catalogHref, itemPageHref } from "@/lib/inventory/item-page-origin";
 import { useUnitLabel } from "@/components/units-provider";
+import { MorphTitle } from "@/components/shared/view-transitions";
 
 type CatalogDict = Dictionary["inventory"]["catalog"];
 
@@ -132,7 +133,10 @@ function CatalogRows({
               className={cn("flex flex-col gap-1 p-3 text-sm hover:bg-muted/50 max-sm:min-h-11 pointer-coarse:min-h-11", grid)}
             >
               <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-medium break-words">{row.name}</span>
+                {/* UX-33: flies up into the item page's title on the way in. */}
+                <MorphTitle kind="inventory-item" id={row.id}>
+                  <span className="font-medium break-words">{row.name}</span>
+                </MorphTitle>
                 {row.neverStocked && <Badge variant="secondary">{dict.neverStocked}</Badge>}
                 {row.unitProblems.length > 0 && (
                   <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">

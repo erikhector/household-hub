@@ -6,7 +6,6 @@ import { getDictionary, getLocale, type Dictionary, type Locale } from "@/lib/i1
 import { Button } from "@/components/ui/button";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TasksClient } from "@/components/tasks/tasks-client";
-import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
 import { PageTitle } from "@/components/dashboard/page-title";
@@ -31,21 +30,16 @@ const getTasksData = cache(async (householdId: string) => {
   ]);
 
   const memberOptions = householdMembers.map((m) => ({ id: m.id, displayName: m.user.displayName }));
-  const memberNameById = new Map(memberOptions.map((m) => [m.id, m.displayName]));
   const activeMemberIds = memberOptions.map((m) => m.id);
 
   const now = new Date();
-  const completedThisWeek = tasks
-    .filter((t) => t.completedAt !== null)
-    .sort((a, b) => a.completedAt!.getTime() - b.completedAt!.getTime())
-    .map((t) => ({ title: t.title, completedAt: t.completedAt, completedByMemberId: t.completedByMemberId }));
-  const recapGroups = computeWeeklyTaskRecap({ tasks: completedThisWeek, now }).map((g) => ({
-    memberName: g.completedByMemberId ? (memberNameById.get(g.completedByMemberId) ?? null) : null,
-    titles: g.titles,
-  }));
 
   return {
     memberOptions,
+    memberIdByUserId: new Map(householdMembers.map((m) => [m.userId, m.id])),
+    // The weekly recap is worked out in TasksClient (UX-33: so a tick shows
+    // in it at tap time), against the server's clock for the week.
+    now,
     tasks: tasks.map((t) => {
       const completed = !isTaskOpen(t, now);
       // GAP-38: who's up after the current turn. A completed rotating task
@@ -75,7 +69,6 @@ const getTasksData = cache(async (householdId: string) => {
         nextInRotationMemberId,
       };
     }),
-    recapGroups,
   };
 });
 
@@ -110,21 +103,30 @@ function TasksListSkeleton({ label }: { label: string }) {
 
 async function TasksSection({
   householdId,
+  userId,
   dict,
   locale,
 }: {
   householdId: string;
+  userId: string;
   dict: Dictionary["tasks"];
   locale: Locale;
 }) {
-  const { tasks, memberOptions, recapGroups } = await getTasksData(householdId);
+  const { tasks, memberOptions, memberIdByUserId, now } = await getTasksData(householdId);
   return (
-    <TasksClient dict={dict} members={memberOptions} tasks={tasks} recapGroups={recapGroups} locale={locale} />
+    <TasksClient
+      dict={dict}
+      members={memberOptions}
+      currentMemberId={memberIdByUserId.get(userId) ?? null}
+      tasks={tasks}
+      now={now}
+      locale={locale}
+    />
   );
 }
 
 export default async function TasksPage() {
-  const [{ household }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
+  const [{ household, userId }, dict, locale] = await Promise.all([requireHousehold(), getDictionary(), getLocale()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,7 +142,7 @@ export default async function TasksPage() {
         </PrimaryAction>
       </div>
       <Suspense fallback={<TasksListSkeleton label={dict.common.loading} />}>
-        <TasksSection householdId={household.id} dict={dict.tasks} locale={locale} />
+        <TasksSection householdId={household.id} userId={userId} dict={dict.tasks} locale={locale} />
       </Suspense>
     </div>
   );

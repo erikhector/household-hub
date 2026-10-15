@@ -28,6 +28,26 @@ export function isAwaitingPutAway(row: PutAwayState): boolean {
 }
 
 /**
+ * UX-33: a row as togglePurchasedAction will leave it, so the shopping list
+ * can show the tick (and move the row) at tap time without anything moving
+ * again when the server answers. Mirrors the action's write: a tick
+ * outside put-away mode counts the stock at once (`putAwayAt` now, and
+ * `priceRecordedAt` when the row is linked and priced); in put-away mode
+ * it's in the cart (`putAwayAt` null); an untick undoes the purchase.
+ */
+export function withLocalTick<T extends { purchased: boolean; putAwayAt: Date | null; priceRecordedAt: Date | null; inventoryItemId: string | null; estimatedPrice: number | null }>(
+  row: T,
+  purchased: boolean,
+  deferred: boolean,
+  now: Date,
+): T {
+  if (!purchased) return { ...row, purchased: false, putAwayAt: null, priceRecordedAt: null };
+  if (deferred) return { ...row, purchased: true, putAwayAt: null };
+  const priced = row.inventoryItemId !== null && row.estimatedPrice != null;
+  return { ...row, purchased: true, putAwayAt: now, priceRecordedAt: priced ? now : row.priceRecordedAt };
+}
+
+/**
  * Whether a receipt line may still be matched to this row. An unticked row
  * always can (that's the original receipt flow). A ticked row can only while
  * nothing about the purchase has been recorded yet — not put away (its stock

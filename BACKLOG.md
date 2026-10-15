@@ -382,29 +382,14 @@ benchmark is the best consumer apps on the same tasks:
 - **Copilot Money**: charts and numbers that feel alive.
 
 The UX items above make the app correct. These make it feel native and
-delightful. Today there are no view transitions (swipe row actions
-shipped as UX-35, drag-to-dismiss sheets as UX-34), the charts are hand-rolled
-`div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+delightful. Motion and view transitions shipped as UX-33, swipe row
+actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
+charts are hand-rolled `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
 decision and sit under "Needs a decision before building".
 
-- [ ] **UX-33. Motion system and view transitions** (L) — Define motion
-      tokens in `globals.css` (durations, easing curves, one spring-like
-      curve) and document them in DESIGN.md.
-
-      Use React 19.2's `<ViewTransition>` with Next 16's
-      `experimental.viewTransition` for:
-      - tab and page changes;
-      - shared-element morphs from a list row to its detail page
-        (inventory item, shopping list, recipe);
-      - items entering, leaving and re-sorting a list. A ticked item
-        slides to "Done" instead of jumping.
-
-      Under reduced motion everything falls back to an instant change.
-      Acceptance: list add, remove and tick animate, and no layout jumps
-      (CLS 0 on those interactions).
 
 
 - [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —

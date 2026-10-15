@@ -58,11 +58,13 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
 export function InventoryTable({
-  items,
+  items: serverItems,
   categories,
   locations,
   units,
@@ -74,6 +76,7 @@ export function InventoryTable({
   dict,
   barcodeDict,
   aiCategoryFallbackEnabled = false,
+  view,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -91,8 +94,17 @@ export function InventoryTable({
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
   aiCategoryFallbackEnabled?: boolean;
+  /** The search, filters and grouping being shown: changing it isn't a row
+   * coming or going, so the rows don't animate (useFlipList). */
+  view?: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  // UX-33: a deleted item leaves the list at tap time (see
+  // local-row-changes.ts) and the rows below glide up; it comes back if
+  // the delete fails.
+  const local = useLocalRowChanges(serverItems);
+  const items = applyLocalRowChanges(serverItems, local.changes, (item) => item);
+  const containerRef = useFlipList<HTMLDivElement>(view);
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
   const [bulkField, setBulkField] = useState<BulkEditableField>("location");
   const [bulkValue, setBulkValue] = useState("");
@@ -238,11 +250,9 @@ export function InventoryTable({
     });
   }
 
-  function handleDelete(itemId: string) {
-    startTransition(async () => {
-      const result = await deleteInventoryItemAction(itemId);
-      if (result.error) toast.error(result.error);
-    });
+  // From the row's confirm dialog, which waits on it and toasts an error.
+  async function handleDelete(itemId: string) {
+    return settleDelete(local.markDeleted(itemId), deleteInventoryItemAction(itemId), dict.saveFailedToast);
   }
 
   function toggleItem(itemId: string) {
@@ -301,7 +311,7 @@ export function InventoryTable({
   const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
-    <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
+    <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
           <span className="text-sm font-medium">
@@ -406,7 +416,7 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
-              <TableRow className="hover:bg-transparent">
+              <TableRow data-flip-key={`label:${group.key}`} className="hover:bg-transparent">
                 <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
                   <span className="block max-w-[28rem] truncate" title={group.key}>
                     {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
@@ -415,7 +425,7 @@ export function InventoryTable({
               </TableRow>
             )}
             {group.items.map((item) => (
-              <TableRow key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
+              <TableRow key={item.id} data-flip-key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(item.id)}
@@ -501,7 +511,7 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
-              <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              <div data-flip-key={`card-label:${group.key}`} className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="block truncate" title={group.key}>
                   {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                 </span>
@@ -509,7 +519,10 @@ export function InventoryTable({
             )}
             {/* overflow-hidden here, not on each SwipeRow: the list's
                 rounded border clips a row's swipe underlay at its corners. */}
-            <ul className="min-w-0 divide-y overflow-hidden rounded-lg border">
+            <ul
+              data-flip-key={`card-group:${group.key}`}
+              className="relative min-w-0 divide-y overflow-hidden rounded-lg border"
+            >
               {group.items.map((item) => (
                 <SwipeableItemCard
                   key={item.id}
@@ -621,7 +634,7 @@ function SwipeableItemCard({
   // item behind for the list's divide-y to draw a border around.
   if (hidden) return null;
   return (
-    <li>
+    <li data-flip-key={`card:${item.id}`}>
       <SwipeRow
         primaryLabel={dict.swipe.increase}
         primaryIcon={<Plus className="size-4" />}

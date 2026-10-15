@@ -392,6 +392,27 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   On phones the sheet drags down to dismiss (a grabber pill marks it), a
   long form rests at half or full height, and the page behind scales down
   while a sheet is open; none of it animates under reduced motion.
+- **Motion tokens** (`globals.css`, `--motion-*`), for anything new that
+  moves:
+  - `duration-fast` 120 ms for exits, `duration-base` 200 ms for entrances
+    and small shifts, `duration-slow` 320 ms for morphs,
+    `duration-spring` 400 ms with `ease-spring`.
+  - `ease-out` for things arriving, `ease-in` for things leaving,
+    `ease-in-out` for things going from one place to another, `ease-spring`
+    (slight overshoot) for an object that physically moves to a new place.
+  - Exits are quicker than entrances: what's leaving shouldn't compete with
+    what's arriving.
+- **List rows move at tap time** (a tick, an untick, a delete), with the
+  save in the background and a visible roll-back if it fails. They glide
+  there with `useFlipList` on the real element, so a moving row can still
+  be tapped: rows rise in, fade out, and glide (`duration-spring`) when
+  they or their neighbours move, and a ticked row slides to "Done". Key new
+  list rows with `data-flip-key`.
+- **Navigations** are view transitions: a tab change fades the page in with
+  a small rise, and a row's title morphs into its detail page's heading
+  (`MorphTitle`). Keep the phone header and bottom bar still.
+- Motion is never the only signal (M5), and with `prefers-reduced-motion`
+  every animation, view transitions included, is instant.
 
 ### Iconography
 

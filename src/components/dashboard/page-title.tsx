@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { commonCopy } from "@/lib/i18n/common";
 import { getDocumentLocale } from "@/lib/i18n/client-locale";
 import { COMPACT_TITLE_SLOT_ID } from "@/components/dashboard/nav-items";
+import { MorphTitle, type MorphKind } from "@/components/shared/view-transitions";
 
 const subscribeNoop = () => () => {};
 
@@ -17,7 +18,15 @@ const subscribeNoop = () => () => {};
 // eating the screen. Tapping the compact title scrolls back to the top, which
 // also brings the household switcher back. On desktop the slot's header is
 // `sm:hidden`, so this is just the H1.
-export function PageTitle({ children }: { children: ReactNode }) {
+export function PageTitle({
+  children,
+  morph,
+}: {
+  children: ReactNode;
+  /** UX-33: the list row whose title flies into this one (MorphTitle).
+   * Only the large H1 takes part, never the compact copy in the bar. */
+  morph?: { kind: MorphKind; id: string };
+}) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   // The portal target only exists in the browser; reading it through
@@ -65,17 +74,27 @@ export function PageTitle({ children }: { children: ReactNode }) {
     title.closest("main")?.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   }
 
+  const title = (
+    <h1
+      ref={titleRef}
+      tabIndex={-1}
+      // break-words: a long name (the overview greeting, an item) or a
+      // long Swedish word at 200% text would otherwise widen the page.
+      className="font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl"
+    >
+      {children}
+    </h1>
+  );
+
   return (
     <>
-      <h1
-        ref={titleRef}
-        tabIndex={-1}
-        // break-words: a long name (the overview greeting, an item) or a
-        // long Swedish word at 200% text would otherwise widen the page.
-        className="font-heading text-2xl font-semibold tracking-tight break-words outline-none max-sm:text-3xl"
-      >
-        {children}
-      </h1>
+      {morph ? (
+        <MorphTitle kind={morph.kind} id={morph.id}>
+          {title}
+        </MorphTitle>
+      ) : (
+        title
+      )}
       {/* Mounted only while collapsed, so the title isn't in the DOM twice
           the rest of the time (nor ever on desktop, where the slot's
           header is hidden and the document, not main, scrolls). It fades

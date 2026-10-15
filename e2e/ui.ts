@@ -238,3 +238,28 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+// Holds every Server Action POST to `path` until release() is called, and
+// counts the ones that have come back. Next sends a page's actions one at a
+// time, so holding the first one holds the queue behind it too.
+export async function holdServerActions(page: Page, path: string) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let answered = 0;
+  const isAction = (request: { method(): string; headers(): Record<string, string> }) =>
+    request.method() === "POST" && "next-action" in request.headers();
+  // "response", not "requestfinished": the action's streamed RSC body can
+  // stay open after the action itself has run and answered.
+  page.on("response", (response) => {
+    const request = response.request();
+    if (isAction(request) && new URL(request.url()).pathname === path) answered++;
+  });
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      if (isAction(route.request())) await gate;
+      await route.continue();
+    },
+  );
+  return { release, answered: () => answered };
+}
