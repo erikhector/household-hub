@@ -2,7 +2,9 @@
 
 import { useActionState, useMemo, useState, type ReactElement } from "react";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -165,6 +167,7 @@ export function TransactionDialog({
   prefillFromTemplate,
   createAction,
   updateAction,
+  onDelete,
   numberFormat,
 }: {
   dict: BudgetDict;
@@ -192,6 +195,11 @@ export function TransactionDialog({
    * (personal) — see TransactionFormAction's doc comment. */
   createAction: TransactionFormAction;
   updateAction: TransactionFormAction;
+  /** Editing only: deletes `transaction` (the page's delete action, bound
+   * to its id). Shown as "Delete transaction" at the end of the form —
+   * on phones the row itself opens this sheet, so this is the row's named
+   * Delete (the swipe is the quick path, DESIGN.md M7). */
+  onDelete?: () => Promise<ActionState>;
   /** The caller's createMoneyFormat(locale, currencyCode) — only read by
    * SplitEditor's warnings (UX-15). */
   numberFormat: Intl.NumberFormat;
@@ -425,6 +433,28 @@ export function TransactionDialog({
             </div>
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {/* In the form body rather than the footer, so it sits a whole
+              footer away from Save (DESIGN.md M2) instead of beside it. */}
+          {isEdit && onDelete && (
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="ghost" className="self-start text-destructive hover:text-destructive">
+                  <Trash2 className="size-4" />
+                  {dict.deleteAriaLabel}
+                </Button>
+              }
+              title={dict.confirmDeleteTransaction.title}
+              description={dict.confirmDeleteTransaction.description}
+              cancelLabel={dict.confirmDeleteTransaction.cancel}
+              confirmLabel={dict.confirmDeleteTransaction.confirm}
+              pendingLabel={dict.confirmDeleteTransaction.confirming}
+              onConfirm={async () => {
+                const result = await onDelete();
+                if (!result.error) setOpen(false);
+                return result;
+              }}
+            />
+          )}
           <DialogFooter>
             <Button type="submit" disabled={pending || splitInvalid}>
               <PendingLabel pending={pending} busy={dict.saving} idle={isEdit ? dict.save : dict.add} />

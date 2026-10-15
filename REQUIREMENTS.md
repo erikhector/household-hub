@@ -2689,6 +2689,32 @@ so paging months from Transactions bounced back to Overview. Covered by
 `src/lib/budget-url.test.ts` and `e2e/budget-month-tab.spec.ts` (both
 pages).
 
+**Transaction rows (phone pass, Oct 2026).** On a phone `TransactionList`
+lists the month as compact rows (about 56 px, twice as many per screen as
+the old two-line cards) under a header per day: "Today" / "Yesterday"
+from `Intl.RelativeTimeFormat`, otherwise weekday and date in the
+viewer's language with no year, and that day's net (income minus
+expenses and savings) on the right (`groupByDay` and `dayHeading` in
+`src/lib/budget-transaction-days.ts`). A row's day is the UTC calendar
+date of its stored `date` (forms store a picked day as UTC midnight);
+"Today" is the viewer's local day, rendered from the server's `todayKey`
+and swapped for the browser's after hydration (`useSyncExternalStore`), so
+the two can't mismatch. Each row is one button: the description as its
+title (the category name when there's none), then the category and the
+recurring/split/left-due badges in caption size, and the amount on the
+right in `tabular-nums`. Tapping it opens the edit sheet, which now ends
+in "Delete transaction" (with its confirm dialog), a footer away from
+Save; swiping left offers Edit and Delete with Undo (see "Swipe row
+actions"). Shared rows on Personal Budget keep the same layout but stay
+read-only, with only their "View in {household} budget" link. Amounts
+follow DESIGN.md's colour rules on both phone and desktop: income
+`success` with a plus, expenses `foreground` with a minus, savings
+`foreground` with an arrow (no more red for every expense or `chart-2`
+text). The desktop table keeps its per-row edit and delete buttons and
+drops the year from its dates. "Export CSV" moved from the top of the tab
+to below the list. Covered by `src/lib/budget-transaction-days.test.ts`,
+`e2e/budget-transaction-rows.spec.ts` and `e2e/swipe-rows.mobile.spec.ts`.
+
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:
@@ -6006,8 +6032,9 @@ render crash cannot be provoked from the UI).
 
 ### Swipe row actions (UX-35)
 
-Shopping list rows (on an active list), task rows and the inventory phone
-cards answer a horizontal swipe, Todoist-style. Built as one shared wrapper,
+Shopping list rows (on an active list), task rows, the inventory phone
+cards and budget transaction rows on a phone answer a horizontal swipe,
+Todoist-style. Built as one shared wrapper,
 `SwipeRow` (`src/components/shared/swipe-row.tsx`), with its maths in
 `src/lib/swipe-row-calc.ts`. No gesture library.
 
@@ -6040,6 +6067,12 @@ cards answer a horizontal swipe, Todoist-style. Built as one shared wrapper,
   down, and a swipe that starts within 20 px of either screen edge is left
   to the OS back gesture. Under reduced motion the snap back is instant
   (the global rule from UX-29).
+
+- **Budget transaction rows** swipe left only (no primary action to run
+  on a right swipe). The whole row is the edit button (`data-swipe-edit`),
+  so Edit opens the edit sheet; Delete has Undo as above. The row's named
+  Delete is "Delete transaction" inside that sheet, which keeps its
+  confirm dialog.
 
 Covered by `e2e/swipe-rows.mobile.spec.ts` (touch is driven through
 Chromium's DevTools protocol, since Playwright has no touch-drag API) and

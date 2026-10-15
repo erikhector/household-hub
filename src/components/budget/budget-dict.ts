@@ -50,6 +50,16 @@ export type BudgetDict = {
   editAriaLabel: string;
   editTransactionDialogTitle: string;
   emptyTransactions: string;
+  // Phone pass (Oct 2026): a transaction row's swipe-left tray and its
+  // Undo toast (SwipeRow, useUndoableDelete), and the toast when the
+  // deferred delete then fails.
+  swipe: {
+    edit: string;
+    delete: string;
+    deletedToast: string;
+    undo: string;
+  };
+  saveFailedToast: string;
   frequencyLabel: string;
   frequencyMonthly: string;
   frequencyWeekly: string;

@@ -2034,6 +2034,15 @@ export const en = {
     columnCategory: "Category",
     columnDescription: "Description",
     columnAmount: "Amount",
+    // Phone pass (Oct 2026): swipe left on a transaction row (SwipeRow).
+    // The row's own tap opens the edit sheet, which holds the named Delete.
+    swipe: {
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
     emptyTransactions: "No transactions yet. Add your first one to start tracking the budget.",
     recurringBadge: "Recurring",
     type: {
@@ -2410,6 +2419,15 @@ export const en = {
     columnCategory: "Category",
     columnDescription: "Description",
     columnAmount: "Amount",
+    // Phone pass (Oct 2026): swipe left on a transaction row (SwipeRow).
+    // The row's own tap opens the edit sheet, which holds the named Delete.
+    swipe: {
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
     emptyTransactions: "No transactions yet. Add your first one to start tracking your own budget.",
     type: {
       income: "Income",

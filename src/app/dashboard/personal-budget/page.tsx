@@ -13,6 +13,7 @@ import {
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { localDateKey } from "@/lib/budget-transaction-days";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
@@ -297,9 +298,6 @@ async function PersonalBudgetTabsSection({
   // stays the one place they get logged, edited, or acknowledged.
   const transactionsTab = (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
-        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
-      </div>
       <TransactionList
         transactions={transactionRows}
         sharedRows={sharedPostedRows}
@@ -310,10 +308,15 @@ async function PersonalBudgetTabsSection({
         currentMemberId=""
         dict={dict.personalBudget}
         locale={locale}
+        todayKey={localDateKey(now)}
         onDelete={deletePersonalTransactionAction}
         createAction={createPersonalTransactionAction}
         updateAction={updatePersonalTransactionAction}
       />
+      {/* Below the list, like the household budget's (rarely needed). */}
+      <div className="flex justify-start">
+        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
+      </div>
     </div>
   );
 

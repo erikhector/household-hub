@@ -3,6 +3,7 @@ import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, withDb } from "./budget-seed";
 
 // UX-35: swipe row actions on shopping, task and inventory rows. Swipe right
 // ticks, completes or adds one; swipe left reveals Edit and a Delete that
@@ -227,4 +228,39 @@ test("swipe-delete hides the row with an Undo, and deletes once the toast is gon
       return row.count();
     })
     .toBe(0);
+});
+
+// Phone pass (Oct 2026): budget transaction rows swipe left too. The row
+// itself is the edit button (which Edit clicks); Delete hides it with Undo.
+test("a budget transaction swipes left to Edit, and to Delete with Undo", async ({ page }) => {
+  const main = page.getByRole("main");
+  const t = budgetTag();
+  const description = `Bus card ${t}`;
+  await withDb(async (client) => {
+    await insertHouseholdCategory(client, { id: `e2e-ux35-txcat-${t}`, name: `Travel ${t}` });
+    await insertHouseholdTransaction(client, {
+      id: `e2e-ux35-tx-${t}`,
+      categoryId: `e2e-ux35-txcat-${t}`,
+      amount: 30,
+      description,
+    });
+  });
+  await page.goto("/dashboard/budget?tab=transactions");
+  const row = main.getByRole("button", { name: new RegExp(`^${description}`) });
+
+  await swipe(page, row, -160);
+  await main.getByRole("button", { name: "Edit", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Edit transaction" });
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  await swipe(page, row, -160);
+  await main.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(row).toBeHidden();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(row).toBeVisible();
+  // Undo means nothing ever reached the server.
+  await page.reload();
+  await expect(row).toBeVisible();
 });

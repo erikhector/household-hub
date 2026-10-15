@@ -34,6 +34,7 @@ import {
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { localDateKey } from "@/lib/budget-transaction-days";
 import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
@@ -763,14 +764,6 @@ async function BudgetTabsSection({
 
   const transactionsTab = (
     <div className="flex flex-col gap-6">
-      {/* The export route always exports the active household, so it's
-          hidden while another household is on screen rather than handing
-          back a different household's CSV. */}
-      {!readOnly && (
-        <div className="flex justify-end">
-          <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
-        </div>
-      )}
       <TransactionList
         transactions={transactionRows}
         categories={categoryRows}
@@ -779,10 +772,21 @@ async function BudgetTabsSection({
         dict={dict.budget}
         locale={locale}
         currencyCode={currencyCode}
+        todayKey={localDateKey(now)}
         onDelete={deleteTransactionAction}
         createAction={createTransactionAction}
         updateAction={updateTransactionAction}
       />
+      {/* Below the list (phone pass, Oct 2026): exporting is rare, and at
+          the top it was the first thing on the tab, above the rows people
+          came for. The export route always exports the active household,
+          so it's hidden while another household is on screen rather than
+          handing back a different household's CSV. */}
+      {!readOnly && (
+        <div className="flex justify-start">
+          <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
+        </div>
+      )}
     </div>
   );
 

@@ -1942,6 +1942,13 @@ export const sv = {
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
     columnAmount: "Belopp",
+    swipe: {
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     emptyTransactions: "Inga transaktioner än. Lägg till den första för att börja hålla koll på budgeten.",
     recurringBadge: "Återkommande",
     type: {
@@ -2316,6 +2323,13 @@ export const sv = {
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
     columnAmount: "Belopp",
+    swipe: {
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
     emptyTransactions: "Inga transaktioner än. Lägg till din första för att börja spåra din budget.",
     type: {
       income: "Inkomst",
