@@ -139,7 +139,7 @@ for (const locale of LOCALES) {
 
     for (const { label, sql } of WIDE_BADGE_ITEMS) {
       test(label, async ({ page }) => {
-        test.skip(test.info().project.name !== "mobile", "the stacked card list is the phone layout");
+        test.skip(test.info().project.name !== "mobile", "the compact row list is the phone layout");
         const tag = suffix();
         const name = `Wide badges ${tag}`;
         await withClient((client) => client.query(sql, [`e2e-freeze-${tag}`, E2E_HOUSEHOLD.id, name]));
@@ -153,11 +153,13 @@ for (const locale of LOCALES) {
 
         const problems = await page.evaluate((itemName) => {
           // The name can be squeezed to nothing, so it's found by its text
-          // inside a card rather than by having a visible box.
-          const nameEl = [...document.querySelectorAll<HTMLElement>("p")].find(
-            (p) => p.textContent?.trim() === itemName && p.closest(".rounded-lg"),
-          );
-          const card = nameEl?.closest<HTMLElement>(".rounded-lg");
+          // inside a row rather than by having a visible box. Since UX-45
+          // the name shares a truncating line with the category, so that
+          // line is what must keep its width.
+          const nameEl = [...document.querySelectorAll<HTMLElement>("li span")]
+            .find((span) => span.textContent?.trim() === itemName)
+            ?.closest<HTMLElement>("p");
+          const card = nameEl?.closest<HTMLElement>("li");
           if (!nameEl || !card) return ["card not found"];
           const cardBox = card.getBoundingClientRect();
           const nameBox = nameEl.getBoundingClientRect();
