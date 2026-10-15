@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16 App Router, React 19, Prisma 7 / PostgreSQL, Zod, Base UI + shadcn, Vitest, Playwright.
 
-**Spec:** `docs/superpowers/specs/2026-10-15-planned-bills-design.md`
+**Spec:** `docs/archive/PLANNED_BILLS_DESIGN.md`
 
 ## Global Constraints
 

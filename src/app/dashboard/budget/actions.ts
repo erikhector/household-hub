@@ -651,9 +651,17 @@ export async function updateTransactionAction(
 
   const existing = await prisma.transaction.findFirst({
     where: { id: parsed.data.id, householdId: household.id },
-    select: { id: true },
+    select: { id: true, plannedExpenseId: true },
   });
   if (!existing) return { error: "Transaction not found" };
+  // Same rule createTransactionAction enforces when the payment is logged:
+  // a planned bill's payment stays an expense. Moving it to an INCOME or
+  // SAVINGS category would keep the bill "paid" (so it leaves due payments)
+  // while the money lands on the other side of the budget — safe to spend
+  // wrong by about twice the bill.
+  if (existing.plannedExpenseId && category.type !== "EXPENSE") {
+    return fail("plannedBillNeedsExpenseCategory");
+  }
 
   const split = await parseSplitFormData(formData, household.id, parsed.data.amount);
   if (split && "error" in split) return { error: split.error };

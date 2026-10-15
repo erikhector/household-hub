@@ -1,6 +1,7 @@
 // Pure status logic for planned bills (PlannedExpense: a one-off bill with a
-// due date that isn't a recurring template) — see the planned-bills design
-// spec, section 2. Kept dependency-free (no Prisma import) so it's
+// due date that isn't a recurring template) — see REQUIREMENTS.md, "Planned
+// bills" (design history: docs/archive/PLANNED_BILLS_DESIGN.md, section 2).
+// Kept dependency-free (no Prisma import) so it's
 // unit-testable with plain fixtures.
 //
 // "Paid" is judged as of `monthEnd`, not as of today: a bill due in October

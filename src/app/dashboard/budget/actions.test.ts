@@ -79,6 +79,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: transactionFindManyMock,
       create: transactionCreateMock,
       deleteMany: transactionDeleteManyMock,
+      update: vi.fn(),
     },
     transactionSplit: { deleteMany: vi.fn() },
     memberSettlement: { create: settlementCreateMock, deleteMany: settlementDeleteManyMock },
@@ -1108,6 +1109,32 @@ describe("updateTransactionAction", () => {
 
     expect(result.error).toBe("Transaction not found");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects moving a planned bill's payment to an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: "p1" });
+
+    const result = await updateTransactionAction(
+      {},
+      formData({ id: "tx-1", categoryId: "cat-salary", amount: "3000", date: "2026-10-20", isRecurring: "" }),
+    );
+
+    expect(result.error).toBe("A planned bill can only be paid from an expense category");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("still lets an ordinary transaction move to an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: null });
+
+    const result = await updateTransactionAction(
+      {},
+      formData({ id: "tx-1", categoryId: "cat-salary", amount: "3000", date: "2026-10-20", isRecurring: "" }),
+    );
+
+    expect(result).toEqual({});
+    expect(transactionMock).toHaveBeenCalled();
   });
 });
 
