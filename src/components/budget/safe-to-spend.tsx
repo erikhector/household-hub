@@ -93,14 +93,16 @@ export function SafeToSpend({
   // Zero lines that are always zero for most people (nothing owed from
   // earlier, nothing due) are hidden rather than shown as "–0.00"; income,
   // expenses and savings always show so the arithmetic stays readable.
-  const lines: { label: string; value: number; sign: "+" | "–"; alwaysShow?: boolean }[] = [
+  // Savings carry "→", the same sign as on the transaction rows: money set
+  // aside still comes off what's safe to spend, but it isn't spent.
+  const lines: { label: string; value: number; sign: "+" | "–" | "→"; alwaysShow?: boolean }[] = [
     { label: dict.lineIncome, value: breakdown.income, sign: "+", alwaysShow: true },
     { label: dict.lineExpectedIncome, value: breakdown.dueIncome, sign: "+" },
     { label: dict.lineExpenses, value: breakdown.expense, sign: "–", alwaysShow: true },
-    { label: dict.lineSavings, value: breakdown.savings, sign: "–", alwaysShow: true },
+    { label: dict.lineSavings, value: breakdown.savings, sign: "→", alwaysShow: true },
     { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
     { label: dict.lineDuePayments, value: breakdown.duePayments, sign: "–" },
-    { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "–" },
+    { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "→" },
   ];
 
   const arithmetic = (
@@ -163,7 +165,7 @@ export function SafeToSpend({
                   // text (red is for over budget, chart colours for marks).
                   className={"shrink-0 tabular-nums " + (item.type === "INCOME" ? "text-success" : "")}
                 >
-                  {item.type === "INCOME" ? "+" : "–"}
+                  {item.type === "INCOME" ? "+" : item.type === "SAVINGS" ? "→" : "–"}
                   {numberFormat.format(item.amount)}
                 </span>
               </li>

@@ -32,6 +32,10 @@ test("Overview shows each number once and keeps due items to one line", async ({
   // (Insights' stat card shares the wording, in its hidden tab panel.)
   const arithmetic = main.getByText("Remaining after expenses and savings", { exact: true }).filter({ visible: true });
   await expect(arithmetic).toHaveCount(0);
+  // Savings are set aside, not spent: the same "→" the transaction rows
+  // use, never a minus.
+  const savings = main.getByText("Savings", { exact: true }).filter({ visible: true }).first();
+  await expect(savings.locator("xpath=following-sibling::dd")).toHaveText(/^→/);
   await main.getByText("How we got this number").click();
   await expect(arithmetic).toHaveCount(1);
   // "This month" (PeriodSummary) isn't repeated on Overview.
