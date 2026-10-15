@@ -6268,20 +6268,24 @@ coverage test walks nested folders.
 
 **Layout shift (UX-42).** `e2e/cls.spec.ts` reads the browser's
 `layout-shift` entries (what Lighthouse's CLS is made of, ignoring shifts
-within 500 ms of input) on a hard load of every dashboard route, on desktop
-and the Pixel 7 profile, and fails above 0.05. Locally every route measures
-0.0000, because the database is a few ms away and each Suspense section
-streams in before the first paint. Lighthouse itself isn't in the toolchain,
-and no run here has production latency, so the figure under real network and
-database delay is not measured; re-measure with Lighthouse's mobile profile
-against a deployed build before treating the acceptance as proven. The four
-`fallback={null}` slots above content (household `SharedWithNote`, inventory
-`InventoryWellStockedNote`, shopping list `RepurchaseSuggestionsSection`,
-the layout's email-verification banner) stay empty on purpose: each renders
-nothing in the common case (a solo household, a stock with something low, no
-suggestion, an already verified email), so a fixed-height placeholder would
-add a gap and a shift to every visit that has nothing to show. Reserve
-height for one only when a measurement shows it shifting.
+within 500 ms of input) on desktop and the Pixel 7 profile, and fails above
+0.05, for every dashboard route, two ways. A hard load covers the first
+paint. A client navigation from another page with every RSC request
+(`_rsc=`) held back 800 ms via `page.route` covers slow-network swaps: a
+prefetched route (the bottom bar's links) shows its `loading.tsx` skeleton,
+any other keeps the previous page, and either is replaced by the real page.
+Every route measures under budget in both. What the spec cannot delay is the
+server's own Suspense streaming inside one response, and Lighthouse itself
+isn't in the toolchain, so a run against a deployed build stays the final
+check. The four `fallback={null}` slots above content (household
+`SharedWithNote`, inventory `InventoryWellStockedNote`, shopping list
+`RepurchaseSuggestionsSection`, the layout's email-verification banner) stay
+empty on purpose: each renders nothing in the common case (a solo household,
+a stock with something low, no suggestion, an already verified email), so a
+fixed-height placeholder would add a gap and a shift to every visit that has
+nothing to show. The delayed-navigation measurement showed no shift from
+them, so none was added; reserve height for one only if a measurement shows
+it shifting.
 
 **Pending buttons keep their width.** `PendingLabel`
 (`src/components/ui/pending-label.tsx`) stacks the idle and pending labels
