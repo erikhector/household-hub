@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.69.0",
+    "date": "2026-10-15",
+    "pr": 243,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Copy your shopping list as text from the list menu to send it to someone who isn't in Squirrel.",
+      "sv": "Kopiera inköpslistan som text från listmenyn och skicka den till någon som inte använder Squirrel."
+    }
+  },
+  {
     "version": "0.68.0",
     "date": "2026-10-15",
     "pr": 239,
