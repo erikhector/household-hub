@@ -22,6 +22,12 @@ export type ShellDictionary = Pick<Dictionary, "nav" | "notifications" | "langua
 
 export const SIDEBAR_COOKIE = "sidebar_expanded";
 
+// The phone top bar's empty slot (layout.tsx) that a page's PageTitle
+// portals its compact title into once the large title has scrolled away
+// (UX-40, page-title.tsx). Here, not in page-title.tsx, because that's a
+// Client Component module and the Server layout needs the plain string.
+export const COMPACT_TITLE_SLOT_ID = "compact-page-title";
+
 export type NavKey =
   | "overview"
   | "inventory"

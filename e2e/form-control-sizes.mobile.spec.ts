@@ -61,7 +61,9 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   expect(await fitsItsValue(unit)).toBe(true);
 });
 
-test("budget transaction and recurring dialogs use 16px fields", async ({ page }) => {
+test("budget transaction and recurring dialogs use 16px fields", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   // The dialogs' triggers stay disabled until the household has a category.
   const categoryId = `e2e-fcs-cat-${Date.now().toString(36)}-w${E2E_WORKER}`;
   // Removed in `finally` so specs sharing the seeded household stay isolated.

@@ -12,7 +12,7 @@ import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-d
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
-import { MorphTitle } from "@/components/shared/view-transitions";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Amounts restated in another unit get three significant digits ("0.009
 // pcs", "0.375 pcs"), the way the design shows them; stock and typed
@@ -125,9 +125,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           {backLabel}
         </Link>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <MorphTitle kind="inventory-item" id={item.id}>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">{item.name}</h1>
-          </MorphTitle>
+          <PageTitle morph={{ kind: "inventory-item", id: item.id }}>{item.name}</PageTitle>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

@@ -192,17 +192,21 @@ test("adding, ticking and removing shopping items glide, with no layout shift", 
   await expect.poll(async () => (await flips(page)).map((flip) => flip.id)).toContain("flip-enter");
   await expectNoLayoutShift(page);
 
-  // Tick: the row moves to "Purchased" at tap time, before the save is
-  // even sent on, and the rows below glide up into its place. The one that
-  // slid up takes a tap while it's still moving.
+  // Tick: before the save is even sent on, the row drops out of its aisle
+  // into the collapsed "In the cart" (UX-37's own animation), and the rows
+  // below glide up into its place. The one that slid up takes a tap while
+  // it's still moving.
   await resetRecording(page);
   const held = await holdServerActions(page, path);
   await page.getByRole("checkbox", { name: /motion qux/ }).click();
-  await expect(page.getByRole("main").getByText(en.shoppingList.purchased, { exact: true })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: /motion qux/ })).toBeChecked();
-  expect((await flips(page)).filter((flip) => flip.id === "flip-move").length).toBeGreaterThan(1);
+  const cart = page.getByRole("button", { name: new RegExp(`^${en.shoppingList.shoppingMode.inCart}`) });
+  await expect(cart).toContainText("1");
+  await expect(page.getByRole("checkbox", { name: /motion qux/ })).toHaveCount(0);
+  await expect
+    .poll(async () => (await flips(page)).filter((flip) => flip.id === "flip-move").map((flip) => flip.key))
+    .toContain("label:purchased");
   await page.getByRole("checkbox", { name: /motion zap/ }).click();
-  await expect(page.getByRole("checkbox", { name: /motion zap/ })).toBeChecked();
+  await expect(cart).toContainText("2");
   await page.waitForTimeout(800);
   expect(held.answered()).toBe(0);
   held.release();
@@ -226,6 +230,7 @@ test("adding, ticking and removing shopping items glide, with no layout shift", 
 
   // And it all saved.
   await page.reload();
+  await cart.click();
   await expect(page.getByRole("checkbox", { name: /motion qux/ })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: /motion vim/ })).toHaveCount(0);
 });
@@ -292,7 +297,7 @@ test("with reduced motion, list changes happen at once", async ({ page }) => {
   await newListWithItems(page, "still milk, still tea");
   await expect(page.getByRole("checkbox", { name: /still tea/ })).toBeVisible();
   await page.getByRole("checkbox", { name: /still milk/ }).click();
-  await expect(page.getByRole("main").getByText(en.shoppingList.purchased, { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: new RegExp(`^${en.shoppingList.shoppingMode.inCart}`) })).toContainText("1");
   expect(await flips(page)).toEqual([]);
   // And a navigation's view transition (the tab fade) takes no time.
   await page.getByRole("navigation").getByRole("link", { name: en.nav.inventory, exact: true }).click();

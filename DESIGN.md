@@ -343,8 +343,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   **Baloo 2** (`heading`); **Geist Mono** (`mono`) only for codes.
 - The default UI size is `body` (14px). Form fields are `body-lg` (16px)
   on phones so iOS doesn't zoom, dropping to 14px from `md`.
-- Page H1 is `page-title` (24px semibold, tight tracking). Card and list
-  headings are `item-title` (16px semibold); `CardTitle` and `DialogTitle`
+- Page H1 is `page-title` (24px semibold, tight tracking), set through
+  `PageTitle`; on phones it's a 30px large title that collapses into the
+  top bar on scroll. Card and list headings are `item-title` (16px semibold); `CardTitle` and `DialogTitle`
   use `card-title` (16px medium).
 - Button labels are `button` (14px semibold); badges `badge` (12px
   medium); meta text `caption` in `muted-foreground`.
@@ -363,7 +364,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 - Phones get a different shell: a bottom navigation bar, only `main`
   scrolls, and dialogs become bottom sheets flush with the screen edge
   (max 85dvh, safe-area padding). From `sm` (640px) dialogs are centred,
-  384px wide.
+  384px wide. A page's primary action goes in `PrimaryAction`, which floats
+  it at the bottom right above the bottom bar on phones (M2) and leaves it
+  in the header from `sm`.
 - Touch targets grow on phones and touch screens (paired `max-sm:` and
   `pointer-coarse:` bumps, so an iPad or a landscape phone counts) and reach
   44px (rule M3): every `Button` size, `Input`, select and combobox trigger,

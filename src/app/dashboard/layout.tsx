@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { BottomNav } from "@/components/dashboard/bottom-nav";
-import { SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
+import { COMPACT_TITLE_SLOT_ID, SIDEBAR_COOKIE, type ShellDictionary } from "@/components/dashboard/nav-items";
 import { HouseholdSwitcher } from "@/components/household/household-switcher";
 import {
   EmailVerificationBanner,
@@ -118,10 +118,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
         unseenRelease={unseenRelease}
       />
       <div className="flex min-w-0 flex-1 flex-col max-sm:h-dvh max-sm:overflow-hidden print:h-auto! print:overflow-visible!">
-        {/* Named for view transitions (UX-33): it stays still and on top
+        {/* relative + the empty slot: once a page's large title scrolls
+            away, its PageTitle portals a compact copy over this bar
+            (UX-40, page-title.tsx), iOS style, instead of adding a bar.
+            Named for view transitions (UX-33): it stays still and on top
             while the page below animates, like BottomNav. */}
-        <header className="shrink-0 border-b bg-background px-4 [view-transition-name:app-header] pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
+        <header className="relative shrink-0 border-b bg-background px-4 [view-transition-name:app-header] pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:hidden print:hidden">
           <HouseholdSwitcher current={current} households={households} dict={dict.household.switcher} />
+          <div id={COMPACT_TITLE_SLOT_ID} className="contents" />
         </header>
         {/* Below the header, not above it: the header is what carries the
             safe-area-inset-top padding, so anything rendered before it
@@ -146,8 +150,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             max-sm:scroll-pb-[...] is the same reservation for
             scrollIntoView (e.g. the shopping list scrolling a just-added
             row into view): without it "nearest" stops at main's bottom
-            edge, which is behind BottomNav. */}
-        <main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+            edge, which is behind BottomNav. A page with a floating
+            primary action (PrimaryAction, UX-40) reserves another 4.5rem
+            (the 3rem button and its gaps) so the last row can scroll out
+            from under it. */}
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
           <UnitsProvider labels={dict.units}>{children}</UnitsProvider>
         </main>
       </div>

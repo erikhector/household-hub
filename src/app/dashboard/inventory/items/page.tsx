@@ -4,6 +4,7 @@ import { requireHousehold } from "@/lib/session";
 import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { loadCatalog } from "@/lib/inventory/catalog-data";
 import { ItemCatalog } from "@/components/inventory/catalog/item-catalog";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // MATCH-7 (design §6.2): every item in the household, with the filters and
 // the possible-duplicate groups. Reached from "Manage items" on the
@@ -23,7 +24,7 @@ export default async function ItemCatalogPage() {
           <ArrowLeft className="size-3.5" />
           {dict.back}
         </Link>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.title}</h1>
+        <PageTitle>{dict.title}</PageTitle>
         <p className="text-sm text-muted-foreground">{dict.subtitle}</p>
       </div>
       <ItemCatalog
