@@ -674,7 +674,37 @@ describe("createTransactionAction", () => {
       expect(transactionCreateMock).not.toHaveBeenCalled();
     });
 
-    it("maps a unique-constraint race to the already-paid error", async () => {
+    it("maps a unique-constraint race to the already-paid error (pg adapter, constraint index)", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { driverAdapterError: { cause: { kind: "UniqueConstraintViolation", constraint: { index: "Transaction_plannedExpenseId_key" } } } },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("maps the race when the adapter reports constraint fields", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { driverAdapterError: { cause: { kind: "UniqueConstraintViolation", constraint: { fields: ["plannedExpenseId"] } } } },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("maps the race from the meta.target fallback", async () => {
       plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
       transactionCreateMock.mockRejectedValue(
         new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {

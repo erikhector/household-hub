@@ -280,6 +280,8 @@ function parseTransactionFormData(formData: FormData) {
   });
 }
 
+const PLANNED_BILL_PAID_ERROR = "This planned bill is already paid";
+
 /** Validates an optional client-supplied plannedExpenseId belongs to the
  * caller's household and isn't already paid (a planned bill has at most one
  * payment transaction). Returns `undefined` id when not provided. */
@@ -296,8 +298,6 @@ async function resolvePlannedExpenseId(
   if (planned.transaction) return { error: PLANNED_BILL_PAID_ERROR };
   return { id: planned.id };
 }
-
-const PLANNED_BILL_PAID_ERROR = "This planned bill is already paid";
 
 /** Validates an optional client-supplied recurringTemplateId actually
  * belongs to the caller's household before it's ever written to a
@@ -496,11 +496,27 @@ export async function createTransactionAction(
   return {};
 }
 
+/**
+ * Whether a P2002 came from the unique index on plannedExpenseId. With the pg
+ * driver adapter (Prisma 7) there is no `meta.target`: the violated
+ * constraint sits at `meta.driverAdapterError.cause.constraint`, as `fields`
+ * or, since Postgres always names its constraint, as `index`
+ * ("Transaction_plannedExpenseId_key"). `meta.target` is kept as a fallback.
+ */
 function isPlannedExpenseTarget(error: unknown): boolean {
-  const target = (error as { meta?: { target?: unknown } }).meta?.target;
-  return Array.isArray(target)
-    ? target.includes("plannedExpenseId")
-    : typeof target === "string" && target.includes("plannedExpenseId");
+  const meta = (error as {
+    meta?: {
+      target?: unknown;
+      driverAdapterError?: { cause?: { constraint?: { fields?: unknown; index?: unknown } } };
+    };
+  }).meta;
+  const constraint = meta?.driverAdapterError?.cause?.constraint;
+  const candidates: unknown[] = [
+    ...(Array.isArray(constraint?.fields) ? constraint.fields : []),
+    constraint?.index,
+    ...(Array.isArray(meta?.target) ? meta.target : [meta?.target]),
+  ];
+  return candidates.some((c) => typeof c === "string" && c.includes("plannedExpenseId"));
 }
 
 /**
