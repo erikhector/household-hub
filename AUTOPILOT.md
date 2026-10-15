@@ -204,11 +204,26 @@ chain_min_gap_hours:     # don't start a routine whose last run was started this
   product: 12            # an owner's answer is applied within a day, not a week
 ```
 
-The cron schedules are the fallback; work shouldn't wait for them. Three
+The cron schedules are the fallback; work shouldn't wait for them. Four
 hand-offs, by exact routine name:
 
+- **a PR needs fixing** → the reviewer makes sure a builder is on it. An
+  open `autopilot` PR (not a draft, not `hold` or `needs-human`) whose
+  last review verdict is `changes`, or with a merge conflict, or red CI
+  when `ci_gate: github`, needs a builder now, not at the next cron
+  slot. If a builder
+  run holds its lock (an open `autopilot-lock-builder` issue), that
+  builder is subscribed to its PRs and already got the review; nothing
+  to do. Otherwise start **"Autopilot builder"** with `text: "Fix run:
+  <#PR: what's needed, one per line>. Fix these first, then build as
+  usual. Chained run: don't chain further."`. This hand-off ignores
+  `chain_min_gap_hours`, the `next_run_at` check and the one-hop rule
+  below (the run lock still
+  stops two builders overlapping, and `max_review_rounds_per_run` bounds
+  the rounds), so a fix never waits for a schedule, even when the
+  reviewer itself was chained;
 - the reviewer merged anything into `next` and the builder has headroom
-  or a PR to fix → start **"Autopilot builder"**;
+  → start **"Autopilot builder"**;
 - the builder opened or fixed a PR → start **"Autopilot reviewer"**;
 - the reviewer sees an owner's answer on an open `decision` issue newer
   than the product routine's last run → start **"Autopilot: product
@@ -218,9 +233,12 @@ Start one with `fire_trigger`, its id found by name with `list_triggers`,
 and pass `text: "Chained run: don't chain further."`. Only start it when
 its `last_run.fired_at` is older than its `chain_min_gap_hours` and its
 `next_run_at` is more than an hour away. **A chained run never chains**:
-a run whose prompt says it's chained skips this step, so builder and
-reviewer can't ping-pong around the clock; each cron run buys at most
-one follow-up. The run lock still applies to a chained run. No
+a run whose prompt says it's chained skips the other hand-offs, so
+builder and reviewer can't ping-pong around the clock; each cron run
+buys at most one follow-up. A fixing builder needs no hand-off back: the
+reviewer that asked for changes is still listening (its step 5) and
+re-reviews the push, and if its listen window has ended, the next
+reviewer run does. The run lock still applies to a chained run. No
 scheduling tools in the session, or the call needs a permission nobody
 is there to give: skip chaining and say so in the report.
 

@@ -312,13 +312,33 @@ up.
 
 ## 4d. Chain the builder (coordinator)
 
-If AUTOPILOT.md says `chain: true` and this run wasn't itself chained,
-start the "Autopilot builder" routine as its "Chaining" section
-describes when this run merged at least one PR into `next`, unless the
-builder's headroom (its step 0 count) is 0 and no open autopilot PR
-needs a fix. Do it now, before step 5's listening, so the builder doesn't
-wait out the listen window. If nothing was merged yet but step 5 later
-merges something, do it then (once per run). Likewise, when an open
+If AUTOPILOT.md says `chain: true`:
+
+1. **Make sure every PR that needs fixing has a builder** (even when
+   this run was itself chained). List the open `autopilot` PRs, not
+   drafts and not labelled `hold` or `needs-human` (the builder gave up
+   on those or the owner has them), whose last `autopilot-review`
+   verdict is `changes` (this run's or an earlier one), or that have a
+   merge conflict, or (only when AUTOPILOT.md says `ci_gate: github`)
+   red CI on their head. If there are any and no builder run holds its
+   lock (an open issue labelled `autopilot-lock-builder`, AUTOPILOT.md
+   "Run lock"), and this run hasn't started a builder in the last 15
+   minutes (it may not have taken its lock yet),
+   start the "Autopilot builder" routine with the fix-run text from
+   AUTOPILOT.md's "Chaining" section, naming each PR and what it needs
+   (the blocking review findings, the failing check, or "conflict with
+   `next`"). The builder reads the full review on GitHub; the text just
+   makes sure nothing is missed. If a builder holds the lock, it's
+   subscribed to its PRs and has the review already.
+2. **Otherwise, after a merge**: if this run wasn't itself chained and
+   merged at least one PR into `next`, start the "Autopilot builder"
+   routine as that section describes, unless the builder's headroom
+   (its step 0 count) is 0.
+
+Do this now, before step 5's listening, so the builder doesn't wait out
+the listen window. If nothing was merged yet but step 5 later
+merges something, do 4d.2 then (once per run); 4d.1 repeats after every
+`changes` round in step 5. Likewise, when an open
 `decision` issue has an owner's answer (a `trusted_authors` comment not
 starting with `🤖 autopilot-`) newer than the product routine's last run,
 start the "Autopilot: product owner" routine the same way.
@@ -360,7 +380,10 @@ against `max_parallel_subagents`, and validate its report the same way.
   Merge it per steps 3–4 once no review sub-agent is running, within the
   same `max_merges_per_review_run` and one-migration limits as the rest
   of the run.
-- `changes` again: stay subscribed and wait for the next round.
+- `changes` again: stay subscribed and wait for the next round, and
+  repeat step 4d.1 for this PR: if no builder run holds its lock (the
+  one that fixed it may have finished), start one with the fix-run text,
+  so the new findings don't wait for a schedule.
 - `max_review_rounds_per_run` (AUTOPILOT.md) reached on a PR: unsubscribe,
   leave its last review standing, and record it as `still changes after
   N rounds`. The next run picks it up again. A PR that ping-pongs

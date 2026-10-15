@@ -7069,8 +7069,12 @@ and "Chaining"):
   something needs them. Loop comments carry a `🤖 autopilot-<role>`
   marker; since the routines run as the owner's account, a comment
   without it is the owner's.
-- **Chaining.** The reviewer starts the builder once it has merged
-  something, the builder starts the reviewer once it has opened or fixed
+- **Chaining.** The reviewer makes sure a builder is working on every
+  autopilot PR it asked changes on (or that has red CI or a conflict):
+  if no builder holds the run lock, it starts one with a "Fix run" prompt
+  naming the PRs and what each needs, whatever the time or gap, so a
+  fix never waits for the schedule. It also starts the builder once it
+  has merged something, the builder starts the reviewer once it has opened or fixed
   a PR, and the reviewer starts the product owner when a decision issue
   has an answer, via `fire_trigger`, each only when the target wasn't
   started within `chain_min_gap_hours`. A chained run never chains again,

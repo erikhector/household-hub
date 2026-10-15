@@ -41,7 +41,10 @@ write it.
    `ci_gate: github`) red CI. Finishing beats starting, so each of these
    gets a **fix sub-agent** (step 2) before any new item gets a builder.
    Fixing doesn't open a PR, so it doesn't use headroom, only
-   `max_parallel_subagents` slots.
+   `max_parallel_subagents` slots. A run started with a "Fix run:"
+   prompt (the reviewer's hand-off, AUTOPILOT.md "Chaining") includes
+   every PR the prompt names, using its line for that PR as a pointer to
+   the review on GitHub, then continues as usual.
 4. `slots = max_parallel_subagents − fix sub-agents`. New builds this run
    `= min(headroom, slots, parallel-safe eligible items)` (step 1). If
    that's 0 and there's nothing to fix, report and stop.
@@ -167,8 +170,18 @@ Before the report, if AUTOPILOT.md says `chain: true`, this run wasn't
 itself chained, and it opened or fixed at least one PR, start the
 "Autopilot reviewer" routine as AUTOPILOT.md's "Chaining" section
 describes, so the PRs don't wait for its schedule. Then unsubscribe from
-every PR you subscribed to (the next run's step 0 picks up any that still
-need work) and release the run lock.
+every PR you subscribed to and release the run lock. **Then check once
+more**, because a reviewer that saw your lock a moment ago left the fix
+to you: list the open `autopilot` PRs that need work (step 0.3's check)
+and keep only those this run hasn't already given a fix sub-agent
+(each PR gets at most one fix round per run, so a fix that can't clear
+red CI or a conflict never loops). Any found: take the run lock again
+(AUTOPILOT.md "Run lock", steps 1–2; if another builder now holds it,
+stop, it has them), fix them as in steps 2–3, and repeat this paragraph.
+Stop when a pass finds nothing new. A PR this run already fixed that is
+still red or conflicting gets the `needs-human` label and a marked
+comment saying what's left, so it reaches the Owner inbox instead of
+another builder.
 
 Every comment you or a sub-agent posts starts with `🤖 autopilot-build`
 (AUTOPILOT.md, "Owner inbox"): an unmarked comment would read as the
