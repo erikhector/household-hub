@@ -14,6 +14,7 @@ import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
 import { PageTitle } from "@/components/dashboard/page-title";
+import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
 // The "View …" link at the foot of each overview card (UX-26). `mt-auto`
 // pins it to the card's bottom, so side-by-side cards with different amounts
@@ -55,6 +56,7 @@ export default async function DashboardOverviewPage() {
     personalPosition,
     householdStepSkipped,
     gettingStartedDismissed,
+    prepBatches,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { displayName: true } }),
     // Filtered by the assignee's user rather than a membership id looked up
@@ -91,6 +93,7 @@ export default async function DashboardOverviewPage() {
     }),
     isHouseholdStepSkipped(household.id),
     isGettingStartedDismissed(household.id),
+    getActiveBatches(household.id),
   ]);
 
   const myOpenTasks = myTasks.filter((t) => isTaskOpen(t, now));
@@ -103,6 +106,18 @@ export default async function DashboardOverviewPage() {
   const outOfStock = lowStock.filter(
     (item) => getStockStatus(item.quantity, item.lowStockThreshold) === "out",
   );
+
+  // GAP-49: batches still holding portions, soonest eat-by first
+  // (getActiveBatches' order). An emptied batch whose last portions are only
+  // planned stays on the Prep tab, but here it's nothing left to eat.
+  const prepWithPortions = prepBatches.filter((batch) => batch.remainingPortions > 0);
+  // Formatted in UTC like the Prep tab, so server and browser name one day.
+  const prepDayFormat = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 
   const gettingStartedSteps: GettingStartedStep[] = [
     {
@@ -301,6 +316,45 @@ export default async function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </div>
+        {prepWithPortions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {dict.dashboard.mealPrepTitle}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col gap-3">
+              <ul className="flex flex-col gap-2">
+                {prepWithPortions.slice(0, 3).map((batch) => (
+                  <li key={batch.id} className="flex flex-col">
+                    <span className="line-clamp-2 break-words text-sm font-medium text-foreground">
+                      {batch.recipeName}
+                    </span>
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {format(plural(batch.totalPortions, dict.mealPlanning.prepPortionsLeft), {
+                        remaining: batch.remainingPortions,
+                        total: batch.totalPortions,
+                      })}
+                      {batch.expiryDate &&
+                        ` · ${format(dict.mealPlanning.prepEatBy, {
+                          day: prepDayFormat.format(new Date(batch.expiryDate)),
+                        })}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                variant="outline"
+                size="sm"
+                className={CARD_LINK_BUTTON}
+                render={<Link href="/dashboard/meal-planning?tab=prep" />}
+              >
+                {dict.dashboard.viewMealPrep}
+                <ChevronRight className="size-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

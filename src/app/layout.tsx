@@ -11,6 +11,7 @@ import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-regis
 import { BrowserFloorNotice } from "@/components/pwa/browser-floor-notice";
 import { CookieNotice } from "@/components/legal/cookie-notice";
 import { DialogHistoryListener } from "@/components/ui/dialog-history-listener";
+import { SheetIndent } from "@/components/ui/sheet-indent";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import "./globals.css";
 
@@ -116,7 +117,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <BrowserFloorNotice dict={dict.browserFloor} />
         <DialogHistoryListener />
         <ThemeProvider attribute="class" defaultTheme={defaultTheme} enableSystem>
-          {children}
+          {/* UX-34: scales the page down behind an open bottom sheet. */}
+          <SheetIndent>{children}</SheetIndent>
           <Toaster />
           <CookieNotice dict={dict.cookieNotice} acknowledged={cookieNoticeAcknowledged} />
         </ThemeProvider>

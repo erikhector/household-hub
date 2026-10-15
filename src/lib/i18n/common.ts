@@ -7,7 +7,22 @@ import type { Locale } from "@/lib/i18n/locales";
 // components/ui/dialog.tsx can read them via getClientLocale() without
 // pulling both whole dictionaries into the browser bundle. en.ts and sv.ts
 // use these as `common`, so there is still one source per language.
-export const commonCopy: Record<Locale, { loading: string; close: string; backToTop: string }> = {
-  en: { loading: "Loading", close: "Close", backToTop: "Back to top" },
-  sv: { loading: "Laddar", close: "Stäng", backToTop: "Till toppen" },
+export const commonCopy: Record<
+  Locale,
+  { loading: string; close: string; expandSheet: string; collapseSheet: string; backToTop: string }
+> = {
+  en: {
+    loading: "Loading",
+    close: "Close",
+    expandSheet: "Expand sheet",
+    collapseSheet: "Collapse sheet",
+    backToTop: "Back to top",
+  },
+  sv: {
+    loading: "Laddar",
+    close: "Stäng",
+    expandSheet: "Fäll ut arket",
+    collapseSheet: "Fäll ihop arket",
+    backToTop: "Till toppen",
+  },
 };

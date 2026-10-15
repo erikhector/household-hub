@@ -32,12 +32,7 @@ import {
   updatePersonalRecurringTemplateAction,
   updatePersonalTransactionAction,
 } from "@/app/dashboard/personal-budget/actions";
-import {
-  computeBudgetBalanceStatus,
-  computeFixedMonthlySummary,
-  computeRecurringBreakdown,
-  computeRecurringMonthlyTotals,
-} from "@/lib/recurring-template-calc";
+import { computePersonalFixedInsights } from "@/lib/personal-fixed-insights";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import {
   getMonthEnd,
@@ -87,7 +82,7 @@ async function PersonalBudgetTabsSection({
   // headline number all come from one loader shared with the dashboard's
   // "Your budget" card, so the two can't drift apart — see
   // src/lib/personal-budget-position.ts.
-  const [categories, position] = await Promise.all([
+  const [categories, position, sharedTrendSplits] = await Promise.all([
     prisma.personalBudgetCategory.findMany({
       where: { userId },
       orderBy: [{ type: "asc" }, { name: "asc" }],
@@ -97,6 +92,27 @@ async function PersonalBudgetTabsSection({
       monthStart,
       monthEnd,
       sharedLabel: dict.personalBudget.shared.sharedBadge,
+    }),
+    // BUDGET-7: the user's share of split household bills logged from a
+    // recurring template, for the fixed trend chart below. Its own query
+    // because the trend runs back from today, while the loader's split
+    // bills stop at the end of the viewed month. Scoped through the user's
+    // own memberships and only ever their own split row (amountOwed), never
+    // another member's or the whole bill. A payer-only row (amountOwed 0)
+    // isn't a cost of theirs — see the loader's sharedPostedRows.
+    prisma.transactionSplit.findMany({
+      where: {
+        householdMember: { userId },
+        amountOwed: { gt: 0 },
+        transaction: {
+          recurringTemplateId: { not: null },
+          date: { gte: new Date(now.getFullYear(), now.getMonth() - (MAX_FIXED_TREND_MONTHS - 1), 1) },
+        },
+      },
+      select: {
+        amountOwed: true,
+        transaction: { select: { type: true, date: true, recurringTemplateId: true } },
+      },
     }),
   ]);
   const {
@@ -108,6 +124,7 @@ async function PersonalBudgetTabsSection({
     showHouseholdName,
     sharedPostedRows,
     sharedDueRows,
+    sharedFixedTemplates,
     householdDebts,
     incomeByCategory,
     expenseByCategory,
@@ -217,29 +234,29 @@ async function PersonalBudgetTabsSection({
     }));
 
   // --- Fixed income & costs summary -----------------------------------------
-  // Mirrors the household budget's (src/app/dashboard/budget/page.tsx) — see
-  // src/lib/recurring-template-calc.ts's doc comments, including both calcs'
-  // internal createdAt-vs-monthEnd cutoff.
-  const fixedMonthlySummary = computeFixedMonthlySummary(recurringTemplates, monthEnd);
-  const fixedMonthlyTotals = computeRecurringMonthlyTotals({
+  // Mirrors the household budget's (src/app/dashboard/budget/page.tsx), plus
+  // the user's share of shared household recurring bills (BUDGET-7) — see
+  // src/lib/personal-fixed-insights.ts.
+  const fixedInsights = computePersonalFixedInsights({
+    templates: recurringTemplates,
     transactions: transactions.map((t) => ({
       type: t.type,
       amount: t.amount,
       date: t.date,
       recurringTemplateId: t.recurringTemplateId,
     })),
+    sharedTemplates: sharedFixedTemplates,
+    sharedTransactions: sharedTrendSplits.map((s) => ({
+      type: s.transaction.type,
+      amount: s.amountOwed,
+      date: s.transaction.date,
+      recurringTemplateId: s.transaction.recurringTemplateId,
+    })),
+    monthEnd,
     referenceDate: now,
     monthsBack: MAX_FIXED_TREND_MONTHS,
+    sharedLabel: dict.personalBudget.shared.sharedBadge,
   });
-  // Mirrors the household budget's breakdown/balance-status calc (see
-  // src/app/dashboard/budget/page.tsx).
-  const fixedIncomeBreakdown = computeRecurringBreakdown(recurringTemplates, "INCOME", monthEnd).map(
-    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
-  );
-  const fixedExpenseBreakdown = computeRecurringBreakdown(recurringTemplates, "EXPENSE", monthEnd).map(
-    (item) => ({ id: item.id, name: item.name, total: item.monthlyAmount }),
-  );
-  const budgetBalanceStatus = computeBudgetBalanceStatus(fixedMonthlySummary);
 
   // --- Manage tab: recurring items + categories -----------------------------
   // Grouped together — see budget-tabs.tsx's doc comment (this mirrors the
@@ -357,13 +374,13 @@ async function PersonalBudgetTabsSection({
     <div className="flex flex-col gap-6">
       {periodSummary}
       <FixedBudgetSummary
-        monthlyIncome={fixedMonthlySummary.monthlyIncome}
-        monthlyExpense={fixedMonthlySummary.monthlyExpense}
-        monthlySavings={fixedMonthlySummary.monthlySavings}
-        monthlyTotals={fixedMonthlyTotals}
-        balanceStatus={budgetBalanceStatus}
-        incomeBreakdown={fixedIncomeBreakdown}
-        expenseBreakdown={fixedExpenseBreakdown}
+        monthlyIncome={fixedInsights.summary.monthlyIncome}
+        monthlyExpense={fixedInsights.summary.monthlyExpense}
+        monthlySavings={fixedInsights.summary.monthlySavings}
+        monthlyTotals={fixedInsights.monthlyTotals}
+        balanceStatus={fixedInsights.balanceStatus}
+        incomeBreakdown={fixedInsights.incomeBreakdown}
+        expenseBreakdown={fixedInsights.expenseBreakdown}
         dict={dict.personalBudget.fixedSummary}
         locale={locale}
       />

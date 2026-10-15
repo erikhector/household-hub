@@ -1,10 +1,9 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { ChefHat } from "lucide-react";
+import { ChefHat, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,25 +22,29 @@ import { Input } from "@/components/ui/input";
 import { suggestLeftoversDayAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
-import type { CookedIngredientData, MealPlanEntryData } from "@/components/meal-planning/types";
+import type { MealPlanEntryData } from "@/components/meal-planning/types";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
-import { useUnitLabel } from "@/components/units-provider";
+import {
+  CookedIngredientsChecklist,
+  toReviewItems,
+  type ReviewItem,
+} from "@/components/meal-planning/cooked-ingredients-checklist";
 import { PendingLabel } from "@/components/ui/pending-label";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
-
-type ReviewItem = CookedIngredientData & { included: boolean; quantity: string };
 
 const initialState: ActionState = {};
 
 // GAP-39: what "Plan leftovers" hands up to WeekPlanner, which owns the
 // add-to-plan dialog it opens. It can't live here: once the meal is cooked
 // the row swaps this component for the cooked badge, which unmounts it
-// before the household has had a chance to tap the toast.
+// before the household has had a chance to tap the toast. GAP-49: the
+// leftovers are a meal-prep batch now, so the slot it plans eats from it.
 export type PlanLeftoversRequest = {
   recipeId: string;
   recipeName: string;
+  batchId: string;
   date: string;
   servings: number;
 };
@@ -55,7 +58,6 @@ export function MarkCookedDialog({
   entry: MealPlanEntryData;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
-  const unitLabel = useUnitLabel();
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
@@ -63,13 +65,33 @@ export function MarkCookedDialog({
   // Controlled (like the quantity inputs) so a rejected submit doesn't wipe
   // what was typed — React resets an uncontrolled form after its action runs.
   const [leftoverServings, setLeftoverServings] = useState("");
+  // GAP-49: a meal planned from a meal-prep batch was cooked when the batch
+  // was, so "Eaten" only marks it consumed: no ingredient checklist (the
+  // batch's own ingredients came off at prep time) and no leftovers field.
+  const fromBatch = !!entry.preparedBatchId;
 
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
   ) => {
     const result = await markMealEntryCookedAction(prevState, formData);
-    if (!result.error) {
+    if (!result.error && fromBatch) {
+      setOpen(false);
+      // No item rows on purpose, even if the entry was edited since the
+      // dialog opened: nothing was deducted, so Undo must credit nothing back.
+      toast.success(dict.prepEatenToast, {
+        duration: 8000,
+        action: {
+          label: dict.undoMarkCooked,
+          onClick: () => {
+            void undoMarkMealEntryCookedAction(entry.id, [], undefined).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(dict.prepEatenUndoneToast);
+            });
+          },
+        },
+      });
+    } else if (!result.error) {
       setOpen(false);
 
       // Captured from the just-submitted form (not the `items` state, which
@@ -84,8 +106,8 @@ export function MarkCookedDialog({
       // the message says so and the same Undo takes those rows back off the
       // list too — undoing the cook should undo everything it caused.
       const autoAdded = result.autoAdded ?? [];
-      // GAP-8: the leftovers change (a created row, or a merged row's
-      // previous quantity/expiry) rides along on the same Undo too.
+      // GAP-8: the leftovers batch this cook created rides along on the
+      // same Undo too.
       const leftovers = result.leftovers;
       const leftoverServings = Number(formData.get("leftoverServings")) || 0;
       // One toast, so only one message: the auto-add note wins when both
@@ -116,6 +138,7 @@ export function MarkCookedDialog({
                     onPlanLeftovers({
                       recipeId,
                       recipeName: entry.recipeName ?? "",
+                      batchId: leftovers.batchId,
                       date: suggestion.date,
                       servings: leftoverServings,
                     });
@@ -157,14 +180,13 @@ export function MarkCookedDialog({
     setItems(null);
     setPreviewError(null);
     setLeftoverServings("");
+    if (fromBatch) return;
     startPreviewTransition(async () => {
       const result = await previewCookedIngredientsAction(entry.id);
       if ("error" in result) {
         setPreviewError(result.error);
       } else {
-        setItems(
-          result.items.map((item) => ({ ...item, included: true, quantity: String(item.suggestedQuantity) })),
-        );
+        setItems(toReviewItems(result.items));
       }
     });
   }
@@ -190,18 +212,30 @@ export function MarkCookedDialog({
             variant="ghost"
             size="icon-xs"
             className="shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={dict.markCookedAriaLabel}
+            aria-label={fromBatch ? dict.prepEatenAction : dict.markCookedAriaLabel}
+            title={fromBatch ? dict.prepEatenAction : undefined}
           >
-            <ChefHat className="size-3" />
+            {fromBatch ? <Utensils className="size-3" /> : <ChefHat className="size-3" />}
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{dict.markCookedDialogTitle}</DialogTitle>
+          <DialogTitle>{fromBatch ? dict.prepEatenDialogTitle : dict.markCookedDialogTitle}</DialogTitle>
         </DialogHeader>
 
-        {isPreviewPending || items === null ? (
+        {fromBatch ? (
+          <form action={formAction} className="flex flex-col gap-4">
+            <input type="hidden" name="entryId" value={entry.id} />
+            <p className="text-sm text-muted-foreground">{dict.prepEatenDialogHint}</p>
+            {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                <PendingLabel pending={pending} busy={dict.markingCooked} idle={dict.prepEatenSubmit} />
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : isPreviewPending || items === null ? (
           <p className="text-sm text-muted-foreground">{previewError ?? dict.loadingCookedIngredients}</p>
         ) : (
           <form action={formAction} className="flex flex-col gap-4">
@@ -211,52 +245,7 @@ export function MarkCookedDialog({
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground">{dict.noCookedIngredientsLinked}</p>
             ) : (
-              <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.key} className="flex flex-col gap-1 rounded-md bg-muted px-2 py-1.5 text-sm">
-                    <label className="flex items-center gap-2">
-                      <Checkbox
-                        checked={item.included}
-                        onChange={() => toggleItem(item.key)}
-                      />
-                      <span className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1" title={item.name}>
-                        {item.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {format(dict.onHandQuantityLabel, { quantity: item.onHandQuantity, unit: unitLabel(item.unit) })}
-                      </span>
-                    </label>
-                    <div className="flex items-center gap-2 pl-6">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        className="w-24"
-                        value={item.quantity}
-                        disabled={!item.included}
-                        onChange={(e) => updateQuantity(item.key, e.target.value)}
-                        aria-label={format(dict.cookedQuantityAriaLabel, { name: item.name })}
-                      />
-                      <span className="text-xs text-muted-foreground">{unitLabel(item.unit)}</span>
-                      {item.unitMismatch && (
-                        <span className="text-xs text-warning">
-                          {format(dict.cookedIngredientUnitMismatchNote, {
-                            quantity: item.requiredQuantity,
-                            unit: item.requiredUnit,
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    {item.included && (
-                      <>
-                        <input type="hidden" name="itemId" value={item.inventoryItemId} />
-                        <input type="hidden" name="itemQuantity" value={item.quantity} />
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <CookedIngredientsChecklist dict={dict} items={items} onToggle={toggleItem} onQuantityChange={updateQuantity} />
             )}
 
             {/* GAP-8: blank by default — leftovers are only ever recorded

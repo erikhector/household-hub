@@ -346,6 +346,23 @@ export async function loadPersonalBudgetPosition({
       };
     });
 
+  // Every shared template the user still pays a share of, reduced to that
+  // share — the Insights tab's "Fixed income & costs" counts it next to
+  // their own recurring items (BUDGET-7, src/lib/personal-fixed-insights.ts).
+  // Due or not: the fixed card is the planned month, not what's left of it.
+  // A payer-only explicit split (amountOwed 0) isn't a cost, same as 3a.
+  const sharedFixedTemplates = sharedTemplates
+    .filter((s) => s.amountOwed > 0)
+    .map((s) => ({
+      id: s.template.id,
+      name: s.template.name,
+      amount: s.amountOwed,
+      frequency: s.template.frequency,
+      type: s.template.type,
+      active: s.template.active,
+      createdAt: s.template.createdAt,
+    }));
+
   // --- Totals ----------------------------------------------------------------
   // Scoped to the selected month — see the household budget's identical
   // monthTransactions comment (src/app/dashboard/budget/page.tsx).
@@ -493,6 +510,7 @@ export async function loadPersonalBudgetPosition({
     showHouseholdName,
     sharedPostedRows,
     sharedDueRows,
+    sharedFixedTemplates,
     householdDebts,
     incomeByCategory,
     expenseByCategory,

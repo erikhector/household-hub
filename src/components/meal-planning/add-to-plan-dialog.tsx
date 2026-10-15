@@ -60,6 +60,7 @@ export function AddToPlanDialog({
   plannerWeekStartKey,
   defaultDate,
   hint,
+  preparedBatchId,
   controlled,
 }: {
   dict: MealPlanningDict;
@@ -74,6 +75,9 @@ export function AddToPlanDialog({
   // fields only read their defaults on mount.
   defaultDate?: string;
   hint?: string;
+  // GAP-49: Plan leftovers' leftovers are a meal-prep batch, so the slot
+  // this plans eats from it (addMealEntryAction links it on confirm).
+  preparedBatchId?: string;
   controlled?: { open: boolean; onOpenChange: (open: boolean) => void };
 }) {
   const router = useRouter();
@@ -128,6 +132,7 @@ export function AddToPlanDialog({
           <input type="hidden" name="recipeId" value={recipeId} />
           <input type="hidden" name="weekStartDate" value={weekStartKey} />
           <input type="hidden" name="mealType" value={mealType} />
+          {preparedBatchId && <input type="hidden" name="preparedBatchId" value={preparedBatchId} />}
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-to-plan-date">{dict.dateLabel}</Label>
