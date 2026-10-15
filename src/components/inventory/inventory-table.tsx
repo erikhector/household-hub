@@ -58,7 +58,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
-import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
@@ -252,14 +252,7 @@ export function InventoryTable({
 
   // From the row's confirm dialog, which waits on it and toasts an error.
   async function handleDelete(itemId: string) {
-    const settle = local.markDeleted(itemId);
-    // A request that never arrives (offline) throws: the row comes back too.
-    const result = await deleteInventoryItemAction(itemId).catch((error: unknown) => {
-      settle(false);
-      throw error;
-    });
-    settle(!result.error);
-    return result;
+    return settleDelete(local.markDeleted(itemId), deleteInventoryItemAction(itemId), dict.saveFailedToast);
   }
 
   function toggleItem(itemId: string) {

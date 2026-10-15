@@ -87,7 +87,7 @@ import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { createMoneyFormat } from "@/lib/currency";
 import { awaitsReceiptPrice, isAwaitingPutAway, withLocalTick } from "@/lib/shopping/put-away-calc";
-import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
@@ -255,14 +255,7 @@ export function ShoppingListClient({
   // Called from the row's confirm dialog, which waits on it and toasts an
   // error; the row has already gone by then and comes back if it failed.
   const deleteItem = async (item: ShoppingListItemRow) => {
-    const settle = local.markDeleted(item.id);
-    // A request that never arrives (offline) throws: the row comes back too.
-    const result = await deleteShoppingListItemAction(item.id).catch((error: unknown) => {
-      settle(false);
-      throw error;
-    });
-    settle(!result.error);
-    return result;
+    return settleDelete(local.markDeleted(item.id), deleteShoppingListItemAction(item.id), dict.saveFailedToast);
   };
   // UX-33: rows glide when they move (use-flip-list.ts). A row leaving its
   // aisle (`leaving` below) has its own drop-out animation instead.
@@ -330,10 +323,10 @@ export function ShoppingListClient({
   // Rows a receipt line may still match: everything unticked, plus rows
   // ticked in the store that no receipt has priced and that haven't been put
   // away (see awaitsReceiptPrice).
-  const receiptMatchable = list.items.filter(awaitsReceiptPrice);
+  const receiptMatchable = items.filter(awaitsReceiptPrice);
   const isActive = list.status === "ACTIVE";
   const statusLabel = list.status === "COMPLETED" ? dict.statusCompleted : dict.statusArchived;
-  const unresolvedItems = list.items.filter((item) => item.inventoryItemId === null);
+  const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
   const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
   // UX-37: the aisle the thumb-zone dock offers (see NextUpDock).
@@ -346,7 +339,7 @@ export function ShoppingListClient({
   // with everything ticked), in the order shopping mode walks them. "Other"
   // is left out — it has no aisle and always sorts last. Needs two to be
   // worth offering at all.
-  const reorderSections = groupPendingItemsByCategory(list.items, dict.otherCategory, storeOrder).flatMap(
+  const reorderSections = groupPendingItemsByCategory(items, dict.otherCategory, storeOrder).flatMap(
     (group) => (group.key === null ? [] : [{ key: group.key, label: group.label }]),
   );
   const hasManualOrder = storeOrder.manual.length > 0;
@@ -480,10 +473,10 @@ export function ShoppingListClient({
   // non-empty), or the list was emptied out entirely after having had items
   // this session (hadItems distinguishes that from a list that's simply
   // never had anything added to it, which gets the plain empty state).
-  const [hadItems, setHadItems] = useState(list.items.length > 0);
-  if (list.items.length > 0 && !hadItems) setHadItems(true);
+  const [hadItems, setHadItems] = useState(items.length > 0);
+  if (items.length > 0 && !hadItems) setHadItems(true);
   const isCleared =
-    pendingItems.length === 0 && (purchasedItems.length > 0 || (list.items.length === 0 && hadItems));
+    pendingItems.length === 0 && (purchasedItems.length > 0 || (items.length === 0 && hadItems));
 
   // Adjust-state-during-render pattern: re-arm the dismissal the moment the
   // list leaves the cleared state (e.g. a new item is added), so the next
@@ -620,7 +613,7 @@ export function ShoppingListClient({
               )}
               {/* GAP-4: offered on any status — saving a finished trip as a
                   template is the common case. */}
-              {list.items.length > 0 && (
+              {items.length > 0 && (
                 <DropdownMenuItem onClick={() => dialogs.saveTemplate.open(null)}>
                   <ScrollText />
                   {dict.templates.menuItem}
@@ -637,7 +630,7 @@ export function ShoppingListClient({
                 {dict.print}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {isActive && list.items.length > 0 && (
+              {isActive && items.length > 0 && (
                 <DropdownMenuItem onClick={() => finishTrip(true)}>
                   <CheckCheck />
                   {dict.completeList}
@@ -707,7 +700,7 @@ export function ShoppingListClient({
         />
       )}
 
-      {list.items.length > 0 && (
+      {items.length > 0 && (
         <SaveTemplateDialog listId={list.id} listName={list.name} dict={dict.templates} handle={dialogs.saveTemplate} />
       )}
 

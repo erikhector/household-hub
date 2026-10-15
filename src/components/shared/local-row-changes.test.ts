@@ -1,10 +1,11 @@
 // Tests the pure halves of src/components/shared/local-row-changes.ts: how
 // a list shows the ticks and deletes made on this device before the server
 // has answered, and how each save's answer settles its own mark (UX-33).
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyLocalRowChanges,
   dropSettledRowChanges,
+  settleDelete,
   settleLocalRowChange,
   type LocalRowChange,
 } from "@/components/shared/local-row-changes";
@@ -71,5 +72,38 @@ describe("dropSettledRowChanges", () => {
   it("returns the same map when nothing has settled", () => {
     const changes = new Map<string, LocalRowChange>([["b", { seq: 2, deleted: true }]]);
     expect(dropSettledRowChanges(changes)).toBe(changes);
+  });
+});
+
+describe("settleDelete", () => {
+  const failed = "Couldn't save that.";
+
+  it("settles a delete that saved as ok and hands back its result", async () => {
+    const settle = vi.fn();
+    await expect(settleDelete(settle, Promise.resolve({}), failed)).resolves.toEqual({});
+    expect(settle).toHaveBeenCalledWith(true);
+  });
+
+  it("brings the row back when the action answers with an error", async () => {
+    const settle = vi.fn();
+    await expect(settleDelete(settle, Promise.resolve({ error: "Not found" }), failed)).resolves.toEqual({
+      error: "Not found",
+    });
+    expect(settle).toHaveBeenCalledWith(false);
+  });
+
+  it("brings the row back when the request never arrives, as an error to toast", async () => {
+    const settle = vi.fn();
+    await expect(settleDelete(settle, Promise.reject(new TypeError("Failed to fetch")), failed)).resolves.toEqual({
+      error: failed,
+    });
+    expect(settle).toHaveBeenCalledWith(false);
+  });
+
+  it("re-throws Next's redirect signal, after bringing the row back", async () => {
+    const settle = vi.fn();
+    const redirect = Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/login;307;" });
+    await expect(settleDelete(settle, Promise.reject(redirect), failed)).rejects.toBe(redirect);
+    expect(settle).toHaveBeenCalledWith(false);
   });
 });

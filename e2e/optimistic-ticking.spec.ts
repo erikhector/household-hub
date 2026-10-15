@@ -169,6 +169,95 @@ test("ticking three tasks shows all three done before any save answers", async (
   for (const box of done) await expect(box).toBeChecked();
 });
 
+// UX-33: task ticks are local marks, and each save settles its own (see
+// local-row-changes.ts). With two in flight, the one that fails moves its
+// task back to the open section at once, without waiting for the slow one:
+// React 19 entangles concurrent async transitions, so a mark dropped in one
+// waited for every save. The tasks twin of shopping-mode.spec.ts's test.
+test("a failed task tick rolls back at once while another tick is still saving", async ({ page }) => {
+  const t = tag();
+  const slowTitle = `Sweep porch ${t}`;
+  const failTitle = `Feed cat ${t}`;
+  const slowId = `e2e-ux14-task-${t}-slow`;
+  const failId = `e2e-ux14-task-${t}-fail`;
+  for (const [id, title] of [
+    [slowId, slowTitle],
+    [failId, failTitle],
+  ]) {
+    await sql(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [id, E2E_HOUSEHOLD.id, title]);
+  }
+  const path = "/dashboard/tasks";
+  await page.goto(path);
+
+  let releaseSlow!: () => void;
+  const slowHeld = new Promise<void>((resolve) => (releaseSlow = resolve));
+  let slowAnswered = false;
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      const request = route.request();
+      const body = request.postData() ?? "";
+      if (request.method() !== "POST" || !("next-action" in request.headers())) return route.continue();
+      if (body.includes(failId)) {
+        // Long enough for the second tap to start its own save behind this one.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return route.abort("failed");
+      }
+      if (body.includes(slowId)) {
+        await slowHeld;
+        await route.continue();
+        slowAnswered = true;
+        return;
+      }
+      return route.continue();
+    },
+  );
+
+  // Failing one first: Next sends a page's Server Actions one at a time, so
+  // its request goes (and fails after a second) while the slow one, tapped
+  // right after, waits behind it and is then held. Both are in flight when
+  // the first one fails.
+  await page.getByRole("checkbox", { name: `Mark ${failTitle} as done` }).click();
+  await page.getByRole("checkbox", { name: `Mark ${slowTitle} as done` }).click();
+
+  await expect(page.getByRole("checkbox", { name: `Mark ${failTitle} as done` })).not.toBeChecked();
+  await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
+  expect(slowAnswered, "the slow save is still in flight").toBe(false);
+  await expect(page.getByRole("checkbox", { name: `Mark ${slowTitle} as not done` })).toBeChecked();
+
+  releaseSlow();
+  await expect.poll(() => slowAnswered).toBe(true);
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: `Mark ${slowTitle} as not done` })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: `Mark ${failTitle} as done` })).not.toBeChecked();
+});
+
+// UX-33: a confirmed delete hides the row at once. If the request never
+// reaches the server (offline), the row comes back with a toast, rather
+// than staying gone or taking the page to the error boundary.
+test("a task delete that can't reach the server brings the row back", async ({ page }) => {
+  const t = tag();
+  const title = `Descale kettle ${t}`;
+  await sql(`INSERT INTO "HouseholdTask" (id, "householdId", title) VALUES ($1, $2, $3)`, [
+    `e2e-ux14-task-${t}-del`,
+    E2E_HOUSEHOLD.id,
+    title,
+  ]);
+  const path = "/dashboard/tasks";
+  await page.goto(path);
+  await page.route(
+    (url) => url.pathname === path,
+    (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
+  );
+
+  await page.getByRole("button", { name: `Delete ${title}` }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();
+});
+
 test("three taps on an inventory stepper all show before any save answers", async ({ page }) => {
   const t = tag();
   const name = `Wheat flour ${t}`;

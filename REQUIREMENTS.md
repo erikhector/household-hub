@@ -6126,7 +6126,7 @@ approximating them, so the email never disagrees with the app.
   moves at tap time. On an `ACTIVE` shopping list it animates out of its
   aisle into "In the cart"; a task glides to "Completed". So the move
   follows the tap and isn't counted as layout shift, however slow the save.
-  Every save goes through `settleOptimisticAction` (`src/components/shared/`):
+  Every tick's save goes through `settleOptimisticAction` (`src/components/shared/`):
   when the action returns `{ error }`, or the request never arrives
   (offline, a dropped connection, which used to reach the error boundary),
   it toasts and the row goes back. Next's redirect signal is re-thrown, so
@@ -6303,6 +6303,8 @@ as layout shift. Now:
   for every save in flight. A failure (an `{ error }`, or a request that
   throws) drops the mark at once and the row moves back;
   `settleOptimisticAction` or the confirm dialog toasts why (M5). A
+  confirmed delete goes through `settleDelete`, which turns a request that
+  never arrives into the save-failed toast instead of the error boundary. A
   success keeps the mark until the next server list arrives, which already
   has the change, so nothing moves. Marks carry a sequence number, so after
   a quick tick then untick only the latest save's answer counts.
@@ -6396,6 +6398,9 @@ delay to 0. Every change happens at once.
 **Tests.** `e2e/motion.spec.ts` records each FLIP animation (wrapping
 `Element.prototype.animate`) and each view transition's animations (wrapping
 `document.startViewTransition`), on desktop and mobile:
+- `optimistic-ticking.spec.ts`: a failed task tick rolls back at once
+  while another is still saving, and an offline task delete brings the row
+  back with a toast.
 - With every save held at the server well past 500 ms
   (`holdServerActions`, now shared in `e2e/ui.ts`), a shopping tick moves
   the row to "Purchased" before the save answers, the rows below glide, the

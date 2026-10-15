@@ -18,7 +18,7 @@ import { settleOptimisticAction } from "@/components/shared/settle-optimistic-ac
 import { SwipeRow } from "@/components/shared/swipe-row";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
-import { applyLocalRowChanges, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc";
 import { withLocalCompletion } from "@/lib/task-rotation";
@@ -79,14 +79,7 @@ export function TasksClient({
   };
   // From the row's confirm dialog, which waits on it and toasts an error.
   const deleteTask = async (task: TaskRow) => {
-    const settle = local.markDeleted(task.id);
-    // A request that never arrives (offline) throws: the row comes back too.
-    const result = await deleteTaskAction(task.id).catch((error: unknown) => {
-      settle(false);
-      throw error;
-    });
-    settle(!result.error);
-    return result;
+    return settleDelete(local.markDeleted(task.id), deleteTaskAction(task.id), dict.saveFailedToast);
   };
   const containerRef = useFlipList<HTMLDivElement>();
 

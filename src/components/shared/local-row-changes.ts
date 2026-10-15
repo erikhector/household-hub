@@ -27,6 +27,7 @@
 
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { unstable_rethrow } from "next/navigation";
 
 export type LocalRowChange = { seq: number; done?: boolean; deleted?: boolean; settled?: boolean };
 export type LocalRowChanges = ReadonlyMap<string, LocalRowChange>;
@@ -61,6 +62,32 @@ export function settleLocalRowChange(changes: LocalRowChanges, id: string, seq: 
 export function dropSettledRowChanges(changes: LocalRowChanges): LocalRowChanges {
   if (![...changes.values()].some((change) => change.settled)) return changes;
   return new Map([...changes].filter(([, change]) => !change.settled));
+}
+
+/**
+ * A delete's save, settling its mark however it ends: `{ error }` brings
+ * the row back, and so does a request that never arrives (offline, which
+ * rejects). That one becomes `{ error: saveFailedMessage }` for the confirm
+ * dialog to toast, as settleOptimisticAction does for a tick, instead of
+ * reaching the error boundary; Next's redirect signals (an expired
+ * session) are re-thrown. Pass `markDeleted(id)` first, so the row is gone
+ * before the request leaves.
+ */
+export async function settleDelete<R extends { error?: string }>(
+  settle: (ok: boolean) => void,
+  request: Promise<R>,
+  saveFailedMessage: string,
+): Promise<R | { error: string }> {
+  let result: R;
+  try {
+    result = await request;
+  } catch (error) {
+    settle(false);
+    unstable_rethrow(error);
+    return { error: saveFailedMessage };
+  }
+  settle(!result.error);
+  return result;
 }
 
 /**
