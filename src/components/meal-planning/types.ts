@@ -65,6 +65,9 @@ export type MealPlanEntryData = {
   // ISO timestamp once inventory has been decremented for this entry (see
   // MealPlanEntry.consumedAt's doc comment in schema.prisma), else null.
   consumedAt: string | null;
+  // GAP-49: the PreparedBatch this slot eats from, or null when it's cooked
+  // fresh (MealPlanEntry.preparedBatchId).
+  preparedBatchId: string | null;
 };
 
 // One ingredient the planned week's recipes need more of than the household
@@ -129,4 +132,19 @@ export type CookedIngredientData = {
   requiredQuantity: number;
   requiredUnit: string;
   unitMismatch: boolean;
+};
+
+// GAP-49: one active PreparedBatch on the Prep tab — see getActiveBatches
+// (src/app/dashboard/meal-planning/prepared-batches.ts). Dates are ISO
+// instants; plannedCount is every uneaten meal-plan entry linked to the batch.
+export type PreparedBatchData = {
+  id: string;
+  recipeId: string;
+  recipeName: string;
+  totalPortions: number;
+  remainingPortions: number;
+  cookedAt: string;
+  expiryDate: string | null;
+  cookedByName: string | null;
+  plannedCount: number;
 };

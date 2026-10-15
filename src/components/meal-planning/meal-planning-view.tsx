@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
-type Tab = "planner" | "recipes" | "cook";
+type Tab = "planner" | "recipes" | "cook" | "prep";
 
-// SCALE-J: the three tab bodies (and the variety/nutrition recaps above the tab bar)
+// SCALE-J: the tab bodies (and the variety/nutrition recaps above the tab bar)
 // are Server Components rendered by the page, each behind its own
 // `<Suspense>` — the same "Server Components passed as props to a Client
 // Component" pattern `BudgetTabs` uses (src/components/budget/budget-tabs.tsx),
@@ -26,6 +26,7 @@ export function MealPlanningView({
   plannerTab,
   recipesTab,
   cookTab,
+  prepTab,
 }: {
   dict: Dictionary["mealPlanning"];
   varietyRecap: ReactNode;
@@ -33,6 +34,8 @@ export function MealPlanningView({
   plannerTab: ReactNode;
   recipesTab: ReactNode;
   cookTab: ReactNode;
+  // GAP-49's meal-prep batches.
+  prepTab: ReactNode;
 }) {
   // The tab lives in `?tab=` (MATCH-6's recipe links; replaced, not pushed,
   // and keeping `?week=`), so coming back to this page — the browser's back
@@ -41,7 +44,8 @@ export function MealPlanningView({
   // server, since a browser back restores Next's cached render of the URL
   // as first loaded (see item-catalog.tsx).
   const tabParam = useSearchParams().get("tab");
-  const tab: Tab = tabParam === "recipes" || tabParam === "cook" ? tabParam : "planner";
+  const tab: Tab =
+    tabParam === "recipes" || tabParam === "cook" || tabParam === "prep" ? tabParam : "planner";
   const selectTab = (next: Tab) => {
     const url = new URL(window.location.href);
     if (next === "planner") url.searchParams.delete("tab");
@@ -53,6 +57,7 @@ export function MealPlanningView({
     { value: "planner", label: dict.tabPlanner },
     { value: "recipes", label: dict.tabRecipes },
     { value: "cook", label: dict.tabCookNow },
+    { value: "prep", label: dict.tabPrep },
   ];
 
   return (
@@ -65,6 +70,7 @@ export function MealPlanningView({
       <div hidden={tab !== "planner"}>{plannerTab}</div>
       <div hidden={tab !== "recipes"}>{recipesTab}</div>
       <div hidden={tab !== "cook"}>{cookTab}</div>
+      <div hidden={tab !== "prep"}>{prepTab}</div>
     </div>
   );
 }

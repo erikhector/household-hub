@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
+import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
 import { Minus, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
+import { SwipeRow } from "@/components/shared/swipe-row";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { getStockStatus } from "@/lib/stock-status";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { formatQuantity } from "@/lib/format-quantity";
@@ -494,68 +496,122 @@ export function InventoryTable({
               </div>
             )}
             {group.items.map((item) => (
-              <div
+              <SwipeableItemCard
                 key={item.id}
-                data-state={selected.has(item.id) ? "selected" : undefined}
-                className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+                item={item}
+                disabled={isPending}
+                dict={dict}
+                onRemove={() => {
+                  if (selected.has(item.id)) toggleItem(item.id);
+                }}
               >
-                <div className="flex min-w-0 flex-wrap items-start gap-2">
-                  <Checkbox
-                    checked={selected.has(item.id)}
-                    onChange={() => toggleItem(item.id)}
-                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                    className="mt-1"
-                  />
-                  <div className="min-w-[40%] flex-1">
-                    <p className="truncate font-medium" title={item.name}>
-                      {item.name}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {item.category}
-                      {item.location ? ` • ${item.location}` : ""}
-                    </p>
-                  </div>
-                  {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                  <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                    <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                    <OnTheWayHint item={item} dict={dict} />
-                    <ExpiryBadge
-                      expiresAt={item.expiresAt}
-                      expiresAtEstimated={item.expiresAtEstimated}
-                      openedAt={item.openedAt}
-                      frozenAt={item.frozenAt}
-                      dict={dict}
+                <div
+                  data-state={selected.has(item.id) ? "selected" : undefined}
+                  className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+                >
+                  <div className="flex min-w-0 flex-wrap items-start gap-2">
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                      className="mt-1"
                     />
+                    <div className="min-w-[40%] flex-1">
+                      <p className="truncate font-medium" title={item.name}>
+                        {item.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {item.category}
+                        {item.location ? ` • ${item.location}` : ""}
+                      </p>
+                    </div>
+                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                    <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                      <OnTheWayHint item={item} dict={dict} />
+                      <ExpiryBadge
+                        expiresAt={item.expiresAt}
+                        expiresAtEstimated={item.expiresAtEstimated}
+                        openedAt={item.openedAt}
+                        frozenAt={item.frozenAt}
+                        dict={dict}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                  <div className="ml-auto min-w-0">
-                    <ItemActions
-                      item={item}
-                      categories={categories}
-                      locations={locations}
-                      units={units}
-                      members={members}
-                      locale={locale}
-                      dict={dict}
-                      barcodeDict={barcodeDict}
-                      isPending={isPending}
-                      onMarkEmpty={handleMarkEmpty}
-                      onMarkOpened={handleMarkOpened}
-                      onFreeze={handleFreeze}
-                      onDelete={handleDelete}
-                      size="size-9"
-                    />
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                    <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                    <div className="ml-auto min-w-0">
+                      <ItemActions
+                        item={item}
+                        categories={categories}
+                        locations={locations}
+                        units={units}
+                        members={members}
+                        locale={locale}
+                        dict={dict}
+                        barcodeDict={barcodeDict}
+                        isPending={isPending}
+                        onMarkEmpty={handleMarkEmpty}
+                        onMarkOpened={handleMarkOpened}
+                        onFreeze={handleFreeze}
+                        onDelete={handleDelete}
+                        size="size-9"
+                      />
+                    </div>
                   </div>
+                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
                 </div>
-                <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-              </div>
+              </SwipeableItemCard>
             ))}
           </Fragment>
         ))}
       </div>
     </div>
+  );
+}
+
+// UX-35: the phone card's swipe actions: right for +1, left for Edit and a
+// Delete with Undo (the ⋯ menu's Delete keeps its confirm dialog). Its own
+// component so each card gets its own useUndoableDelete. Phones only: the
+// desktop table is for a mouse, where SwipeRow does nothing anyway.
+// A hidden card also leaves the bulk selection (onRemove): the bulk bar must
+// not count an item the user can't see, and a bulk delete inside the Undo
+// window would race the deferred one.
+function SwipeableItemCard({
+  item,
+  disabled,
+  dict,
+  onRemove,
+  children,
+}: {
+  item: InventoryItemRow;
+  disabled: boolean;
+  dict: Dictionary["inventory"];
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteInventoryItemAction(item.id), dict.saveFailedToast)) !== null,
+    message: format(dict.swipe.deletedToast, { name: item.name }),
+    undoLabel: dict.swipe.undo,
+  });
+  if (hidden) return null;
+  return (
+    <SwipeRow
+      className="rounded-lg"
+      primaryLabel={dict.swipe.increase}
+      primaryIcon={<Plus className="size-4" />}
+      editLabel={dict.swipe.edit}
+      deleteLabel={dict.swipe.delete}
+      onDelete={() => {
+        onRemove();
+        remove();
+      }}
+      disabled={disabled}
+    >
+      {children}
+    </SwipeRow>
   );
 }
 
@@ -624,6 +680,7 @@ function QuantityStepper({
         size="icon"
         className={buttonClass}
         disabled={disabled}
+        data-swipe-primary
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(1)}

@@ -53,6 +53,11 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   if (testInfo.project.name === "mobile") {
     // M3: neighbouring 44 px targets are at least 8 px apart, so the slot
     // add rows of a day with entries don't sit shoulder to shoulder.
+    // Measured once the page behind the closed sheet has scaled back to
+    // full size (UX-34, sheet-indent.tsx), not mid-transition.
+    await expect
+      .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
+      .toBe("none");
     const breakfast = await page.getByRole("button", { name: "Breakfast Add meal" }).boundingBox();
     const dinner = await page.getByRole("button", { name: "Dinner Add meal" }).boundingBox();
     expect(breakfast!.height).toBeGreaterThanOrEqual(44);

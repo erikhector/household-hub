@@ -9,7 +9,9 @@ import { dismissCookieNotice } from "./ui";
 // margin above the sheet bottom (measured 16.0px on a 16px safe area, more
 // under a home indicator), leaving a visible strip under Save. The stick
 // offset negates the same margin (dialog.tsx), so this measures the footer
-// border bottom against the sheet bottom at two scroll positions.
+// border bottom against the sheet bottom at two scroll positions. (UX-34:
+// the scroller is the sheet's body, under the grabber, so that's what
+// scrolls here; its bottom is the sheet's.)
 test.skip(({ isMobile }) => !isMobile, "sticky-footer rule: the sheet footer pins while scrolled");
 
 test("the add-item footer sits flush with the sheet bottom while scrolled", async ({
@@ -24,7 +26,8 @@ test("the add-item footer sits flush with the sheet bottom while scrolled", asyn
   const dialog = page.getByRole("dialog", { name: "Add inventory item" });
   await expect(dialog).toBeVisible();
 
-  const overflow = await dialog.evaluate((root) => ({
+  const body = dialog.locator('[data-slot="dialog-body"]');
+  const overflow = await body.evaluate((root) => ({
     scrollHeight: root.scrollHeight,
     clientHeight: root.clientHeight,
   }));
@@ -37,10 +40,10 @@ test("the add-item footer sits flush with the sheet bottom while scrolled", asyn
   // fully scrolled (natural position): the border box must meet the sheet
   // bottom in both. 1px of slack for sub-pixel rounding.
   for (const top of [Math.floor(maxScroll / 2), maxScroll]) {
-    await dialog.evaluate((root, scrollTop) => {
+    await body.evaluate((root, scrollTop) => {
       root.scrollTop = scrollTop;
     }, top);
-    const pinned = await dialog.evaluate((root) => {
+    const pinned = await body.evaluate((root) => {
       const footer = root.querySelector<HTMLElement>('[data-slot="dialog-footer"]')!;
       return {
         sheetBottom: root.getBoundingClientRect().bottom,
