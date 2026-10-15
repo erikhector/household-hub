@@ -2,7 +2,6 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -57,11 +56,14 @@ export function MoveMealDialog({
   entry,
   label,
   plannerWeekStartKey,
+  handle,
 }: {
   dict: MealPlanningDict;
   entry: MealPlanEntryData;
   label: string;
   plannerWeekStartKey: string;
+  /** Opened from the planner row's sheet, so no trigger of its own. */
+  handle: DialogHandle;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -105,21 +107,7 @@ export function MoveMealDialog({
   const mealTypeInputId = `move-meal-type-${entry.id}`;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label={dict.moveMealAriaLabel}
-            title={dict.moveMealAriaLabel}
-          >
-            <ArrowRightLeft className="size-3" />
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{format(dict.moveMealDialogTitle, { meal: label })}</DialogTitle>

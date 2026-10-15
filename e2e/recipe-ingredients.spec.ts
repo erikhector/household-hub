@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRowSheet } from "./ui";
 
 // MATCH-1: saving a recipe no longer creates inventory items behind the
 // user's back. Rows the matcher is sure about save straight away; anything
@@ -99,12 +99,7 @@ test("an uncertain ingredient is reviewed, linked to the suggestion, and never b
   // doesn't ask about "Tomater" a second time.
   await page.reload();
   await page.getByRole("tab", { name: "Recipes" }).click();
-  const recipeRow = page
-    .locator("div")
-    .filter({ has: page.getByText(recipeName, { exact: true }) })
-    .filter({ has: page.getByRole("button", { name: "Edit recipe" }) })
-    .last();
-  await recipeRow.getByRole("button", { name: "Edit recipe" }).click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Edit recipe" }).click();
   await page.getByRole("dialog", { name: "Edit recipe" }).getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -323,13 +318,7 @@ test("remembering 1 pcs = 2000 g for an item skips the unit question next time, 
   // no "enter the amount manually" note.
   await planForToday(recipeName);
   await page.goto("/dashboard/meal-planning");
-  const entry = page
-    .locator("div")
-    .filter({ has: page.getByText(recipeName) })
-    .filter({ has: page.getByRole("button", { name: "Mark as cooked" }) })
-    .filter({ visible: true })
-    .last();
-  await entry.getByRole("button", { name: "Mark as cooked" }).click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as cooked" }).click();
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
   await expect(cooked.getByRole("spinbutton", { name: `Quantity to use for ${itemName}` })).toHaveValue("0.15");
   await expect(cooked.getByText(/enter the amount manually/)).toHaveCount(0);
@@ -354,13 +343,7 @@ test("a single recipe can use its own amount in the pantry's unit instead", asyn
   // After a reload, the row reads 0.2 pcs.
   await page.reload();
   await page.getByRole("tab", { name: "Recipes" }).click();
-  await page
-    .locator("div")
-    .filter({ has: page.getByText(recipeName, { exact: true }) })
-    .filter({ has: page.getByRole("button", { name: "Edit recipe" }) })
-    .last()
-    .getByRole("button", { name: "Edit recipe" })
-    .click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Edit recipe" }).click();
   const edit = page.getByRole("dialog", { name: "Edit recipe" });
   await expect(edit.getByPlaceholder("Qty")).toHaveValue("0.2");
   await expect(edit.getByPlaceholder("Unit")).toHaveValue("pcs");

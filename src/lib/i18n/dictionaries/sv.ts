@@ -1439,6 +1439,7 @@ export const sv = {
     mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
+    chooseMealPlaceholder: "Välj en måltid",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",
@@ -1577,7 +1578,6 @@ export const sv = {
     reviewMatchesAriaLabel: "Granska ingredienskopplingar",
     // GAP-42: helskärmsvyn för matlagning.
     cookModeButton: "Laga",
-    cookModeFromPlanAriaLabel: "Laga {meal}",
     cookModeTitle: "Lagar {name}",
     cookModeIngredients: "Ingredienser",
     cookModeSteps: "Steg",

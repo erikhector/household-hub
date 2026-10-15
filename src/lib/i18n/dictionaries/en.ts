@@ -1517,6 +1517,8 @@ export const en = {
     mealMovedDifferentWeekToast: "Moved {meal} to a different week than you're viewing",
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
+    // The add-meal picker before anything is chosen (M4: pick, don't type).
+    chooseMealPlaceholder: "Choose a meal",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
@@ -1657,7 +1659,6 @@ export const en = {
     reviewMatchesAriaLabel: "Review ingredient matches",
     // GAP-42: the full-screen cook view.
     cookModeButton: "Cook",
-    cookModeFromPlanAriaLabel: "Cook {meal}",
     cookModeTitle: "Cooking {name}",
     cookModeIngredients: "Ingredients",
     cookModeSteps: "Steps",

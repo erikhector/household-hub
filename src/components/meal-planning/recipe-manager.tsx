@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChefHat, CookingPot, Copy, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ChevronRight, CookingPot, Copy, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -11,6 +11,18 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RECIPE_TAGS, isRecipeTag, recipeMatchesTag } from "@/lib/recipe-tags";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  createDialogHandle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  type DialogHandle,
+} from "@/components/ui/dialog";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
+import { formatCookQuantity } from "@/lib/cook-mode-calc";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
@@ -91,27 +103,30 @@ export function RecipeManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <h2 className="font-heading text-lg font-semibold">{dict.recipesTitle}</h2>
           <p className="text-sm text-muted-foreground">{dict.recipesSubtitle}</p>
         </div>
-        <RecipeFormDialog
-          dict={dict}
-          mode="create"
-          allRecipes={recipes}
-          ingredientNames={ingredientNames}
-          ingredientUnits={ingredientUnits}
-          trigger={
-            <Button type="button">
-              <Plus className="size-4" />
-              {dict.newRecipe}
-            </Button>
-          }
-        />
+        {/* M2: on a phone the tab's one primary action floats in thumb
+            reach above the bottom bar, like every other page's (UX-40);
+            from `sm` it stays here in the header. */}
+        <PrimaryAction>
+          <RecipeFormDialog
+            dict={dict}
+            mode="create"
+            allRecipes={recipes}
+            ingredientNames={ingredientNames}
+            ingredientUnits={ingredientUnits}
+            trigger={
+              <Button type="button">
+                <Plus className="size-4" />
+                {dict.newRecipe}
+              </Button>
+            }
+          />
+        </PrimaryAction>
       </div>
-
-      {useItUpSuggestions.length > 0 && <UseItUpSuggestions suggestions={useItUpSuggestions} dict={dict} />}
 
       {recipes.length === 0 ? (
         <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -148,6 +163,8 @@ export function RecipeManager({
               </SelectContent>
             </Select>
           </div>
+
+          {useItUpSuggestions.length > 0 && <UseItUpSuggestions suggestions={useItUpSuggestions} dict={dict} />}
 
           {filteredRecipes.length === 0 ? (
             <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -199,11 +216,6 @@ function RecipeRow({
   ingredientUnits: Record<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
-  // An imported row's prep note (MATCH-2) reads after its name, the way
-  // the recipe had it: "gul lök (finhackad)".
-  const ingredientSummary = recipe.ingredients
-    .map((ingredient) => (ingredient.note ? `${ingredient.name} (${ingredient.note})` : ingredient.name))
-    .join(", ");
   const componentSummary = recipe.components.map((component) => component.componentRecipeName).join(", ");
   // Only shown when at least one nutrition field was filled in — see
   // Recipe's doc comment in schema.prisma. Empty recipes (the vast
@@ -299,120 +311,205 @@ function RecipeRow({
     });
   };
 
+  const servingsSummary = format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings });
+  // The row's one meta line: tags, servings, last cooked. Everything else
+  // (ingredients, nutrition, cost) is in the recipe's sheet, so a row is
+  // two lines on a phone instead of half a screen (DESIGN.md M6).
+  const metaLine = [
+    recipe.tags.map((tag) => dict.recipeTags[tag]).join(", "),
+    servingsSummary,
+    cookedSummary,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [dialogs] = useState(() => ({
+    cook: createDialogHandle(),
+    edit: createDialogHandle(),
+    review: createDialogHandle(),
+    remove: createDialogHandle(),
+  }));
+  // Same hand-off as the planner's meal sheet: the sheet closes as the
+  // chosen action's dialog opens, so closing that lands back on the list.
+  function openFromSheet(handle: DialogHandle) {
+    setSheetOpen(false);
+    handle.open(null);
+  }
+
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5">
-      <ChefHat className="size-4 shrink-0 text-primary" />
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={recipe.name}>
-          {recipe.name}
-        </p>
-        {/* GAP-29: only the tags actually set — recipe.tags is already in
-            canonical order (see page.tsx). */}
-        {recipe.tags.length > 0 && (
-          <div className="mt-0.5 mb-1 flex flex-wrap gap-1">
-            {recipe.tags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {dict.recipeTags[tag]}
-              </Badge>
-            ))}
-          </div>
+    <div className="flex items-center gap-1 px-1 py-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={cn(
+          "shrink-0",
+          optimisticFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground",
         )}
-        {ingredientSummary && (
-          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={ingredientSummary}>
-            {/* MATCH-6: a linked ingredient opens its pantry item's page,
-                whose back arrow comes back to this tab. */}
-            {recipe.ingredients.map((ingredient, index) => (
-              <Fragment key={ingredient.id}>
-                {index > 0 && ", "}
-                {ingredient.inventoryItemId ? (
-                  <Link
-                    href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
-                    data-running-text
-                    className="underline-offset-4 hover:text-foreground hover:underline"
-                  >
-                    {ingredient.name}
-                  </Link>
-                ) : (
-                  ingredient.name
-                )}
-                {ingredient.note && ` (${ingredient.note})`}
-              </Fragment>
-            ))}
-          </p>
-        )}
-        {componentSummary && (
-          <p
-            className="flex items-center gap-1 truncate text-sm text-muted-foreground"
-            title={`${dict.includesLabel} ${componentSummary} — ${dict.componentsHint}`}
-          >
-            <Layers className="size-3 shrink-0" />
-            <span className="line-clamp-2 break-words sm:line-clamp-1">
-              {dict.includesLabel} {componentSummary}
-            </span>
-          </p>
-        )}
-        {nutritionSummary && (
-          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={nutritionSummary}>
-            {nutritionSummary}
-          </p>
-        )}
-        {costSummary && (
-          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
-            {costSummary}
-          </p>
-        )}
-        {cookedSummary && (
-          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={cookedSummary}>
-            {cookedSummary}
-          </p>
-        )}
-        {/* GAP-42: only a recipe with steps has anything to cook from. Under
-            the details, not among the icon buttons, so the row's name keeps
-            its width on a phone. GAP-43's copy sits beside it for the same
-            reason; the wrap keeps both whole on a narrow screen. */}
-        <div className="mt-2 flex flex-wrap gap-2">
-          {recipe.instructions?.trim() && (
-            <CookModeDialog
-              dict={dict}
-              locale={locale}
-              recipe={recipe}
-              trigger={
-                <Button type="button" variant="outline" size="sm">
-                  <CookingPot className="size-3.5" />
-                  {dict.cookModeButton}
-                </Button>
-              }
+        disabled={isFavoritePending}
+        aria-pressed={optimisticFavorite}
+        aria-label={dict.favoriteAriaLabel}
+        title={dict.favoriteAriaLabel}
+        onClick={handleToggleFavorite}
+      >
+        <Star className={cn("size-3.5", optimisticFavorite && "fill-current")} />
+      </Button>
+      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-[background-color,scale] outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]"
             />
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={handleCopyText}>
-            <Copy className="size-3.5" />
-            {dict.copyRecipeText}
-          </Button>
-        </div>
-      </div>
-      <span className="hidden shrink-0 text-sm text-muted-foreground sm:inline">
-        {format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings })}
-        {" · "}
-        {format(plural(recipe.ingredients.length, dict.ingredientCount), {
-          count: recipe.ingredients.length,
-        })}
-      </span>
-      <span className="flex shrink-0 items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className={cn(
-            optimisticFavorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground",
-          )}
-          disabled={isFavoritePending}
-          aria-pressed={optimisticFavorite}
-          aria-label={dict.favoriteAriaLabel}
-          title={dict.favoriteAriaLabel}
-          onClick={handleToggleFavorite}
+          }
         >
-          <Star className={cn("size-3.5", optimisticFavorite && "fill-current")} />
-        </Button>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="line-clamp-2 break-words font-medium">{recipe.name}</span>{" "}
+            <span className="truncate text-sm text-muted-foreground">{metaLine}</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="break-words">{recipe.name}</DialogTitle>
+            <DialogDescription>
+              {servingsSummary}
+              {" · "}
+              {format(plural(recipe.ingredients.length, dict.ingredientCount), {
+                count: recipe.ingredients.length,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          {/* GAP-29: only the tags actually set — recipe.tags is already in
+              canonical order (see page.tsx). */}
+          {recipe.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {recipe.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {dict.recipeTags[tag]}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {recipe.ingredients.length > 0 && (
+            <section className="flex flex-col gap-1">
+              <h3 className="font-medium">{dict.ingredientsLabel}</h3>
+              <ul className="flex flex-col gap-1">
+                {recipe.ingredients.map((ingredient) => (
+                  <li key={ingredient.id} className="break-words">
+                    <span className="text-muted-foreground tabular-nums">
+                      {formatCookQuantity(ingredient.quantity, 1, locale)}
+                      {ingredient.unit ? ` ${unitLabel(ingredient.unit)}` : ""}
+                    </span>{" "}
+                    {/* MATCH-6: a linked ingredient opens its pantry item's
+                        page, whose back arrow comes back to this tab. An
+                        imported row's prep note (MATCH-2) reads after its
+                        name, the way the recipe had it. */}
+                    {ingredient.inventoryItemId ? (
+                      <Link
+                        href={itemPageHref(ingredient.inventoryItemId, { kind: "recipes" })}
+                        data-running-text
+                        className="underline underline-offset-4"
+                      >
+                        {ingredient.name}
+                      </Link>
+                    ) : (
+                      ingredient.name
+                    )}
+                    {ingredient.note && <span className="text-muted-foreground"> ({ingredient.note})</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {/* Sub-recipes, nutrition (only when filled in — see Recipe's
+              doc comment in schema.prisma), the GAP-15 cost estimate and
+              GAP-46's cooked count: each line only when it has something. */}
+          {(componentSummary || nutritionSummary || costSummary || cookedSummary) && (
+            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+              {componentSummary && (
+                <p className="flex items-start gap-1 break-words">
+                  <Layers className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {dict.includesLabel} {componentSummary} — {dict.componentsHint}
+                  </span>
+                </p>
+              )}
+              {nutritionSummary && <p>{nutritionSummary}</p>}
+              {costSummary && (
+                <p>
+                  {costSummary} — {dict.recipeCostHint}
+                </p>
+              )}
+              {cookedSummary && <p>{cookedSummary}</p>}
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            {/* GAP-42: only a recipe with steps has anything to cook from;
+                cooking is what the sheet is mostly opened for, so it's the
+                one primary action. */}
+            {recipe.instructions?.trim() && (
+              <Button type="button" className="justify-start" onClick={() => openFromSheet(dialogs.cook)}>
+                <CookingPot className="size-4" />
+                {dict.cookModeButton}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              onClick={() => openFromSheet(dialogs.edit)}
+            >
+              <Pencil className="size-4" />
+              {dict.editAriaLabel}
+            </Button>
+            {recipe.ingredients.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-start"
+                onClick={() => openFromSheet(dialogs.review)}
+              >
+                <ListChecks className="size-4" />
+                {dict.reviewMatchesAriaLabel}
+              </Button>
+            )}
+            {/* GAP-43: stays in the sheet; the toast says it worked. */}
+            <Button type="button" variant="outline" className="justify-start" onClick={handleCopyText}>
+              <Copy className="size-4" />
+              {dict.copyRecipeText}
+            </Button>
+          </div>
+          {/* M2: delete sits apart from the other actions, under a rule. */}
+          <div className="border-t pt-4">
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full justify-start"
+              disabled={isPending}
+              onClick={() => openFromSheet(dialogs.remove)}
+            >
+              <Trash2 className="size-4" />
+              {dict.deleteAriaLabel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {recipe.instructions?.trim() && (
+        <CookModeDialog dict={dict} locale={locale} recipe={recipe} handle={dialogs.cook} />
+      )}
+      <RecipeFormDialog
+        dict={dict}
+        mode="edit"
+        recipe={recipe}
+        allRecipes={allRecipes}
+        ingredientNames={ingredientNames}
+        ingredientUnits={ingredientUnits}
+        handle={dialogs.edit}
+      />
+      {recipe.ingredients.length > 0 && (
         <RecipeFormDialog
           dict={dict}
           mode="edit"
@@ -420,55 +517,19 @@ function RecipeRow({
           allRecipes={allRecipes}
           ingredientNames={ingredientNames}
           ingredientUnits={ingredientUnits}
-          trigger={
-            <Button type="button" variant="ghost" size="icon-sm" aria-label={dict.editAriaLabel}>
-              <Pencil className="size-3.5" />
-            </Button>
-          }
+          startAtReview
+          handle={dialogs.review}
         />
-        {recipe.ingredients.length > 0 && (
-          <RecipeFormDialog
-            dict={dict}
-            mode="edit"
-            recipe={recipe}
-            allRecipes={allRecipes}
-            ingredientNames={ingredientNames}
-            ingredientUnits={ingredientUnits}
-            startAtReview
-            trigger={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={dict.reviewMatchesAriaLabel}
-                title={dict.reviewMatchesAriaLabel}
-              >
-                <ListChecks className="size-3.5" />
-              </Button>
-            }
-          />
-        )}
-        <ConfirmDialog
-          trigger={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground hover:text-destructive"
-              disabled={isPending}
-              aria-label={dict.deleteAriaLabel}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          }
-          title={format(dict.confirmDelete.title, { name: recipe.name })}
-          description={dict.confirmDelete.description}
-          cancelLabel={dict.confirmDelete.cancel}
-          confirmLabel={dict.confirmDelete.confirm}
-          pendingLabel={dict.confirmDelete.confirming}
-          onConfirm={handleDelete}
-        />
-      </span>
+      )}
+      <ConfirmDialog
+        handle={dialogs.remove}
+        title={format(dict.confirmDelete.title, { name: recipe.name })}
+        description={dict.confirmDelete.description}
+        cancelLabel={dict.confirmDelete.cancel}
+        confirmLabel={dict.confirmDelete.confirm}
+        pendingLabel={dict.confirmDelete.confirming}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

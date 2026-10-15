@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRowSheet } from "./ui";
 
 // GAP-46: each recipe on the Recipes tab says how often it was cooked and
 // when last ("Cooked 3 times, last 12 Sep"), counted from the entries marked
@@ -71,13 +71,7 @@ test("a recipe shows how often it was cooked and when last, and a never-cooked o
 
   // Cook the planned entry through the UI: the third time, last today.
   await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(plannedDay))}`);
-  const entry = page
-    .locator("div")
-    .filter({ has: page.getByText(cookedName) })
-    .filter({ has: page.getByRole("button", { name: "Mark as cooked" }) })
-    .filter({ visible: true })
-    .last();
-  await entry.getByRole("button", { name: "Mark as cooked" }).click();
+  await (await openRowSheet(page, cookedName)).getByRole("button", { name: "Mark as cooked" }).click();
   await page
     .getByRole("dialog", { name: "Mark as cooked" })
     .getByRole("button", { name: "Mark as cooked" })

@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { collectErrors, dismissCookieNotice, expectRendersCleanly, saveScreenshot } from "./ui";
+import { collectErrors, dismissCookieNotice, expectRendersCleanly, openRowSheet, saveScreenshot } from "./ui";
 
 // GAP-49 meal prep, end to end: record a batch on the Prep tab, spread its
 // portions over the planner, give one back, eat one, discard the rest; and
@@ -127,18 +127,11 @@ async function recordPrep(page: Page, recipeName: string, portions: number, eatB
 const batchCard = (page: Page, recipeName: string) =>
   page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: recipeName, exact: true }) });
 
-// The planner row of a meal, innermost match last (see plan-leftovers.spec.ts).
-const plannerRows = (page: Page, recipeName: string) =>
-  page
-    .locator("div")
-    .filter({ has: page.getByText(recipeName) })
-    .filter({ has: page.getByRole("button", { name: "Remove meal" }) })
-    .filter({ visible: true });
-
-// The meal's name on the planner; the Prepped badge sits next to it, in the
-// same wrapper.
-const plannedNames = (page: Page, recipeName: string) => page.getByText(recipeName).filter({ visible: true });
-const preppedBadges = (names: Locator) => names.locator("..").getByText("Prepped", { exact: true });
+// The meal's name on the planner; the Prepped badge sits in the same row
+// (the button that opens the meal's sheet).
+const plannedNames = (page: Page, recipeName: string) =>
+  page.getByText(recipeName, { exact: true }).filter({ visible: true });
+const preppedBadges = (names: Locator) => names.locator("xpath=ancestor::button[1]").getByText("Prepped", { exact: true });
 
 test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) => {
   const recipeName = unique("Prep curry");
@@ -232,7 +225,7 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await expect(preppedBadges(plannedNames(page, recipeName))).toHaveCount(2);
 
   // Removing one planned meal gives its portion back to the batch.
-  await plannerRows(page, recipeName).last().getByRole("button", { name: "Remove meal" }).click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Remove meal" }).click();
   await page.getByRole("dialog", { name: `Remove ${recipeName}?` }).getByRole("button", { name: "Remove" }).click();
   await expect(plannedNames(page, recipeName)).toHaveCount(1);
   await page.goto("/dashboard/meal-planning?tab=prep");
@@ -240,7 +233,7 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
 
   // Eating the other: the batch was cooked at prep time, so inventory stays.
   await page.goto(`/dashboard/meal-planning?week=${key(targetWeek)}`);
-  await plannerRows(page, recipeName).last().getByRole("button", { name: "Mark as eaten" }).click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as eaten" }).click();
   const eaten = page.getByRole("dialog", { name: "Mark as eaten" });
   const eatenSubmit = eaten.getByRole("button", { name: "Mark as eaten" });
   await expect(eatenSubmit).toBeVisible();
@@ -252,7 +245,12 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
   await eatenSubmit.click();
   await expect(eaten).toHaveCount(0);
   await expect(page.getByText("Marked as eaten", { exact: true })).toBeVisible();
-  await expect(plannerRows(page, recipeName).last().getByRole("button", { name: "Mark as eaten" })).toHaveCount(0);
+  // The row now says it's eaten, and its sheet no longer offers to eat it.
+  await expect(plannedNames(page, recipeName).locator("xpath=ancestor::button[1]")).toContainText("Cooked");
+  await expect(
+    (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as eaten" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
   expect(await itemQuantity(itemId)).toBe(800);
 
   // Discard the rest: the card is gone, and stays gone after a reload.
@@ -308,7 +306,7 @@ test("a planner meal from meal prep, given back with Don't use prep, and the das
     // Don't use prep: the meal stays planned, to cook fresh, without the
     // badge, and its portion is back in the batch.
     await page.goto(`/dashboard/meal-planning?week=${key(week)}`);
-    await plannerRows(page, recipeName).last().getByRole("button", { name: "Don't use prep" }).click();
+    await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Don't use prep" }).click();
     await expect(page.getByText("Portions back in Meal prep — this meal cooks fresh")).toBeVisible();
     await expect(preppedBadges(plannedNames(page, recipeName))).toHaveCount(0);
     await page.reload();

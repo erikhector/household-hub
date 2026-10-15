@@ -1,10 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRowSheet } from "./ui";
 
 // MATCH-5: a name the household taught once (ItemAlias) links shopping
-// lists too, and "Review ingredient matches" on a recipe card reopens a
+// lists too, and "Review ingredient matches" in a recipe's sheet reopens a
 // saved recipe's links for correcting. Relies on the "Egg" and "Tomatoes"
 // pantry items seeded in e2e/seed.ts.
 const unique = (label: string) => `${label} ${Date.now().toString(36)}`;
@@ -90,12 +90,8 @@ test("“Review ingredient matches” moves a saved link, and the new link is ke
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   const openReview = async () => {
-    const recipeRow = page
-      .locator("div")
-      .filter({ has: page.getByText(recipeName, { exact: true }) })
-      .filter({ has: page.getByRole("button", { name: "Review ingredient matches" }) })
-      .last();
-    await recipeRow.getByRole("button", { name: "Review ingredient matches" }).click();
+    const sheet = await openRowSheet(page, recipeName);
+    await sheet.getByRole("button", { name: "Review ingredient matches" }).click();
     const review = page.getByRole("dialog", { name: "Match ingredients" });
     // Every row is shown, the confident ones included.
     const row = review.getByRole("group", { name: "2 pcs Egg" });

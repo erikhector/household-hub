@@ -3389,7 +3389,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     (the parser's `note`, passed straight through to the form row) and
     original line are saved in `RecipeIngredient.note` and
     `rawText` (capped at 200/300 characters); the note shows under the
-    row in the dialog and after the name on the recipe card, and the
+    row in the dialog and after the name in the recipe's sheet, and the
     original line is dropped once the row is edited. A name typed by hand
     keeps its "(…)", which matching still ignores.
   - **Aliases outside recipes (MATCH-5)**: the same `ItemAlias` rows link
@@ -3418,7 +3418,7 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     item already checked against the household, INSERT … ON CONFLICT so
     concurrent teaches don't collide; the latest answer wins). Re-pointing
     an already linked row and "Create new" teach nothing.
-  - **Review ingredient matches (MATCH-5)**: a button on each recipe card
+  - **Review ingredient matches (MATCH-5)**: a button in each recipe's sheet
     (hidden for a recipe with no ingredients) opens `RecipeFormDialog`
     (`startAtReview`) straight at the "Match ingredients" step for that
     recipe, with the matched rows expanded. It runs the same read-only
@@ -3480,27 +3480,46 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   (`prisma.mealPlan.upsert` on the `[householdId, weekStartDate]` unique
   constraint) the first time a meal is actually added to that week, not on
   page view, so browsing to an empty future/past week doesn't write rows.
-- **Empty days and controls (UX-5, UX-21)**: a day with no entries at all
-  is one card with a single "+ Add meal" button (`MealEntryDialog` with
-  `askSlot`), and the dialog asks for the slot (a "Meal" select, Dinner
-  preselected), so an empty week is 7 buttons instead of 28 identical rows.
-  Once a day has an entry it shows its four slots as before: an empty slot
-  is a full-width "<slot> + Add meal" row (`slotLabel`), a slot with entries
-  keeps its label, the entries and the small "+" that stacks another one.
-  The controls are one row: ‹ ›, the week range, "This week" (only when
-  another week is shown) and a ⋯ menu ("More planner actions") holding
-  "Copy last week" (empty week only) and "Add missing ingredients to
-  shopping list". On load, the current week scrolls today's card into view
-  when it isn't already fully visible (the old "Jump to today" button is
-  gone). The two recaps (variety and nutrition) sit at the top of the
-  Planner tab, inside its Suspense boundary, so they appear together with
+- **Days and controls (UX-5, UX-21)**: a day card lists only what's
+  planned, in slot order, then one "+ Add meal" button, and the dialog asks
+  for the slot (a "Meal" select: Dinner preselected, or the first empty
+  slot once dinner is planned). Empty slots get no rows of their own, so
+  an empty week is 7 buttons and a week of dinners isn't 21 "Add meal"
+  rows on a phone (DESIGN.md M6). The controls are one row: ‹ ›, the week
+  range, "This week" (only when another week is shown) and a ⋯ menu ("More
+  planner actions") holding "Copy last week" (empty week only), "Fill
+  empty days" and "Add missing ingredients to shopping list". On phones
+  that row is sticky at the top of the scrolling page (the shopping list's
+  frosted add-bar style), so the week and its arrows stay in view. On
+  load, the current week scrolls today's card into view, below the sticky
+  row, when it isn't already fully visible (the old "Jump to today" button
+  is gone). The two recaps (variety and nutrition) sit under the week,
+  inside the Planner tab's Suspense boundary, so they appear together with
   the planner and an empty or dismissed one never collapses a slot after
   the first paint (that kept /meal-planning over the UX-42 CLS budget).
-  `e2e/meal-planner-empty-slots.spec.ts` covers all of it.
+  `e2e/meal-planner-empty-slots.spec.ts` and
+  `e2e/meal-planner-rows.spec.ts` cover it.
+- **Meal rows and their sheet**: each planned meal is one tappable row
+  (`MealEntryRow`): the slot, the name and portions, a "Prepped" badge
+  (GAP-49) and a "Cooked" tick with the word, and a chevron. Tapping it
+  opens a sheet titled with the meal ("Dinner · Thu 15 · 4 portions")
+  holding labelled actions: "Mark as cooked" (or "Mark as eaten" for a
+  prepped meal) as the one primary, then Cook, Edit meal, Move meal and
+  "Don't use prep", each only when it applies; a custom meal says why it
+  has no "Mark as cooked". "Remove meal" sits last, under a rule, apart
+  from the rest (M2). It replaced five unlabelled icon buttons on every
+  row. The sheet hands off through dialog handles (`createDialogHandle`,
+  the shopping list's ⋯-menu pattern): it closes as the chosen dialog
+  opens, so closing that one, or the phone's back, lands on the planner.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
-  chosen) to a date + `MealType` slot. There's no uniqueness constraint on
+  chosen) to a date + `MealType` slot. When the household has a recipe or
+  a meal-prep batch to pick, the add dialog opens on that picker with
+  nothing chosen ("Choose a meal", favourite recipes first) rather than on
+  "Custom meal…" and an empty name field (M4: pick, don't type); adding
+  without a choice gets "Choose a recipe or enter a meal name". With
+  nothing to pick it opens on the name field as before. There's no uniqueness constraint on
   `(date, mealType)` — multiple entries can stack in one slot (e.g. two
   snacks), matching the schema.
 - **Copy last week** (BACKLOG GAP-23): an empty week's planner ⋯ menu
@@ -4076,8 +4095,8 @@ uses — but it can cover any date range up to 31 days (GAP-32):
 ### Mark meal as cooked → inventory decrement
 
 A "Mark as cooked" button (`MarkCookedDialog`,
-`src/components/meal-planning/mark-cooked-dialog.tsx`, a `ChefHat` icon
-button next to `MealEntryRow`'s delete button in `WeekPlanner`) lets a
+`src/components/meal-planning/mark-cooked-dialog.tsx`, the primary action
+in a planned meal's sheet in `WeekPlanner`) lets a
 household decrement inventory for the ingredients a specific `MealPlanEntry`
 actually used, once they've cooked it.
 
@@ -4354,11 +4373,11 @@ landed earlier (PR #179, see the data model above). No browser storage.
   routes it through `assignInTx` (one portion unless the form says
   otherwise), ignoring any recipe or freeform name. Only when adding:
   editing a meal into a batch slot isn't offered.
-- **On the planner.** A linked entry shows a "Prepped" badge (below the
-  name in the narrow desktop day column, beside it on phones) and, while
-  uneaten, a "Don't use prep" icon button (`unassignBatchPortionAction`):
-  the meal stays planned, cooks fresh, and its portions go back to the
-  batch. Its cook button reads "Mark as eaten" with a fork-and-knife icon.
+- **On the planner.** A linked entry's row shows a "Prepped" badge and,
+  while uneaten, its sheet has a "Don't use prep" button
+  (`unassignBatchPortionAction`): the meal stays planned, cooks fresh, and
+  its portions go back to the batch. Its cook button reads "Mark as eaten"
+  with a fork-and-knife icon.
   That dialog has no ingredient checklist and no leftovers field, since
   the ingredients came off at prep time and the portions off the batch
   when the slot was planned. It posts no item rows, and its undo passes
@@ -4491,7 +4510,8 @@ computed by `computeUseItUpSuggestions`
 
 ### Recipe last cooked
 
-BACKLOG GAP-46: each `RecipeManager` row shows how often and when its recipe
+BACKLOG GAP-46: each `RecipeManager` row (in its meta line, and in full in
+the recipe's sheet) shows how often and when its recipe
 was last cooked, e.g. "Cooked 3 times, last 12 Sep", so a household can see
 what has dropped out of rotation. No schema change: it reads back
 `MealPlanEntry.consumedAt`, which "Mark as cooked" already sets.
@@ -4519,8 +4539,8 @@ rating or a star scale, the same minimal-first call `HouseholdTask` v1 made
 for assignment. It answers "which recipes does this household like", and
 any member's star is everyone's star.
 
-- **Toggle**: a star button on each `RecipeManager` row, left of the
-  existing edit/delete actions. It's a click action
+- **Toggle**: a star button at the start of each `RecipeManager` row, left
+  of the part that opens the recipe's sheet. It's a click action
   (`toggleRecipeFavoriteAction(recipeId)` in
   `src/app/dashboard/meal-planning/recipe-actions.ts`) called inside its own
   `useTransition`, with `useOptimistic` so the star fills immediately and
@@ -4552,10 +4572,9 @@ recipe's `instructions` only inside the edit form, a dialog that dims
 mid-recipe. `CookModeDialog` (`src/components/meal-planning/cook-mode-dialog.tsx`)
 is a full-screen read view for cooking from a phone.
 
-- **Entry points**: a "Cook" button under a `RecipeManager` row's details,
-  and a pot icon on a planner entry (`MealEntryRow`,
-  `mealPlanning.cookModeFromPlanAriaLabel`). Both only exist when the
-  recipe has non-blank instructions.
+- **Entry points**: a "Cook" button in a recipe's sheet (its primary
+  action) and in a planned meal's sheet (`MealEntryRow`). Both only exist
+  when the recipe has non-blank instructions.
 - **Content**: the title and portion count, the ingredients, then the
   steps in large type. Steps are `instructions` split one per line
   (`splitSteps`, `src/lib/cook-mode-calc.ts`). Sub-recipe components aren't
@@ -4582,8 +4601,8 @@ is a full-screen read view for cooking from a phone.
 
 ### Copy a recipe as text (GAP-43)
 
-Sending a recipe to a friend used to mean retyping it. Each `RecipeManager`
-row has a "Copy as text" button (beside "Cook", under the details) that puts
+Sending a recipe to a friend used to mean retyping it. Each recipe's sheet
+has a "Copy as text" button (under "Edit recipe"; the sheet stays open) that puts
 the recipe on the clipboard as plain text and confirms with a toast.
 
 - **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,
@@ -4658,8 +4677,9 @@ everywhere.
   only says `VeganDiet` isn't hidden under "Vegetarian"). The implication is
   never written into the column, so un-ticking vegan later leaves nothing
   stale behind.
-- **Cards**: each recipe row shows its tags as small secondary `Badge`s
-  under the name. Rows without tags look as before.
+- **Rows**: each recipe row's meta line starts with its tags, and the
+  recipe's sheet shows them as small secondary `Badge`s under the title.
+  Rows without tags look as before.
 - **Not in scope**: multi-tag (AND/OR) filtering, custom household tags,
   and using tags in the Cook tab or "use it up" ranking.
 

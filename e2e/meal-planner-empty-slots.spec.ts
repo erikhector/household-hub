@@ -42,26 +42,31 @@ test("adding a meal to an empty day asks for the slot", async ({ page }, testInf
   const dialog = page.getByRole("dialog", { name: "Add a meal" });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();
+  await dialog.getByRole("combobox", { name: "Recipe" }).click();
+  await page.getByRole("option", { name: "Custom meal…" }).click();
   await dialog.getByRole("textbox", { name: "Meal name" }).fill(name);
   await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
   await expect(page.getByText(name)).toBeVisible();
-  // The day now shows its slots: Lunch holds the entry, the other three are
-  // still empty add rows, and the six other days stay collapsed.
-  await expect(page.getByRole("button", { name: /^(Breakfast|Dinner|Snack) Add meal$/ })).toHaveCount(3);
-  await expect(page.getByRole("button", { name: "Lunch Add meal" })).toHaveCount(0);
+  // The day lists its one meal and keeps a single "Add meal": no per-slot
+  // rows for the three empty slots, and the six other days stay as they were.
+  await expect(page.getByRole("button", { name: "Add meal", exact: true })).toHaveCount(7);
+  await expect(page.getByRole("button", { name: /^(Breakfast|Lunch|Dinner|Snack) Add meal$/ })).toHaveCount(0);
+  const meal = page.getByRole("button", { name: new RegExp(`^Lunch ${name}`) });
+  await expect(meal).toBeVisible();
   if (testInfo.project.name === "mobile") {
-    // M3: neighbouring 44 px targets are at least 8 px apart, so the slot
-    // add rows of a day with entries don't sit shoulder to shoulder.
-    // Measured once the page behind the closed sheet has scaled back to
-    // full size (UX-34, sheet-indent.tsx), not mid-transition.
+    // M3: the meal row and the day's "Add meal" under it are 44 px targets
+    // at least 8 px apart. Measured once the page behind the closed sheet
+    // has scaled back to full size (UX-34, sheet-indent.tsx), not
+    // mid-transition.
     await expect
       .poll(() => page.locator('[data-slot="sheet-indent"]').evaluate((el) => getComputedStyle(el).transform))
       .toBe("none");
-    const breakfast = await page.getByRole("button", { name: "Breakfast Add meal" }).boundingBox();
-    const dinner = await page.getByRole("button", { name: "Dinner Add meal" }).boundingBox();
-    expect(breakfast!.height).toBeGreaterThanOrEqual(44);
-    expect(dinner!.y - (breakfast!.y + breakfast!.height)).toBeGreaterThanOrEqual(8);
+    const row = await meal.boundingBox();
+    const add = await page.getByRole("button", { name: "Add meal", exact: true }).first().boundingBox();
+    expect(row!.height).toBeGreaterThanOrEqual(44);
+    expect(add!.height).toBeGreaterThanOrEqual(44);
+    expect(add!.y - (row!.y + row!.height)).toBeGreaterThanOrEqual(8);
   }
   await page.reload();
   // Scoped to main: see the reload in item-page.spec.ts.
