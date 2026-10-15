@@ -877,15 +877,21 @@ out to be a product-scope question rather than a scoped task should move to
       (REQUIREMENTS.md, "Recipe import from URL",
       `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
       retyped by hand. Add a "Import from a photo" button beside the URL
-      input in `RecipeFormDialog`, reusing the existing receipt-scanning
-      upload and AI provider path (`src/lib/receipt-parsing.ts`; no new
-      third party, no stored image) to extract name, instructions and
+      input in `RecipeFormDialog`, reusing the vision receipt-scan
+      upload and provider path (`scanReceiptPhotoAction` in
+      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
+      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
+      party, no stored image) to extract name, instructions and
       ingredient rows into the same pre-fill state. Same stance as the
       URL import: never auto-save, the user reviews and edits first, and
       a failed or empty parse shows an error toast and leaves the form
-      untouched. Gate it on the same "AI configured" check as receipt
-      scanning. Fold the photo parser's output through the existing
-      ingredient-line parser so units and quantities match URL imports.
+      untouched. Gate it on the same check as that action:
+      `resolveAttempts` is empty (`not_configured`) when neither
+      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
+      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
+      not used here, so with neither key set the button is hidden. Fold
+      the photo parser's output through the existing ingredient-line
+      parser so units and quantities match URL imports.
       Acceptance: unit tests for the output-to-prefill mapping and the
       unconfigured/failed-parse paths plus the tenancy check on the
       action; an e2e step (AI mocked as in the receipt specs) uploads a
