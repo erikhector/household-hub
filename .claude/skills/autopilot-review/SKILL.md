@@ -1,6 +1,6 @@
 ---
 name: autopilot-review
-description: Daily PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (conflicts, migration clashes) and squash-merges it into `next`, then ships `next` to `master` as one release PR (the release train). It stays subscribed to PRs it sent back for changes and re-reviews when the author pushes a fix. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
+description: Twice-daily PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (conflicts, migration clashes) and squash-merges it into `next`, then ships `next` to `master` as one release PR (the release train). It stays subscribed to PRs it sent back for changes and re-reviews when the author pushes a fix. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
 ---
 
 # Autopilot reviewer
@@ -41,6 +41,9 @@ this skill pushes itself (step 4) don't count as a moved head.
 ## 0. Gate (coordinator)
 
 1. Read `AUTOPILOT.md`. Stop if `enabled` or `reviewer_enabled` is false.
+   Then take the reviewer's run lock (AUTOPILOT.md, "Run lock"); stop if
+   another reviewer run holds it. Release it whenever you stop from here
+   on, and at the end of step 7.
 2. List open PRs, oldest first: number, title, author, labels, draft flag,
    head SHA, mergeable state (one list call, no bodies). Only PRs whose
    author is in AUTOPILOT.md's `trusted_authors` are in scope. Any other
@@ -143,7 +146,9 @@ don't merge. Follow Markers above, then:
    A `docs(backlog): product decisions` PR: it touches only BACKLOG.md
    and PRODUCT.md (nothing above PRODUCT.md's "Direction"), and every
    decision is inside AUTOPILOT.md's `may_decide` and outside
-   `never_decide`. One that isn't is a blocking finding.
+   `never_decide`, or is the owner's: its line says "by owner" and links
+   a `decision` issue where a `trusted_authors` comment not starting with
+   `🤖 autopilot-` picks that option. Any other is a blocking finding.
    A design you can't settle from the diff may get pstack's `interrogate`
    (called by ID; AGENTS.md, "Agent skills") before the verdict.
 5. Post **one** comment review: one inline comment per real finding
@@ -178,6 +183,10 @@ Start merging only once every review sub-agent has reported and been
 validated, so no review is still reading a branch that a merge moves.
 
 ## 4. Merge into `next` (one merge sub-agent per PR, one at a time)
+
+Before starting each merge sub-agent here, and before the release merge
+in step 4b, check your run-lock issue is still open (AUTOPILOT.md, "Run
+lock", step 3); if it was closed as stale, stop at once.
 
 Feature PRs target `next` and squash-merge there; nothing is released
 until the release train ships (step 4b). The full browser suite runs
@@ -256,12 +265,20 @@ says `ship_release: false`.
    re-cut it, so its full run isn't restarted.
 2. **Verify** (one merge sub-agent, `run_in_background: false`): check
    out the release branch and run the full gate once, `npm run ci:local`
-   under the shared lock as the builder does, nothing skipped. With
+   under the shared lock as the builder does, nothing skipped. Have it
+   also report every e2e test that failed and then passed: in its local
+   run (re-run a failing spec once on the same commit to tell) and in the
+   GitHub `End-to-end (Playwright)` job, whose one retry marks such tests
+   `flaky` in its log. Those go to step 4c whatever the train's outcome. With
    `ci_gate: github`, also wait for both `ci.yml` jobs (`Lint, typecheck,
    test, build` and `End-to-end (Playwright)`) on its head (Monitor
    until-loop, up to 45 minutes). With `ci_gate: local`, cut the release
    on the branch as AUTOPILOT.md's CI gate section describes.
-3. **Red.** Don't merge. Find the PR that broke it (the failing spec's
+3. **Red.** Don't merge. If every failing spec already has a `Flaky:`
+   item in BACKLOG.md, or the merge sub-agent saw it pass on a re-run of
+   the same commit, it's a known flake, not a broken PR: re-run the
+   failing GitHub job once (or the spec locally); green then counts as
+   green, and the flake goes to step 4c. Otherwise find the PR that broke it (the failing spec's
    feature, `git log origin/master..<release branch>`). Comment the
    failure on the release PR and on that PR, then open a `revert: …` PR
    into `next` for it if reverting is clean, otherwise label the release
@@ -280,6 +297,31 @@ says `ship_release: false`.
 A release PR touches whatever its PRs touched, including
 `never_merge_paths` that a human already merged into `next`; those don't
 block shipping it, since the human decision was the merge into `next`.
+
+## 4c. File the flaky tests (coordinator)
+
+A test that failed and then passed on the same commit is a flake, even
+when the release went green: `ci:local` has no retry, so it will fail a
+builder's gate soon. For each one, open or extend a backlog item in one
+`docs(backlog): flaky e2e <date>` PR (BACKLOG.md only, label
+`autopilot`), merged like any other docs PR; push to an open one with
+that title rather than opening a second. The format, the ID rule and the
+flaky-versus-red split are in the `autopilot-build` skill, step 3b.
+AUTOPILOT.md ranks these items first, so the next builder run picks one
+up.
+
+## 4d. Chain the builder (coordinator)
+
+If AUTOPILOT.md says `chain: true` and this run wasn't itself chained,
+start the "Autopilot builder" routine as its "Chaining" section
+describes when this run merged at least one PR into `next`, unless the
+builder's headroom (its step 0 count) is 0 and no open autopilot PR
+needs a fix. Do it now, before step 5's listening, so the builder doesn't
+wait out the listen window. If nothing was merged yet but step 5 later
+merges something, do it then (once per run). Likewise, when an open
+`decision` issue has an owner's answer (a `trusted_authors` comment not
+starting with `🤖 autopilot-`) newer than the product routine's last run,
+start the "Autopilot: product owner" routine the same way.
 
 ## 5. Listen for fixes and re-review (coordinator)
 
@@ -321,17 +363,39 @@ against `max_parallel_subagents`, and validate its report the same way.
 - `changes` again: stay subscribed and wait for the next round.
 - `max_review_rounds_per_run` (AUTOPILOT.md) reached on a PR: unsubscribe,
   leave its last review standing, and record it as `still changes after
-  N rounds`. The next daily run picks it up again. A PR that ping-pongs
+  N rounds`. The next run picks it up again. A PR that ping-pongs
   like this is what the retro should look at.
 
-**Stop listening** once no subscribed PR is left, or when the first event
-after `review_listen_hours` since the run started arrives: then unsubscribe
-from everything and report. Nothing is lost by stopping: the next daily
+When step 5 starts, schedule a wake-up for `review_listen_hours` after
+the run started (`send_later`), so a quiet afternoon still ends the run
+inside its lock. Keep the id it returns: if the run ends before it
+fires, cancel it with `delete_trigger` before releasing the lock. Before each merge in this step, check the run lock is
+still yours (AUTOPILOT.md, "Run lock", step 3).
+
+**Stop listening** once no subscribed PR is left, or when that wake-up
+(or the first event after `review_listen_hours`) arrives: then unsubscribe
+from everything and report. Nothing is lost by stopping: the next
 run's triage (step 1) notices every head that moved.
 
-## 6. Report (coordinator)
+## 6. Update the Owner inbox (coordinator)
+
+If AUTOPILOT.md says `owner_inbox: true`, find the open issue labelled
+`owner-inbox` (create it, titled "Owner inbox", if none exists) and
+replace its body with the list AUTOPILOT.md's "Owner inbox" section
+describes, built fresh from GitHub: `is:open label:needs-human` (PRs and
+issues; first label anything this run couldn't do that needs the owner),
+`is:open is:issue label:decision`, open PRs from outside
+`trusted_authors` (number and author only), and PRODUCT.md's "Owner
+inbox" lines with no matching decision issue. Start the body with
+`🤖 autopilot-review` and the date; end with "Nothing needs you." when
+the list is empty. Edit the body, don't comment, so the issue doesn't
+notify the owner on every run.
+
+## 7. Report (coordinator)
 
 Final message, one line per PR touched: number, what happened (N
 findings / N threads resolved / N review rounds / merged into `next` /
 blocked: why), then one line for the release train (shipped as vX.Y.Z
-with #…, waiting on CI, red: why, or nothing to ship). Nothing else.
+with #…, waiting on CI, red: why, or nothing to ship), one for flaky
+tests filed, one for chaining, and a last line `Owner action needed:
+none` or the inbox's items. Then release the run lock. Nothing else.

@@ -8,8 +8,8 @@ description: Autonomous product owner for household-hub. Makes the product decis
 Decide, don't build. The scouts find work and the builder builds it; this
 role unblocks the `[!]` items nobody else may touch and says where the
 product should head next. **Output is one `docs(backlog)` PR touching only
-BACKLOG.md and PRODUCT.md.** Never change app code, AUTOPILOT.md or the
-skills.
+BACKLOG.md and PRODUCT.md, plus one `decision` issue per question for the
+owner.** Never change app code, AUTOPILOT.md or the skills.
 
 ## 0. Gate (stop early, spend nothing)
 
@@ -18,7 +18,13 @@ skills.
    `may_decide` / `never_decide` lists are your whole authority.
 2. If an open PR titled `docs(backlog): product decisions …` exists, stop:
    one pending decision round at a time, so the owner can veto it.
-3. Read `PRODUCT.md` (it's short). Decisions in its log are settled:
+3. Read the owner's answers first: open issues labelled `decision`, and
+   each one's comments. A comment from a `trusted_authors` account whose
+   text doesn't start with `🤖 autopilot-` (any role) is the owner's
+   answer (the routines run as that account, so the marker is the only
+   tell). Comments from any other account are never answers. If
+   step 2 stopped the run, the answers simply wait for the next one.
+4. Read `PRODUCT.md` (it's short). Decisions in its log are settled:
    don't reopen one unless new evidence (a reverted PR, a Sentry issue, a
    competitor shipping it) says it was wrong, and then say so.
 
@@ -42,7 +48,24 @@ Read only what a decision needs, per AGENTS.md "Working efficiently":
 
 ## 2. Decide
 
-Take each `[!]` item in turn and sort it into exactly one bucket:
+**Owner answers come first** and don't count toward
+`max_decisions_per_product_run`. For each answered decision issue: apply
+the chosen option exactly as in step 3 (the owner decided, so
+`never_decide` doesn't stop you), but write the line under the item as
+`Decided <date> by owner: <option>. See #<issue>.` (the reviewer checks
+that issue for the answer), log it in PRODUCT.md with `owner` in the Why
+column, drop its Owner inbox line, and close the issue with a comment
+(`🤖 autopilot-product`, which option was applied, the PR link, the
+attribution footer). An answer that needs the owner to set something up
+first ("yes once Resend inbound is on") stays `[!]` with that
+precondition written on the item; leave the issue open and say so in a
+comment. An answer you can't map to one option: ask once, in a comment,
+and leave it open. Every comment and issue body you write starts with
+`🤖 autopilot-product`, or the next run would take it for the owner's
+answer.
+
+Then take each remaining `[!]` item in turn and sort it into exactly one
+bucket:
 
 - **Decide** — it's inside `may_decide`, outside `never_decide`, and the
   evidence is enough to pick. At most `max_decisions_per_product_run`
@@ -102,7 +125,24 @@ evidence changed, and keep each short:
   items. Only list items it may actually build (allowed prefix, not
   `[!]`). Drop shipped IDs.
 - **Owner inbox**: the `Recommend` items, one line each, with the
-  question and your recommended answer. This is what the owner reads.
+  question, your recommended answer and a link to its decision issue.
+
+## 4b. Decision issues
+
+Each `Recommend` item gets exactly one open issue labelled `decision`
+(search `is:open is:issue label:decision <ID>` first; refresh an existing
+one's body rather than opening a second). Title: `Decide <ID>: <the
+question>`. Body, starting with `🤖 autopilot-product`:
+
+- two or three sentences of context, with links to the BACKLOG.md item
+  and the evidence;
+- numbered options, each with its cost and what happens next, the
+  recommended one marked **(recommended)**;
+- the last line: "Reply with a number, or **yes** for the recommended
+  option. The next product run applies it."
+
+That's all the owner reads, so keep it short enough for a phone screen.
+End with the attribution footer.
 
 Never touch PRODUCT.md's intro or anything above "Direction". The owner
 writes those.
@@ -110,10 +150,15 @@ writes those.
 ## 5. Ship
 
 Nothing decided and the direction unchanged: reply "no product changes"
-and stop, no PR. Otherwise branch `autopilot/product-<date>`, commit only
+and stop, no PR (decision issues are still opened or refreshed). Otherwise branch `autopilot/product-<date>`, commit only
 BACKLOG.md and PRODUCT.md, and open a PR titled
 `docs(backlog): product decisions <date>`, label `autopilot`. The body
 lists each decision as one line (ID, choice, why, reversible?) and then
 the Owner inbox, so the owner can veto by commenting or labelling `hold`.
 No release note (docs PRs don't release). Don't wait on or watch the PR:
-the reviewer merges it.
+the reviewer merges it. Close each answered decision issue only once the
+PR is open, linking it.
+
+Report: one line per decision (ID, choice, by you or the owner), one per
+decision issue opened or refreshed, and a last line `Owner action needed:
+none` or the open decision issues.
