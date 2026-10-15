@@ -208,8 +208,10 @@ The cron schedules are the fallback; work shouldn't wait for them. Four
 hand-offs, by exact routine name:
 
 - **a PR needs fixing** → the reviewer makes sure a builder is on it. An
-  `autopilot` PR it left at `changes`, or with red CI or a merge
-  conflict, needs a builder now, not at the next cron slot. If a builder
+  open `autopilot` PR (not a draft, not `hold` or `needs-human`) whose
+  last review verdict is `changes`, or with a merge conflict, or red CI
+  when `ci_gate: github`, needs a builder now, not at the next cron
+  slot. If a builder
   run holds its lock (an open `autopilot-lock-builder` issue), that
   builder is subscribed to its PRs and already got the review; nothing
   to do. Otherwise start **"Autopilot builder"** with `text: "Fix run:

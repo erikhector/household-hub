@@ -173,11 +173,15 @@ describes, so the PRs don't wait for its schedule. Then unsubscribe from
 every PR you subscribed to and release the run lock. **Then check once
 more**, because a reviewer that saw your lock a moment ago left the fix
 to you: list the open `autopilot` PRs that need work (step 0.3's check)
-and keep only those whose `changes` review, conflict or red CI is newer
-than their head commit, so a PR you just pushed a fix to doesn't count.
-Any found: take the run lock again (AUTOPILOT.md "Run lock", steps 1–2;
-if another builder now holds it, stop, it has them), fix them as in
-steps 2–3, and repeat this paragraph. Stop when a pass finds nothing.
+and keep only those this run hasn't already given a fix sub-agent
+(each PR gets at most one fix round per run, so a fix that can't clear
+red CI or a conflict never loops). Any found: take the run lock again
+(AUTOPILOT.md "Run lock", steps 1–2; if another builder now holds it,
+stop, it has them), fix them as in steps 2–3, and repeat this paragraph.
+Stop when a pass finds nothing new. A PR this run already fixed that is
+still red or conflicting gets the `needs-human` label and a marked
+comment saying what's left, so it reaches the Owner inbox instead of
+another builder.
 
 Every comment you or a sub-agent posts starts with `🤖 autopilot-build`
 (AUTOPILOT.md, "Owner inbox"): an unmarked comment would read as the
