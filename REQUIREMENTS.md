@@ -2137,6 +2137,32 @@ Everything else is hidden on paper:
 The export route (Data export) is still the spreadsheet-oriented option.
 Print is the reading-oriented one.
 
+#### Copy a list as text (GAP-53)
+
+Sending the list to a partner at the shop or a neighbour with no account used
+to mean retyping it. The `⋯` menu's **"Copy as text"** item (shown while the
+list has open items, on any status) puts them on the clipboard as plain text
+and confirms with a toast.
+
+- **Format**: `formatShoppingListText` (`src/lib/shopping-list-text.ts`,
+  pure, mirrors `recipe-text.ts`): the list name, then one `- 2 dl Milk` line
+  per open item (no quantity: just the name). The groups are the screen's
+  (`groupPendingItemsByCategory`, store order), printed under their category
+  headings when at least one item has a real category; when none has, the
+  list is flat rather than one "Other" heading. Ticked items are left out.
+  Amounts use `formatCookQuantity` and the household's unit labels.
+- **Clipboard and share**: the success toast waits for `clipboard.writeText`;
+  a rejection shows an error toast. On a coarse pointer with
+  `navigator.share` (`canNativeShare`, as the invite link) a **"Share as
+  text"** item beside it opens the system share sheet; closing the sheet is
+  not an error.
+- **Deliberately not built**: no public link (the existing share link is the
+  way to give someone a live list), no schema change, no new browser storage.
+- **Tests**: `shopping-list-text.test.ts` (both locales, no quantity,
+  grouped vs flat, ticked items left out); `e2e/copy-shopping-list-text.spec.ts`
+  adds two items, copies on desktop and mobile, asserts the toast and
+  clipboard text, then ticks one and asserts it drops out.
+
 ### Safe to spend
 
 A hero stat card at the top of the Budget page's Overview tab, directly

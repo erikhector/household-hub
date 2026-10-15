@@ -224,6 +224,36 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
+- [ ] **MAINT-18. Flaky "Next up" layout shift in `motion.spec.ts`**
+      (medium, S) — `[mobile] e2e/motion.spec.ts:180` ("adding, ticking
+      and removing shopping items glide, with no layout shift") fails
+      about 1 run in 10 on `master` (v0.66.0) and on v0.67.0, always the
+      same way: the shopping list's `max-sm:fixed` "Next up" section
+      (`shopping-list-client.tsx` / `shopping-mode.tsx`, from UX-33 #221
+      and UX-37/39/40 #223) shifts by CLS 0.0104 outside the 500 ms after
+      input. CI's one retry hides it, but `npm run ci:local` has none, so
+      it fails the release gate (found in the 2026-10-15 release run).
+      Find what moves the panel late (likely a late measurement or font/
+      safe-area settle on the fixed panel) and fix the cause. Don't
+      loosen the assertion. Acceptance: `npx playwright test
+      e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-19. Ticked shopping row is in the list twice for 350 ms**
+      (medium, S) — `e2e/optimistic-ticking.spec.ts:76` fails about 1 run
+      in 10 on `master` (v0.67.0) and failed both CI attempts on release
+      #239: `getByRole('checkbox', { name: /^Coffee … ×/ })` matches two
+      boxes. In `shopping-list-client.tsx`, a ticked row stays in its aisle
+      as `leaving` for `LEAVE_MS` (350 ms, `:107`, `:283-287`, kept by
+      `shownPendingItems` at `:317`) while the optimistic overlay already
+      lists it in "In the cart" (`:314`, `:869-884`). The fading aisle copy
+      is `pointer-events-none` but still in the accessibility tree, so a
+      screen reader hears two "Coffee" checkboxes too. Fix it in the app:
+      mark the leaving copy `inert` (or `aria-hidden`) so only the cart
+      row is exposed, then keep the spec's locators as they are. Also
+      check whether `:177` (task tick rollback), which flaked on master
+      under load, shares the cause. Acceptance: `npx playwright test
+      e2e/optimistic-ticking.spec.ts:76 --project=desktop --project=mobile
+      --repeat-each=20` passes 40/40, and a screen reader
+      reads one row per item while a tick is leaving.
 
 ### UX (2026-09-26 scout)
 
@@ -365,15 +395,37 @@ decision and sit under "Needs a decision before building".
 
 
 
-- [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
-      - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
-        tasks and categories, and runs actions ("Add milk to Groceries",
-        "Go to budget").
-      - Single-key shortcuts on list pages (`n` new, `/` search, `j`/`k`
-        move, `x` tick), shown in a `?` overlay.
-      - A Base UI Tooltip on every icon-only button.
+- [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
+      from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
+      palette on desktop, mounted once in the dashboard layout. Static
+      commands first ("Go to budget", "Add task", "Add to Groceries"),
+      filtered as you type, arrow keys + Enter, Esc closes. The palette
+      stores nothing in the browser, so cookie-inventory.ts stays
+      unchanged. Needs dict entries in en/sv, and
+      an e2e spec for open, filter, run. No data search yet (UX-41b).
+      Builds on: nothing.
 
-      Todoist sets this bar for productivity users on desktop.
+- [ ] **UX-41b. Command palette: household search** (M) — Split from
+      UX-41. A `searchHousehold(query)` Server Action (in
+      `src/lib/actions/`) behind `requireHousehold()` that returns the top
+      few inventory items, recipes, shopping lists, tasks and budget
+      categories by name, every query scoped by householdId, Zod-validated,
+      rate-limited like other read actions, with a unit test for the
+      tenancy scoping. The palette from UX-41a shows them as grouped,
+      debounced results that navigate to the row. Needs UX-41a.
+
+- [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
+      UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
+      focus search, `j`/`k` move, `x` tick. Ignored while typing in a
+      field or with a dialog open. A `?` overlay lists them. Desktop only
+      (hidden on touch). e2e spec on the desktop project.
+
+- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
+      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
+      `src/components/ui/`) on every icon-only button, using its existing
+      aria-label text so the two cannot drift. Desktop hover/focus only;
+      mobile unchanged. e2e: hover a known icon button, assert the
+      tooltip.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
@@ -694,30 +746,6 @@ out to be a product-scope question rather than a scoped task should move to
       skip-filled-slots rule plus tenancy on both actions; an e2e step
       saves the seeded week, applies it to the next empty week and asserts
       the entries show, on desktop and mobile.
-
-### 2026-10-14 scan
-
-- [ ] **GAP-53. Copy the shopping list as plain text** (impact: med, effort: S) —
-      Shopt (2.4.0) and most list apps (AnyList, Bring!) can send the list
-      as text to someone outside the app: a partner who is at the shop
-      without an account, or a neighbour picking things up. Squirrel's
-      shopping list can import pasted text (`ClipboardPaste` in
-      `shopping-list-client.tsx`) but has no way out; recipes got
-      "Copy as text" (GAP-43, REQUIREMENTS.md "Copy a recipe as text") and
-      the list has nothing equivalent. Add a "Copy as text" action in the
-      list's overflow menu that writes the open (unchecked) items to the
-      clipboard, one `- 2 dl Milk` line each, grouped under category
-      headings when the list is grouped, via a pure `formatShoppingListText`
-      (mirror `src/lib/recipe-text.ts`, reuse `formatCookQuantity`/unit
-      labels). Confirm with a toast; error toast on a rejected write;
-      on a coarse-pointer device with `navigator.share`, offer Share like
-      the invite link does. Same stance as GAP-43: no public link, no
-      schema change, no new browser storage, so every read stays behind
-      `requireHousehold()`.
-      Acceptance: `shopping-list-text.test.ts` covers both locales, no
-      quantity, grouped vs flat, and checked items left out; an e2e step
-      adds two unique items, clicks the action on desktop and mobile and
-      asserts the toast and clipboard text.
 
 ### 2026-10-15 scan
 

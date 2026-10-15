@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   CheckCheck,
   ChevronDown,
   ClipboardPaste,
+  Copy,
   Download,
   Ellipsis,
   Link2,
@@ -91,6 +92,8 @@ import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/compon
 import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
+import { canNativeShare } from "@/components/ui/copy-link-button";
+import { formatShoppingListText } from "@/lib/shopping-list-text";
 import { PageTitle } from "@/components/dashboard/page-title";
 
 // Below this many unlinked items, resolving them one at a time via each
@@ -151,6 +154,8 @@ type ShoppingListData = {
 };
 
 type ShoppingListDict = Dictionary["shoppingList"];
+
+const subscribeNever = () => () => {};
 
 export function ShoppingListClient({
   list,
@@ -329,6 +334,30 @@ export function ShoppingListClient({
   const unresolvedItems = items.filter((item) => item.inventoryItemId === null);
   const pendingGroups = groupPendingItemsByCategory(pendingItems, dict.otherCategory, storeOrder);
   const shownPendingGroups = groupPendingItemsByCategory(shownPendingItems, dict.otherCategory, storeOrder);
+  // GAP-53: the open items as plain text, on the clipboard or (a phone, via
+  // the system share sheet) sent on. Nothing is stored or shared through the
+  // app. The success toast waits for the write (clipboard.writeText rejects
+  // when the page is unfocused or permission is denied), as CopyLinkButton.
+  const unitLabel = useUnitLabel();
+  const canShareText = useSyncExternalStore(subscribeNever, canNativeShare, () => false);
+  const listText = () => formatShoppingListText(list.name, pendingGroups, locale, unitLabel);
+  const copyListText = async () => {
+    try {
+      await navigator.clipboard.writeText(listText());
+      toast.success(dict.copyTextToast);
+    } catch {
+      toast.error(dict.copyTextFailedToast);
+    }
+  };
+  const shareListText = async () => {
+    try {
+      await navigator.share({ title: list.name, text: listText() });
+    } catch (err) {
+      // Closing the sheet rejects with AbortError: a choice, not a failure.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      toast.error(dict.copyTextFailedToast);
+    }
+  };
   // UX-37: the aisle the thumb-zone dock offers (see NextUpDock).
   const nextUpItems = nextUp(pendingGroups);
   // "In the cart" starts collapsed on an ACTIVE list — mid-shop it's what
@@ -623,6 +652,20 @@ export function ShoppingListClient({
                 <Download />
                 {exportLabel}
               </DropdownMenuItem>
+              {pendingItems.length > 0 && (
+                <>
+                  <DropdownMenuItem onClick={copyListText}>
+                    <Copy />
+                    {dict.copyText}
+                  </DropdownMenuItem>
+                  {canShareText && (
+                    <DropdownMenuItem onClick={shareListText}>
+                      <Share2 />
+                      {dict.shareText}
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
               {/* GAP-24: the browser's own print dialog, fed by the
                   print-only PrintableList below — no route, no PDF. */}
               <DropdownMenuItem onClick={() => window.print()}>
