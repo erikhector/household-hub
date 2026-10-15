@@ -470,6 +470,16 @@ export const sv = {
     add: "Lägg till",
     deleteItemAriaLabel: "Ta bort {name}",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      tick: "Bocka av",
+      untick: "Avmarkera",
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
     confirmDeleteItem: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",
@@ -1129,6 +1139,15 @@ export const sv = {
     markEmptyAndAddToList: "Markera som slut & lägg till i inköpslista",
     markedEmptyAddedToast: 'Markerade {name} som slut och la till den i "{list}"',
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      increase: "+1",
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
     decreaseQuantityAriaLabel: "Minska {name}",
     increaseQuantityAriaLabel: "Öka {name}",
     opened: "Öppnad",
@@ -1806,6 +1825,16 @@ export const sv = {
     nextDueLabel: "Nästa gång {date}",
     deleteTaskAriaLabel: "Ta bort {title}",
     saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      complete: "Klar",
+      reopen: "Öppna igen",
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
     confirmDelete: {
       title: "Ta bort {name}?",
       description: "Det går inte att ångra.",

@@ -497,6 +497,16 @@ export const en = {
     add: "Add",
     deleteItemAriaLabel: "Remove {name}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      tick: "Tick",
+      untick: "Untick",
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
     confirmDeleteItem: {
       title: "Remove {name}?",
       description: "This can't be undone.",
@@ -1189,6 +1199,15 @@ export const en = {
     markEmptyAndAddToList: "Mark as empty & add to shopping list",
     markedEmptyAddedToast: 'Marked {name} as empty and added it to "{list}"',
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      increase: "+1",
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
     decreaseQuantityAriaLabel: "Decrease {name}",
     increaseQuantityAriaLabel: "Increase {name}",
     opened: "Opened",
@@ -1893,6 +1912,16 @@ export const en = {
     nextDueLabel: "Next due {date}",
     deleteTaskAriaLabel: "Delete {title}",
     saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // UX-35: swipe row actions (see SwipeRow). Visible on the row only
+    // while it's being swiped; the row's own buttons stay the named path.
+    swipe: {
+      complete: "Done",
+      reopen: "Reopen",
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
     confirmDelete: {
       title: "Delete {name}?",
       description: "This can't be undone.",
