@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -212,6 +213,7 @@ export function RecipeFormDialog({
   ingredientNames,
   ingredientUnits,
   trigger,
+  handle,
   startAtReview = false,
 }: {
   dict: MealPlanningDict;
@@ -220,7 +222,9 @@ export function RecipeFormDialog({
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
-  trigger: ReactElement;
+  /** Omit when the form is opened through `handle` (the recipe sheet). */
+  trigger?: ReactElement;
+  handle?: DialogHandle;
   /** "Review ingredient matches" (MATCH-5): open an existing recipe
    * straight at step 2, with every row's current link as its decision. */
   startAtReview?: boolean;
@@ -530,8 +534,8 @@ export function RecipeFormDialog({
     );
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} longForm>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={handleOpenChange} longForm handle={handle}>
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent
         className="sm:max-w-md"
         initialFocus={nameInputRef}

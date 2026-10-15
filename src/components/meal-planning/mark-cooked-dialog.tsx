@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { ChefHat, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   markMealEntryCookedAction,
@@ -53,10 +52,13 @@ export function MarkCookedDialog({
   dict,
   entry,
   onPlanLeftovers,
+  handle,
 }: {
   dict: MealPlanningDict;
   entry: MealPlanEntryData;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
+  /** Opened from the planner row's sheet, so no trigger of its own. */
+  handle: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
   const [isPreviewPending, startPreviewTransition] = useTransition();
@@ -204,21 +206,7 @@ export function MarkCookedDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={fromBatch ? dict.prepEatenAction : dict.markCookedAriaLabel}
-            title={fromBatch ? dict.prepEatenAction : undefined}
-          >
-            {fromBatch ? <Utensils className="size-3" /> : <ChefHat className="size-3" />}
-          </Button>
-        }
-      />
+    <Dialog open={open} onOpenChange={handleOpenChange} handle={handle}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{fromBatch ? dict.prepEatenDialogTitle : dict.markCookedDialogTitle}</DialogTitle>

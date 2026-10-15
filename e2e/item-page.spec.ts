@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, openRowSheet } from "./ui";
 
 // MATCH-6: the item page at /dashboard/inventory/items/[id]. Each test
 // writes its own item (straight to Postgres, like recipe-ingredients.spec.ts
@@ -166,7 +166,8 @@ test("the back arrow returns to the catalog filter or recipe tab the item was op
   await page.goto("/dashboard/meal-planning?tab=recipes");
   const search = page.getByPlaceholder("Search recipes…").filter({ visible: true });
   await search.fill(flour.recipes.buns);
-  await page.getByRole("link", { name: "flour", exact: true }).click();
+  // The ingredient links are in the recipe's sheet.
+  await (await openRowSheet(page, flour.recipes.buns)).getByRole("link", { name: "flour", exact: true }).click();
   await expect(page.getByRole("heading", { name: flour.name, level: 1 })).toBeVisible();
   await page.getByRole("link", { name: "Recipes", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/meal-planning\?tab=recipes$/);

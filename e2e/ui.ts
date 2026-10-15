@@ -235,6 +235,18 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
   if (viewport && hidden > 0) await page.setViewportSize(viewport);
 }
 
+// The planner's meals and the recipe list's recipes are rows that open a
+// sheet of labelled actions (Mark as cooked, Edit recipe, …). Taps the
+// visible row whose name is exactly `name` (the last one, when an earlier
+// row of another spec repeats it) and returns the sheet, which is titled
+// with that name.
+export async function openRowSheet(page: Page, name: string) {
+  await page.getByRole("main").getByText(name, { exact: true }).filter({ visible: true }).last().click();
+  const sheet = page.getByRole("dialog", { name, exact: true });
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

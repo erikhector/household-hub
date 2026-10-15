@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, type ReactElement } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  type DialogHandle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -37,6 +38,10 @@ const initialState: ActionState = {};
 // recipes. Client-only: picking it posts `preparedBatchId`, never this value.
 const FROM_PREP_SENTINEL = "__prep__";
 
+// Nothing picked yet (a new meal when there are recipes to pick from). Posts
+// as an empty recipeId, which the server rejects with a field error.
+const NO_CHOICE = "";
+
 type CommonProps = {
   dict: MealPlanningDict;
   recipes: RecipeData[];
@@ -48,15 +53,9 @@ type CreateProps = CommonProps & {
   mode?: "create";
   weekStartKey: string;
   dateKey: string;
+  // UX-21: each day has one "+ Add meal" (not one per slot), so the dialog
+  // asks which slot; this is the preselected one.
   mealType: MealType;
-  // UX-5: an empty slot is one full-width row (this label on the left, "+ Add
-  // meal" on the right) instead of a label, a "Nothing planned" line and a
-  // tiny "+" button. Omitted, the trigger is the compact icon button that
-  // sits beside a slot's existing entries.
-  slotLabel?: string;
-  // UX-21: a day with nothing planned shows one "+ Add meal" for the whole
-  // day, so the dialog asks which slot (`mealType` is the preselected one).
-  askSlot?: boolean;
   // GAP-49: the household's active meal-prep batches. Those with portions
   // left are offered as "From meal prep"; none left, no such option.
   batches?: PreparedBatchData[];
@@ -74,7 +73,8 @@ const mealTypeDictKey: Record<MealType, MealTypeLabelKey> = {
 type EditProps = CommonProps & {
   mode: "edit";
   entry: MealPlanEntryData;
-  trigger: ReactElement;
+  // Opened from the planner row's sheet, so no trigger of its own.
+  handle: DialogHandle;
 };
 
 export function MealEntryDialog(props: CreateProps | EditProps) {
@@ -83,9 +83,20 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
 
   const [open, setOpen] = useState(false);
   const freeformNameRef = useRef<HTMLInputElement>(null);
+  // M4 (pick, don't type): when there's a recipe or a meal-prep batch to
+  // pick, a new meal starts on the picker with nothing chosen, rather than
+  // on "Custom meal…" and an empty name field. Nothing to pick, it's the
+  // name field straight away. Submitting with nothing chosen gets the
+  // server's "Choose a recipe or enter a meal name".
+  const somethingToPick =
+    recipes.length > 0 || (!isEdit && (props.batches ?? []).some((b) => b.remainingPortions > 0));
+  const initialChoice = somethingToPick ? NO_CHOICE : CUSTOM_RECIPE_SENTINEL;
   const [recipeChoice, setRecipeChoice] = useState(
-    isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : CUSTOM_RECIPE_SENTINEL,
+    isEdit ? (props.entry.recipeId ?? CUSTOM_RECIPE_SENTINEL) : initialChoice,
   );
+  // Favourites first (GAP-18), otherwise the list's own order, so the
+  // household's go-to meals are at the top of the picker.
+  const pickerRecipes = [...recipes].sort((a, b) => Number(b.isFavorite) - Number(a.isFavorite));
   const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
   const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -110,7 +121,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
     if (!result.error) {
       setOpen(false);
       if (!isEdit) {
-        setRecipeChoice(CUSTOM_RECIPE_SENTINEL);
+        setRecipeChoice(initialChoice);
         setPortions("4");
         setBatchId(null);
         setPrepPortions(1);
@@ -119,12 +130,14 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
     return result;
   }, initialState);
 
-  const recipeLabel = (value: string) =>
-    value === CUSTOM_RECIPE_SENTINEL
-      ? dict.customMealOption
-      : value === FROM_PREP_SENTINEL
-        ? dict.prepFromPrepOption
-        : (recipes.find((r) => r.id === value)?.name ?? value);
+  const recipeLabel = (value: string | null) =>
+    !value
+      ? dict.chooseMealPlaceholder
+      : value === CUSTOM_RECIPE_SENTINEL
+        ? dict.customMealOption
+        : value === FROM_PREP_SENTINEL
+          ? dict.prepFromPrepOption
+          : (recipes.find((r) => r.id === value)?.name ?? value);
 
   // Base UI's SelectValue renders the raw value (a batch id) unless mapped.
   const batchLabel = (value: string) => {
@@ -142,35 +155,19 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          isEdit ? (
-            props.trigger
-          ) : props.askSlot ? (
+    <Dialog open={open} onOpenChange={setOpen} handle={isEdit ? props.handle : undefined}>
+      {/* Editing opens from the meal's sheet (`handle`); adding is the
+          day's one "+ Add meal". */}
+      {!isEdit && (
+        <DialogTrigger
+          render={
             <Button type="button" variant="ghost" className="h-9 w-full justify-start gap-1 px-2 text-sm text-muted-foreground max-sm:h-11">
               <Plus className="size-3.5" aria-hidden="true" />
               {dict.addMeal}
             </Button>
-          ) : props.slotLabel ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 w-full justify-between px-2 text-xs font-medium uppercase text-muted-foreground max-sm:h-11"
-            >
-              <span>{props.slotLabel}</span>
-              <span className="flex items-center gap-1 font-normal normal-case">
-                <Plus className="size-3.5" aria-hidden="true" />
-                {dict.addMeal}
-              </span>
-            </Button>
-          ) : (
-            <Button type="button" variant="ghost" size="icon-xs" aria-label={dict.addMeal}>
-              <Plus className="size-3.5" />
-            </Button>
-          )
-        }
-      />
+          }
+        />
+      )}
       <DialogContent
         initialFocus={freeformNameRef}
       >
@@ -188,7 +185,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
             </>
           )}
 
-          {!isEdit && props.askSlot && (
+          {!isEdit && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="mealTypeSelect">{dict.mealSlotLabel}</Label>
               <Select value={mealType} onValueChange={(v) => v && setMealType(v as MealType)}>
@@ -209,18 +206,18 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipeId">{dict.recipeLabel}</Label>
             <Select
-              value={choice}
-              onValueChange={(v) => handleRecipeChoiceChange(v ?? CUSTOM_RECIPE_SENTINEL)}
+              value={choice || null}
+              onValueChange={(v) => v && handleRecipeChoiceChange(v)}
             >
               <SelectTrigger id="recipeId" className="w-full">
-                <SelectValue>{recipeLabel}</SelectValue>
+                <SelectValue placeholder={dict.chooseMealPlaceholder}>{recipeLabel}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={CUSTOM_RECIPE_SENTINEL}>{dict.customMealOption}</SelectItem>
                 {availableBatches.length > 0 && (
                   <SelectItem value={FROM_PREP_SENTINEL}>{dict.prepFromPrepOption}</SelectItem>
                 )}
-                {recipes.map((recipe) => (
+                {pickerRecipes.map((recipe) => (
                   <SelectItem key={recipe.id} value={recipe.id}>
                     {recipe.name}
                   </SelectItem>
@@ -284,7 +281,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 defaultValue={isEdit ? (props.entry.freeformName ?? "") : undefined}
               />
             </div>
-          ) : (
+          ) : choice === NO_CHOICE ? null : (
             <div className="flex flex-col gap-2">
               <Label htmlFor="portions">{dict.portionsLabel}</Label>
               <Input

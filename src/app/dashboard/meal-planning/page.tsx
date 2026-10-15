@@ -213,7 +213,8 @@ async function PlannerTabSection({
     getActiveBatches(householdId),
     getLocale(),
   ]);
-  // The two recaps sit above the planner, inside its Suspense boundary
+  // The two recaps sit below the week (on a phone the week bar and today
+  // come first, DESIGN.md M6), inside the planner's Suspense boundary
   // rather than each in their own. With their own boundaries they streamed
   // in above the tab bar after the first paint: a fixed-height skeleton
   // (UX-21) kept a recap that arrived from pushing the planner down, but
@@ -225,8 +226,6 @@ async function PlannerTabSection({
   // queries still run in parallel with this one's.
   return (
     <div className="flex flex-col gap-6">
-      <MealVarietyRecapSection householdId={householdId} dict={dict} />
-      <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />
       <WeekPlanner
         dict={dict}
         locale={locale}
@@ -236,6 +235,8 @@ async function PlannerTabSection({
         activeShoppingLists={activeShoppingLists}
         batches={batches}
       />
+      <MealVarietyRecapSection householdId={householdId} dict={dict} />
+      <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />
     </div>
   );
 }
