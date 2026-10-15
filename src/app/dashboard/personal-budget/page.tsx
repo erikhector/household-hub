@@ -392,6 +392,7 @@ async function PersonalBudgetTabsSection({
       dict={dict.personalBudget}
       locale={locale}
       monthKey={monthKey}
+      currentMonthKey={toMonthKey(now)}
       basePath="/dashboard/personal-budget"
       categories={categoryRows}
       safeToSpendAmount={safeToSpend}

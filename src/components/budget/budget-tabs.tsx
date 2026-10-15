@@ -58,7 +58,8 @@
 // them fire from here would put rows in a different household than the one
 // on screen. Never set on the personal budget page.
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
@@ -83,8 +84,9 @@ import type { ActionState } from "@/lib/actions/auth";
 import { createMoneyFormat } from "@/lib/currency";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
+import { parseBudgetTab, type BudgetTab } from "@/lib/budget-url";
 
-export type BudgetTab = "overview" | "manage" | "transactions" | "insights";
+export type { BudgetTab };
 type Tab = BudgetTab;
 
 // BudgetDict plus the handful of top-level tab/action labels this file reads
@@ -113,6 +115,7 @@ export function BudgetTabs({
   locale,
   currencyCode = null,
   monthKey,
+  currentMonthKey,
   basePath,
   householdParam,
   readOnly = false,
@@ -123,7 +126,6 @@ export function BudgetTabs({
   safeToSpendExpectedRecurring,
   safeToSpendProjection = null,
   householdDebts = [],
-  initialTab = "overview",
   dueTemplates,
   hasRecurringTemplates,
   members = [],
@@ -153,6 +155,8 @@ export function BudgetTabs({
   /** "YYYY-MM" — the month currently selected via the page's `?month=`
    * search param (see src/app/dashboard/budget/page.tsx). */
   monthKey: string;
+  /** The server's "YYYY-MM" for today — see MonthNavigator's prop. */
+  currentMonthKey: string;
   /** "/dashboard/budget" or "/dashboard/personal-budget" — passed straight
    * through to MonthNavigator, which builds every prev/next/"this month"
    * link from it. */
@@ -174,10 +178,6 @@ export function BudgetTabs({
   safeToSpendProjection?: MonthProjection | null;
   /** Personal budget only — see SafeToSpend's identical prop. */
   householdDebts?: HouseholdDebt[];
-  /** Which tab to open on — from the page's `?tab=` param, so a link (e.g.
-   * Personal Budget's "Settle up") can land straight on Insights, where
-   * the household Balances card lives. */
-  initialTab?: Tab;
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
@@ -226,7 +226,21 @@ export function BudgetTabs({
   transactions: ReactNode;
   insights: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+  // The tab lives in `?tab=` (replaced, not pushed, like MealPlanningView),
+  // so a link (Personal Budget's "Settle up", a notification) can land
+  // straight on a tab, a reload keeps it, and MonthNavigator's links carry
+  // it: paging months from Transactions used to bounce back to Overview,
+  // since the tab was client state the month links knew nothing about.
+  // Read from useSearchParams rather than state seeded by the server, so a
+  // browser back to a cached render still shows the tab its URL names.
+  const searchParams = useSearchParams();
+  const tab = parseBudgetTab(searchParams.get("tab"));
+  const setTab = (next: Tab) => {
+    const url = new URL(window.location.href);
+    if (next === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  };
   const hasCategories = categories.length > 0;
 
   // UX-15: the split warnings in the two dialogs below.
@@ -244,9 +258,14 @@ export function BudgetTabs({
       <MonthNavigator
         basePath={basePath}
         monthKey={monthKey}
+        currentMonthKey={currentMonthKey}
         locale={locale}
         dict={dict}
-        extraParams={householdParam ? { household: householdParam } : undefined}
+        params={{
+          household: householdParam,
+          tab,
+          category: searchParams.get("category") ?? undefined,
+        }}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

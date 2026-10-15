@@ -1691,7 +1691,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   budget) renders prev/next/"this month" as plain `<Link>`s that change
   the param — a full server-rendered navigation with no client state, so
   the selected month survives a refresh and is shareable as a URL, the
-  same pattern meal-planning's week navigation uses. `src/app/dashboard/
+  same pattern meal-planning's week navigation uses. It reads as
+  `‹  October 2026  ›`: two 44 px arrow links flanking the month name set
+  in `heading`, with a "This month" link under the name only once you've
+  paged away from the current month (the server passes its own month key
+  as `currentMonthKey`, so render and hydration agree). Every link is
+  built by `budgetHref` (`src/lib/budget-url.ts`) and keeps the open tab
+  (`?tab=`), the category filter (`?category=`) and `?household=`, so
+  paging months from Transactions stays on Transactions. `src/app/dashboard/
   budget/page.tsx` fetches `Transaction` rows bounded to the selected
   month's `[monthStart, monthEnd)` window (rather than the household's
   entire history — see SCALE-F, BACKLOG.md, for why an unbounded query
@@ -2214,7 +2221,7 @@ Component page function can't itself be unit-tested.
     per household at the end of the month (`householdDebts`): what they owe
     other members or are owed, and their unpaid share of bills, with a
     "Settle up" link to that household's budget, Insights tab
-    (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
+    (`?tab=insights`, which `BudgetTabs` reads from the URL).
   - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
     month totals and per-category bars come straight from the loader's
     totals, so a split bill's share shows there as "<category> (Shared)".
@@ -2669,6 +2676,18 @@ income, expense and savings without hover (since UX-39 through the shared
 transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
+**The open tab is in the URL (phone pass, Oct 2026).** `BudgetTabs` reads
+the tab from `?tab=` with `useSearchParams` (`parseBudgetTab` in
+`src/lib/budget-url.ts`; anything unknown is Overview) and writes it with
+`history.replaceState` (Overview drops the param), the same pattern as
+Meal Planning's tabs: switching tabs refetches nothing, a reload or a
+browser back reopens the same tab, and a link (Personal Budget's "Settle
+up", a price-spike notification) lands on its tab. It used to be client
+state seeded from the param once, and `MonthNavigator`'s links dropped it,
+so paging months from Transactions bounced back to Overview. Covered by
+`src/lib/budget-url.test.ts` and `e2e/budget-month-tab.spec.ts` (both
+pages).
 
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
