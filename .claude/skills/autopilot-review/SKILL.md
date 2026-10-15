@@ -362,8 +362,13 @@ against `max_parallel_subagents`, and validate its report the same way.
   N rounds`. The next run picks it up again. A PR that ping-pongs
   like this is what the retro should look at.
 
-**Stop listening** once no subscribed PR is left, or when the first event
-after `review_listen_hours` since the run started arrives: then unsubscribe
+When step 5 starts, schedule a wake-up for `review_listen_hours` after
+the run started (`send_later`), so a quiet afternoon still ends the run
+inside its lock. Before each merge in this step, check the run lock is
+still yours (AUTOPILOT.md, "Run lock", step 3).
+
+**Stop listening** once no subscribed PR is left, or when that wake-up
+(or the first event after `review_listen_hours`) arrives: then unsubscribe
 from everything and report. Nothing is lost by stopping: the next
 run's triage (step 1) notices every head that moved.
 

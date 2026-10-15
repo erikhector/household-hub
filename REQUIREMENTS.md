@@ -7022,7 +7022,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   `🤖 autopilot-review`. The top-level session delegates each PR's review
   round to its own sub-agent (in parallel, up to
   `max_parallel_subagents`), then each merge to a merge sub-agent, one at
-  a time since each merge moves `master`; it checks every result against
+  a time since each merge moves `next`; it checks every result against
   GitHub (review marker and SHA, verdict consistent with open threads, PR
   actually merged) before accepting it. It stays subscribed to every PR
   it sent back for changes: when the author pushes a fix or replies to a
@@ -7030,8 +7030,8 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   most `max_review_rounds_per_run`, for up to `review_listen_hours`),
   checking each finding against the new head and resolving the thread
   once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
-  no open threads, gets `master` merged in, conflicting migrations
-  regenerated on top of master's, and `npm run ci:local` run, then it is
+  no open threads, gets `next` merged in, conflicting migrations
+  regenerated on top of next's, and `npm run ci:local` run, then it is
   pushed and squash-merged once GitHub CI is green on that head
   (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
@@ -7085,9 +7085,10 @@ and "Chaining"):
   builder a gate re-run. The fix is in the app or the test's waiting,
   never a skip, retry or looser assertion. A release that fails only on
   a known flake re-runs the job instead of reverting a PR.
-- **Run lock.** The builder and reviewer each take a lock (a marked
-  comment on the "Autopilot run lock" issue) before doing anything, so a
-  cron run never overlaps a chained or slow one.
+- **Run lock.** The builder and reviewer each hold a lock for their whole
+  run (one open issue labelled `autopilot-lock-<role>`; the lowest open
+  number from a trusted account wins, stale ones expire after
+  `run_lock_hours`), so a cron run never overlaps a chained or slow one.
 
 Every role works from two outside skill packs with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
@@ -7154,7 +7155,7 @@ runs don't queue behind everyone else's.
 | Autopilot: product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
-The existing daily competitive-scan routine is replaced by "Scout:
+The existing daily competitive-scan routine is replaced by "Autopilot scout:
 competitors", which writes the same dated `GAP-` entries.
 
 ## Not yet built / roadmap

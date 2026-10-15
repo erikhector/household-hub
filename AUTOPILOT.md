@@ -50,7 +50,8 @@ commit, with nobody's change in it) outranks every other item, `UX-`
 included: each one costs every builder a re-run of its gate and can turn
 a release PR red. The builder takes at most one per run, so it doesn't
 spend every slot on them. A test that fails *every* time on clean `next`
-isn't flaky: `next` is red, which is a `BUG-` item and goes first too.
+isn't flaky: `next` is red, which is a `BUG-` item titled "Red next: …"
+and goes first too, before a `Flaky:` one.
 The release train and the builder file both kinds themselves (see the
 `autopilot-review` and `autopilot-build` skills). The fix is always in
 the app or in the test's waiting, never a skip, a retry or a looser
@@ -167,21 +168,30 @@ run_lock_hours:          # a lock older than this is a crashed run's, and is ign
 
 Two coordinators of the same role at once would pick the same items or
 merge the same PRs, and a cron run can start while a chained (or slow)
-one is still going. So the builder and the reviewer take a lock first,
-on one issue titled "Autopilot run lock" (label `autopilot-lock`; create
-it if missing):
+one is still going. So the builder and the reviewer each hold a lock for
+their whole run: one open issue per run, labelled `autopilot-lock-<role>`
+(`autopilot-lock-builder`, `autopilot-lock-reviewer`).
 
-1. Post a comment `🤖 autopilot-<role> lock <UTC time>`.
-2. List the issue's comments. If an earlier `lock` comment of the same
-   role is younger than `run_lock_hours` and has no `released` edit,
-   another run holds it: edit yours to `… released (lost)` and stop with
-   "another <role> run is active". GitHub orders comments, so of two runs
-   starting together exactly one wins.
-3. At the end of the run, and on any stop after step 1, edit your comment
-   to append ` released <UTC time>`.
+1. **Take.** Open an issue titled `<role> run lock <UTC time>`, body
+   starting `🤖 autopilot-<role>`, with that label.
+2. **Check.** List the *open* issues with that label (a short list, since
+   every run closes its own). Ignore any not opened by a
+   `trusted_authors` account (the repository is public; outsiders can't
+   label issues, but check anyway), and close, as stale, any older than
+   `run_lock_hours` (a crashed run's). If a remaining one has a lower
+   number than yours, another run holds the lock: close yours and stop
+   with "another <role> run is active". Issue numbers are assigned in
+   order, so of two runs starting together exactly one wins.
+3. **Hold.** Before every merge (reviewer) or every new sub-agent
+   (builder), check your lock issue is still open; if it was closed as
+   stale, stop at once.
+4. **Release.** At the end of the run, and on any stop after step 1,
+   close your lock issue, and only after you've unsubscribed from every
+   PR, so nothing wakes this run once a newer one may have started.
 
 The reviewer listens for fixes for up to `review_listen_hours`, so its
-lock covers that window; the builder's covers its sub-agents' gates.
+lock (`run_lock_hours`) covers that window plus merging; the builder's
+covers its sub-agents' gates.
 
 ## Chaining
 
@@ -297,8 +307,9 @@ labelled `hold` are never merged. Nor is a PR touching
 `never_merge_paths`: the loop doesn't loosen its own limits or CI, so a
 human merges those into `next` (the release PR that later carries them
 doesn't need a human again). The autopilot skills are in that list so
-the loop can't rewrite its own review and validation rules, retro
-included. The builder never merges.
+the loop can't rewrite its own coordination, merge and validation rules,
+retro included. The general review rules (AGENTS.md, `self-review`,
+`steward`) stay mergeable, since tightening them is the retro's job. The builder never merges.
 
 ## Metrics
 

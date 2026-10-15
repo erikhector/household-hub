@@ -50,8 +50,9 @@ write it.
 
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
-Apply AUTOPILOT.md's allowed prefixes and exclusions. **One eligible
-`MAINT-` item titled `Flaky: …` comes first** (at most one per run), then
+Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
+`BUG-` item titled `Red next: …` comes first, then one `MAINT-` item
+titled `Flaky: …`** (at most one per run), then
 **every eligible `UX-` item** (best impact/effort among them), then the
 eligible IDs in PRODUCT.md's "Focus" list in its order; only the slots
 left after those go to other items, lowest phase first, then best
@@ -144,7 +145,7 @@ the `autopilot-review` routine reviews and merges every PR.
 Every pre-existing e2e failure collected in step 3 needs an owner. A spec
 that also *passed* on one of the runs is flaky: a `Flaky:` item as below.
 One that failed every time on `next` means `next` is red: a `BUG-` item
-with the failing output, picked first the same way. Once all PRs are
+titled `Red next: …` with the failing output, picked first. Once all PRs are
 validated, file them in one `docs(backlog): flaky e2e <date>` PR
 (BACKLOG.md only, label `autopilot`; the reviewer merges it). If an open
 PR with that title already exists (the reviewer's step 4c files them
@@ -165,8 +166,9 @@ instead.
 Before the report, if AUTOPILOT.md says `chain: true`, this run wasn't
 itself chained, and it opened or fixed at least one PR, start the
 "Autopilot reviewer" routine as AUTOPILOT.md's "Chaining" section
-describes, so the PRs don't wait for its schedule. Then release the run
-lock.
+describes, so the PRs don't wait for its schedule. Then unsubscribe from
+every PR you subscribed to (the next run's step 0 picks up any that still
+need work) and release the run lock.
 
 Every comment you or a sub-agent posts starts with `🤖 autopilot-build`
 (AUTOPILOT.md, "Owner inbox"): an unmarked comment would read as the
