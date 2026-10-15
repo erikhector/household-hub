@@ -62,6 +62,7 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, type TabItem } from "@/components/ui/tabs";
 import { SafeToSpend } from "@/components/budget/safe-to-spend";
+import type { PlannedExpenseRow } from "@/components/budget/planned-expenses-panel";
 import { DueRecurringWidget, type SharedDueRow } from "@/components/budget/due-recurring-widget";
 import { MonthNavigator } from "@/components/budget/month-navigator";
 import { TransactionDialog, type MemberOption, type TransactionFormAction } from "@/components/budget/transaction-dialog";
@@ -126,6 +127,7 @@ export function BudgetTabs({
   initialTab = "overview",
   dueTemplates,
   hasRecurringTemplates,
+  plannedDue = [],
   members = [],
   currentMemberId = "",
   sharedDueRows = [],
@@ -181,6 +183,9 @@ export function BudgetTabs({
   /** Already filtered to `status === "due"`. */
   dueTemplates: RecurringTemplateListRow[];
   hasRecurringTemplates: boolean;
+  /** Outstanding planned bills (BUDGET-8), for the due strip. Omitted
+   * (defaults to `[]`) on the personal budget page. */
+  plannedDue?: PlannedExpenseRow[];
   /** Every member of the active household — see TransactionDialog's
    * identical prop. Omitted (defaults to `[]`) on the personal budget page,
    * which has no household members. */
@@ -303,6 +308,7 @@ export function BudgetTabs({
               <DueRecurringWidget
                 templates={dueTemplates}
                 hasTemplates={hasRecurringTemplates}
+                plannedDue={plannedDue}
                 sharedDueRows={sharedDueRows}
                 sharedExpenseHouseholds={sharedExpenseHouseholds}
                 showHouseholdName={showHouseholdName}

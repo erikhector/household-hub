@@ -117,6 +117,13 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   const stillDue = main.getByText("Still due this month").locator("xpath=following-sibling::ul");
   await expect(stillDue.getByRole("listitem").filter({ hasText: name })).toBeVisible();
 
+  // --- It shows in the Overview's due strip ---------------------------------
+  // The strip is a card (no landmark role), so find it by its heading.
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//button][1]");
+  await expect(stripRow).toBeVisible();
+  await expect(stripRow.getByRole("button", { name: "Log payment" })).toBeVisible();
+
   // --- Log its payment -----------------------------------------------------
   await page.getByRole("tab", { name: "Manage" }).click();
   await dueRow.getByRole("button", { name: "Log payment" }).click();

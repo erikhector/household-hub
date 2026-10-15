@@ -43,7 +43,7 @@ import {
   deletePlannedExpenseAction,
   updatePlannedExpenseAction,
 } from "@/app/dashboard/budget/planned-expense-actions";
-import { getPlannedExpenseStatus } from "@/lib/planned-expense-calc";
+import { getPlannedExpenseStatus, isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
 import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
@@ -959,6 +959,7 @@ async function BudgetTabsSection({
       initialTab={initialTab}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
+      plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
       members={memberOptions}
       currentMemberId={currentMemberId}
       createTransactionAction={createTransactionAction}

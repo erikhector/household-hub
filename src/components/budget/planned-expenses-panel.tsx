@@ -18,6 +18,7 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import type { BudgetDict } from "@/components/budget/budget-dict";
 import type { CategoryRow } from "@/components/budget/category-manager";
 import type { PlannedExpenseStatus } from "@/lib/planned-expense-calc";
 import { createMoneyFormat } from "@/lib/currency";
@@ -192,7 +193,6 @@ function PlannedExpenseItem({
 }) {
   const t = dict.planned;
   const paid = bill.status === "paid";
-  const overdue = bill.status === "overdue";
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
@@ -212,45 +212,26 @@ function PlannedExpenseItem({
             </Badge>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">
-          <span className="tabular-nums">{numberFormat.format(bill.amount)}</span>
-          {" · "}
-          {overdue ? (
-            // DESIGN.md: status is tinted text plus an icon, never colour alone.
-            <span className="inline-flex items-center gap-1 font-medium text-destructive">
-              <AlertCircle className="size-3.5" aria-hidden />
-              {t.overdueBadge}
-              {" · "}
-              {format(t.dueOn, { date: dateFormat.format(bill.dueDate) })}
-            </span>
-          ) : (
-            format(t.dueOn, { date: dateFormat.format(bill.dueDate) })
-          )}
-        </p>
+        <PlannedBillAmountLine
+          bill={bill}
+          numberFormat={numberFormat}
+          dateFormat={dateFormat}
+          t={t}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
         {!paid && (
-          <TransactionDialog
-            numberFormat={numberFormat}
+          <PlannedBillLogPayment
+            bill={bill}
             dict={dict}
+            t={t}
+            numberFormat={numberFormat}
             categories={categories}
             members={members}
             currentMemberId={currentMemberId}
             monthKey={monthKey}
-            prefillFromTemplate={{
-              plannedExpenseId: bill.id,
-              categoryId: bill.categoryId,
-              amount: bill.amount,
-              description: bill.name,
-              splits: bill.splits,
-            }}
-            createAction={createTransactionAction}
-            updateAction={updateTransactionAction}
-            trigger={
-              <Button size="xs" variant="secondary">
-                {t.logPayment}
-              </Button>
-            }
+            createTransactionAction={createTransactionAction}
+            updateTransactionAction={updateTransactionAction}
           />
         )}
         <PlannedExpenseDialog
@@ -300,5 +281,90 @@ function PlannedExpenseItem({
         )}
       </div>
     </li>
+  );
+}
+
+// "{amount} · Due {date}", or the overdue badge in its place. Shared with the
+// Budget Overview's due strip (DueRecurringWidget) so a bill reads the same in
+// both places.
+export function PlannedBillAmountLine({
+  bill,
+  numberFormat,
+  dateFormat,
+  t,
+}: {
+  bill: PlannedExpenseRow;
+  numberFormat: Intl.NumberFormat;
+  /** Due dates are UTC-noon calendar days: build it with `timeZone: "UTC"`. */
+  dateFormat: Intl.DateTimeFormat;
+  t: PlannedDict;
+}) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      <span className="tabular-nums">{numberFormat.format(bill.amount)}</span>
+      {" · "}
+      {bill.status === "overdue" ? (
+        // DESIGN.md: status is tinted text plus an icon, never colour alone.
+        <span className="inline-flex items-center gap-1 font-medium text-destructive">
+          <AlertCircle className="size-3.5" aria-hidden />
+          {t.overdueBadge}
+          {" · "}
+          {format(t.dueOn, { date: dateFormat.format(bill.dueDate) })}
+        </span>
+      ) : (
+        format(t.dueOn, { date: dateFormat.format(bill.dueDate) })
+      )}
+    </p>
+  );
+}
+
+// "Log payment": the ordinary transaction dialog, prefilled from the bill and
+// linked to it so saving marks it paid. Shared with the due strip.
+export function PlannedBillLogPayment({
+  bill,
+  dict,
+  t,
+  numberFormat,
+  categories,
+  members,
+  currentMemberId,
+  monthKey,
+  createTransactionAction,
+  updateTransactionAction,
+}: {
+  bill: PlannedExpenseRow;
+  dict: BudgetDict;
+  t: PlannedDict;
+  numberFormat: Intl.NumberFormat;
+  categories: CategoryRow[];
+  members: MemberOption[];
+  currentMemberId: string;
+  monthKey: string;
+  createTransactionAction: TransactionFormAction;
+  updateTransactionAction: TransactionFormAction;
+}) {
+  return (
+    <TransactionDialog
+      numberFormat={numberFormat}
+      dict={dict}
+      categories={categories}
+      members={members}
+      currentMemberId={currentMemberId}
+      monthKey={monthKey}
+      prefillFromTemplate={{
+        plannedExpenseId: bill.id,
+        categoryId: bill.categoryId,
+        amount: bill.amount,
+        description: bill.name,
+        splits: bill.splits,
+      }}
+      createAction={createTransactionAction}
+      updateAction={updateTransactionAction}
+      trigger={
+        <Button size="xs" variant="secondary">
+          {t.logPayment}
+        </Button>
+      }
+    />
   );
 }

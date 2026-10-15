@@ -29,6 +29,11 @@ import {
   type ShareableHousehold,
   type SharedExpensePrefill,
 } from "@/components/personal-budget/log-shared-expense-dialog";
+import {
+  PlannedBillAmountLine,
+  PlannedBillLogPayment,
+  type PlannedExpenseRow,
+} from "@/components/budget/planned-expenses-panel";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -63,6 +68,7 @@ export type SharedDueRow = {
 export function DueRecurringWidget({
   templates,
   hasTemplates,
+  plannedDue = [],
   sharedDueRows = [],
   sharedExpenseHouseholds = [],
   showHouseholdName = false,
@@ -86,6 +92,11 @@ export function DueRecurringWidget({
    * all, due or not — distinguishes "nothing set up yet" from "all caught
    * up". */
   hasTemplates: boolean;
+  /** Outstanding (overdue or due) planned bills, BUDGET-8 — already filtered
+   * with isPlannedExpenseOutstanding. Listed after the templates; any entry
+   * counts as content, so the "nothing set up" state doesn't show. Always
+   * `[]` on the personal budget page. */
+  plannedDue?: PlannedExpenseRow[];
   /** The user's own share of due-but-not-yet-posted shared household
    * RecurringTemplates (see SharedDueRow's doc comment) — merged straight
    * into the due list below, badged "Shared". Always `[]` on the household
@@ -130,7 +141,16 @@ export function DueRecurringWidget({
   updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
+  const planned = dict.planned;
   const numberFormat = createMoneyFormat(locale, currencyCode);
+  // Due dates are UTC-noon calendar days, so they're shown in UTC (as in
+  // PlannedExpensesPanel).
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
   return (
     <Card>
@@ -144,9 +164,9 @@ export function DueRecurringWidget({
         </Button>
       </CardHeader>
       <CardContent>
-        {!hasTemplates && sharedDueRows.length === 0 ? (
+        {!hasTemplates && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
-        ) : templates.length === 0 && sharedDueRows.length === 0 ? (
+        ) : templates.length === 0 && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-success" />
             <span>
@@ -234,6 +254,45 @@ export function DueRecurringWidget({
                     <Check className="size-3.5" />
                     {dict.recurring.markAccountedFor}
                   </Button>
+                </div>
+              </div>
+            ))}
+            {planned && plannedDue.map((bill) => (
+              <div
+                key={bill.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate font-medium" title={bill.name}>
+                      {bill.name}
+                    </span>
+                    <Badge variant="secondary" className="max-w-[10rem]">
+                      <span className="min-w-0 truncate" title={bill.categoryName}>
+                        {bill.categoryName}
+                      </span>
+                    </Badge>
+                  </div>
+                  <PlannedBillAmountLine
+                    bill={bill}
+                    numberFormat={numberFormat}
+                    dateFormat={dateFormat}
+                    t={planned}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
+                  <PlannedBillLogPayment
+                    bill={bill}
+                    dict={dict}
+                    t={planned}
+                    numberFormat={numberFormat}
+                    categories={categories}
+                    members={members}
+                    currentMemberId={currentMemberId}
+                    monthKey={monthKey}
+                    createTransactionAction={createTransactionAction}
+                    updateTransactionAction={updateTransactionAction}
+                  />
                 </div>
               </div>
             ))}
