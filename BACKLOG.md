@@ -271,16 +271,6 @@ don't build these in parallel:
 
 ### Dependencies
 
-- [ ] **DEPS-1. Upgrade Next.js 16.3.4 → 16.4.0 (critical advisories)** (impact: high, effort: S) —
-      `npm audit --omit=dev` flags `next` as critical: RCE in `next/og`
-      `ImageResponse` (GHSA-vcvr-r3jv-pc5j), plus cache poisoning of SSG/ISR
-      pages, SSRF in Image Optimization and a Draft Mode leak, all fixed in
-      16.4.0. Bump `next` and `eslint-config-next` together (16.4.0). Check
-      the version-matched guide in `node_modules/next/dist/docs/` for
-      breaking changes.
-      Acceptance: `npm audit --omit=dev` no longer lists `next`;
-      `npm run ci:local` is green.
-
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
       `brace-expansion` (under `glob`), `sharp`, `source-map-js` (all high)
       and `fast-uri` (moderate) all have fixes available via
@@ -434,6 +424,45 @@ decision and sit under "Needs a decision before building".
       A diff fails the PR until a human approves the new baseline.
 
 ---
+
+- [ ] **UX-36. Offline in the shop** (L) — first version: the active shopping
+      list survives a dead zone, ticks sync later.
+      - Cache the open shopping list and shopping mode for offline reads
+        (service worker, `src/lib/service-worker.js`, which today shows
+        only the offline page). Only the shopping list is cached; auth,
+        money and everything else stay network-only.
+      - Queue only **ticks (check/uncheck)** while offline and replay them
+        on reconnect, with a visible "3 changes waiting" chip. Conflict
+        rule: last write wins per item, and an item deleted meanwhile is
+        skipped silently.
+      - Offline adds and price edits are parked as a later item: they need
+        id/merge rules that ticks don't.
+      - Use the existing optimistic rows (UX-14) as the foundation. Any
+        browser storage for the queue goes in `cookie-inventory.ts` and is
+        cleared on logout.
+      Acceptance: an e2e test loads the list, goes offline
+      (`context.setOffline(true)`), ticks an item, sees the chip, goes
+      online and asserts the tick persisted after reload, on desktop and
+      mobile.
+      Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
+      the shopping list. Why: it's the in-store case Bring! and AnyList
+      cover and the smallest slice with no merge conflicts. See PRODUCT.md.
+
+- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) — use
+      the squirrel in every empty state (no items, no lists, no meals, no
+      tasks, all caught up), and one subtle celebration when a shopping
+      list is completed.
+      - Raster mark only, per DESIGN.md's Brand mark rules, no emoji, no
+        new illustration assets, served through `next/image`. Under
+        reduced motion, show a static image.
+      - The budget-under-plan celebration is dropped: no celebrations on
+        money (Guardrails: no loss-aversion or streaks on money).
+      Acceptance: an e2e test opens an empty list page and asserts the
+      mark with its accessible name, and the completion celebration
+      appears once after the last item is ticked, on desktop and mobile.
+      Decided 2026-10-15 by autopilot-product: existing mark only, no
+      budget celebration. Why: ships without waiting for assets and keeps
+      money surfaces calm. See PRODUCT.md.
 
 ## Competitive gap scan
 
@@ -612,25 +641,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-05 scan
-
-- [ ] **GAP-46. "Last cooked / cooked N times" on each recipe** (impact: med, effort: S) —
-      Plan to Eat and Paprika show when a recipe was last made and how
-      often, so a household can see what has dropped out of rotation and
-      stop cooking the same five dinners. Squirrel records the data
-      already: `MealPlanEntry.consumedAt` (`prisma/schema.prisma:906`) is
-      set by "Mark as cooked" (REQUIREMENTS.md, "Mark meal as cooked →
-      inventory decrement"), but nothing reads it back per recipe. The
-      Recipes list (`RecipeManager`) shows only the favorite star and stays
-      alphabetical (REQUIREMENTS.md, "Recipe favorites"). No schema change:
-      a household-scoped `groupBy recipeId` over cooked entries, plus a
-      pure helper for the label. Acceptance: each recipe row shows "Cooked
-      3 times, last 12 Sep" (or nothing for a never-cooked recipe, not
-      "0 times"), localized in `en.ts` and `sv.ts` with a `{ one, other }`
-      plural; the query is scoped by `requireHousehold()` and has a unit
-      test for count and latest date; an e2e test marks a seeded entry
-      cooked, opens Recipes and asserts the line, on desktop and mobile.
-
 ### 2026-10-06 scan
 
 - [ ] **GAP-47. Price history on an inventory item** (impact: med, effort: S) —
@@ -792,27 +802,6 @@ out to be a product-scope question rather than a scoped task should move to
       asserts the date text on the recipe view on desktop and mobile.
 
 ## Needs a decision before building
-
-- [ ] **UX-36. Offline in the shop** (L) `[!]` — needs a product decision on
-      scope and conflict rules.
-      - Cache the active shopping list and shopping mode.
-      - Queue ticks, adds and price edits while offline, and sync with a
-        visible "3 changes waiting" chip.
-      - Use the existing optimistic rows (UX-14) as the foundation.
-
-      Bring! and AnyList both work in a basement supermarket; today
-      Squirrel shows the offline page (`service-worker.js:34-45`).
-
-- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) `[!]` —
-      needs illustration assets. Use the squirrel in:
-      - every empty state (no items, no lists, no meals, no tasks, all
-        caught up);
-      - a subtle celebration when a list is completed or the budget ends
-        the month under plan.
-
-      Use the raster mark only, per DESIGN.md's Brand mark rules, with no
-      emoji, served through `next/image`. Under reduced motion, show a
-      static image.
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
       household onboarding offers a one-click `StarterCategoryPicker`; personal onboarding

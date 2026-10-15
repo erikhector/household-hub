@@ -13,6 +13,7 @@ import { getWeekStart, isDateKey, parseDateKey, toDateKey } from "@/app/dashboar
 import { computeMealVarietyRecap } from "@/app/dashboard/meal-planning/meal-variety-calc";
 import { computeNutritionRecap } from "@/app/dashboard/meal-planning/nutrition-recap-calc";
 import { getCookableRecipes } from "@/app/dashboard/meal-planning/cookable-recipes";
+import { getRecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 import { MAX_PREP_DISHES } from "@/app/dashboard/meal-planning/prepared-batch-calc";
 import { computeRecipeCost, type RecipeCost, type RecipeCostPurchase } from "@/app/dashboard/meal-planning/recipe-cost";
@@ -261,9 +262,11 @@ async function RecipesTabSection({
   dict: MealPlanningDict;
   weekStartKey: string;
 }) {
-  const [{ recipes, recipeRows, inventoryItems }, locale] = await Promise.all([
+  // GAP-46: its own groupBy, only run on this tab, like the cost inputs below.
+  const [{ recipes, recipeRows, inventoryItems }, locale, recipeCooked] = await Promise.all([
     getMealPlanningCoreData(householdId, weekStartKey),
     getLocale(),
+    getRecipeCookedStats(householdId),
   ]);
 
   const ingredientNames = [...new Set(inventoryItems.map((item) => item.name))].sort();
@@ -410,6 +413,7 @@ async function RecipesTabSection({
       currencyCode={currencyCode}
       recipes={recipeRows}
       recipeCosts={recipeCosts}
+      recipeCooked={recipeCooked}
       useItUpSuggestions={useItUpSuggestions}
       ingredientNames={ingredientNames}
       ingredientUnits={ingredientUnits}
