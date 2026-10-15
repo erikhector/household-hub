@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireHousehold } from "@/lib/session";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError, v, zodFail, type ErrorKey } from "@/lib/actions/errors";
 import { parseShareSplitFormData } from "@/lib/share-split-form";
 
 // Planned bills (BUDGET-8): one-off bills with a due date. Kept out of
@@ -13,10 +13,10 @@ import { parseShareSplitFormData } from "@/lib/share-split-form";
 // transaction that paid it — fixing a typo on a paid bill is allowed.
 
 const plannedExpenseSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
-  amount: z.coerce.number().positive("Amount must be greater than zero"),
-  categoryId: z.string().min(1, "Category is required"),
-  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid due date"),
+  name: z.string().trim().min(1, v("nameRequired")).max(100, v("billNameTooLong")),
+  amount: z.coerce.number().positive(v("amountPositive")),
+  categoryId: z.string().min(1, v("categoryRequired")),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, v("invalidDueDate")),
 });
 
 // Same set as revalidateBudgetPages in actions.ts (not exported from a
@@ -36,6 +36,18 @@ function parseDueDate(value: string): Date | null {
   return date;
 }
 
+// parseShareSplitFormData is shared with the not-yet-converted actions.ts and
+// returns English text, so this file maps each message it can return to an
+// `errors` key here rather than changing what actions.ts answers with. An
+// unknown message falls back to "invalidInput" instead of leaking English.
+const BILL_SPLIT_SUM_MISMATCH = "The split amounts must add up to the bill's amount";
+const SPLIT_ERROR_KEYS: Record<string, ErrorKey> = {
+  "Invalid split": "splitInvalid",
+  "Each split amount must be zero or more": "splitAmountNegative",
+  "One of the selected members no longer belongs to this household": "splitMemberGone",
+  [BILL_SPLIT_SUM_MISMATCH]: "billSplitSumMismatch",
+};
+
 function parsePlannedExpenseFields(formData: FormData) {
   return plannedExpenseSchema.safeParse({
     name: formData.get("name"),
@@ -53,23 +65,23 @@ export async function createPlannedExpenseAction(
 
   const parsed = parsePlannedExpenseFields(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   const dueDate = parseDueDate(parsed.data.dueDate);
-  if (!dueDate) return { error: "Invalid due date" };
+  if (!dueDate) return fail("invalidDueDate");
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id, type: "EXPENSE" },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const split = await parseShareSplitFormData(
     formData,
     household.id,
     parsed.data.amount,
-    "The split amounts must add up to the bill's amount",
+    BILL_SPLIT_SUM_MISMATCH,
   );
-  if (split && "error" in split) return { error: split.error };
+  if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
 
   try {
     await prisma.plannedExpense.create({
@@ -105,32 +117,32 @@ export async function updatePlannedExpenseAction(
   const { household } = await requireHousehold();
 
   const id = z.string().min(1).safeParse(formData.get("id"));
-  if (!id.success) return { error: "Planned bill not found" };
+  if (!id.success) return fail("plannedBillNotFound");
 
   const parsed = parsePlannedExpenseFields(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return zodFail(parsed.error);
   }
   const dueDate = parseDueDate(parsed.data.dueDate);
-  if (!dueDate) return { error: "Invalid due date" };
+  if (!dueDate) return fail("invalidDueDate");
 
   const category = await prisma.budgetCategory.findFirst({
     where: { id: parsed.data.categoryId, householdId: household.id, type: "EXPENSE" },
   });
-  if (!category) return { error: "Category not found" };
+  if (!category) return fail("categoryNotFound");
 
   const existing = await prisma.plannedExpense.findFirst({
     where: { id: id.data, householdId: household.id },
   });
-  if (!existing) return { error: "Planned bill not found" };
+  if (!existing) return fail("plannedBillNotFound");
 
   const split = await parseShareSplitFormData(
     formData,
     household.id,
     parsed.data.amount,
-    "The split amounts must add up to the bill's amount",
+    BILL_SPLIT_SUM_MISMATCH,
   );
-  if (split && "error" in split) return { error: split.error };
+  if (split && "error" in split) return fail(SPLIT_ERROR_KEYS[split.error] ?? "invalidInput");
 
   // Splits are replaced wholesale (delete-all then recreate) rather than
   // diffed, same convention updateRecurringTemplateAction uses.
@@ -170,7 +182,7 @@ export async function deletePlannedExpenseAction(id: string): Promise<ActionStat
     const { count } = await prisma.plannedExpense.deleteMany({
       where: { id, householdId: household.id },
     });
-    if (count === 0) return { error: "Planned bill not found" };
+    if (count === 0) return fail("plannedBillNotFound");
   } catch (error) {
     return toFriendlyError(error);
   }
