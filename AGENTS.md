@@ -263,7 +263,7 @@ loop".
   through one release PR, **with a merge commit, never squash**. Its full
   CI run is the e2e gate, and `release.yml` then cuts one version for
   every PR in it, with their notes joined. The autopilot reviewer ships
-  once a day; the **Cut release** workflow (Actions tab) ships by hand.
+  on each run (twice a day, plus runs chained after the builder); the **Cut release** workflow (Actions tab) ships by hand.
   A hotfix can go straight into `master` as its own squash-merged PR.
 - Never push to `next` or `master` directly. Only the release workflow
   does that (the release commit, and merging `master` back into `next`).

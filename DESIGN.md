@@ -432,6 +432,10 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   beside the word "Squirrel" set in `heading`.
 - It is a raster illustration: never redraw, recolour or place it on a
   busy ground.
+- In empty states it heads the dashed box at 64px with its own alt text
+  (`MascotEmptyState`), and it fills the "All done" ring once when the
+  last shopping item is ticked. Nowhere on money: budget surfaces stay
+  calm.
 
 ### Accessibility (tokens)
 

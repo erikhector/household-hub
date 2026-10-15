@@ -22,6 +22,9 @@ write it.
 ## 0. Gate (coordinator)
 
 1. Read `AUTOPILOT.md`. Stop if `enabled` or `builder_enabled` is false.
+   Then take the builder's run lock (AUTOPILOT.md, "Run lock"); stop if
+   another builder run holds it. Release it whenever you stop from here
+   on, and at the end of step 4.
 2. Count open PRs with `is:open label:autopilot NOT backlog in:title NOT
    retro in:title` (a GitHub search, not eyeballing the label list) — this
    is builder-opened PRs only, never scout scans (titled
@@ -38,7 +41,10 @@ write it.
    `ci_gate: github`) red CI. Finishing beats starting, so each of these
    gets a **fix sub-agent** (step 2) before any new item gets a builder.
    Fixing doesn't open a PR, so it doesn't use headroom, only
-   `max_parallel_subagents` slots.
+   `max_parallel_subagents` slots. A run started with a "Fix run:"
+   prompt (the reviewer's hand-off, AUTOPILOT.md "Chaining") includes
+   every PR the prompt names, using its line for that PR as a pointer to
+   the review on GitHub, then continues as usual.
 4. `slots = max_parallel_subagents − fix sub-agents`. New builds this run
    `= min(headroom, slots, parallel-safe eligible items)` (step 1). If
    that's 0 and there's nothing to fix, report and stop.
@@ -48,7 +54,9 @@ write it.
 List candidates in one call:
 `grep -n '^- \[ \] \*\*[A-Z]\+-[0-9A-Z]\+\.' BACKLOG.md`.
 Apply AUTOPILOT.md's allowed prefixes and exclusions. **Every eligible
-`UX-` item comes first** (best impact/effort among them), then the
+`BUG-` item titled `Red next: …` comes first, then one `MAINT-` item
+titled `Flaky: …`** (at most one per run), then
+**every eligible `UX-` item** (best impact/effort among them), then the
 eligible IDs in PRODUCT.md's "Focus" list in its order; only the slots
 left after those go to other items, lowest phase first, then best
 impact/effort. Confirm no open PR mentions each ID. Read only the
@@ -104,7 +112,13 @@ GitHub and on disk before accepting it:
    --git-dir)/ci-local.log` starts with that SHA and its tail shows lint,
    typecheck, unit tests, build and e2e all passing with nothing skipped
    (`tail -n 30`, `grep -E 'skipped|failed|✘'`). The PR's Verification
-   section matches it.
+   section matches it. The one exception is an e2e failure that isn't
+   the PR's: accept it only when (a) a second `ci-local`-style log whose
+   first line is the `origin/next` SHA, run under the lock on a clean
+   checkout of `next`, shows the same spec failing there too, and (b) the
+   PR's diff touches neither that spec nor its feature area. Then say so
+   on the PR (marked comment) and collect it for step 3b. Anything less
+   is a failed check.
 3. **The PR is well-formed**: Conventional Commit title ending in the
    item ID, label `autopilot`, template filled in, release note in English
    and Swedish for a releasing type, and "⚠️ Needs careful review" if the
@@ -119,8 +133,9 @@ GitHub and on disk before accepting it:
 Any check fails: send the specific failure back to that sub-agent with
 `SendMessage` (its context is intact) and validate again when it
 answers. After a second failed round, convert the PR to a draft, comment
-what's wrong on it (ending with the attribution footer), and mark it
-failed in your list. Never fix it yourself.
+what's wrong on it (marked, ending with the attribution footer), label it
+`needs-human` so it reaches the Owner inbox, and mark it failed in your
+list. Never fix it yourself.
 
 A validated PR: subscribe to its activity (`subscribe_pr_activity`). PR
 events wake the coordinator, not the sub-agent: hand each actionable one
@@ -128,11 +143,55 @@ events wake the coordinator, not the sub-agent: hand each actionable one
 a new fix sub-agent if that one is gone, then validate again. Never merge:
 the `autopilot-review` routine reviews and merges every PR.
 
+### 3b. File the flaky tests
+
+Every pre-existing e2e failure collected in step 3 needs an owner. A spec
+that also *passed* on one of the runs is flaky: a `Flaky:` item as below.
+One that failed every time on `next` means `next` is red: a `BUG-` item
+titled `Red next: …` with the failing output, picked first. Once all PRs are
+validated, file them in one `docs(backlog): flaky e2e <date>` PR
+(BACKLOG.md only, label `autopilot`; the reviewer merges it). If an open
+PR with that title already exists (the reviewer's step 4c files them
+too), push to it instead of opening a second. Take the next free ID as
+one more than the highest `MAINT-` (or `BUG-`) ID in BACKLOG.md *and* in
+open `docs(backlog)` PRs, so two PRs never claim the same ID. A **flaky-test item** goes in Phase 1 under `### Maintainability`, as
+the next free `MAINT-` ID, titled `Flaky: <what the test sees>` with the
+spec path and line, the project (`desktop`/`mobile`), how often it fails
+and on which commits, the failing assertion, and the acceptance line
+`npx playwright test <spec> --project=<project> --repeat-each=30` passes
+30/30. The fix is in the app or the test's waiting, never a loosened
+assertion, a skip or a retry. Before filing, grep BACKLOG.md for the spec
+path: if an item already names it, add the new sighting to that item
+instead.
+
 ## 4. Report (coordinator)
+
+Before the report, if AUTOPILOT.md says `chain: true`, this run wasn't
+itself chained, and it opened or fixed at least one PR, start the
+"Autopilot reviewer" routine as AUTOPILOT.md's "Chaining" section
+describes, so the PRs don't wait for its schedule. Then unsubscribe from
+every PR you subscribed to and release the run lock. **Then check once
+more**, because a reviewer that saw your lock a moment ago left the fix
+to you: list the open `autopilot` PRs that need work (step 0.3's check)
+and keep only those this run hasn't already given a fix sub-agent
+(each PR gets at most one fix round per run, so a fix that can't clear
+red CI or a conflict never loops). Any found: take the run lock again
+(AUTOPILOT.md "Run lock", steps 1–2; if another builder now holds it,
+stop, it has them), fix them as in steps 2–3, and repeat this paragraph.
+Stop when a pass finds nothing new. A PR this run already fixed that is
+still red or conflicting gets the `needs-human` label and a marked
+comment saying what's left, so it reaches the Owner inbox instead of
+another builder.
+
+Every comment you or a sub-agent posts starts with `🤖 autopilot-build`
+(AUTOPILOT.md, "Owner inbox"): an unmarked comment would read as the
+owner's.
 
 Final message, one line per item or PR: ID, PR link, status (validated /
 fixed / draft: why), what was tested. Then the run's totals (built,
-fixed, failed, headroom left). Nothing else.
+fixed, failed, headroom left), whether the reviewer was chained, and a
+last line `Owner action needed: none` or what's needed (drafts that need
+a person, items marked `[!]` mid-build). Nothing else.
 
 ---
 

@@ -6,8 +6,9 @@ yet**; everything already shipped is documented in
 are kept for their design rationale in [`docs/archive/`](./docs/archive/)
 (code comments still cite them by item).
 
-**Picking an item:** `UX-` items go first, whatever their phase (see
-AUTOPILOT.md, "What the builder may pick"). Otherwise take the lowest phase you can. Within Phase 1, anything
+**Picking an item:** one `MAINT-` item titled `Flaky: …` goes first,
+then `UX-` items, whatever their phase (see AUTOPILOT.md, "What the
+builder may pick"). Otherwise take the lowest phase you can. Within Phase 1, anything
 can run in parallel except the file conflicts listed at the top of that phase. Phase 2
 items each add a Prisma migration, so land them **one at a time**, each
 rebased on the previous one's merge, to avoid migration-ordering conflicts.
@@ -224,7 +225,7 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky "Next up" layout shift in `motion.spec.ts`**
+- [ ] **MAINT-18. Flaky: "Next up" layout shift in `motion.spec.ts`**
       (medium, S) — `[mobile] e2e/motion.spec.ts:180` ("adding, ticking
       and removing shopping items glide, with no layout shift") fails
       about 1 run in 10 on `master` (v0.66.0) and on v0.67.0, always the
@@ -237,7 +238,7 @@ then MAINT-7 per feature, to avoid churn.
       safe-area settle on the fixed panel) and fix the cause. Don't
       loosen the assertion. Acceptance: `npx playwright test
       e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
-- [ ] **MAINT-19. Ticked shopping row is in the list twice for 350 ms**
+- [ ] **MAINT-19. Flaky: ticked shopping row is in the list twice for 350 ms**
       (medium, S) — `e2e/optimistic-ticking.spec.ts:76` fails about 1 run
       in 10 on `master` (v0.67.0) and failed both CI attempts on release
       #239: `getByRole('checkbox', { name: /^Coffee … ×/ })` matches two
@@ -387,11 +388,11 @@ benchmark is the best consumer apps on the same tasks:
 The UX items above make the app correct. These make it feel native and
 delightful. Motion and view transitions shipped as UX-33, swipe row
 actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
-charts are hand-rolled `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
-decision and sit under "Needs a decision before building".
+UX-36 (offline in the shop) needs an owner decision and sits under
+"Needs a decision before building".
 
 
 
@@ -462,22 +463,6 @@ decision and sit under "Needs a decision before building".
       Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
       the shopping list. Why: it's the in-store case Bring! and AnyList
       cover and the smallest slice with no merge conflicts. See PRODUCT.md.
-
-- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) — use
-      the squirrel in every empty state (no items, no lists, no meals, no
-      tasks, all caught up), and one subtle celebration when a shopping
-      list is completed.
-      - Raster mark only, per DESIGN.md's Brand mark rules, no emoji, no
-        new illustration assets, served through `next/image`. Under
-        reduced motion, show a static image.
-      - The budget-under-plan celebration is dropped: no celebrations on
-        money (Guardrails: no loss-aversion or streaks on money).
-      Acceptance: an e2e test opens an empty list page and asserts the
-      mark with its accessible name, and the completion celebration
-      appears once after the last item is ticked, on desktop and mobile.
-      Decided 2026-10-15 by autopilot-product: existing mark only, no
-      budget celebration. Why: ships without waiting for assets and keeps
-      money surfaces calm. See PRODUCT.md.
 
 ## Competitive gap scan
 
@@ -658,23 +643,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-10-06 scan
 
-- [ ] **GAP-47. Price history on an inventory item** (impact: med, effort: S) —
-      Grocy shows every product's purchase price history (date, store,
-      price, per-unit price) so a household can see whether milk is really
-      getting dearer. Squirrel already records it: `PriceHistory`
-      (`prisma/schema.prisma:658`) is written by purchases and receipt
-      scans and feeds the spike warning and Budget → Insights, but the
-      inventory item itself shows no price at all; `PriceHistory` is only
-      read in `budget/page.tsx` and `receipt-scan-dialog.tsx`. No schema
-      change: a household-scoped read of an item's last N rows plus the
-      existing per-unit helpers in `price-spike.ts`. Acceptance: the item
-      detail shows "Recent prices" (up to 10 rows: date, store if known,
-      price and per-unit price) and nothing for an item with no history
-      (no empty chart); the read is scoped by `requireHousehold()` and
-      unit-tested for tenancy and ordering; strings in `en.ts` and
-      `sv.ts`; an e2e test buys a seeded item with a price, opens it and
-      asserts the row, on desktop and mobile.
-
 - [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
       Paprika, Mealie and AnyList let you copy a recipe to make a variant
       (vegetarian lasagne, half batch) without retyping ingredients and
@@ -692,23 +660,6 @@ out to be a product-scope question rather than a scoped task should move to
       desktop and mobile.
 
 ### 2026-10-12 scan
-
-- [ ] **GAP-50. Step timers in Cook mode** (impact: med, effort: S) —
-      AnyList added recipe timers that keep running while you do something
-      else. Squirrel's Cook mode (GAP-42, `cook-mode-dialog.tsx`) shows
-      steps but has no timer, so a cook leaves the screen for the phone's
-      clock app. Detect durations in a step's text ("simmer 15 minutes",
-      "koka i 10 min") with a pure helper in `cook-mode-calc.ts` and show a
-      "Start 15 min timer" button on that step; a running timer shows a
-      countdown chip, and when it ends the dialog shows an in-page alert
-      and a short vibration where supported. In-dialog only: no push, no
-      background work, nothing stored in the browser (so no
-      `cookie-inventory.ts` entry). Works with no AI key.
-      Acceptance: unit tests for duration parsing (en + sv, ranges like
-      "10-12 min" use the upper bound, hours); an e2e step in
-      `e2e/cook-mode.spec.ts` that opens a seeded step with a duration,
-      starts the timer and asserts the countdown chip is visible, on
-      desktop and mobile.
 
 - [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
       AnyList's v6 meal planning has a queue of recipes you intend to make

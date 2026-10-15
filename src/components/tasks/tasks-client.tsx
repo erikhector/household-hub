@@ -24,6 +24,7 @@ import { computeWeeklyTaskRecap } from "@/app/dashboard/tasks/weekly-recap-calc"
 import { withLocalCompletion } from "@/lib/task-rotation";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 type MemberOption = { id: string; displayName: string };
 
@@ -102,9 +103,9 @@ export function TasksClient({
       {/* Keyed too, so the list glides down when the recap above grows. */}
       <div data-flip-key="tasks" className="relative flex flex-col gap-2">
         {tasks.length === 0 ? (
-          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {dict.emptyState}
-          </p>
+          <MascotEmptyState alt={dict.mascotAlt}>
+            <p className="text-sm text-muted-foreground">{dict.emptyState}</p>
+          </MascotEmptyState>
         ) : (
           <>
             {openTasks.map((task) => (

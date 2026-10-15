@@ -95,6 +95,7 @@ import { useUnitLabel } from "@/components/units-provider";
 import { canNativeShare } from "@/components/ui/copy-link-button";
 import { formatShoppingListText } from "@/lib/shopping-list-text";
 import { PageTitle } from "@/components/dashboard/page-title";
+import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
 
 // Below this many unlinked items, resolving them one at a time via each
 // row's edit dialog is fine; above it, the batch ResolveMappingsDialog is
@@ -297,8 +298,14 @@ export function ShoppingListClient({
   // server's own `purchased` for the row from the same state it updates.
   const serverPurchased = (rows: ShoppingListItemRow[], id: string) =>
     rows.find((row) => row.id === id)?.purchased ?? false;
+  const [celebrate, setCelebrate] = useState(false);
   const toggleItem = (item: ShoppingListItemRow) => {
     const ticking = !item.purchased;
+    // UX-38: ticking the last thing left on an active list is the moment the
+    // trip is done, so that (and only that) earns the small celebration. It's
+    // decided here, in the tap, rather than from isCleared, so opening a list
+    // that's already all ticked, or deleting its last row, stays quiet.
+    if (ticking && isActive && pendingItems.length === 1 && pendingItems[0].id === item.id) setCelebrate(true);
     setLeavingRow(item.id, ticking && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     setTickState((current) => ({
       ...current,
@@ -306,7 +313,10 @@ export function ShoppingListClient({
     }));
     void (async () => {
       const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
-      if (!result) setLeavingRow(item.id, false);
+      if (!result) {
+        setLeavingRow(item.id, false);
+        setCelebrate(false);
+      }
       setTickState((current) => ({
         ...current,
         overlay: tickSettled(current.overlay, item.id, result !== null, serverPurchased(current.items, item.id)),
@@ -514,7 +524,10 @@ export function ShoppingListClient({
   const [clearedDismissed, setClearedDismissed] = useState(false);
   if (isCleared !== wasCleared) {
     setWasCleared(isCleared);
-    if (!isCleared) setClearedDismissed(false);
+    if (!isCleared) {
+      setClearedDismissed(false);
+      setCelebrate(false);
+    }
   }
   const showCleared = isCleared && !clearedDismissed;
 
@@ -821,6 +834,7 @@ export function ShoppingListClient({
           <ClearedState
             dict={dict}
             progress={progress}
+            celebrate={celebrate}
             onDismiss={() => setClearedDismissed(true)}
             // Only once something was actually bought — a list that was
             // simply emptied out has no trip to finish.
@@ -835,9 +849,9 @@ export function ShoppingListClient({
             isPending={isPending || isTicking}
           />
         ) : pendingItems.length === 0 && purchasedItems.length === 0 ? (
-          <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {isActive ? dict.emptyListActive : dict.emptyListOther}
-          </p>
+          <MascotEmptyState alt={dict.mascotAlt}>
+            <p className="text-sm text-muted-foreground">{isActive ? dict.emptyListActive : dict.emptyListOther}</p>
+          </MascotEmptyState>
         ) : (
           <>
             {/* Shopping mode (AUTO-3): pending items grouped by the linked
@@ -999,6 +1013,7 @@ function PrintableList({
 function ClearedState({
   dict,
   progress,
+  celebrate,
   onDismiss,
   onDone,
   awaitingPutAway,
@@ -1007,6 +1022,8 @@ function ClearedState({
 }: {
   dict: ShoppingListDict;
   progress: ShoppingProgress;
+  /** UX-38: the last item was just ticked here, so the squirrel fills the ring instead of the check. */
+  celebrate: boolean;
   onDismiss: () => void;
   /** AUTO-5: completes the list in one tap, with Undo on the toast. */
   onDone?: () => void;
@@ -1017,9 +1034,25 @@ function ClearedState({
   return (
     <div className="relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
       {progress.total > 0 ? (
-        <ProgressRing progress={progress} dict={dict.shoppingMode} className="mb-2 size-20">
-          <Check aria-hidden className="size-8 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
-        </ProgressRing>
+        // UX-38: on the tick that cleared the list, the squirrel rises into
+        // the full ring once and then holds still: no confetti, sound or
+        // count. It sits over the ring as a sibling, not inside it, because a
+        // progressbar's children are hidden from screen readers and the mark
+        // has a name to announce. motion-safe keeps it a static image under
+        // prefers-reduced-motion.
+        <div className="relative mb-2 grid place-items-center">
+          <ProgressRing progress={progress} dict={dict.shoppingMode} className="size-20">
+            {!celebrate && (
+              <Check aria-hidden className="size-8 text-primary motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-500" />
+            )}
+          </ProgressRing>
+          {celebrate && (
+            <MascotMark
+              alt={dict.mascotAlt}
+              className="absolute size-12 rounded-full motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:zoom-in-75 motion-safe:duration-700"
+            />
+          )}
+        </div>
       ) : (
         <CheckCheck className="size-5 text-muted-foreground" />
       )}

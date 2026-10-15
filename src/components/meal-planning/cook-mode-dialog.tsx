@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Timer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle, type DialogHandle } from "@/components/ui/dialog";
-import { cookScale, formatCookQuantity, splitSteps } from "@/lib/cook-mode-calc";
+import {
+  cookScale,
+  formatCookQuantity,
+  formatCountdown,
+  formatTimerLabel,
+  parseStepDuration,
+  splitSteps,
+} from "@/lib/cook-mode-calc";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import { format, plural } from "@/lib/i18n/format";
 import { cn } from "@/lib/utils";
@@ -15,9 +22,14 @@ import { useUnitLabel } from "@/components/units-provider";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
+// Wall-clock time for the step timers. Only called from effects and click
+// handlers, never while rendering; a named helper keeps the purity lint rule
+// (which can't tell a handler from render code) quiet.
+const clockNow = () => Date.now();
+
 // GAP-42 — the "Cook" view: a full-screen read-only take on a recipe for use
 // at the stove. Large step text, the ingredients, and steps you tap to
-// cross off. The ticks are component state only — nothing is saved, so
+// cross off. The ticks and step timers (GAP-50) are component state only — nothing is saved, so
 // closing and reopening starts fresh (no cookie-inventory entry needed).
 // `portions` is the meal entry's portion count when opened from the planner,
 // which scales the ingredient amounts; null (the recipe list) shows the
@@ -74,6 +86,48 @@ function CookModeContent({
       return next;
     });
 
+  // GAP-50 — step timers. `timers` maps a step to the wall-clock time it ends
+  // (an end time, not a counter, so a throttled background tab catches up the
+  // moment it wakes); `finished` lists the steps whose timer has rung and
+  // not yet been dismissed. All component state: closing the view drops
+  // every timer, nothing is stored and nothing runs in the background.
+  const [timers, setTimers] = useState<Readonly<Record<number, number>>>({});
+  const [finished, setFinished] = useState<readonly number[]>([]);
+  const [now, setNow] = useState(clockNow);
+  useEffect(() => {
+    if (Object.keys(timers).length === 0) return;
+    const id = setInterval(() => {
+      const tick = clockNow();
+      setNow(tick);
+      const rung = Object.keys(timers)
+        .map(Number)
+        .filter((index) => timers[index] <= tick);
+      if (rung.length === 0) return;
+      setTimers((prev) => {
+        const next = { ...prev };
+        for (const index of rung) delete next[index];
+        return next;
+      });
+      setFinished((list) => [...list, ...rung.filter((index) => !list.includes(index))]);
+      // A short buzz where supported (not iOS Safari); the alert is the cue
+      // everywhere else.
+      navigator.vibrate?.([200, 100, 200]);
+    }, 500);
+    return () => clearInterval(id);
+  }, [timers]);
+  const startTimer = (index: number, seconds: number) => {
+    const start = clockNow();
+    setNow(start);
+    setTimers((prev) => ({ ...prev, [index]: start + seconds * 1000 }));
+    setFinished((list) => list.filter((i) => i !== index));
+  };
+  const stopTimer = (index: number) =>
+    setTimers((prev) => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+
   const scale = cookScale(recipe.servings, portions);
   const shownPortions = portions ?? recipe.servings;
 
@@ -93,6 +147,32 @@ function CookModeContent({
             {format(plural(shownPortions, dict.entryPortionsCount), { count: shownPortions })}
           </p>
         </div>
+
+        {/* Sticky so a ring is seen wherever the cook has scrolled to; role
+            "alert" announces it to a screen reader. Stays until dismissed:
+            a cook with floury hands may not look for a few seconds. */}
+        {finished.length > 0 && (
+          <div className="sticky top-0 z-10 flex flex-col gap-2">
+            {finished.map((index) => (
+              <div
+                key={index}
+                role="alert"
+                className="flex items-center gap-3 rounded-xl border border-primary bg-popover p-3 text-base font-medium shadow-md"
+              >
+                <Timer aria-hidden className="size-5 shrink-0" />
+                <span className="min-w-0 flex-1 break-words">{format(dict.cookTimerDone, { step: index + 1 })}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={() => setFinished((list) => list.filter((i) => i !== index))}
+                >
+                  {dict.cookTimerDismiss}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {recipe.ingredients.length > 0 && (
           <section aria-labelledby="cook-ingredients" className="flex flex-col gap-2">
@@ -123,6 +203,9 @@ function CookModeContent({
           <ol className="flex flex-col gap-3">
             {steps.map((step, index) => {
               const isDone = done.has(index);
+              const seconds = parseStepDuration(step);
+              const endsAt = timers[index];
+              const remaining = endsAt == null ? 0 : (endsAt - now) / 1000;
               return (
                 <li key={index}>
                   {/* The whole card is the tap target (M3); aria-pressed
@@ -149,6 +232,41 @@ function CookModeContent({
                     </span>
                     <span className={cn("min-w-0 break-words", isDone && "line-through")}>{step}</span>
                   </button>
+                  {seconds != null && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 pl-10">
+                      {endsAt != null ? (
+                        <>
+                          <span
+                            role="timer"
+                            aria-label={format(dict.cookTimerRemaining, { time: formatCountdown(remaining) })}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-full border bg-muted px-4 text-lg font-medium tabular-nums"
+                          >
+                            <Timer aria-hidden className="size-5" />
+                            {formatCountdown(remaining)}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="min-h-11"
+                            onClick={() => stopTimer(index)}
+                          >
+                            <X aria-hidden />
+                            {dict.cookTimerStop}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="min-h-11"
+                          onClick={() => startTimer(index, seconds)}
+                        >
+                          <Timer aria-hidden />
+                          {format(dict.cookTimerStart, { duration: formatTimerLabel(seconds) })}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}

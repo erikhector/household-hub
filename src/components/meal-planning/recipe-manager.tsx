@@ -39,6 +39,7 @@ import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-coo
 import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -130,9 +131,9 @@ export function RecipeManager({
       </div>
 
       {recipes.length === 0 ? (
-        <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {dict.emptyRecipes}
-        </p>
+        <MascotEmptyState alt={dict.mascotAlt}>
+          <p className="text-sm text-muted-foreground">{dict.emptyRecipes}</p>
+        </MascotEmptyState>
       ) : (
         <>
           {/* Search + tag filter in one row, the same "all / one value"

@@ -373,7 +373,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     that loads the item (with its `ItemUnitConversion`s and `ItemAlias`es),
     its linked `RecipeIngredient`s, its pending rows (not purchased, on an
     `ACTIVE` list), its template rows and the household's other items (for
-    "Merge into another item…", MATCH-7) in five household-scoped queries
+    "Merge into another item…", MATCH-7) and its last purchases (GAP-47) in
+    household-scoped queries
     run together, and `notFound()`s an item of another household. Opened
     from the ⓘ "Details for {name}" link in each inventory row's action
     cluster (desktop table and phone card), from a linked ingredient name
@@ -413,6 +414,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       Recipes tab searched down to that recipe.
     - **Also on**: pending list rows ("E2E Groceries (1 pcs)", linking to
       the list) and templates (linking to the shopping lists page).
+    - **Recent prices (GAP-47)**: the item's last 10 `PriceHistory` rows,
+      newest first (`getRecentPrices`, `src/lib/inventory/recent-prices.ts`):
+      date, the store when one was recorded, the line price and, when the
+      row has a quantity and unit, the per-unit price ("SEK 15.00 / l";
+      `perUnitPrice`, the same price-over-quantity definition as the spike
+      warning). Rows are shown in the base currency they're stored in. The
+      read goes through `requireHousehold()` and
+      `inventoryItem.householdId`, so another household's item id returns
+      nothing. An item with no history shows no section at all.
     - **Names that map here**: the item's learned aliases, each removable
       (`removeItemAliasAction`, household-scoped), so the name is asked
       about again.
@@ -895,7 +905,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       in (motion-safe). When ticked rows still wait to be put away it says
       how many and its primary action is "Put things away", which opens the
       put-away dialog in finish mode; otherwise it's "Done shopping" as
-      before. Both wait for in-flight ticks to save.
+      before. Both wait for in-flight ticks to save. On the tick that clears
+      an active list, the squirrel mark rises into the full ring in place
+      of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
       the bottom half of a phone screen with no scrolling, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
@@ -4871,16 +4883,33 @@ is a full-screen read view for cooking from a phone.
   a done step is dimmed, struck through and shows a check instead of its
   number. State is component-only: nothing is saved or stored in the
   browser (no `cookie-inventory.ts` entry), so reopening starts fresh.
+- **Step timers (GAP-50)**: `parseStepDuration` (`cook-mode-calc.ts`)
+  reads a duration from a step's text in English and Swedish ("simmer 15
+  minutes", "koka i 10 min", "1,5 timmar", "1 hour 30 minutes", seconds
+  too). A range ("10-12 min", "10 till 12 min") uses its upper bound so the
+  timer never rings early; back-to-back phrases are added; with several
+  separate durations in one step the first wins; nothing is returned over
+  24 h or for a zero. A step with a duration shows a "Start 15 min timer"
+  button under it (44 px target); a running timer shows a countdown chip
+  (`role="timer"`, "14:32") and a "Stop timer" button. Several steps can run
+  at once. When one ends, a sticky `role="alert"` banner ("Timer done for
+  step 2") stays at the top of the view until dismissed, and the phone
+  vibrates briefly where `navigator.vibrate` exists. The timer stores its
+  end time, not a counter, so a throttled background tab catches up when it
+  wakes. It lives in the dialog only: no push, no background work, nothing
+  stored in the browser (no `cookie-inventory.ts` entry), and closing the
+  view drops every timer. Works with no AI key.
 - **Wake lock**: the dialog content calls `useScreenWakeLock(open)` (the
   AUTO-3 hook the shopping list uses), so the screen stays on while the view
   is open and the lock is released on close. Where the API is missing or
   denied it silently does nothing.
 - **Closing**: a full-width "Close" button at the bottom of the scroller
   (thumb zone) and Escape; the round close icon is dropped in favour of it.
-- **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting);
-  `e2e/cook-mode.spec.ts` opens the view, ticks and un-ticks a step and
-  closes back to the list on desktop and mobile. The seeded "Pancakes"
-  recipe has two steps for it.
+- **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting,
+  duration parsing); `e2e/cook-mode.spec.ts` opens the view, ticks and
+  un-ticks a step and closes back to the list, and starts and stops a step
+  timer, on desktop and mobile. The seeded "Pancakes" recipe has two steps
+  for the first; "Porridge" has a "10-12 minutes" step for the timer.
 
 ### Copy a recipe as text (GAP-43)
 
@@ -6607,6 +6636,32 @@ text-swap submit buttons across the forms and dialogs;
 `e2e/pending-button-width.spec.ts` holds the server action and checks the
 width. Buttons that swap a spinner icon rather than text are unchanged.
 
+### Mascot empty states (UX-38)
+
+The squirrel mark (`src/app/icon.png`, the same raster as BrandBadge,
+through `next/image`) heads the empty states that mean "nothing here
+yet": no shopping lists, an empty shopping list, no inventory items (the
+first-run panel, not "no matches"), no recipes, nothing prepped, no tasks,
+and the empty notification history. `MascotEmptyState` in
+`src/components/brand/mascot-empty-state.tsx` is the dashed box with the
+64 px mark on top; each page keeps its own copy as children. The mark has
+alt text ("Squirrel mascot" / "Squirrel-maskot", `mascotAlt` in each
+feature's dict) because nothing beside it names it. Filter "no matches",
+the bell dropdown, the catalog, scan queues and every budget surface stay
+text-only: small inline empties would be noise, and money surfaces get no
+mascot or celebration (PRODUCT.md Guardrails).
+
+**The one celebration.** Ticking the last pending item on an `ACTIVE`
+shopping list swaps the "All done" ring's tick for the mark, which rises
+in once (motion-safe, so a still image under `prefers-reduced-motion`)
+and holds. It's decided in the tap (`toggleItem`), not from the cleared
+state, so opening a list that's already all ticked or deleting its last
+row shows the plain tick. A failed save, or the list leaving the cleared
+state, re-arms it. The mark sits over the progress ring as a sibling
+because a `progressbar`'s children are hidden from screen readers. No
+confetti, sound, haptics or counts. Covered by `e2e/ux-38.spec.ts`
+(desktop and mobile).
+
 ## Motion and view transitions
 
 UX-33. One set of motion tokens, used two ways: list rows move at tap time
@@ -7002,7 +7057,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   `docs(backlog)` PR, and never touch app code.
 - **Builder** (`autopilot-build`) is a coordinator with sub-agents. The
   top-level session picks every eligible item that can be built in
-  parallel, `UX-` items before any other (as many as fit under `max_open_autopilot_prs` and
+  parallel, one `Flaky:` test fix and then `UX-` items before any other (as many as fit under `max_open_autopilot_prs` and
   `max_parallel_subagents`; at most one migration and one large item, no
   two in the same feature area) and starts one sub-agent per item in its
   own git worktree, with its own `node_modules` and database. Each
@@ -7017,12 +7072,12 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   failed round. Before building anything new it gives each of its own red
   or reviewed PRs a fix sub-agent, and it builds nothing when
   `max_open_autopilot_prs` are open.
-- **Reviewer** (`autopilot-review`, daily after the last builder run)
+- **Reviewer** (`autopilot-review`, twice a day and after each builder run)
   reviews every open PR, whoever opened it, as inline comments marked
   `🤖 autopilot-review`. The top-level session delegates each PR's review
   round to its own sub-agent (in parallel, up to
   `max_parallel_subagents`), then each merge to a merge sub-agent, one at
-  a time since each merge moves `master`; it checks every result against
+  a time since each merge moves `next`; it checks every result against
   GitHub (review marker and SHA, verdict consistent with open threads, PR
   actually merged) before accepting it. It stays subscribed to every PR
   it sent back for changes: when the author pushes a fix or replies to a
@@ -7030,8 +7085,8 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   most `max_review_rounds_per_run`, for up to `review_listen_hours`),
   checking each finding against the new head and resolving the thread
   once it's fixed. The builder (or the PR's author) does the fixing. A PR whose latest verdict is approved, with
-  no open threads, gets `master` merged in, conflicting migrations
-  regenerated on top of master's, and `npm run ci:local` run, then it is
+  no open threads, gets `next` merged in, conflicting migrations
+  regenerated on top of next's, and `npm run ci:local` run, then it is
   pushed and squash-merged once GitHub CI is green on that head
   (`release.yml` cuts the release after the merge). At most `max_merges_per_review_run` per
   run. Drafts and PRs labelled `hold` are left alone.
@@ -7041,16 +7096,58 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   never money, credentials, new personal data, deletion or the loop's
   own limits). Each decided item becomes a normal buildable item with
   acceptance criteria and a "Decided … by autopilot-product" line; the
-  rest get a recommendation in PRODUCT.md's "Owner inbox". It also keeps
+  rest get a recommendation in PRODUCT.md's "Owner inbox" and a
+  `decision` issue with numbered options, which the owner answers by
+  replying with a number or "yes"; the next run applies the answer and
+  closes the issue. It also keeps
   PRODUCT.md's "Direction" and "Focus" current; the builder takes Focus
   IDs right after `UX-` items, and scouts don't re-add what its Decision
   log turned down. Output is one `docs(backlog): product decisions` PR
   (BACKLOG.md and PRODUCT.md only) that the reviewer merges unless the
   owner labels it `hold`.
-- **Retro** (`autopilot-retro`, weekly) records metrics in AUTOPILOT.md,
-  turns any mistake seen twice in autopilot PRs into a lint rule, test or
-  checklist line, trims instructions nobody needed, and only *proposes*
-  loosening limits.
+- **Retro** (`autopilot-retro`, weekly) records metrics in
+  `docs/autopilot-metrics.md`, turns any mistake seen twice in autopilot
+  PRs into a lint rule, test or checklist line, trims instructions nobody
+  needed, and only *proposes* loosening limits. The reviewer merges its
+  PR unless it touches `never_merge_paths`, which include the autopilot
+  skills, so the loop never rewrites its own rules unseen.
+
+Three things keep the owner's part small (AUTOPILOT.md, "Owner inbox"
+and "Chaining"):
+
+- **Owner inbox.** The reviewer rewrites one pinned issue, "Owner inbox"
+  (label `owner-inbox`), at the end of every run: PRs labelled
+  `needs-human`, open `decision` issues, PRs from untrusted accounts and
+  anything a routine couldn't do. Every routine report ends with an
+  `Owner action needed:` line, and the reviewer, product and retro
+  routines send a push notification, so the owner opens GitHub only when
+  something needs them. Loop comments carry a `🤖 autopilot-<role>`
+  marker; since the routines run as the owner's account, a comment
+  without it is the owner's.
+- **Chaining.** The reviewer makes sure a builder is working on every
+  autopilot PR it asked changes on (or that has red CI or a conflict):
+  if no builder holds the run lock, it starts one with a "Fix run" prompt
+  naming the PRs and what each needs, whatever the time or gap, so a
+  fix never waits for the schedule. It also starts the builder once it
+  has merged something, the builder starts the reviewer once it has opened or fixed
+  a PR, and the reviewer starts the product owner when a decision issue
+  has an answer, via `fire_trigger`, each only when the target wasn't
+  started within `chain_min_gap_hours`. A chained run never chains again,
+  so each cron run buys at most one follow-up. The cron schedules stay as
+  the fallback. `fire_trigger` must be allowed without a prompt in the
+  environment, since no one is there to approve it.
+- **Flaky tests first.** The release train and the builder file every
+  e2e test that both fails and passes on the same commit as a `MAINT-`
+  item titled `Flaky: …` (one that fails every time on clean `next` is a
+  `BUG-` item instead), and the builder takes one of those before any
+  `UX-` item, since `ci:local` has no retry and each flake costs every
+  builder a gate re-run. The fix is in the app or the test's waiting,
+  never a skip, retry or looser assertion. A release that fails only on
+  a known flake re-runs the job instead of reverting a PR.
+- **Run lock.** The builder and reviewer each hold a lock for their whole
+  run (one open issue labelled `autopilot-lock-<role>`; the lowest open
+  number from a trusted account wins, stale ones expire after
+  `run_lock_hours`), so a cron run never overlaps a chained or slow one.
 
 Every role works from two outside skill packs with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
@@ -7090,33 +7187,34 @@ human-only areas (schema, auth, money logic, data deletion, workflows)
 and the merge policy. With `auto_merge: reviewer` the reviewer merges;
 PRs touching human-only areas get a deeper review rather than a human
 merge, except those changing AUTOPILOT.md or `.github/workflows/`
-(`never_merge_paths`), which a human merges so the loop can't loosen its
+or the autopilot skills (`never_merge_paths`), which a human merges so the loop can't loosen its
 own limits. Items marked `[!]` or under "Needs a decision
 before building" are never built until decided: by the product owner
 routine where AUTOPILOT.md allows it, otherwise by the owner.
 
 ### Routine prompts
 
-Each routine starts a fresh session on `master` in the household-hub
+Each routine starts a fresh session on `next` (the default branch, where
+AUTOPILOT.md and the skills are edited) in the household-hub
 environment (create with "new session on each run"). The prompts are
 deliberately short: the procedure lives in the skills, so it's versioned
 with the code and every run starts with a small context. Suggested
 schedules are in Stockholm time; minutes are offset from the hour so the
 runs don't queue behind everyone else's.
 
-| Routine | Schedule (cron) | Prompt |
+| Routine (exact name; chaining finds it by this) | Schedule (cron) | Prompt |
 |---|---|---|
-| Scout: competitors | `CRON_TZ=Europe/Stockholm 52 6 * * *` | Run the autopilot-scout skill with lens `competitors`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: code | `CRON_TZ=Europe/Stockholm 48 7 * * 1` | Run the autopilot-scout skill with lens `code`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Reviewer | `CRON_TZ=Europe/Stockholm 41 19 * * *` | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, and merge the PRs that pass, one merge sub-agent at a time. Follow AUTOPILOT.md; stop if it disables you. |
-| Product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
-| Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: competitors | `CRON_TZ=Europe/Stockholm 52 6 * * *` | Run the autopilot-scout skill with lens `competitors`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: code | `CRON_TZ=Europe/Stockholm 48 7 * * 1` | Run the autopilot-scout skill with lens `code`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
+| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot: product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
-The existing daily competitive-scan routine is replaced by "Scout:
+The existing daily competitive-scan routine is replaced by "Autopilot scout:
 competitors", which writes the same dated `GAP-` entries.
 
 ## Not yet built / roadmap
