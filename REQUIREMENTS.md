@@ -4573,7 +4573,9 @@ mid-recipe. `CookModeDialog` (`src/components/meal-planning/cook-mode-dialog.tsx
 is a full-screen read view for cooking from a phone.
 
 - **Entry points**: a "Cook" button in a recipe's sheet (its primary
-  action) and in a planned meal's sheet (`MealEntryRow`). Both only exist
+  action, beside "Edit recipe" in the footer that sticks to the sheet's
+  bottom on phones, so a long ingredient list never scrolls it out of
+  reach, M2) and in a planned meal's sheet (`MealEntryRow`). Both only exist
   when the recipe has non-blank instructions.
 - **Content**: the title and portion count, the ingredients, then the
   steps in large type. Steps are `instructions` split one per line
@@ -4602,7 +4604,7 @@ is a full-screen read view for cooking from a phone.
 ### Copy a recipe as text (GAP-43)
 
 Sending a recipe to a friend used to mean retyping it. Each recipe's sheet
-has a "Copy as text" button (under "Edit recipe"; the sheet stays open) that puts
+has a "Copy as text" button (under "Review ingredient matches"; the sheet stays open) that puts
 the recipe on the clipboard as plain text and confirms with a toast.
 
 - **Format**: `formatRecipeText` (`src/lib/recipe-text.ts`, pure): name,

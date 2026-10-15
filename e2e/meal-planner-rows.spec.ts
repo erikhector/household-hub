@@ -28,9 +28,10 @@ async function withClient<T>(fn: (client: Client) => Promise<T>) {
   }
 }
 
-// A recipe with steps and two ingredients, and (when `day` is given) a
-// dinner of it planned that day. Returns the recipe id for cleanup.
-async function seed(recipeName: string, day?: Date) {
+// A recipe with steps and two ingredients (plus `extraIngredients` more),
+// and (when `day` is given) a dinner of it planned that day. Returns the
+// recipe id for cleanup.
+async function seed(recipeName: string, day?: Date, extraIngredients = 0) {
   const suffix = `${E2E_WORKER}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const recipeId = `e2e-recipe-rows-${suffix}`;
   await withClient(async (client) => {
@@ -42,6 +43,18 @@ async function seed(recipeName: string, day?: Date) {
       `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit) VALUES ($1, $2, 'Lentils', 250, 'g'), ($3, $2, 'Carrots', 2, 'pcs')`,
       [`${recipeId}-a`, recipeId, `${recipeId}-b`],
     );
+    for (let i = 0; i < extraIngredients; i++) {
+      await client.query(
+        `INSERT INTO "RecipeIngredient" (id, "recipeId", name, quantity, unit) VALUES ($1, $2, $3, 1, 'tbsp')`,
+        [`${recipeId}-x${i}`, recipeId, `Spice ${i + 1}`],
+      );
+    }
+    if (extraIngredients > 0) {
+      await client.query(
+        `UPDATE "Recipe" SET "caloriesPerServing" = 420, "proteinGramsPerServing" = 21 WHERE id = $1`,
+        [recipeId],
+      );
+    }
     if (day) {
       const monday = mondayOf(day);
       await client.query(
@@ -194,6 +207,52 @@ test("a recipe is one row whose sheet has its ingredients and actions, delete se
     await page.reload();
     await page.getByRole("searchbox", { name: /Search recipes/ }).fill(recipeName);
     await expect(page.getByText("No recipes match your search.")).toBeVisible();
+  } finally {
+    await cleanup(recipeId);
+  }
+});
+
+test("a long recipe's Cook stays on screen in its sheet, above the scrolling ingredients", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "only the phone's bottom sheet is shorter than a long recipe");
+  const recipeName = unique("Curry");
+  const recipeId = await seed(recipeName, undefined, 25);
+  try {
+    await page.goto("/dashboard/meal-planning?tab=recipes");
+    await page.getByRole("searchbox", { name: /Search recipes/ }).fill(recipeName);
+    // A finger's tap, not a click: a tap leaves the sheet scrolled to the
+    // top, as on a phone (a click would focus a button and scroll to it).
+    await page.getByRole("main").getByText(recipeName, { exact: true }).tap();
+    const sheet = page.getByRole("dialog", { name: recipeName, exact: true });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("listitem").first()).toBeInViewport();
+    // The point of the test: the sheet's body is taller than the sheet.
+    const body = sheet.locator('[data-slot="dialog-body"]');
+    expect(await body.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeGreaterThan(200);
+    const cook = sheet.getByRole("button", { name: "Cook", exact: true });
+    // M2: the primary action is in the sheet's sticky footer, in reach
+    // without scrolling, though the ingredient list runs past the screen.
+    await expect(cook).toBeInViewport();
+    await expect(sheet.getByRole("button", { name: "Edit recipe" })).toBeInViewport();
+    const remove = sheet.getByRole("button", { name: "Delete recipe" });
+    await expect(remove).not.toBeInViewport();
+
+    // Scrolled to the end, Delete comes into view and Cook is still there.
+    await remove.scrollIntoViewIfNeeded();
+    await expect(remove).toBeInViewport();
+    await expect(cook).toBeInViewport();
+    const cookBox = await cook.boundingBox();
+    const removeBox = await remove.boundingBox();
+    expect(Math.abs(cookBox!.y - (removeBox!.y + removeBox!.height))).toBeGreaterThanOrEqual(8);
+
+    // Opened with a click (a mouse or keyboard), it starts at the top too:
+    // focus goes to the title, not to a button down past the ingredients.
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    const clicked = await openRowSheet(page, recipeName);
+    await expect(clicked.getByRole("listitem").first()).toBeInViewport();
+    await expect(clicked.getByRole("heading", { name: recipeName })).toBeFocused();
   } finally {
     await cleanup(recipeId);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, CookingPot, Copy, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
@@ -16,6 +16,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -324,6 +325,10 @@ function RecipeRow({
     .join(" · ");
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Opened with a mouse or keyboard, the sheet focuses its title rather
+  // than its first button, which would scroll a long recipe's body past
+  // the ingredients (a finger's tap focuses the sheet itself, sheet-focus.ts).
+  const sheetTitleRef = useRef<HTMLHeadingElement>(null);
   const [dialogs] = useState(() => ({
     cook: createDialogHandle(),
     edit: createDialogHandle(),
@@ -370,9 +375,11 @@ function RecipeRow({
           </span>
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent initialFocus={sheetTitleRef}>
           <DialogHeader>
-            <DialogTitle className="break-words">{recipe.name}</DialogTitle>
+            <DialogTitle ref={sheetTitleRef} tabIndex={-1} className="break-words outline-none">
+              {recipe.name}
+            </DialogTitle>
             <DialogDescription>
               {servingsSummary}
               {" · "}
@@ -446,24 +453,6 @@ function RecipeRow({
             </div>
           )}
           <div className="flex flex-col gap-2">
-            {/* GAP-42: only a recipe with steps has anything to cook from;
-                cooking is what the sheet is mostly opened for, so it's the
-                one primary action. */}
-            {recipe.instructions?.trim() && (
-              <Button type="button" className="justify-start" onClick={() => openFromSheet(dialogs.cook)}>
-                <CookingPot className="size-4" />
-                {dict.cookModeButton}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-start"
-              onClick={() => openFromSheet(dialogs.edit)}
-            >
-              <Pencil className="size-4" />
-              {dict.editAriaLabel}
-            </Button>
             {recipe.ingredients.length > 0 && (
               <Button
                 type="button"
@@ -494,6 +483,24 @@ function RecipeRow({
               {dict.deleteAriaLabel}
             </Button>
           </div>
+          {/* M2: Cook (GAP-42; only a recipe with steps has anything to cook
+              from) is what the sheet is mostly opened for, so it's the one
+              primary action, with Edit beside it, in the footer that sticks
+              to the sheet's bottom on phones: a long ingredient list scrolls
+              under it instead of pushing it out of view. Delete stays at
+              the end of the body, away from both. */}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => openFromSheet(dialogs.edit)}>
+              <Pencil className="size-4" />
+              {dict.editAriaLabel}
+            </Button>
+            {recipe.instructions?.trim() && (
+              <Button type="button" onClick={() => openFromSheet(dialogs.cook)}>
+                <CookingPot className="size-4" />
+                {dict.cookModeButton}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
