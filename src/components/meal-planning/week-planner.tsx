@@ -2,8 +2,10 @@
 
 import { type ReactNode, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -25,10 +27,16 @@ import {
   deleteMealEntryAction,
   undoCopyWeekAction,
 } from "@/app/dashboard/meal-planning/planner-actions";
+import { unassignBatchPortionAction } from "@/app/dashboard/meal-planning/prep-actions";
 import { MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, getWeekStart, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
 import { format, plural } from "@/lib/i18n/format";
-import type { ActiveShoppingListOption, MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
+import type {
+  ActiveShoppingListOption,
+  MealPlanEntryData,
+  PreparedBatchData,
+  RecipeData,
+} from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 
@@ -104,6 +112,7 @@ export function WeekPlanner({
   recipes,
   entries,
   activeShoppingLists,
+  batches,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -111,6 +120,9 @@ export function WeekPlanner({
   recipes: RecipeData[];
   entries: MealPlanEntryData[];
   activeShoppingLists: ActiveShoppingListOption[];
+  // GAP-49: active meal-prep batches, for the add-meal dialog's
+  // "From meal prep" source.
+  batches: PreparedBatchData[];
 }) {
   // GAP-39: the "Plan leftovers" toast action's dialog. Held here, not in the
   // cooked row, because that row stops rendering MarkCookedDialog the moment
@@ -279,6 +291,7 @@ export function WeekPlanner({
                   dateKey={day.dateKey}
                   mealType="DINNER"
                   recipes={recipes}
+                  batches={batches}
                   askSlot
                 />
               ) : MEAL_TYPES.map((mealType) => (
@@ -290,6 +303,7 @@ export function WeekPlanner({
                   dateKey={day.dateKey}
                   weekStartKey={weekStartKey}
                   recipes={recipes}
+                  batches={batches}
                   entries={(entriesByDay.get(day.dateKey) ?? []).filter((e) => e.mealType === mealType)}
                   onPlanLeftovers={setLeftoversPlan}
                 />
@@ -300,7 +314,7 @@ export function WeekPlanner({
       </div>
       {leftoversPlan && (
         <AddToPlanDialog
-          key={`${leftoversPlan.recipeId}-${leftoversPlan.date}-${leftoversPlan.servings}`}
+          key={leftoversPlan.batchId}
           dict={dict}
           recipeId={leftoversPlan.recipeId}
           recipeName={leftoversPlan.recipeName}
@@ -308,6 +322,7 @@ export function WeekPlanner({
           plannerWeekStartKey={weekStartKey}
           defaultDate={leftoversPlan.date}
           hint={dict.planLeftoversHint}
+          preparedBatchId={leftoversPlan.batchId}
           controlled={{
             open: true,
             onOpenChange: (next) => {
@@ -327,6 +342,7 @@ function MealTypeSlot({
   dateKey,
   weekStartKey,
   recipes,
+  batches,
   entries,
   onPlanLeftovers,
 }: {
@@ -336,6 +352,7 @@ function MealTypeSlot({
   dateKey: string;
   weekStartKey: string;
   recipes: RecipeData[];
+  batches: PreparedBatchData[];
   entries: MealPlanEntryData[];
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
@@ -351,6 +368,7 @@ function MealTypeSlot({
         dateKey={dateKey}
         mealType={mealType}
         recipes={recipes}
+        batches={batches}
         slotLabel={label}
       />
     );
@@ -366,6 +384,7 @@ function MealTypeSlot({
           dateKey={dateKey}
           mealType={mealType}
           recipes={recipes}
+          batches={batches}
         />
       </div>
       <div className="flex flex-col gap-1 max-sm:gap-2">
@@ -418,13 +437,69 @@ function MealEntryRow({
   const portionsLabel = entry.recipeId
     ? format(plural(entry.portions, dict.entryPortionsCount), { count: entry.portions })
     : null;
+  const router = useRouter();
+  const [unassignPending, startUnassign] = useTransition();
+
+  // GAP-49: "Don't use prep" gives the slot's portions back to its batch and
+  // keeps the meal planned, to cook fresh.
+  function unassign() {
+    startUnassign(async () => {
+      let result;
+      try {
+        result = await unassignBatchPortionAction(entry.id);
+      } catch (error) {
+        // A dropped connection rejects the call; say so rather than hitting
+        // the error boundary (M8), as the Plan portions dialog does.
+        unstable_rethrow(error);
+        toast.error(dict.prepConnectionError);
+        return;
+      }
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(dict.prepUnassignedToast);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="flex items-center justify-between gap-1 max-sm:gap-2 pointer-coarse:gap-2 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
-      <span className="min-w-0 flex-1 truncate max-sm:basis-full max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
-        {label}
-        {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
+      {/* The badge goes under the name in the narrow desktop day column, so
+          it doesn't squeeze the name down to a few letters; on phones the
+          name has the row to itself and the badge sits beside it. */}
+      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 max-sm:basis-full max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:gap-1.5">
+        <span className="min-w-0 max-w-full truncate max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
+          {label}
+          {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
+        </span>
+        {/* GAP-49: this slot eats from a meal-prep batch — a word, not just
+            a colour or icon, so it reads the same to everyone. */}
+        {entry.preparedBatchId && (
+          <Badge variant="outline" className="shrink-0">
+            {dict.prepPreppedBadge}
+          </Badge>
+        )}
       </span>
+
+      {/* GAP-49: only rendered for an uneaten prepped meal, and placed first
+          so the five slots below keep their column on every row. */}
+      {entry.preparedBatchId && !entry.consumedAt && (
+        <IconSlot>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={dict.prepUnassignAction}
+            title={dict.prepUnassignAction}
+            disabled={unassignPending}
+            onClick={unassign}
+          >
+            {unassignPending ? <Loader2 className="size-3 animate-spin" /> : <Unlink className="size-3" />}
+          </Button>
+        </IconSlot>
+      )}
 
       {/* GAP-42: opens the cook view scaled to this entry's portions. Not
           gated on consumedAt: reading a recipe again is harmless. */}

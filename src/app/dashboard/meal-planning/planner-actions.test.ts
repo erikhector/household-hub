@@ -20,11 +20,19 @@ const {
   mealPlanEntryDeleteManyMock,
   notificationUpdateManyMock,
   transactionMock,
+  mealPlanEntryUpdateManyMock,
+  preparedBatchFindFirstMock,
+  preparedBatchUpdateManyMock,
 } = vi.hoisted(() => ({
   notificationUpdateManyMock: vi.fn(),
-  // The array form of $transaction: the "queries" are whatever the model
-  // mocks returned, so just resolve them all.
-  transactionMock: vi.fn((queries: unknown[]) => Promise.all(queries)),
+  // Both forms of $transaction. The array form: the "queries" are whatever
+  // the model mocks returned, so just resolve them all. The callback form
+  // (the batch paths) gets the same mocked client as its `tx`, so a test
+  // asserts on one set of mocks whichever form the action used.
+  transactionMock: vi.fn(),
+  mealPlanEntryUpdateManyMock: vi.fn(),
+  preparedBatchFindFirstMock: vi.fn(),
+  preparedBatchUpdateManyMock: vi.fn(),
   requireHouseholdMock: vi.fn(),
   recipeFindFirstMock: vi.fn(),
   mealPlanEntryFindFirstMock: vi.fn(),
@@ -39,23 +47,28 @@ const {
   mealPlanEntryDeleteManyMock: vi.fn(),
 }));
 
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    recipe: { findFirst: recipeFindFirstMock, findMany: recipeFindManyMock },
-    mealPlanEntry: {
-      findFirst: mealPlanEntryFindFirstMock,
-      findMany: mealPlanEntryFindManyMock,
-      create: mealPlanEntryCreateMock,
-      createManyAndReturn: mealPlanEntryCreateManyAndReturnMock,
-      update: mealPlanEntryUpdateMock,
-      delete: mealPlanEntryDeleteMock,
-      deleteMany: mealPlanEntryDeleteManyMock,
-    },
-    mealPlan: { upsert: mealPlanUpsertMock },
-    notification: { updateMany: notificationUpdateManyMock },
-    $transaction: transactionMock,
+const prismaMock = {
+  recipe: { findFirst: recipeFindFirstMock, findMany: recipeFindManyMock },
+  mealPlanEntry: {
+    findFirst: mealPlanEntryFindFirstMock,
+    findMany: mealPlanEntryFindManyMock,
+    create: mealPlanEntryCreateMock,
+    createManyAndReturn: mealPlanEntryCreateManyAndReturnMock,
+    update: mealPlanEntryUpdateMock,
+    updateMany: mealPlanEntryUpdateManyMock,
+    delete: mealPlanEntryDeleteMock,
+    deleteMany: mealPlanEntryDeleteManyMock,
   },
-}));
+  mealPlan: { upsert: mealPlanUpsertMock },
+  notification: { updateMany: notificationUpdateManyMock },
+  preparedBatch: { findFirst: preparedBatchFindFirstMock, updateMany: preparedBatchUpdateManyMock },
+  $transaction: transactionMock,
+};
+transactionMock.mockImplementation((arg: unknown) =>
+  typeof arg === "function" ? arg(prismaMock) : Promise.all(arg as unknown[]),
+);
+
+vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/session", () => ({ requireHousehold: requireHouseholdMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
@@ -374,7 +387,7 @@ describe("deleteMealEntryAction", () => {
   it("no-ops for an entry outside the caller's household (IDOR guard)", async () => {
     mealPlanEntryFindFirstMock.mockResolvedValue(null);
 
-    await deleteMealEntryAction("someone-elses-entry");
+    expect(await deleteMealEntryAction("someone-elses-entry")).toEqual({});
 
     expect(mealPlanEntryDeleteMock).not.toHaveBeenCalled();
   });
@@ -383,7 +396,7 @@ describe("deleteMealEntryAction", () => {
     mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1" });
     mealPlanEntryDeleteMock.mockResolvedValue({});
 
-    await deleteMealEntryAction("entry-1");
+    expect(await deleteMealEntryAction("entry-1")).toEqual({});
 
     expect(mealPlanEntryDeleteMock).toHaveBeenCalledWith({ where: { id: "entry-1" } });
   });
@@ -518,8 +531,25 @@ describe("undoCopyWeekAction", () => {
 
     expect(result).toEqual({});
     expect(mealPlanEntryDeleteManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["new-1", "new-2"] }, consumedAt: null, mealPlan: { householdId: "household-1" } },
+      where: {
+        id: { in: ["new-1", "new-2"] },
+        consumedAt: null,
+        preparedBatchId: null,
+        mealPlan: { householdId: "household-1" },
+      },
     });
+  });
+
+  // GAP-49: a copied entry linked to a prepared batch while the toast was up
+  // holds that batch's portions. Deleting it would lose them for good, since
+  // only an unlink hands portions back.
+  it("keeps a copied entry that was linked to a prepared batch since", async () => {
+    mealPlanEntryDeleteManyMock.mockResolvedValue({ count: 1 });
+
+    await undoCopyWeekAction(["new-1", "new-2"]);
+
+    const where = mealPlanEntryDeleteManyMock.mock.calls[0][0].where;
+    expect(where.preparedBatchId).toBeNull();
   });
 });
 
@@ -637,5 +667,270 @@ describe("fillEmptyDaysAction", () => {
     mealPlanUpsertMock.mockClear();
     expect(await fillEmptyDaysAction(WEEK, picks)).toEqual({ copied: 0, entryIds: [] });
     expect(mealPlanUpsertMock).not.toHaveBeenCalled();
+  });
+});
+
+// GAP-49 meal prep: planner entries that eat from a PreparedBatch. The batch
+// arithmetic itself is assignInTx's (prep-assign.ts); these check the planner
+// actions keep the batch's remainingPortions and the entry's link in step.
+describe("planner actions × prepared batches (GAP-49)", () => {
+  const batch = { id: "batch-1", recipeId: "recipe-1" };
+
+  it("addMealEntryAction links a batch portion when preparedBatchId is sent", async () => {
+    preparedBatchFindFirstMock.mockResolvedValue(batch);
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+    mealPlanEntryFindManyMock.mockResolvedValue([]);
+    mealPlanEntryCreateMock.mockResolvedValue({ id: "entry-new" });
+
+    const result = await addMealEntryAction(
+      {},
+      formData({
+        weekStartDate: "2026-01-05",
+        date: "2026-01-06",
+        mealType: "DINNER",
+        preparedBatchId: "batch-1",
+        // Ignored: the batch decides the dish.
+        recipeId: "recipe-other",
+        freeformName: "Taco night",
+      }),
+    );
+
+    expect(result).toEqual({});
+    expect(preparedBatchFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id },
+      select: { id: true, recipeId: true },
+    });
+    expect(recipeFindFirstMock).not.toHaveBeenCalled();
+    // One portion by default, taken with the guarded decrement.
+    expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id, remainingPortions: { gte: 1 } },
+      data: { remainingPortions: { decrement: 1 } },
+    });
+    expect(mealPlanEntryCreateMock).toHaveBeenCalledWith({
+      data: {
+        mealPlanId: "plan-1",
+        date: new Date("2026-01-06T00:00:00.000Z"),
+        mealType: "DINNER",
+        recipeId: "recipe-1",
+        portions: 1,
+        preparedBatchId: "batch-1",
+        preparedPortionsUsed: 1,
+      },
+      select: { id: true },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("addMealEntryAction rejects a batch outside the household", async () => {
+    preparedBatchFindFirstMock.mockResolvedValue(null);
+
+    const result = await addMealEntryAction(
+      {},
+      formData({ weekStartDate: "2026-01-05", date: "2026-01-06", mealType: "DINNER", preparedBatchId: "x" }),
+    );
+
+    expect(result.error).toBe("Batch not found");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("addMealEntryAction maps a short batch to its error", async () => {
+    preparedBatchFindFirstMock.mockResolvedValue(batch);
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    const result = await addMealEntryAction(
+      {},
+      formData({
+        weekStartDate: "2026-01-05",
+        date: "2026-01-06",
+        mealType: "DINNER",
+        preparedBatchId: "batch-1",
+        portions: "3",
+      }),
+    );
+
+    expect(result.error).toBe("Not enough portions left in this batch");
+    expect(mealPlanEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("deleteMealEntryAction returns a linked entry's portions", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    mealPlanEntryDeleteManyMock.mockResolvedValue({ count: 1 });
+    preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 3, totalPortions: 8 });
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
+
+    expect(await deleteMealEntryAction("entry-1")).toEqual({});
+
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(mealPlanEntryDeleteManyMock).toHaveBeenCalledWith({
+      where: { id: "entry-1", preparedBatchId: "batch-1", preparedPortionsUsed: 2, consumedAt: null },
+    });
+    expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id, remainingPortions: 3 },
+      data: { remainingPortions: 5 },
+    });
+  });
+
+  it("deleteMealEntryAction doesn't return portions twice when the entry is already gone", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    // A concurrent delete (or unassign) got there between the read and here.
+    mealPlanEntryDeleteManyMock.mockResolvedValue({ count: 0 });
+
+    await deleteMealEntryAction("entry-1");
+
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("deleteMealEntryAction rolls back when the batch changed under it", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    mealPlanEntryDeleteManyMock.mockResolvedValue({ count: 1 });
+    preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 3, totalPortions: 8 });
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 0 });
+
+    // The meal is still planned, so the confirm dialog says so instead of
+    // closing as if it had been deleted.
+    await expect(deleteMealEntryAction("entry-1")).resolves.toEqual({
+      error: "Something went wrong. Please try again.",
+    });
+    // The callback rejected, so Prisma rolls the delete back too.
+    await expect(transactionMock.mock.results[0].value).rejects.toThrow();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("does not return portions for an eaten entry", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: new Date(),
+    });
+    mealPlanEntryDeleteMock.mockResolvedValue({});
+
+    await deleteMealEntryAction("entry-1");
+
+    expect(mealPlanEntryDeleteMock).toHaveBeenCalledWith({ where: { id: "entry-1" } });
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("deleteMealEntryAction tolerates an entry whose batch is gone", async () => {
+    // The batch went with its recipe (SetNull), leaving a stale count.
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      preparedBatchId: null,
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    mealPlanEntryDeleteMock.mockResolvedValue({});
+
+    await deleteMealEntryAction("entry-1");
+
+    expect(mealPlanEntryDeleteMock).toHaveBeenCalledWith({ where: { id: "entry-1" } });
+    expect(preparedBatchFindFirstMock).not.toHaveBeenCalled();
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("moveMealEntryAction keeps the batch link", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({ id: "entry-1", consumedAt: null });
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-1" });
+
+    await moveMealEntryAction({}, formData({ entryId: "entry-1", date: "2026-01-08", mealType: "LUNCH" }));
+
+    const { data } = mealPlanEntryUpdateMock.mock.calls[0][0];
+    expect(data).not.toHaveProperty("preparedBatchId");
+    expect(data).not.toHaveProperty("preparedPortionsUsed");
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("updateMealEntryAction unlinks a batch entry before changing its dish", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      recipeId: "recipe-1",
+      portions: 2,
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-2", servings: 4 });
+    mealPlanEntryUpdateManyMock.mockResolvedValue({ count: 1 });
+    preparedBatchFindFirstMock.mockResolvedValue({ remainingPortions: 1, totalPortions: 6 });
+    preparedBatchUpdateManyMock.mockResolvedValue({ count: 1 });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    const result = await updateMealEntryAction({}, formData({ entryId: "entry-1", recipeId: "recipe-2" }));
+
+    expect(result).toEqual({});
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "entry-1", preparedBatchId: "batch-1", preparedPortionsUsed: 2, consumedAt: null },
+      data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+    });
+    expect(preparedBatchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", householdId: household.id, remainingPortions: 1 },
+      data: { remainingPortions: 3 },
+    });
+    expect(mealPlanEntryUpdateMock).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+      data: { recipeId: "recipe-2", freeformName: null, portions: 4 },
+    });
+  });
+
+  it("updateMealEntryAction leaves the link alone when the dish and portions don't change", async () => {
+    mealPlanEntryFindFirstMock.mockResolvedValue({
+      id: "entry-1",
+      recipeId: "recipe-1",
+      portions: 2,
+      preparedBatchId: "batch-1",
+      preparedPortionsUsed: 2,
+      consumedAt: null,
+    });
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1", servings: 4 });
+    mealPlanEntryUpdateMock.mockResolvedValue({});
+
+    await updateMealEntryAction({}, formData({ entryId: "entry-1", recipeId: "recipe-1", portions: "2" }));
+
+    expect(transactionMock).not.toHaveBeenCalled();
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("copyWeekAction never copies a batch link onto the new week", async () => {
+    mealPlanEntryFindManyMock
+      .mockResolvedValueOnce([
+        {
+          date: new Date("2026-01-06T00:00:00.000Z"),
+          mealType: "DINNER",
+          recipeId: "recipe-1",
+          freeformName: null,
+          portions: 2,
+          preparedBatchId: "batch-1",
+          preparedPortionsUsed: 2,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    recipeFindManyMock.mockResolvedValue([{ id: "recipe-1" }]);
+    mealPlanUpsertMock.mockResolvedValue({ id: "plan-2" });
+    mealPlanEntryCreateManyAndReturnMock.mockResolvedValue([{ id: "new-1" }]);
+
+    await copyWeekAction("2026-01-05", "2026-01-12");
+
+    const [row] = mealPlanEntryCreateManyAndReturnMock.mock.calls[0][0].data;
+    expect(row).not.toHaveProperty("preparedBatchId");
+    expect(row).not.toHaveProperty("preparedPortionsUsed");
+    expect(preparedBatchUpdateManyMock).not.toHaveBeenCalled();
   });
 });

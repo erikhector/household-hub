@@ -25,7 +25,15 @@ test("a meal row's edit, move and delete buttons are 44 px and 8 px apart", asyn
   await dialog.getByRole("textbox", { name: "Meal name" }).fill(name);
   await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
-  const row = page.getByRole("main").getByText(name).locator("xpath=..");
+  // The row is the innermost element holding both the name and the
+  // buttons (the name sits in its own wrapper beside GAP-49's Prepped
+  // badge, so it's no longer the buttons' direct sibling); innermost last.
+  const row = page
+    .getByRole("main")
+    .locator("div")
+    .filter({ has: page.getByText(name) })
+    .filter({ has: page.getByRole("button", { name: "Edit meal" }) })
+    .last();
   await expect(row.getByRole("button", { name: "Edit meal" })).toBeVisible();
   await expectTargetsApart(row);
   await expectTouchTargets(page);

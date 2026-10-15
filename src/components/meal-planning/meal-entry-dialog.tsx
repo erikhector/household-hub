@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/select";
 import { addMealEntryAction, updateMealEntryAction } from "@/app/dashboard/meal-planning/planner-actions";
 import { CUSTOM_RECIPE_SENTINEL, MEAL_TYPES, type MealType } from "@/app/dashboard/meal-planning/meal-types";
-import type { MealPlanEntryData, RecipeData } from "@/components/meal-planning/types";
+import { PortionStepper } from "@/components/meal-planning/portion-stepper";
+import type { MealPlanEntryData, PreparedBatchData, RecipeData } from "@/components/meal-planning/types";
+import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { PendingLabel } from "@/components/ui/pending-label";
@@ -30,6 +32,10 @@ import { PendingLabel } from "@/components/ui/pending-label";
 type MealPlanningDict = Dictionary["mealPlanning"];
 
 const initialState: ActionState = {};
+
+// GAP-49: the third source in the dish select, next to "Custom meal" and the
+// recipes. Client-only: picking it posts `preparedBatchId`, never this value.
+const FROM_PREP_SENTINEL = "__prep__";
 
 type CommonProps = {
   dict: MealPlanningDict;
@@ -51,6 +57,9 @@ type CreateProps = CommonProps & {
   // UX-21: a day with nothing planned shows one "+ Add meal" for the whole
   // day, so the dialog asks which slot (`mealType` is the preselected one).
   askSlot?: boolean;
+  // GAP-49: the household's active meal-prep batches. Those with portions
+  // left are offered as "From meal prep"; none left, no such option.
+  batches?: PreparedBatchData[];
 };
 
 type MealTypeLabelKey = "mealTypeBreakfast" | "mealTypeLunch" | "mealTypeDinner" | "mealTypeSnack";
@@ -79,6 +88,18 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   );
   const [portions, setPortions] = useState(isEdit ? String(props.entry.portions) : "4");
   const [mealType, setMealType] = useState<MealType>(isEdit ? props.entry.mealType : props.mealType);
+  const [batchId, setBatchId] = useState<string | null>(null);
+  const [prepPortions, setPrepPortions] = useState(1);
+
+  // Only when adding: editing a meal into a batch slot isn't a thing
+  // updateMealEntryAction does (Plan portions on the Prep tab is). The batch
+  // shown falls back to the first one (soonest eat-by) whenever the picked
+  // one runs out or goes, and the source to "Custom meal" when they all do,
+  // so a refresh never leaves the form pointing at something that's gone.
+  const availableBatches = isEdit ? [] : (props.batches ?? []).filter((b) => b.remainingPortions > 0);
+  const chosenBatch = availableBatches.find((b) => b.id === batchId) ?? availableBatches[0];
+  const choice = recipeChoice === FROM_PREP_SENTINEL && !chosenBatch ? CUSTOM_RECIPE_SENTINEL : recipeChoice;
+  const prepPortionsValue = chosenBatch ? Math.min(prepPortions, chosenBatch.remainingPortions) : 1;
 
   const action = isEdit ? updateMealEntryAction : addMealEntryAction;
   const [state, formAction, pending] = useActionState(async (
@@ -91,6 +112,8 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
       if (!isEdit) {
         setRecipeChoice(CUSTOM_RECIPE_SENTINEL);
         setPortions("4");
+        setBatchId(null);
+        setPrepPortions(1);
       }
     }
     return result;
@@ -99,7 +122,15 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
   const recipeLabel = (value: string) =>
     value === CUSTOM_RECIPE_SENTINEL
       ? dict.customMealOption
-      : (recipes.find((r) => r.id === value)?.name ?? value);
+      : value === FROM_PREP_SENTINEL
+        ? dict.prepFromPrepOption
+        : (recipes.find((r) => r.id === value)?.name ?? value);
+
+  // Base UI's SelectValue renders the raw value (a batch id) unless mapped.
+  const batchLabel = (value: string) => {
+    const batch = availableBatches.find((b) => b.id === value);
+    return batch ? format(dict.prepBatchOption, { recipe: batch.recipeName, left: batch.remainingPortions }) : "";
+  };
 
   // Re-picking a recipe resets portions to its own serving size (i.e. "one
   // full recipe") — the common case — while still leaving it freely
@@ -180,7 +211,7 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="recipeId">{dict.recipeLabel}</Label>
             <Select
-              value={recipeChoice}
+              value={choice}
               onValueChange={(v) => handleRecipeChoiceChange(v ?? CUSTOM_RECIPE_SENTINEL)}
             >
               <SelectTrigger id="recipeId" className="w-full">
@@ -188,6 +219,9 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={CUSTOM_RECIPE_SENTINEL}>{dict.customMealOption}</SelectItem>
+                {availableBatches.length > 0 && (
+                  <SelectItem value={FROM_PREP_SENTINEL}>{dict.prepFromPrepOption}</SelectItem>
+                )}
                 {recipes.map((recipe) => (
                   <SelectItem key={recipe.id} value={recipe.id}>
                     {recipe.name}
@@ -195,10 +229,51 @@ export function MealEntryDialog(props: CreateProps | EditProps) {
                 ))}
               </SelectContent>
             </Select>
-            <input type="hidden" name="recipeId" value={recipeChoice} />
+            {choice !== FROM_PREP_SENTINEL && <input type="hidden" name="recipeId" value={choice} />}
           </div>
 
-          {recipeChoice === CUSTOM_RECIPE_SENTINEL ? (
+          {choice === FROM_PREP_SENTINEL && chosenBatch ? (
+            <>
+              {/* M1: the select gets its own row; the stepper sits under it. */}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="preparedBatchSelect">{dict.prepBatchLabel}</Label>
+                <Select
+                  value={chosenBatch.id}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    setBatchId(v);
+                    setPrepPortions(1);
+                  }}
+                >
+                  <SelectTrigger id="preparedBatchSelect" className="w-full">
+                    <SelectValue>{batchLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBatches.map((batch) => (
+                      <SelectItem key={batch.id} value={batch.id}>
+                        {batchLabel(batch.id)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <input type="hidden" name="preparedBatchId" value={chosenBatch.id} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">{dict.prepPortionsLabel}</span>
+                <PortionStepper
+                  value={prepPortionsValue}
+                  min={1}
+                  max={chosenBatch.remainingPortions}
+                  onChange={setPrepPortions}
+                  label={dict.prepPortionsLabel}
+                  decreaseLabel={dict.prepDecreasePortions}
+                  increaseLabel={dict.prepIncreasePortions}
+                />
+                <input type="hidden" name="portions" value={prepPortionsValue} />
+                <p className="text-xs text-muted-foreground">{dict.prepFromPrepHint}</p>
+              </div>
+            </>
+          ) : choice === CUSTOM_RECIPE_SENTINEL ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor="freeformName">{dict.customMealNameLabel}</Label>
               <Input

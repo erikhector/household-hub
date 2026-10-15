@@ -1397,13 +1397,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 **Meal planning** (built — see "Meal planning" below)
 - `Recipe` + `RecipeIngredient` (ingredients optionally link to
   `InventoryItem`), `MealPlan` + `MealPlanEntry`.
-- `PreparedBatch` (GAP-49 meal prep, schema only so far): a household's
-  batch-cooked recipe with `totalPortions`/`remainingPortions`, optional
-  `cookedByMember` and `expiryDate`. A `MealPlanEntry` can draw portions
-  from one via `preparedBatchId` + `preparedPortionsUsed` (0 when it draws
-  none). Deleting the recipe deletes its batches; deleting a batch only
-  unlinks the entries, and a departing member leaves the batch unattributed.
-  No actions or UI use it yet.
+- `PreparedBatch` (GAP-49 meal prep, built — see "Meal prep (GAP-49)"
+  under "Meal planning"): a household's batch-cooked recipe with
+  `totalPortions`/`remainingPortions`, optional `cookedByMember` and
+  `expiryDate`. Recorded by a prep session or by a cook's "Servings left
+  over" (GAP-8). A `MealPlanEntry` can draw portions from one via
+  `preparedBatchId` + `preparedPortionsUsed` (0 when it draws none).
+  Deleting the recipe deletes its batches (unlinking their entries
+  first); deleting a batch only unlinks the entries, and a departing member leaves the batch unattributed.
 
 **Budgeting** (built)
 - `BudgetCategory` (`name`, `type` — `INCOME`/`EXPENSE`) and `Transaction`
@@ -3174,7 +3175,8 @@ where this feature has none.
 ## Meal planning
 
 `/dashboard/meal-planning` (`MealPlanningView`, a client-side tab switch
-between "Planner" and "Recipes" — no new route needed for the split) covers
+between four tabs, "Planner", "Recipes", "Cook now" and "Meal prep" — no
+new route needed for the split) covers
 the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
 
 - **Recipes**: full CRUD (`createRecipeAction` / `updateRecipeAction` /
@@ -3405,7 +3407,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   with one `createManyAndReturn`. The toast shows how many meals were
   copied, with an Undo that calls `undoCopyWeekAction(entryIds)`. That
   deletes exactly those ids, scoped to the household and to entries not
-  marked cooked since. When last week has nothing to copy, the toast says
+  marked cooked, or linked to a prepared batch (GAP-49), since: either
+  makes the entry real, and deleting a linked one would lose the batch's
+  portions. When last week has nothing to copy, the toast says
   so and nothing is written. The button is only offered on an empty week:
   the action would handle a partly filled one, but a copy that silently
   works around existing meals is harder to predict.
@@ -4045,51 +4049,42 @@ actually used, once they've cooked it.
   cook before anything is written. When it's above 0,
   `markMealEntryCookedAction` records the leftovers **in the same
   `$transaction`** as the decrement, so a cook that rolls back never leaves
-  a stray leftovers row behind:
-  - The item is named `"<prefix>: <recipe name>"`, e.g. "Leftovers:
-    Lasagna" / "Rester: Lasagne". The prefix, category ("Leftovers" /
-    "Rester") and unit ("servings" / "portioner") come from the cooking
-    household member's locale dictionary (`mealPlanning.leftovers*`).
-    `leftoversItemName` truncates the recipe name so the whole name stays
-    within the inventory form's 120-character limit.
-  - **Merge, don't duplicate**: if the household already has an item with
-    that exact name (case-insensitive, household-scoped, the same identity
-    rule as the other find-or-create paths), the servings are added to its
-    quantity and its expiry is reset to the fresh batch's estimate. A
-    merged row can only carry one date, and the badge is there so the
-    *new* food isn't forgotten; the older portion is nearly always eaten
-    first. Two exceptions follow AUTO-7's rule in `shelf-life.ts`: a real,
-    user-typed date (`expiresAtEstimated: false`) is never overwritten, and
-    `shelfLifeDays: -1` ("never expires") is left alone. A positive
-    `shelfLifeDays` the household set on the item replaces the 3-day
-    default. Leftovers of *different* recipes stay separate rows.
-  - **Otherwise a new `InventoryItem` is created** with `quantity` equal to
-    the servings, `lowStockThreshold: 0` (running out of leftovers is the
-    goal, so the row never shows as "low" or gets auto-added to "Next
-    shop") and an estimated `expiresAt` of now + 3 days with
-    `expiresAtEstimated: true`, so `ExpiryBadge` shows it with the "≈"
-    prefix and the expiring-soon sync picks it up. Three days is the
-    conservative end of the usual 3–4 day guidance for cooked food, and the
-    same value `SHELF_LIFE_CATEGORY_DEFAULTS` uses for meat. The value is
-    also stored as the item's own `shelfLifeDays` override, because the
-    "Leftovers" category doesn't map to any estimator category default.
-    With the override, a later AUTO-7 stock-arrival path re-estimates the
-    item instead of skipping it.
-  - **Undo**: the action returns a `LeftoversChange`, either `{ itemId,
-    created: true }` or the merged row's previous quantity and
-    expiry/estimated flag. `MarkCookedDialog` passes it to
-    `undoMarkMealEntryCookedAction`, which validates it with
-    `leftoversChangeSchema` and then either deletes the created row or
-    restores the previous values, inside the undo's own transaction and
-    behind the same `consumedAt` idempotency guard. Both writes use
-    `deleteMany`/`updateMany` with `householdId` in the filter, so an
-    `itemId` from another household matches nothing. A malformed payload
-    skips only the leftovers part; the ingredients are still credited back.
-  - No schema change was needed, because `InventoryItem`'s existing
-    `expiresAt`/`expiresAtEstimated`/`shelfLifeDays` fields (AUTO-7)
-    already cover it. When both happen, the confirmation toast shows the
-    AUTO-8 "added to Next shop" message instead of the leftovers one (only
-    one toast). A single Undo still reverses both.
+  a stray batch behind:
+  - **Since GAP-49 the leftovers are a `PreparedBatch`** of the cooked
+    recipe (see "Meal prep (GAP-49)" below), the same thing a prep session
+    records: `totalPortions` = `remainingPortions` = the servings typed,
+    `cookedByMemberId` the session member (`findSessionMemberId` in
+    `prep-assign.ts`), and the default eat-by date
+    (`defaultBatchExpiry`, cooked time + `LEFTOVERS_SHELF_LIFE_DAYS`, 3
+    days). Three days is the conservative end of the usual 3–4 day
+    guidance for cooked food, and the same value
+    `SHELF_LIFE_CATEGORY_DEFAULTS` uses for meat. A batch can be planned
+    portion by portion and shows on the Meal prep tab and the dashboard
+    card; the old inventory row could only sit in the inventory list with
+    an expiry badge, and nothing could plan from it. Every cook of the
+    same dish makes its own batch with its own eat-by date, rather than
+    merging into one row that can only carry one date.
+  - **The old "Leftovers: …" inventory rows are no longer created**, but
+    the ones that already exist are left alone (no data migration). They
+    are ordinary inventory items now: edited, used up or deleted from the
+    inventory page like any other.
+  - A meal that is itself eaten from a batch has no leftovers field (see
+    "Mark as eaten" below), and the action ignores one a stale dialog
+    still posts.
+  - **Undo**: the action returns a `LeftoversChange` (`{ batchId }`).
+    `MarkCookedDialog` passes it to `undoMarkMealEntryCookedAction`, which
+    validates it with `leftoversChangeSchema` and deletes the batch inside
+    the undo's own transaction, behind the same `consumedAt` idempotency
+    guard. The delete is a `deleteMany` with `householdId` in the filter,
+    so a `batchId` from another household matches nothing. Once "Plan
+    leftovers" (below) has put a portion of it on the plan the batch is
+    real, so, like `undoRecordPrepAction`, the undo keeps it and only skips
+    that part; the ingredients are still credited back. A malformed
+    payload also skips only the leftovers part.
+  - When both happen, the confirmation toast shows the AUTO-8 "added to
+    Next shop" message instead of the leftovers one ("saved 2 portions to
+    Meal prep"), so there's only one toast. A single Undo still reverses
+    both.
 - **Plan leftovers (GAP-39)**: when a cook recorded leftovers of a recipe,
   the confirmation toast also has a "Plan leftovers" button next to Undo.
   Tapping it calls `suggestLeftoversDayAction` (`planner-actions.ts`,
@@ -4098,12 +4093,224 @@ actually used, once they've cooked it.
   over the next 60 days of the household's plan (colocated tests). It then
   opens the existing `AddToPlanDialog` (now also usable controlled, without
   its own trigger, with a prefilled date and a hint line) with that recipe,
-  the leftover servings as portions and the suggested day. Nothing is added
-  until the household presses "Add to plan"; closing the dialog adds
-  nothing. The day can be changed, and adding a meal never replaces another,
-  so a day that already has a dinner is never overwritten. No schema change,
-  setting or automatic scheduling. `e2e/plan-leftovers.spec.ts` covers
-  confirming and dismissing.
+  the leftover servings as portions and the suggested day. It stays a
+  suggestion: nothing is added until the household presses "Add to plan";
+  closing the dialog adds nothing. On confirm the dialog posts the
+  leftovers batch's id as `preparedBatchId`, so `addMealEntryAction` plans
+  the slot through `assignInTx` and it eats from the batch (it gets the
+  Prepped badge, and the portions come off the batch) instead of being a
+  fresh cook of the same recipe. The day can be changed, and assigning
+  never replaces another meal: a slot with something else planned fails
+  with "That meal slot already has something planned", so a day that
+  already has a dinner is never overwritten. The portions field isn't
+  capped at the batch's remaining portions in the dialog; asking for more
+  fails on the server with "Not enough portions left in this batch". No
+  schema change, setting or automatic scheduling. `e2e/plan-leftovers.spec.ts`
+  covers confirming (including the Prepped badge on the new slot) and
+  dismissing.
+
+### Meal prep (GAP-49)
+
+A household that batch-cooks ("Sunday: 8 portions of chili, 6 of curry")
+records each dish as a `PreparedBatch` and spends its portions across the
+planner, so the plan and the fridge agree on how much is left. Design:
+`docs/archive/MEAL_PREP_DESIGN.md`. It lives on a
+fourth meal-planning tab, **Meal prep** (`?tab=prep`, `PrepTab` in
+`src/components/meal-planning/prep-tab.tsx`), plus a "From meal prep"
+source in the add-meal dialog and a card on the home dashboard. No schema
+change: the `PreparedBatch` model and the two `MealPlanEntry` fields
+landed earlier (PR #179, see the data model above). No browser storage.
+
+- **Data rules.** `remainingPortions` is the portions not yet handed to a
+  planner slot, and the invariant is `0 ≤ remainingPortions ≤
+  totalPortions`. A slot eating from a batch has `preparedBatchId` set,
+  `preparedPortionsUsed = portions = n` (n ≥ 1), and `recipeId` equal to
+  the batch's recipe. Every write path below keeps those in step, which is
+  why an edit that changes the dish or the portions unlinks the entry
+  rather than leaving it half-linked. A prep is 1–5 dishes
+  (`MAX_PREP_DISHES`), each 1–100 portions (`MAX_LEFTOVER_SERVINGS`). The
+  default eat-by date is `defaultBatchExpiry` (cooked time + 3 days, the
+  leftovers shelf life), overridable per dish. The schemas and arithmetic
+  are pure, in `prepared-batch-calc.ts` (`recordPrepSchema`,
+  `assignPortionsSchema`, `portionsAfterReturn`, `isActiveBatch`, …,
+  colocated tests). A batch is **active** while it has portions left or any
+  uneaten entry still links to it (once every linked meal is eaten, an
+  emptied batch is done); `getActiveBatches`
+  (`prepared-batches.ts`, `cache()`-wrapped) loads only those, soonest
+  eat-by first, then oldest cook. Inactive batches aren't shown anywhere
+  and aren't cleaned up in the background; they go when discarded or with
+  their recipe.
+- **Assigning: a conditional decrement.** Every path that hands portions
+  to slots (Plan portions, "From meal prep", Plan leftovers) goes through
+  `assignInTx` (`src/app/dashboard/meal-planning/prep-assign.ts`, a plain
+  server module rather than a `"use server"` file, so it can run inside
+  another action's transaction without becoming an endpoint of its own).
+  It takes the total in one `updateMany` whose filter includes
+  `remainingPortions >= n` and the household, so two concurrent assigns can
+  never drive the count negative: the second matches no row and throws
+  `PrepAssignError("prepNotEnoughPortions")`, which rolls the whole
+  transaction back. Then per slot it finds or creates that week's
+  `MealPlan` and either creates a linked entry or links the slot's existing
+  entry, but only when every entry there is this dish, unlinked and not
+  yet cooked ("lasagna on Thursday" becomes "lasagna from the batch").
+  Another dish, a freeform meal, another batch's slot or a cooked meal is
+  the household's plan, so the slot is taken (`prepSlotTaken`). That link
+  is guarded too (`preparedBatchId: null, consumedAt: null` in the filter).
+  All slots land or none do.
+- **Returning: an optimistic write.** Unplanning, deleting or editing a
+  linked entry gives its portions back through `returnEntryPortionsInTx`,
+  after the caller has reset or deleted the entry with a filter on the
+  values it read (so a double click returns the portions once). The batch
+  update is optimistic: it only writes if `remainingPortions` still has the
+  value just read, capped at `totalPortions` by `portionsAfterReturn`. A
+  concurrent assign in between would otherwise be overwritten and its
+  portions handed out twice. On a miss it throws `BatchChangedError`, the
+  whole transaction (the entry write too) rolls back, and the action
+  returns the translated generic error, "Something went wrong. Please try
+  again.", without reporting it to Sentry: it's an expected race, and the
+  household just retries. A batch already gone has nothing to take
+  portions back.
+- **Deleting the recipe.** `deleteRecipeAction` deletes the recipe's
+  batches with it (cascade), but first, in the same transaction, unlinks
+  every entry eating from them (`preparedBatchId` null and
+  `preparedPortionsUsed` 0), since the FK's `SetNull` alone would clear
+  only the id and leave the pair out of step. The meals stay planned and
+  cook fresh.
+- **Record prep.** The tab's full-width "Record prep" button
+  (`RecordPrepDialog`, `record-prep-dialog.tsx`) opens a two-step dialog:
+  dish rows (recipe select, a `PortionStepper` defaulting to the recipe's
+  servings, an optional eat-by date, "Add another dish" up to 5), then the
+  same ingredient review checklist "Mark as cooked" uses
+  (`CookedIngredientsChecklist`), over every dish's ingredients scaled to
+  `portions / recipe.servings`. `previewPrepIngredientsAction` merges the
+  dishes into one row per inventory item, since the checklist submits one
+  decrement per item (rice under both the curry and the chili). The
+  suggested amounts are in the item's own unit, so they always add up. The
+  recipe's own required amounts only add up while the dishes agree on the
+  unit: 1125 g of flour plus 3 dl isn't "1128" of anything, so a row whose
+  dishes use different units states the need in the item's unit instead,
+  from the summed suggestion. `recordPrepAction` checks every recipe id
+  against the household before writing anything, then in one transaction
+  deducts the reviewed rows and runs the AUTO-8 low-stock "Next shop"
+  auto-add (`deductCookedIngredients` in `cook-inventory.ts`, shared with
+  `markMealEntryCookedAction`, so a prep and a cook never disagree on how
+  stock moves) and creates one batch per dish, all with one `cookedAt`.
+  The toast ("Recorded 2 dishes · 14 portions") has Undo and, for a
+  one-dish prep, a "Plan portions" shortcut. **Undo**
+  (`undoRecordPrepAction`) deletes the batches and credits the rows back
+  (`creditCookedIngredients`), and the client takes the auto-added rows
+  off "Next shop" with `undoAutoAddedItemsAction`, as mark-cooked does,
+  but only after the prep undo has succeeded: the two run in sequence, so
+  a refused undo leaves the prep and its "Next shop" rows in place and
+  toasts the refusal. It
+  is idempotent (batches already gone credit nothing) and **refuses** with
+  "Some of these portions are already planned. Unplan them first." once
+  any portion is on the plan: by then the prep is real, and undoing it
+  would silently unplan meals. Like mark-cooked's undo, a deduction that
+  was clamped at 0 is credited back in full.
+- **Plan portions.** Each batch card's primary action (disabled while the
+  batch has no portions left) opens
+  `PlanPortionsDialog` (`plan-portions-dialog.tsx`), starting on the week
+  of the later of today and the cook date. It reads weeks itself with
+  `loadPlanSlotsAction` rather than the page's `?week=`, so paging weeks
+  never moves the Planner tab, and selections are kept across weeks so
+  one save can plan this week's dinners and next Monday's lunch. Each day
+  lists its four meal slots, grouped by day on phones. A slot is
+  selectable when it's empty or only plans this dish fresh (the same rule
+  `assignInTx` re-checks on save); a slot with something else shows that
+  dish's name, disabled. **Days before today are shown but disabled**:
+  prepped food can't be eaten in the past (the server would still accept
+  such a slot, harmlessly). A selected slot gets a portions stepper
+  (default 1), and a live "3 of 5 left after this" counter turns into
+  "2 portions too many — only 5 left" and disables save when over. Each
+  save is capped at 28 selected slots in total, however many weeks they
+  span (`assignPortionsSchema`; 28 is one week of four meals a day). The
+  dialog doesn't guard the cap, so a save with a 29th slot is rejected by
+  the server as invalid input. When a save fails (out of portions, a slot
+  taken since it was read), nothing was written, so the dialog reloads
+  the week and drops selections that are no longer selectable. When the
+  request never arrives (offline, weak signal), loading and saving both
+  catch the rejection and show "Couldn't reach the server. Check your
+  connection and try again." with a retry, in the dialog rather than the
+  page's error boundary (DESIGN.md M8).
+- **"From meal prep" in the add-meal dialog.** When any batch has
+  portions left, `MealEntryDialog`'s recipe select gains a "From meal
+  prep" option: pick the batch ("Chili · 5 left") and a portions stepper
+  capped at what's left. It posts `preparedBatchId`, and
+  `addMealEntryAction` re-checks the batch belongs to the household and
+  routes it through `assignInTx` (one portion unless the form says
+  otherwise), ignoring any recipe or freeform name. Only when adding:
+  editing a meal into a batch slot isn't offered.
+- **On the planner.** A linked entry shows a "Prepped" badge (below the
+  name in the narrow desktop day column, beside it on phones) and, while
+  uneaten, a "Don't use prep" icon button (`unassignBatchPortionAction`):
+  the meal stays planned, cooks fresh, and its portions go back to the
+  batch. Its cook button reads "Mark as eaten" with a fork-and-knife icon.
+  That dialog has no ingredient checklist and no leftovers field, since
+  the ingredients came off at prep time and the portions off the batch
+  when the slot was planned. It posts no item rows, and its undo passes
+  none, so even an entry edited while the dialog was open can't credit
+  undeducted rows back. `markMealEntryCookedAction` and its undo, for a
+  linked entry, only set and clear `consumedAt` whatever a stale dialog
+  posts. An eaten meal keeps its portions eaten: unplanning isn't offered,
+  and deleting it doesn't return them.
+- **Delete and edit return portions.** `deleteMealEntryAction` (now
+  returning `ActionState`) deletes an uneaten linked entry and returns its
+  portions in one transaction; on a `BatchChangedError` the confirm dialog
+  toasts the error and the meal stays planned. `updateMealEntryAction`
+  keeps the link while the recipe and the portions stay the same, but
+  when either changes it unlinks the entry first in the same transaction
+  (guarded on the values it read), returning the portions (unless it was eaten), and the
+  meal cooks fresh. Moving a linked entry keeps the link, since its
+  portions don't change.
+- **Copy week doesn't carry links.** `copyWeekAction` and
+  `fillEmptyDaysAction` copy recipe, freeform name and portions only; a
+  copied slot cooks fresh. Copying the link would spend portions the
+  batch never handed out (a unit test pins it).
+- **Discard and its undo.** "Discard" on a card (confirm, then an undo
+  toast) runs `discardBatchAction`: in one transaction it resets every
+  linked entry to `null`/0 (the FK's `SetNull` would clear only the id),
+  deletes the batch, and returns a `DiscardSnapshot` of the batch and the
+  entries that drew portions. The meals stay planned and cook fresh.
+  `undoDiscardBatchAction` re-validates the snapshot (`discardSnapshotSchema`,
+  which also rejects `remainingPortions` above `totalPortions`), re-checks
+  the recipe and the cook against the household (a cook who left since is
+  dropped, unattributed), and recreates the batch under its old id; a
+  repeated Undo finds it back and does nothing. The snapshot records
+  whether each entry was already eaten at the discard. It re-links only
+  entries that are still the household's, still unlinked, still the
+  batch's dish and portion count, and still eaten or uneaten as they were,
+  so an entry edited after the discard keeps its new state rather than
+  breaking the linked-entry invariant, and an uneaten one cooked fresh
+  since isn't claimed by the batch. An entry that can't be re-linked has
+  its portions returned to the batch instead of vanishing, unless it was
+  eaten at the discard: those portions were spent then. A malformed or no-longer-fitting snapshot is a silent no-op.
+- **Home dashboard card.** `src/app/dashboard/page.tsx` shows a "Meal
+  prep" card only when some active batch has portions left: up to three,
+  soonest eat-by first, each with "5 of 8 portions left · Eat by <day>"
+  and a "View meal prep" link to `?tab=prep`. A batch whose last
+  portions are only planned stays on the Prep tab but not on the card,
+  where there's nothing left to eat. Dates are formatted in UTC, like the
+  Prep tab, so the server and every browser name the same day.
+- **Tenancy.** Every action calls `requireHousehold()`, re-checks every
+  batch, entry and recipe id from the client against the household, and
+  writes in one `$transaction`. Batches are found with `householdId` in the
+  filter, entries through `mealPlan: { householdId }`.
+- **Tests.** `prepared-batch-calc.test.ts`, `prepared-batches.test.ts`,
+  `prep-actions.test.ts` (tenancy with foreign ids, validation, over-assign
+  and partial assign rolled back, return on unassign and delete, the
+  optimistic race, undo refused once planned, discard and re-link guards),
+  plus `planner-actions.test.ts` and `cooking-actions.test.ts` (a linked
+  entry eaten without deduction, leftovers creating a batch, copy week
+  without links). `e2e/meal-prep.spec.ts` runs on desktop and mobile. The
+  first test records a batch (ingredients off inventory), opens Plan
+  portions from the toast, checks a past week is all disabled and a slot
+  with another dish is greyed with its name, steps portions to the cap,
+  sees the overdraw message, saves, reloads for the count and the Prepped
+  badges, deletes one slot to get its portion back, marks the other eaten
+  with inventory unchanged, and discards. The second checks the dashboard
+  card and its link, adds a planner meal "From meal prep", and gives it
+  back with "Don't use prep".
 
 ### "Use it up" recipe suggestions
 
