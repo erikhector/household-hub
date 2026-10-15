@@ -4488,6 +4488,26 @@ computed by `computeUseItUpSuggestions`
   same recipe isn't suppressed by yesterday's dismissal. Dismissal is
   per-device only, same as `MealVarietyRecap`.
 
+### Recipe last cooked
+
+BACKLOG GAP-46: each `RecipeManager` row shows how often and when its recipe
+was last cooked, e.g. "Cooked 3 times, last 12 Sep", so a household can see
+what has dropped out of rotation. No schema change: it reads back
+`MealPlanEntry.consumedAt`, which "Mark as cooked" already sets.
+
+- **Query**: `getRecipeCookedStats(householdId)` in
+  `src/app/dashboard/meal-planning/recipe-cooked-stats.ts` is one `groupBy
+  recipeId` over the household's entries (`mealPlan: { householdId }`) that
+  have a recipe and a `consumedAt`, taking the count and the latest
+  `consumedAt`. It runs only for the Recipes tab, with the household from
+  `requireHousehold()`; covered by the colocated unit test.
+- **Label**: `mealPlanning.recipeCookedValue` is a `{ one, other }` pair in
+  `en.ts` and `sv.ts`. A never-cooked recipe has no entry and shows no line
+  (not "0 times"). The date is the UTC day of the latest `consumedAt`, as the
+  planner formats its days, so the server render and every browser agree.
+- **Not in scope**: no sort or filter by last cooked; the list stays
+  alphabetical.
+
 ### Recipe favorites
 
 BACKLOG GAP-18, from the same competitive gap scan: AnyList and Paprika let

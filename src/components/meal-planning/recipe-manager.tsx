@@ -22,6 +22,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import type { RecipeCost } from "@/app/dashboard/meal-planning/recipe-cost";
 import { createMoneyFormat } from "@/lib/currency";
+import type { RecipeCookedStats } from "@/app/dashboard/meal-planning/recipe-cooked-stats";
 import { formatRecipeText } from "@/lib/recipe-text";
 import { useUnitLabel } from "@/components/units-provider";
 import { itemPageHref } from "@/lib/inventory/item-page-origin";
@@ -48,6 +49,7 @@ export function RecipeManager({
   currencyCode,
   recipes,
   recipeCosts,
+  recipeCooked,
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
@@ -60,6 +62,9 @@ export function RecipeManager({
   // GAP-15: keyed by recipe id. A recipe with no entry had no ingredient
   // that could be priced and shows no cost line — see page.tsx.
   recipeCosts: Record<string, RecipeCost>;
+  // GAP-46: keyed by recipe id; a never-cooked recipe has no entry and
+  // shows no line.
+  recipeCooked: Record<string, RecipeCookedStats>;
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
@@ -157,6 +162,7 @@ export function RecipeManager({
                   locale={locale}
                   recipe={recipe}
                   cost={recipeCosts[recipe.id] ?? null}
+                  cooked={recipeCooked[recipe.id] ?? null}
                   numberFormat={numberFormat}
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
@@ -176,6 +182,7 @@ function RecipeRow({
   locale,
   recipe,
   cost,
+  cooked,
   numberFormat,
   allRecipes,
   ingredientNames,
@@ -185,6 +192,7 @@ function RecipeRow({
   locale: Locale;
   recipe: RecipeData;
   cost: RecipeCost | null;
+  cooked: RecipeCookedStats | null;
   numberFormat: Intl.NumberFormat;
   allRecipes: RecipeData[];
   ingredientNames: string[];
@@ -231,6 +239,18 @@ function RecipeRow({
       ]
         .filter((part): part is string => part !== null)
         .join(" · ")
+    : "";
+
+  // GAP-46: "Cooked 3 times, last 12 Sep". consumedAt is an instant, shown
+  // as its UTC day like the planner's days, so the server render and every
+  // browser name the same date.
+  const cookedSummary = cooked
+    ? format(plural(cooked.count, dict.recipeCookedValue), {
+        count: cooked.count,
+        date: new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(
+          new Date(cooked.lastCookedAt),
+        ),
+      })
     : "";
 
   // GAP-43: plain text on the clipboard, nothing stored or shared. The
@@ -339,6 +359,11 @@ function RecipeRow({
         {costSummary && (
           <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={`${costSummary} — ${dict.recipeCostHint}`}>
             {costSummary}
+          </p>
+        )}
+        {cookedSummary && (
+          <p className="line-clamp-2 break-words sm:line-clamp-1 text-sm text-muted-foreground" title={cookedSummary}>
+            {cookedSummary}
           </p>
         )}
         {/* GAP-42: only a recipe with steps has anything to cook from. Under

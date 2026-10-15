@@ -1492,6 +1492,10 @@ export const sv = {
       one: "{count} ingrediens utan pris",
       other: "{count} ingredienser utan pris",
     },
+    recipeCookedValue: {
+      one: "Lagad {count} gång, senast {date}",
+      other: "Lagad {count} gånger, senast {date}",
+    },
     recipeCostHint: "Uppskattat utifrån vad ni senast betalade för varje ingrediens",
     ingredientsLabel: "Ingredienser",
     ingredientNamePlaceholder: "Ingrediens",
