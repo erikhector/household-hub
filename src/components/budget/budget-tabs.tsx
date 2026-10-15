@@ -251,51 +251,56 @@ export function BudgetTabs({
 
   return (
     <div className="flex flex-col gap-6">
-      <MonthNavigator
-        basePath={basePath}
-        monthKey={monthKey}
-        currentMonthKey={currentMonthKey}
-        locale={locale}
-        dict={dict}
-        params={{
-          household: householdParam,
-          tab,
-          category: searchParams.get("category") ?? undefined,
-        }}
-      />
+      {/* The month bar and the tab bar are one block of chrome: closer
+          together than the sections below them, so they cost less of a
+          phone's first screen. */}
+      <div className="flex flex-col gap-3">
+        <MonthNavigator
+          basePath={basePath}
+          monthKey={monthKey}
+          currentMonthKey={currentMonthKey}
+          locale={locale}
+          dict={dict}
+          params={{
+            household: householdParam,
+            tab,
+            category: searchParams.get("category") ?? undefined,
+          }}
+        />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Tabs tabs={tabItems} value={tab} onChange={setTab} />
-        <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
-          {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
-            <LogSharedExpenseDialog
-              numberFormat={numberFormat}
-              dict={logSharedDialogDict}
-              households={sharedExpenseHouseholds}
-              monthKey={monthKey}
-              trigger={<Button variant="outline">{logSharedDialogDict.logShared.button}</Button>}
-            />
-          )}
-          {/* UX-23: with no category yet there is nothing to log against, and
-              a disabled primary read as broken. The onboarding card on
-              Overview is the next step, so the button appears once it is
-              possible. */}
-          {hasCategories && (
-            <PrimaryAction>
-              <TransactionDialog
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Tabs tabs={tabItems} value={tab} onChange={setTab} />
+          <fieldset disabled={readOnly} className="flex min-w-0 flex-wrap items-center gap-2">
+            {sharedExpenseHouseholds.length > 0 && logSharedDialogDict && (
+              <LogSharedExpenseDialog
                 numberFormat={numberFormat}
-                dict={dict}
-                categories={categories}
-                members={members}
-                currentMemberId={currentMemberId}
+                dict={logSharedDialogDict}
+                households={sharedExpenseHouseholds}
                 monthKey={monthKey}
-                createAction={createTransactionAction}
-                updateAction={updateTransactionAction}
-                trigger={<Button>{dict.addTransaction}</Button>}
+                trigger={<Button variant="outline">{logSharedDialogDict.logShared.button}</Button>}
               />
-            </PrimaryAction>
-          )}
-        </fieldset>
+            )}
+            {/* UX-23: with no category yet there is nothing to log against, and
+                a disabled primary read as broken. The onboarding card on
+                Overview is the next step, so the button appears once it is
+                possible. */}
+            {hasCategories && (
+              <PrimaryAction>
+                <TransactionDialog
+                  numberFormat={numberFormat}
+                  dict={dict}
+                  categories={categories}
+                  members={members}
+                  currentMemberId={currentMemberId}
+                  monthKey={monthKey}
+                  createAction={createTransactionAction}
+                  updateAction={updateTransactionAction}
+                  trigger={<Button>{dict.addTransaction}</Button>}
+                />
+              </PrimaryAction>
+            )}
+          </fieldset>
+        </div>
       </div>
 
       <fieldset disabled={readOnly} className="contents">

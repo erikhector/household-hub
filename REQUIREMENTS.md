@@ -2778,6 +2778,15 @@ and the `12rem` cap that cut off names like "Kids activities" with room
 to spare, so a name only truncates when it's wider than the row. Covered
 by `e2e/budget-manage.spec.ts` and `e2e/ux-19.mobile.spec.ts`.
 
+**The first phone screen (phone pass, Oct 2026).** On a phone both budget
+pages hide the subtitle under the title, and the month bar and tab bar sit
+12 px apart as one block (sections below keep `space-6`), so the title,
+month and tabs no longer take ~40% of the first screen. The floating "Add
+transaction" (`PrimaryAction`) is clear of the end of the Transactions tab
+once it's scrolled to the bottom, thanks to `main`'s extra bottom padding
+when it holds a primary action (layout.tsx). Covered by
+`e2e/budget-chrome.mobile.spec.ts`.
+
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
 library), so household and personal never diverge:

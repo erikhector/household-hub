@@ -477,7 +477,10 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>{dict.personalBudget.title}</PageTitle>
-        <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
+        {/* Phone pass (Oct 2026), P6: hidden on phones, where the title,
+            month bar and tabs already filled ~40% of the first screen
+            before any number showed. */}
+        <p className="text-sm text-muted-foreground max-sm:hidden">{dict.personalBudget.subtitle}</p>
       </div>
 
       <Suspense fallback={<PersonalBudgetTabsSkeleton label={dict.common.loading} />}>

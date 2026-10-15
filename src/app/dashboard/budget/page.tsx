@@ -997,7 +997,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>{dict.budget.title}</PageTitle>
-        <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
+        {/* Phone pass (Oct 2026), P6: hidden on phones, where the title,
+            month bar and tabs already filled ~40% of the first screen
+            before any number showed. */}
+        <p className="text-sm text-muted-foreground max-sm:hidden">{dict.budget.subtitle}</p>
       </div>
 
       {readOnly && (
