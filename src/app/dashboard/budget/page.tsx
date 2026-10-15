@@ -37,6 +37,16 @@ import { TransactionList } from "@/components/budget/transaction-list";
 import { localDateKey } from "@/lib/budget-transaction-days";
 import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import {
+  PlannedExpensesPanel,
+  type PlannedExpenseRow,
+} from "@/components/budget/planned-expenses-panel";
+import {
+  createPlannedExpenseAction,
+  deletePlannedExpenseAction,
+  updatePlannedExpenseAction,
+} from "@/app/dashboard/budget/planned-expense-actions";
+import { getPlannedExpenseStatus, isPlannedExpenseOutstanding } from "@/lib/planned-expense-calc";
+import {
   acknowledgeTemplatePeriodAction,
   createRecurringTemplateAction,
   createTransactionAction,
@@ -368,6 +378,7 @@ async function BudgetTabsSection({
     memberSettlements,
     memberSettlementSums,
     savingsTotals,
+    plannedExpenses,
   ] = await Promise.all([
       prisma.budgetCategory.findMany({
         where: { householdId },
@@ -473,6 +484,21 @@ async function BudgetTabsSection({
         by: ["categoryId"],
         where: { householdId, type: "SAVINGS" },
         _sum: { amount: true },
+      }),
+      // Planned bills (BUDGET-8): every unpaid one, plus those paid on or
+      // after the viewed month's start. A bill paid before it is history and
+      // left out, so this doesn't grow with every bill ever paid. Status is
+      // worked out per viewed month below (getPlannedExpenseStatus).
+      prisma.plannedExpense.findMany({
+        where: {
+          householdId,
+          OR: [
+            { transaction: { is: null } },
+            { transaction: { is: { date: { gte: monthStart } } } },
+          ],
+        },
+        include: { category: true, splits: true, transaction: { select: { date: true } } },
+        orderBy: { dueDate: "asc" },
       }),
     ]);
 
@@ -604,6 +630,23 @@ async function BudgetTabsSection({
     monthEnd,
   });
 
+  // --- Planned bills (BUDGET-8) ---------------------------------------------
+  const plannedExpenseRows: PlannedExpenseRow[] = plannedExpenses.map((p) => ({
+    id: p.id,
+    name: p.name,
+    amount: p.amount,
+    dueDate: p.dueDate,
+    categoryId: p.categoryId,
+    categoryName: p.category.name,
+    status: getPlannedExpenseStatus(
+      { dueDate: p.dueDate, paidAt: p.transaction?.date ?? null },
+      monthStart,
+      monthEnd,
+    ),
+    paidAt: p.transaction?.date ?? null,
+    splits: p.splits.map((s) => ({ householdMemberId: s.householdMemberId, amountOwed: s.amountOwed })),
+  }));
+
   // --- Safe to spend --------------------------------------------------------
   // "Remaining after expenses and savings" — see REQUIREMENTS.md's "Safe to
   // spend" subsection: this month's income so far minus expenses and
@@ -642,6 +685,7 @@ async function BudgetTabsSection({
       amount: row.template.amount,
       status: row.status,
     })),
+    plannedExpenses: plannedExpenseRows.map(({ id, name, amount, status }) => ({ id, name, amount, status })),
   });
   // UX-39: where that number lands at month end at this month's everyday
   // pace — null unless the viewed month is the current one.
@@ -750,6 +794,21 @@ async function BudgetTabsSection({
         onUnacknowledge={unacknowledgeTemplatePeriodAction}
         createTemplateAction={createRecurringTemplateAction}
         updateTemplateAction={updateRecurringTemplateAction}
+        createTransactionAction={createTransactionAction}
+        updateTransactionAction={updateTransactionAction}
+      />
+      <PlannedExpensesPanel
+        rows={plannedExpenseRows}
+        categories={categoryRows}
+        members={memberOptions}
+        currentMemberId={currentMemberId}
+        monthKey={monthKey}
+        dict={dict.budget}
+        locale={locale}
+        currencyCode={currencyCode}
+        createAction={createPlannedExpenseAction}
+        updateAction={updatePlannedExpenseAction}
+        onDelete={deletePlannedExpenseAction}
         createTransactionAction={createTransactionAction}
         updateTransactionAction={updateTransactionAction}
       />
@@ -910,6 +969,7 @@ async function BudgetTabsSection({
       safeToSpendProjection={safeToSpendProjection}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
+      plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
       members={memberOptions}
       currentMemberId={currentMemberId}
       createTransactionAction={createTransactionAction}

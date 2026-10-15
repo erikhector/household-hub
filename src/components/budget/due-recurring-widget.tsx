@@ -35,6 +35,11 @@ import {
   type ShareableHousehold,
   type SharedExpensePrefill,
 } from "@/components/personal-budget/log-shared-expense-dialog";
+import {
+  PlannedBillAmountLine,
+  PlannedBillLogPayment,
+  type PlannedExpenseRow,
+} from "@/components/budget/planned-expenses-panel";
 import type { RecurringTemplateListRow } from "@/components/budget/recurring-templates-panel";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
@@ -61,14 +66,19 @@ export type SharedDueRow = {
    * template's full expected amount. */
   amount: number;
   householdName: string;
+  /** For the "View in {household} Budget" link, which every shared row has. */
+  householdId: string;
   /** What "Log payment" needs to log the whole bill (not just this user's
-   * share) against the template — see SharedExpensePrefill. */
-  logPrefill: SharedExpensePrefill;
+   * share) against the template — see SharedExpensePrefill. Absent on a
+   * planned bill's share (BUDGET-8), which is paid from the household's
+   * Budget page, so no "Log payment" shows. */
+  logPrefill?: SharedExpensePrefill;
 };
 
 export function DueRecurringWidget({
   templates,
   hasTemplates,
+  plannedDue = [],
   sharedDueRows = [],
   sharedExpenseHouseholds = [],
   showHouseholdName = false,
@@ -92,6 +102,11 @@ export function DueRecurringWidget({
    * all, due or not — distinguishes "nothing set up yet" from "all caught
    * up". */
   hasTemplates: boolean;
+  /** Outstanding (overdue or due) planned bills, BUDGET-8 — already filtered
+   * with isPlannedExpenseOutstanding. Listed after the templates; any entry
+   * counts as content, so the "nothing set up" state doesn't show. Always
+   * `[]` on the personal budget page. */
+  plannedDue?: PlannedExpenseRow[];
   /** The user's own share of due-but-not-yet-posted shared household
    * RecurringTemplates (see SharedDueRow's doc comment) — merged straight
    * into the due list below, badged "Shared". Always `[]` on the household
@@ -136,7 +151,16 @@ export function DueRecurringWidget({
   updateTransactionAction: TransactionFormAction;
 }) {
   const [isPending, startTransition] = useTransition();
+  const planned = dict.planned;
   const numberFormat = createMoneyFormat(locale, currencyCode);
+  // Due dates are UTC-noon calendar days, so they're shown in UTC (as in
+  // PlannedExpensesPanel).
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
   return (
     <Card>
@@ -150,9 +174,9 @@ export function DueRecurringWidget({
         </Button>
       </CardHeader>
       <CardContent>
-        {!hasTemplates && sharedDueRows.length === 0 ? (
+        {!hasTemplates && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.dueWidget.noTemplatesBody}</p>
-        ) : templates.length === 0 && sharedDueRows.length === 0 ? (
+        ) : templates.length === 0 && sharedDueRows.length === 0 && plannedDue.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-success" />
             <span>
@@ -249,6 +273,48 @@ export function DueRecurringWidget({
                 </DropdownMenu>
               </div>
             ))}
+            {planned && plannedDue.map((bill) => (
+              <div
+                key={bill.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate font-medium" title={bill.name}>
+                      {bill.name}
+                    </span>
+                    <Badge variant="secondary" className="max-w-[10rem]">
+                      <span className="min-w-0 truncate" title={bill.categoryName}>
+                        {bill.categoryName}
+                      </span>
+                    </Badge>
+                  </div>
+                  <PlannedBillAmountLine
+                    bill={bill}
+                    numberFormat={numberFormat}
+                    dateFormat={dateFormat}
+                    t={planned}
+                  />
+                </div>
+                {/* Already paid after this (past) month: nothing left to log. */}
+                {bill.paidAt === null && (
+                  <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
+                    <PlannedBillLogPayment
+                      bill={bill}
+                      dict={dict}
+                      t={planned}
+                      numberFormat={numberFormat}
+                      categories={categories}
+                      members={members}
+                      currentMemberId={currentMemberId}
+                      monthKey={monthKey}
+                      createTransactionAction={createTransactionAction}
+                      updateTransactionAction={updateTransactionAction}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
             {sharedDueRows.map((row) => (
               <div
                 key={row.id}
@@ -274,7 +340,8 @@ export function DueRecurringWidget({
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {logSharedDialogDict &&
-                    sharedExpenseHouseholds.some((h) => h.id === row.logPrefill.householdId) && (
+                    row.logPrefill &&
+                    sharedExpenseHouseholds.some((h) => h.id === row.logPrefill!.householdId) && (
                       <LogSharedExpenseDialog
                         numberFormat={numberFormat}
                         dict={logSharedDialogDict}
@@ -289,7 +356,7 @@ export function DueRecurringWidget({
                       />
                     )}
                   <Link
-                    href={`/dashboard/budget?month=${monthKey}&household=${row.logPrefill.householdId}`}
+                    href={`/dashboard/budget?month=${monthKey}&household=${row.householdId}`}
                     className="touch-target shrink-0 text-sm font-medium text-primary hover:underline"
                   >
                     {format(dict.shared?.viewInHouseholdBudget ?? "", { household: row.householdName })}

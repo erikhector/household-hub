@@ -485,3 +485,70 @@ describe("computeSafeToSpend with recurring items", () => {
     expect(result.breakdown.owedFromEarlier).toBe(3000);
   });
 });
+
+describe("computeSafeToSpend with planned bills", () => {
+  const base = {
+    monthStart,
+    monthEnd,
+    incomeSoFar: 20000,
+    expenseSoFar: 0,
+    savingsSoFar: 0,
+  };
+
+  it("adds due and overdue planned bills to due payments", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [],
+      plannedExpenses: [
+        { id: "p1", name: "Car repair", amount: 3000, status: "due" },
+        { id: "p2", name: "Dentist", amount: 800, status: "overdue" },
+      ],
+    });
+    expect(result.breakdown.duePayments).toBe(3800);
+    expect(result.safeToSpend).toBe(16200);
+    expect(result.expectedRecurring).toContainEqual({
+      categoryId: "p1",
+      categoryName: "Car repair",
+      amount: 3000,
+      type: "EXPENSE",
+    });
+  });
+
+  it("ignores upcoming and paid planned bills", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [],
+      plannedExpenses: [
+        { id: "p1", name: "Holiday", amount: 9000, status: "upcoming" },
+        { id: "p2", name: "Dentist", amount: 800, status: "paid" },
+      ],
+    });
+    expect(result.breakdown.duePayments).toBe(0);
+    expect(result.expectedRecurring).toEqual([]);
+  });
+
+  it("does not suppress the repeat estimate", () => {
+    const result = computeSafeToSpend({
+      ...base,
+      transactions: [tx({ categoryId: "c1", categoryName: "Gym", amount: 500 })],
+      plannedExpenses: [{ id: "p1", name: "Car repair", amount: 3000, status: "due" }],
+    });
+    expect(result.expectedRecurring).toContainEqual({
+      categoryId: "c1",
+      categoryName: "Gym",
+      amount: 500,
+    });
+    expect(result.breakdown.duePayments).toBe(500 + 3000);
+  });
+
+  it("gives an identical result with no planned bills", () => {
+    const input = {
+      ...base,
+      transactions: [tx({ categoryId: "gym", categoryName: "Gym", amount: 300 })],
+      templates: [
+        { id: "t1", name: "Rent", categoryId: "rent", type: "EXPENSE" as const, amount: 8000, status: "due" as const },
+      ],
+    };
+    expect(computeSafeToSpend({ ...input, plannedExpenses: [] })).toEqual(computeSafeToSpend(input));
+  });
+});

@@ -38,6 +38,7 @@ export async function GET() {
     tasks,
     transactionSplits,
     recurringTemplateSplits,
+    plannedExpenseSplits,
     settlements,
   ] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: userId } }),
@@ -94,6 +95,16 @@ export async function GET() {
             frequency: true,
             household: { select: { name: true } },
           },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    // BUDGET-8: this user's agreed share of a planned bill.
+    prisma.plannedExpenseSplit.findMany({
+      where: { householdMember: mine },
+      include: {
+        plannedExpense: {
+          select: { name: true, amount: true, dueDate: true, household: { select: { name: true } } },
         },
       },
       orderBy: { createdAt: "asc" },
@@ -223,6 +234,14 @@ export async function GET() {
       templateAmount: split.recurringTemplate.amount,
       templateType: split.recurringTemplate.type,
       frequency: split.recurringTemplate.frequency,
+      amountOwed: split.amountOwed,
+      createdAt: split.createdAt,
+    })),
+    plannedExpenseSplits: plannedExpenseSplits.map((split) => ({
+      householdName: split.plannedExpense.household.name,
+      billName: split.plannedExpense.name,
+      billAmount: split.plannedExpense.amount,
+      dueDate: split.plannedExpense.dueDate,
       amountOwed: split.amountOwed,
       createdAt: split.createdAt,
     })),

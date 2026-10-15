@@ -5,6 +5,8 @@
 // — no database is touched. See REQUIREMENTS.md's "Testing" section and the
 // identical convention in src/lib/actions/household.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireHouseholdMock,
@@ -22,6 +24,7 @@ const {
   transactionMock,
   householdMemberFindManyMock,
   householdMemberFindFirstMock,
+  plannedExpenseFindFirstMock,
   recurringTemplateFindFirstMock,
   recurringTemplateCreateMock,
   recurringTemplateUpdateMock,
@@ -48,6 +51,7 @@ const {
   transactionMock: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
   householdMemberFindManyMock: vi.fn(),
   householdMemberFindFirstMock: vi.fn(),
+  plannedExpenseFindFirstMock: vi.fn(),
   recurringTemplateFindFirstMock: vi.fn(),
   recurringTemplateCreateMock: vi.fn(),
   recurringTemplateUpdateMock: vi.fn(),
@@ -75,10 +79,12 @@ vi.mock("@/lib/prisma", () => ({
       findMany: transactionFindManyMock,
       create: transactionCreateMock,
       deleteMany: transactionDeleteManyMock,
+      update: vi.fn(),
     },
     transactionSplit: { deleteMany: vi.fn() },
     memberSettlement: { create: settlementCreateMock, deleteMany: settlementDeleteManyMock },
     householdMember: { findMany: householdMemberFindManyMock, findFirst: householdMemberFindFirstMock },
+    plannedExpense: { findFirst: plannedExpenseFindFirstMock },
     recurringTemplate: {
       findFirst: recurringTemplateFindFirstMock,
       create: recurringTemplateCreateMock,
@@ -98,6 +104,11 @@ vi.mock("@/lib/session", () => ({
   requireUserId: requireUserIdMock,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// fail() (src/lib/actions/errors.ts) reads the request's dictionary. With no
+// request here, the default `{}` makes it fall back to English; a test that
+// checks a translated error swaps in `sv` for one call.
+const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 
 const {
   createCategoryAction,
@@ -563,11 +574,47 @@ describe("deleteCategoryAction", () => {
     expect(categoryDeleteMock).not.toHaveBeenCalled();
   });
 
+  it("names the planned bill that still uses the category instead of failing generically", async () => {
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Car insurance" }],
+    });
+
+    const result = await deleteCategoryAction("cat-1");
+
+    expect(result.error).toBe('This category is used by the planned bill "Car insurance" — remove or reassign it first');
+    expect(categoryFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({ plannedExpenses: { select: { name: true }, take: 1 } }),
+      }),
+    );
+    expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("names the planned bill in the user's language", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Bilförsäkring" }],
+    });
+
+    const result = await deleteCategoryAction("cat-1");
+
+    expect(result.error).toBe(
+      'Kategorin används av den planerade räkningen "Bilförsäkring" – ta bort den eller byt kategori först',
+    );
+  });
+
   it("deletes a transaction-free category", async () => {
     categoryFindFirstMock.mockResolvedValue({
       id: "cat-1",
       _count: { transactions: 0 },
       recurringTemplates: [],
+      plannedExpenses: [],
     });
     categoryDeleteMock.mockResolvedValue({});
 
@@ -630,6 +677,121 @@ describe("createTransactionAction", () => {
 
     expect(result.error).toBe("Recurring template not found");
     expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  describe("planned bill link (BUDGET-8)", () => {
+    beforeEach(() => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      transactionCreateMock.mockResolvedValue({});
+    });
+
+    it("links the transaction to a planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({});
+      expect(plannedExpenseFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "p1", householdId: household.id } }),
+      );
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: "p1" }) }),
+      );
+    });
+
+    it("rejects a planned bill from another household", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue(null);
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "Planned bill not found" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an already paid planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("maps a unique-constraint race to the already-paid error (pg adapter, constraint index)", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { driverAdapterError: { cause: { kind: "UniqueConstraintViolation", constraint: { index: "Transaction_plannedExpenseId_key" } } } },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("maps the race when the adapter reports constraint fields", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { driverAdapterError: { cause: { kind: "UniqueConstraintViolation", constraint: { fields: ["plannedExpenseId"] } } } },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("maps the race from the meta.target fallback", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { target: ["plannedExpenseId"] },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("rejects paying a planned bill from a non-expense category", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "INCOME" });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "A planned bill can only be paid from an expense category" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("returns the planned bill errors in the user's language", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+      getDictionaryMock.mockResolvedValueOnce(sv);
+      const paid = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+      expect(paid).toEqual({ error: sv.errors.plannedBillAlreadyPaid });
+
+      plannedExpenseFindFirstMock.mockResolvedValue(null);
+      getDictionaryMock.mockResolvedValueOnce(sv);
+      const missing = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+      expect(missing).toEqual({ error: sv.errors.plannedBillNotFound });
+    });
+
+    it("without plannedExpenseId nothing changes", async () => {
+      await createTransactionAction({}, formData(base));
+
+      expect(plannedExpenseFindFirstMock).not.toHaveBeenCalled();
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: null }) }),
+      );
+    });
   });
 
   describe("split validation (parseSplitFormData)", () => {
@@ -947,6 +1109,32 @@ describe("updateTransactionAction", () => {
 
     expect(result.error).toBe("Transaction not found");
     expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects moving a planned bill's payment to an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: "p1" });
+
+    const result = await updateTransactionAction(
+      {},
+      formData({ id: "tx-1", categoryId: "cat-salary", amount: "3000", date: "2026-10-20", isRecurring: "" }),
+    );
+
+    expect(result.error).toBe("A planned bill can only be paid from an expense category");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("still lets an ordinary transaction move to an income category", async () => {
+    categoryFindFirstMock.mockResolvedValue({ id: "cat-salary", type: "INCOME" });
+    transactionFindFirstMock.mockResolvedValue({ id: "tx-1", plannedExpenseId: null });
+
+    const result = await updateTransactionAction(
+      {},
+      formData({ id: "tx-1", categoryId: "cat-salary", amount: "3000", date: "2026-10-20", isRecurring: "" }),
+    );
+
+    expect(result).toEqual({});
+    expect(transactionMock).toHaveBeenCalled();
   });
 });
 

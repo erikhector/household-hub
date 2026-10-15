@@ -5,6 +5,11 @@
 // page directly, and Personal Budget + the dashboard through
 // src/lib/personal-budget-position.ts.
 
+import {
+  isPlannedExpenseOutstanding,
+  type PlannedExpenseStatus,
+} from "@/lib/planned-expense-calc";
+
 export type SafeToSpendTransaction = {
   categoryId: string;
   categoryName: string;
@@ -181,6 +186,15 @@ export type SafeToSpendTemplate = {
   status: "posted" | "acknowledged" | "due";
 };
 
+/** A planned bill (PlannedExpense) with its status for the month being
+ * viewed — see getPlannedExpenseStatus in src/lib/planned-expense-calc.ts. */
+export type SafeToSpendPlannedExpense = {
+  id: string;
+  name: string;
+  amount: number;
+  status: PlannedExpenseStatus;
+};
+
 /**
  * Works out what's still due this month and derives the headline "safe to
  * spend" number from it.
@@ -195,6 +209,14 @@ export type SafeToSpendTemplate = {
  * that transaction, even when it was logged for less than the item says — a
  * 5000 saving logged as 3000 means 3000 was saved, not that 2000 is still
  * owed. "Acknowledged" counts as handled.
+ *
+ * Planned bills (`plannedExpenses`, one-off bills with a due date) are a
+ * separate input rather than extra `templates` on purpose: templates also
+ * build `templateCategoryIds` below, which switches off the "this repeats"
+ * estimate for their category, and a one-off bill must never do that. Every
+ * one that's "due" or "overdue" is subtracted at its full amount under its
+ * own name; a "paid" one already counts through its transaction in
+ * `expenseSoFar`, and an "upcoming" one belongs to a later month.
  *
  * Categories without a recurring item fall back to the older estimate below,
  * so households that only ever ticked "this repeats" on a transaction keep
@@ -218,6 +240,7 @@ export function computeSafeToSpend({
   expenseSoFar,
   savingsSoFar,
   templates = [],
+  plannedExpenses = [],
   owedFromEarlier = 0,
 }: {
   transactions: SafeToSpendTransaction[];
@@ -228,6 +251,8 @@ export function computeSafeToSpend({
   savingsSoFar: number;
   /** Active recurring items with their status this month. */
   templates?: SafeToSpendTemplate[];
+  /** Planned bills with their status this month. */
+  plannedExpenses?: SafeToSpendPlannedExpense[];
   owedFromEarlier?: number;
 }): SafeToSpendResult {
   const templateCategoryIds = new Set(templates.map((t) => t.categoryId));
@@ -274,6 +299,16 @@ export function computeSafeToSpend({
       categoryName: t.name,
       amount: t.amount,
       type: t.type,
+    });
+  }
+
+  for (const p of plannedExpenses) {
+    if (!isPlannedExpenseOutstanding(p.status)) continue;
+    expectedRecurring.push({
+      categoryId: p.id,
+      categoryName: p.name,
+      amount: p.amount,
+      type: "EXPENSE",
     });
   }
 

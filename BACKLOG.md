@@ -329,23 +329,6 @@ order below is a suggestion, not a dependency, unless noted.
       "owed from earlier months". Verify with 3 years × 100/month seeded.
  No schema change of its own beyond PERF-3's index.
 
-- [ ] **BUDGET-8. One-off shared cost / planned shared expense mechanism** (medium, M) `[schema?]`
-      Households need a way to create an expected, non-recurring shared
-      cost (e.g. "Group purchase: new vacuum" or "Shared bulk buy") that
-      is eligible for budgets and member shares without being a recurring
-      template. This covers planned joint purchases that should affect
-      category budgets and safe-to-spend forecasts.
-      - Proposal: add a `SharedPlan` table or a `Transaction.isPlannedShared`
-        boolean plus `plannedDate` and optional `participants`/`split` info;
-        or reuse `Transaction` with a `status: planned|posted` and an
-        associated `TransactionSplit` prepared but not yet settled.
-      - Migration: if a new column/table is needed, add a migration and
-        keep read paths backward-compatible while the UI rolls out.
-      Acceptance: a member can create a planned shared cost, it shows up
-      in the household and personal budgets as an expected charge (at each
-      participant's share) and can be converted to a real `Transaction` on
-      settlement; unit tests for the create/convert flows and a short e2e
-      spec for the UI flow.
 - [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
       any role can create 7-day invites (`household.ts:32-50`) and nothing
       revokes them; `removeMemberAction` (`:383-410`) leaves pending
@@ -391,26 +374,6 @@ decision and sit under "Needs a decision before building".
       - A Base UI Tooltip on every icon-only button.
 
       Todoist sets this bar for productivity users on desktop.
-
-- [ ] **UX-42. Loading that looks instant** (S) — Done so far: the
-      `loading.tsx` skeletons (including the `shopping-list/[id]` and
-      `inventory/items` detail pages), fixed-width pending buttons
-      (`PendingLabel`), and `e2e/cls.spec.ts`; see REQUIREMENTS.md, "Loading
-      skeletons". Left:
-      - Close the acceptance under real latency: re-run Lighthouse's mobile
-        profile on a deployed build, or add latency to `e2e/cls.spec.ts`
-        (delay RSC/server responses with `page.route`) so the 0.05 budget is
-        exercised while Suspense sections stream in. Locally every route
-        measures 0.0000 because the database answers before first paint.
-      - Replace the remaining `fallback={null}` above content (household
-        `SharedWithNote`, inventory `InventoryWellStockedNote`, shopping list
-        `RepurchaseSuggestionsSection`, the layout's email-verification
-        banner) with fixed-height placeholders only if that measurement
-        shows a shift.
-      - Skeleton card heights tuned per route against the real layout.
-
-      Acceptance: Lighthouse CLS < 0.05 on every dashboard route on the
-      mobile profile.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten

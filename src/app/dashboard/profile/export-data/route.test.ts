@@ -20,6 +20,7 @@ const {
   householdTaskFindManyMock,
   transactionSplitFindManyMock,
   recurringTemplateSplitFindManyMock,
+  plannedExpenseSplitFindManyMock,
   memberSettlementFindManyMock,
 } = vi.hoisted(() => ({
   requireUserIdMock: vi.fn(async () => "user-1"),
@@ -33,6 +34,7 @@ const {
   householdTaskFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   transactionSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   recurringTemplateSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
+  plannedExpenseSplitFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
   memberSettlementFindManyMock: vi.fn<() => Promise<unknown[]>>(async () => []),
 }));
 
@@ -48,6 +50,7 @@ vi.mock("@/lib/prisma", () => ({
     householdTask: { findMany: householdTaskFindManyMock },
     transactionSplit: { findMany: transactionSplitFindManyMock },
     recurringTemplateSplit: { findMany: recurringTemplateSplitFindManyMock },
+    plannedExpenseSplit: { findMany: plannedExpenseSplitFindManyMock },
     memberSettlement: { findMany: memberSettlementFindManyMock },
   },
 }));
@@ -298,6 +301,19 @@ describe("GET /dashboard/profile/export-data", () => {
           },
         },
       ]);
+      plannedExpenseSplitFindManyMock.mockResolvedValue([
+        {
+          id: "psplit-1",
+          amountOwed: 2000,
+          createdAt: fixedNow,
+          plannedExpense: {
+            name: "Car insurance",
+            amount: 4000,
+            dueDate: fixedNow,
+            household: { name: "The Hectors" },
+          },
+        },
+      ]);
       memberSettlementFindManyMock.mockResolvedValue([
         {
           id: "settle-1",
@@ -417,6 +433,13 @@ describe("GET /dashboard/profile/export-data", () => {
           "recurringTemplateSplits[].frequency",
           "recurringTemplateSplits[].amountOwed",
           "recurringTemplateSplits[].createdAt",
+          "plannedExpenseSplits",
+          "plannedExpenseSplits[].householdName",
+          "plannedExpenseSplits[].billName",
+          "plannedExpenseSplits[].billAmount",
+          "plannedExpenseSplits[].dueDate",
+          "plannedExpenseSplits[].amountOwed",
+          "plannedExpenseSplits[].createdAt",
           "memberSettlements",
           "memberSettlements[].householdName",
           "memberSettlements[].direction",
@@ -492,6 +515,9 @@ describe("GET /dashboard/profile/export-data", () => {
         expect.objectContaining({ where: { householdMember: mine } }),
       );
       expect(recurringTemplateSplitFindManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { householdMember: mine } }),
+      );
+      expect(plannedExpenseSplitFindManyMock).toHaveBeenCalledWith(
         expect.objectContaining({ where: { householdMember: mine } }),
       );
       expect(memberSettlementFindManyMock).toHaveBeenCalledWith(

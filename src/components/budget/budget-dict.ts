@@ -16,7 +16,12 @@
 // whose dict lacks it (`canSplit`, `sharedRows.length`, …), so the optional
 // chaining this forces is a type-checking formality, not a real "what if
 // it's missing" case.
+import type { Dictionary } from "@/lib/i18n/get-dictionary";
+
 export type BudgetDict = {
+  // Household-only: planned bills (BUDGET-8) in the due strip. Only read when
+  // plannedDue is non-empty, which never happens on the personal budget page.
+  planned?: Dictionary["budget"]["planned"];
   add: string;
   addTransactionDialogTitle: string;
   amountLabel: string;
