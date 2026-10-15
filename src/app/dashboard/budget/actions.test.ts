@@ -6,6 +6,7 @@
 // identical convention in src/lib/actions/household.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
+import { sv } from "@/lib/i18n/dictionaries/sv";
 
 const {
   requireHouseholdMock,
@@ -102,6 +103,11 @@ vi.mock("@/lib/session", () => ({
   requireUserId: requireUserIdMock,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
+// fail() (src/lib/actions/errors.ts) reads the request's dictionary. With no
+// request here, the default `{}` makes it fall back to English; a test that
+// checks a translated error swaps in `sv` for one call.
+const { getDictionaryMock } = vi.hoisted(() => ({ getDictionaryMock: vi.fn(async (): Promise<unknown> => ({})) }));
+vi.mock("@/lib/i18n/get-dictionary", () => ({ getDictionary: getDictionaryMock, getLocale: vi.fn(async () => "en") }));
 
 const {
   createCategoryAction,
@@ -567,11 +573,47 @@ describe("deleteCategoryAction", () => {
     expect(categoryDeleteMock).not.toHaveBeenCalled();
   });
 
+  it("names the planned bill that still uses the category instead of failing generically", async () => {
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Car insurance" }],
+    });
+
+    const result = await deleteCategoryAction("cat-1");
+
+    expect(result.error).toBe('This category is used by the planned bill "Car insurance" — remove or reassign it first');
+    expect(categoryFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({ plannedExpenses: { select: { name: true }, take: 1 } }),
+      }),
+    );
+    expect(categoryDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("names the planned bill in the user's language", async () => {
+    getDictionaryMock.mockResolvedValueOnce(sv);
+    categoryFindFirstMock.mockResolvedValue({
+      id: "cat-1",
+      _count: { transactions: 0 },
+      recurringTemplates: [],
+      plannedExpenses: [{ name: "Bilförsäkring" }],
+    });
+
+    const result = await deleteCategoryAction("cat-1");
+
+    expect(result.error).toBe(
+      'Kategorin används av den planerade räkningen "Bilförsäkring" – ta bort den eller byt kategori först',
+    );
+  });
+
   it("deletes a transaction-free category", async () => {
     categoryFindFirstMock.mockResolvedValue({
       id: "cat-1",
       _count: { transactions: 0 },
       recurringTemplates: [],
+      plannedExpenses: [],
     });
     categoryDeleteMock.mockResolvedValue({});
 
@@ -717,6 +759,28 @@ describe("createTransactionAction", () => {
       const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
 
       expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("rejects paying a planned bill from a non-expense category", async () => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "INCOME" });
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "A planned bill can only be paid from an expense category" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("returns the planned bill errors in the user's language", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+      getDictionaryMock.mockResolvedValueOnce(sv);
+      const paid = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+      expect(paid).toEqual({ error: sv.errors.plannedBillAlreadyPaid });
+
+      plannedExpenseFindFirstMock.mockResolvedValue(null);
+      getDictionaryMock.mockResolvedValueOnce(sv);
+      const missing = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+      expect(missing).toEqual({ error: sv.errors.plannedBillNotFound });
     });
 
     it("without plannedExpenseId nothing changes", async () => {

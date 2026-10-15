@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireHousehold, requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
-import { toFriendlyError } from "@/lib/actions/errors";
+import { fail, toFriendlyError } from "@/lib/actions/errors";
 import { isUniqueViolation } from "@/lib/prisma-errors";
 import { parseShareSplitFormData, SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import {
@@ -224,6 +224,11 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
       // an opaque "something went wrong". `active` first so a live template
       // is named ahead of a paused one when a category has both.
       recurringTemplates: { select: { name: true }, orderBy: { active: "desc" }, take: 1 },
+      // Same reason for planned bills (BUDGET-8): PlannedExpense→BudgetCategory
+      // is Restrict too, and an unpaid bill has no transaction to trip the
+      // count above (nor does a paid one whose payment went to another
+      // category).
+      plannedExpenses: { select: { name: true }, take: 1 },
     },
   });
   if (!category) return { error: "Category not found" };
@@ -236,6 +241,8 @@ export async function deleteCategoryAction(categoryId: string): Promise<ActionSt
       error: `This category is used by the recurring item "${blockingTemplate.name}" — remove or reassign it first`,
     };
   }
+  const blockingPlanned = category.plannedExpenses[0];
+  if (blockingPlanned) return fail("categoryUsedByPlannedBill", { name: blockingPlanned.name });
 
   try {
     await prisma.budgetCategory.delete({ where: { id: category.id } });
@@ -280,8 +287,6 @@ function parseTransactionFormData(formData: FormData) {
   });
 }
 
-const PLANNED_BILL_PAID_ERROR = "This planned bill is already paid";
-
 /** Validates an optional client-supplied plannedExpenseId belongs to the
  * caller's household and isn't already paid (a planned bill has at most one
  * payment transaction). Returns `undefined` id when not provided. */
@@ -294,8 +299,8 @@ async function resolvePlannedExpenseId(
     where: { id: plannedExpenseId, householdId },
     select: { id: true, transaction: { select: { id: true } } },
   });
-  if (!planned) return { error: "Planned bill not found" };
-  if (planned.transaction) return { error: PLANNED_BILL_PAID_ERROR };
+  if (!planned) return fail("plannedBillNotFound");
+  if (planned.transaction) return fail("plannedBillAlreadyPaid");
   return { id: planned.id };
 }
 
@@ -461,6 +466,12 @@ export async function createTransactionAction(
     if (dup) return dup;
   }
 
+  // A planned bill is an expense by definition (its own category must be
+  // one); paying it from an income or savings category would count it as
+  // paid while the money shows up on the wrong side of the budget.
+  if (parsed.data.plannedExpenseId && category.type !== "EXPENSE") {
+    return fail("plannedBillNeedsExpenseCategory");
+  }
   const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId);
   if ("error" in planned) return { error: planned.error };
 
@@ -487,7 +498,7 @@ export async function createTransactionAction(
     // Two members paying the same bill at once both pass the pre-check; the
     // unique index on plannedExpenseId rejects the loser.
     if (isUniqueViolation(error) && isPlannedExpenseTarget(error)) {
-      return { error: PLANNED_BILL_PAID_ERROR };
+      return fail("plannedBillAlreadyPaid");
     }
     return toFriendlyError(error);
   }

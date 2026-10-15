@@ -23,6 +23,7 @@ type HouseholdData = {
   inventoryItems?: { name: string; expiresAt: Date | null; expiresAtEstimated: boolean }[];
   budgetCategoryCount?: number;
   transactions?: unknown[];
+  plannedExpenses?: unknown[];
 };
 
 const db = vi.hoisted(() => ({
@@ -33,11 +34,13 @@ const db = vi.hoisted(() => ({
   data: new Map<string, HouseholdData>(),
 }));
 
-const { sendWeeklyDigestEmailMock, weeklyDigestSendCreateMock, inventoryItemFindManyMock } = vi.hoisted(() => ({
-  sendWeeklyDigestEmailMock: vi.fn(),
-  weeklyDigestSendCreateMock: vi.fn(),
-  inventoryItemFindManyMock: vi.fn(),
-}));
+const { sendWeeklyDigestEmailMock, weeklyDigestSendCreateMock, inventoryItemFindManyMock, plannedExpenseFindManyMock } =
+  vi.hoisted(() => ({
+    sendWeeklyDigestEmailMock: vi.fn(),
+    weeklyDigestSendCreateMock: vi.fn(),
+    inventoryItemFindManyMock: vi.fn(),
+    plannedExpenseFindManyMock: vi.fn(),
+  }));
 
 type UserFilter = {
   weeklyDigestEnabled?: boolean;
@@ -95,6 +98,7 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.transactions ?? []),
     },
     recurringTemplate: { findMany: vi.fn(async () => []) },
+    plannedExpense: { findMany: plannedExpenseFindManyMock },
     recurringTemplateAck: { findMany: vi.fn(async () => []) },
     weeklyDigestSend: {
       create: weeklyDigestSendCreateMock,
@@ -164,6 +168,9 @@ beforeEach(() => {
   db.sends = [];
   db.data = new Map();
   sendWeeklyDigestEmailMock.mockResolvedValue({});
+  plannedExpenseFindManyMock.mockImplementation(
+    async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.plannedExpenses ?? [],
+  );
   inventoryItemFindManyMock.mockImplementation(
     async ({ where }: { where: { householdId: string } }) => db.data.get(where.householdId)?.inventoryItems ?? [],
   );
@@ -303,6 +310,60 @@ describe("empty digests", () => {
     expect(sendWeeklyDigestEmailMock).toHaveBeenCalledTimes(1);
     expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
       "Remaining after expenses and savings this month: 750.00",
+    );
+  });
+});
+
+describe("planned bills", () => {
+  const salary = {
+    categoryId: "c1",
+    category: { name: "Salary" },
+    type: "INCOME",
+    amount: 1000,
+    date: new Date(NOW.getTime() - DAY),
+    isRecurring: false,
+    recurringTemplateId: null,
+  };
+
+  it("takes due and overdue planned bills off the headline, like the Budget page", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], {
+      inventoryItems: [],
+      budgetCategoryCount: 1,
+      transactions: [salary],
+      plannedExpenses: [
+        // Due this month (September 2026), unpaid: counts in full.
+        { id: "p1", name: "Car insurance", amount: 300, dueDate: new Date("2026-09-30T00:00:00.000Z"), transaction: null },
+        // Overdue from August, unpaid: counts too.
+        { id: "p2", name: "Dentist", amount: 100, dueDate: new Date("2026-08-15T00:00:00.000Z"), transaction: null },
+        // Due next month: not this month's money.
+        { id: "p3", name: "Tyres", amount: 500, dueDate: new Date("2026-10-10T00:00:00.000Z"), transaction: null },
+      ],
+    });
+
+    await run();
+
+    expect(sendWeeklyDigestEmailMock.mock.calls[0][0].text).toContain(
+      "Remaining after expenses and savings this month: 600.00",
+    );
+  });
+
+  it("scopes the planned bill query to the household and skips bills paid before this month", async () => {
+    addUser("u1");
+    addHousehold("h1", ["u1"], { budgetCategoryCount: 1, transactions: [salary] });
+
+    await run();
+
+    expect(plannedExpenseFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          householdId: "h1",
+          OR: [
+            { transaction: { is: null } },
+            { transaction: { is: { date: { gte: new Date("2026-09-01T00:00:00.000Z") } } } },
+          ],
+        },
+      }),
     );
   });
 });
