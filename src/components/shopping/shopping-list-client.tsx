@@ -1031,10 +1031,15 @@ function ShoppingRow({
   // line above never covers them; the phone BottomNav below is cleared by
   // main's scroll-padding in the dashboard layout, and the shopping-mode
   // dock above it by the row's scroll-margin (--shopping-dock, set by
-  // NextUpDock while it's shown).
+  // NextUpDock while it's shown). Both sit on SwipeRow's root and that's
+  // what scrolls: its `overflow-hidden` makes it a scroll container, and
+  // Chrome clips a target's scroll-margin to the inner scroller it's in, so
+  // a margin on the row inside it never reached `main`.
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (highlighted) rowRef.current?.scrollIntoView({ block: "nearest" });
+    if (!highlighted) return;
+    const row = rowRef.current;
+    (row?.closest<HTMLElement>("[data-swipe-row]") ?? row)?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
   // UX-35: swipe left → Delete hides the row with an Undo toast; the trash
@@ -1050,7 +1055,7 @@ function ShoppingRow({
 
   return (
     <SwipeRow
-      className="rounded-md"
+      className="rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
       // A read-only (completed or archived) list has nothing to swipe to.
       primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
       primaryIcon={<Check className="size-4" />}
@@ -1062,7 +1067,7 @@ function ShoppingRow({
       <div
         ref={rowRef}
         className={cn(
-          "relative flex flex-col gap-1 rounded-md border transition-colors duration-700 max-sm:scroll-mb-[var(--shopping-dock,0px)]",
+          "relative flex flex-col gap-1 rounded-md border transition-colors duration-700",
           // AUTO-3: a bigger touch target while the list is ACTIVE (shopping
           // mode) — rows are tapped one-handed, phone in the other hand, so
           // this is when it matters most; a read-only list stays compact.

@@ -126,6 +126,9 @@ test("swiping a shopping row right ticks it, and the tick saves", async ({ page 
   await expect(box).toBeChecked();
   await saved;
   await page.reload();
+  // UX-37: on an active list a ticked row lives in the collapsed "In the
+  // cart" section, so open it to see the saved tick.
+  await main.getByRole("button", { name: /^In the cart/ }).click();
   await expect(box).toBeChecked();
 });
 

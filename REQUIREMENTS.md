@@ -883,9 +883,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       it above the BottomNav (`fixed`, with a spacer the dock's measured
       height at the end of the list so the last rows can scroll clear of
       it, and its height plus its gap on `main` as `--shopping-dock`, which
-      every row uses as its phone `scroll-margin-bottom`, so a row just
-      added from the smart-add box scrolls into view above the dock rather
-      than behind it); from `sm` it's sticky at the bottom of the column; a short
+      every row's swipe wrapper (`SwipeRow`, UX-35) uses as its phone
+      `scroll-margin-bottom`, so a row just added from the smart-add box
+      scrolls into view above the dock rather than behind it. The wrapper,
+      not the row inside it, is what scrolls into view: its
+      `overflow-hidden` makes it a scroll container, and Chrome clips an
+      inner target's scroll-margin to it); from `sm` it's sticky at the bottom of the column; a short
       (landscape) screen shows one item. Every item it offers is also in the
       list with its own checkbox (M7).
     - *All done*: the cleared state shows the full ring with a tick and pops
