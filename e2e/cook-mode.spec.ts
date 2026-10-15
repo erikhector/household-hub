@@ -51,3 +51,32 @@ test("cook mode opens, ticks a step off and closes back to the recipe list", asy
     page.getByRole("dialog", { name: "Cooking Pancakes" }).getByRole("button", { name: "Whisk the batter" }),
   ).toHaveAttribute("aria-pressed", "false");
 });
+
+// GAP-50: a step that names a duration gets a timer button (the seeded
+// "Porridge" has "Simmer for 10-12 minutes", so the upper bound, 12 min); a
+// step without one doesn't. Timers are component state, so nothing to clean up.
+test("a step with a duration starts a countdown timer and stops it", async ({ page }) => {
+  await page.goto("/dashboard/meal-planning?tab=recipes");
+  await page.getByRole("searchbox", { name: /Search recipes/ }).fill("Porridge");
+  await (await openRowSheet(page, "Porridge")).getByRole("button", { name: "Cook", exact: true }).click();
+
+  const cook = page.getByRole("dialog", { name: "Cooking Porridge" });
+  await expect(cook).toBeVisible();
+  // Only the step with a duration offers a timer.
+  await expect(cook.getByRole("button", { name: /timer$/ })).toHaveCount(1);
+  await expect(cook.getByRole("timer")).toHaveCount(0);
+
+  await cook.getByRole("button", { name: "Start 12 min timer" }).click();
+  const chip = cook.getByRole("timer");
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText(/^1[12]:\d\d$/);
+  await expect(cook.getByRole("button", { name: "Start 12 min timer" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
+  // Ticking the step off doesn't touch the timer, and Stop clears it.
+  await cook.getByRole("button", { name: "Simmer for 10-12 minutes" }).click();
+  await expect(chip).toBeVisible();
+  await cook.getByRole("button", { name: "Stop timer" }).click();
+  await expect(chip).toHaveCount(0);
+  await expect(cook.getByRole("button", { name: "Start 12 min timer" })).toBeVisible();
+});

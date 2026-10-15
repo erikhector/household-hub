@@ -1682,6 +1682,12 @@ export const en = {
     cookModeIngredients: "Ingredients",
     cookModeSteps: "Steps",
     cookModeClose: "Close",
+    // GAP-50: step timers inside the cook view.
+    cookTimerStart: "Start {duration} timer",
+    cookTimerStop: "Stop timer",
+    cookTimerRemaining: "{time} left",
+    cookTimerDone: "Timer done for step {step}",
+    cookTimerDismiss: "Dismiss",
     // GAP-43: copies the recipe as plain text to the clipboard.
     copyRecipeText: "Copy as text",
     copyRecipeTextToast: "Recipe copied as text",
