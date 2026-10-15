@@ -1697,6 +1697,13 @@ export const en = {
     copyRecipeText: "Copy as text",
     copyRecipeTextToast: "Recipe copied as text",
     copyRecipeTextFailedToast: "Couldn't copy the recipe",
+    // GAP-48: duplicates a recipe and opens the copy for editing.
+    duplicateRecipe: "Duplicate",
+    duplicateRecipeName: "{name} (copy)",
+    duplicateRecipeToast: "Recipe duplicated. Edit the copy.",
+    duplicateRecipeUndo: "Undo",
+    duplicateRecipeUndoneToast: "Copy removed",
+    duplicateRecipeFailedToast: "Couldn't duplicate the recipe",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.

@@ -104,6 +104,7 @@ vi.mock("@/lib/i18n/get-dictionary", async () => {
         componentNotFoundError: "One of the selected sub-recipes could not be found.",
         componentCycleError: "That would create a circular reference between recipes.",
         componentRowLimitError: en.mealPlanning.componentRowLimitError,
+        duplicateRecipeName: en.mealPlanning.duplicateRecipeName,
         deleteRecipeInUseError: 'Can\'t delete — used as a sub-recipe in "{recipeName}".',
         ingredientRowLimitError: en.mealPlanning.ingredientRowLimitError,
         ingredientItemNotFoundError: en.mealPlanning.ingredientItemNotFoundError,
@@ -129,6 +130,7 @@ const {
   updateRecipeAction,
   deleteRecipeAction,
   toggleRecipeFavoriteAction,
+  duplicateRecipeAction,
   importRecipeFromUrlAction,
 } = await import("@/app/dashboard/meal-planning/recipe-actions");
 
@@ -1499,6 +1501,114 @@ describe("toggleRecipeFavoriteAction", () => {
     requireHouseholdMock.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
 
     await expect(toggleRecipeFavoriteAction("recipe-1")).rejects.toThrow("NEXT_REDIRECT");
+    expect(recipeFindFirstMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("duplicateRecipeAction", () => {
+  const source = {
+    id: "recipe-1",
+    householdId: "household-1",
+    name: "Lasagne",
+    instructions: "Layer it",
+    servings: 6,
+    caloriesPerServing: 500,
+    proteinGramsPerServing: 20,
+    carbsGramsPerServing: null,
+    fatGramsPerServing: null,
+    isFavorite: true,
+    tags: ["vegetarian"],
+    ingredients: [
+      {
+        id: "ing-1",
+        recipeId: "recipe-1",
+        inventoryItemId: "item-1",
+        name: "Pasta",
+        quantity: 300,
+        unit: "g",
+        untracked: false,
+        rawText: "300 g pasta",
+        note: "fresh",
+      },
+    ],
+    components: [{ id: "comp-1", parentRecipeId: "recipe-1", componentRecipeId: "recipe-2", quantity: 2 }],
+  };
+
+  it("rejects a recipe outside the caller's household (IDOR guard) and writes nothing", async () => {
+    recipeFindFirstMock.mockResolvedValue(null);
+
+    const result = await duplicateRecipeAction("someone-elses-recipe");
+
+    expect(result.error).toBe("Recipe not found");
+    expect(recipeFindFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "someone-elses-recipe", householdId: "household-1" } }),
+    );
+    expect(recipeCreateMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("copies the recipe as '<name> (copy)' with the favorite flag reset", async () => {
+    recipeFindFirstMock.mockResolvedValue(source);
+    recipeCreateMock.mockResolvedValue({ id: "recipe-copy" });
+
+    const result = await duplicateRecipeAction("recipe-1");
+
+    expect(result).toEqual({ recipeId: "recipe-copy" });
+    const data = recipeCreateMock.mock.calls[0][0].data;
+    expect(data).toMatchObject({
+      householdId: "household-1",
+      name: "Lasagne (copy)",
+      instructions: "Layer it",
+      servings: 6,
+      caloriesPerServing: 500,
+      proteinGramsPerServing: 20,
+      tags: ["vegetarian"],
+      isFavorite: false,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard/meal-planning");
+  });
+
+  it("creates new ingredient and sub-recipe rows instead of sharing the original's", async () => {
+    recipeFindFirstMock.mockResolvedValue(source);
+    recipeCreateMock.mockResolvedValue({ id: "recipe-copy" });
+
+    await duplicateRecipeAction("recipe-1");
+
+    const data = recipeCreateMock.mock.calls[0][0].data;
+    expect(data.ingredients).toEqual({
+      create: [
+        {
+          inventoryItemId: "item-1",
+          name: "Pasta",
+          quantity: 300,
+          unit: "g",
+          untracked: false,
+          rawText: "300 g pasta",
+          note: "fresh",
+        },
+      ],
+    });
+    expect(data.components).toEqual({ create: [{ componentRecipeId: "recipe-2", quantity: 2 }] });
+    expect(JSON.stringify(data.ingredients)).not.toContain("ing-1");
+    expect(recipeUpdateMock).not.toHaveBeenCalled();
+    expect(recipeIngredientDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a long name within the 120-character limit", async () => {
+    recipeFindFirstMock.mockResolvedValue({ ...source, name: "x".repeat(120) });
+    recipeCreateMock.mockResolvedValue({ id: "recipe-copy" });
+
+    await duplicateRecipeAction("recipe-1");
+
+    const name = recipeCreateMock.mock.calls[0][0].data.name as string;
+    expect(name).toHaveLength(120);
+    expect(name.endsWith(" (copy)")).toBe(true);
+  });
+
+  it("requires a household session", async () => {
+    requireHouseholdMock.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(duplicateRecipeAction("recipe-1")).rejects.toThrow("NEXT_REDIRECT");
     expect(recipeFindFirstMock).not.toHaveBeenCalled();
   });
 });
