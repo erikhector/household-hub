@@ -160,12 +160,9 @@ const getMealPlanningCoreData = cache(async (householdId: string, weekStartKey: 
 });
 
 // SCALE-J: a trailing-30-day window across all weeks, independent of
-// whichever week is currently displayed (and of every other query on this
-// page) — see docs/archive/JOY_GAP_BACKLOG.md item 5. Its own Suspense
-// boundary with a `null` fallback, same convention as
-// InventoryWellStockedNote/SharedWithNote (inventory/household pages): a
-// footnote-weight note that either appears once ready or never appears at
-// all, never a layout-shifting skeleton.
+// whichever week is currently displayed — see
+// docs/archive/JOY_GAP_BACKLOG.md item 5. Rendered by PlannerTabSection, so
+// it reveals together with the planner (see there).
 async function MealVarietyRecapSection({
   householdId,
   dict,
@@ -185,9 +182,8 @@ async function MealVarietyRecapSection({
 }
 
 // GAP-2: week-scoped, so unlike MealVarietyRecapSection it reads from the
-// shared core fetch rather than running its own query. Same `null`
-// fallback as the variety recap — a footnote-weight card that either
-// appears once ready or not at all.
+// shared core fetch rather than running its own query. Rendered by
+// PlannerTabSection like the variety recap.
 async function MealNutritionRecapSection({
   householdId,
   dict,
@@ -216,27 +212,31 @@ async function PlannerTabSection({
     getActiveBatches(householdId),
     getLocale(),
   ]);
+  // The two recaps sit above the planner, inside its Suspense boundary
+  // rather than each in their own. With their own boundaries they streamed
+  // in above the tab bar after the first paint: a fixed-height skeleton
+  // (UX-21) kept a recap that arrived from pushing the planner down, but
+  // an empty or dismissed one (the usual case) still collapsed its slot
+  // and pulled the tabs and the planner up, which pushed /meal-planning
+  // over UX-42's CLS budget on a slow CPU (e2e/cls.spec.ts). Here the
+  // planner skeleton is swapped for recaps + planner in one go, so nothing
+  // already on screen moves. The async recaps are siblings, so their
+  // queries still run in parallel with this one's.
   return (
-    <WeekPlanner
-      dict={dict}
-      locale={locale}
-      weekStartKey={weekStartKey}
-      recipes={recipeRows}
-      entries={entries}
-      activeShoppingLists={activeShoppingLists}
-      batches={batches}
-    />
+    <div className="flex flex-col gap-6">
+      <MealVarietyRecapSection householdId={householdId} dict={dict} />
+      <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />
+      <WeekPlanner
+        dict={dict}
+        locale={locale}
+        weekStartKey={weekStartKey}
+        recipes={recipeRows}
+        entries={entries}
+        activeShoppingLists={activeShoppingLists}
+        batches={batches}
+      />
+    </div>
   );
-}
-
-// UX-21: the recaps used to load with `fallback={null}` and push the planner
-// down when they arrived. Both render a one-line card (`py-2` + a 20 px
-// line, taller on phones where the dismiss button is 44 px), so this
-// reserves that height and the tabs stay put. A recap
-// that turns out to be empty or dismissed still collapses its slot once
-// loaded, but never after the planner under it has been looked at.
-function RecapSkeleton({ label }: { label: string }) {
-  return <div className="h-10 animate-pulse max-sm:h-[3.875rem] rounded-md border border-dashed bg-muted/40" role="status" aria-label={label} />;
 }
 
 function PlannerTabSkeleton({ label }: { label: string }) {
@@ -534,16 +534,6 @@ export default async function MealPlanningPage(props: PageProps<"/dashboard/meal
 
       <MealPlanningView
         dict={dict.mealPlanning}
-        varietyRecap={
-          <Suspense key="variety-recap" fallback={<RecapSkeleton label={dict.common.loading} />}>
-            <MealVarietyRecapSection householdId={household.id} dict={dict.mealPlanning} />
-          </Suspense>
-        }
-        nutritionRecap={
-          <Suspense key="nutrition-recap" fallback={<RecapSkeleton label={dict.common.loading} />}>
-            <MealNutritionRecapSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
-          </Suspense>
-        }
         plannerTab={
           <Suspense key="planner-tab" fallback={<PlannerTabSkeleton label={dict.common.loading} />}>
             <PlannerTabSection householdId={household.id} dict={dict.mealPlanning} weekStartKey={weekStartKey} />
