@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouchTargetsInTabs } from "./ui";
+import { dismissCookieNotice, expectTargetsApart, expectTouchTargets, expectTouchTargetsInTabs, openRowSheet } from "./ui";
 
 // UX-19 (M3): touch targets that were too small, overlapped or sat under 8 px
 // from their neighbour, in the places the per-control size guard couldn't see.
@@ -15,31 +15,31 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-test("a meal row's edit, move and delete buttons are 44 px and 8 px apart", async ({ page }) => {
+test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ page }) => {
   const name = `Soup ${suffix()}`;
   await page.goto("/dashboard/meal-planning?week=2031-03-03");
   await page.getByRole("button", { name: "Add meal", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Add a meal" });
   await dialog.getByRole("combobox", { name: "Meal" }).click();
   await page.getByRole("option", { name: "Lunch" }).click();
+  await dialog.getByRole("combobox", { name: "Recipe" }).click();
+  await page.getByRole("option", { name: "Custom meal…" }).click();
   await dialog.getByRole("textbox", { name: "Meal name" }).fill(name);
   await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
-  // The row is the innermost element holding both the name and the
-  // buttons (the name sits in its own wrapper beside GAP-49's Prepped
-  // badge, so it's no longer the buttons' direct sibling); innermost last.
-  const row = page
-    .getByRole("main")
-    .locator("div")
-    .filter({ has: page.getByText(name) })
-    .filter({ has: page.getByRole("button", { name: "Edit meal" }) })
-    .last();
-  await expect(row.getByRole("button", { name: "Edit meal" })).toBeVisible();
-  await expectTargetsApart(row);
+  // The day's card: the meal's row and the day's one "Add meal".
+  await expect(page.getByText(name, { exact: true })).toBeVisible();
+  await expectTargetsApart(page.locator('[data-slot="card"]').filter({ hasText: name }));
+  await expectTouchTargets(page);
+
+  // The meal's actions are labelled buttons in its sheet.
+  const sheet = await openRowSheet(page, name);
+  await expect(sheet.getByRole("button", { name: "Edit meal" })).toBeVisible();
+  await expectTargetsApart(sheet);
   await expectTouchTargets(page);
 });
 
-test("category chips keep 44 px edit and delete buttons apart, in every budget tab", async ({ page }) => {
+test("category chips are 44 px targets kept apart, in every budget tab", async ({ page }) => {
   const id = `e2e-ux19-cat-${suffix()}`;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
@@ -54,14 +54,13 @@ test("category chips keep 44 px edit and delete buttons apart, in every budget t
   }
   await page.goto("/dashboard/budget");
   // Every tab is measured (the guard used to skip the hidden panels); the
-  // chips live in one of them.
+  // chips live in Manage. Go there by name and let the assertion wait: the
+  // tab now switches through `?tab=` (history.replaceState), so its panel
+  // shows a render after the click, and the old probe-each-tab loop's
+  // non-waiting isVisible() could run past Manage on a slow CI runner.
   await expectTouchTargetsInTabs(page);
+  await page.getByRole("tab", { name: "Manage" }).click();
   const edit = page.getByRole("button", { name: /^Edit Hobbies / });
-  const tabs = page.getByRole("tab");
-  for (let t = 0; t < (await tabs.count()); t++) {
-    await tabs.nth(t).click();
-    if (await edit.first().isVisible()) break;
-  }
   await expect(edit.first()).toBeVisible();
   await expectTargetsApart(edit.first().locator("xpath=.."));
 });

@@ -17,7 +17,7 @@
 // dashboard card draw it the same way.
 
 import Link from "next/link";
-import { Banknote, PiggyBank, Users } from "lucide-react";
+import { Banknote, ChevronDown, PiggyBank, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
@@ -52,6 +52,7 @@ export function SafeToSpend({
   householdDebts = [],
   showHouseholdName = false,
   projection = null,
+  variant = "full",
   dict,
   locale,
   currencyCode,
@@ -70,6 +71,13 @@ export function SafeToSpend({
    * line) for any month but the current one, or before any everyday
    * spending. */
   projection?: MonthProjection | null;
+  /** Phone pass (Oct 2026), P4. "full" (the dashboard card) shows every
+   * line of the arithmetic and what's still due. "compact" (the budget
+   * pages' Overview, where the due widget right below already lists what's
+   * due, with buttons) keeps the number and one totals line, and folds the
+   * arithmetic, caveat and still-due list into a "How we got this number"
+   * disclosure (DESIGN.md M6), so Overview stops repeating itself. */
+  variant?: "full" | "compact";
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -85,15 +93,88 @@ export function SafeToSpend({
   // Zero lines that are always zero for most people (nothing owed from
   // earlier, nothing due) are hidden rather than shown as "–0.00"; income,
   // expenses and savings always show so the arithmetic stays readable.
-  const lines: { label: string; value: number; sign: "+" | "–"; alwaysShow?: boolean }[] = [
+  // Savings carry "→", the same sign as on the transaction rows: money set
+  // aside still comes off what's safe to spend, but it isn't spent.
+  const lines: { label: string; value: number; sign: "+" | "–" | "→"; alwaysShow?: boolean }[] = [
     { label: dict.lineIncome, value: breakdown.income, sign: "+", alwaysShow: true },
     { label: dict.lineExpectedIncome, value: breakdown.dueIncome, sign: "+" },
     { label: dict.lineExpenses, value: breakdown.expense, sign: "–", alwaysShow: true },
-    { label: dict.lineSavings, value: breakdown.savings, sign: "–", alwaysShow: true },
+    { label: dict.lineSavings, value: breakdown.savings, sign: "→", alwaysShow: true },
     { label: dict.lineOwedFromEarlier, value: breakdown.owedFromEarlier, sign: "–" },
     { label: dict.lineDuePayments, value: breakdown.duePayments, sign: "–" },
-    { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "–" },
+    { label: dict.lineDueSavings, value: breakdown.dueSavings, sign: "→" },
   ];
+
+  const arithmetic = (
+    <>
+      <dl className="flex flex-col gap-1 text-sm">
+        {lines
+          .filter((line) => line.alwaysShow || line.value > 0.005)
+          .map((line) => (
+            <div key={line.label} className="flex items-center justify-between gap-2">
+              <dt className="min-w-0 truncate text-muted-foreground">{line.label}</dt>
+              <dd className="shrink-0 tabular-nums">
+                {line.sign}
+                {numberFormat.format(line.value)}
+              </dd>
+            </div>
+          ))}
+        <div className="flex items-center justify-between gap-2 border-t border-border pt-1 font-medium">
+          <dt className="min-w-0 truncate">{dict.lineRemaining}</dt>
+          <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
+        </div>
+      </dl>
+      <p className="text-xs text-muted-foreground">{dict.caveat}</p>
+    </>
+  );
+  const expectedList = (
+    <>
+      {expectedRecurring.length > 0 && (
+        <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+          <p className="text-xs font-medium text-muted-foreground">{dict.notYetLoggedTitle}</p>
+          <ul className="flex flex-col gap-1">
+            {expectedRecurring.map((item) => (
+              <li key={item.categoryId} className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="min-w-0 truncate">{item.categoryName}</span>
+                  {item.type === "SAVINGS" && (
+                    <Badge variant="outline" className="shrink-0 gap-1">
+                      <PiggyBank className="size-3" />
+                      {dict.savingBadge}
+                    </Badge>
+                  )}
+                  {item.type === "INCOME" && (
+                    <Badge variant="outline" className="shrink-0 gap-1 border-success/30 text-success">
+                      <Banknote className="size-3" />
+                      {dict.incomeBadge}
+                    </Badge>
+                  )}
+                  {item.source === "shared" && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 gap-1"
+                      title={item.householdName ? format(dict.sharedBadgeTitle, { household: item.householdName }) : undefined}
+                    >
+                      <Users className="size-3" />
+                      {dict.sharedBadge}
+                    </Badge>
+                  )}
+                </span>
+                <span
+                  // Money in is `success`; a due bill or saving is plain
+                  // text (red is for over budget, chart colours for marks).
+                  className={"shrink-0 tabular-nums " + (item.type === "INCOME" ? "text-success" : "")}
+                >
+                  {item.type === "INCOME" ? "+" : item.type === "SAVINGS" ? "→" : "–"}
+                  {numberFormat.format(item.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <Card className="border-2 border-primary/40 bg-primary/5">
@@ -110,72 +191,36 @@ export function SafeToSpend({
         {projection && (
           <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />
         )}
-        <dl className="flex flex-col gap-1 text-sm">
-          {lines
-            .filter((line) => line.alwaysShow || line.value > 0.005)
-            .map((line) => (
-              <div key={line.label} className="flex items-center justify-between gap-2">
-                <dt className="min-w-0 truncate text-muted-foreground">{line.label}</dt>
-                <dd className="shrink-0 tabular-nums">
-                  {line.sign}
-                  {numberFormat.format(line.value)}
-                </dd>
-              </div>
-            ))}
-          <div className="flex items-center justify-between gap-2 border-t border-border pt-1 font-medium">
-            <dt className="min-w-0 truncate">{dict.lineRemaining}</dt>
-            <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
-          </div>
-        </dl>
-        <p className="text-xs text-muted-foreground">{dict.caveat}</p>
-        {expectedRecurring.length > 0 && (
-          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-            <p className="text-xs font-medium text-muted-foreground">{dict.notYetLoggedTitle}</p>
-            <ul className="flex flex-col gap-1">
-              {expectedRecurring.map((item) => (
-                <li key={item.categoryId} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="min-w-0 truncate">{item.categoryName}</span>
-                    {item.type === "SAVINGS" && (
-                      <Badge variant="outline" className="shrink-0 gap-1 border-chart-2/30 text-chart-2">
-                        <PiggyBank className="size-3" />
-                        {dict.savingBadge}
-                      </Badge>
-                    )}
-                    {item.type === "INCOME" && (
-                      <Badge variant="outline" className="shrink-0 gap-1 border-success/30 text-success">
-                        <Banknote className="size-3" />
-                        {dict.incomeBadge}
-                      </Badge>
-                    )}
-                    {item.source === "shared" && (
-                      <Badge
-                        variant="secondary"
-                        className="shrink-0 gap-1"
-                        title={item.householdName ? format(dict.sharedBadgeTitle, { household: item.householdName }) : undefined}
-                      >
-                        <Users className="size-3" />
-                        {dict.sharedBadge}
-                      </Badge>
-                    )}
-                  </span>
-                  <span
-                    className={
-                      "shrink-0 tabular-nums " +
-                      (item.type === "INCOME"
-                        ? "text-success"
-                        : item.type === "SAVINGS"
-                          ? "text-chart-2"
-                          : "text-destructive")
-                    }
-                  >
-                    {item.type === "INCOME" ? "+" : "–"}
-                    {numberFormat.format(item.amount)}
-                  </span>
-                </li>
+        {variant === "full" ? (
+          <>
+            {arithmetic}
+            {expectedList}
+          </>
+        ) : (
+          <>
+            {/* One totals line; the rest is a tap away. */}
+            <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {lines.filter((line) => line.alwaysShow).map((line) => (
+                <div key={line.label} className="flex items-baseline gap-1.5">
+                  <dt className="text-muted-foreground">{line.label}</dt>
+                  <dd className="tabular-nums">
+                    {line.sign}
+                    {numberFormat.format(line.value)}
+                  </dd>
+                </div>
               ))}
-            </ul>
-          </div>
+            </dl>
+            <details className="group">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+                <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+                {dict.breakdownToggle}
+              </summary>
+              <div className="flex flex-col gap-3 pt-1">
+                {arithmetic}
+                {expectedList}
+              </div>
+            </details>
+          </>
         )}
         {householdDebts.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">

@@ -114,6 +114,9 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
 
   // --- It counts in Safe to spend ------------------------------------------
   await page.getByRole("tab", { name: "Overview" }).click();
+  // The "Still due" list sits behind Safe to spend's disclosure (phone
+  // pass, Oct 2026): the bill counts in the number, the list is a tap away.
+  await main.getByText("How we got this number").click();
   const stillDue = main.getByText("Still due this month").locator("xpath=following-sibling::ul");
   await expect(stillDue.getByRole("listitem").filter({ hasText: name })).toBeVisible();
 
@@ -175,10 +178,16 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(txName).toBeVisible();
 
   // --- Deleting the transaction makes the bill due again --------------------
-  await txName
-    .locator("xpath=ancestor::*[.//button[@aria-label='Delete transaction']][1]")
-    .getByRole("button", { name: "Delete transaction" })
-    .click();
+  if (testInfo.project.name.startsWith("mobile")) {
+    // A phone row is itself the edit button; Delete lives in its sheet.
+    await main.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+    await page.getByRole("dialog", { name: "Edit transaction" }).getByRole("button", { name: "Delete transaction" }).click();
+  } else {
+    await txName
+      .locator("xpath=ancestor::*[.//button[@aria-label='Delete transaction']][1]")
+      .getByRole("button", { name: "Delete transaction" })
+      .click();
+  }
   const confirm = page.getByRole("dialog", { name: "Delete this transaction?" });
   await confirm.getByRole("button", { name: "Delete" }).click();
   // The dialog closes once the server has answered (the row itself can go
@@ -186,7 +195,11 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(confirm).toBeHidden();
   await expect(main.getByText(name, { exact: true }).filter({ visible: true })).toHaveCount(0);
 
-  await page.reload();
+  // Closing the sheets steps back over their history entries, and a reload
+  // racing that back() is aborted (see budget-transaction-rows.spec.ts).
+  await expect(async () => {
+    await page.reload();
+  }).toPass();
   await page.getByRole("tab", { name: "Manage" }).click();
   await expect(plannedRow(page, "Due this month", name)).toBeVisible();
   await expect(plannedRow(page, "Paid", name)).toHaveCount(0);

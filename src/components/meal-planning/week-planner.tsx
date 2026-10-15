@@ -1,14 +1,24 @@
 "use client";
 
-import { type ReactNode, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink } from "lucide-react";
+import { ArrowRightLeft, CalendarPlus, ChefHat, CheckCircle2, ChevronLeft, ChevronRight, Copy, CookingPot, ListPlus, Loader2, MoreHorizontal, Pencil, Trash2, Unlink, Utensils } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  createDialogHandle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  type DialogHandle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -201,7 +211,10 @@ export function WeekPlanner({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-1 max-sm:gap-2">
+      {/* Sticky on phones, so the week and its arrows stay in view down a
+          week of day cards, and when the page opens scrolled to today
+          (UX-21) — the same frosted bar as the shopping list's add bar. */}
+      <div className="flex flex-wrap items-center gap-1 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:gap-2 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2 max-sm:backdrop-blur-sm">
         <Button variant="outline" size="icon-sm" aria-label={dict.previousWeek} render={
           <Link href={`/dashboard/meal-planning?week=${prevWeekKey}`} />
         }>
@@ -269,48 +282,57 @@ export function WeekPlanner({
       )}
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
-        {days.map((day) => (
-          <Card
-            key={day.dateKey}
-            id={day.isToday ? TODAY_CARD_ID : undefined}
-            className={day.isToday ? "scroll-mt-2 ring-2 ring-primary/50" : undefined}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-baseline justify-between">
-                <span>{day.weekdayLabel}</span>
-                <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-1 max-sm:gap-2">
-              {/* UX-21: a day with nothing planned is one "+ Add meal" that
-                  asks for the slot, not four identical per-slot rows. */}
-              {!entriesByDay.has(day.dateKey) ? (
+        {days.map((day) => {
+          // A day lists only what's planned, slot by slot, then one
+          // "+ Add meal" that asks for the slot (UX-21's empty-day row, now
+          // on every day). Four slot headers per day, three of them "Add
+          // meal", made a phone week four screens long (DESIGN.md M6).
+          const dayEntries = [...(entriesByDay.get(day.dateKey) ?? [])].sort(
+            (a, b) => MEAL_TYPES.indexOf(a.mealType) - MEAL_TYPES.indexOf(b.mealType),
+          );
+          // The add dialog preselects dinner, or the first slot still empty
+          // once dinner is planned.
+          const openSlot = dayEntries.some((e) => e.mealType === "DINNER")
+            ? (MEAL_TYPES.find((type) => !dayEntries.some((e) => e.mealType === type)) ?? "DINNER")
+            : "DINNER";
+          return (
+            <Card
+              key={day.dateKey}
+              id={day.isToday ? TODAY_CARD_ID : undefined}
+              className={day.isToday ? "scroll-mt-2 ring-2 ring-primary/50 max-sm:scroll-mt-18" : undefined}
+            >
+              <CardHeader>
+                <CardTitle className="flex items-baseline justify-between">
+                  <span>{day.weekdayLabel}</span>
+                  <span className="text-sm font-normal text-muted-foreground">{day.dayOfMonth}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                {dayEntries.map((entry) => (
+                  <MealEntryRow
+                    key={entry.id}
+                    dict={dict}
+                    locale={locale}
+                    entry={entry}
+                    dayLabel={`${day.weekdayLabel} ${day.dayOfMonth}`}
+                    recipes={recipes}
+                    weekStartKey={weekStartKey}
+                    onPlanLeftovers={setLeftoversPlan}
+                  />
+                ))}
                 <MealEntryDialog
+                  key={openSlot}
                   dict={dict}
                   weekStartKey={weekStartKey}
                   dateKey={day.dateKey}
-                  mealType="DINNER"
+                  mealType={openSlot}
                   recipes={recipes}
                   batches={batches}
-                  askSlot
                 />
-              ) : MEAL_TYPES.map((mealType) => (
-                <MealTypeSlot
-                  key={mealType}
-                  dict={dict}
-                  locale={locale}
-                  mealType={mealType}
-                  dateKey={day.dateKey}
-                  weekStartKey={weekStartKey}
-                  recipes={recipes}
-                  batches={batches}
-                  entries={(entriesByDay.get(day.dateKey) ?? []).filter((e) => e.mealType === mealType)}
-                  onPlanLeftovers={setLeftoversPlan}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
       {leftoversPlan && (
         <AddToPlanDialog
@@ -335,89 +357,17 @@ export function WeekPlanner({
   );
 }
 
-function MealTypeSlot({
-  dict,
-  locale,
-  mealType,
-  dateKey,
-  weekStartKey,
-  recipes,
-  batches,
-  entries,
-  onPlanLeftovers,
-}: {
-  dict: MealPlanningDict;
-  locale: Locale;
-  mealType: MealType;
-  dateKey: string;
-  weekStartKey: string;
-  recipes: RecipeData[];
-  batches: PreparedBatchData[];
-  entries: MealPlanEntryData[];
-  onPlanLeftovers: (request: PlanLeftoversRequest) => void;
-}) {
-  const label = dict[mealTypeDictKey[mealType]];
-
-  // UX-5: an empty slot is a single tappable "<slot> + Add meal" row, so an
-  // empty week isn't 28 repeated "Nothing planned" lines with tiny "+" buttons.
-  if (entries.length === 0) {
-    return (
-      <MealEntryDialog
-        dict={dict}
-        weekStartKey={weekStartKey}
-        dateKey={dateKey}
-        mealType={mealType}
-        recipes={recipes}
-        batches={batches}
-        slotLabel={label}
-      />
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1 max-sm:gap-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-        <MealEntryDialog
-          dict={dict}
-          weekStartKey={weekStartKey}
-          dateKey={dateKey}
-          mealType={mealType}
-          recipes={recipes}
-          batches={batches}
-        />
-      </div>
-      <div className="flex flex-col gap-1 max-sm:gap-2">
-        {entries.map((entry) => (
-          <MealEntryRow
-            key={entry.id}
-            dict={dict}
-            locale={locale}
-            entry={entry}
-            recipes={recipes}
-            weekStartKey={weekStartKey}
-            onPlanLeftovers={onPlanLeftovers}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Every row reserves the same five fixed-width slots after the label (cook,
-// edit, move, cooked-status, delete) — even when a slot has nothing to show —
-// so the icon column lines up across rows instead of shifting with each
-// entry's state (freeform vs. recipe-linked, cooked vs. not). On phones the
-// icon buttons are 44px (DESIGN.md M3), so the slot grows with them instead of
-// letting neighbours overlap.
-function IconSlot({ children }: { children?: ReactNode }) {
-  return <span className="flex size-6 shrink-0 items-center justify-center max-sm:size-11 pointer-coarse:size-11">{children}</span>;
-}
-
+// One planned meal: a single tappable row (slot, name, portions, status)
+// that opens a sheet of labelled actions. It used to carry five unlabelled
+// 44 px icon buttons on a second line, delete right beside "mark cooked"
+// (DESIGN.md M2, M6). The sheet hands off to each action's own dialog
+// through a handle, the same way the shopping list's ⋯ menu does, so those
+// dialogs live beside the sheet rather than inside it.
 function MealEntryRow({
   dict,
   locale,
   entry,
+  dayLabel,
   recipes,
   weekStartKey,
   onPlanLeftovers,
@@ -425,11 +375,13 @@ function MealEntryRow({
   dict: MealPlanningDict;
   locale: Locale;
   entry: MealPlanEntryData;
+  dayLabel: string;
   recipes: RecipeData[];
   weekStartKey: string;
   onPlanLeftovers: (request: PlanLeftoversRequest) => void;
 }) {
   const label = entry.recipeName ?? entry.freeformName ?? "";
+  const slotLabel = dict[mealTypeDictKey[entry.mealType]];
   const linkedRecipe = entry.recipeId ? recipes.find((recipe) => recipe.id === entry.recipeId) : undefined;
   const cookRecipe = linkedRecipe?.instructions?.trim() ? linkedRecipe : null;
   // Portions only mean something next to a linked recipe — a freeform entry
@@ -437,8 +389,25 @@ function MealEntryRow({
   const portionsLabel = entry.recipeId
     ? format(plural(entry.portions, dict.entryPortionsCount), { count: entry.portions })
     : null;
+  const cooked = entry.consumedAt !== null;
+  const prepped = entry.preparedBatchId !== null;
   const router = useRouter();
   const [unassignPending, startUnassign] = useTransition();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [dialogs] = useState(() => ({
+    cook: createDialogHandle(),
+    markCooked: createDialogHandle(),
+    edit: createDialogHandle(),
+    move: createDialogHandle(),
+    remove: createDialogHandle(),
+  }));
+
+  // The sheet closes as the chosen action's dialog opens over the page, so
+  // closing that dialog lands back on the planner, not on a stale sheet.
+  function openFromSheet(handle: DialogHandle) {
+    setSheetOpen(false);
+    handle.open(null);
+  }
 
   // GAP-49: "Don't use prep" gives the slot's portions back to its batch and
   // keeps the meal planned, to cook fresh.
@@ -459,149 +428,165 @@ function MealEntryRow({
         return;
       }
       toast.success(dict.prepUnassignedToast);
+      setSheetOpen(false);
       router.refresh();
     });
   }
 
   return (
-    <div className="flex items-center justify-between gap-1 max-sm:gap-2 pointer-coarse:gap-2 rounded-md bg-muted px-2 py-1 text-sm max-sm:flex-wrap max-sm:justify-end">
-      {/* The badge goes under the name in the narrow desktop day column, so
-          it doesn't squeeze the name down to a few letters; on phones the
-          name has the row to itself and the badge sits beside it. */}
-      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 max-sm:basis-full max-sm:flex-row max-sm:flex-wrap max-sm:items-center max-sm:gap-1.5">
-        <span className="min-w-0 max-w-full truncate max-sm:break-words max-sm:whitespace-normal" title={portionsLabel ? `${label} · ${portionsLabel}` : label}>
-          {label}
-          {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
-        </span>
-        {/* GAP-49: this slot eats from a meal-prep batch — a word, not just
-            a colour or icon, so it reads the same to everyone. */}
-        {entry.preparedBatchId && (
-          <Badge variant="outline" className="shrink-0">
-            {dict.prepPreppedBadge}
-          </Badge>
-        )}
-      </span>
-
-      {/* GAP-49: only rendered for an uneaten prepped meal, and placed first
-          so the five slots below keep their column on every row. */}
-      {entry.preparedBatchId && !entry.consumedAt && (
-        <IconSlot>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label={dict.prepUnassignAction}
-            title={dict.prepUnassignAction}
-            disabled={unassignPending}
-            onClick={unassign}
-          >
-            {unassignPending ? <Loader2 className="size-3 animate-spin" /> : <Unlink className="size-3" />}
-          </Button>
-        </IconSlot>
-      )}
-
-      {/* GAP-42: opens the cook view scaled to this entry's portions. Not
-          gated on consumedAt: reading a recipe again is harmless. */}
-      <IconSlot>
-        {cookRecipe && (
-          <CookModeDialog
-            dict={dict}
-            locale={locale}
-            recipe={cookRecipe}
-            portions={entry.portions}
-            trigger={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={format(dict.cookModeFromPlanAriaLabel, { meal: label })}
-              >
-                <CookingPot className="size-3" />
-              </Button>
-            }
-          />
-        )}
-      </IconSlot>
-
-      <IconSlot>
-        {!entry.consumedAt && (
-          <MealEntryDialog
-            dict={dict}
-            recipes={recipes}
-            mode="edit"
-            entry={entry}
-            trigger={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground hover:text-foreground"
-                aria-label={dict.editMealAriaLabel}
-              >
-                <Pencil className="size-3" />
-              </Button>
-            }
-          />
-        )}
-      </IconSlot>
-
-      {/* GAP-30: hidden once cooked, same as the pencil. A cooked entry's
-          day and slot record when it was actually eaten, so
-          moveMealEntryAction refuses to move it (see its doc comment). */}
-      <IconSlot>
-        {!entry.consumedAt && (
-          <MoveMealDialog dict={dict} entry={entry} label={label} plannerWeekStartKey={weekStartKey} />
-        )}
-      </IconSlot>
-
-      <IconSlot>
-        {entry.consumedAt ? (
-          <span className="text-muted-foreground" title={dict.mealCookedBadgeLabel}>
-            <CheckCircle2 className="size-3" aria-label={dict.mealCookedBadgeLabel} />
+    <>
+      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+        <DialogTrigger
+          render={
+            <button
+              type="button"
+              className="flex min-h-11 w-full items-center gap-2 rounded-md bg-muted px-2 py-1.5 text-left text-sm transition-[background-color,scale] outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98]"
+            />
+          }
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-xs font-medium uppercase text-muted-foreground">{slotLabel}</span>{" "}
+            <span className="break-words">
+              <span>{label}</span>
+              {portionsLabel && <span className="text-muted-foreground"> · {portionsLabel}</span>}
+            </span>
           </span>
-        ) : entry.recipeId ? (
-          <MarkCookedDialog dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} />
-        ) : (
-          // Custom (non-recipe) entries have no ingredients to check inventory
-          // against, so "mark cooked" is never available for them — surfaced
-          // as a disabled, explained affordance instead of just omitting the
-          // control, so it doesn't read as a bug. See D4 in
-          // docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md.
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-muted-foreground/50"
-            disabled
-            aria-label={dict.markCookedUnavailableForCustomMeal}
-            title={dict.markCookedUnavailableForCustomMeal}
-          >
-            <ChefHat className="size-3" />
-          </Button>
-        )}
-      </IconSlot>
+          {/* Words, not just a colour or an icon, so the state reads the
+              same to everyone (GAP-49's badge, the cooked tick). */}
+          {prepped && (
+            <Badge variant="outline" className="shrink-0">
+              {dict.prepPreppedBadge}
+            </Badge>
+          )}
+          {cooked && (
+            <span className="flex shrink-0 items-center gap-1 text-xs text-success">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" />
+              {dict.mealCookedBadgeLabel}
+            </span>
+          )}
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="break-words">{label}</DialogTitle>
+            <DialogDescription>
+              {[slotLabel, dayLabel, portionsLabel].filter(Boolean).join(" · ")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {/* Cooking it is what a planned meal is waiting for, so it's the
+                sheet's one primary action. Custom (non-recipe) meals have no
+                ingredients to take off, so they say why instead (D4 in
+                docs/archive/UX_AUDIT_IMPLEMENTATION_PLAN.md). */}
+            {!cooked && entry.recipeId && (
+              <Button type="button" className="justify-start" onClick={() => openFromSheet(dialogs.markCooked)}>
+                {prepped ? <Utensils className="size-4" /> : <ChefHat className="size-4" />}
+                {prepped ? dict.prepEatenAction : dict.markCookedAriaLabel}
+              </Button>
+            )}
+            {/* GAP-42: the cook view scaled to this entry's portions. Not
+                gated on cooked: reading a recipe again is harmless. */}
+            {cookRecipe && (
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-start"
+                onClick={() => openFromSheet(dialogs.cook)}
+              >
+                <CookingPot className="size-4" />
+                {dict.cookModeButton}
+              </Button>
+            )}
+            {/* GAP-30: hidden once cooked. A cooked entry's day and slot
+                record when it was actually eaten, so moveMealEntryAction
+                refuses to move it (see its doc comment). */}
+            {!cooked && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => openFromSheet(dialogs.edit)}
+                >
+                  <Pencil className="size-4" />
+                  {dict.editMealAriaLabel}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => openFromSheet(dialogs.move)}
+                >
+                  <ArrowRightLeft className="size-4" />
+                  {dict.moveMealAriaLabel}
+                </Button>
+              </>
+            )}
+            {prepped && !cooked && (
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-start"
+                disabled={unassignPending}
+                onClick={unassign}
+              >
+                {unassignPending ? <Loader2 className="size-4 animate-spin" /> : <Unlink className="size-4" />}
+                {dict.prepUnassignAction}
+              </Button>
+            )}
+            {!entry.recipeId && (
+              <p className="text-sm text-muted-foreground">{dict.markCookedUnavailableForCustomMeal}</p>
+            )}
+          </div>
+          {/* M2: the destructive action sits apart, under a rule, never
+              next to the primary one. */}
+          <div className="border-t pt-4">
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full justify-start"
+              onClick={() => openFromSheet(dialogs.remove)}
+            >
+              <Trash2 className="size-4" />
+              {dict.removeMealAriaLabel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      {cookRecipe && (
+        <CookModeDialog
+          dict={dict}
+          locale={locale}
+          recipe={cookRecipe}
+          portions={entry.portions}
+          handle={dialogs.cook}
+        />
+      )}
+      {!cooked && entry.recipeId && (
+        <MarkCookedDialog dict={dict} entry={entry} onPlanLeftovers={onPlanLeftovers} handle={dialogs.markCooked} />
+      )}
+      {!cooked && (
+        <>
+          <MealEntryDialog dict={dict} recipes={recipes} mode="edit" entry={entry} handle={dialogs.edit} />
+          <MoveMealDialog
+            dict={dict}
+            entry={entry}
+            label={label}
+            plannerWeekStartKey={weekStartKey}
+            handle={dialogs.move}
+          />
+        </>
+      )}
       <ConfirmDialog
-        trigger={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="shrink-0 text-muted-foreground hover:text-destructive"
-            aria-label={dict.removeMealAriaLabel}
-          >
-            <Trash2 className="size-3" />
-          </Button>
-        }
+        handle={dialogs.remove}
         title={format(dict.confirmDeleteMeal.title, { meal: label })}
-        description={entry.consumedAt ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
+        description={cooked ? dict.confirmDeleteMeal.descriptionCooked : dict.confirmDeleteMeal.description}
         cancelLabel={dict.confirmDeleteMeal.cancel}
         confirmLabel={dict.confirmDeleteMeal.confirm}
         pendingLabel={dict.confirmDeleteMeal.confirming}
         onConfirm={() => deleteMealEntryAction(entry.id)}
       />
-    </div>
+    </>
   );
 }

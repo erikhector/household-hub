@@ -45,6 +45,9 @@ test("a recurring income shows as expected income next month", async ({ page }) 
 
   await page.goto(`/dashboard/personal-budget?month=${nextKey}`);
   const main = page.getByRole("main");
+  // Overview keeps the arithmetic behind "How we got this number" (the due
+  // widget lists what's due right under it).
+  await main.getByText("How we got this number").click();
   await expect(main.getByText("Expected income", { exact: true })).toBeVisible();
   // Listed under "Still due this month" as money coming in, not going out.
   const row = main.getByRole("listitem").filter({ hasText: name });

@@ -1452,6 +1452,7 @@ export const sv = {
     mealMovedDifferentWeekToast: "{meal} flyttad till en annan vecka än den du visar",
     recipeLabel: "Recept",
     customMealOption: "Egen måltid…",
+    chooseMealPlaceholder: "Välj en måltid",
     customMealNameLabel: "Måltidens namn",
     customMealNamePlaceholder: "t.ex. Tacokväll",
     portionsLabel: "Portioner",
@@ -1590,7 +1591,6 @@ export const sv = {
     reviewMatchesAriaLabel: "Granska ingredienskopplingar",
     // GAP-42: helskärmsvyn för matlagning.
     cookModeButton: "Laga",
-    cookModeFromPlanAriaLabel: "Laga {meal}",
     cookModeTitle: "Lagar {name}",
     cookModeIngredients: "Ingredienser",
     cookModeSteps: "Steg",
@@ -1955,6 +1955,19 @@ export const sv = {
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
     columnAmount: "Belopp",
+    swipe: {
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    filter: {
+      label: "Kategori",
+      all: "Alla kategorier",
+      clear: "Rensa filter",
+      empty: "Inget loggat i {category} den här månaden.",
+    },
     emptyTransactions: "Inga transaktioner än. Lägg till den första för att börja hålla koll på budgeten.",
     recurringBadge: "Återkommande",
     type: {
@@ -2045,6 +2058,7 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
@@ -2097,6 +2111,8 @@ export const sv = {
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
       manageButton: "Hantera återkommande poster",
+      log: "Logga",
+      moreAriaLabel: "Fler åtgärder för {name}",
     },
     costAnalyzer: {
       spendingTitle: "Matinköp över tid",
@@ -2234,7 +2250,6 @@ export const sv = {
       sectionDue: "Att göra denna period",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
-      logTransaction: "Logga transaktion",
       logAsIs: "Logga direkt",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
@@ -2242,8 +2257,6 @@ export const sv = {
       loggedAsIsToast: "{name} loggad direkt för denna period.",
       acknowledgedToast: "{name} markerad som klar.",
       undoToast: "{name} flyttad tillbaka till att göra.",
-      editAriaLabel: "Redigera {name}",
-      deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",
@@ -2372,6 +2385,19 @@ export const sv = {
     columnCategory: "Kategori",
     columnDescription: "Beskrivning",
     columnAmount: "Belopp",
+    swipe: {
+      edit: "Redigera",
+      delete: "Ta bort",
+      deletedToast: '"{name}" borttagen',
+      undo: "Ångra",
+    },
+    saveFailedToast: "Det gick inte att spara. Kontrollera anslutningen och försök igen.",
+    filter: {
+      label: "Kategori",
+      all: "Alla kategorier",
+      clear: "Rensa filter",
+      empty: "Inget loggat i {category} den här månaden.",
+    },
     emptyTransactions: "Inga transaktioner än. Lägg till din första för att börja spåra din budget.",
     type: {
       income: "Inkomst",
@@ -2461,6 +2487,7 @@ export const sv = {
       lineDuePayments: "Förfallna betalningar",
       lineDueSavings: "Förfallet sparande",
       lineRemaining: "Kvar efter utgifter och sparande",
+      breakdownToggle: "Så räknade vi",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "I den här takten",
       projectionLeft: "Ungefär {amount} kvar i slutet av månaden.",
@@ -2528,6 +2555,8 @@ export const sv = {
       allCaughtUpBody: "Inget väntar just nu — kolla igen nästa period.",
       noTemplatesBody: "Lägg till återkommande räkningar och inkomster för att se vad som väntar här.",
       manageButton: "Hantera återkommande poster",
+      log: "Logga",
+      moreAriaLabel: "Fler åtgärder för {name}",
     },
     recurring: {
       title: "Återkommande poster",
@@ -2551,7 +2580,6 @@ export const sv = {
       sectionDue: "Att göra denna period",
       sectionAcknowledged: "Klarmarkerade",
       sectionPosted: "Loggade",
-      logTransaction: "Logga transaktion",
       logAsIs: "Logga direkt",
       markAccountedFor: "Markera som klar",
       undo: "Ångra",
@@ -2559,8 +2587,6 @@ export const sv = {
       loggedAsIsToast: "{name} loggad direkt för denna period.",
       acknowledgedToast: "{name} markerad som klar.",
       undoToast: "{name} flyttad tillbaka till att göra.",
-      editAriaLabel: "Redigera {name}",
-      deleteAriaLabel: "Ta bort {name}",
       confirmDelete: {
         title: "Ta bort {name}?",
         description: "Det går inte att ångra.",

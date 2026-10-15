@@ -13,6 +13,8 @@ import {
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { localDateKey } from "@/lib/budget-transaction-days";
+import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import type { ShareableHousehold } from "@/components/personal-budget/log-shared-expense-dialog";
 import { PeriodSummary } from "@/components/budget/period-summary";
 import { SavingsGoals } from "@/components/budget/savings-goals";
@@ -297,9 +299,6 @@ async function PersonalBudgetTabsSection({
   // stays the one place they get logged, edited, or acknowledged.
   const transactionsTab = (
     <div className="flex flex-col gap-6">
-      <div className="flex justify-end">
-        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
-      </div>
       <TransactionList
         transactions={transactionRows}
         sharedRows={sharedPostedRows}
@@ -310,16 +309,20 @@ async function PersonalBudgetTabsSection({
         currentMemberId=""
         dict={dict.personalBudget}
         locale={locale}
+        todayKey={localDateKey(now)}
         onDelete={deletePersonalTransactionAction}
         createAction={createPersonalTransactionAction}
         updateAction={updatePersonalTransactionAction}
       />
+      {/* Below the list, like the household budget's (rarely needed). */}
+      <div className="flex justify-start">
+        <ExportButton href="/dashboard/personal-budget/export" label={dict.export.button} />
+      </div>
     </div>
   );
 
-  // Selected month's income/expense/savings breakdown — shown on both
-  // Overview and Insights, see BudgetTabs's identical periodSummary comment
-  // (src/components/budget/budget-tabs.tsx).
+  // Selected month's income/expense/savings breakdown, on Insights only —
+  // see the household page's identical comment.
   const periodSummary = (
     <PeriodSummary
       income={income}
@@ -346,6 +349,13 @@ async function PersonalBudgetTabsSection({
       )}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
+      // P3: each of the viewer's own categories drills into Transactions,
+      // filtered to it, for the same month.
+      categoryHref={(id) =>
+        resolveCategoryFilter(id, categoryRows)
+          ? budgetHref("/dashboard/personal-budget", { month: monthKey, tab: "transactions", category: id })
+          : null
+      }
       dict={dict.personalBudget.summary}
       locale={locale}
     />
@@ -392,6 +402,7 @@ async function PersonalBudgetTabsSection({
       dict={dict.personalBudget}
       locale={locale}
       monthKey={monthKey}
+      currentMonthKey={toMonthKey(now)}
       basePath="/dashboard/personal-budget"
       categories={categoryRows}
       safeToSpendAmount={safeToSpend}
@@ -410,7 +421,6 @@ async function PersonalBudgetTabsSection({
       updateTransactionAction={updatePersonalTransactionAction}
       onAcknowledgeTemplate={acknowledgePersonalTemplatePeriodAction}
       onLogTemplateAsIs={logPersonalRecurringTemplateAction}
-      periodSummary={periodSummary}
       savingsGoals={savingsGoals}
       onboarding={
         <PersonalBudgetOnboarding
@@ -467,7 +477,10 @@ export default async function PersonalBudgetPage(props: PageProps<"/dashboard/pe
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>{dict.personalBudget.title}</PageTitle>
-        <p className="text-sm text-muted-foreground">{dict.personalBudget.subtitle}</p>
+        {/* Phone pass (Oct 2026), P6: hidden on phones, where the title,
+            month bar and tabs already filled ~40% of the first screen
+            before any number showed. */}
+        <p className="text-sm text-muted-foreground max-sm:hidden">{dict.personalBudget.subtitle}</p>
       </div>
 
       <Suspense fallback={<PersonalBudgetTabsSkeleton label={dict.common.loading} />}>

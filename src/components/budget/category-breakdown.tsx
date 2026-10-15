@@ -8,6 +8,8 @@
 // spending sparkline beside its bar: the last few months of that category,
 // this month last, so "is this normal for us?" is one glance away.
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import { limitProgress } from "@/lib/budget-category-limit";
@@ -58,6 +60,7 @@ export function CategoryBreakdown({
   numberFormat,
   limitDict,
   history,
+  hrefFor,
 }: {
   title: string;
   items: CategoryTotal[];
@@ -66,6 +69,11 @@ export function CategoryBreakdown({
   numberFormat: Intl.NumberFormat;
   limitDict?: CategoryLimitDict;
   history?: CategoryHistoryLabels;
+  /** Phone pass (Oct 2026), P3: where a row leads — PeriodSummary sends a
+   * category's row to the Transactions tab filtered to it. A row without
+   * an href (or with no `hrefFor` at all, as in FixedBudgetSummary, whose
+   * rows are recurring items) stays plain. */
+  hrefFor?: (item: CategoryTotal) => string | null;
 }) {
   return (
     <Card>
@@ -76,7 +84,7 @@ export function CategoryBreakdown({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className={hrefFor ? "flex flex-col gap-1" : "flex flex-col gap-3"}>
             {items.map((item, index) => {
               // GAP-12: a capped row's bar is "how far into its own limit",
               // not "its share of this card's total" — so a category can
@@ -102,8 +110,9 @@ export function CategoryBreakdown({
                 history && item.history && item.history.length === history.months.length
                   ? item.history
                   : null;
-              return (
-                <div key={item.id} className="flex flex-col gap-1">
+              const href = hrefFor?.(item) ?? null;
+              const content = (
+                <>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 truncate">{item.name}</span>
                     {progress && limitDict && available != null ? (
@@ -162,6 +171,22 @@ export function CategoryBreakdown({
                       {format(limitDict.carriedOver, { amount: numberFormat.format(carried) })}
                     </p>
                   )}
+                </>
+              );
+              // The whole row is the link (a 44 px+ target, M3), with a
+              // chevron so it reads as one.
+              return href ? (
+                <Link
+                  key={item.id}
+                  href={href}
+                  className="-mx-2 flex min-h-11 items-center gap-2 rounded-md px-2 py-1 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">{content}</div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                </Link>
+              ) : (
+                <div key={item.id} className="flex flex-col gap-1">
+                  {content}
                 </div>
               );
             })}

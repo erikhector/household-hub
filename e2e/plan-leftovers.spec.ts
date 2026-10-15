@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { dismissCookieNotice, openRowSheet } from "./ui";
 
 // GAP-39: after "Mark as cooked" records leftovers, the toast offers "Plan
 // leftovers", which opens the add-to-plan dialog prefilled with the recipe,
@@ -91,13 +91,7 @@ async function expectToastButtonsTappable(page: Page, planLeftovers: Locator) {
 // "Plan leftovers" on the toast.
 async function cookWithLeftoversAndPlan(page: Page, recipeName: string, base: number) {
   await page.goto(`/dashboard/meal-planning?week=${key(mondayOf(utcDay(base)))}`);
-  const entry = page
-    .locator("div")
-    .filter({ has: page.getByText(recipeName) })
-    .filter({ has: page.getByRole("button", { name: "Mark as cooked" }) })
-    .filter({ visible: true })
-    .last();
-  await entry.getByRole("button", { name: "Mark as cooked" }).click();
+  await (await openRowSheet(page, recipeName)).getByRole("button", { name: "Mark as cooked" }).click();
   const cooked = page.getByRole("dialog", { name: "Mark as cooked" });
   await cooked.getByRole("spinbutton", { name: "Servings left over" }).fill("2");
   await cooked.getByRole("button", { name: "Mark as cooked" }).click();
@@ -133,9 +127,13 @@ test("Plan leftovers opens the add-to-plan dialog on the next free dinner day, a
   await expect(page.getByText(recipeName).filter({ visible: true })).toHaveCount(sameWeek ? 2 : 1);
   // GAP-49: the leftovers are a meal-prep batch, and the new slot eats from
   // it, so it (and not the cooked entry) carries the Prepped badge, which
-  // sits beside the meal's name.
+  // sits in the meal's row (the button that opens its sheet).
   await expect(
-    page.getByText(recipeName).filter({ visible: true }).locator("..").getByText("Prepped", { exact: true }),
+    page
+      .getByText(recipeName, { exact: true })
+      .filter({ visible: true })
+      .locator("xpath=ancestor::button[1]")
+      .getByText("Prepped", { exact: true }),
   ).toHaveCount(1);
 });
 

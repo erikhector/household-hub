@@ -87,6 +87,8 @@ test("safe to spend projects to month end and categories draw a sparkline", asyn
   ).toBeAttached();
 
   // The category's sparkline names its six months, this month's spend last.
+  // The month's category breakdown lives on Insights.
+  await main.getByRole("tab", { name: "Insights" }).click();
   await expect(
     main.getByRole("img", { name: /^Last 6 months: .*50\.00, .*123\.45$/ }).first(),
   ).toBeVisible();

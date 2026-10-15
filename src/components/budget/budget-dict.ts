@@ -48,6 +48,8 @@ export type BudgetDict = {
     allCaughtUpBody: string;
     allCaughtUpTitle: string;
     manageButton: string;
+    log: string;
+    moreAriaLabel: string;
     noTemplatesBody: string;
     subtitle: string;
     title: string;
@@ -55,6 +57,23 @@ export type BudgetDict = {
   editAriaLabel: string;
   editTransactionDialogTitle: string;
   emptyTransactions: string;
+  // Phone pass (Oct 2026): a transaction row's swipe-left tray and its
+  // Undo toast (SwipeRow, useUndoableDelete), and the toast when the
+  // deferred delete then fails.
+  swipe: {
+    edit: string;
+    delete: string;
+    deletedToast: string;
+    undo: string;
+  };
+  saveFailedToast: string;
+  // Phone pass (Oct 2026): TransactionList's category filter.
+  filter: {
+    label: string;
+    all: string;
+    clear: string;
+    empty: string;
+  };
   frequencyLabel: string;
   frequencyMonthly: string;
   frequencyWeekly: string;
@@ -120,15 +139,12 @@ export type BudgetDict = {
     };
     dayOfMonthLabel: string;
     dayOfMonthPlaceholder: string;
-    deleteAriaLabel: string;
     dueDayLabel: string;
-    editAriaLabel: string;
     editDialogTitle: string;
     empty: string;
     logAsIs: string;
     loggedAsIsToast: string;
     loggedToast: string;
-    logTransaction: string;
     markAccountedFor: string;
     nameLabel: string;
     namePlaceholder: string;

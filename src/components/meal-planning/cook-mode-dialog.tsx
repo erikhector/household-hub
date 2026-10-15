@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogTitle, type DialogHandle } from "@/components/ui/dialog";
 import { cookScale, formatCookQuantity, splitSteps } from "@/lib/cook-mode-calc";
 import { useScreenWakeLock } from "@/lib/shopping/use-screen-wake-lock";
 import { format, plural } from "@/lib/i18n/format";
@@ -27,19 +27,20 @@ export function CookModeDialog({
   locale,
   recipe,
   portions = null,
-  trigger,
+  handle,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
   recipe: RecipeData;
   portions?: number | null;
-  trigger: ReactElement;
+  /** Opened from the planner's and recipe list's row sheets (see
+   * createDialogHandle), so it has no trigger of its own. */
+  handle: DialogHandle;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={trigger} />
+    <Dialog open={open} onOpenChange={setOpen} handle={handle}>
       {/* Rendered only while open, so the wake lock is released and the
           ticked steps are dropped the moment the view closes. */}
       {open && <CookModeContent dict={dict} locale={locale} recipe={recipe} portions={portions} />}

@@ -1530,6 +1530,8 @@ export const en = {
     mealMovedDifferentWeekToast: "Moved {meal} to a different week than you're viewing",
     recipeLabel: "Recipe",
     customMealOption: "Custom meal…",
+    // The add-meal picker before anything is chosen (M4: pick, don't type).
+    chooseMealPlaceholder: "Choose a meal",
     customMealNameLabel: "Meal name",
     customMealNamePlaceholder: "e.g. Taco night",
     portionsLabel: "Portions",
@@ -1670,7 +1672,6 @@ export const en = {
     reviewMatchesAriaLabel: "Review ingredient matches",
     // GAP-42: the full-screen cook view.
     cookModeButton: "Cook",
-    cookModeFromPlanAriaLabel: "Cook {meal}",
     cookModeTitle: "Cooking {name}",
     cookModeIngredients: "Ingredients",
     cookModeSteps: "Steps",
@@ -2047,6 +2048,22 @@ export const en = {
     columnCategory: "Category",
     columnDescription: "Description",
     columnAmount: "Amount",
+    // Phone pass (Oct 2026): swipe left on a transaction row (SwipeRow).
+    // The row's own tap opens the edit sheet, which holds the named Delete.
+    swipe: {
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // Phone pass (Oct 2026): the Transactions tab's category filter.
+    filter: {
+      label: "Category",
+      all: "All categories",
+      clear: "Clear filter",
+      empty: "Nothing logged in {category} this month.",
+    },
     emptyTransactions: "No transactions yet. Add your first one to start tracking the budget.",
     recurringBadge: "Recurring",
     type: {
@@ -2137,6 +2154,8 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
+      breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
@@ -2189,6 +2208,9 @@ export const en = {
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
       manageButton: "Manage recurring items",
+      // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
+      log: "Log",
+      moreAriaLabel: "More actions for {name}",
     },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
@@ -2328,7 +2350,6 @@ export const en = {
       sectionDue: "Due this period",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
-      logTransaction: "Log transaction",
       logAsIs: "Log as-is",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
@@ -2336,8 +2357,6 @@ export const en = {
       loggedAsIsToast: "{name} logged as-is for this period.",
       acknowledgedToast: "{name} marked as accounted for.",
       undoToast: "{name} moved back to due.",
-      editAriaLabel: "Edit {name}",
-      deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
         description: "This can't be undone.",
@@ -2466,6 +2485,22 @@ export const en = {
     columnCategory: "Category",
     columnDescription: "Description",
     columnAmount: "Amount",
+    // Phone pass (Oct 2026): swipe left on a transaction row (SwipeRow).
+    // The row's own tap opens the edit sheet, which holds the named Delete.
+    swipe: {
+      edit: "Edit",
+      delete: "Delete",
+      deletedToast: 'Deleted "{name}"',
+      undo: "Undo",
+    },
+    saveFailedToast: "Couldn't save that. Check your connection and try again.",
+    // Phone pass (Oct 2026): the Transactions tab's category filter.
+    filter: {
+      label: "Category",
+      all: "All categories",
+      clear: "Clear filter",
+      empty: "Nothing logged in {category} this month.",
+    },
     emptyTransactions: "No transactions yet. Add your first one to start tracking your own budget.",
     type: {
       income: "Income",
@@ -2555,6 +2590,8 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // Phone pass (Oct 2026): the compact card's disclosure (budget Overview).
+      breakdownToggle: "How we got this number",
       // UX-39: the projected end-of-month line (ProjectionChart).
       projectionTitle: "At this pace",
       projectionLeft: "About {amount} left at the end of the month.",
@@ -2625,6 +2662,9 @@ export const en = {
       allCaughtUpBody: "Nothing's due right now — check back next period.",
       noTemplatesBody: "Set up recurring bills and income to see what's due here.",
       manageButton: "Manage recurring items",
+      // Phone pass (Oct 2026): one "Log" per due row, the rest behind "More".
+      log: "Log",
+      moreAriaLabel: "More actions for {name}",
     },
     recurring: {
       title: "Recurring items",
@@ -2648,7 +2688,6 @@ export const en = {
       sectionDue: "Due this period",
       sectionAcknowledged: "Accounted for",
       sectionPosted: "Logged",
-      logTransaction: "Log transaction",
       logAsIs: "Log as-is",
       markAccountedFor: "Mark as accounted for",
       undo: "Undo",
@@ -2656,8 +2695,6 @@ export const en = {
       loggedAsIsToast: "{name} logged as-is for this period.",
       acknowledgedToast: "{name} marked as accounted for.",
       undoToast: "{name} moved back to due.",
-      editAriaLabel: "Edit {name}",
-      deleteAriaLabel: "Delete {name}",
       confirmDelete: {
         title: "Delete {name}?",
         description: "This can't be undone.",

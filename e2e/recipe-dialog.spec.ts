@@ -1,4 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
+import { dismissCookieNotice } from "./ui";
 
 // The recipe form is the longest dialog in the app. On phones it opens as a
 // bottom sheet, and it used to be a scroll container nested inside the
@@ -27,6 +28,12 @@ async function expectScrollsAsOneSheet(dialog: Locator, button: Locator) {
   await button.scrollIntoViewIfNeeded();
   await expect(button).toBeInViewport();
 }
+
+// "New recipe" floats above the bottom bar on phones (PrimaryAction), where
+// a fresh context's cookie notice would cover it.
+test.beforeEach(async ({ context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+});
 
 // A name no pantry item resembles (and no remembered alias answers, since
 // nothing here is saved), so step 2 always shows it for review.
