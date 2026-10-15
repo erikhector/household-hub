@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.68.0",
+    "date": "2026-10-15",
+    "pr": 239,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Meal planning is easier on your phone: tap a meal or a recipe to see everything you can do with it, days only list what's planned, the week stays in view as you scroll, and adding a meal starts with your recipes, favourites first.\n\nThe budget is much easier to use on a phone. Transactions are compact rows grouped by day: tap one to edit it, or swipe to delete with undo. You can filter by category or tap a category in Insights to see its transactions. Overview shows each number once, and changing month keeps you on the tab you were on.",
+      "sv": "Måltidsplaneringen är smidigare i mobilen: tryck på en måltid eller ett recept för att se allt du kan göra med det, dagarna visar bara det som är planerat, veckan syns medan du scrollar och när du lägger till en måltid börjar du med dina recept, favoriterna först.\n\nBudgeten är mycket enklare att använda i mobilen. Transaktioner visas som kompakta rader grupperade per dag: tryck på en för att redigera den eller svep för att ta bort med ångra. Du kan filtrera på kategori eller trycka på en kategori under Insikter för att se dess transaktioner. Översikten visar varje siffra en gång, och när du byter månad stannar du kvar på samma flik."
+    }
+  },
+  {
     "version": "0.67.0",
     "date": "2026-10-15",
     "pr": 237,
