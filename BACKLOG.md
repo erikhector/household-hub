@@ -388,11 +388,11 @@ benchmark is the best consumer apps on the same tasks:
 The UX items above make the app correct. These make it feel native and
 delightful. Motion and view transitions shipped as UX-33, swipe row
 actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
-charts are hand-rolled `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+charts are hand-rolled `div`s. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
-UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
-decision and sit under "Needs a decision before building".
+UX-36 (offline in the shop) needs an owner decision and sits under
+"Needs a decision before building".
 
 
 
@@ -463,22 +463,6 @@ decision and sit under "Needs a decision before building".
       Decided 2026-10-15 by autopilot-product: ticks-only offline queue on
       the shopping list. Why: it's the in-store case Bring! and AnyList
       cover and the smallest slice with no merge conflicts. See PRODUCT.md.
-
-- [ ] **UX-38. Mascot-led empty states and small celebrations** (M) — use
-      the squirrel in every empty state (no items, no lists, no meals, no
-      tasks, all caught up), and one subtle celebration when a shopping
-      list is completed.
-      - Raster mark only, per DESIGN.md's Brand mark rules, no emoji, no
-        new illustration assets, served through `next/image`. Under
-        reduced motion, show a static image.
-      - The budget-under-plan celebration is dropped: no celebrations on
-        money (Guardrails: no loss-aversion or streaks on money).
-      Acceptance: an e2e test opens an empty list page and asserts the
-      mark with its accessible name, and the completion celebration
-      appears once after the last item is ticked, on desktop and mobile.
-      Decided 2026-10-15 by autopilot-product: existing mark only, no
-      budget celebration. Why: ships without waiting for assets and keeps
-      money surfaces calm. See PRODUCT.md.
 
 ## Competitive gap scan
 

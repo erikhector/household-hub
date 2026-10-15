@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { unstable_rethrow, useRouter } from "next/navigation";
-import { CalendarPlus, CookingPot, Trash2 } from "lucide-react";
+import { CalendarPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { discardBatchAction, undoDiscardBatchAction } from "@/app/dashboard/meal
 import { format, plural } from "@/lib/i18n/format";
 import type { PreparedBatchData, RecipeData } from "@/components/meal-planning/types";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
 
@@ -79,11 +80,12 @@ export function PrepTab({
       </div>
 
       {batches.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed p-8 text-center">
-          <CookingPot className="size-6 text-muted-foreground" aria-hidden />
-          <p className="font-semibold">{dict.prepEmptyTitle}</p>
-          <p className="text-sm text-muted-foreground">{dict.prepEmptyBody}</p>
-        </div>
+        <MascotEmptyState alt={dict.mascotAlt}>
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">{dict.prepEmptyTitle}</p>
+            <p className="text-sm text-muted-foreground">{dict.prepEmptyBody}</p>
+          </div>
+        </MascotEmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {batches.map((batch) => (

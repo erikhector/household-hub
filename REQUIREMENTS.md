@@ -905,7 +905,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       in (motion-safe). When ticked rows still wait to be put away it says
       how many and its primary action is "Put things away", which opens the
       put-away dialog in finish mode; otherwise it's "Done shopping" as
-      before. Both wait for in-flight ticks to save.
+      before. Both wait for in-flight ticks to save. On the tick that clears
+      an active list, the squirrel mark rises into the full ring in place
+      of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
       the bottom half of a phone screen with no scrolling, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
@@ -6633,6 +6635,32 @@ moves; only the visible label is in the accessibility tree. Used by the
 text-swap submit buttons across the forms and dialogs;
 `e2e/pending-button-width.spec.ts` holds the server action and checks the
 width. Buttons that swap a spinner icon rather than text are unchanged.
+
+### Mascot empty states (UX-38)
+
+The squirrel mark (`src/app/icon.png`, the same raster as BrandBadge,
+through `next/image`) heads the empty states that mean "nothing here
+yet": no shopping lists, an empty shopping list, no inventory items (the
+first-run panel, not "no matches"), no recipes, nothing prepped, no tasks,
+and the empty notification history. `MascotEmptyState` in
+`src/components/brand/mascot-empty-state.tsx` is the dashed box with the
+64 px mark on top; each page keeps its own copy as children. The mark has
+alt text ("Squirrel mascot" / "Squirrel-maskot", `mascotAlt` in each
+feature's dict) because nothing beside it names it. Filter "no matches",
+the bell dropdown, the catalog, scan queues and every budget surface stay
+text-only: small inline empties would be noise, and money surfaces get no
+mascot or celebration (PRODUCT.md Guardrails).
+
+**The one celebration.** Ticking the last pending item on an `ACTIVE`
+shopping list swaps the "All done" ring's tick for the mark, which rises
+in once (motion-safe, so a still image under `prefers-reduced-motion`)
+and holds. It's decided in the tap (`toggleItem`), not from the cleared
+state, so opening a list that's already all ticked or deleting its last
+row shows the plain tick. A failed save, or the list leaving the cleared
+state, re-arms it. The mark sits over the progress ring as a sibling
+because a `progressbar`'s children are hidden from screen readers. No
+confetti, sound, haptics or counts. Covered by `e2e/ux-38.spec.ts`
+(desktop and mobile).
 
 ## Motion and view transitions
 

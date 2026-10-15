@@ -26,6 +26,7 @@ import {
 import { dismissNotificationAction, dismissAllNotificationsAction } from "@/lib/actions/notifications";
 import type { NotificationHistoryItem } from "@/lib/notifications";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 function formatTimestamp(date: Date, locale: Locale): string {
   return date.toLocaleString(locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -58,7 +59,9 @@ export function NotificationsHistory({
       </div>
 
       {items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{dict.history.empty}</p>
+        <MascotEmptyState alt={dict.history.mascotAlt}>
+          <p className="text-sm text-muted-foreground">{dict.history.empty}</p>
+        </MascotEmptyState>
       ) : (
         <ul className="flex flex-col divide-y rounded-lg border">
           {items.map((item) => {

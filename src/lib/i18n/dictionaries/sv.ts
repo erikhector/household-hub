@@ -154,6 +154,7 @@ export const sv = {
     history: {
       title: "Aviseringar",
       subtitle: "Allt som skickats till ditt hushåll, läst eller inte.",
+      mascotAlt: "Squirrel-maskot",
       markAllRead: "Markera alla som lästa",
       empty: "Inga aviseringar än. Du får en här när en vara tar slut eller snart går ut.",
       unread: "Oläst",
@@ -555,6 +556,7 @@ export const sv = {
     clearedTitle: "Allt klart",
     clearedDescription: "Allt på listan är avbockat eller borttaget.",
     clearedDismissAriaLabel: "Stäng",
+    mascotAlt: "Squirrel-maskot",
     purchased: "Köpt",
     shoppingMode: {
       progress: "{done} av {total}",
@@ -969,6 +971,7 @@ export const sv = {
     emptyNoMatches: "Inga varor matchar dina filter.",
     emptyTitle: "Inga varor än",
     emptyLead: "Lägg till några varor för att börja hålla koll på lagret.",
+    mascotAlt: "Squirrel-maskot",
     quickAdd: {
       label: "Snabbtillägg",
       placeholder: "Varans namn — tryck Enter för att lägga till",
@@ -1621,6 +1624,7 @@ export const sv = {
       confirming: "Tar bort…",
     },
     emptyRecipes: "Inga recept än. Lägg till ditt första recept för att börja planera måltider.",
+    mascotAlt: "Squirrel-maskot",
     searchRecipesPlaceholder: "Sök recept…",
     clearSearch: "Rensa sökning",
     noRecipeSearchResults: "Inga recept matchar din sökning.",
@@ -1860,6 +1864,7 @@ export const sv = {
     add: "Lägg till",
     adding: "Lägger till…",
     emptyState: "Inga uppgifter än — använd Lägg till uppgift för att lägga till en.",
+    mascotAlt: "Squirrel-maskot",
     completedSectionLabel: "Klara",
     unassignedBadge: "Ingen tilldelad",
     completedByLabel: "Klar av {name}",

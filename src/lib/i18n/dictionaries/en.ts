@@ -165,6 +165,7 @@ export const en = {
     history: {
       title: "Notifications",
       subtitle: "Everything sent to your household, read or not.",
+      mascotAlt: "Squirrel mascot",
       markAllRead: "Mark all as read",
       // UX-3: names real triggers only (out of stock, expiring soon; see
       // "Notification center" in REQUIREMENTS.md). There are no task or
@@ -586,6 +587,7 @@ export const en = {
     clearedTitle: "All done",
     clearedDescription: "Everything on this list is checked off or gone.",
     clearedDismissAriaLabel: "Dismiss",
+    mascotAlt: "Squirrel mascot",
     purchased: "Purchased",
     // UX-37: shopping mode as a tool — the progress ring ("12 of 18"), the
     // thumb-zone "Next up" dock, the collapsed "In the cart" section and the
@@ -1036,6 +1038,7 @@ export const en = {
     emptyNoMatches: "No items match your filters.",
     emptyTitle: "No items yet",
     emptyLead: "Add a few items to start tracking what's in stock.",
+    mascotAlt: "Squirrel mascot",
     quickAdd: {
       label: "Quick add",
       placeholder: "Item name — press Enter to add",
@@ -1706,6 +1709,7 @@ export const en = {
       confirming: "Deleting…",
     },
     emptyRecipes: "No recipes yet. Add your first recipe to start planning meals.",
+    mascotAlt: "Squirrel mascot",
     searchRecipesPlaceholder: "Search recipes…",
     clearSearch: "Clear search",
     noRecipeSearchResults: "No recipes match your search.",
@@ -1955,6 +1959,7 @@ export const en = {
     add: "Add",
     adding: "Adding…",
     emptyState: "No tasks yet — use Add task to add one.",
+    mascotAlt: "Squirrel mascot",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",
