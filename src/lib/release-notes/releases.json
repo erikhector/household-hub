@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.67.0",
+    "date": "2026-10-15",
+    "pr": 237,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "You can now add one-off bills you know are coming, like a car repair or a dentist invoice, with a due date and each person's share. They count toward what's safe to spend until you log the payment, and show as overdue if the date passes.",
+      "sv": "Nu kan du lägga till enstaka räkningar som du vet kommer, som en bilreparation eller en tandläkarfaktura, med förfallodatum och vars och ens andel. De räknas av från det du kan spendera tills du loggar betalningen, och visas som försenade om datumet passerar."
+    }
+  },
+  {
     "version": "0.66.0",
     "date": "2026-10-15",
     "pr": 233,
