@@ -3,32 +3,38 @@
 // UX-33: a tick, an untick or a delete moves the row at tap time. Before,
 // the row's checkbox flipped at once (UX-14's `useOptimistic`) but the row
 // stayed where it was until the server answered. When that took over
-// 500 ms (weak signal in a shop) the browser's layout-shift metric
-// counted the move, because it no longer followed a tap. Now the list keeps
-// what you've just done locally, lays itself out from that, and saves in
-// the background:
+// 500 ms (weak signal) the browser's layout-shift metric counted the move,
+// because it no longer followed a tap. Now the list keeps what you've just
+// done locally, lays itself out from that, and saves in the background.
+// Used by the task list (ticks and deletes), inventory and the shopping
+// list (deletes; shopping ticks have their own overlay, tick-overlay.ts,
+// built on the same rules).
 //
-// - the mark is applied with `flushSync`, so it shows on the next frame
-//   even when it's made inside another transition (a confirm dialog's) or
-//   while an earlier save is still on its way (transitions started while an
-//   async action is pending wait for it, an urgent update doesn't);
-// - once the save is settled the mark is dropped inside a transition, so
-//   it goes in the same commit as the server's refreshed list. On success
-//   the two agree and nothing moves. On failure (settleOptimisticAction or
-//   the dialog toasts why) the server's list is unchanged and the row
-//   glides back (M5: an optimistic update rolls back visibly);
-// - each mark has a sequence number, so a quick tick-untick drops only the
-//   mark of the save that finished.
+// - A mark is applied with `flushSync`, so it shows on the next frame even
+//   when it's made inside another transition (a confirm dialog's) or while
+//   an earlier save is still on its way.
+// - Each save settles its own mark, outside any transition. React 19
+//   entangles concurrent async transitions, so a mark dropped in one waited
+//   for *every* save in flight: a failed tick stayed ticked until the last
+//   of them settled (DESIGN.md M5 wants that rollback visible at once). A
+//   failure drops the mark straight away and the row goes back (the caller
+//   or the confirm dialog toasts why). A success keeps it, marked settled,
+//   until the next server list arrives: that list already has the change,
+//   so nothing moves, and it's the truth from then on (another member's
+//   change included).
+// - Marks carry a sequence number, so after a quick tick then untick only
+//   the latest save's answer counts.
 
-import { startTransition, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
-export type LocalRowChange = { seq: number; done?: boolean; deleted?: boolean };
+export type LocalRowChange = { seq: number; done?: boolean; deleted?: boolean; settled?: boolean };
+export type LocalRowChanges = ReadonlyMap<string, LocalRowChange>;
 
 /** The rows as they should show: deleted ones gone, ticked ones flipped. */
 export function applyLocalRowChanges<T extends { id: string }>(
   rows: readonly T[],
-  changes: ReadonlyMap<string, LocalRowChange>,
+  changes: LocalRowChanges,
   withDone: (row: T, done: boolean) => T,
 ): T[] {
   if (changes.size === 0) return [...rows];
@@ -40,26 +46,44 @@ export function applyLocalRowChanges<T extends { id: string }>(
   });
 }
 
+/** A save answered: a failure drops its mark, a success holds it. */
+export function settleLocalRowChange(changes: LocalRowChanges, id: string, seq: number, ok: boolean): LocalRowChanges {
+  const change = changes.get(id);
+  // A later tap on the row has its own mark and its own save.
+  if (!change || change.seq !== seq) return changes;
+  const next = new Map(changes);
+  if (ok) next.set(id, { ...change, settled: true });
+  else next.delete(id);
+  return next;
+}
+
+/** A new server list: it has every settled change, so their marks go. */
+export function dropSettledRowChanges(changes: LocalRowChanges): LocalRowChanges {
+  if (![...changes.values()].some((change) => change.settled)) return changes;
+  return new Map([...changes].filter(([, change]) => !change.settled));
+}
+
 /**
- * The local marks and the two ways to make one. Each returns `settle`, to
- * call once the save has finished, however it went.
+ * The local marks for `rows` (the server's list) and the two ways to make
+ * one. Each returns `settle(ok)`, to call once the save has answered.
  */
-export function useLocalRowChanges() {
-  const [changes, setChanges] = useState<ReadonlyMap<string, LocalRowChange>>(() => new Map());
+export function useLocalRowChanges(rows: readonly unknown[]) {
+  const [changes, setChanges] = useState<LocalRowChanges>(() => new Map());
+  // A new server list retires the settled marks. Adjusted during render,
+  // React's pattern for state that follows a prop, so a saved row never
+  // shows one frame of its old state.
+  const [seenRows, setSeenRows] = useState(rows);
+  if (seenRows !== rows) {
+    setSeenRows(rows);
+    setChanges(dropSettledRowChanges);
+  }
   const lastSeq = useRef(0);
 
   function mark(id: string, change: Omit<LocalRowChange, "seq">) {
     const seq = ++lastSeq.current;
     flushSync(() => setChanges((current) => new Map(current).set(id, { ...change, seq })));
-    return function settle() {
-      startTransition(() =>
-        setChanges((current) => {
-          if (current.get(id)?.seq !== seq) return current;
-          const next = new Map(current);
-          next.delete(id);
-          return next;
-        }),
-      );
+    return function settle(ok: boolean) {
+      setChanges((current) => settleLocalRowChange(current, id, seq, ok));
     };
   }
 

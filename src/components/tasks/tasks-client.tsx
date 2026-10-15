@@ -6,7 +6,6 @@
 // editing a task both go through the shared TaskFormDialog (see
 // task-form-dialog.tsx) rather than delete-and-re-add.
 
-import { useTransition } from "react";
 import { Check, Trash2, Repeat, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -63,27 +62,30 @@ export function TasksClient({
   const memberNameById = new Map(members.map((m) => [m.id, m.displayName]));
 
   // UX-33: a tick or a delete shows, and moves its row, at tap time (see
-  // local-row-changes.ts); the weekly recap above follows it too. Saves run
-  // in their own transitions, so ticking several chores in a row never
-  // waits on (or greys out behind) an earlier save (UX-14), and a failed
-  // one moves the row back with a toast.
-  const local = useLocalRowChanges();
+  // local-row-changes.ts); the weekly recap above follows it too. Each save
+  // settles on its own, outside any transition, so ticking several chores
+  // in a row never waits on (or greys out behind) an earlier save (UX-14),
+  // and a failed one moves its row back at once, with a toast.
+  const local = useLocalRowChanges(serverTasks);
   const tasks = applyLocalRowChanges(serverTasks, local.changes, (task, completed) =>
     withLocalCompletion(task, completed, currentMemberId, new Date()),
   );
-  const [, startSaveTransition] = useTransition();
   const toggleCompleted = (task: TaskRow) => {
     const settle = local.markDone(task.id, !task.completed);
-    startSaveTransition(async () => {
-      await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
-      settle();
-    });
+    void (async () => {
+      const result = await settleOptimisticAction(() => toggleTaskCompletedAction(task.id), dict.saveFailedToast);
+      settle(result !== null);
+    })();
   };
   // From the row's confirm dialog, which waits on it and toasts an error.
   const deleteTask = async (task: TaskRow) => {
     const settle = local.markDeleted(task.id);
-    const result = await deleteTaskAction(task.id);
-    settle();
+    // A request that never arrives (offline) throws: the row comes back too.
+    const result = await deleteTaskAction(task.id).catch((error: unknown) => {
+      settle(false);
+      throw error;
+    });
+    settle(!result.error);
     return result;
   };
   const containerRef = useFlipList<HTMLDivElement>();

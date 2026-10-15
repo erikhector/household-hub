@@ -102,7 +102,7 @@ export function InventoryTable({
   // UX-33: a deleted item leaves the list at tap time (see
   // local-row-changes.ts) and the rows below glide up; it comes back if
   // the delete fails.
-  const local = useLocalRowChanges();
+  const local = useLocalRowChanges(serverItems);
   const items = applyLocalRowChanges(serverItems, local.changes, (item) => item);
   const containerRef = useFlipList<HTMLDivElement>(view);
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
@@ -253,8 +253,12 @@ export function InventoryTable({
   // From the row's confirm dialog, which waits on it and toasts an error.
   async function handleDelete(itemId: string) {
     const settle = local.markDeleted(itemId);
-    const result = await deleteInventoryItemAction(itemId);
-    settle();
+    // A request that never arrives (offline) throws: the row comes back too.
+    const result = await deleteInventoryItemAction(itemId).catch((error: unknown) => {
+      settle(false);
+      throw error;
+    });
+    settle(!result.error);
     return result;
   }
 
