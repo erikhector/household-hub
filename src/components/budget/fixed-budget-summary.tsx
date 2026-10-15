@@ -94,7 +94,9 @@ export function FixedBudgetSummary({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Phone pass (Oct 2026): two by two on a phone, at a smaller stat
+          size, instead of four full-width cards one under another. */}
+      <div className="grid grid-cols-2 gap-3 *:min-w-0 sm:gap-4 lg:grid-cols-4 [&_p]:break-words">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -102,7 +104,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-success">{animated(monthlyIncome)}</p>
+            <p className="text-xl font-semibold text-success sm:text-3xl">{animated(monthlyIncome)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -112,7 +114,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-destructive">{animated(monthlyExpense)}</p>
+            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(monthlyExpense)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -122,7 +124,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <p className={"text-3xl font-semibold " + STATUS_COLOR[balanceStatus]}>
+            <p className={"text-xl font-semibold sm:text-3xl " + STATUS_COLOR[balanceStatus]}>
               {animated(netFixed, true)}
             </p>
             <p className={"text-xs font-medium " + STATUS_COLOR[balanceStatus]}>{statusLabel}</p>
@@ -135,7 +137,7 @@ export function FixedBudgetSummary({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            <p className="text-3xl font-semibold text-chart-2">{animated(monthlySavings)}</p>
+            <p className="text-xl font-semibold text-foreground sm:text-3xl">{animated(monthlySavings)}</p>
             <p className="text-xs text-muted-foreground">{dict.savingsNote}</p>
           </CardContent>
         </Card>

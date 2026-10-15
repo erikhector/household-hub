@@ -34,6 +34,8 @@ import {
   type RecurringTemplateListRow,
 } from "@/components/budget/recurring-templates-panel";
 import { TransactionList } from "@/components/budget/transaction-list";
+import { localDateKey } from "@/lib/budget-transaction-days";
+import { budgetHref, resolveCategoryFilter } from "@/lib/budget-url";
 import {
   PlannedExpensesPanel,
   type PlannedExpenseRow,
@@ -80,7 +82,6 @@ import {
 import { computeNetBalances, remainingDue, simplifyDebts } from "@/lib/settle-up-calc";
 import { swishNumbersForPayer } from "@/lib/swish";
 import { HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
-import type { BudgetTab } from "@/components/budget/budget-tabs";
 import { createCategoryAction, deleteCategoryAction, updateCategoryAction } from "./actions";
 import { PageTitle } from "@/components/dashboard/page-title";
 
@@ -99,7 +100,6 @@ const MAX_FIXED_TREND_MONTHS = 12;
 // How many recorded repayments the Balances card lists (newest first) — enough
 // to spot and undo a recent mistake without the card growing forever.
 const MAX_REPAYMENTS_SHOWN = 10;
-const TABS: BudgetTab[] = ["overview", "manage", "transactions", "insights"];
 // How far back (in months) computeSafeToSpend and computeTemplateStatuses
 // need to see past the month currently being viewed: the former looks for a
 // category's most recent `isRecurring` transaction dated *before* that
@@ -349,7 +349,6 @@ async function BudgetTabsSection({
   now,
   readOnly,
   householdParam,
-  initialTab,
 }: {
   householdId: string;
   userId: string;
@@ -366,7 +365,6 @@ async function BudgetTabsSection({
   now: Date;
   readOnly: boolean;
   householdParam: string | undefined;
-  initialTab: BudgetTab;
 }) {
   const [
     categories,
@@ -826,14 +824,6 @@ async function BudgetTabsSection({
 
   const transactionsTab = (
     <div className="flex flex-col gap-6">
-      {/* The export route always exports the active household, so it's
-          hidden while another household is on screen rather than handing
-          back a different household's CSV. */}
-      {!readOnly && (
-        <div className="flex justify-end">
-          <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
-        </div>
-      )}
       <TransactionList
         transactions={transactionRows}
         categories={categoryRows}
@@ -842,16 +832,28 @@ async function BudgetTabsSection({
         dict={dict.budget}
         locale={locale}
         currencyCode={currencyCode}
+        todayKey={localDateKey(now)}
         onDelete={deleteTransactionAction}
         createAction={createTransactionAction}
         updateAction={updateTransactionAction}
+        readOnly={readOnly}
       />
+      {/* Below the list (phone pass, Oct 2026): exporting is rare, and at
+          the top it was the first thing on the tab, above the rows people
+          came for. The export route always exports the active household,
+          so it's hidden while another household is on screen rather than
+          handing back a different household's CSV. */}
+      {!readOnly && (
+        <div className="flex justify-start">
+          <ExportButton href="/dashboard/budget/export" label={dict.export.button} />
+        </div>
+      )}
     </div>
   );
 
-  // Selected month's income/expense/savings breakdown — shown on both
-  // Overview (so it's visible the moment you flip months, without switching
-  // tabs) and Insights (its original home, for the fuller analysis context).
+  // Selected month's income/expense/savings breakdown, on Insights. It used
+  // to sit on Overview too, where it repeated Safe to spend's totals as four
+  // more stat cards (phone pass, Oct 2026).
   const periodSummary = (
     <PeriodSummary
       income={income}
@@ -878,6 +880,13 @@ async function BudgetTabsSection({
       )}
       monthStart={monthStart}
       savingsByCategory={savingsByCategory}
+      // P3: each of the viewer's own categories drills into Transactions,
+      // filtered to it, for the same month.
+      categoryHref={(id) =>
+        resolveCategoryFilter(id, categoryRows)
+          ? budgetHref("/dashboard/budget", { month: monthKey, household: householdParam, tab: "transactions", category: id })
+          : null
+      }
       dict={dict.budget.summary}
       locale={locale}
       currencyCode={currencyCode}
@@ -948,6 +957,7 @@ async function BudgetTabsSection({
       locale={locale}
       currencyCode={currencyCode}
       monthKey={monthKey}
+      currentMonthKey={toMonthKey(now)}
       basePath="/dashboard/budget"
       householdParam={householdParam}
       readOnly={readOnly}
@@ -957,7 +967,6 @@ async function BudgetTabsSection({
       safeToSpendBreakdown={safeToSpendBreakdown}
       safeToSpendExpectedRecurring={expectedRecurring}
       safeToSpendProjection={safeToSpendProjection}
-      initialTab={initialTab}
       dueTemplates={recurringTemplateRows.filter((r) => r.status === "due")}
       hasRecurringTemplates={recurringTemplateRows.length > 0}
       plannedDue={plannedExpenseRows.filter((r) => isPlannedExpenseOutstanding(r.status))}
@@ -967,7 +976,6 @@ async function BudgetTabsSection({
       updateTransactionAction={updateTransactionAction}
       onAcknowledgeTemplate={acknowledgeTemplatePeriodAction}
       onLogTemplateAsIs={logRecurringTemplateAction}
-      periodSummary={periodSummary}
       savingsGoals={savingsGoals}
       onboarding={<BudgetOnboarding dict={dict.budget} createCategoryAction={createCategoryAction} />}
       manage={manage}
@@ -1015,8 +1023,6 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
   const monthStart = isMonthKey(monthParamValue) ? parseMonthKey(monthParamValue) : getMonthStart(now);
   const monthEnd = getMonthEnd(monthStart);
   const monthKey = toMonthKey(monthStart);
-  const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
-  const initialTab = TABS.find((t) => t === tabParam) ?? "overview";
 
   // F1: "View in {household} Budget" links (from a shared row in Personal
   // Budget) carry an explicit `?household=` so this page shows the bill's
@@ -1052,7 +1058,10 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>{dict.budget.title}</PageTitle>
-        <p className="text-sm text-muted-foreground">{dict.budget.subtitle}</p>
+        {/* Phone pass (Oct 2026), P6: hidden on phones, where the title,
+            month bar and tabs already filled ~40% of the first screen
+            before any number showed. */}
+        <p className="text-sm text-muted-foreground max-sm:hidden">{dict.budget.subtitle}</p>
       </div>
 
       {readOnly && (
@@ -1081,7 +1090,6 @@ export default async function BudgetPage(props: PageProps<"/dashboard/budget">) 
           now={now}
           readOnly={readOnly}
           householdParam={householdParam}
-          initialTab={initialTab}
         />
       </Suspense>
     </div>

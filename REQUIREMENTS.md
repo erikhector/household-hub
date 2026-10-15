@@ -1679,7 +1679,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   All aggregation happens in the page's Server Component (grouping the
   month's transactions by `categoryId`); the summary components themselves
   are plain presentational functions, not Client Components, since nothing
-  on them is interactive.
+  on them is interactive. It lives on the Insights tab only (it used to
+  open Overview too, repeating Safe to spend's totals), and its four stat
+  cards, like `FixedBudgetSummary`'s, sit two by two on a phone at a
+  smaller stat size (`text-xl`, `text-3xl` from `sm`). Expense and savings
+  totals are plain `foreground` (DESIGN.md Colour); income stays `success`
+  and the remaining total keeps its status colour.
 - **Month navigation**: the Budget page defaults to the current calendar
   month (`[monthStart, monthEnd)`, computed server-side from `new Date()`)
   but isn't stuck there — a `?month=YYYY-MM` search param (validated by
@@ -1691,7 +1696,14 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
   budget) renders prev/next/"this month" as plain `<Link>`s that change
   the param — a full server-rendered navigation with no client state, so
   the selected month survives a refresh and is shareable as a URL, the
-  same pattern meal-planning's week navigation uses. `src/app/dashboard/
+  same pattern meal-planning's week navigation uses. It reads as
+  `‹  October 2026  ›`: two 44 px arrow links flanking the month name set
+  in `heading`, with a "This month" link under the name only once you've
+  paged away from the current month (the server passes its own month key
+  as `currentMonthKey`, so render and hydration agree). Every link is
+  built by `budgetHref` (`src/lib/budget-url.ts`) and keeps the open tab
+  (`?tab=`), the category filter (`?category=`) and `?household=`, so
+  paging months from Transactions stays on Transactions. `src/app/dashboard/
   budget/page.tsx` fetches `Transaction` rows bounded to the selected
   month's `[monthStart, monthEnd)` window (rather than the household's
   entire history — see SCALE-F, BACKLOG.md, for why an unbounded query
@@ -2128,7 +2140,7 @@ Print is the reading-oriented one.
 ### Safe to spend
 
 A hero stat card at the top of the Budget page's Overview tab, directly
-above `PeriodSummary` (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
+above the due-recurring widget (`SafeToSpend`, `src/components/budget/safe-to-spend.tsx`)
 — the PocketGuard-style "what's actually left" number, per the competitive
 analysis. Like `PeriodSummary`/`CostAnalyzer`, it's a plain presentational
 component; all aggregation happens in `src/app/dashboard/budget/page.tsx`,
@@ -2225,7 +2237,7 @@ Component page function can't itself be unit-tested.
     per household at the end of the month (`householdDebts`): what they owe
     other members or are owed, and their unpaid share of bills, with a
     "Settle up" link to that household's budget, Insights tab
-    (`?tab=insights`, which `BudgetTabs` reads as `initialTab`).
+    (`?tab=insights`, which `BudgetTabs` reads from the URL).
   - **Insights (BUDGET-7)**: the same shares feed the Insights tab. Its
     month totals and per-category bars come straight from the loader's
     totals, so a split bill's share shows there as "<category> (Shared)".
@@ -2806,6 +2818,111 @@ income, expense and savings without hover (since UX-39 through the shared
 transaction passes the action's promise to `ConfirmDialog`, so the button
 shows "Deleting…" until the server answers, and recurring-row titles wrap
 instead of truncating. Covered by `e2e/ux-23.spec.ts`.
+
+**The open tab is in the URL (phone pass, Oct 2026).** `BudgetTabs` reads
+the tab from `?tab=` with `useSearchParams` (`parseBudgetTab` in
+`src/lib/budget-url.ts`; anything unknown is Overview) and writes it with
+`history.replaceState` (Overview drops the param), the same pattern as
+Meal Planning's tabs: switching tabs refetches nothing, a reload or a
+browser back reopens the same tab, and a link (Personal Budget's "Settle
+up", a price-spike notification) lands on its tab. It used to be client
+state seeded from the param once, and `MonthNavigator`'s links dropped it,
+so paging months from Transactions bounced back to Overview. Covered by
+`src/lib/budget-url.test.ts` and `e2e/budget-month-tab.spec.ts` (both
+pages).
+
+**Transaction rows (phone pass, Oct 2026).** On a phone `TransactionList`
+lists the month as compact rows (about 56 px, twice as many per screen as
+the old two-line cards) under a header per day: "Today" / "Yesterday"
+from `Intl.RelativeTimeFormat`, otherwise weekday and date in the
+viewer's language with no year, and that day's net (income minus
+expenses and savings) on the right (`groupByDay` and `dayHeading` in
+`src/lib/budget-transaction-days.ts`). A row's day is the UTC calendar
+date of its stored `date` (forms store a picked day as UTC midnight);
+"Today" is the viewer's local day, rendered from the server's `todayKey`
+and swapped for the browser's after hydration (`useSyncExternalStore`), so
+the two can't mismatch. Each row is one button: the description as its
+title (the category name when there's none), then the category and the
+recurring/split/left-due badges in caption size, and the amount on the
+right in `tabular-nums`. Tapping it opens the edit sheet, which now ends
+in "Delete transaction" (with its confirm dialog), a footer away from
+Save; swiping left offers Edit and Delete with Undo (see "Swipe row
+actions"). Shared rows on Personal Budget keep the same layout but stay
+read-only, with only their "View in {household} budget" link. Amounts
+follow DESIGN.md's colour rules on both phone and desktop: income
+`success` with a plus, expenses `foreground` with a minus, savings
+`foreground` with an arrow (no more red for every expense or `chart-2`
+text). The desktop table keeps its per-row edit and delete buttons and
+drops the year from its dates. "Export CSV" moved from the top of the tab
+to below the list. Covered by `src/lib/budget-transaction-days.test.ts`,
+`e2e/budget-transaction-rows.spec.ts` and `e2e/swipe-rows.mobile.spec.ts`.
+
+**Category filter and drill-down (phone pass, Oct 2026).** The
+Transactions tab opens with a category select ("All categories" or one
+category; its own full-width row on a phone, M1), stored in `?category=`
+with `history.replaceState`, so it filters at once without a refetch and
+survives a reload; `MonthNavigator` keeps it when paging months. While a
+filter is on, a "Clear filter" link shows (a link, so it also works in
+the read-only household view where the select is disabled with every
+other control), shared rows on Personal Budget are left out (they belong
+to a household category), and a category with nothing that month gets
+"Nothing logged in {category} this month." with the same Clear. Every row
+of the income, expense and savings breakdowns in `PeriodSummary` is a link
+(whole row, chevron, at least 44 px) to that month's Transactions filtered
+to the category (`categoryHref`, built by `budgetHref`). The id is only
+honoured when it names one of the categories the server loaded for the
+signed-in household or user (`resolveCategoryFilter` in
+`src/lib/budget-url.ts`): anything else, another household's id
+included, is no filter, and no query ever runs on it. Rows that aren't
+the viewer's own categories (Personal Budget's "(Shared)" rows,
+`FixedBudgetSummary`'s recurring items) stay plain. Covered by
+`src/lib/budget-url.test.ts` and `e2e/budget-category-filter.spec.ts`.
+
+**One Overview, nothing twice (phone pass, Oct 2026).** Overview used to
+run to about five phone screens, with income, expenses and what's left
+shown three times and the due list twice. Now it is Safe to spend, the
+due widget and savings goals:
+
+- `SafeToSpend` takes `variant="compact"` here: the summary sentence, the
+  number, the projection, then one totals line (income, expenses,
+  savings) and a "How we got this number" disclosure (`<details>`) that
+  holds the full arithmetic, the caveat and the "Still due this month"
+  list. The dashboard's "Your budget" card keeps the default `"full"`
+  layout, since it has no due widget beside it. Due amounts in the list
+  are plain text (income stays `success`).
+- `DueRecurringWidget` is the one list of what's due, one line per item:
+  the name, then amount and category in caption size, a "Log" button
+  (opens the prefilled transaction sheet) and a "More actions for {name}"
+  menu holding "Log as-is" and "Mark as accounted for". Three buttons per
+  item used to wrap each one to about 370 px on a phone.
+- `PeriodSummary` moved to Insights (see "Period summary").
+
+Covered by `e2e/budget-overview.spec.ts`.
+
+**Manage on a phone (phone pass, Oct 2026).** A recurring item is one
+line: name, then amount, frequency, due day and category in caption size,
+its one action ("Log" when due, "Undo" once accounted for, "Resume" when
+paused, none once logged) and a "More actions for {name}" menu with Mark
+as accounted for (due items), Edit, Pause and, last behind a separator,
+Delete (confirmed). Five buttons used to wrap, leaving pause and delete
+alone on a second line beside each other. Edit opens from the menu
+through a hidden trigger and Delete through a dialog handle, since a
+dialog inside the menu would unmount as it closes. A category chip is
+now one button (named "Edit {name}") that opens its edit sheet, which
+ends in "Delete {name}" with its confirm dialog, a footer away from Save;
+the chips dropped their own pencil and bin (delete right beside edit, M2)
+and the `12rem` cap that cut off names like "Kids activities" with room
+to spare, so a name only truncates when it's wider than the row. Covered
+by `e2e/budget-manage.spec.ts` and `e2e/ux-19.mobile.spec.ts`.
+
+**The first phone screen (phone pass, Oct 2026).** On a phone both budget
+pages hide the subtitle under the title, and the month bar and tab bar sit
+12 px apart as one block (sections below keep `space-6`), so the title,
+month and tabs no longer take ~40% of the first screen. The floating "Add
+transaction" (`PrimaryAction`) is clear of the end of the Transactions tab
+once it's scrolled to the bottom, thanks to `main`'s extra bottom padding
+when it holds a primary action (layout.tsx). Covered by
+`e2e/budget-chrome.mobile.spec.ts`.
 
 **Budget charts (UX-39).** Both budgets draw every chart from one small kit
 in `src/components/charts/` (plain CSS bars and inline SVG, no chart
@@ -6147,8 +6264,9 @@ render crash cannot be provoked from the UI).
 
 ### Swipe row actions (UX-35)
 
-Shopping list rows (on an active list), task rows and the inventory phone
-cards answer a horizontal swipe, Todoist-style. Built as one shared wrapper,
+Shopping list rows (on an active list), task rows, the inventory phone
+cards and budget transaction rows on a phone answer a horizontal swipe,
+Todoist-style. Built as one shared wrapper,
 `SwipeRow` (`src/components/shared/swipe-row.tsx`), with its maths in
 `src/lib/swipe-row-calc.ts`. No gesture library.
 
@@ -6181,6 +6299,12 @@ cards answer a horizontal swipe, Todoist-style. Built as one shared wrapper,
   down, and a swipe that starts within 20 px of either screen edge is left
   to the OS back gesture. Under reduced motion the snap back is instant
   (the global rule from UX-29).
+
+- **Budget transaction rows** swipe left only (no primary action to run
+  on a right swipe). The whole row is the edit button (`data-swipe-edit`),
+  so Edit opens the edit sheet; Delete has Undo as above. The row's named
+  Delete is "Delete transaction" inside that sheet, which keeps its
+  confirm dialog.
 
 Covered by `e2e/swipe-rows.mobile.spec.ts` (touch is driven through
 Chromium's DevTools protocol, since Playwright has no touch-drag API) and

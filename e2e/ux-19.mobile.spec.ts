@@ -39,7 +39,7 @@ test("a meal row and its sheet's actions are 44 px and 8 px apart", async ({ pag
   await expectTouchTargets(page);
 });
 
-test("category chips keep 44 px edit and delete buttons apart, in every budget tab", async ({ page }) => {
+test("category chips are 44 px targets kept apart, in every budget tab", async ({ page }) => {
   const id = `e2e-ux19-cat-${suffix()}`;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

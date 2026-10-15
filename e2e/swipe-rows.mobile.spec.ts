@@ -1,8 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice } from "./ui";
+import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, todayUtc, withDb } from "./budget-seed";
 
 // UX-35: swipe row actions on shopping, task and inventory rows. Swipe right
 // ticks, completes or adds one; swipe left reveals Edit and a Delete that
@@ -227,4 +228,77 @@ test("swipe-delete hides the row with an Undo, and deletes once the toast is gon
       return row.count();
     })
     .toBe(0);
+});
+
+// Phone pass (Oct 2026): budget transaction rows swipe left too. The row
+// itself is the edit button (which Edit clicks); Delete hides it with Undo.
+test("a budget transaction swipes left to Edit, and to Delete with Undo", async ({ page }) => {
+  const main = page.getByRole("main");
+  const t = budgetTag();
+  const description = `Bus card ${t}`;
+  await withDb(async (client) => {
+    await insertHouseholdCategory(client, { id: `e2e-ux35-txcat-${t}`, name: `Travel ${t}` });
+    await insertHouseholdTransaction(client, {
+      id: `e2e-ux35-tx-${t}`,
+      categoryId: `e2e-ux35-txcat-${t}`,
+      amount: 30,
+      description,
+    });
+  });
+  await page.goto("/dashboard/budget?tab=transactions");
+  const row = main.getByRole("button", { name: new RegExp(`^${description}`) });
+
+  await swipe(page, row, -160);
+  await main.getByRole("button", { name: "Edit", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Edit transaction" });
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  await swipe(page, row, -160);
+  await main.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(row).toBeHidden();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(row).toBeVisible();
+  // Undo means nothing ever reached the server.
+  await page.reload();
+  await expect(row).toBeVisible();
+});
+
+// Another household's budget (`?household=`) is read only: its write
+// controls sit in a disabled fieldset, so a swipe must not open a tray of
+// buttons that do nothing.
+test("a transaction in a read-only household budget doesn't swipe", async ({ page }) => {
+  const main = page.getByRole("main");
+  const t = budgetTag();
+  const householdId = `e2e-ux35-ro-hh-${t}`;
+  const description = `Ferry ${t}`;
+  await withDb(async (client) => {
+    await client.query(`INSERT INTO "Household" (id, name) VALUES ($1, $2)`, [householdId, `Cabin ${t}`]);
+    await client.query(`INSERT INTO "HouseholdMember" (id, "householdId", "userId") VALUES ($1, $2, $3)`, [
+      `e2e-ux35-ro-mem-${t}`,
+      householdId,
+      E2E_USER.id,
+    ]);
+    await client.query(`INSERT INTO "BudgetCategory" (id, "householdId", name, type) VALUES ($1, $2, $3, 'EXPENSE')`, [
+      `e2e-ux35-ro-cat-${t}`,
+      householdId,
+      `Travel ${t}`,
+    ]);
+    await client.query(
+      `INSERT INTO "Transaction" (id, "householdId", "categoryId", amount, type, description, date)
+       VALUES ($1, $2, $3, 40, 'EXPENSE', $4, $5)`,
+      [`e2e-ux35-ro-tx-${t}`, householdId, `e2e-ux35-ro-cat-${t}`, description, todayUtc().toISOString().replace("Z", "")],
+    );
+  });
+  try {
+    await page.goto(`/dashboard/budget?tab=transactions&household=${householdId}`);
+    const row = main.getByRole("button", { name: new RegExp(`^${description}`) });
+    await expect(row).toBeDisabled();
+    await swipe(page, row, -160);
+    await expect(main.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+  } finally {
+    // The household cascades to its member, category and transaction.
+    await sql(`DELETE FROM "Household" WHERE id = $1`, [householdId]);
+  }
 });

@@ -3,7 +3,6 @@
 import { useActionState, useState, useTransition, type ReactElement } from "react";
 import { toast } from "sonner";
 import { Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -190,14 +189,12 @@ export function CategoryManager({
   );
 }
 
-// UX-19 / M3: the chip's edit and delete icons are 12 px glyphs. With a
-// mouse they borrow 6 px of padding via a negative margin to stay a compact
-// chip; under a finger that padding would overlap the neighbouring button, so
-// each becomes a real 44 px box, 8 px apart (the chip's gap), and the chip
-// grows to hold them.
-const CHIP_ACTION =
-  "-m-1.5 shrink-0 p-1.5 max-sm:m-0 max-sm:inline-flex max-sm:size-11 max-sm:items-center max-sm:justify-center max-sm:p-0 pointer-coarse:m-0 pointer-coarse:inline-flex pointer-coarse:size-11 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:p-0";
-
+// Phone pass (Oct 2026), P5: the whole chip is the edit button, and Delete
+// lives in the edit sheet. Each chip used to carry its own 44 px pencil and
+// bin, delete right beside edit (DESIGN.md M2), and a 12rem cap that cut
+// off names with room to spare ("Kids activit…"). Now a name only
+// truncates when it's wider than the row itself, and each chip is one
+// 44 px target with the 8 px gap between chips (M3).
 function CategoryGroup({
   label,
   items,
@@ -219,48 +216,26 @@ function CategoryGroup({
       <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
       <div className="flex flex-wrap gap-2">
         {items.map((category) => (
-          <Badge
+          <EditCategoryDialog
             key={category.id}
-            variant="outline"
-            className="max-w-[12rem] gap-1.5 py-1 pl-2.5 max-sm:h-auto max-sm:gap-2 max-sm:overflow-visible pointer-coarse:h-auto pointer-coarse:gap-2 pointer-coarse:overflow-visible"
-          >
-            <span className="min-w-0 truncate" title={category.name}>
-              {category.name}
-            </span>
-            <EditCategoryDialog
-              category={category}
-              dict={dict}
-              updateAction={updateAction}
-              trigger={
-                <button
-                  type="button"
-                  aria-label={format(dict.categories.editAriaLabel, { name: category.name })}
-                  disabled={isPending}
-                  className={`${CHIP_ACTION} text-muted-foreground hover:text-foreground disabled:opacity-50`}
-                >
-                  <Pencil className="size-3" />
-                </button>
-              }
-            />
-            <ConfirmDialog
-              trigger={
-                <button
-                  type="button"
-                  aria-label={format(dict.categories.deleteAriaLabel, { name: category.name })}
-                  disabled={isPending}
-                  className={`${CHIP_ACTION} text-muted-foreground hover:text-destructive disabled:opacity-50`}
-                >
-                  <Trash2 className="size-3" />
-                </button>
-              }
-              title={format(dict.categories.confirmDelete.title, { name: category.name })}
-              description={dict.categories.confirmDelete.description}
-              cancelLabel={dict.categories.confirmDelete.cancel}
-              confirmLabel={dict.categories.confirmDelete.confirm}
-              pendingLabel={dict.categories.confirmDelete.confirming}
-              onConfirm={() => onDelete(category.id)}
-            />
-          </Badge>
+            category={category}
+            dict={dict}
+            updateAction={updateAction}
+            onDelete={() => onDelete(category.id)}
+            trigger={
+              <button
+                type="button"
+                aria-label={format(dict.categories.editAriaLabel, { name: category.name })}
+                disabled={isPending}
+                className="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-4xl border border-border px-3 py-1 text-xs font-medium transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 max-sm:min-h-11 pointer-coarse:min-h-11"
+              >
+                <span className="min-w-0 truncate" title={category.name}>
+                  {category.name}
+                </span>
+                <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+              </button>
+            }
+          />
         ))}
       </div>
     </div>
@@ -272,11 +247,13 @@ function EditCategoryDialog({
   dict,
   trigger,
   updateAction,
+  onDelete,
 }: {
   category: CategoryRow;
   dict: CategoryManagerDict;
   trigger: ReactElement;
   updateAction: CategoryFormAction;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(async (
@@ -329,6 +306,24 @@ function EditCategoryDialog({
             />
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {/* In the form body, a footer away from Save (DESIGN.md M2). */}
+          <ConfirmDialog
+            trigger={
+              <Button type="button" variant="ghost" className="self-start text-destructive hover:text-destructive">
+                <Trash2 className="size-4" />
+                {format(dict.categories.deleteAriaLabel, { name: category.name })}
+              </Button>
+            }
+            title={format(dict.categories.confirmDelete.title, { name: category.name })}
+            description={dict.categories.confirmDelete.description}
+            cancelLabel={dict.categories.confirmDelete.cancel}
+            confirmLabel={dict.categories.confirmDelete.confirm}
+            pendingLabel={dict.categories.confirmDelete.confirming}
+            onConfirm={() => {
+              setOpen(false);
+              onDelete();
+            }}
+          />
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               <PendingLabel pending={pending} busy={dict.categories.saving} idle={dict.categories.save} />
