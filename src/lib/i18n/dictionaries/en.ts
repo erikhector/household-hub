@@ -1335,6 +1335,8 @@ export const en = {
       aliasesTitle: "Names that map here",
       aliasesHint: "Learned from your recipes. Remove one to have that name asked about again.",
       noAliases: "No learned names.",
+      recentPricesTitle: "Recent prices",
+      recentPricePerUnit: "{price} / {unit}",
       removeAliasAriaLabel: "Stop mapping “{name}” here",
       changeUnitDialog: {
         title: "Change unit",

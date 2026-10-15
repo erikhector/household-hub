@@ -7,6 +7,9 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { format } from "@/lib/i18n/format";
 import { usedInRows } from "@/lib/inventory/item-units";
 import { canonicalUnit, unitLabel } from "@/lib/units";
+import { createMoneyFormat, HOUSEHOLD_BASE_CURRENCY } from "@/lib/currency";
+import { getRecentPrices } from "@/lib/inventory/recent-prices";
+import { ItemRecentPrices } from "@/components/inventory/item-page/item-recent-prices";
 import { ItemUnitsAndUsage } from "@/components/inventory/item-page/item-units-and-usage";
 import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-dialog";
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
@@ -20,11 +23,12 @@ import { PageTitle } from "@/components/dashboard/page-title";
 const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
-// Everything comes from six household-scoped queries run together, never
+// Everything comes from seven household-scoped queries run together, never
 // one per recipe or list. The fifth lists the other items, for "Merge into
 // another item…" (MATCH-7). The sixth names the household's members, so
 // "Last updated … by …" can say who; phones don't show that on the
-// inventory list (UX-45), so this page is where they find it.
+// inventory list (UX-45), so this page is where they find it. The seventh is
+// the last purchases for "Recent prices" (GAP-47).
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
   const [{ household }, fullDict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
@@ -39,7 +43,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const origin = parseItemPageOrigin(searchParams.from);
   const backLabel = { inventory: dict.back, catalog: dict.backToCatalog, recipes: dict.backToRecipes }[origin.kind];
 
-  const [item, ingredients, listRows, templateRows, otherItems, members] = await Promise.all([
+  const [item, ingredients, listRows, templateRows, otherItems, members, recentPrices] = await Promise.all([
     prisma.inventoryItem.findFirst({
       where: { id, householdId: household.id },
       select: {
@@ -84,6 +88,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       where: { householdId: household.id },
       select: { userId: true, user: { select: { displayName: true } } },
     }),
+    getRecentPrices(id),
   ]);
   if (!item) notFound();
 
@@ -189,6 +194,15 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           </ul>
         )}
       </section>
+
+      {/* PriceHistory rows are stored in the base currency (GAP-13). */}
+      <ItemRecentPrices
+        prices={recentPrices}
+        money={createMoneyFormat(locale, HOUSEHOLD_BASE_CURRENCY)}
+        locale={locale}
+        unitLabels={fullDict.units}
+        dict={dict}
+      />
 
       <ItemAliasList aliases={item.aliases} dict={dict} />
 
