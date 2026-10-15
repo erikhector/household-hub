@@ -62,8 +62,10 @@ test("a hand-split shared bill shows as due next month", async ({ page }) => {
   const nextKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
 
   await page.goto(`/dashboard/personal-budget?month=${nextKey}`);
-  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
-  // Your half of it, not the whole bill.
-  await expect(page.getByText(/6[\s,.]?000/).first()).toBeVisible();
+  // `visible`: the due widget lists it; Safe to spend's still-due list
+  // names it too, but folded away behind "How we got this number".
+  await expect(page.getByText(name, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  // Your half of it, not the whole bill (the due widget's "Your share").
+  await expect(page.getByText(/Your share: 6[\s\u00a0\u202f,.]?000/).filter({ visible: true }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

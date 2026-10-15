@@ -10,13 +10,15 @@ test.beforeEach(async ({ context, baseURL }) => {
   await dismissCookieNotice(context, baseURL!);
 });
 
-async function seed() {
+async function seed({ withItem = true } = {}) {
   const tag = budgetTag();
   const category = `Kids activities ${tag}`;
   const item = `Swimming ${tag}`;
   await withDb(async (client) => {
     await insertHouseholdCategory(client, { id: `e2e-mng-cat-${tag}`, name: category });
-    await insertHouseholdTemplate(client, { id: `e2e-mng-tpl-${tag}`, categoryId: `e2e-mng-cat-${tag}`, name: item, amount: 350 });
+    // A category a recurring item uses can't be deleted, so the chip test
+    // seeds the category alone.
+    if (withItem) await insertHouseholdTemplate(client, { id: `e2e-mng-tpl-${tag}`, categoryId: `e2e-mng-cat-${tag}`, name: item, amount: 350 });
   });
   return { category, item };
 }
@@ -58,7 +60,7 @@ test("a recurring item is one line: its action and a More menu", async ({ page, 
 });
 
 test("a category chip shows its whole name and edits, with Delete in the sheet", async ({ page }) => {
-  const { category } = await seed();
+  const { category } = await seed({ withItem: false });
   await page.goto("/dashboard/budget?tab=manage");
   const main = page.getByRole("main");
 
