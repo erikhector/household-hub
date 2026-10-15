@@ -7,6 +7,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { parseShareSplitFormData, SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import {
   limitForType,
   monthlyLimitField,
@@ -322,11 +323,6 @@ async function assertNoDuplicateTemplatePeriod(
     ? { error: "A transaction for this recurring item already exists for this period" }
     : null;
 }
-
-// Amounts within this tolerance of the transaction total are accepted —
-// guards against floating point noise (e.g. splitting 10 three ways), not a
-// real mismatch.
-const SPLIT_SUM_TOLERANCE = 0.01;
 
 type ParsedSplit = { householdMemberId: string; amountOwed: number; amountPaid: number };
 
@@ -659,47 +655,6 @@ function parseRecurringTemplateFormData(formData: FormData) {
   });
 }
 
-/**
- * Parses the optional "split this bill" section of the recurring-template
- * form (RecurringTemplateDialog) — same repeated-input convention and
- * validation as parseSplitFormData above, minus a "paid by" member: a
- * template is never itself "paid", only its expected shares matter (see
- * prisma/schema.prisma's RecurringTemplateSplit doc comment). Returns `null`
- * when splitting wasn't requested, so a plain template is completely
- * unaffected — no retroactive backfill for existing templates either way.
- */
-async function parseTemplateSplitFormData(
-  formData: FormData,
-  householdId: string,
-  amount: number,
-): Promise<{ error: string } | { householdMemberId: string; amountOwed: number }[] | null> {
-  if (formData.get("splitEnabled") !== "on") return null;
-
-  const memberIds = formData.getAll("splitMemberId").map((v) => String(v));
-  const amounts = formData.getAll("splitAmount").map((v) => Number(v));
-  if (memberIds.length === 0 || memberIds.length !== amounts.length) {
-    return { error: "Invalid split" };
-  }
-  if (amounts.some((a) => Number.isNaN(a) || a < 0)) {
-    return { error: "Each split amount must be zero or more" };
-  }
-
-  const validMembers = await prisma.householdMember.findMany({
-    where: { id: { in: memberIds }, householdId },
-    select: { id: true },
-  });
-  if (validMembers.length !== new Set(memberIds).size) {
-    return { error: "One of the selected members no longer belongs to this household" };
-  }
-
-  const splitTotal = amounts.reduce((sum, a) => sum + a, 0);
-  if (Math.abs(splitTotal - amount) > SPLIT_SUM_TOLERANCE) {
-    return { error: "The split amounts must add up to the template's amount" };
-  }
-
-  return memberIds.map((householdMemberId, i) => ({ householdMemberId, amountOwed: amounts[i] }));
-}
-
 export async function createRecurringTemplateAction(
   _prevState: ActionState,
   formData: FormData,
@@ -716,7 +671,12 @@ export async function createRecurringTemplateAction(
   });
   if (!category) return { error: "Category not found" };
 
-  const split = await parseTemplateSplitFormData(formData, household.id, parsed.data.amount);
+  const split = await parseShareSplitFormData(
+    formData,
+    household.id,
+    parsed.data.amount,
+    "The split amounts must add up to the template's amount",
+  );
   if (split && "error" in split) return { error: split.error };
 
   try {
@@ -779,7 +739,12 @@ export async function updateRecurringTemplateAction(
   });
   if (!existing) return { error: "Recurring template not found" };
 
-  const split = await parseTemplateSplitFormData(formData, household.id, parsed.data.amount);
+  const split = await parseShareSplitFormData(
+    formData,
+    household.id,
+    parsed.data.amount,
+    "The split amounts must add up to the template's amount",
+  );
   if (split && "error" in split) return { error: split.error };
 
   // Splits are replaced wholesale (delete-all then recreate) rather than
