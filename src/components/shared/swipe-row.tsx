@@ -64,8 +64,10 @@ export function SwipeRow({
    * when the list does. */
   flipKey?: string;
   /** The row is a fading leftover copy of one that has already moved
-   * elsewhere (MAINT-19): inert takes it out of the tab order and the
-   * accessibility tree, so the item is exposed once, not twice. */
+   * elsewhere (MAINT-19): inert takes it out of the tab order and
+   * clicks, and aria-hidden out of the accessibility tree (some engines,
+   * Playwright's role queries among them, don't treat inert as hidden), so
+   * the item is exposed once, not twice. */
   inert?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -191,7 +193,7 @@ export function SwipeRow({
   }
 
   return (
-    <div ref={rootRef} data-swipe-row data-flip-key={flipKey} inert={inert} className={cn("relative overflow-hidden", className)}>
+    <div ref={rootRef} data-swipe-row data-flip-key={flipKey} inert={inert} aria-hidden={inert || undefined} className={cn("relative overflow-hidden", className)}>
       {canSwipeRight && offset > 0 && (
         <div
           aria-hidden
