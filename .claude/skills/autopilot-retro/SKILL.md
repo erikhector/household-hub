@@ -49,7 +49,9 @@ it, and the change made. If the numbers justify loosening AUTOPILOT.md's
 merge policy or limits, **propose** it in the body; never change those
 settings yourself.
 
-Also count, for the body, how many items the Owner inbox issue listed
-this week and how many decision issues waited more than 3 days: the loop
-should need the owner less each week. Report ends with `Owner action
+Also count, for the body, the PRs and issues labelled `needs-human` and
+the `decision` issues opened this week, and how many decision issues
+waited more than 3 days for an answer: the loop should need the owner
+less each week. Every comment and PR body starts with
+`🤖 autopilot-retro`. Report ends with `Owner action
 needed: none` or the PR link when it touches `never_merge_paths`.

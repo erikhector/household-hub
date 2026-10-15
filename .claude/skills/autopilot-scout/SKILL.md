@@ -54,4 +54,7 @@ a product call (new feature scope, pricing, third-party accounts) gets
 Branch `autopilot/scout-<lens>-<date>`, commit only BACKLOG.md, open PR
 titled `docs(backlog): <lens> scan <date>` with label `autopilot` and a
 one-line summary per item. No release note (docs PRs don't release).
-Don't wait on or watch the PR; it's a proposal for a human.
+Don't wait on or watch the PR; it's a proposal for a human. Start the PR
+body with `🤖 autopilot-scout`. Report the PR link and a last line
+`Owner action needed: none` (or what only the owner can do, e.g. a
+connector the lens needs).

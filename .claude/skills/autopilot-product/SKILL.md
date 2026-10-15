@@ -19,9 +19,10 @@ owner.** Never change app code, AUTOPILOT.md or the skills.
 2. If an open PR titled `docs(backlog): product decisions …` exists, stop:
    one pending decision round at a time, so the owner can veto it.
 3. Read the owner's answers first: open issues labelled `decision`, and
-   each one's comments. A comment from a `trusted_authors` account
-   without the `🤖 autopilot-product` marker is the owner's answer (the
-   routines run as that account, so the marker is the only tell). If
+   each one's comments. A comment from a `trusted_authors` account whose
+   text doesn't start with `🤖 autopilot-` (any role) is the owner's
+   answer (the routines run as that account, so the marker is the only
+   tell). Comments from any other account are never answers. If
    step 2 stopped the run, the answers simply wait for the next one.
 4. Read `PRODUCT.md` (it's short). Decisions in its log are settled:
    don't reopen one unless new evidence (a reverted PR, a Sentry issue, a
@@ -50,14 +51,18 @@ Read only what a decision needs, per AGENTS.md "Working efficiently":
 **Owner answers come first** and don't count toward
 `max_decisions_per_product_run`. For each answered decision issue: apply
 the chosen option exactly as in step 3 (the owner decided, so
-`never_decide` doesn't stop you), log it in PRODUCT.md with `owner` in the
-Why column, drop its Owner inbox line, and close the issue with a comment
+`never_decide` doesn't stop you), but write the line under the item as
+`Decided <date> by owner: <option>. See #<issue>.` (the reviewer checks
+that issue for the answer), log it in PRODUCT.md with `owner` in the Why
+column, drop its Owner inbox line, and close the issue with a comment
 (`🤖 autopilot-product`, which option was applied, the PR link, the
 attribution footer). An answer that needs the owner to set something up
 first ("yes once Resend inbound is on") stays `[!]` with that
 precondition written on the item; leave the issue open and say so in a
 comment. An answer you can't map to one option: ask once, in a comment,
-and leave it open.
+and leave it open. Every comment and issue body you write starts with
+`🤖 autopilot-product`, or the next run would take it for the owner's
+answer.
 
 Then take each remaining `[!]` item in turn and sort it into exactly one
 bucket:

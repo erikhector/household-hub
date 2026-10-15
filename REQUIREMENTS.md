@@ -7002,7 +7002,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   `docs(backlog)` PR, and never touch app code.
 - **Builder** (`autopilot-build`) is a coordinator with sub-agents. The
   top-level session picks every eligible item that can be built in
-  parallel, `UX-` items before any other (as many as fit under `max_open_autopilot_prs` and
+  parallel, one `Flaky:` test fix and then `UX-` items before any other (as many as fit under `max_open_autopilot_prs` and
   `max_parallel_subagents`; at most one migration and one large item, no
   two in the same feature area) and starts one sub-agent per item in its
   own git worktree, with its own `node_modules` and database. Each
@@ -7017,7 +7017,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   failed round. Before building anything new it gives each of its own red
   or reviewed PRs a fix sub-agent, and it builds nothing when
   `max_open_autopilot_prs` are open.
-- **Reviewer** (`autopilot-review`, daily after the last builder run)
+- **Reviewer** (`autopilot-review`, twice a day and after each builder run)
   reviews every open PR, whoever opened it, as inline comments marked
   `🤖 autopilot-review`. The top-level session delegates each PR's review
   round to its own sub-agent (in parallel, up to
@@ -7054,7 +7054,8 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   `docs/autopilot-metrics.md`, turns any mistake seen twice in autopilot
   PRs into a lint rule, test or checklist line, trims instructions nobody
   needed, and only *proposes* loosening limits. The reviewer merges its
-  PR unless it touches `never_merge_paths`.
+  PR unless it touches `never_merge_paths`, which include the autopilot
+  skills, so the loop never rewrites its own rules unseen.
 
 Three things keep the owner's part small (AUTOPILOT.md, "Owner inbox"
 and "Chaining"):
@@ -7069,14 +7070,24 @@ and "Chaining"):
   marker; since the routines run as the owner's account, a comment
   without it is the owner's.
 - **Chaining.** The reviewer starts the builder once it has merged
-  something, and the builder starts the reviewer once it has opened or
-  fixed a PR, via `fire_trigger`, each only when the other wasn't started
-  within `chain_min_gap_hours`. The cron schedules stay as the fallback.
+  something, the builder starts the reviewer once it has opened or fixed
+  a PR, and the reviewer starts the product owner when a decision issue
+  has an answer, via `fire_trigger`, each only when the target wasn't
+  started within `chain_min_gap_hours`. A chained run never chains again,
+  so each cron run buys at most one follow-up. The cron schedules stay as
+  the fallback. `fire_trigger` must be allowed without a prompt in the
+  environment, since no one is there to approve it.
 - **Flaky tests first.** The release train and the builder file every
-  e2e test that fails and then passes on the same commit (or fails on
-  clean `next`) as a `MAINT-` item titled `Flaky: …`, and the builder
-  takes one of those before any `UX-` item, since `ci:local` has no
-  retry and each flake costs every builder a gate re-run.
+  e2e test that both fails and passes on the same commit as a `MAINT-`
+  item titled `Flaky: …` (one that fails every time on clean `next` is a
+  `BUG-` item instead), and the builder takes one of those before any
+  `UX-` item, since `ci:local` has no retry and each flake costs every
+  builder a gate re-run. The fix is in the app or the test's waiting,
+  never a skip, retry or looser assertion. A release that fails only on
+  a known flake re-runs the job instead of reverting a PR.
+- **Run lock.** The builder and reviewer each take a lock (a marked
+  comment on the "Autopilot run lock" issue) before doing anything, so a
+  cron run never overlaps a chained or slow one.
 
 Every role works from two outside skill packs with one owner each, so
 they never compete (AGENTS.md, "Agent skills"):
@@ -7116,7 +7127,7 @@ human-only areas (schema, auth, money logic, data deletion, workflows)
 and the merge policy. With `auto_merge: reviewer` the reviewer merges;
 PRs touching human-only areas get a deeper review rather than a human
 merge, except those changing AUTOPILOT.md or `.github/workflows/`
-(`never_merge_paths`), which a human merges so the loop can't loosen its
+or the autopilot skills (`never_merge_paths`), which a human merges so the loop can't loosen its
 own limits. Items marked `[!]` or under "Needs a decision
 before building" are never built until decided: by the product owner
 routine where AUTOPILOT.md allows it, otherwise by the owner.
@@ -7131,17 +7142,17 @@ with the code and every run starts with a small context. Suggested
 schedules are in Stockholm time; minutes are offset from the hour so the
 runs don't queue behind everyone else's.
 
-| Routine | Schedule (cron) | Prompt |
+| Routine (exact name; chaining finds it by this) | Schedule (cron) | Prompt |
 |---|---|---|
-| Scout: competitors | `CRON_TZ=Europe/Stockholm 52 6 * * *` | Run the autopilot-scout skill with lens `competitors`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: code | `CRON_TZ=Europe/Stockholm 48 7 * * 1` | Run the autopilot-scout skill with lens `code`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
-| Scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
-| Product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
-| Retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: competitors | `CRON_TZ=Europe/Stockholm 52 6 * * *` | Run the autopilot-scout skill with lens `competitors`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: code | `CRON_TZ=Europe/Stockholm 48 7 * * 1` | Run the autopilot-scout skill with lens `code`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
+| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot: product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
 The existing daily competitive-scan routine is replaced by "Scout:
 competitors", which writes the same dated `GAP-` entries.
