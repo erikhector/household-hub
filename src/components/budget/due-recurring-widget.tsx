@@ -284,20 +284,23 @@ export function DueRecurringWidget({
                     t={planned}
                   />
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
-                  <PlannedBillLogPayment
-                    bill={bill}
-                    dict={dict}
-                    t={planned}
-                    numberFormat={numberFormat}
-                    categories={categories}
-                    members={members}
-                    currentMemberId={currentMemberId}
-                    monthKey={monthKey}
-                    createTransactionAction={createTransactionAction}
-                    updateTransactionAction={updateTransactionAction}
-                  />
-                </div>
+                {/* Already paid after this (past) month: nothing left to log. */}
+                {bill.paidAt === null && (
+                  <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
+                    <PlannedBillLogPayment
+                      bill={bill}
+                      dict={dict}
+                      t={planned}
+                      numberFormat={numberFormat}
+                      categories={categories}
+                      members={members}
+                      currentMemberId={currentMemberId}
+                      monthKey={monthKey}
+                      createTransactionAction={createTransactionAction}
+                      updateTransactionAction={updateTransactionAction}
+                    />
+                  </div>
+                )}
               </div>
             ))}
             {sharedDueRows.map((row) => (

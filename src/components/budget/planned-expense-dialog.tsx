@@ -24,6 +24,7 @@ import {
   createComboboxItems,
 } from "@/components/ui/combobox";
 import { evenSplitAmounts } from "@/components/budget/split-amounts";
+import { useKeptFormValues } from "@/components/shared/use-kept-form-values";
 import { format } from "@/lib/i18n/format";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -117,6 +118,10 @@ export function PlannedExpenseDialog({
   // split of it), so ticking "Split this bill" before typing the amount
   // doesn't leave every share at 0.
   const [sharesTouched, setSharesTouched] = useState(false);
+  // UX-13: name and category are the uncontrolled fields, so they're the
+  // ones a save the server turns down would otherwise wipe (the rest are
+  // controlled and survive the form reset on their own).
+  const kept = useKeptFormValues(["name", "categoryId"]);
   const [state, formAction, pending] = useActionState(async (
     prevState: ActionState,
     formData: FormData,
@@ -144,6 +149,7 @@ export function PlannedExpenseDialog({
     setSplitEnabled(canSplit && !!bill && bill.splits.length > 0);
     setSplitAmounts(buildInitialSplitAmounts(bill, members));
     setSharesTouched(!!bill && bill.splits.length > 0);
+    kept.reset();
   }
 
   function handleAmountChange(next: string) {
@@ -169,23 +175,28 @@ export function PlannedExpenseDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? t.editDialogTitle : t.addDialogTitle}</DialogTitle>
         </DialogHeader>
-        <form action={formAction} className="flex flex-col gap-4">
+        <form action={formAction} onSubmit={kept.onSubmit} className="flex flex-col gap-4">
           {isEdit && <input type="hidden" name="id" value={bill.id} />}
           <div className="flex flex-col gap-2">
             <Label htmlFor="pe-name">{t.nameLabel}</Label>
             <Input
+              enterKeyHint="done"
               id="pe-name"
               name="name"
               required
               maxLength={100}
               autoComplete="off"
               placeholder={t.namePlaceholder}
-              defaultValue={bill?.name}
+              defaultValue={kept.values.name ?? bill?.name}
             />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="pe-category">{t.categoryLabel}</Label>
-            <Combobox items={categoryItems} name="categoryId" defaultValue={bill?.categoryId}>
+            <Combobox
+              items={categoryItems}
+              name="categoryId"
+              defaultValue={kept.values.categoryId ?? bill?.categoryId}
+            >
               <ComboboxInputGroup>
                 <ComboboxInput id="pe-category" placeholder={dict.categoryPlaceholder} />
                 <ComboboxTrigger aria-label={dict.categoryToggleLabel} />

@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { toast } from "sonner";
-import { AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -31,6 +31,12 @@ export type PlannedExpenseRow = {
   categoryId: string;
   categoryName: string;
   status: PlannedExpenseStatus;
+  /** Date of the linked payment, or null while none is linked. Set even
+   * when that payment falls after the viewed month, where `status` is still
+   * "due"/"overdue" (past months stay historical): such a bill can't take a
+   * second payment, and deleting it would silently detach the one it has,
+   * so Log payment and Delete go by this rather than by `status`. */
+  paidAt: Date | null;
   splits: { householdMemberId: string; amountOwed: number }[];
 };
 
@@ -192,7 +198,7 @@ function PlannedExpenseItem({
   updateTransactionAction: TransactionFormAction;
 }) {
   const t = dict.planned;
-  const paid = bill.status === "paid";
+  const linked = bill.paidAt !== null;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
@@ -220,7 +226,7 @@ function PlannedExpenseItem({
         />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
-        {!paid && (
+        {!linked && (
           <PlannedBillLogPayment
             bill={bill}
             dict={dict}
@@ -253,7 +259,7 @@ function PlannedExpenseItem({
             </Button>
           }
         />
-        {!paid && (
+        {!linked && (
           <ConfirmDialog
             trigger={
               <Button
@@ -313,6 +319,16 @@ export function PlannedBillAmountLine({
         </span>
       ) : (
         format(t.dueOn, { date: dateFormat.format(bill.dueDate) })
+      )}
+      {/* Paid, but after the viewed month (so still counted as due here). */}
+      {bill.paidAt && bill.status !== "paid" && (
+        <>
+          {" · "}
+          <span className="inline-flex items-center gap-1 font-medium text-success">
+            <Check className="size-3.5" aria-hidden />
+            {format(t.paidOn, { date: dateFormat.format(bill.paidAt) })}
+          </span>
+        </>
       )}
     </p>
   );

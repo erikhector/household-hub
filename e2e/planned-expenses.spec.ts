@@ -158,6 +158,8 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await expect(txDialog.getByLabel("Amount", { exact: true })).toHaveValue("3000");
   await txDialog.getByRole("button", { name: "Add transaction" }).click();
   await expect(txDialog).toBeHidden();
+  // Paid once, not "logged for this period" like a recurring item.
+  await expect(page.getByText(`${name} marked as paid.`)).toBeVisible();
 
   await page.reload();
   const paidRow = plannedRow(page, "Paid", name);
@@ -188,4 +190,80 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
   await page.getByRole("tab", { name: "Manage" }).click();
   await expect(plannedRow(page, "Due this month", name)).toBeVisible();
   await expect(plannedRow(page, "Paid", name)).toHaveCount(0);
+});
+
+// A bill due last month but paid this month is still "due" when last month
+// is viewed (past months stay historical), yet it already has its payment:
+// Log payment would only fail and Delete would silently detach that payment,
+// so neither is offered there — in the Manage panel or the due strip.
+test("a bill paid after its month shows as paid later, with no Log payment or Delete, in that month", async ({
+  page,
+}) => {
+  const category = await seedCategory();
+  const t = tag();
+  const name = `Late fee ${t}`;
+  const now = new Date();
+  const lastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15, 12));
+  const monthKey = `${lastMonth.getUTCFullYear()}-${String(lastMonth.getUTCMonth() + 1).padStart(2, "0")}`;
+  const billId = `e2e-planned-late-${t}`;
+  await withDb(async (client) => {
+    await client.query(
+      `INSERT INTO "PlannedExpense" (id, "householdId", "categoryId", name, amount, "dueDate")
+       VALUES ($1, $2, $3, $4, 800, $5)`,
+      [billId, E2E_HOUSEHOLD.id, category.id, name, lastMonth],
+    );
+    await client.query(
+      `INSERT INTO "Transaction" (id, "householdId", "categoryId", amount, type, description, date, "plannedExpenseId")
+       VALUES ($1, $2, $3, 800, 'EXPENSE', $4, $5, $6)`,
+      [`e2e-planned-late-tx-${t}`, E2E_HOUSEHOLD.id, category.id, name, now, billId],
+    );
+  });
+  const main = page.getByRole("main");
+
+  await page.goto(`/dashboard/budget?tab=manage&month=${monthKey}`);
+  const row = plannedRow(page, "Due this month", name);
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("Paid");
+  await expect(row.getByRole("button", { name: "Log payment" })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: `Delete ${name}` })).toHaveCount(0);
+  await expect(row.getByRole("button", { name: `Edit ${name}` })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Overview" }).click();
+  const dueStrip = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const stripRow = dueStrip.getByText(name, { exact: true }).locator("xpath=ancestor::div[contains(@class,'border')][1]");
+  await expect(stripRow).toBeVisible();
+  await expect(stripRow).toContainText("Paid");
+  await expect(stripRow.getByRole("button", { name: "Log payment" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
+// UX-13: a save the server turns down keeps what was typed, so the user
+// fixes one thing and saves again instead of starting over. The category is
+// deleted behind the open dialog's back to get a real server-side error.
+test("keeps the typed name and category when the server rejects a save", async ({ page }) => {
+  const category = await seedCategory();
+  const name = `Boiler check ${tag()}`;
+  const main = page.getByRole("main");
+
+  await page.goto("/dashboard/budget?tab=manage");
+  await main.getByRole("button", { name: "Add planned bill" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add planned bill" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Amount").fill("450");
+  const categoryInput = dialog.getByRole("combobox", { name: "Category" });
+  await categoryInput.fill(category.name);
+  await page.getByRole("option", { name: category.name, exact: true }).click();
+
+  await withDb((client) =>
+    client.query(`DELETE FROM "BudgetCategory" WHERE "householdId" = $1 AND id = $2`, [
+      E2E_HOUSEHOLD.id,
+      category.id,
+    ]),
+  );
+  await dialog.getByRole("button", { name: "Save" }).click();
+
+  await expect(dialog.getByRole("alert")).toHaveText("Category not found");
+  await expect(dialog.getByLabel("Name")).toHaveValue(name);
+  await expect(categoryInput).toHaveValue(category.name);
+  await expect(dialog.getByLabel("Amount")).toHaveValue("450");
 });

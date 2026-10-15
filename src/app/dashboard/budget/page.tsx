@@ -645,6 +645,7 @@ async function BudgetTabsSection({
       monthStart,
       monthEnd,
     ),
+    paidAt: p.transaction?.date ?? null,
     splits: p.splits.map((s) => ({ householdMemberId: s.householdMemberId, amountOwed: s.amountOwed })),
   }));
 
