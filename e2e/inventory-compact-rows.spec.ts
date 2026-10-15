@@ -88,10 +88,13 @@ test("a phone shows at least eight items in one screen, without a Last updated l
 
   // A selected row is marked by more than its ticked box: a primary
   // accent down its left edge, since the tint alone is faint in sunlight.
-  const first = rows.first();
-  await expect(first).toHaveCSS("box-shadow", "none");
-  await first.getByRole("checkbox").check();
-  await expect(first).toHaveCSS("box-shadow", /inset/);
+  // It's on the row inside SwipeRow's sliding layer (the checkbox's
+  // parent), not the <li>, where that opaque layer would cover it.
+  const checkbox = rows.first().getByRole("checkbox");
+  const row = checkbox.locator("..");
+  await expect(row).toHaveCSS("box-shadow", "none");
+  await checkbox.check();
+  await expect(row).toHaveCSS("box-shadow", /inset/);
 });
 
 test("the row's stepper still changes the quantity, and the item page says when it was updated", async ({ page }) => {

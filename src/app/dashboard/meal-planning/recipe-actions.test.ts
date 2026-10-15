@@ -23,6 +23,7 @@ const {
   itemAliasUpsertMock,
   itemUnitConversionUpsertMock,
   transactionMock,
+  mealPlanEntryUpdateManyMock,
   fetchRecipeHtmlMock,
   parseRecipeFromHtmlMock,
   revalidatePathMock,
@@ -48,6 +49,7 @@ const {
   // Interactive transactions run their callback against the same mocked
   // client (set up in the prisma mock below).
   transactionMock: vi.fn(),
+  mealPlanEntryUpdateManyMock: vi.fn(),
   fetchRecipeHtmlMock: vi.fn(),
   parseRecipeFromHtmlMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -81,6 +83,7 @@ vi.mock("@/lib/prisma", () => {
       findFirst: recipeComponentFindFirstMock,
       deleteMany: recipeComponentDeleteManyMock,
     },
+    mealPlanEntry: { updateMany: mealPlanEntryUpdateManyMock },
     $transaction: transactionMock,
   };
   transactionMock.mockImplementation(async (callback: (tx: typeof prisma) => unknown) => callback(prisma));
@@ -1409,6 +1412,35 @@ describe("deleteRecipeAction", () => {
       where: { id: "recipe-1", householdId: "household-1" },
     });
     expect(recipeDeleteMock).toHaveBeenCalledWith({ where: { id: "recipe-1" } });
+  });
+
+  // GAP-49: the recipe's prepared batches cascade with it, and the FK alone
+  // would null each linked entry's preparedBatchId but leave
+  // preparedPortionsUsed behind. The unlink resets the pair first, in the
+  // same transaction as the delete.
+  it("unlinks entries from the recipe's batches before deleting, in one transaction", async () => {
+    recipeFindFirstMock.mockResolvedValue({ id: "recipe-1" });
+    recipeComponentFindFirstMock.mockResolvedValue(null);
+    const order: string[] = [];
+    mealPlanEntryUpdateManyMock.mockImplementation(async () => {
+      order.push("unlink");
+      return { count: 2 };
+    });
+    recipeDeleteMock.mockImplementation(async () => {
+      order.push("delete");
+      return {};
+    });
+
+    const result = await deleteRecipeAction("recipe-1");
+
+    expect(result).toEqual({});
+    expect(transactionMock).toHaveBeenCalledTimes(1);
+    expect(mealPlanEntryUpdateManyMock).toHaveBeenCalledWith({
+      where: { preparedBatch: { recipeId: "recipe-1", householdId: "household-1" } },
+      data: { preparedBatchId: null, preparedPortionsUsed: 0 },
+    });
+    expect(order).toEqual(["unlink", "delete"]);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard");
   });
 
   it("blocks deleting a recipe that's still used as a sub-recipe elsewhere", async () => {

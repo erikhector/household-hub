@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useOptimistic, useState, useTransition } from "react";
+import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
 import { Minus, Package, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,8 @@ import { ItemActions } from "@/components/inventory/item-actions";
 import { LastUpdatedCell } from "@/components/inventory/last-updated-cell";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
+import { SwipeRow } from "@/components/shared/swipe-row";
+import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { getStockStatus } from "@/lib/stock-status";
 import { nextQuantityAfterDelta } from "@/lib/inventory/stock-change";
 import { formatQuantity } from "@/lib/format-quantity";
@@ -505,70 +507,135 @@ export function InventoryTable({
                 </span>
               </div>
             )}
-            <ul className="min-w-0 divide-y rounded-lg border">
+            {/* overflow-hidden here, not on each SwipeRow: the list's
+                rounded border clips a row's swipe underlay at its corners. */}
+            <ul className="min-w-0 divide-y overflow-hidden rounded-lg border">
               {group.items.map((item) => (
-                <li
+                <SwipeableItemCard
                   key={item.id}
-                  data-state={selected.has(item.id) ? "selected" : undefined}
-                  className="flex min-w-0 items-center gap-3.5 px-2 py-1.5 first:rounded-t-lg last:rounded-b-lg data-[state=selected]:bg-primary/10 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-primary)]"
+                  item={item}
+                  disabled={isPending}
+                  dict={dict}
+                  onRemove={() => {
+                    if (selected.has(item.id)) toggleItem(item.id);
+                  }}
                 >
-                  <Checkbox
-                    checked={selected.has(item.id)}
-                    onChange={() => toggleItem(item.id)}
-                    aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                  />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                      <p className="min-w-[40%] flex-1 truncate" title={item.name}>
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {" · "}
-                          {item.category}
-                          {item.location ? ` • ${item.location}` : ""}
-                        </span>
-                      </p>
-                      <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                        <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                        <OnTheWayHint item={item} dict={dict} />
-                        <ExpiryBadge
-                          expiresAt={item.expiresAt}
-                          expiresAtEstimated={item.expiresAtEstimated}
-                          openedAt={item.openedAt}
-                          frozenAt={item.frozenAt}
-                          dict={dict}
-                        />
+                  {/* The selected tint and accent sit on this row, inside
+                      SwipeRow's opaque sliding layer, not on the <li> under
+                      it where that layer would hide them. pl-3.5 keeps the
+                      checkbox's 14px tap halo inside SwipeRow's
+                      overflow-hidden, which would otherwise clip its left
+                      edge. */}
+                  <div
+                    data-state={selected.has(item.id) ? "selected" : undefined}
+                    className="flex min-w-0 items-center gap-3.5 py-1.5 pr-2 pl-3.5 data-[state=selected]:bg-primary/10 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-primary)]"
+                  >
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleItem(item.id)}
+                      aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="min-w-[40%] flex-1 truncate" title={item.name}>
+                          <span className="font-medium">{item.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {" · "}
+                            {item.category}
+                            {item.location ? ` • ${item.location}` : ""}
+                          </span>
+                        </p>
+                        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                          <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                          <OnTheWayHint item={item} dict={dict} />
+                          <ExpiryBadge
+                            expiresAt={item.expiresAt}
+                            expiresAtEstimated={item.expiresAtEstimated}
+                            openedAt={item.openedAt}
+                            frozenAt={item.frozenAt}
+                            dict={dict}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                      <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                      <div className="ml-auto min-w-0">
-                        <ItemActions
-                          item={item}
-                          categories={categories}
-                          locations={locations}
-                          units={units}
-                          members={members}
-                          locale={locale}
-                          dict={dict}
-                          barcodeDict={barcodeDict}
-                          isPending={isPending}
-                          onMarkEmpty={handleMarkEmpty}
-                          onMarkOpened={handleMarkOpened}
-                          onFreeze={handleFreeze}
-                          onDelete={handleDelete}
-                          size="size-9"
-                        />
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                        <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                        <div className="ml-auto min-w-0">
+                          <ItemActions
+                            item={item}
+                            categories={categories}
+                            locations={locations}
+                            units={units}
+                            members={members}
+                            locale={locale}
+                            dict={dict}
+                            barcodeDict={barcodeDict}
+                            isPending={isPending}
+                            onMarkEmpty={handleMarkEmpty}
+                            onMarkOpened={handleMarkOpened}
+                            onFreeze={handleFreeze}
+                            onDelete={handleDelete}
+                            size="size-9"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </li>
+                </SwipeableItemCard>
               ))}
             </ul>
           </Fragment>
         ))}
       </div>
     </div>
+  );
+}
+
+// UX-35: the phone card's swipe actions: right for +1, left for Edit and a
+// Delete with Undo (the ⋯ menu's Delete keeps its confirm dialog). Its own
+// component so each card gets its own useUndoableDelete. Phones only: the
+// desktop table is for a mouse, where SwipeRow does nothing anyway.
+// A hidden card also leaves the bulk selection (onRemove): the bulk bar must
+// not count an item the user can't see, and a bulk delete inside the Undo
+// window would race the deferred one.
+function SwipeableItemCard({
+  item,
+  disabled,
+  dict,
+  onRemove,
+  children,
+}: {
+  item: InventoryItemRow;
+  disabled: boolean;
+  dict: Dictionary["inventory"];
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  const { hidden, remove } = useUndoableDelete({
+    run: async () =>
+      (await settleOptimisticAction(() => deleteInventoryItemAction(item.id), dict.saveFailedToast)) !== null,
+    message: format(dict.swipe.deletedToast, { name: item.name }),
+    undoLabel: dict.swipe.undo,
+  });
+  // The <li> lives here, not in the list, so a deleted row leaves no empty
+  // item behind for the list's divide-y to draw a border around.
+  if (hidden) return null;
+  return (
+    <li>
+      <SwipeRow
+        primaryLabel={dict.swipe.increase}
+        primaryIcon={<Plus className="size-4" />}
+        editLabel={dict.swipe.edit}
+        deleteLabel={dict.swipe.delete}
+        onDelete={() => {
+          onRemove();
+          remove();
+        }}
+        disabled={disabled}
+      >
+        {children}
+      </SwipeRow>
+    </li>
   );
 }
 
@@ -637,6 +704,7 @@ function QuantityStepper({
         size="icon"
         className={buttonClass}
         disabled={disabled}
+        data-swipe-primary
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(1)}
