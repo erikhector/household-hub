@@ -30,6 +30,7 @@ import type { Locale } from "@/lib/i18n/locales";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { useFlipList } from "@/components/shared/use-flip-list";
 import { MorphTitle } from "@/components/shared/view-transitions";
+import { MascotEmptyState } from "@/components/brand/mascot-empty-state";
 
 type ListSummary = {
   id: string;
@@ -224,7 +225,9 @@ export function ShoppingListsOverview({
   const containerRef = useFlipList<HTMLDivElement>();
 
   return isEmpty ? (
-    <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">{dict.empty}</p>
+    <MascotEmptyState alt={dict.mascotAlt}>
+      <p className="text-sm text-muted-foreground">{dict.empty}</p>
+    </MascotEmptyState>
   ) : (
     <div ref={containerRef} className="flex flex-col gap-6">
       <ListSection title={dict.sectionActive} lists={active} dict={dict} />

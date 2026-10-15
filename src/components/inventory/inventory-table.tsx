@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useOptimistic, useState, useTransition, type ReactNode } from "react";
-import { Minus, Package, Plus } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -60,6 +60,7 @@ import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
 import { useFlipList } from "@/components/shared/use-flip-list";
+import { MascotMark } from "@/components/brand/mascot-empty-state";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
@@ -122,9 +123,7 @@ export function InventoryTable({
     return (
       <div className="flex flex-col items-center gap-6 rounded-md border border-dashed px-4 py-8 text-center sm:p-8">
         <div className="flex flex-col items-center gap-2">
-          <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Package className="size-6" />
-          </span>
+          <MascotMark alt={dict.mascotAlt} />
           <div>
             <p className="text-sm font-medium">{dict.emptyTitle}</p>
             <p className="text-sm text-muted-foreground">{dict.emptyLead}</p>
