@@ -3492,10 +3492,11 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   "Copy last week" (empty week only) and "Add missing ingredients to
   shopping list". On load, the current week scrolls today's card into view
   when it isn't already fully visible (the old "Jump to today" button is
-  gone). The two recaps above the tabs load behind a fixed-height skeleton
-  (`RecapSkeleton` in `page.tsx`) rather than `fallback={null}`, so the
-  planner doesn't shift when they arrive. `e2e/meal-planner-empty-slots.spec.ts`
-  covers all of it.
+  gone). The two recaps (variety and nutrition) sit at the top of the
+  Planner tab, inside its Suspense boundary, so they appear together with
+  the planner and an empty or dismissed one never collapses a slot after
+  the first paint (that kept /meal-planning over the UX-42 CLS budget).
+  `e2e/meal-planner-empty-slots.spec.ts` covers all of it.
 - **Assigning a meal**: `addMealEntryAction` assigns either an existing
   `Recipe` (picked from a `Select`) or a freeform meal name
   (`MealPlanEntry.freeformName`, when the special "Custom meal…" option is
