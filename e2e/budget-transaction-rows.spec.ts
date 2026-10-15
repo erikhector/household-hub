@@ -82,13 +82,24 @@ test("phone rows open the edit sheet, name themselves and delete from the sheet"
   await expect(sheet).toBeVisible();
   const del = sheet.getByRole("button", { name: "Delete transaction" });
   const save = sheet.getByRole("button", { name: "Save" });
-  const [d, s] = [(await del.boundingBox())!, (await save.boundingBox())!];
-  expect(Math.max(s.y - (d.y + d.height), d.y - (s.y + s.height))).toBeGreaterThanOrEqual(8);
+  // Measured once the sheet has finished sliding up (mid-slide the sticky
+  // footer and the form body are still moving relative to each other).
+  await expect
+    .poll(async () => {
+      const [d, s] = [(await del.boundingBox())!, (await save.boundingBox())!];
+      return Math.max(s.y - (d.y + d.height), d.y - (s.y + s.height));
+    })
+    .toBeGreaterThanOrEqual(8);
 
   await del.click();
   await page.getByRole("dialog", { name: "Delete this transaction?" }).getByRole("button", { name: "Delete" }).click();
   await expect(row).toHaveCount(0);
-  await page.reload();
+  // Closing the two sheets steps back over their history entries
+  // (dialog-history.ts), asynchronously; a reload racing that back() is
+  // aborted, so retry it until the page has settled.
+  await expect(async () => {
+    await page.reload();
+  }).toPass();
   await expect(main.getByRole("button", { name: new RegExp(`^${category}`) })).toBeVisible();
   await expect(main.getByRole("button", { name: new RegExp(`^${described}`) })).toHaveCount(0);
 });
