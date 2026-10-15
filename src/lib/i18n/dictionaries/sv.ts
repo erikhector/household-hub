@@ -1261,6 +1261,8 @@ export const sv = {
       aliasesTitle: "Namn som leder hit",
       aliasesHint: "Inlärda från dina recept. Ta bort ett så frågar appen om det namnet igen.",
       noAliases: "Inga inlärda namn.",
+      recentPricesTitle: "Senaste priser",
+      recentPricePerUnit: "{price} / {unit}",
       removeAliasAriaLabel: "Sluta koppla ”{name}” hit",
       changeUnitDialog: {
         title: "Byt enhet",

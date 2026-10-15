@@ -606,23 +606,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-10-06 scan
 
-- [ ] **GAP-47. Price history on an inventory item** (impact: med, effort: S) —
-      Grocy shows every product's purchase price history (date, store,
-      price, per-unit price) so a household can see whether milk is really
-      getting dearer. Squirrel already records it: `PriceHistory`
-      (`prisma/schema.prisma:658`) is written by purchases and receipt
-      scans and feeds the spike warning and Budget → Insights, but the
-      inventory item itself shows no price at all; `PriceHistory` is only
-      read in `budget/page.tsx` and `receipt-scan-dialog.tsx`. No schema
-      change: a household-scoped read of an item's last N rows plus the
-      existing per-unit helpers in `price-spike.ts`. Acceptance: the item
-      detail shows "Recent prices" (up to 10 rows: date, store if known,
-      price and per-unit price) and nothing for an item with no history
-      (no empty chart); the read is scoped by `requireHousehold()` and
-      unit-tested for tenancy and ordering; strings in `en.ts` and
-      `sv.ts`; an e2e test buys a seeded item with a price, opens it and
-      asserts the row, on desktop and mobile.
-
 - [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
       Paprika, Mealie and AnyList let you copy a recipe to make a variant
       (vegetarian lasagne, half batch) without retyping ingredients and

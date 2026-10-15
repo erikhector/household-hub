@@ -373,7 +373,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
     that loads the item (with its `ItemUnitConversion`s and `ItemAlias`es),
     its linked `RecipeIngredient`s, its pending rows (not purchased, on an
     `ACTIVE` list), its template rows and the household's other items (for
-    "Merge into another item…", MATCH-7) in five household-scoped queries
+    "Merge into another item…", MATCH-7) and its last purchases (GAP-47) in
+    household-scoped queries
     run together, and `notFound()`s an item of another household. Opened
     from the ⓘ "Details for {name}" link in each inventory row's action
     cluster (desktop table and phone card), from a linked ingredient name
@@ -413,6 +414,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       Recipes tab searched down to that recipe.
     - **Also on**: pending list rows ("E2E Groceries (1 pcs)", linking to
       the list) and templates (linking to the shopping lists page).
+    - **Recent prices (GAP-47)**: the item's last 10 `PriceHistory` rows,
+      newest first (`getRecentPrices`, `src/lib/inventory/recent-prices.ts`):
+      date, the store when one was recorded, the line price and, when the
+      row has a quantity and unit, the per-unit price ("SEK 15.00 / l";
+      `perUnitPrice`, the same price-over-quantity definition as the spike
+      warning). Rows are shown in the base currency they're stored in. The
+      read goes through `requireHousehold()` and
+      `inventoryItem.householdId`, so another household's item id returns
+      nothing. An item with no history shows no section at all.
     - **Names that map here**: the item's learned aliases, each removable
       (`removeItemAliasAction`, household-scoped), so the name is asked
       about again.
