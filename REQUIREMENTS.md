@@ -4845,16 +4845,33 @@ is a full-screen read view for cooking from a phone.
   a done step is dimmed, struck through and shows a check instead of its
   number. State is component-only: nothing is saved or stored in the
   browser (no `cookie-inventory.ts` entry), so reopening starts fresh.
+- **Step timers (GAP-50)**: `parseStepDuration` (`cook-mode-calc.ts`)
+  reads a duration from a step's text in English and Swedish ("simmer 15
+  minutes", "koka i 10 min", "1,5 timmar", "1 hour 30 minutes", seconds
+  too). A range ("10-12 min", "10 till 12 min") uses its upper bound so the
+  timer never rings early; back-to-back phrases are added; with several
+  separate durations in one step the first wins; nothing is returned over
+  24 h or for a zero. A step with a duration shows a "Start 15 min timer"
+  button under it (44 px target); a running timer shows a countdown chip
+  (`role="timer"`, "14:32") and a "Stop timer" button. Several steps can run
+  at once. When one ends, a sticky `role="alert"` banner ("Timer done for
+  step 2") stays at the top of the view until dismissed, and the phone
+  vibrates briefly where `navigator.vibrate` exists. The timer stores its
+  end time, not a counter, so a throttled background tab catches up when it
+  wakes. It lives in the dialog only: no push, no background work, nothing
+  stored in the browser (no `cookie-inventory.ts` entry), and closing the
+  view drops every timer. Works with no AI key.
 - **Wake lock**: the dialog content calls `useScreenWakeLock(open)` (the
   AUTO-3 hook the shopping list uses), so the screen stays on while the view
   is open and the lock is released on close. Where the API is missing or
   denied it silently does nothing.
 - **Closing**: a full-width "Close" button at the bottom of the scroller
   (thumb zone) and Escape; the round close icon is dropped in favour of it.
-- **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting);
-  `e2e/cook-mode.spec.ts` opens the view, ticks and un-ticks a step and
-  closes back to the list on desktop and mobile. The seeded "Pancakes"
-  recipe has two steps for it.
+- **Tests**: `cook-mode-calc.test.ts` (splitting, scaling, formatting,
+  duration parsing); `e2e/cook-mode.spec.ts` opens the view, ticks and
+  un-ticks a step and closes back to the list, and starts and stops a step
+  timer, on desktop and mobile. The seeded "Pancakes" recipe has two steps
+  for the first; "Porridge" has a "10-12 minutes" step for the timer.
 
 ### Copy a recipe as text (GAP-43)
 

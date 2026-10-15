@@ -641,23 +641,6 @@ out to be a product-scope question rather than a scoped task should move to
 
 ### 2026-10-12 scan
 
-- [ ] **GAP-50. Step timers in Cook mode** (impact: med, effort: S) —
-      AnyList added recipe timers that keep running while you do something
-      else. Squirrel's Cook mode (GAP-42, `cook-mode-dialog.tsx`) shows
-      steps but has no timer, so a cook leaves the screen for the phone's
-      clock app. Detect durations in a step's text ("simmer 15 minutes",
-      "koka i 10 min") with a pure helper in `cook-mode-calc.ts` and show a
-      "Start 15 min timer" button on that step; a running timer shows a
-      countdown chip, and when it ends the dialog shows an in-page alert
-      and a short vibration where supported. In-dialog only: no push, no
-      background work, nothing stored in the browser (so no
-      `cookie-inventory.ts` entry). Works with no AI key.
-      Acceptance: unit tests for duration parsing (en + sv, ranges like
-      "10-12 min" use the upper bound, hours); an e2e step in
-      `e2e/cook-mode.spec.ts` that opens a seeded step with a duration,
-      starts the timer and asserts the countdown chip is visible, on
-      desktop and mobile.
-
 - [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —
       AnyList's v6 meal planning has a queue of recipes you intend to make
       soon without giving them a date. Squirrel has favorites (permanent)

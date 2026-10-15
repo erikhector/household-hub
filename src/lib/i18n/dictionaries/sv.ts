@@ -1595,6 +1595,12 @@ export const sv = {
     cookModeIngredients: "Ingredienser",
     cookModeSteps: "Steg",
     cookModeClose: "Stäng",
+    // GAP-50: step timers inside the cook view.
+    cookTimerStart: "Starta timer på {duration}",
+    cookTimerStop: "Stoppa timern",
+    cookTimerRemaining: "{time} kvar",
+    cookTimerDone: "Timern för steg {step} är klar",
+    cookTimerDismiss: "Förstått",
     // GAP-43: copies the recipe as plain text to the clipboard.
     copyRecipeText: "Kopiera som text",
     copyRecipeTextToast: "Receptet kopierades som text",

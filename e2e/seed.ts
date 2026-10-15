@@ -107,8 +107,8 @@ async function seedWorker(client: Client, data: ReturnType<typeof e2eWorkerData>
   const buns = id("e2e-recipe-buns");
   const pancakes = id("e2e-recipe-pancakes");
   await client.query(
-    `INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($2, $1, 'Cinnamon buns', NULL), ($3, $1, 'Pancakes', E'Whisk the batter\nFry the pancakes')`,
-    [household.id, buns, pancakes],
+    `INSERT INTO "Recipe" (id, "householdId", name, instructions) VALUES ($2, $1, 'Cinnamon buns', NULL), ($3, $1, 'Pancakes', E'Whisk the batter\nFry the pancakes'), ($4, $1, 'Porridge', E'Stir in the oats\nSimmer for 10-12 minutes')`,
+    [household.id, buns, pancakes, id("e2e-recipe-porridge")],
   );
   await client.query(
     `INSERT INTO "RecipeIngredient" (id, "recipeId", "inventoryItemId", name, quantity, unit)
