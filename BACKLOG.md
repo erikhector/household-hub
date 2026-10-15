@@ -275,21 +275,6 @@ Full report with screenshots: [Squirrel UI audit](https://claude.ai/artifact/FW6
 don't build these in parallel:
 - `ui/dialog.tsx`: UX-11, UX-12
 
-
-- [ ] **BUDGET-7. Personal budget insights must include shared expenses** (high, M)
-      The Personal budget "Insights" / tabs view currently omits shared
-      household transactions (splits, shared-paid bills), so a member's
-      personal view under-counts their effective spending and safe-to-spend.
-      - Include `TransactionSplit` / shared `Transaction` rows in the
-        personal insights calculations and charts (month totals, category
-        breakdowns, trend lines), attributing only the member's owed share.
-      - Keep tenancy: every query still uses `requireHousehold()` and
-        members only see their own split share.
-      Acceptance: the Insights tabs show numbers that include the member's
-      share of split transactions (unit test comparing before/after dataset);
-      an e2e spec covers a seeded shared transaction that appears in the
-      personal charts and month totals on both desktop and mobile.
-
 - [ ] **UX-30. Decimal comma in number fields on iOS** `[verify on device]`
       (high if it reproduces, S) — There are 48 `type="number"
       inputMode="decimal"` fields, for example
