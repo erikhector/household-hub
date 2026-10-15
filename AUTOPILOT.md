@@ -150,13 +150,16 @@ chain: true              # false = routines run only on their cron schedules
 chain_min_gap_hours:     # don't start a routine that was started this recently
   builder: 3             # a builder run, with its sub-agents' gates, takes hours
   reviewer: 5            # review_listen_hours + 1, so two reviewers never overlap
+  product: 12            # an owner's answer is applied within a day, not a week
 ```
 
 The cron schedules are the fallback; work shouldn't wait for them. When
 the reviewer merged anything into `next` this run and the builder has
 headroom, it starts the "Autopilot builder" routine at the end of its
 run. When the builder opened or fixed a PR, it starts the "Autopilot
-reviewer" routine. Start one with `fire_trigger`, finding its id by name
+reviewer" routine. When the reviewer sees an owner's answer on an open
+`decision` issue, it starts the "Autopilot: product owner" routine, so the
+answer doesn't wait for Monday. Start one with `fire_trigger`, finding its id by name
 with `list_triggers`, and only when its `last_fired_at` is older than its
 `chain_min_gap_hours` and its next scheduled run is more than an hour
 away. Two coordinators of the same role running at once would pick the

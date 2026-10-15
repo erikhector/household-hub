@@ -350,7 +350,11 @@ run's triage (step 1) notices every head that moved.
    AUTOPILOT.md's "Chaining" section describes, unless the builder's
    headroom (its step 0 count) is 0 and no open autopilot PR needs a fix.
    Do this as soon as step 4c is done, before step 5's listening, so the
-   builder doesn't wait out the listen window.
+   builder doesn't wait out the listen window. Likewise, when an open
+   `decision` issue has an owner's answer (a comment from a
+   `trusted_authors` account without a `🤖 autopilot-` marker) newer than
+   the product routine's last run, start the "Autopilot: product owner"
+   routine the same way.
 2. **Owner inbox.** If AUTOPILOT.md says `owner_inbox: true`, find the
    open issue labelled `owner-inbox` (create it, titled "Owner inbox",
    and pin it if none exists) and replace its body with the list
