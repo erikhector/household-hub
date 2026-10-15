@@ -365,15 +365,36 @@ decision and sit under "Needs a decision before building".
 
 
 
-- [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
-      - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
-        tasks and categories, and runs actions ("Add milk to Groceries",
-        "Go to budget").
-      - Single-key shortcuts on list pages (`n` new, `/` search, `j`/`k`
-        move, `x` tick), shown in a `?` overlay.
-      - A Base UI Tooltip on every icon-only button.
+- [ ] **UX-41a. Command palette: go-to and quick actions** (M) — Split
+      from UX-41 (too big for one PR). ⌘K / Ctrl-K opens a Base UI dialog
+      palette on desktop, mounted once in the dashboard layout. Static
+      commands first ("Go to budget", "Add task", "Add to Groceries"),
+      filtered as you type, arrow keys + Enter, Esc closes. Needs the
+      cookie-inventory untouched (no storage), dict entries in en/sv, and
+      an e2e spec for open, filter, run. No data search yet (UX-41b).
+      Builds on: nothing.
 
-      Todoist sets this bar for productivity users on desktop.
+- [ ] **UX-41b. Command palette: household search** (M) — Split from
+      UX-41. A `searchHousehold(query)` Server Action (in
+      `src/lib/actions/`) behind `requireHousehold()` that returns the top
+      few inventory items, recipes, shopping lists, tasks and budget
+      categories by name, every query scoped by householdId, Zod-validated,
+      rate-limited like other read actions, with a unit test for the
+      tenancy scoping. The palette from UX-41a shows them as grouped,
+      debounced results that navigate to the row. Needs UX-41a.
+
+- [ ] **UX-41c. Single-key shortcuts and `?` overlay** (S) — Split from
+      UX-41. On list pages (shopping, inventory, tasks): `n` new, `/`
+      focus search, `j`/`k` move, `x` tick. Ignored while typing in a
+      field or with a dialog open. A `?` overlay lists them. Desktop only
+      (hidden on touch). e2e spec on the desktop project.
+
+- [ ] **UX-41d. Tooltips on icon-only buttons** (S) — Split from UX-41.
+      A Base UI Tooltip (via a shared `IconButton` or a wrapper in
+      `src/components/ui/`) on every icon-only button, using its existing
+      aria-label text so the two cannot drift. Desktop hover/focus only;
+      mobile unchanged. e2e: hover a known icon button, assert the
+      tooltip.
 
 - [ ] **UX-43. Visual regression screenshots in CI** (M) — Keep the polish
       from rotting. Add Playwright `toHaveScreenshot` baselines for the ten
