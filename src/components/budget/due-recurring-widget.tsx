@@ -273,22 +273,20 @@ export function DueRecurringWidget({
                 </DropdownMenu>
               </div>
             ))}
+            {/* Same one-line shape as the recurring items above: name and
+                category, then amount and due date in caption size, with the
+                one action at the end. */}
             {planned && plannedDue.map((bill) => (
-              <div
-                key={bill.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-              >
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <div className="flex min-w-0 items-center gap-2">
+              <div key={bill.id} className="flex items-center gap-2 rounded-md border py-1.5 pr-1.5 pl-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex min-w-0 items-baseline gap-1.5">
                     <span className="min-w-0 truncate font-medium" title={bill.name}>
                       {bill.name}
                     </span>
-                    <Badge variant="secondary" className="max-w-[10rem]">
-                      <span className="min-w-0 truncate" title={bill.categoryName}>
-                        {bill.categoryName}
-                      </span>
-                    </Badge>
-                  </div>
+                    <span className="min-w-0 shrink-[2] truncate text-xs text-muted-foreground" title={bill.categoryName}>
+                      {bill.categoryName}
+                    </span>
+                  </span>
                   <PlannedBillAmountLine
                     bill={bill}
                     numberFormat={numberFormat}
@@ -298,7 +296,7 @@ export function DueRecurringWidget({
                 </div>
                 {/* Already paid after this (past) month: nothing left to log. */}
                 {bill.paidAt === null && (
-                  <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-2 pointer-coarse:gap-2">
+                  <div className="shrink-0">
                     <PlannedBillLogPayment
                       bill={bill}
                       dict={dict}
