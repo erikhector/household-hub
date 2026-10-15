@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.65.0",
+    "date": "2026-10-15",
+    "pr": 228,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, the inventory list is more compact, so you see about twice as many items without scrolling. When an item was last updated now shows on its details page.\n\nOn phones, page titles now start large and tuck into the top bar as you scroll (tap it to jump back up), and each page's main button, like Add item or Add task, floats at the bottom where your thumb is. Shopping mode got bigger rows, a progress ring and a \"Next up\" panel at the bottom, so you can tick off a whole shop one-handed. Budget charts now show their values when you tap them, categories get a small spending trend, and Safe to spend shows where the month is heading.\n\nSquirrel now moves: ticked and removed items slide out of the way the moment you tap, even on a slow connection, new items glide in, pages fade in when you switch tabs, and a list's name flies into its page when you open it. With \"reduce motion\" on, everything changes at once.\n\nThe meal planner no longer jumps when the page finishes loading. The weekly variety and nutrition summaries now sit at the top of the Planner tab.",
+      "sv": "På mobilen är lagerlistan kompaktare, så du ser ungefär dubbelt så många varor utan att skrolla. När en vara senast uppdaterades visas nu på dess detaljsida.\n\nPå mobilen börjar sidrubrikerna stora och flyttar upp i fältet högst upp när du skrollar (tryck på den för att komma tillbaka upp), och varje sidas huvudknapp, som Lägg till vara eller Lägg till uppgift, ligger längst ner där tummen når. Handlingsläget har fått större rader, en förloppsring och en \"Näst på tur\"-panel längst ner, så att du kan bocka av hela inköpet med en hand. Budgetdiagrammen visar sina värden när du trycker på dem, kategorierna får en liten utgiftstrend och Säkert att spendera visar vart månaden är på väg.\n\nSquirrel rör sig nu: avbockade och borttagna saker glider undan direkt när du trycker, även med dålig uppkoppling, nya saker glider in, sidor tonar in när du byter flik, och en listas namn flyger in på sidan när du öppnar den. Med \"minska rörelse\" påslaget ändras allt direkt.\n\nMåltidsplaneringen hoppar inte längre när sidan laddats klart. Veckans sammanfattningar av variation och näring ligger nu högst upp under fliken Planerare."
+    }
+  },
+  {
     "version": "0.64.0",
     "date": "2026-10-15",
     "pr": 225,
