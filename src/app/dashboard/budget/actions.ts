@@ -7,6 +7,7 @@ import { requireHousehold, requireUserId } from "@/lib/session";
 import { getPeriodBounds, getPeriodKey, type TemplateFrequency } from "@/lib/recurring-template-calc";
 import type { ActionState } from "@/lib/actions/auth";
 import { toFriendlyError } from "@/lib/actions/errors";
+import { isUniqueViolation } from "@/lib/prisma-errors";
 import { parseShareSplitFormData, SPLIT_SUM_TOLERANCE } from "@/lib/share-split-form";
 import {
   limitForType,
@@ -260,6 +261,10 @@ const transactionSchema = z.object({
   // so the template's checklist can see this period is fulfilled. Validated
   // against the caller's household below, same as categoryId.
   recurringTemplateId: z.string().optional(),
+  // Set when logging a payment against a planned bill (BUDGET-8). Only
+  // createTransactionAction reads it; the other callers of
+  // parseTransactionFormData ignore it. Household-checked below.
+  plannedExpenseId: z.string().optional(),
 });
 
 function parseTransactionFormData(formData: FormData) {
@@ -271,8 +276,28 @@ function parseTransactionFormData(formData: FormData) {
     isRecurring: formData.get("isRecurring") === "on",
     recurrenceFrequency: formData.get("recurrenceFrequency") || undefined,
     recurringTemplateId: formData.get("recurringTemplateId") || undefined,
+    plannedExpenseId: formData.get("plannedExpenseId") || undefined,
   });
 }
+
+/** Validates an optional client-supplied plannedExpenseId belongs to the
+ * caller's household and isn't already paid (a planned bill has at most one
+ * payment transaction). Returns `undefined` id when not provided. */
+async function resolvePlannedExpenseId(
+  householdId: string,
+  plannedExpenseId: string | undefined,
+): Promise<{ error: string } | { id: string | undefined }> {
+  if (!plannedExpenseId) return { id: undefined };
+  const planned = await prisma.plannedExpense.findFirst({
+    where: { id: plannedExpenseId, householdId },
+    select: { id: true, transaction: { select: { id: true } } },
+  });
+  if (!planned) return { error: "Planned bill not found" };
+  if (planned.transaction) return { error: PLANNED_BILL_PAID_ERROR };
+  return { id: planned.id };
+}
+
+const PLANNED_BILL_PAID_ERROR = "This planned bill is already paid";
 
 /** Validates an optional client-supplied recurringTemplateId actually
  * belongs to the caller's household before it's ever written to a
@@ -436,6 +461,9 @@ export async function createTransactionAction(
     if (dup) return dup;
   }
 
+  const planned = await resolvePlannedExpenseId(household.id, parsed.data.plannedExpenseId);
+  if ("error" in planned) return { error: planned.error };
+
   try {
     await prisma.transaction.create({
       data: {
@@ -451,15 +479,28 @@ export async function createTransactionAction(
         recurrenceFrequency: parsed.data.isRecurring ? parsed.data.recurrenceFrequency : null,
         createdByUserId: userId,
         recurringTemplateId: recurringTemplate.id ?? null,
+        plannedExpenseId: planned.id ?? null,
         splits: split ? { create: split.splits } : undefined,
       },
     });
   } catch (error) {
+    // Two members paying the same bill at once both pass the pre-check; the
+    // unique index on plannedExpenseId rejects the loser.
+    if (isUniqueViolation(error) && isPlannedExpenseTarget(error)) {
+      return { error: PLANNED_BILL_PAID_ERROR };
+    }
     return toFriendlyError(error);
   }
 
   revalidateBudgetPages();
   return {};
+}
+
+function isPlannedExpenseTarget(error: unknown): boolean {
+  const target = (error as { meta?: { target?: unknown } }).meta?.target;
+  return Array.isArray(target)
+    ? target.includes("plannedExpenseId")
+    : typeof target === "string" && target.includes("plannedExpenseId");
 }
 
 /**

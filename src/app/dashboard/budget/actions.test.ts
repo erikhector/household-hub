@@ -5,6 +5,7 @@
 // — no database is touched. See REQUIREMENTS.md's "Testing" section and the
 // identical convention in src/lib/actions/household.test.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@/generated/prisma/client";
 
 const {
   requireHouseholdMock,
@@ -22,6 +23,7 @@ const {
   transactionMock,
   householdMemberFindManyMock,
   householdMemberFindFirstMock,
+  plannedExpenseFindFirstMock,
   recurringTemplateFindFirstMock,
   recurringTemplateCreateMock,
   recurringTemplateUpdateMock,
@@ -48,6 +50,7 @@ const {
   transactionMock: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
   householdMemberFindManyMock: vi.fn(),
   householdMemberFindFirstMock: vi.fn(),
+  plannedExpenseFindFirstMock: vi.fn(),
   recurringTemplateFindFirstMock: vi.fn(),
   recurringTemplateCreateMock: vi.fn(),
   recurringTemplateUpdateMock: vi.fn(),
@@ -79,6 +82,7 @@ vi.mock("@/lib/prisma", () => ({
     transactionSplit: { deleteMany: vi.fn() },
     memberSettlement: { create: settlementCreateMock, deleteMany: settlementDeleteManyMock },
     householdMember: { findMany: householdMemberFindManyMock, findFirst: householdMemberFindFirstMock },
+    plannedExpense: { findFirst: plannedExpenseFindFirstMock },
     recurringTemplate: {
       findFirst: recurringTemplateFindFirstMock,
       create: recurringTemplateCreateMock,
@@ -630,6 +634,69 @@ describe("createTransactionAction", () => {
 
     expect(result.error).toBe("Recurring template not found");
     expect(transactionCreateMock).not.toHaveBeenCalled();
+  });
+
+  describe("planned bill link (BUDGET-8)", () => {
+    beforeEach(() => {
+      categoryFindFirstMock.mockResolvedValue({ id: "cat-1", type: "EXPENSE" });
+      transactionCreateMock.mockResolvedValue({});
+    });
+
+    it("links the transaction to a planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({});
+      expect(plannedExpenseFindFirstMock).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "p1", householdId: household.id } }),
+      );
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: "p1" }) }),
+      );
+    });
+
+    it("rejects a planned bill from another household", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue(null);
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "Planned bill not found" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects an already paid planned bill", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: { id: "t9" } });
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("maps a unique-constraint race to the already-paid error", async () => {
+      plannedExpenseFindFirstMock.mockResolvedValue({ id: "p1", transaction: null });
+      transactionCreateMock.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "test",
+          meta: { target: ["plannedExpenseId"] },
+        }),
+      );
+
+      const result = await createTransactionAction({}, formData({ ...base, plannedExpenseId: "p1" }));
+
+      expect(result).toEqual({ error: "This planned bill is already paid" });
+    });
+
+    it("without plannedExpenseId nothing changes", async () => {
+      await createTransactionAction({}, formData(base));
+
+      expect(plannedExpenseFindFirstMock).not.toHaveBeenCalled();
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ plannedExpenseId: null }) }),
+      );
+    });
   });
 
   describe("split validation (parseSplitFormData)", () => {
