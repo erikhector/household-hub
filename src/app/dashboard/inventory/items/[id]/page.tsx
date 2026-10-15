@@ -12,6 +12,7 @@ import { ChangeUnitDialog } from "@/components/inventory/item-page/change-unit-d
 import { ItemAliasList } from "@/components/inventory/item-page/item-alias-list";
 import { MergeIntoDialog } from "@/components/inventory/catalog/merge-into-dialog";
 import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page-origin";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Amounts restated in another unit get three significant digits ("0.009
 // pcs", "0.375 pcs"), the way the design shows them; stock and typed
@@ -19,9 +20,11 @@ import { itemPageBackHref, parseItemPageOrigin } from "@/lib/inventory/item-page
 const short = (value: number) => String(Number(value.toPrecision(3)));
 
 // MATCH-6 (design §6.1): one inventory item, where it's used and its units.
-// Everything comes from five household-scoped queries run together, never
+// Everything comes from six household-scoped queries run together, never
 // one per recipe or list. The fifth lists the other items, for "Merge into
-// another item…" (MATCH-7).
+// another item…" (MATCH-7). The sixth names the household's members, so
+// "Last updated … by …" can say who; phones don't show that on the
+// inventory list (UX-45), so this page is where they find it.
 export default async function InventoryItemPage(props: PageProps<"/dashboard/inventory/items/[id]">) {
   const [{ household }, fullDict, locale, { id }, searchParams] = await Promise.all([
     requireHousehold(),
@@ -36,7 +39,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
   const origin = parseItemPageOrigin(searchParams.from);
   const backLabel = { inventory: dict.back, catalog: dict.backToCatalog, recipes: dict.backToRecipes }[origin.kind];
 
-  const [item, ingredients, listRows, templateRows, otherItems] = await Promise.all([
+  const [item, ingredients, listRows, templateRows, otherItems, members] = await Promise.all([
     prisma.inventoryItem.findFirst({
       where: { id, householdId: household.id },
       select: {
@@ -47,6 +50,8 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
         quantity: true,
         unit: true,
         lowStockThreshold: true,
+        updatedAt: true,
+        updatedByUserId: true,
         unitConversions: { select: { id: true, fromUnit: true, factor: true }, orderBy: { createdAt: "asc" } },
         aliases: { select: { id: true, normalizedName: true }, orderBy: { normalizedName: "asc" } },
       },
@@ -75,6 +80,10 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      select: { userId: true, user: { select: { displayName: true } } },
+    }),
   ]);
   if (!item) notFound();
 
@@ -96,6 +105,14 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
     ...new Set([item.unit, ...conversions.map((conversion) => conversion.fromUnit), ...rows.map((row) => canonicalUnit(row.unit))]),
   ];
   const subtitle = [item.category, item.location].filter(Boolean).join(" · ");
+  // Same sentence and date style as the desktop table's "Last updated" cell
+  // (last-updated-cell.tsx). The name is left out when the updater has left
+  // the household or the change predates tracking (updatedByUserId null).
+  const updatedDate = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(item.updatedAt);
+  const updaterName = members.find((member) => member.userId === item.updatedByUserId)?.user.displayName;
+  const lastUpdated = updaterName
+    ? format(fullDict.inventory.lastUpdatedWithUser, { date: updatedDate, name: updaterName })
+    : format(fullDict.inventory.lastUpdatedNoUser, { date: updatedDate });
 
   return (
     <div className="flex max-w-3xl min-w-0 flex-col gap-6">
@@ -108,7 +125,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
           {backLabel}
         </Link>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">{item.name}</h1>
+          <PageTitle morph={{ kind: "inventory-item", id: item.id }}>{item.name}</PageTitle>
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -132,6 +149,7 @@ export default async function InventoryItemPage(props: PageProps<"/dashboard/inv
             comboDict={fullDict.inventory}
           />
         </div>
+        <p className="text-sm text-muted-foreground">{lastUpdated}</p>
       </div>
 
       <ItemUnitsAndUsage

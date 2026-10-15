@@ -15,16 +15,24 @@ test("the weekly task recap stays dismissed after a reload", async ({ page, cont
   // The checkbox flips optimistically, before the server has saved the
   // completion, so "checked" alone doesn't mean a reload will show it. Wait
   // for the Server Action's response first; reloading too early (as a loaded
-  // machine did) shows an empty week with no recap.
+  // machine did) shows an empty week with no recap. The row must be there
+  // before listening: the add's own response can still be on its way, and
+  // on a busy machine it was the one this caught, not the tick's.
+  const box = page.getByRole("checkbox", { name: `Mark ${title} as done` });
+  await expect(box).toBeVisible();
+  await page.waitForLoadState("networkidle");
   const saved = page.waitForResponse(
     (response) => response.request().method() === "POST" && response.url().includes("/dashboard/tasks"),
   );
-  await page.getByRole("checkbox", { name: `Mark ${title} as done` }).click();
+  await box.click();
   await saved;
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
 
   await page.reload();
-  const recap = page.getByText("This week, the household handled:");
+  // Scoped to main: while the reload streams in, React can briefly hold a
+  // second, hidden copy of the recap outside main, which a page-wide
+  // getByText counts as a strict-mode violation.
+  const recap = page.getByRole("main").getByText("This week, the household handled:");
   await expect(recap).toBeVisible();
 
   await page.getByRole("button", { name: "Dismiss" }).click();

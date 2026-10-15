@@ -157,6 +157,14 @@ export async function expectTargetsApart(scope: Locator, gap = 8) {
         const a = els[i];
         const b = els[j];
         if (a.contains(b) || b.contains(a)) continue;
+        // The floating primary action (PrimaryAction, UX-40) is a layer over
+        // the scrolling page, not a neighbour in it: content passes under it
+        // by design, and main's extra bottom padding lets every row scroll
+        // out from under it (asserted in large-title.spec.ts).
+        if (!!a.closest("[data-primary-action]") !== !!b.closest("[data-primary-action]")) {
+          const floating = (a.closest("[data-primary-action]") ?? b.closest("[data-primary-action]"))!;
+          if (getComputedStyle(floating).position === "fixed") continue;
+        }
         const ra = a.getBoundingClientRect();
         const rb = b.getBoundingClientRect();
         const dx = Math.max(rb.left - ra.right, ra.left - rb.right);
@@ -229,4 +237,29 @@ export async function saveScreenshot(page: Page, testInfo: TestInfo, locale: Loc
 
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Holds every Server Action POST to `path` until release() is called, and
+// counts the ones that have come back. Next sends a page's actions one at a
+// time, so holding the first one holds the queue behind it too.
+export async function holdServerActions(page: Page, path: string) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let answered = 0;
+  const isAction = (request: { method(): string; headers(): Record<string, string> }) =>
+    request.method() === "POST" && "next-action" in request.headers();
+  // "response", not "requestfinished": the action's streamed RSC body can
+  // stay open after the action itself has run and answered.
+  page.on("response", (response) => {
+    const request = response.request();
+    if (isAction(request) && new URL(request.url()).pathname === path) answered++;
+  });
+  await page.route(
+    (url) => url.pathname === path,
+    async (route) => {
+      if (isAction(route.request())) await gate;
+      await route.continue();
+    },
+  );
+  return { release, answered: () => answered };
 }

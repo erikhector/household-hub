@@ -1,12 +1,28 @@
 import type { Locale } from "@/lib/i18n/locales";
 
 // The few strings that primitives without a `dict` prop need ("Close" on every
-// dialog, "Loading" on every skeleton). They live in their own tiny module,
+// dialog, "Loading" on every skeleton, "Back to top" on the phone's compact
+// page title). They live in their own tiny module,
 // not only in the full dictionaries, so a Client Component such as
 // components/ui/dialog.tsx can read them via getClientLocale() without
 // pulling both whole dictionaries into the browser bundle. en.ts and sv.ts
 // use these as `common`, so there is still one source per language.
-export const commonCopy: Record<Locale, { loading: string; close: string; expandSheet: string; collapseSheet: string }> = {
-  en: { loading: "Loading", close: "Close", expandSheet: "Expand sheet", collapseSheet: "Collapse sheet" },
-  sv: { loading: "Laddar", close: "Stäng", expandSheet: "Fäll ut arket", collapseSheet: "Fäll ihop arket" },
+export const commonCopy: Record<
+  Locale,
+  { loading: string; close: string; expandSheet: string; collapseSheet: string; backToTop: string }
+> = {
+  en: {
+    loading: "Loading",
+    close: "Close",
+    expandSheet: "Expand sheet",
+    collapseSheet: "Collapse sheet",
+    backToTop: "Back to top",
+  },
+  sv: {
+    loading: "Laddar",
+    close: "Stäng",
+    expandSheet: "Fäll ut arket",
+    collapseSheet: "Fäll ihop arket",
+    backToTop: "Till toppen",
+  },
 };

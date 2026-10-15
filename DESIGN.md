@@ -343,8 +343,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   **Baloo 2** (`heading`); **Geist Mono** (`mono`) only for codes.
 - The default UI size is `body` (14px). Form fields are `body-lg` (16px)
   on phones so iOS doesn't zoom, dropping to 14px from `md`.
-- Page H1 is `page-title` (24px semibold, tight tracking). Card and list
-  headings are `item-title` (16px semibold); `CardTitle` and `DialogTitle`
+- Page H1 is `page-title` (24px semibold, tight tracking), set through
+  `PageTitle`; on phones it's a 30px large title that collapses into the
+  top bar on scroll. Card and list headings are `item-title` (16px semibold); `CardTitle` and `DialogTitle`
   use `card-title` (16px medium).
 - Button labels are `button` (14px semibold); badges `badge` (12px
   medium); meta text `caption` in `muted-foreground`.
@@ -363,7 +364,9 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
 - Phones get a different shell: a bottom navigation bar, only `main`
   scrolls, and dialogs become bottom sheets flush with the screen edge
   (max 85dvh, safe-area padding). From `sm` (640px) dialogs are centred,
-  384px wide.
+  384px wide. A page's primary action goes in `PrimaryAction`, which floats
+  it at the bottom right above the bottom bar on phones (M2) and leaves it
+  in the header from `sm`.
 - Touch targets grow on phones and touch screens (paired `max-sm:` and
   `pointer-coarse:` bumps, so an iPad or a landscape phone counts) and reach
   44px (rule M3): every `Button` size, `Input`, select and combobox trigger,
@@ -389,6 +392,27 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   On phones the sheet drags down to dismiss (a grabber pill marks it), a
   long form rests at half or full height, and the page behind scales down
   while a sheet is open; none of it animates under reduced motion.
+- **Motion tokens** (`globals.css`, `--motion-*`), for anything new that
+  moves:
+  - `duration-fast` 120 ms for exits, `duration-base` 200 ms for entrances
+    and small shifts, `duration-slow` 320 ms for morphs,
+    `duration-spring` 400 ms with `ease-spring`.
+  - `ease-out` for things arriving, `ease-in` for things leaving,
+    `ease-in-out` for things going from one place to another, `ease-spring`
+    (slight overshoot) for an object that physically moves to a new place.
+  - Exits are quicker than entrances: what's leaving shouldn't compete with
+    what's arriving.
+- **List rows move at tap time** (a tick, an untick, a delete), with the
+  save in the background and a visible roll-back if it fails. They glide
+  there with `useFlipList` on the real element, so a moving row can still
+  be tapped: rows rise in, fade out, and glide (`duration-spring`) when
+  they or their neighbours move, and a ticked row slides to "Done". Key new
+  list rows with `data-flip-key`.
+- **Navigations** are view transitions: a tab change fades the page in with
+  a small rise, and a row's title morphs into its detail page's heading
+  (`MorphTitle`). Keep the phone header and bottom bar still.
+- Motion is never the only signal (M5), and with `prefers-reduced-motion`
+  every animation, view transitions included, is instant.
 
 ### Iconography
 

@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { dismissCookieNotice } from "./ui";
 
 // UX-18: on a phone with the Web Share API the copy row gains a Share
 // button, and dismissing the share sheet (an AbortError) is a choice, not
 // an error. Phone-only: the button needs a coarse pointer.
-test("the Share button hands the link to the share sheet; cancelling shows no toast", async ({ page }) => {
+test("the Share button hands the link to the share sheet; cancelling shows no toast", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   const t = en.household.invite;
   await page.addInitScript(() => {
     (window as unknown as { shared: unknown[] }).shared = [];

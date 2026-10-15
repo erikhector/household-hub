@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeRotationMembers, isRotating, nextAssigneeInRotation } from "@/lib/task-rotation";
+import { activeRotationMembers, isRotating, nextAssigneeInRotation, withLocalCompletion } from "@/lib/task-rotation";
 
 const everyone = ["anna", "bo", "cleo"];
 
@@ -93,5 +93,37 @@ describe("isRotating", () => {
     expect(isRotating({ recurrenceIntervalDays: null, rotationMemberIds: ["a", "b"] })).toBe(false);
     expect(isRotating({ recurrenceIntervalDays: 7, rotationMemberIds: ["a"] })).toBe(false);
     expect(isRotating({ recurrenceIntervalDays: 7, rotationMemberIds: [] })).toBe(false);
+  });
+});
+
+describe("withLocalCompletion", () => {
+  const now = new Date("2026-10-14T10:00:00.000Z");
+  const task = {
+    completed: false,
+    completedAt: null as Date | null,
+    completedByMemberId: "bo" as string | null,
+    assignedToMemberId: "anna" as string | null,
+    recurrenceIntervalDays: null as number | null,
+    rotationMemberIds: [] as string[],
+    nextInRotationMemberId: null as string | null,
+  };
+
+  it("records who completed it and when", () => {
+    expect(withLocalCompletion(task, true, "cleo", now)).toEqual({
+      ...task,
+      completed: true,
+      completedAt: now,
+      completedByMemberId: "cleo",
+    });
+  });
+
+  it("passes a rotating task on to whoever is next", () => {
+    const rotating = { ...task, recurrenceIntervalDays: 7, rotationMemberIds: everyone, nextInRotationMemberId: "bo" };
+    expect(withLocalCompletion(rotating, true, "anna", now)).toMatchObject({ assignedToMemberId: "bo", nextInRotationMemberId: "bo" });
+  });
+
+  it("reopens by clearing only completedAt, keeping last done by", () => {
+    const done = { ...task, completed: true, completedAt: now, completedByMemberId: "cleo" };
+    expect(withLocalCompletion(done, false, "anna", now)).toEqual({ ...done, completed: false, completedAt: null });
   });
 });

@@ -11,6 +11,7 @@ import {
   RELEASES,
   releaseNoteFor,
 } from "@/lib/release-notes";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 // Release history, one entry per released PR, written by the release
 // workflow into src/lib/release-notes/releases.json (see REQUIREMENTS.md's
@@ -32,7 +33,7 @@ export default async function WhatsNewPage() {
     <div className="flex flex-col gap-6">
       <MarkReleaseSeen version={CURRENT_VERSION} alreadySeen={alreadySeen} />
       <div>
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{t.title}</h1>
+        <PageTitle>{t.title}</PageTitle>
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
         <p className="mt-1 text-xs text-muted-foreground">{format(t.currentVersion, { version: CURRENT_VERSION })}</p>
       </div>

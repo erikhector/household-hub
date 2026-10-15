@@ -58,11 +58,13 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
+import { useFlipList } from "@/components/shared/use-flip-list";
 
 export type { HouseholdMemberOption, InventoryGroupBy, InventoryItemRow };
 
 export function InventoryTable({
-  items,
+  items: serverItems,
   categories,
   locations,
   units,
@@ -74,6 +76,7 @@ export function InventoryTable({
   dict,
   barcodeDict,
   aiCategoryFallbackEnabled = false,
+  view,
 }: {
   items: InventoryItemRow[];
   categories: string[];
@@ -91,8 +94,17 @@ export function InventoryTable({
   /** AUTO-2b(a): forwarded to the empty state's ItemFormDialog — see its
    * own doc comment in add-item-dialog.tsx. */
   aiCategoryFallbackEnabled?: boolean;
+  /** The search, filters and grouping being shown: changing it isn't a row
+   * coming or going, so the rows don't animate (useFlipList). */
+  view?: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  // UX-33: a deleted item leaves the list at tap time (see
+  // local-row-changes.ts) and the rows below glide up; it comes back if
+  // the delete fails.
+  const local = useLocalRowChanges(serverItems);
+  const items = applyLocalRowChanges(serverItems, local.changes, (item) => item);
+  const containerRef = useFlipList<HTMLDivElement>(view);
   const [rawSelected, setSelected] = useState<Set<string>>(new Set());
   const [bulkField, setBulkField] = useState<BulkEditableField>("location");
   const [bulkValue, setBulkValue] = useState("");
@@ -238,11 +250,9 @@ export function InventoryTable({
     });
   }
 
-  function handleDelete(itemId: string) {
-    startTransition(async () => {
-      const result = await deleteInventoryItemAction(itemId);
-      if (result.error) toast.error(result.error);
-    });
+  // From the row's confirm dialog, which waits on it and toasts an error.
+  async function handleDelete(itemId: string) {
+    return settleDelete(local.markDeleted(itemId), deleteInventoryItemAction(itemId), dict.saveFailedToast);
   }
 
   function toggleItem(itemId: string) {
@@ -301,7 +311,7 @@ export function InventoryTable({
   const allSelected = items.length > 0 && selected.size === items.length;
 
   return (
-    <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
+    <div ref={containerRef} className="flex flex-col gap-2 sm:min-h-0 sm:flex-1">
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 sm:shrink-0 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:bg-background/85 max-sm:px-4 max-sm:py-2">
           <span className="text-sm font-medium">
@@ -406,7 +416,7 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={group.key || "__ungrouped__"}>
             {groupBy !== "none" && (
-              <TableRow className="hover:bg-transparent">
+              <TableRow data-flip-key={`label:${group.key}`} className="hover:bg-transparent">
                 <TableCell colSpan={8} className="bg-muted/50 py-1.5 text-xs font-medium text-muted-foreground">
                   <span className="block max-w-[28rem] truncate" title={group.key}>
                     {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
@@ -415,7 +425,7 @@ export function InventoryTable({
               </TableRow>
             )}
             {group.items.map((item) => (
-              <TableRow key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
+              <TableRow key={item.id} data-flip-key={item.id} data-state={selected.has(item.id) ? "selected" : undefined}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(item.id)}
@@ -482,87 +492,111 @@ export function InventoryTable({
       </Table>
       </div>
 
-      {/* Mobile: a stacked card list instead of the table above — a 6-column
+      {/* Mobile: a compact list instead of the table above — a 6-column
           table can't fit a 375px screen without horizontal scrolling, so
-          phones get the same data reshaped into cards instead. */}
+          phones get the same data reshaped into rows. UX-45: each row is
+          two lines (name, place and badges; stepper and actions), about
+          80px, so eight or more fit on a Pixel 7 where the old three-row
+          cards fitted under five. "Last updated" isn't on the row: it was
+          the same line on every item and the least useful one, so it lives
+          on the item page (Details in the ⋯ menu) instead. The checkbox
+          sits in its own column, centred on both lines, 14px from the
+          content: its 44px tap halo reaches 14px past the box (see
+          checkbox.tsx), so nearer than that it would sit over the − button
+          and swallow taps meant for it. A selected row gets a primary
+          accent down its left edge as well as a tint: the rows share one
+          border now, so there's no per-card border to colour, and a tint
+          alone is hard to see in sunlight. */}
       <div className="flex min-w-0 flex-col gap-2 sm:hidden">
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
-              <div className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              <div data-flip-key={`card-label:${group.key}`} className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="block truncate" title={group.key}>
                   {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                 </span>
               </div>
             )}
-            {group.items.map((item) => (
-              <SwipeableItemCard
-                key={item.id}
-                item={item}
-                disabled={isPending}
-                dict={dict}
-                onRemove={() => {
-                  if (selected.has(item.id)) toggleItem(item.id);
-                }}
-              >
-                <div
-                  data-state={selected.has(item.id) ? "selected" : undefined}
-                  className="flex min-w-0 flex-col gap-3 rounded-lg border p-3 data-[state=selected]:border-primary data-[state=selected]:bg-muted/40"
+            {/* overflow-hidden here, not on each SwipeRow: the list's
+                rounded border clips a row's swipe underlay at its corners. */}
+            <ul
+              data-flip-key={`card-group:${group.key}`}
+              className="relative min-w-0 divide-y overflow-hidden rounded-lg border"
+            >
+              {group.items.map((item) => (
+                <SwipeableItemCard
+                  key={item.id}
+                  item={item}
+                  disabled={isPending}
+                  dict={dict}
+                  onRemove={() => {
+                    if (selected.has(item.id)) toggleItem(item.id);
+                  }}
                 >
-                  <div className="flex min-w-0 flex-wrap items-start gap-2">
+                  {/* The selected tint and accent sit on this row, inside
+                      SwipeRow's opaque sliding layer, not on the <li> under
+                      it where that layer would hide them. pl-3.5 keeps the
+                      checkbox's 14px tap halo inside SwipeRow's
+                      overflow-hidden, which would otherwise clip its left
+                      edge. */}
+                  <div
+                    data-state={selected.has(item.id) ? "selected" : undefined}
+                    className="flex min-w-0 items-center gap-3.5 py-1.5 pr-2 pl-3.5 data-[state=selected]:bg-primary/10 data-[state=selected]:shadow-[inset_3px_0_0_var(--color-primary)]"
+                  >
                     <Checkbox
                       checked={selected.has(item.id)}
                       onChange={() => toggleItem(item.id)}
                       aria-label={format(dict.bulkActions.selectItemAriaLabel, { name: item.name })}
-                      className="mt-1"
                     />
-                    <div className="min-w-[40%] flex-1">
-                      <p className="truncate font-medium" title={item.name}>
-                        {item.name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {item.category}
-                        {item.location ? ` • ${item.location}` : ""}
-                      </p>
-                    </div>
-                    {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
-                    <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
-                      <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
-                      <OnTheWayHint item={item} dict={dict} />
-                      <ExpiryBadge
-                        expiresAt={item.expiresAt}
-                        expiresAtEstimated={item.expiresAtEstimated}
-                        openedAt={item.openedAt}
-                        frozenAt={item.frozenAt}
-                        dict={dict}
-                      />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      {/* The row wraps and the name keeps a floor, so at 200% text the badge cluster drops under the name (and its badges wrap inside it; Badge is nowrap and shrink-0 by default) instead of squeezing the name to nothing or spilling over it. */}
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <p className="min-w-[40%] flex-1 truncate" title={item.name}>
+                          <span className="font-medium">{item.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {" · "}
+                            {item.category}
+                            {item.location ? ` • ${item.location}` : ""}
+                          </span>
+                        </p>
+                        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 [&>*]:h-auto [&>*]:max-w-full [&>*]:whitespace-normal">
+                          <StockBadge status={getStockStatus(item.quantity, item.lowStockThreshold)} dict={dict} />
+                          <OnTheWayHint item={item} dict={dict} />
+                          <ExpiryBadge
+                            expiresAt={item.expiresAt}
+                            expiresAtEstimated={item.expiresAtEstimated}
+                            openedAt={item.openedAt}
+                            frozenAt={item.frozenAt}
+                            dict={dict}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                        <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
+                        <div className="ml-auto min-w-0">
+                          <ItemActions
+                            item={item}
+                            categories={categories}
+                            locations={locations}
+                            units={units}
+                            members={members}
+                            locale={locale}
+                            dict={dict}
+                            barcodeDict={barcodeDict}
+                            isPending={isPending}
+                            onMarkEmpty={handleMarkEmpty}
+                            onMarkOpened={handleMarkOpened}
+                            onFreeze={handleFreeze}
+                            onDelete={handleDelete}
+                            size="size-9"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                    <QuantityStepper item={item} layout="card" disabled={isPending} dict={dict} />
-                    <div className="ml-auto min-w-0">
-                      <ItemActions
-                        item={item}
-                        categories={categories}
-                        locations={locations}
-                        units={units}
-                        members={members}
-                        locale={locale}
-                        dict={dict}
-                        barcodeDict={barcodeDict}
-                        isPending={isPending}
-                        onMarkEmpty={handleMarkEmpty}
-                        onMarkOpened={handleMarkOpened}
-                        onFreeze={handleFreeze}
-                        onDelete={handleDelete}
-                        size="size-9"
-                      />
-                    </div>
-                  </div>
-                  <LastUpdatedCell item={item} members={members} locale={locale} dict={dict} />
-                </div>
-              </SwipeableItemCard>
-            ))}
+                </SwipeableItemCard>
+              ))}
+            </ul>
           </Fragment>
         ))}
       </div>
@@ -596,22 +630,25 @@ function SwipeableItemCard({
     message: format(dict.swipe.deletedToast, { name: item.name }),
     undoLabel: dict.swipe.undo,
   });
+  // The <li> lives here, not in the list, so a deleted row leaves no empty
+  // item behind for the list's divide-y to draw a border around.
   if (hidden) return null;
   return (
-    <SwipeRow
-      className="rounded-lg"
-      primaryLabel={dict.swipe.increase}
-      primaryIcon={<Plus className="size-4" />}
-      editLabel={dict.swipe.edit}
-      deleteLabel={dict.swipe.delete}
-      onDelete={() => {
-        onRemove();
-        remove();
-      }}
-      disabled={disabled}
-    >
-      {children}
-    </SwipeRow>
+    <li data-flip-key={`card:${item.id}`}>
+      <SwipeRow
+        primaryLabel={dict.swipe.increase}
+        primaryIcon={<Plus className="size-4" />}
+        editLabel={dict.swipe.edit}
+        deleteLabel={dict.swipe.delete}
+        onDelete={() => {
+          onRemove();
+          remove();
+        }}
+        disabled={disabled}
+      >
+        {children}
+      </SwipeRow>
+    </li>
   );
 }
 

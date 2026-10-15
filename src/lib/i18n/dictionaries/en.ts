@@ -568,6 +568,24 @@ export const en = {
     clearedDescription: "Everything on this list is checked off or gone.",
     clearedDismissAriaLabel: "Dismiss",
     purchased: "Purchased",
+    // UX-37: shopping mode as a tool — the progress ring ("12 of 18"), the
+    // thumb-zone "Next up" dock, the collapsed "In the cart" section and the
+    // all-done moment's offer to put things away.
+    shoppingMode: {
+      progress: "{done} of {total}",
+      progressAriaLabel: "Shopping progress",
+      nextUp: "Next up",
+      // {item} is the row's own "Milk × 1 l", first so the button's name
+      // starts with what it shows (WCAG 2.5.3, label in name).
+      tickAriaLabel: "{item}, into the cart",
+      moreHere: { one: "+{count} more in this aisle", other: "+{count} more in this aisle" },
+      inCart: "In the cart",
+      waitingToPutAway: {
+        one: "{count} thing is waiting to be put away.",
+        other: "{count} things are waiting to be put away.",
+      },
+      putAwayNow: "Put things away",
+    },
     // The two-phase "in the cart, then put away" flow (PutAwayDialog,
     // putAwayItemsAction). "Put away" is the same phrase barcode Scan mode
     // uses for adding stock, so both read as the same act.
@@ -1904,7 +1922,7 @@ export const en = {
     unassignedOption: "Unassigned",
     add: "Add",
     adding: "Adding…",
-    emptyState: "No tasks yet — use the Add task button above to add one.",
+    emptyState: "No tasks yet — use Add task to add one.",
     completedSectionLabel: "Completed",
     unassignedBadge: "Unassigned",
     completedByLabel: "Completed by {name}",
@@ -2072,6 +2090,8 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Last {count} months: {values}",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2100,6 +2120,14 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "At this pace",
+      projectionLeft: "About {amount} left at the end of the month.",
+      projectionOver: "About {amount} over by the end of the month.",
+      projectionPace: "Based on everyday spending of {amount} a day so far. Bills aren't in the pace.",
+      projectionToday: "Today",
+      projectionMonthEnd: "Month end",
+      projectionCaption: "Safe to spend today and projected for the end of the month",
       savingBadge: "Saving",
       incomeBadge: "Income",
       debtsTitle: "Your household balance",
@@ -2147,6 +2175,8 @@ export const en = {
     },
     costAnalyzer: {
       spendingTitle: "Grocery spending over time",
+      chartMonth: "Month",
+      chartSpend: "Spend",
       spendingSubtitle:
         "Total estimated spend per month, from shopping list items marked purchased with a price.",
       noSpendingData:
@@ -2321,6 +2351,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      chartMonth: "Month",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",
@@ -2434,6 +2465,8 @@ export const en = {
       spentOfLimit: "{spent} / {limit}",
       overLimitBy: "{amount} over",
       carriedOver: "incl. {amount} carried over",
+      // UX-39: a category sparkline's accessible name.
+      historyLabel: "Last {count} months: {values}",
     },
     savingsGoals: {
       title: "Savings goals",
@@ -2462,6 +2495,14 @@ export const en = {
       lineDuePayments: "Due payments",
       lineDueSavings: "Due savings",
       lineRemaining: "Remaining after expenses and savings",
+      // UX-39: the projected end-of-month line (ProjectionChart).
+      projectionTitle: "At this pace",
+      projectionLeft: "About {amount} left at the end of the month.",
+      projectionOver: "About {amount} over by the end of the month.",
+      projectionPace: "Based on everyday spending of {amount} a day so far. Bills aren't in the pace.",
+      projectionToday: "Today",
+      projectionMonthEnd: "Month end",
+      projectionCaption: "Safe to spend today and projected for the end of the month",
       savingBadge: "Saving",
       incomeBadge: "Income",
       debtsTitle: "Your household balance",
@@ -2585,6 +2626,7 @@ export const en = {
       legendIncome: "Income",
       legendExpense: "Costs",
       legendSavings: "Savings",
+      chartMonth: "Month",
       incomeBreakdownTitle: "Recurring income",
       expenseBreakdownTitle: "Recurring costs",
       noIncomeItems: "No active recurring income items.",

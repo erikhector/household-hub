@@ -46,6 +46,7 @@ export function SwipeRow({
   onDelete,
   disabled = false,
   className,
+  flipKey,
 }: {
   children: ReactNode;
   /** Shown under the row on a right swipe; omit to turn right swipes off. */
@@ -58,6 +59,9 @@ export function SwipeRow({
   disabled?: boolean;
   /** Corner radius etc., to match the row it wraps. */
   className?: string;
+  /** The row's key for useFlipList (UX-33): this is the element that moves
+   * when the list does. */
+  flipKey?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -182,7 +186,7 @@ export function SwipeRow({
   }
 
   return (
-    <div ref={rootRef} data-swipe-row className={cn("relative overflow-hidden", className)}>
+    <div ref={rootRef} data-swipe-row data-flip-key={flipKey} className={cn("relative overflow-hidden", className)}>
       {canSwipeRight && offset > 0 && (
         <div
           aria-hidden

@@ -28,6 +28,8 @@ import { datedName, format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { Locale } from "@/lib/i18n/locales";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { useFlipList } from "@/components/shared/use-flip-list";
+import { MorphTitle } from "@/components/shared/view-transitions";
 
 type ListSummary = {
   id: string;
@@ -94,7 +96,7 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+    <div data-flip-key={list.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
       <Link
         href={`/dashboard/shopping-list/${list.id}`}
         className="flex min-w-0 flex-1 items-center gap-3"
@@ -104,7 +106,10 @@ function ListCard({ list, dict }: { list: ListSummary; dict: ShoppingListDict })
         </span>
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={list.name}>{list.name}</p>
+            {/* UX-33: flies up into the list page's title on the way in. */}
+            <MorphTitle kind="shopping-list" id={list.id}>
+              <p className="line-clamp-2 break-words sm:line-clamp-1 font-medium" title={list.name}>{list.name}</p>
+            </MorphTitle>
             {list.isDefault && (
               <Badge variant="secondary" className="shrink-0" title={dict.defaultListHint}>
                 {dict.defaultListBadge}
@@ -191,9 +196,9 @@ function ListSection({
 }) {
   if (lists.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2">
+    <div data-flip-key={`section:${title}`} className="flex flex-col gap-2">
       <p className="text-xs font-medium uppercase text-muted-foreground">{title}</p>
-      <div className="flex flex-col gap-2">
+      <div className="relative flex flex-col gap-2">
         {lists.map((list) => (
           <ListCard key={list.id} list={list} dict={dict} />
         ))}
@@ -214,11 +219,14 @@ export function ShoppingListsOverview({
   dict: ShoppingListDict;
 }) {
   const isEmpty = active.length === 0 && completed.length === 0 && archived.length === 0;
+  // UX-33: completing, archiving or deleting a list glides its card into
+  // place (or out) instead of jumping, once the server answers.
+  const containerRef = useFlipList<HTMLDivElement>();
 
   return isEmpty ? (
     <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">{dict.empty}</p>
   ) : (
-    <div className="flex flex-col gap-6">
+    <div ref={containerRef} className="flex flex-col gap-6">
       <ListSection title={dict.sectionActive} lists={active} dict={dict} />
       <ListSection title={dict.sectionCompleted} lists={completed} dict={dict} />
       <ListSection title={dict.sectionArchived} lists={archived} dict={dict} />

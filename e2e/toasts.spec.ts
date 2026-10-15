@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
+import { dismissCookieNotice } from "./ui";
 
 // The Toaster (src/components/ui/sonner.tsx) tints outcome toasts: a
 // success toast is green text (--success) on a pale green, not the neutral
@@ -59,7 +60,9 @@ test("a toast clears the bottom navigation bar on phones", async ({ page }) => {
 
 // UX-18: the copy button awaits the clipboard and says so when it fails,
 // instead of toasting "copied" over an empty clipboard.
-test("a failed clipboard write shows an error toast, not a success", async ({ page }) => {
+test("a failed clipboard write shows an error toast, not a success", async ({ page, context, baseURL }) => {
+  // On a phone the cookie notice covers the floating primary action (UX-40).
+  await dismissCookieNotice(context, baseURL!);
   const t = en.household.invite;
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "clipboard", {

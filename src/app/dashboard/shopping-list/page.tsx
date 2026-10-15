@@ -5,6 +5,8 @@ import { getDictionary, getLocale } from "@/lib/i18n/get-dictionary";
 import { NewListDialog, ShoppingListsOverview } from "@/components/shopping/shopping-lists-overview";
 import { RegisterReceiptDialog } from "@/components/shopping/register-receipt-dialog";
 import { ListTemplatesSection } from "@/components/shopping/list-templates";
+import { PageTitle } from "@/components/dashboard/page-title";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 // Same reasoning as inventory/page.tsx's maxDuration: RegisterReceiptDialog
 // can call scanReceiptPhotoAction (src/lib/actions/receipt-scan.ts), which
@@ -95,7 +97,7 @@ export default async function ShoppingListPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.shoppingList.title}</h1>
+          <PageTitle>{dict.shoppingList.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.shoppingList.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -107,7 +109,9 @@ export default async function ShoppingListPage() {
             locale={locale}
             aliases={aliases}
           />
-          <NewListDialog dict={dict.shoppingList} locale={locale} />
+          <PrimaryAction>
+            <NewListDialog dict={dict.shoppingList} locale={locale} />
+          </PrimaryAction>
         </div>
       </div>
       <Suspense fallback={<ShoppingListsSkeleton label={dict.common.loading} />}>

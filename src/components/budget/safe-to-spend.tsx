@@ -8,6 +8,13 @@
 // still expected), what's been spent and saved, what's still owed from
 // earlier months, what's still due — so it's never a black box: every term
 // that went into it is on screen.
+//
+// UX-39: the headline number counts to its new value (AnimatedNumber), and
+// in the current month a projected end-of-month line sits under it
+// (ProjectionChart): where the number lands if this month's everyday
+// spending keeps its pace. Both from the shared chart kit in
+// src/components/charts/, so the household budget, Personal Budget and the
+// dashboard card draw it the same way.
 
 import Link from "next/link";
 import { Banknote, PiggyBank, Users } from "lucide-react";
@@ -22,6 +29,9 @@ import type {
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
 import { createMoneyFormat } from "@/lib/currency";
+import type { MonthProjection } from "@/lib/chart-calc";
+import { AnimatedNumber } from "@/components/charts/animated-number";
+import { ProjectionChart } from "@/components/charts/projection-chart";
 
 // Calmer three-way read on the amount (see docs/archive/JOY_GAP_BACKLOG.md item 3): a
 // tight-but-not-empty balance gets its own amber tone instead of being
@@ -41,6 +51,7 @@ export function SafeToSpend({
   expectedRecurring,
   householdDebts = [],
   showHouseholdName = false,
+  projection = null,
   dict,
   locale,
   currencyCode,
@@ -55,6 +66,10 @@ export function SafeToSpend({
   /** Name the household on each debt line — only once the user is in more
    * than one (docs/archive/PERSONAL_HOUSEHOLD_BUDGET_LINK.md §6). */
   showHouseholdName?: boolean;
+  /** UX-39: projectMonthEnd's result for the viewed month — null (no
+   * line) for any month but the current one, or before any everyday
+   * spending. */
+  projection?: MonthProjection | null;
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
@@ -90,9 +105,11 @@ export function SafeToSpend({
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-foreground">{summary}</p>
         <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
-          {amount >= 0 ? "+" : ""}
-          {numberFormat.format(amount)}
+          <AnimatedNumber value={amount} locale={locale} currencyCode={currencyCode} showPlus />
         </p>
+        {projection && (
+          <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />
+        )}
         <dl className="flex flex-col gap-1 text-sm">
           {lines
             .filter((line) => line.alwaysShow || line.value > 0.005)

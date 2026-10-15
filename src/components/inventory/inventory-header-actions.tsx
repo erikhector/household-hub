@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format, plural } from "@/lib/i18n/format";
 import { Download, Ellipsis, ListChecks, ScanBarcode, ScanLine, ClipboardList, Sparkles, Plus } from "lucide-react";
+import { PrimaryAction } from "@/components/dashboard/primary-action";
 
 type InventoryHeaderItem = { id: string; name: string };
 
@@ -99,12 +100,15 @@ export function InventoryHeaderActionsClient({
         } />
       </div>
 
-      {/* Mobile: labelled Add item + a labelled ⋯ menu */}
+      {/* Mobile: labelled Add item (floating in the thumb zone, UX-40) +
+          a labelled ⋯ menu that stays in the header */}
       <div className="flex flex-wrap items-center gap-2 sm:hidden">
-        <Button className="gap-1.5" onClick={() => addRef.current?.click()}>
-          <Plus className="size-4" />
-          {dict.addItem}
-        </Button>
+        <PrimaryAction>
+          <Button className="gap-1.5" onClick={() => addRef.current?.click()}>
+            <Plus className="size-4" />
+            {dict.addItem}
+          </Button>
+        </PrimaryAction>
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="outline" className="h-auto max-sm:h-auto pointer-coarse:h-auto max-w-full min-h-8 max-sm:min-h-11 pointer-coarse:min-h-11 gap-1.5 py-1 whitespace-normal"><Ellipsis className="size-4" /> {dict.moreInventoryActions}</Button>} />
           <DropdownMenuContent align="end">

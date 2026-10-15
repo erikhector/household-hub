@@ -7,9 +7,8 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
 type Tab = "planner" | "recipes" | "cook" | "prep";
 
-// SCALE-J: the tab bodies (and the variety/nutrition recaps above the tab bar)
-// are Server Components rendered by the page, each behind its own
-// `<Suspense>` — the same "Server Components passed as props to a Client
+// SCALE-J: the tab bodies are Server Components rendered by the page, each
+// behind its own `<Suspense>` — the same "Server Components passed as props to a Client
 // Component" pattern `BudgetTabs` uses (src/components/budget/budget-tabs.tsx),
 // adopted here so a slow one (Cook now's cookable-recipes expansion, in
 // particular) doesn't hold up the others. This component itself needs no
@@ -21,16 +20,12 @@ type Tab = "planner" | "recipes" | "cook" | "prep";
 // lose their local state (e.g. Recipes' search box).
 export function MealPlanningView({
   dict,
-  varietyRecap,
-  nutritionRecap,
   plannerTab,
   recipesTab,
   cookTab,
   prepTab,
 }: {
   dict: Dictionary["mealPlanning"];
-  varietyRecap: ReactNode;
-  nutritionRecap: ReactNode;
   plannerTab: ReactNode;
   recipesTab: ReactNode;
   cookTab: ReactNode;
@@ -62,9 +57,6 @@ export function MealPlanningView({
 
   return (
     <div className="flex flex-col gap-6">
-      {varietyRecap}
-      {nutritionRecap}
-
       <Tabs tabs={tabItems} value={tab} onChange={selectTab} />
 
       <div hidden={tab !== "planner"}>{plannerTab}</div>

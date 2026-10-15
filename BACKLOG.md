@@ -240,23 +240,6 @@ Found by reading the mobile (Pixel 7) and desktop `en`/`sv` screenshots from
 `npm run test:e2e:screenshots`. All 102 smoke/public tests pass, so these are
 judgement calls, not failures.
 
-### UX (2026-10-14 scout)
-
-- [ ] **UX-45. Compact inventory rows on phones** (impact: med, effort: S) —
-      On a 412 px screen each inventory card on `/dashboard/inventory` takes
-      three stacked rows (name and badge, stepper and actions, "Last updated
-      <date>"), about 125 px, so six items fill two screens and the
-      shopper scrolls a lot to find one (breaks M6: most important first, and
-      the hierarchy principle: the identical "Last updated" line repeats on
-      every row and carries the least information). Seen in
-      `mobile-en-dashboard-inventory.png`.
-      Acceptance: on the mobile project at least 8 seeded items fit in the
-      first viewport after the header; "Last updated" moves to the item
-      detail page or a tooltip-free secondary line shown only when the date
-      isn't today; the stepper and edit/more buttons keep 44 px targets (M3).
-      An `e2e/inventory` spec asserts the row count in view and that the
-      stepper still works.
-
 ### UX (2026-10-04 production-readiness audit)
 
 A full design audit of every page and every dialog, menu and popover:
@@ -399,62 +382,15 @@ benchmark is the best consumer apps on the same tasks:
 - **Copilot Money**: charts and numbers that feel alive.
 
 The UX items above make the app correct. These make it feel native and
-delightful. Today there are no view transitions (swipe row actions
-shipped as UX-35, drag-to-dismiss sheets as UX-34), the charts are hand-rolled
-`div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
+delightful. Motion and view transitions shipped as UX-33, swipe row
+actions as UX-35 and drag-to-dismiss sheets as UX-34. Still to come: the
+charts are hand-rolled `div`s, and the mascot appears on one screen. Land UX-7 to UX-14 first:
 polish on top of broken layouts is wasted. Each item keeps M7 (every
 gesture has a visible button) and respects `prefers-reduced-motion`.
 UX-36 (offline in the shop) and UX-38 (mascot illustrations) need an owner
 decision and sit under "Needs a decision before building".
 
-- [ ] **UX-33. Motion system and view transitions** (L) — Define motion
-      tokens in `globals.css` (durations, easing curves, one spring-like
-      curve) and document them in DESIGN.md.
 
-      Use React 19.2's `<ViewTransition>` with Next 16's
-      `experimental.viewTransition` for:
-      - tab and page changes;
-      - shared-element morphs from a list row to its detail page
-        (inventory item, shopping list, recipe);
-      - items entering, leaving and re-sorting a list. A ticked item
-        slides to "Done" instead of jumping.
-
-      Under reduced motion everything falls back to an instant change.
-      Acceptance: list add, remove and tick animate, and no layout jumps
-      (CLS 0 on those interactions).
-
-- [ ] **UX-37. Shopping mode that feels like a tool** (M) — Shopping mode
-      (AUTO-3) already groups by store order and holds a wake lock. Add:
-      - large type and full-row targets;
-      - a progress ring ("12 of 18");
-      - ticked items animating to a collapsed "In the cart" section;
-      - an "All done" moment that offers to put things away;
-      - one-handed reach (the next aisle's items near the bottom).
-
-      Acceptance: a whole shop can be done with the thumb, without
-      scrolling to the top.
-
-- [ ] **UX-39. Charts and numbers that feel alive** (M) — Replace the
-      hand-rolled budget bars with one small chart component:
-      - tappable bars and segments that show their value (no hover-only);
-      - a spending sparkline per category;
-      - a projected end-of-month line on safe-to-spend;
-      - tabular numbers that animate between values (count-up, skipped
-        under reduced motion);
-      - a visually hidden data table for screen readers.
-
-      Use chart tokens in order. Copilot Money is the bar.
-
-- [ ] **UX-40. Large-title headers and a thumb-zone action bar on phones**
-      (M) —
-      - Page titles start large and collapse into a compact top bar on
-        scroll, iOS style, which wins back ~120 px on every page.
-      - Each page's primary action ("Add item", "Add task", "Add
-        transaction", "Invite member") moves into a consistent
-        bottom-right floating button or a sticky bar above the bottom nav
-        (M2), replacing the top-corner buttons.
-
-      Builds on the inventory header clean-up (done).
 
 - [ ] **UX-41. Desktop power layer: command palette and shortcuts** (M) —
       - ⌘K / Ctrl-K opens a palette that searches items, recipes, lists,
@@ -809,6 +745,51 @@ out to be a product-scope question rather than a scoped task should move to
       quantity, grouped vs flat, and checked items left out; an e2e step
       adds two unique items, clicks the action on desktop and mobile and
       asserts the toast and clipboard text.
+
+### 2026-10-15 scan
+
+- [ ] **GAP-54. Import a recipe from a photo (cookbook page, recipe card)** (impact: med, effort: M) —
+      Plan to Eat's late-2025 update added photo scanning of recipe cards
+      and cookbook pages. Squirrel imports only from a URL
+      (REQUIREMENTS.md, "Recipe import from URL",
+      `src/lib/recipe-import.ts`), so a paper recipe or a screenshot is
+      retyped by hand. Add a "Import from a photo" button beside the URL
+      input in `RecipeFormDialog`, reusing the vision receipt-scan
+      upload and provider path (`scanReceiptPhotoAction` in
+      `src/lib/actions/receipt-scan.ts` and its `resolveAttempts`/
+      `callAttempts`/`callGemini`/`callAnthropic` helpers; no new third
+      party, no stored image) to extract name, instructions and
+      ingredient rows into the same pre-fill state. Same stance as the
+      URL import: never auto-save, the user reviews and edits first, and
+      a failed or empty parse shows an error toast and leaves the form
+      untouched. Gate it on the same check as that action:
+      `resolveAttempts` is empty (`not_configured`) when neither
+      `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set. The Tesseract OCR
+      fallback in `src/lib/receipt-parsing.ts` is receipt-specific and is
+      not used here, so with neither key set the button is hidden. Fold
+      the photo parser's output through the existing ingredient-line
+      parser so units and quantities match URL imports.
+      Acceptance: unit tests for the output-to-prefill mapping and the
+      unconfigured/failed-parse paths plus the tenancy check on the
+      action; an e2e step (AI mocked as in the receipt specs) uploads a
+      fixture image in the dialog and asserts the name and ingredient
+      rows are pre-filled and nothing is saved until Save, on desktop
+      and mobile.
+
+- [ ] **GAP-55. Show when a recipe is planned on its detail view** (impact: low-med, effort: S) —
+      AnyList's recipe details now list past and upcoming meal-plan dates
+      for a recipe. Squirrel's recipe view says nothing about whether a
+      recipe is already on this week's plan, so a household can plan the
+      same dish twice or not realise a favourite was cooked last week.
+      (GAP-46 covers "last cooked"; this is the upcoming side.) Add a
+      read-only "Planned: Tue 21 Oct, Sat 25 Oct" line to the recipe card
+      or dialog from a household-scoped query of `MealPlanEntry` rows with
+      `date >= today` for that `recipeId` (limit 3), each date linking to
+      `?week=` for its week. Nothing shown when there are none. No schema
+      change.
+      Acceptance: a loader test covers household scoping, past dates
+      excluded and the limit; an e2e step plans a seeded recipe and
+      asserts the date text on the recipe view on desktop and mobile.
 
 ## Needs a decision before building
 

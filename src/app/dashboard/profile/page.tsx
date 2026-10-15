@@ -14,6 +14,7 @@ import { WeeklyDigestSetting } from "@/components/profile/weekly-digest-setting"
 import { ExportButton } from "@/components/export/export-button";
 import { format } from "@/lib/i18n/format";
 import { CURRENT_VERSION } from "@/lib/release-notes";
+import { PageTitle } from "@/components/dashboard/page-title";
 
 export default async function ProfilePage() {
   const [{ userId }, dict] = await Promise.all([requireHousehold(), getDictionary()]);
@@ -32,7 +33,7 @@ export default async function ProfilePage() {
       <div className="flex items-center gap-4">
         <UserAvatar displayName={user.displayName} seed={user.id} />
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">{dict.profile.title}</h1>
+          <PageTitle>{dict.profile.title}</PageTitle>
           <p className="text-sm text-muted-foreground">{dict.profile.subtitle}</p>
           <p className="mt-1 text-xs text-muted-foreground">{dict.profile.avatar.description}</p>
         </div>

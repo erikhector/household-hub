@@ -391,6 +391,7 @@ export function InventoryClient({
         emptyMessage={items.length === 0 ? dict.emptyNoItems : dict.emptyNoMatches}
         isHouseholdEmpty={items.length === 0}
         aiCategoryFallbackEnabled={aiCategoryFallbackEnabled}
+        view={JSON.stringify([name, category, location, status, updatedFilter, groupBy])}
       />
     </div>
   );

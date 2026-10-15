@@ -37,6 +37,7 @@ import {
   type SafeToSpendBreakdown,
   type SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
+import { projectMonthEnd } from "@/lib/chart-calc";
 import {
   computeMemberPosition,
   remainingDue,
@@ -49,10 +50,13 @@ export async function loadPersonalBudgetPosition({
   monthStart,
   monthEnd,
   sharedLabel,
+  now = new Date(),
 }: {
   userId: string;
   monthStart: Date;
   monthEnd: Date;
+  /** "Today", for the projected end-of-month line (UX-39). */
+  now?: Date;
   /** dict.personalBudget.shared.sharedBadge — appended to a shared
    * category's name in the per-category totals, so a personal "Rent" and a
    * shared "Rent" don't merge into one row. */
@@ -487,6 +491,16 @@ export async function loadPersonalBudgetPosition({
       expectedRecurring,
     });
 
+  // UX-39: the projected end-of-month line under the number, paced by the
+  // user's own everyday spending this month (a shared bill's share is a
+  // bill, so it stays out of the pace).
+  const safeToSpendProjection = projectMonthEnd({
+    safeToSpend,
+    transactions: monthTransactions,
+    monthStart,
+    today: now,
+  });
+
   return {
     transactions,
     monthTransactions,
@@ -507,6 +521,7 @@ export async function loadPersonalBudgetPosition({
     safeToSpend,
     safeToSpendStatus,
     safeToSpendBreakdown,
+    safeToSpendProjection,
     expectedRecurring,
   };
 }

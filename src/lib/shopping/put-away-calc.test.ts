@@ -8,6 +8,7 @@ import {
   defersToPutAway,
   isAwaitingPutAway,
   selectPutAwayReminders,
+  withLocalTick,
   type ReminderList,
 } from "@/lib/shopping/put-away-calc";
 
@@ -29,6 +30,37 @@ describe("isAwaitingPutAway", () => {
     expect(isAwaitingPutAway({ purchased: true, putAwayAt: null })).toBe(true);
     expect(isAwaitingPutAway({ purchased: true, putAwayAt: now })).toBe(false);
     expect(isAwaitingPutAway({ purchased: false, putAwayAt: null })).toBe(false);
+  });
+});
+
+describe("withLocalTick", () => {
+  const row = {
+    id: "r1",
+    purchased: false,
+    putAwayAt: null as Date | null,
+    priceRecordedAt: null as Date | null,
+    inventoryItemId: "inv1" as string | null,
+    estimatedPrice: 12 as number | null,
+  };
+
+  it("counts a linked, priced row at once outside put-away mode, like the action", () => {
+    expect(withLocalTick(row, true, false, now)).toEqual({ ...row, purchased: true, putAwayAt: now, priceRecordedAt: now });
+  });
+
+  it("leaves priceRecordedAt alone for an unpriced or unlinked row", () => {
+    expect(withLocalTick({ ...row, estimatedPrice: null }, true, false, now).priceRecordedAt).toBeNull();
+    expect(withLocalTick({ ...row, inventoryItemId: null }, true, false, now).priceRecordedAt).toBeNull();
+  });
+
+  it("puts a row in the cart, not away, in put-away mode", () => {
+    const ticked = withLocalTick({ ...row, putAwayAt: hoursAgo(5) }, true, true, now);
+    expect(ticked).toMatchObject({ purchased: true, putAwayAt: null });
+    expect(isAwaitingPutAway(ticked)).toBe(true);
+  });
+
+  it("undoes the purchase on an untick", () => {
+    const ticked = { ...row, purchased: true, putAwayAt: now, priceRecordedAt: now };
+    expect(withLocalTick(ticked, false, false, now)).toEqual({ ...row, purchased: false });
   });
 });
 

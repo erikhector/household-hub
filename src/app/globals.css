@@ -213,6 +213,11 @@
   }
   html {
     @apply font-sans;
+    /* UX-33: on desktop the body scrolls, so the list growing past one
+       screen brought in the scrollbar and nudged everything right-aligned
+       (a list's ⋯ menu) sideways. The gutter is always reserved instead.
+       Overlay scrollbars (macOS, phones) take no room either way. */
+    scrollbar-gutter: stable;
   }
   /* iOS Safari draws date/time fields with its native appearance, which
      sizes the box to its own content and ignores `width: 100%` /
@@ -243,6 +248,117 @@
   }
 }
 
+/* UX-33: the motion tokens (DESIGN.md "Depth, motion and states"). One
+   scale for everything that moves, so a row leaving, a page arriving and a
+   ticked item sliding to "Done" feel like the same app. Exits are quicker
+   than entrances: what's leaving shouldn't compete with what's arriving.
+   The spring is a sampled damped spring (damping ratio 0.7, ~5%
+   overshoot, settled by about 80% of its duration) written as `linear()`,
+   for things that physically move to a new place. Not in @theme on
+   purpose: Tailwind's own `ease-in`/`ease-out` utilities stay as they are. */
+:root {
+  --motion-duration-fast: 120ms;
+  --motion-duration-base: 200ms;
+  --motion-duration-slow: 320ms;
+  --motion-duration-spring: 400ms;
+  --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-spring: linear(
+    0,
+    0.093,
+    0.293,
+    0.512,
+    0.706,
+    0.853,
+    0.952,
+    1.01,
+    1.038,
+    1.046,
+    1.042,
+    1.033,
+    1.023,
+    1.014,
+    1.007,
+    1.002,
+    1
+  );
+}
+
+/* UX-33: view transitions, for navigations. React's <ViewTransition> (on
+   by default in Next 16.3's App Router, no config flag) runs the browser's
+   View Transitions API, tagging each animating element with a class:
+   - vt-page-*: the dashboard's tab changes (src/app/dashboard/template.tsx);
+   - vt-morph: a list row's title flying into the detail page it opens.
+   List rows don't use these: they move at tap time, which React never
+   animates, so use-flip-list.ts glides them with the same tokens.
+   A browser without the API (or with it off) just swaps instantly. */
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-rise {
+  from {
+    translate: 0 8px;
+  }
+}
+
+/* The overlay doesn't swallow taps: a tap during an animation reaches the
+   live page underneath. Hit-testing still skips the named elements while
+   they animate, which is why every duration here stays short.
+
+   The root is never captured. By default the whole document is a named
+   element too, and React lets it crossfade whenever something outside a
+   <ViewTransition> changes (a dialog closing in its portal, a badge in
+   the nav), which made the entire page untappable for the 250 ms the
+   crossfade ran. Without a name, everything that isn't animating updates
+   at once and stays live. */
+:root {
+  view-transition-name: none;
+}
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.vt-page-exit) {
+  animation: var(--motion-duration-fast) var(--motion-ease-in) both vt-fade-out;
+}
+::view-transition-new(.vt-page-enter) {
+  animation:
+    var(--motion-duration-base) var(--motion-ease-out) var(--motion-duration-fast) both vt-fade-in,
+    var(--motion-duration-slow) var(--motion-ease-out) both vt-rise;
+}
+
+::view-transition-group(.vt-morph) {
+  animation-duration: var(--motion-duration-slow);
+  animation-timing-function: var(--motion-ease-in-out);
+}
+
+/* The phone shell's header and bottom bar stay put and above everything
+   that animates. The page's snapshot is its whole box, not just the part
+   `main` scrolls into view, so without this a long page fading in would
+   paint over both bars for a moment. The names are on the elements
+   themselves (dashboard layout, BottomNav). */
+::view-transition-group(app-header),
+::view-transition-group(app-bottom-nav) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(app-header),
+::view-transition-old(app-bottom-nav) {
+  display: none;
+}
+::view-transition-new(app-header),
+::view-transition-new(app-bottom-nav) {
+  animation: none;
+}
+
 /* UX-29 (DESIGN.md principle 6: respect the user's settings): with reduced
    motion on, every animation and transition collapses to instant. 0.01ms —
    not 0 — keeps transitionend/animationend listeners firing for anything
@@ -256,6 +372,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* `*` doesn't reach the view-transition pseudo-elements, so UX-33's
+     page, row and morph animations need their own line: the change
+     still happens, at once. */
+  ::view-transition-group(*),
+  ::view-transition-image-pair(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
   }
 }
 
