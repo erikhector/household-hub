@@ -124,12 +124,15 @@ test("swiping a shopping row right ticks it, and the tick saves", async ({ page 
 
   const saved = nextActionResponse(page);
   await swipe(page, main.getByTitle(new RegExp(`^${name} ×`)), width * 0.6);
+  // UX-37: on an active list a ticked row lives in the collapsed "In the
+  // cart" section (its fading copy in the aisle is hidden from assistive
+  // tech, MAINT-19), so open it to see the tick, before and after saving.
+  const cart = main.getByRole("button", { name: /^In the cart/ });
+  await cart.click();
   await expect(box).toBeChecked();
   await saved;
   await page.reload();
-  // UX-37: on an active list a ticked row lives in the collapsed "In the
-  // cart" section, so open it to see the saved tick.
-  await main.getByRole("button", { name: /^In the cart/ }).click();
+  await cart.click();
   await expect(box).toBeChecked();
 });
 
