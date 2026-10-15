@@ -329,23 +329,6 @@ order below is a suggestion, not a dependency, unless noted.
       "owed from earlier months". Verify with 3 years × 100/month seeded.
  No schema change of its own beyond PERF-3's index.
 
-- [ ] **BUDGET-8. One-off shared cost / planned shared expense mechanism** (medium, M) `[schema?]`
-      Households need a way to create an expected, non-recurring shared
-      cost (e.g. "Group purchase: new vacuum" or "Shared bulk buy") that
-      is eligible for budgets and member shares without being a recurring
-      template. This covers planned joint purchases that should affect
-      category budgets and safe-to-spend forecasts.
-      - Proposal: add a `SharedPlan` table or a `Transaction.isPlannedShared`
-        boolean plus `plannedDate` and optional `participants`/`split` info;
-        or reuse `Transaction` with a `status: planned|posted` and an
-        associated `TransactionSplit` prepared but not yet settled.
-      - Migration: if a new column/table is needed, add a migration and
-        keep read paths backward-compatible while the UI rolls out.
-      Acceptance: a member can create a planned shared cost, it shows up
-      in the household and personal budgets as an expected charge (at each
-      participant's share) and can be converted to a real `Transaction` on
-      settlement; unit tests for the create/convert flows and a short e2e
-      spec for the UI flow.
 - [ ] **SEC-4. Removing a member revokes what they can still reach** (medium) —
       any role can create 7-day invites (`household.ts:32-50`) and nothing
       revokes them; `removeMemberAction` (`:383-410`) leaves pending

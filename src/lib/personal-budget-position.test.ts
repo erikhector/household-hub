@@ -475,7 +475,14 @@ describe("loadPersonalBudgetPosition", () => {
           where: {
             householdMemberId: { in: ["m1"] },
             amountOwed: { gt: 0 },
-            plannedExpense: { dueDate: { lt: monthEnd } },
+            plannedExpense: {
+              dueDate: { lt: monthEnd },
+              // Bills paid before the month are history; leave them in the DB.
+              OR: [
+                { transaction: { is: null } },
+                { transaction: { is: { date: { gte: monthStart } } } },
+              ],
+            },
           },
         }),
       );

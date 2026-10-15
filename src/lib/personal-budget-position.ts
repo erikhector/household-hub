@@ -362,7 +362,13 @@ export async function loadPersonalBudgetPosition({
           where: {
             householdMemberId: { in: householdMemberIds },
             amountOwed: { gt: 0 },
-            plannedExpense: { dueDate: { lt: monthEnd } },
+            // Paid before the month started is history (never outstanding):
+            // leave it to the database so this doesn't grow with every bill
+            // ever paid. A payment dated later still counts as unpaid here.
+            plannedExpense: {
+              dueDate: { lt: monthEnd },
+              OR: [{ transaction: { is: null } }, { transaction: { is: { date: { gte: monthStart } } } }],
+            },
           },
           include: {
             plannedExpense: {
