@@ -215,21 +215,25 @@ export function ShoppingListClient({
   // tick in flight had settled, leaving the row in "In the cart" after its
   // save failed. Each tick now settles on its own: a failure puts its row
   // back at once (settleOptimisticAction adds the toast that says why), and
-  // a success holds the tick until the revalidated list agrees.
-  const [ticks, setTicks] = useState<TickOverlay>(NO_TICKS);
-  // A new server list (a save's revalidation) retires the ticks it now
-  // agrees with: adjusted during render, React's pattern for state derived
-  // from a changed prop, so a saved row never shows one frame unticked.
-  const [reconciledItems, setReconciledItems] = useState(list.items);
-  if (reconciledItems !== list.items) {
-    setReconciledItems(list.items);
-    setTicks((current) => reconcileTicks(current, list.items));
+  // a success holds the tick until the next server list, which then wins.
+  //
+  // The overlay and the server rows it was last reconciled against are one
+  // state, so a tick that settles reads the newest list React has seen, not
+  // a copy an effect hasn't caught up with yet: when the revalidated list
+  // renders before the save's promise settles, the tick is checked against
+  // that list and goes at once.
+  const [tickState, setTickState] = useState<{ overlay: TickOverlay; items: ShoppingListItemRow[] }>({
+    overlay: NO_TICKS,
+    items: list.items,
+  });
+  // A new server list (a save's revalidation, another member's change)
+  // retires every settled tick: adjusted during render, React's pattern for
+  // state derived from a changed prop, so a saved row never shows one frame
+  // unticked.
+  if (tickState.items !== list.items) {
+    setTickState((current) => ({ overlay: reconcileTicks(current.overlay, list.items), items: list.items }));
   }
-  // The latest server rows for a tick that settles after a re-render.
-  const serverItemsRef = useRef(list.items);
-  useEffect(() => {
-    serverItemsRef.current = list.items;
-  }, [list.items]);
+  const ticks = tickState.overlay;
   const isTicking = hasTicksInFlight(ticks);
   const items = list.items.map((item) => {
     const purchased = shownPurchased(ticks, item.id, item.purchased);
@@ -264,16 +268,23 @@ export function ShoppingListClient({
   };
 
   // `item` is the row as shown (overlay applied); the overlay reads the
-  // server's own `purchased` for the row.
-  const serverPurchased = (id: string) => serverItemsRef.current.find((row) => row.id === id)?.purchased ?? false;
+  // server's own `purchased` for the row from the same state it updates.
+  const serverPurchased = (rows: ShoppingListItemRow[], id: string) =>
+    rows.find((row) => row.id === id)?.purchased ?? false;
   const toggleItem = (item: ShoppingListItemRow) => {
     const ticking = !item.purchased;
     setLeavingRow(item.id, ticking && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    setTicks((current) => tickStarted(current, item.id, serverPurchased(item.id)));
+    setTickState((current) => ({
+      ...current,
+      overlay: tickStarted(current.overlay, item.id, serverPurchased(current.items, item.id)),
+    }));
     void (async () => {
       const result = await settleOptimisticAction(() => togglePurchasedAction(item.id), dict.saveFailedToast);
       if (!result) setLeavingRow(item.id, false);
-      setTicks((current) => tickSettled(current, item.id, result !== null, serverPurchased(item.id)));
+      setTickState((current) => ({
+        ...current,
+        overlay: tickSettled(current.overlay, item.id, result !== null, serverPurchased(current.items, item.id)),
+      }));
       if (result) showAutoAddedToast(result.autoAdded, autoAddDict);
     })();
   };

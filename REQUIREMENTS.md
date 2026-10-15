@@ -849,8 +849,10 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       (unit-tested) keeps, per row, what it should show and how many toggles
       are in flight; each tick settles on its own, so a failed save puts
       its row back at once (with the save-failed toast) while other saves
-      are still pending, and a saved tick holds until the revalidated list
-      agrees. "Put things away"/"Done shopping" wait while any toggle is in
+      are still pending. A saved tick goes at once if the current list
+      already shows it, and otherwise holds until the next server list,
+      which wins even where it disagrees (another member unticked the
+      row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
       flight. It stays in
       its aisle for 350 ms animating down and out, then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that

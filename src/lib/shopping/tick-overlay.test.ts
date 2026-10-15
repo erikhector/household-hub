@@ -56,6 +56,35 @@ describe("tick overlay", () => {
     expect(overlay.size).toBe(0);
   });
 
+  it("lets the server win once settled, even when it disagrees", () => {
+    // Saved as ticked, then someone else unticked it before the
+    // revalidated list arrived: that list is the truth.
+    let overlay = tickSettled(tickStarted(NO_TICKS, "a", false), "a", true, false);
+    expect(shownPurchased(overlay, "a", false)).toBe(true);
+    overlay = reconcileTicks(overlay, [{ id: "a", purchased: false }]);
+    expect(overlay.size).toBe(0);
+    expect(shownPurchased(overlay, "a", false)).toBe(false);
+  });
+
+  it("settles after its revalidated list has already rendered", () => {
+    // The new list lands while the save is still counted in flight: kept.
+    let overlay = tickStarted(NO_TICKS, "a", false);
+    overlay = reconcileTicks(overlay, [{ id: "a", purchased: true }]);
+    expect(shownPurchased(overlay, "a", true)).toBe(true);
+    expect(overlay.size).toBe(1);
+    // Settling against that (current) list drops it at once.
+    expect(tickSettled(overlay, "a", true, true).size).toBe(0);
+
+    // If the current list disagrees by then, the entry holds only until
+    // the next list, which wins.
+    let held = tickStarted(NO_TICKS, "b", false);
+    held = reconcileTicks(held, [{ id: "b", purchased: false }]);
+    held = tickSettled(held, "b", true, false);
+    expect(shownPurchased(held, "b", false)).toBe(true);
+    held = reconcileTicks(held, [{ id: "b", purchased: false }]);
+    expect(held.size).toBe(0);
+  });
+
   it("drops a settled entry for a row that's gone, and ignores unknown ids", () => {
     let overlay = tickSettled(tickStarted(NO_TICKS, "a", false), "a", true, false);
     overlay = reconcileTicks(overlay, []);

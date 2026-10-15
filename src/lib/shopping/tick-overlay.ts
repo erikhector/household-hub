@@ -10,10 +10,13 @@
 // toggles are still on their way. A quick re-tap before the server answers
 // flips `expected` again and sends a second toggle, as before. A failed
 // toggle never happened, so it flips `expected` back. Once nothing is in
-// flight, the entry goes as soon as the server-rendered `purchased` agrees
-// with it: straight away on a failure (the server never changed), or when
-// the revalidated list arrives after a success, so a saved row doesn't
-// flicker back for the moment in between.
+// flight, the entry goes straight away if the current server list already
+// agrees with it (a failure, since the server never changed, or a success
+// whose revalidated list rendered before the save settled). Otherwise it
+// holds until the next server list, so a saved row doesn't flicker back for
+// the moment in between, and that next list wins whatever it says: it
+// already includes the settled toggle, and anything that disagrees with it
+// (another member unticking the row) is the truth, not something to hide.
 
 export type TickEntry = { expected: boolean; inFlight: number };
 export type TickOverlay = ReadonlyMap<string, TickEntry>;
@@ -55,22 +58,23 @@ export function tickSettled(
   return next;
 }
 
-/** The server's rows changed: drop every settled entry they now agree with. */
+/**
+ * The server's rows changed: drop every settled entry. A new list after a
+ * toggle settled already reflects it, so it's authoritative even where it
+ * disagrees; only entries with a save still on its way are kept.
+ */
 export function reconcileTicks(
   overlay: TickOverlay,
   items: ReadonlyArray<{ id: string; purchased: boolean }>,
 ): TickOverlay {
   if (overlay.size === 0) return overlay;
-  const purchasedById = new Map(items.map((item) => [item.id, item.purchased]));
+  const ids = new Set(items.map((item) => item.id));
   let next: Map<string, TickEntry> | null = null;
   for (const [id, entry] of overlay) {
-    if (entry.inFlight > 0) continue;
-    const server = purchasedById.get(id);
-    // A row that's gone (deleted elsewhere) has nothing left to show.
-    if (server === undefined || server === entry.expected) {
-      next ??= new Map(overlay);
-      next.delete(id);
-    }
+    // In flight: keep, unless the row is gone (deleted elsewhere).
+    if (entry.inFlight > 0 && ids.has(id)) continue;
+    next ??= new Map(overlay);
+    next.delete(id);
   }
   return next ?? overlay;
 }
