@@ -60,9 +60,13 @@ export type SharedDueRow = {
    * template's full expected amount. */
   amount: number;
   householdName: string;
+  /** For the "View in {household} Budget" link, which every shared row has. */
+  householdId: string;
   /** What "Log payment" needs to log the whole bill (not just this user's
-   * share) against the template — see SharedExpensePrefill. */
-  logPrefill: SharedExpensePrefill;
+   * share) against the template — see SharedExpensePrefill. Absent on a
+   * planned bill's share (BUDGET-8), which is paid from the household's
+   * Budget page, so no "Log payment" shows. */
+  logPrefill?: SharedExpensePrefill;
 };
 
 export function DueRecurringWidget({
@@ -321,7 +325,8 @@ export function DueRecurringWidget({
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {logSharedDialogDict &&
-                    sharedExpenseHouseholds.some((h) => h.id === row.logPrefill.householdId) && (
+                    row.logPrefill &&
+                    sharedExpenseHouseholds.some((h) => h.id === row.logPrefill!.householdId) && (
                       <LogSharedExpenseDialog
                         numberFormat={numberFormat}
                         dict={logSharedDialogDict}
@@ -336,7 +341,7 @@ export function DueRecurringWidget({
                       />
                     )}
                   <Link
-                    href={`/dashboard/budget?month=${monthKey}&household=${row.logPrefill.householdId}`}
+                    href={`/dashboard/budget?month=${monthKey}&household=${row.householdId}`}
                     className="touch-target shrink-0 text-sm font-medium text-primary hover:underline"
                   >
                     {format(dict.shared?.viewInHouseholdBudget ?? "", { household: row.householdName })}

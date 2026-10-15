@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
-import { E2E_HOUSEHOLD } from "./seed";
+import { E2E_HOUSEHOLD, E2E_USER } from "./seed";
 import { E2E_WORKER } from "./seed-data";
 import { dismissCookieNotice, expectNoHorizontalOverflow, expectTargetsApart, expectTouchTargets } from "./ui";
 
@@ -129,8 +129,29 @@ test("adds a planned bill, logs its payment, and un-pays it when the transaction
     await expectNoHorizontalOverflow(page);
   }
 
+  // --- The user's share shows in Personal Budget ---------------------------
+  // Split between E2E_MEMBER (the logged-in user) and E2E_MEMBER_SV, so 1500
+  // of the 3000. Personal Budget's Overview needs a personal category, or it
+  // shows its onboarding instead. Read-only there: no "Log payment".
+  await withDb((client) =>
+    client.query(
+      `INSERT INTO "PersonalBudgetCategory" (id, "userId", name, type)
+       VALUES ($2, $1, 'Food', 'EXPENSE') ON CONFLICT (id) DO NOTHING`,
+      [E2E_USER.id, `e2e-personal-cat-food-${E2E_USER.id}`],
+    ),
+  );
+  await page.goto("/dashboard/personal-budget");
+  const personalDue = main.locator('[data-slot="card"]').filter({ hasText: "Due this period" });
+  const shareRow = personalDue.getByText(name, { exact: true }).locator("xpath=ancestor::div[.//a][1]");
+  await expect(shareRow).toBeVisible();
+  await expect(shareRow.getByText("Shared", { exact: true })).toBeVisible();
+  await expect(shareRow).toContainText(/Your share:\s*1[\s,.]?500/);
+  await expect(shareRow.getByRole("button", { name: "Log payment" })).toHaveCount(0);
+  await expect(shareRow.getByRole("link", { name: /Budget/ })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
   // --- Log its payment -----------------------------------------------------
-  await page.getByRole("tab", { name: "Manage" }).click();
+  await page.goto("/dashboard/budget?tab=manage");
   await dueRow.getByRole("button", { name: "Log payment" }).click();
   const txDialog = page.getByRole("dialog", { name: "Add transaction" });
   await expect(txDialog).toBeVisible();
