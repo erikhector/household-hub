@@ -34,11 +34,14 @@ test("Copy as text puts the open items on the clipboard and leaves ticked ones o
   const copy = async () => {
     await page.getByRole("button", { name: t.moreActions }).click();
     await page.getByRole("menuitem", { name: t.copyText }).click();
-    await expect(page.getByText(t.copyTextToast)).toBeVisible();
-    return page.evaluate(() => navigator.clipboard.readText());
+    // The first copy's toast may still be showing when the second runs, so
+    // match any of them rather than one (strict mode).
+    await expect(page.getByText(t.copyTextToast).first()).toBeVisible();
   };
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
 
-  const text = await copy();
+  await copy();
+  const text = await clipboard();
   expect(text.split("\n")[0]).toBe(listName);
   expect(text).toMatch(new RegExp(`^- .*${oat}$`, "im"));
   expect(text).toMatch(new RegExp(`^- .*${rye}$`, "im"));
@@ -46,7 +49,7 @@ test("Copy as text puts the open items on the clipboard and leaves ticked ones o
   // A ticked item is in the cart, not on the list to buy.
   await oatBox.click();
   await expect(oatBox).toBeHidden();
-  const after = await copy();
-  expect(after).not.toContain(oat);
-  expect(after).toContain(rye);
+  await copy();
+  await expect.poll(clipboard).not.toContain(oat);
+  expect(await clipboard()).toContain(rye);
 });
