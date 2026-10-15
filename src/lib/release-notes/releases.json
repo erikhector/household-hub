@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.66.0",
+    "date": "2026-10-15",
+    "pr": 233,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Updated the app's underlying framework to a version with important security fixes.\n\nEach recipe now shows how many times you have cooked it and when you last did, so you can spot dinners that have dropped out of rotation.",
+      "sv": "Appens underliggande ramverk är uppdaterat till en version med viktiga säkerhetsrättningar.\n\nVarje recept visar nu hur många gånger ni har lagat det och när senast, så att ni ser vilka middagar som fallit ur rotationen."
+    }
+  },
+  {
     "version": "0.65.0",
     "date": "2026-10-15",
     "pr": 228,
