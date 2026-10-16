@@ -142,7 +142,20 @@ export function NextUpDock<T extends DockItem>({
         <div className="flex items-center gap-3">
           <ProgressRing progress={progress} dict={dict} />
           <div className="min-w-0 flex-1">
-            <span className="block text-xs text-muted-foreground">{dict.nextUp}</span>
+            {/* "+N more" rides on this line, not in a footer of its own:
+                the dock is pinned by its bottom edge, so a footer that
+                appears when the server confirms a just-added fourth row
+                (often past the 500 ms CLS grace) would push the dock's top
+                up by a line, a late layout shift (MAINT-18). */}
+            <span className="block truncate text-xs text-muted-foreground">
+              {dict.nextUp}
+              {next.more > 0 && (
+                <span className="short:hidden">
+                  {" · "}
+                  {format(plural(next.more, dict.moreHere), { count: next.more })}
+                </span>
+              )}
+            </span>
             {/* A span, not a <p>: the list's own group header is the <p>
                 that names the aisle. */}
             <span className="block truncate font-heading text-base font-semibold">{next.label}</span>
@@ -174,11 +187,6 @@ export function NextUpDock<T extends DockItem>({
             );
           })}
         </ul>
-        {next.more > 0 && (
-          <p className="text-xs text-muted-foreground short:hidden">
-            {format(plural(next.more, dict.moreHere), { count: next.more })}
-          </p>
-        )}
       </section>
     </>
   );

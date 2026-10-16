@@ -908,7 +908,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       not the row inside it, is what scrolls into view: its
       `overflow-hidden` makes it a scroll container, and Chrome clips an
       inner target's scroll-margin to it); from `sm` it's sticky at the bottom of the column; a short
-      (landscape) screen shows one item. Every item it offers is also in the
+      (landscape) screen shows one item. "+N more in this aisle" sits on the
+      "Next up" caption line, never in a footer of its own: the dock is
+      pinned by its bottom edge, so a footer appearing when the server
+      confirms a just-added fourth row would shift the dock up a line, late
+      (MAINT-18; `e2e/motion.spec.ts` guards it). Every item it offers is also in the
       list with its own checkbox (M7).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
