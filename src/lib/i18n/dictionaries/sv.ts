@@ -360,6 +360,7 @@ export const sv = {
     title: "Översikt",
     subtitle: "Det som behöver din uppmärksamhet just nu.",
     greeting: {
+      hello: "Hej, {name}",
       morning: "God morgon, {name}",
       afternoon: "God eftermiddag, {name}",
       evening: "God kväll, {name}",

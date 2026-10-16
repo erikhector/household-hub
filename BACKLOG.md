@@ -325,7 +325,7 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
   UX-80, UX-81, UX-84, UX-85, UX-86.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-72, UX-110.
+- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
   UX-105, UX-106.
@@ -730,14 +730,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       With one active list the shopping card opens that list. Every card
       is actionable or removed. Empty counts use friendly copy ("No lists
       yet — start one").
-
-- [ ] **UX-72. Greet in the user's own time zone, by first name**
-      (impact: low, effort: S) — Context. The greeting uses the server's
-      UTC hour (`src/app/dashboard/page.tsx:30`), so a Stockholm user sees
-      "Good morning" at 13:00. It also uses the full display name ("Good
-      evening, Åsa Lindström") at 30 px.
-      Acceptance: at 12:30 Europe/Stockholm the heading says "Good
-      afternoon, Åsa".
 
 - [ ] **UX-73. New households get a currency from their language**
       (impact: med, effort: S) — breaks M4 (default what you can derive).
