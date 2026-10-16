@@ -603,8 +603,11 @@ export function InventoryTable({
   );
 }
 
-// UX-35: the phone card's swipe actions: right for +1, left for Edit and a
-// Delete with Undo (the ⋯ menu's Delete keeps its confirm dialog). Its own
+// UX-35: the phone card's swipe actions: left for Edit and a Delete with
+// Undo (the ⋯ menu's Delete keeps its confirm dialog). No right swipe: its
+// +1 sat right next to the card's own + button, an easier tap than a 40%
+// swipe, and a swipe that adds stock by accident is worse than one that
+// does nothing. Its own
 // component so each card gets its own useUndoableDelete. Phones only: the
 // desktop table is for a mouse, where SwipeRow does nothing anyway.
 // A hidden card also leaves the bulk selection (onRemove): the bulk bar must
@@ -635,8 +638,6 @@ function SwipeableItemCard({
   return (
     <li data-flip-key={`card:${item.id}`}>
       <SwipeRow
-        primaryLabel={dict.swipe.increase}
-        primaryIcon={<Plus className="size-4" />}
         editLabel={dict.swipe.edit}
         deleteLabel={dict.swipe.delete}
         onDelete={() => {
@@ -716,7 +717,6 @@ function QuantityStepper({
         size="icon"
         className={buttonClass}
         disabled={disabled}
-        data-swipe-primary
         aria-label={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         title={format(dict.increaseQuantityAriaLabel, { name: item.name })}
         onClick={() => adjust(1)}

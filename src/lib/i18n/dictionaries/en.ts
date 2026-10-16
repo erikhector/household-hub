@@ -529,6 +529,8 @@ export const en = {
       confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
+    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    rowActionsAriaLabel: "More actions for {name}",
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
     estimatedTotal: "About {amount} left to spend",
@@ -1242,7 +1244,6 @@ export const en = {
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
-      increase: "+1",
       edit: "Edit",
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
@@ -1985,6 +1986,7 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
+    rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     weeklyRecapTitle: "This week, the household handled:",

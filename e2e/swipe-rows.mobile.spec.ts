@@ -6,7 +6,7 @@ import { dismissCookieNotice } from "./ui";
 import { budgetTag, insertHouseholdCategory, insertHouseholdTransaction, todayUtc, withDb } from "./budget-seed";
 
 // UX-35: swipe row actions on shopping, task and inventory rows. Swipe right
-// ticks, completes or adds one; swipe left reveals Edit and a Delete that
+// ticks or completes; swipe left reveals Edit and a Delete that
 // hides the row with an Undo toast and only deletes once the toast is gone.
 // Touch only, so phone only. Playwright has no touch-drag API, so the swipe
 // goes through Chromium's DevTools protocol as real touch events, which the
@@ -165,7 +165,10 @@ test("swiping a task right marks it done", async ({ page }) => {
   await expect(main.getByRole("checkbox", { name: `Mark ${title} as not done` })).toBeChecked();
 });
 
-test("swiping an inventory card right adds one", async ({ page }) => {
+// An inventory card swipes left only: a right swipe's +1 sat next to the
+// card's own + button, the easier tap. Its Edit isn't a third copy on the
+// card either: it's in the tray and the ⋯ menu, not an icon.
+test("an inventory card doesn't swipe right, and swipes left to Edit", async ({ page }) => {
   const main = page.getByRole("main");
   const t = tag();
   const name = `Wheat flour ${t}`;
@@ -175,15 +178,55 @@ test("swiping an inventory card right adds one", async ({ page }) => {
     [`e2e-ux35-inv-${t}`, E2E_HOUSEHOLD.id, name],
   );
   await page.goto("/dashboard/inventory");
+  const card = main.getByRole("paragraph").filter({ hasText: name });
   const stepper = main.getByRole("button", { name: `Increase ${name}` }).locator("..");
   await expect(stepper).toContainText("2 pcs");
+  const cardRow = main.locator("li", { has: page.getByRole("paragraph").filter({ hasText: name }) });
+  // Still there for the swipe and the menu to click, just not shown.
+  await expect(cardRow.getByRole("button", { name: "Edit item", includeHidden: true })).toHaveCount(1);
+  await expect(cardRow.getByRole("button", { name: "Edit item", includeHidden: true })).toBeHidden();
 
-  const saved = nextActionResponse(page);
-  await swipe(page, main.getByRole("paragraph").filter({ hasText: name }), 250);
-  await expect(stepper).toContainText("3 pcs");
-  await saved;
-  await page.reload();
-  await expect(stepper).toContainText("3 pcs");
+  await swipe(page, card, 250);
+  await expect(stepper).toContainText("2 pcs");
+  await expect(main.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
+
+  await swipe(page, card, -160);
+  await main.getByRole("button", { name: "Edit", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit inventory item" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "Name" })).toHaveValue(name);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // The tap path the swipe duplicates: the card's ⋯ menu.
+  await cardRow.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
+  await expect(dialog).toBeVisible();
+});
+
+// Once a swipe has gone sideways the list mustn't scroll under the finger
+// when it drifts up or down: SwipeRow cancels touchmove from then on.
+// Chromium already holds a pan-y gesture that starts sideways, so this
+// guards the behaviour rather than reproducing the bug, which was iOS
+// Safari's (Playwright can't drive its touch scrolling).
+test("a sideways swipe doesn't scroll the list under it", async ({ page }) => {
+  const main = page.getByRole("main");
+  const t = tag();
+  for (let i = 0; i < 16; i++) {
+    await seedTask(`${t}-${i}`, `Scroll ${t} ${String(i).padStart(2, "0")}`);
+  }
+  await page.goto("/dashboard/tasks");
+  const row = main.getByText(`Scroll ${t} 08`, { exact: true });
+  await row.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  const scroller = page.locator("main");
+  const before = await scroller.evaluate((el) => el.scrollTop);
+  // Room to scroll down, so a scroll would show.
+  expect(await scroller.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeGreaterThan(100);
+
+  // Sideways first (locks the swipe), then well up: 80 px of vertical drift.
+  await swipe(page, row, -160, { dy: -80 });
+  await expect(main.getByRole("button", { name: "Delete", exact: true })).toBeVisible();
+  expect(await scroller.evaluate((el) => el.scrollTop)).toBe(before);
 });
 
 test("swiping left opens the row's Edit dialog", async ({ page }) => {

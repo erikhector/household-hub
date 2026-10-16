@@ -502,6 +502,8 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editItemAriaLabel: "Redigera {name}",
+    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    rowActionsAriaLabel: "Fler åtgärder för {name}",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
     estimatedTotal: "Cirka {amount} kvar att spendera",
@@ -1175,7 +1177,6 @@ export const sv = {
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
-      increase: "+1",
       edit: "Redigera",
       delete: "Ta bort",
       deletedToast: '"{name}" borttagen',
@@ -1890,6 +1891,7 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editTaskAriaLabel: "Redigera {title}",
+    rowActionsAriaLabel: "Fler åtgärder för {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",

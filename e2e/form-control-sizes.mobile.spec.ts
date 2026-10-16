@@ -53,7 +53,9 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   // Escape would only close the unit combobox's open suggestions first.
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
 
-  await page.getByRole("button", { name: "Edit Apples" }).click();
+  // On a phone the row's Edit sits behind its ⋯ (RowActionsMenu).
+  await page.getByRole("button", { name: "More actions for Apples" }).click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   const edit = page.getByRole("dialog");
   await expectFieldsAtLeast16px(edit);
   const unit = edit.locator("#edit-item-unit");

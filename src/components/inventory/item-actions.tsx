@@ -61,6 +61,7 @@ export function ItemActions({
   // rendering the dialogs inside the menu popup (which would unmount them
   // as the menu closes).
   const deleteRef = React.useRef<HTMLButtonElement | null>(null);
+  const editRef = React.useRef<HTMLButtonElement | null>(null);
   return (
     <div className="flex items-center gap-1 max-sm:gap-2 pointer-coarse:gap-2">
       {/* Desktop: show individual controls */}
@@ -132,8 +133,10 @@ export function ItemActions({
         onConfirm={() => onDelete(item.id)}
       />
 
-      {/* Visible edit & delete. Edit stays visible on mobile too — the
-          primary per-row action — while the rest collapse into the ⋯ menu. */}
+      {/* Edit & delete. On a phone both live in the ⋯ menu: the card's
+          left swipe (SwipeRow) shows them too, so a visible icon would be a
+          third copy. The edit button stays mounted there, hidden, as the
+          one the menu and the swipe both click. */}
       <ItemFormDialog
         mode="edit"
         item={item}
@@ -148,8 +151,9 @@ export function ItemActions({
           <Button
             variant="ghost"
             size="icon"
+            ref={editRef}
             data-swipe-edit
-            className={cn(size, "text-muted-foreground hover:text-primary inline-flex")}
+            className={cn(size, "text-muted-foreground hover:text-primary hidden sm:inline-flex")}
             aria-label={dict.editAriaLabel}
             title={dict.edit}
           >
@@ -187,6 +191,7 @@ export function ItemActions({
           }
         />
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => editRef.current?.click()}>{dict.edit}</DropdownMenuItem>
           {canMarkOpened && <DropdownMenuItem onClick={() => onMarkOpened(item)}>{dict.markOpened}</DropdownMenuItem>}
           {canFreeze && <DropdownMenuItem onClick={() => onFreeze(item)}>{dict.freeze}</DropdownMenuItem>}
           <DropdownMenuItem render={<Link href={`/dashboard/inventory/items/${item.id}`} prefetch={false} />}>{dict.details}</DropdownMenuItem>

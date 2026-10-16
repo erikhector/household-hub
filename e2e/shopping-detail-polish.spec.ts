@@ -31,12 +31,19 @@ test("mic and scan sit inside the add field, only Add outside", async ({ page })
 test("row controls keep one order with delete last, and no chip repeats the group header", async ({ page }) => {
   await page.goto(LIST_URL);
 
-  // Unlinked row: [Match item][price][edit][delete].
+  // Unlinked row: [Match item][price][edit][delete]. On a phone the edit
+  // and delete icons give way to one ⋯ (the row's swipe shows both).
   const match = await xOf(page, "Match item");
   const price = await xOf(page, "Add an estimated price for Oat milk");
+  expect(match).toBeLessThan(price);
+  if (page.viewportSize()!.width < 640) {
+    await expect(page.getByRole("button", { name: "Edit Oat milk", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Remove Oat milk", exact: true })).toBeHidden();
+    expect(price).toBeLessThan(await xOf(page, "More actions for Oat milk"));
+    return;
+  }
   const edit = await xOf(page, "Edit Oat milk");
   const remove = await xOf(page, "Remove Oat milk");
-  expect(match).toBeLessThan(price);
   expect(price).toBeLessThan(edit);
   expect(edit).toBeLessThan(remove);
 
