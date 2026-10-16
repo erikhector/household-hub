@@ -722,6 +722,47 @@ out to be a product-scope question rather than a scoped task should move to
       excluded and the limit; an e2e step plans a seeded recipe and
       asserts the date text on the recipe view on desktop and mobile.
 
+### 2026-10-16 scan
+
+- [ ] **GAP-56. Select several planned meals to move, re-portion or remove at once** (impact: med, effort: M) —
+      Plan to Eat's late-2025 planner update added bulk editing: move,
+      copy or change servings for several meals together. Squirrel only
+      edits one entry at a time (REQUIREMENTS.md, "Editing a meal entry"
+      and "Moving a meal entry (GAP-30)": one pencil and one move button
+      per row), so shifting a week's dinners by a day, or halving every
+      portion for a trip, is a dozen dialogs. Add a "Select" mode to the
+      planner: tap rows to tick them (a bar shows the count), then "Move
+      to…" (reuses `MoveMealDialog`'s date and meal-type picker, applied
+      as a day offset so the group keeps its shape), "Portions…"
+      (reuses `PortionStepper`) or "Remove". Cooked entries aren't
+      selectable (same rule as move). A bulk action is one Server Action
+      taking entry ids, `requireHousehold()`-scoped, all-or-nothing in a
+      transaction, with an Undo toast like copy-week. No schema change.
+      Mobile: the bar sits above the bottom nav, rows keep 44 px targets
+      (M-rules).
+      Acceptance: unit tests for the day-offset mapping, skipping cooked
+      entries, tenancy (an id from another household rejects the whole
+      batch) and undo; an e2e step selects two seeded entries, moves them
+      a day, asserts them on the new day after reload, and halves their
+      portions, on desktop and mobile.
+
+- [ ] **GAP-57. "Tonight's dinner" nudge in the morning** `[!]` (impact: low-med, effort: M) —
+      Plan to Eat lists push notifications for upcoming meals on its 2026
+      roadmap, and Cozi/Mealime-style planners remind you what is on the
+      menu. Squirrel only nudges after the fact ("Meal not logged",
+      `syncMealNotLoggedNotifications`), so a planned dinner needing
+      thawing or a missing ingredient goes unnoticed until evening. Needs
+      a product call: REQUIREMENTS.md notes there are no per-kind
+      notification settings for any type, so a daily alert would be
+      unmutable, against the Guardrails on noisy positive alerts.
+      Recommendation: build only with an opt-in per-user toggle (default
+      off) in the notification settings, one bell/push entry per day
+      listing that day's planned meals, silent when nothing is planned
+      or everything is already cooked. Acceptance (if decided): a sync
+      test covers the opt-out default, no entry on an empty day and
+      household scoping; an e2e step enables the toggle and asserts the
+      bell entry, on desktop and mobile.
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
