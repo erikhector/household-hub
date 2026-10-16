@@ -307,7 +307,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57, UX-78,
+build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
 UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -781,17 +781,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       `squirrel-my-data-<date>.json`.
 
 #### Shopping
-
-- [ ] **UX-78. A double tap in the "Next up" dock ticks two items**
-      (impact: high, effort: S) — bug, breaks M5. A ticked dock row is
-      removed within about 60 ms and the next item slides under the same
-      finger (`src/components/shopping/shopping-mode.tsx:158-172`). Two
-      taps 90 ms apart ticked milk *and* eggs (5 → 7 of 14), and no toast
-      said so.
-      Acceptance: two taps within 400 ms on a dock row tick only that
-      item. The row shows a filled check (UX-54) before the next item
-      moves up. An e2e test double-taps a dock row and sees progress rise
-      by exactly 1.
 
 - [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
       M) — breaks M6. Every pending row is 118 px: a name line plus

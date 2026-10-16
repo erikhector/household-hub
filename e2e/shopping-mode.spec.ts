@@ -69,6 +69,37 @@ async function expectInBottomHalf(page: Page, locator: ReturnType<Page["locator"
   expect(box.y + box.height, "on screen").toBeLessThanOrEqual(height);
 }
 
+// UX-78: the ticked row left the dock within ~60 ms and the next item slid
+// under the same finger, so a double tap ticked two things.
+test("a double tap on a dock row ticks only that item", async ({ page }) => {
+  const t = tag();
+  const names = [`Milk ${t}`, `Eggs ${t}`, `Bread ${t}`];
+  const path = await seedList(t, names.map((name) => ({ name, category: `Aisle A ${t}` })));
+  await page.goto(path);
+
+  const dock = page.getByRole("region", { name: "Next up" });
+  const progress = dock.getByRole("progressbar", { name: "Shopping progress" });
+  await expect(progress).toHaveAttribute("aria-valuetext", "0 of 3");
+
+  // Two taps 90 ms apart, on the same spot, dispatched in the page so
+  // nothing waits for the row to be actionable in between.
+  const first = dock.getByRole("button", { name: /, into the cart$/ }).first();
+  const box = (await first.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.click(x, y);
+  await page.waitForTimeout(90);
+  await page.mouse.click(x, y);
+
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 3");
+  // The ticked row shows its filled check (no longer a tick button) first.
+  await expect(dock.getByRole("button", { name: names[0] })).toBeDisabled();
+  await page.waitForTimeout(700);
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 3");
+  // The next item has moved up, untouched and tickable again.
+  await expect(dock.getByRole("button", { name: new RegExp(`${names[1]}.*into the cart$`) })).toBeEnabled();
+});
+
 test("a whole shop is ticked off from the dock in the thumb zone, without scrolling up", async ({ page }) => {
   const errors = collectErrors(page);
   const t = tag();
