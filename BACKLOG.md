@@ -316,6 +316,25 @@ don't build these in parallel:
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
 
+- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
+      DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
+      16.3.4→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
+      7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
+      so a regression bisects to the framework. Read the Next 16.4 notes in
+      `node_modules/next/dist/docs/` for changed APIs, and regenerate the
+      client (`postinstall`). Playwright needs the Chromium build the
+      environment provides (`executablePath` in `playwright.config.ts`).
+      Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
+      is green on desktop and mobile.
+
+- [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
+      Major release (10.73 installed, 11.8 latest). Sentry is wired into
+      the client, server and edge configs plus `instrumentation`; check the
+      v11 migration guide for removed options, then confirm an error still
+      reaches Sentry with no PII added (see the privacy page).
+      Acceptance: `npm run check && npm run build` green; the build emits
+      no new Sentry warnings; REQUIREMENTS.md's monitoring section matches.
+
 ### Budget component unification
 
 The data layer (Prisma models, both `actions.ts` files, both `page.tsx`
