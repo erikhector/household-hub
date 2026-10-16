@@ -3061,9 +3061,9 @@ export const en = {
       haveAccount: "Already have an account?",
       logIn: "Log in",
       verificationSentDescription:
-        "Account created! We've sent a verification link to {email}. Verify your email, then log in to get started.",
+        "Account created! You've joined {household}. We've sent a verification link to {email}. Verify your email, then log in to get started.",
       verificationSendFailedDescription:
-        "Account created, but we couldn't send the verification email just now. Try resending it below.",
+        "Account created and you've joined {household}, but we couldn't send the verification email just now. Try resending it below.",
       resend: "Resend verification email",
       resending: "Sending…",
     },

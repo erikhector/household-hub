@@ -247,11 +247,11 @@ export async function joinViaInviteSignupAction(
     return toFriendlyError(error);
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(ACTIVE_HOUSEHOLD_COOKIE, invitation.householdId, {
-    maxAge: ACTIVE_HOUSEHOLD_COOKIE_MAX_AGE,
-    path: "/",
-  });
+  // No active-household cookie here (UX-55): this account has exactly one
+  // household, which requireHousehold falls back to, and setting a cookie in
+  // a Server Action re-renders the current route. /join/<token> would then
+  // see the invite as already used and replace the verification-sent panel
+  // with "Invalid invite" at the moment the join succeeded.
 
   // Same posture as signupAction (src/lib/actions/auth.ts): additive, not a
   // hard dependency, and no auto sign-in — this account's email must be
@@ -281,7 +281,12 @@ export async function joinViaInviteSignupAction(
     emailError = true;
   }
 
-  return { status: "verification-sent", email, ...(emailError ? { emailError: true } : {}) };
+  return {
+    status: "verification-sent",
+    email,
+    householdName: invitation.household.name,
+    ...(emailError ? { emailError: true } : {}),
+  };
 }
 
 // --- Getting-started household step -------------------------------------

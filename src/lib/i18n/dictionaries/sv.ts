@@ -2946,9 +2946,9 @@ export const sv = {
       haveAccount: "Har du redan ett konto?",
       logIn: "Logga in",
       verificationSentDescription:
-        "Kontot är skapat! Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
+        "Kontot är skapat! Du har gått med i {household}. Vi har skickat en verifieringslänk till {email}. Verifiera din e-post och logga sedan in för att komma igång.",
       verificationSendFailedDescription:
-        "Kontot är skapat, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
+        "Kontot är skapat och du har gått med i {household}, men vi kunde inte skicka verifieringsmejlet just nu. Försök skicka det igen nedan.",
       resend: "Skicka verifieringslänk igen",
       resending: "Skickar…",
     },
