@@ -254,6 +254,31 @@ then MAINT-7 per feature, to avoid churn.
       test waits for. Don't loosen the assertion. Acceptance: `npx
       playwright test e2e/budget-month-tab.spec.ts --project=mobile
       --repeat-each=30` passes 30/30.
+- [ ] **BUG-2. Red next: `form-control-sizes.mobile.spec.ts:42` fails on
+      the landscape and tablet projects** (high, S) — on clean `next`
+      (2c99254) `[landscape]` and `[tablet]` "shopping add and edit item
+      dialogs use 16px fields and show the whole unit" time out waiting
+      for the button "More actions for Apples", which those viewports
+      don't render. It fails every run (seen by three builder runs,
+      PRs #267, #268, #272), so `npm run ci:local` is red for everyone.
+      The spec was last changed by #254. Make the spec open the row's
+      actions the way those viewports do (or fix the row if the button
+      is missing by mistake). Don't skip it or loosen the assertion.
+      Acceptance: `npx playwright test e2e/form-control-sizes.mobile.spec.ts
+      --project=landscape --project=tablet` passes.
+- [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
+      test** (medium, S) — `[desktop]` and `[mobile]`
+      `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
+      copy and leaves the original") fails with `page.reload:
+      net::ERR_ABORTED`. On clean `next` (2c99254) it failed 5 of 16 runs
+      with `--repeat-each=8`; it also failed and passed on re-run in
+      builder gates for PRs #268 and #272. The reload is probably issued
+      while the Undo server action's revalidation navigation is still in
+      flight. Fix the cause in the app or in what the test waits for
+      (wait for the undo to settle before reloading). Don't loosen the
+      assertion, skip it or add a retry. Acceptance: `npx playwright test
+      e2e/duplicate-recipe.spec.ts:67 --project=desktop --project=mobile
+      --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
