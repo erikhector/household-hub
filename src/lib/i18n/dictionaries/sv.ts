@@ -244,6 +244,14 @@ export const sv = {
       defaultOption: "Groceries (skapas vid första inköpet)",
       savedToast: "Sparat",
     },
+    rename: {
+      title: "Hushållets namn",
+      label: "Namn",
+      description: "Visas för alla i hushållet, i inbjudningsmejl och på sidan för att gå med.",
+      save: "Spara namn",
+      saving: "Sparar…",
+      savedToast: "Hushållet har bytt namn",
+    },
     currency: {
       title: "Valuta",
       label: "Visa belopp i",

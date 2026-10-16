@@ -236,6 +236,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     it publishes the household's meal plan and bill names at a link that
     needs no login. Contributors can still see and copy the link once it's
     on. See "Calendar feed" below.
+  - `renameHouseholdAction` (UX-75) — renames the household. Same trimming
+    and 1-60 character rules as creation; returns `{ error }` for a
+    non-owner or an invalid name. The Household page shows the "Household
+    name" card (`RenameHousehold`) to the owner only, with a Save button
+    that is disabled until the name changes. The dashboard layout is
+    revalidated, so the header and switcher show the new name; invite emails
+    and the join page read it from the database on each request.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
     AUTO-8) — day-to-day shopping behaviour, not administration — and the
