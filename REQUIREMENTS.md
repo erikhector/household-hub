@@ -360,6 +360,14 @@ outbound email to arbitrary addresses via this app's sending domain.
   page filters its already-fetched member list by `userId`; the overview runs
   a dedicated `householdMember.count` query since it doesn't otherwise fetch
   members). Hidden entirely when the household has only the current user.
+- **Overview greeting (UX-72)**: the overview heading greets by first name
+  ("Good afternoon, Åsa", never the full display name) and by the hour in the
+  user's own time zone. The server runs in UTC and doesn't know the zone, so
+  `components/dashboard/greeting.tsx` reads the hour in the browser
+  (`useSyncExternalStore`); the server render shows the neutral
+  `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
+  first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
+  cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
 
 ## Data model
 
