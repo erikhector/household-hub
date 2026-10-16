@@ -77,7 +77,7 @@ test("completing with some bought items unpriced lets you correct the amount bef
   await page.getByRole("button", { name: "Done shopping" }).click();
 
   await expect(page.getByRole("heading", { name: "Some bought items have no price" })).toBeVisible();
-  await expect(page.getByText("1 of 2 bought items has no price")).toBeVisible();
+  await expect(page.getByText("Of 2 bought items, 1 has no price")).toBeVisible();
   // Nothing is logged until the user confirms.
   expect(await transactionsFor(name)).toHaveLength(0);
   await expectNoHorizontalOverflow(page);

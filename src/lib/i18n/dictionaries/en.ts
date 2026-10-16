@@ -517,8 +517,8 @@ export const en = {
     partialPrice: {
       title: "Some bought items have no price",
       description: {
-        one: "{unpriced} of {total} bought item has no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
-        other: "{unpriced} of {total} bought items have no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+        one: "Of {total} bought items, {unpriced} has no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+        other: "Of {total} bought items, {unpriced} have no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
       },
       amountLabel: "Amount to log in your budget",
       log: "Log amount",
