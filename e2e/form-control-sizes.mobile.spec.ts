@@ -2,7 +2,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER, E2E_SHOPPING_LIST } from "./seed-data";
-import { dismissCookieNotice } from "./ui";
+import { clickRowAction, dismissCookieNotice } from "./ui";
 
 // UX-10 (DESIGN.md M4): a focused field under 16 px makes iOS zoom the page,
 // and a unit field too narrow for its own buttons shows "p" for "pcs". Every
@@ -53,7 +53,10 @@ test("shopping add and edit item dialogs use 16px fields and show the whole unit
   // Escape would only close the unit combobox's open suggestions first.
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
 
-  await page.getByRole("button", { name: "Edit Apples" }).click();
+  // On a phone the row's Edit sits behind its ⋯ (RowActionsMenu); the
+  // landscape and tablet projects are touch too but `sm` and up, where the
+  // row shows its Edit icon and the ⋯ is hidden.
+  await clickRowAction(page, { button: "Edit Apples", menu: "More actions for Apples", item: "Edit" });
   const edit = page.getByRole("dialog");
   await expectFieldsAtLeast16px(edit);
   const unit = edit.locator("#edit-item-unit");

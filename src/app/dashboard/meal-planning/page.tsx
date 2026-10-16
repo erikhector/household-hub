@@ -243,7 +243,7 @@ async function PlannerTabSection({
 
 function PlannerTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label={label}>
+    <div className="list-bleed grid animate-pulse gap-3 sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]" role="status" aria-label={label}>
       {Array.from({ length: 7 }).map((_, i) => (
         <div key={i} className="h-48 rounded-lg border bg-muted/40" />
       ))}
@@ -424,7 +424,7 @@ async function RecipesTabSection({
 
 function RecipesTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col gap-2" role="status" aria-label={label}>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="h-14 rounded-md border bg-muted/40" />
       ))}
@@ -465,7 +465,7 @@ async function CookTabSection({
 
 function CookTabSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col divide-y rounded-md border" role="status" aria-label={label}>
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="h-16 bg-muted/40" />
       ))}
@@ -512,7 +512,7 @@ function PrepTabSkeleton({ label }: { label: string }) {
       <div className="h-14 rounded-md bg-muted/40" />
       <div className="h-11 rounded-lg border bg-muted/40" />
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-36 rounded-xl border bg-muted/40" />
+        <div key={i} className="list-bleed h-36 rounded-xl border bg-muted/40" />
       ))}
     </div>
   );

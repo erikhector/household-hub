@@ -69,7 +69,7 @@ export function HouseholdNotes({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="list-bleed flex flex-col gap-3 rounded-md border p-4">
       <div>
         <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
         <p className="text-sm text-muted-foreground">{dict.description}</p>

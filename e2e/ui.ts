@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
 
@@ -247,6 +248,17 @@ export async function openRowSheet(page: Page, name: string) {
   return sheet;
 }
 
+/** Waits until every dialog is closed and the history.back() the last one
+ * took its entry off with has landed. A dialog closed from the UI (a
+ * submit, Undo removing the row it edits) does that back() asynchronously
+ * (src/components/ui/dialog-history.ts, which marks <html> until it
+ * lands): a page.reload() issued before then races it and comes back
+ * net::ERR_ABORTED. Call it before a reload that follows a dialog closing. */
+export async function waitForDialogHistory(page: Page) {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
+}
+
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -274,4 +286,20 @@ export async function holdServerActions(page: Page, path: string) {
     },
   );
   return { release, answered: () => answered };
+}
+
+/** Clicks a swipeable row's Edit or Delete the way the current viewport
+ * shows it. From `sm` up that's the row's own icon button, named `button`;
+ * on a phone those icons are hidden (the row's left swipe shows them) and
+ * the row's ⋯, named `menu` (RowActionsMenu), reaches the same button. */
+export async function clickRowAction(
+  page: Page,
+  { button, menu, item }: { button: string; menu: string; item: "Edit" | "Delete" },
+) {
+  if ((page.viewportSize()?.width ?? 1280) >= 640) {
+    await page.getByRole("button", { name: button, exact: true }).click();
+    return;
+  }
+  await page.getByRole("button", { name: menu, exact: true }).click();
+  await page.getByRole("menuitem", { name: item, exact: true }).click();
 }

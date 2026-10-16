@@ -126,9 +126,11 @@ test("adding a conversion from a ⚠ recipe row makes it convert", async ({ page
   await expect(page.getByRole("main").getByText("1 pcs = 20 dl")).toBeVisible();
   await expect(recipeRow(page, flour.recipes.pancakes).getByRole("img", { name: "Converts" })).toBeVisible();
 
-  // "Try it" uses the same conversions, live.
+  // "Try it" uses the same conversions, live. By role, not `#try-it-unit`:
+  // a CSS locator also matches the hidden copy the reload parks outside
+  // main (above), which made this a strict-mode violation now and then.
   await page.getByRole("textbox", { name: "Amount to convert" }).fill("300");
-  const unit = page.locator("#try-it-unit");
+  const unit = page.getByRole("main").getByRole("combobox", { name: "Unit to convert from" });
   await unit.fill("g");
   await unit.press("Tab");
   await expect(page.getByTestId("try-it-result")).toHaveText("= 0.15 pcs");

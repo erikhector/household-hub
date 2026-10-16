@@ -32,6 +32,7 @@ export function ComboField({
   onValueChange,
   placeholder,
   maxLength,
+  ariaLabel,
   dict,
 }: {
   id: string;
@@ -43,13 +44,16 @@ export function ComboField({
   onValueChange: (value: string) => void;
   placeholder?: string;
   maxLength: number;
+  /** For a field with no visible <Label htmlFor={id}> (the item page's
+   * "Try it" sentence), so it still has a name for screen readers. */
+  ariaLabel?: string;
   dict: Pick<Dictionary["inventory"], "comboboxNoMatches" | "comboboxAddNew">;
 }) {
   const trimmed = value.trim();
   return (
     <Autocomplete items={items} name={name} value={value} onValueChange={onValueChange}>
       <AutocompleteInputGroup>
-        <AutocompleteInput id={id} placeholder={placeholder} maxLength={maxLength} />
+        <AutocompleteInput id={id} placeholder={placeholder} maxLength={maxLength} aria-label={ariaLabel} />
         <AutocompleteClear />
         <AutocompleteTrigger />
       </AutocompleteInputGroup>

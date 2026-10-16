@@ -40,7 +40,7 @@ export default async function WhatsNewPage() {
       {RELEASES.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.empty}</p>
       ) : (
-        <ol className="flex max-w-2xl flex-col gap-3">
+        <ol className="list-bleed flex max-w-2xl flex-col gap-3">
           {RELEASES.map((release, index) => (
             <li key={release.version} className="flex flex-col gap-2 rounded-md border p-4">
               <div className="flex flex-wrap items-center gap-2">

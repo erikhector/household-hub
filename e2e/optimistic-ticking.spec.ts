@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, holdServerActions } from "./ui";
+import { clickRowAction, dismissCookieNotice, holdServerActions } from "./ui";
 
 // UX-14: ticking is instant. A shopping row, a share-page row, a task and an
 // inventory +/- all change on tap, before the server answers, and one
@@ -99,6 +99,29 @@ test("ticking three shopping items shows all three before any save answers", asy
   await page.reload();
   await cart.click();
   for (const box of boxes) await expect(box).toBeChecked();
+});
+
+// MAINT-19: a ticked row fades out of its aisle for a moment while the
+// optimistic overlay already lists it in "In the cart". The fading copy is
+// inert and aria-hidden, so the item is exposed once (a screen reader hears one checkbox).
+test("a ticked shopping item is exposed once while its row fades out", async ({ page }) => {
+  const t = tag();
+  const name = `Coffee ${t}`;
+  const listId = await seedList(t, [name]);
+  const path = `/dashboard/shopping-list/${listId}`;
+  await page.goto(path);
+  const held = await holdServerActions(page, path);
+
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  await box.click();
+  const cart = page.getByRole("button", { name: /^In the cart/ });
+  await expect(cart).toContainText("1");
+  await cart.click();
+  await expect(box).toHaveCount(1);
+  await expect(box).toBeChecked();
+
+  held.release();
+  await expect.poll(held.answered).toBe(1);
 });
 
 test("a tick that can't reach the server rolls back with a toast", async ({ page }) => {
@@ -250,7 +273,7 @@ test("a task delete that can't reach the server brings the row back", async ({ p
     (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
   );
 
-  await page.getByRole("button", { name: `Delete ${title}` }).click();
+  await clickRowAction(page, { button: `Delete ${title}`, menu: `More actions for ${title}`, item: "Delete" });
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();

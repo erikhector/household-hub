@@ -170,7 +170,7 @@ function InventoryTableSkeleton({ label }: { label: string }) {
         <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
         <div className="hidden h-9 w-32 rounded-md bg-muted sm:block" />
       </div>
-      <div className="flex flex-col gap-2 rounded-lg border p-4">
+      <div className="list-bleed flex flex-col gap-2 rounded-lg border p-4">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="h-10 rounded-md bg-muted/40" />
         ))}

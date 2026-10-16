@@ -68,6 +68,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
+import { RowActionsMenu } from "@/components/shared/row-actions-menu";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
@@ -1032,7 +1033,7 @@ function ClearedState({
   isPending: boolean;
 }) {
   return (
-    <div className="relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
+    <div className="list-bleed relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
       {progress.total > 0 ? (
         // UX-38: on the tick that cleared the list, the squirrel rises into
         // the full ring once and then holds still: no confetti, sound or
@@ -1165,11 +1166,15 @@ function ShoppingRow({
 
   return (
     <SwipeRow
-      className="rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
+      className="list-bleed rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
       // UX-33: the row glides when the list moves; not while it's leaving
       // its aisle, which has its own animation (it then arrives in "In the
       // cart" as a new row and rises in there).
       flipKey={leaving ? undefined : item.id}
+      // MAINT-19: the optimistic overlay already lists this item in "In the
+      // cart", so the fading aisle copy must not be a second checkbox for
+      // a screen reader (or a test) to find.
+      inert={leaving}
       // A read-only (completed or archived) list has nothing to swipe to.
       primaryLabel={editable ? (purchased ? dict.swipe.untick : dict.swipe.tick) : undefined}
       primaryIcon={<Check className="size-4" />}
@@ -1302,7 +1307,8 @@ function ShoppingRow({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-7 text-muted-foreground hover:text-destructive"
+                      data-row-delete
+                      className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
                       disabled={isPending}
                       aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
                     >
@@ -1317,6 +1323,15 @@ function ShoppingRow({
                   // UX-33: the row goes at once; the dialog waits on the save
                   // and toasts an error, and the row comes back.
                   onConfirm={() => onDelete(item)}
+                />
+                {/* On a phone the Edit and Delete icons above are hidden
+                    (the row's left swipe shows both) and this ⋯ is their
+                    tap path, clicking those same buttons. */}
+                <RowActionsMenu
+                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
+                  editLabel={dict.swipe.edit}
+                  deleteLabel={dict.swipe.delete}
+                  disabled={isPending}
                 />
               </>
             )}

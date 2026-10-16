@@ -244,6 +244,14 @@ export const sv = {
       defaultOption: "Groceries (skapas vid första inköpet)",
       savedToast: "Sparat",
     },
+    rename: {
+      title: "Hushållets namn",
+      label: "Namn",
+      description: "Visas för alla i hushållet, i inbjudningsmejl och på sidan för att gå med.",
+      save: "Spara namn",
+      saving: "Sparar…",
+      savedToast: "Hushållet har bytt namn",
+    },
     currency: {
       title: "Valuta",
       label: "Visa belopp i",
@@ -502,6 +510,8 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editItemAriaLabel: "Redigera {name}",
+    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    rowActionsAriaLabel: "Fler åtgärder för {name}",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
     estimatedTotal: "Cirka {amount} kvar att spendera",
@@ -1175,7 +1185,6 @@ export const sv = {
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
-      increase: "+1",
       edit: "Redigera",
       delete: "Ta bort",
       deletedToast: '"{name}" borttagen',
@@ -1614,6 +1623,13 @@ export const sv = {
     copyRecipeText: "Kopiera som text",
     copyRecipeTextToast: "Receptet kopierades som text",
     copyRecipeTextFailedToast: "Det gick inte att kopiera receptet",
+    // GAP-48: duplicates a recipe and opens the copy for editing.
+    duplicateRecipe: "Duplicera",
+    duplicateRecipeName: "{name} (kopia)",
+    duplicateRecipeToast: "Receptet duplicerades. Redigera kopian.",
+    duplicateRecipeUndo: "Ångra",
+    duplicateRecipeUndoneToast: "Kopian togs bort",
+    duplicateRecipeFailedToast: "Det gick inte att duplicera receptet",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {
@@ -1890,6 +1906,7 @@ export const sv = {
       confirming: "Tar bort…",
     },
     editTaskAriaLabel: "Redigera {title}",
+    rowActionsAriaLabel: "Fler åtgärder för {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",

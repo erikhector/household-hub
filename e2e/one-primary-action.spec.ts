@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { dismissCookieNotice } from "./ui";
+import { clickRowAction, dismissCookieNotice } from "./ui";
 
 // UX-24: one primary (solid) action per view. DESIGN.md's hierarchy rule
 // reads the solid `default` Button as "the" call to action, so the checks
@@ -59,7 +59,7 @@ test("task create and edit dialogs share one footer, and the title can be rename
   await create.getByRole("button", { name: "Add", exact: true }).click();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: `Edit ${title}` }).click();
+  await clickRowAction(page, { button: `Edit ${title}`, menu: `More actions for ${title}`, item: "Edit" });
   const edit = page.getByRole("dialog");
   await expect(edit.getByRole("button", { name: "Cancel" })).toBeVisible();
   await expect(edit.getByRole("button", { name: "Save", exact: true })).toHaveClass(PRIMARY);
@@ -79,6 +79,6 @@ test("task create and edit dialogs share one footer, and the title can be rename
   // matches both (a strict-mode violation). Role queries skip hidden
   // elements, so they only ever see the rendered row.
   await page.reload();
-  await expect(page.getByRole("button", { name: `Edit ${renamed}` })).toBeVisible();
-  await expect(page.getByRole("button", { name: `Edit ${title}` })).toHaveCount(0);
+  await expect(page.getByText(renamed, { exact: true })).toBeVisible();
+  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
 });

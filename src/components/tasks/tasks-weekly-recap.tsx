@@ -44,7 +44,7 @@ export function TasksWeeklyRecap({
   if (dismissedWeek === currentWeekKey()) return null;
 
   return (
-    <div className="flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+    <div className="list-bleed flex items-start gap-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
       <ListChecks className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-foreground">{dict.weeklyRecapTitle}</p>

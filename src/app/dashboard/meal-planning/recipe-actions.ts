@@ -591,8 +591,10 @@ const optionalNonNegativeInt = optionalNonNegativeNumber.transform((value) =>
   value === null ? null : Math.round(value),
 );
 
+const RECIPE_NAME_MAX = 120;
+
 const recipeSchema = z.object({
-  name: z.string().trim().min(1, v("nameRequired")).max(120),
+  name: z.string().trim().min(1, v("nameRequired")).max(RECIPE_NAME_MAX),
   instructions: z.string().trim().max(4000).optional(),
   servings: z.coerce.number().int().min(1, v("servingsMin")).max(1_000),
   caloriesPerServing: optionalNonNegativeInt,
@@ -857,6 +859,73 @@ export async function toggleRecipeFavoriteAction(recipeId: string): Promise<Acti
 
   revalidatePath(MEAL_PLANNING_PATH);
   return {};
+}
+
+// GAP-48: copies a recipe into a new row of the same household so a variant
+// (vegetarian lasagne, half batch) doesn't mean retyping ingredients and
+// steps. A click action. The source is looked up scoped to the caller's
+// household, so a foreign id is "not found" and nothing is written (the
+// same IDOR guard as the other click actions). Ingredient and sub-recipe
+// rows are *recreated* for the copy (no `id` carried over), so editing one
+// recipe never touches the other; links to pantry items and the Don't-track
+// flag carry over as they are. Favorite resets, and cooked history,
+// prepared batches and meal-plan entries stay with the original (they
+// aren't part of the recipe's content). No cycle check is needed: the copy
+// is brand new, so nothing includes it yet, and it includes exactly what
+// the original did.
+export async function duplicateRecipeAction(
+  recipeId: string,
+): Promise<ActionState & { recipeId?: string }> {
+  const { household } = await requireHousehold();
+  const dict = await getDictionary();
+
+  const source = await prisma.recipe.findFirst({
+    where: { id: recipeId, householdId: household.id },
+    include: { ingredients: true, components: true },
+  });
+  if (!source) return await fail("recipeNotFound");
+
+  // "<name> (copy)", with the name shortened so the result still fits the
+  // length limit recipes are saved under.
+  const template = dict.mealPlanning.duplicateRecipeName;
+  const room = RECIPE_NAME_MAX - format(template, { name: "" }).length;
+  const name = format(template, { name: source.name.slice(0, Math.max(room, 0)) });
+
+  const copy = await prisma.recipe.create({
+    data: {
+      householdId: household.id,
+      name,
+      instructions: source.instructions,
+      servings: source.servings,
+      caloriesPerServing: source.caloriesPerServing,
+      proteinGramsPerServing: source.proteinGramsPerServing,
+      carbsGramsPerServing: source.carbsGramsPerServing,
+      fatGramsPerServing: source.fatGramsPerServing,
+      tags: source.tags,
+      isFavorite: false,
+      ingredients: {
+        create: source.ingredients.map((ingredient) => ({
+          inventoryItemId: ingredient.inventoryItemId,
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          untracked: ingredient.untracked,
+          rawText: ingredient.rawText,
+          note: ingredient.note,
+        })),
+      },
+      components: {
+        create: source.components.map((component) => ({
+          componentRecipeId: component.componentRecipeId,
+          quantity: component.quantity,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  revalidatePath(MEAL_PLANNING_PATH);
+  return { recipeId: copy.id };
 }
 
 // `note` and `rawText` are optional so this stays assignable from the

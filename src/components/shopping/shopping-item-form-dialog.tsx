@@ -265,7 +265,9 @@ export function ShoppingItemFormDialog({
                 data-swipe-edit
                 variant="ghost"
                 size="icon"
-                className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                // Phones reach it through the row's ⋯ (RowActionsMenu) or
+                // its left swipe instead.
+                className="size-7 shrink-0 text-muted-foreground hover:text-foreground max-sm:hidden"
                 aria-label={editAriaLabel}
               >
                 <Pencil className="size-3.5" />

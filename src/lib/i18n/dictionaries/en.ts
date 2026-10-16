@@ -265,6 +265,15 @@ export const en = {
       defaultOption: "Groceries (created on the first trip)",
       savedToast: "Saved",
     },
+    // UX-75: rename the household (RenameHousehold, owner-only).
+    rename: {
+      title: "Household name",
+      label: "Name",
+      description: "Shown to everyone in the household, in invite emails and on the join page.",
+      save: "Save name",
+      saving: "Saving…",
+      savedToast: "Household renamed",
+    },
     // GAP-13: the display currency (CurrencySetting). Currency names come
     // from Intl.DisplayNames in the viewer's locale, so only the "none"
     // option and the surrounding copy live here.
@@ -529,6 +538,8 @@ export const en = {
       confirming: "Deleting…",
     },
     editItemAriaLabel: "Edit {name}",
+    // Phone only: the row's Edit and Delete behind one ⋯ (RowActionsMenu).
+    rowActionsAriaLabel: "More actions for {name}",
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
     estimatedTotal: "About {amount} left to spend",
@@ -1242,7 +1253,6 @@ export const en = {
     // UX-35: swipe row actions (see SwipeRow). Visible on the row only
     // while it's being swiped; the row's own buttons stay the named path.
     swipe: {
-      increase: "+1",
       edit: "Edit",
       delete: "Delete",
       deletedToast: 'Deleted "{name}"',
@@ -1697,6 +1707,13 @@ export const en = {
     copyRecipeText: "Copy as text",
     copyRecipeTextToast: "Recipe copied as text",
     copyRecipeTextFailedToast: "Couldn't copy the recipe",
+    // GAP-48: duplicates a recipe and opens the copy for editing.
+    duplicateRecipe: "Duplicate",
+    duplicateRecipeName: "{name} (copy)",
+    duplicateRecipeToast: "Recipe duplicated. Edit the copy.",
+    duplicateRecipeUndo: "Undo",
+    duplicateRecipeUndoneToast: "Copy removed",
+    duplicateRecipeFailedToast: "Couldn't duplicate the recipe",
     deleteAriaLabel: "Delete recipe",
     // Stable label for the star toggle (GAP-18) — its on/off state is
     // conveyed by aria-pressed, so the label must not flip with it too.
@@ -1985,6 +2002,7 @@ export const en = {
       confirming: "Deleting…",
     },
     editTaskAriaLabel: "Edit {title}",
+    rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
     weeklyRecapTitle: "This week, the household handled:",

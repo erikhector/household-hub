@@ -236,6 +236,13 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
     it publishes the household's meal plan and bill names at a link that
     needs no login. Contributors can still see and copy the link once it's
     on. See "Calendar feed" below.
+  - `renameHouseholdAction` (UX-75) — renames the household. Same trimming
+    and 1-60 character rules as creation; returns `{ error }` for a
+    non-owner or an invalid name. The Household page shows the "Household
+    name" card (`RenameHousehold`) to the owner only, with a Save button
+    that is disabled until the name changes. The dashboard layout is
+    revalidated, so the header and switcher show the new name; invite emails
+    and the join page read it from the database on each request.
   - Everything else on the Household page is open to both roles, including
     the "Shopping" auto-add setting (`setAutoAddLowStockToListAction`,
     AUTO-8) — day-to-day shopping behaviour, not administration — and the
@@ -878,7 +885,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       which wins even where it disagrees (another member unticked the
       row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
       flight. It stays in
-      its aisle for 350 ms animating down and out, then joins **"In the
+      its aisle for 350 ms animating down and out (that fading copy is
+      `inert` and `aria-hidden`, so the item is exposed once, as the "In
+      the cart" row the overlay already lists), then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that
       pops on each arrival; the rows stay mounted under `hidden`). A
       completed or archived list keeps the always-open "Purchased" section.
@@ -899,7 +908,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       not the row inside it, is what scrolls into view: its
       `overflow-hidden` makes it a scroll container, and Chrome clips an
       inner target's scroll-margin to it); from `sm` it's sticky at the bottom of the column; a short
-      (landscape) screen shows one item. Every item it offers is also in the
+      (landscape) screen shows one item. "+N more in this aisle" sits on the
+      "Next up" caption line, never in a footer of its own: the dock is
+      pinned by its bottom edge, so a footer appearing when the server
+      confirms a just-added fourth row would shift the dock up a line, late
+      (MAINT-18; `e2e/motion.spec.ts` guards it). Every item it offers is also in the
       list with its own checkbox (M7).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
@@ -4934,6 +4947,35 @@ the recipe on the clipboard as plain text and confirms with a toast.
   instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
   button on desktop and mobile, asserts the toast and the clipboard text.
 
+### Duplicate a recipe (GAP-48)
+
+Making a variant (vegetarian lasagne, half batch) used to mean retyping
+the ingredients and steps. A recipe's sheet has a "Duplicate" button
+(under "Copy as text") that copies the recipe, closes the sheet, opens the
+copy in the edit dialog and shows an "Undo" toast (8 seconds).
+
+- **Action**: `duplicateRecipeAction(recipeId)`
+  (`src/app/dashboard/meal-planning/recipe-actions.ts`) is a click action.
+  It reads the source with `{ id, householdId }` from `requireHousehold()`,
+  so another household's id is "Recipe not found" and nothing is written.
+  The copy is named `duplicateRecipeName` ("{name} (copy)" / "(kopia)"),
+  with the original name shortened to keep it within the 120-character
+  limit. It carries instructions, servings, nutrition, tags, ingredient
+  rows (pantry link, Don't-track flag, raw text, prep note) and sub-recipes.
+  The favorite flag resets; cooked history, prepared batches and meal-plan
+  entries stay with the original.
+- **No shared rows**: ingredient and sub-recipe rows are created anew for
+  the copy, so editing one recipe never changes the other.
+- **Opening the copy**: the row of the new recipe opens its edit dialog when
+  it arrives in the refreshed list (`RecipeManager` holds the new id).
+- **Undo**: deletes the copy through `deleteRecipeAction`, so it is refused
+  (with that action's error) if the copy has since become a sub-recipe.
+- No schema change, no new browser storage.
+- **Tests**: `recipe-actions.test.ts` (foreign id rejected, fields copied,
+  favorite reset, new rows not shared, long names);
+  `e2e/duplicate-recipe.spec.ts` duplicates a recipe, asserts the edit dialog
+  and both recipes after a reload, and the Undo, on desktop and mobile.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
@@ -5636,6 +5678,19 @@ components directly.
   only get the large title, and so does the shopping list detail page,
   whose bottom slot belongs to shopping mode's Next up dock (UX-37), so it
   has no floating button. Covered by `e2e/large-title.spec.ts`.
+- **Wide lists on phones (UX-139, DESIGN.md "Spacing, radius and
+  layout")**: below `sm`, every list, card and card-like panel on a
+  dashboard page reaches to 6px from each screen edge instead of sitting
+  in `main`'s 16px gutter, which gives each row ~20px more for names.
+  Headings, labels and running text stay on the gutter. The `list-bleed`
+  utility (`src/app/globals.css`) sets negative side margins of
+  `max(6px, inset) - max(16px, inset)`, so a landscape notch's safe area
+  still wins. A rule in the same file gives it to every top-level `Card`
+  inside the dashboard's `main` (`data-app-main`), except nested cards,
+  `w-full` cards and grid cells. Lists, hand-built panels, card grids and
+  the list-shaped loading skeletons carry the class themselves.
+  `e2e/ux-139.spec.ts` checks the edges on the shopping list, inventory
+  and budget, and that two stat tiles in one row don't overlap.
 - **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
   page's main call to action is a solid `default` Button. Profile's four
   save buttons (display name, Swish number, email, password) are `secondary`
@@ -6326,8 +6381,8 @@ Todoist-style. Built as one shared wrapper,
 `src/lib/swipe-row-calc.ts`. No gesture library.
 
 - **Swipe right** past 40% of the row runs the row's primary action:
-  tick (or untick) a shopping item, complete (or reopen) a task, +1 on an
-  inventory item. A coloured underlay with the action's name fills in
+  tick (or untick) a shopping item, complete (or reopen) a task. A
+  coloured underlay with the action's name fills in
   behind the row as it moves. On Android `navigator.vibrate(10)` buzzes
   once as the swipe crosses the 40% line; iOS has no vibrate API and gets
   the visual only.
@@ -6342,19 +6397,30 @@ Todoist-style. Built as one shared wrapper,
     exists (`src/components/shared/deferred-delete.ts`,
     `use-undoable-delete.ts`). If the browser is killed inside the
     window, nothing was sent and the row is still there.
-- **Every swipe duplicates a visible button** (DESIGN.md M7), and the
-  swipe works by clicking that button: the elements marked
+- **Every swipe duplicates a tap path** (DESIGN.md M7), and the swipe
+  works by clicking the row's own button: the elements marked
   `data-swipe-primary` and `data-swipe-edit`. So a swipe gets the same
   optimistic update, rollback toast and disabled state as a tap. The
-  visible trash button keeps its confirm dialog: swipe-delete is the quick
-  path, the button the deliberate one.
+  trash button keeps its confirm dialog: swipe-delete is the quick path,
+  the button the deliberate one.
+- **No action shows twice on a phone.** Below `sm`, a swipeable row
+  doesn't also show Edit and Delete icons: they sit behind the row's ⋯
+  menu instead. Task and shopping rows get `RowActionsMenu`
+  (`src/components/shared/row-actions-menu.tsx`), which clicks the row's
+  own `data-swipe-edit` and `data-row-delete` buttons, kept mounted but
+  `max-sm:hidden`; the inventory card's existing ⋯ menu gained Edit. From
+  `sm` up the icons show as before.
 - **Touch only.** Mouse and pen are ignored, so desktop is unchanged.
   `touch-action: pan-y` leaves vertical scrolling to the browser, the
   swipe only takes over once the finger has moved 8 px more sideways than
-  down, and a swipe that starts within 20 px of either screen edge is left
+  down, and from then on the page doesn't scroll under it (a non-passive
+  `touchmove` listener cancels the scroll, which iOS Safari otherwise
+  started whenever the finger drifted mid-swipe), and a swipe that starts within 20 px of either screen edge is left
   to the OS back gesture. Under reduced motion the snap back is instant
   (the global rule from UX-29).
 
+- **Inventory cards** swipe left only. A right swipe used to add one, but
+  the card's own + button beside it is the easier tap.
 - **Budget transaction rows** swipe left only (no primary action to run
   on a right swipe). The whole row is the edit button (`data-swipe-edit`),
   so Edit opens the edit sheet; Delete has Undo as above. The row's named
@@ -7037,6 +7103,26 @@ UX-14's rapid ticks and the rollback toast.
   cover every screenshot or skew the layout checks;
   `cookie-notice.spec.ts` covers the notice itself (shows on a first
   visit, "Got it" hides it, stays hidden after a reload).
+- **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
+  in Oct 2026 were all a test acting one step ahead of the page. A tab
+  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
+  moves the URL at once but renders in a React transition, so a spec
+  waits for the tab's `aria-selected` (and, before following a month
+  link, for the link's `href`) rather than `toHaveURL` alone. A dialog
+  closed from the UI takes its history entry back with an async
+  `history.back()` (`dialog-history.ts`), so a reload that follows one
+  calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
+  the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
+  on `<html>` while that back is on its way. Without it the reload races
+  the back and comes back `net::ERR_ABORTED`. A CSS
+  locator (`#id`) also matches the hidden copy Next.js parks outside
+  `main` while a reload streams in, so fields are found by role and name
+  inside `main` (the item page's "Try it" unit field got its missing
+  `aria-label` for that). A row's Edit and Delete go through
+  `clickRowAction`, which takes the icon from `sm` up and the ⋯ menu below
+  (the landscape and tablet projects are touch but `sm` and up). A test
+  that plans rows in a shared week removes them in an `afterEach`, pass or
+  fail, since the desktop and mobile runs and a retry share the household.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the

@@ -149,7 +149,7 @@ export default async function DashboardOverviewPage() {
         <GettingStarted steps={gettingStartedSteps} dict={dict.dashboard.gettingStarted} />
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="list-bleed grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-heading text-base font-semibold text-foreground">
@@ -234,7 +234,7 @@ export default async function DashboardOverviewPage() {
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold tracking-tight">{dict.dashboard.householdSectionTitle}</h2>
         {memberCount > 0 && (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          <div className="list-bleed flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
             <Users className="size-4 shrink-0" />
             <span
               className="min-w-0 flex-1 line-clamp-2 break-words sm:line-clamp-1"
@@ -253,7 +253,7 @@ export default async function DashboardOverviewPage() {
             </Link>
           </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="list-bleed grid gap-4 sm:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">

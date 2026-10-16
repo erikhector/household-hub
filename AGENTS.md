@@ -331,7 +331,8 @@ loop".
 - **Shared checks** live in `e2e/ui.ts` (`collectErrors`,
   `expectRendersCleanly`, `expectNoHorizontalOverflow`, `saveScreenshot`,
   `dismissCookieNotice` for specs where the cookie notice would get in
-  the way).
+  the way, `clickRowAction` for a row's Edit/Delete at any width, and
+  `waitForDialogHistory` before a reload that follows a dialog closing).
   Reuse them in new specs rather than re-implementing.
 - **Screenshots**: `npm run test:e2e:screenshots` (or
   `E2E_SCREENSHOT_DIR=<dir> npx playwright test smoke public`) saves

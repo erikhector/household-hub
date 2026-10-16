@@ -34,6 +34,17 @@ let installed = false;
 // lands on, and whether anything pushed or replaced an entry before it did.
 let ownBack: { href: string; overwritten: boolean } | null = null;
 
+// <html> carries this while ownBack is set, so the e2e suite's
+// waitForDialogHistory can wait for that back() to land: a page.reload()
+// issued before it does races it and comes back net::ERR_ABORTED. Nothing
+// in the app reads it.
+export const DIALOG_BACK_PENDING_ATTR = "data-dialog-back-pending";
+
+function setOwnBack(value: typeof ownBack) {
+  ownBack = value;
+  if (typeof document !== "undefined") document.documentElement.toggleAttribute(DIALOG_BACK_PENDING_ATTR, value !== null);
+}
+
 function markerOf(state: unknown): unknown {
   return state && typeof state === "object" ? (state as Record<string, unknown>)[KEY] : undefined;
 }
@@ -42,7 +53,7 @@ function onPopState(event: PopStateEvent) {
   let swallow = false;
   if (ownBack !== null) {
     const { href, overwritten } = ownBack;
-    ownBack = null;
+    setOwnBack(null);
     if (overwritten) {
       // Something got in before our back() landed: the app navigated right
       // after closing the dialog (the item page's merge dialog closes, then
@@ -118,7 +129,7 @@ export function pushDialogEntry(close: () => void): () => void {
     // something else, so the entry is left behind as a harmless same-URL
     // step.
     if (markerOf(window.history.state) === entry.id) {
-      ownBack = { href: entry.href, overwritten: false };
+      setOwnBack({ href: entry.href, overwritten: false });
       window.history.back();
     }
   };

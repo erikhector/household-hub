@@ -240,8 +240,10 @@ first.
   surprise.
 - Every gesture (swipe to delete, drag to reorder, pull to refresh) has a
   visible button that does the same. Nothing is gesture-only. Row swipes
-  go through `SwipeRow`, which works by clicking that visible button (see
-  REQUIREMENTS.md, "Swipe row actions").
+  go through `SwipeRow`, which works by clicking that button (see
+  REQUIREMENTS.md, "Swipe row actions"). On a phone a swiped row's Edit
+  and Delete sit behind its ⋯ menu rather than as icons too, so no
+  action shows twice.
 - A gesture that destroys data is undoable.
 - Don't take over system gestures: the screen edges belong to the OS back
   swipe.
@@ -367,6 +369,14 @@ UI; the tokens are the CSS custom properties in `src/app/globals.css`.
   384px wide. A page's primary action goes in `PrimaryAction`, which floats
   it at the bottom right above the bottom bar on phones (M2) and leaves it
   in the header from `sm`.
+- On phones, surfaces reach wider than text. `main` keeps a 16px gutter
+  for headings and running text, but every list, card and card-like panel
+  reaches out to 6px from the screen edge (`list-bleed`), corners still
+  rounded. Not flush: a 0px surface runs its rounded corners into the
+  phone's own rounded or curved screen edge. A `Card` on a dashboard
+  page gets it automatically. A list, a hand-built panel, or a grid of
+  cards (the grid, never its cells, or two tiles in a row overlap) takes
+  the class. From `sm` the gutter is back.
 - Touch targets grow on phones and touch screens (paired `max-sm:` and
   `pointer-coarse:` bumps, so an iPad or a landscape phone counts) and reach
   44px (rule M3): every `Button` size, `Input`, select and combobox trigger,

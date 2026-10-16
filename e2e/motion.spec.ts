@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_ITEM } from "./seed-data";
-import { dismissCookieNotice, holdServerActions } from "./ui";
+import { clickRowAction, dismissCookieNotice, holdServerActions } from "./ui";
 
 // UX-33: the motion system. Two kinds of motion, two recorders:
 //
@@ -217,7 +217,7 @@ test("adding, ticking and removing shopping items glide, with no layout shift", 
   // Remove: the row is gone at tap time and fades out where it was.
   await resetRecording(page);
   const heldDelete = await holdServerActions(page, path);
-  await page.getByRole("button", { name: /^Remove motion vim/ }).click();
+  await clickRowAction(page, { button: "Remove motion vim", menu: "More actions for motion vim", item: "Delete" });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: /motion vim/ })).toHaveCount(0);
   expect((await flips(page)).map((flip) => flip.id)).toContain("flip-exit");
