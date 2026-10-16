@@ -1615,6 +1615,13 @@ export const sv = {
     copyRecipeText: "Kopiera som text",
     copyRecipeTextToast: "Receptet kopierades som text",
     copyRecipeTextFailedToast: "Det gick inte att kopiera receptet",
+    // GAP-48: duplicates a recipe and opens the copy for editing.
+    duplicateRecipe: "Duplicera",
+    duplicateRecipeName: "{name} (kopia)",
+    duplicateRecipeToast: "Receptet duplicerades. Redigera kopian.",
+    duplicateRecipeUndo: "Ångra",
+    duplicateRecipeUndoneToast: "Kopian togs bort",
+    duplicateRecipeFailedToast: "Det gick inte att duplicera receptet",
     deleteAriaLabel: "Ta bort recept",
     favoriteAriaLabel: "Favoritrecept",
     confirmDelete: {

@@ -657,24 +657,6 @@ out to be a product-scope question rather than a scoped task should move to
       share/paid model — a schema and UX design question, not a routine
       slice.
 
-### 2026-10-06 scan
-
-- [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
-      Paprika, Mealie and AnyList let you copy a recipe to make a variant
-      (vegetarian lasagne, half batch) without retyping ingredients and
-      steps. Squirrel can only create from scratch or import from a URL
-      (REQUIREMENTS.md, "Recipe import from URL"), and a repo search finds
-      no copy action. No schema change: a Server Action that copies the
-      recipe, its ingredients and tags into a new row in the same
-      household, titled "<name> (copy)", favorite flag reset. Acceptance:
-      a "Duplicate" action on a recipe row opens the copy for editing
-      with an undo toast; it is `requireHousehold()`-scoped, rejects a
-      recipe id from another household (unit test) and the copy doesn't
-      share ingredient rows with the original (editing one leaves the
-      other unchanged); strings in both dictionaries; an e2e test
-      duplicates a seeded recipe and asserts both appear after reload, on
-      desktop and mobile.
-
 ### 2026-10-12 scan
 
 - [ ] **GAP-51. "Cook soon" shelf on the recipes tab** (impact: low-med, effort: S) —

@@ -4934,6 +4934,35 @@ the recipe on the clipboard as plain text and confirms with a toast.
   instructions, no ingredients); `e2e/copy-recipe-text.spec.ts` clicks the
   button on desktop and mobile, asserts the toast and the clipboard text.
 
+### Duplicate a recipe (GAP-48)
+
+Making a variant (vegetarian lasagne, half batch) used to mean retyping
+the ingredients and steps. A recipe's sheet has a "Duplicate" button
+(under "Copy as text") that copies the recipe, closes the sheet, opens the
+copy in the edit dialog and shows an "Undo" toast (8 seconds).
+
+- **Action**: `duplicateRecipeAction(recipeId)`
+  (`src/app/dashboard/meal-planning/recipe-actions.ts`) is a click action.
+  It reads the source with `{ id, householdId }` from `requireHousehold()`,
+  so another household's id is "Recipe not found" and nothing is written.
+  The copy is named `duplicateRecipeName` ("{name} (copy)" / "(kopia)"),
+  with the original name shortened to keep it within the 120-character
+  limit. It carries instructions, servings, nutrition, tags, ingredient
+  rows (pantry link, Don't-track flag, raw text, prep note) and sub-recipes.
+  The favorite flag resets; cooked history, prepared batches and meal-plan
+  entries stay with the original.
+- **No shared rows**: ingredient and sub-recipe rows are created anew for
+  the copy, so editing one recipe never changes the other.
+- **Opening the copy**: the row of the new recipe opens its edit dialog when
+  it arrives in the refreshed list (`RecipeManager` holds the new id).
+- **Undo**: deletes the copy through `deleteRecipeAction`, so it is refused
+  (with that action's error) if the copy has since become a sub-recipe.
+- No schema change, no new browser storage.
+- **Tests**: `recipe-actions.test.ts` (foreign id rejected, fields copied,
+  favorite reset, new rows not shared, long names);
+  `e2e/duplicate-recipe.spec.ts` duplicates a recipe, asserts the edit dialog
+  and both recipes after a reload, and the Undo, on desktop and mobile.
+
 ### Recipe dietary tags (GAP-29)
 
 From the competitive gap scan: Mealime and Plan to Eat let a household mark
