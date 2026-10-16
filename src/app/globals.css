@@ -30,6 +30,24 @@
   }
 }
 
+/* UX-139: on a phone a list reaches out of main's 16 px gutter to 6 px
+   from the screen edge, keeping its rounded corners: the rows get ~20 px
+   more for names (Swedish ones especially) without the corners running
+   into the screen's own rounded or curved edge, which is what a flush
+   0 px list looked like on a real device. Put it on the list's outer
+   container (the <ul>, the div holding the rows, or the Card a list
+   lives in), which must be width:auto, not w-full, so the negative
+   margins widen it instead of shifting it. Each side works out to
+   max(6 px, inset) - max(16 px, inset), main's own gutter
+   (dashboard/layout.tsx): -10 px in portrait, and never past a
+   landscape notch's safe-area inset. From `sm` the gutter is back. */
+@utility list-bleed {
+  @media (width < 40rem) {
+    margin-left: calc(max(0.375rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-left)));
+    margin-right: calc(max(0.375rem, env(safe-area-inset-right)) - max(1rem, env(safe-area-inset-right)));
+  }
+}
+
 /* The checked Checkbox's tick (src/components/ui/checkbox.tsx explains why
    it isn't an inline arbitrary class). White on `bg-primary`. */
 @utility checkbox-tick {
