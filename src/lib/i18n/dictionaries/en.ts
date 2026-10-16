@@ -396,6 +396,8 @@ export const en = {
     title: "Overview",
     subtitle: "What needs your attention right now.",
     greeting: {
+      // Server render, before the browser knows the local hour (UX-72).
+      hello: "Hello, {name}",
       morning: "Good morning, {name}",
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",

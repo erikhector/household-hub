@@ -360,6 +360,14 @@ outbound email to arbitrary addresses via this app's sending domain.
   page filters its already-fetched member list by `userId`; the overview runs
   a dedicated `householdMember.count` query since it doesn't otherwise fetch
   members). Hidden entirely when the household has only the current user.
+- **Overview greeting (UX-72)**: the overview heading greets by first name
+  ("Good afternoon, Åsa", never the full display name) and by the hour in the
+  user's own time zone. The server runs in UTC and doesn't know the zone, so
+  `components/dashboard/greeting.tsx` reads the hour in the browser
+  (`useSyncExternalStore`); the server render shows the neutral
+  `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
+  first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
+  cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
 
 ## Data model
 
@@ -913,7 +921,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       pinned by its bottom edge, so a footer appearing when the server
       confirms a just-added fourth row would shift the dock up a line, late
       (MAINT-18; `e2e/motion.spec.ts` guards it). Every item it offers is also in the
-      list with its own checkbox (M7).
+      list with its own checkbox (M7). A tick is still instant, but the
+      ticked row stays in the dock for 450 ms as a filled check while every
+      dock row is disabled, so the second tap of a double tap can't land on
+      the item that slides up under the finger (UX-78; the slot count is
+      held so the dock doesn't change height).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
       how many and its primary action is "Put things away", which opens the
@@ -922,7 +934,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       an active list, the squirrel mark rises into the full ring in place
       of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
-      the bottom half of a phone screen with no scrolling, the collapsed
+      the bottom half of a phone screen with no scrolling, a double tap ticking only one item, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
       the dock, a failed tick rolling back while a slower one is still
       saving).
