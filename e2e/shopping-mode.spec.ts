@@ -81,15 +81,21 @@ test("a double tap on a dock row ticks only that item", async ({ page }) => {
   const progress = dock.getByRole("progressbar", { name: "Shopping progress" });
   await expect(progress).toHaveAttribute("aria-valuetext", "0 of 3");
 
-  // Two taps 90 ms apart, on the same spot, dispatched in the page so
-  // nothing waits for the row to be actionable in between.
+  // Two taps 90 ms apart on the same spot, timed inside the page (a
+  // Playwright click per tap adds latency of its own and can outlast the
+  // gap): each lands on whatever dock row is under the point then, as a
+  // thumb would.
   const first = dock.getByRole("button", { name: /, into the cart$/ }).first();
   const box = (await first.boundingBox())!;
-  const x = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.click(x, y);
-  await page.waitForTimeout(90);
-  await page.mouse.click(x, y);
+  await page.evaluate(
+    async ({ x, y }) => {
+      const tap = () => document.elementFromPoint(x, y)?.closest("button")?.click();
+      tap();
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      tap();
+    },
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
 
   await expect(progress).toHaveAttribute("aria-valuetext", "1 of 3");
   // Settled: the ticked row lingered as a filled check, then the next item
