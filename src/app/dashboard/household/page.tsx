@@ -163,10 +163,10 @@ export default async function HouseholdPage() {
       <Suspense fallback={<MemberListSkeleton label={dict.common.loading} />}>
         <HouseholdNotesSection householdId={household.id} locale={locale} dict={dict.household.notes} />
       </Suspense>
-      {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
-          shopping behaviour every member already fully operates. */}
       {/* Owner-only (see renameHouseholdAction). */}
       {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
+      {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
+          shopping behaviour every member already fully operates. */}
       <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
       {/* Owner-gated inside (see setInventorySyncModeAction); contributors
           see the current value read-only. */}
