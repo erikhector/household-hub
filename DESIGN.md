@@ -240,8 +240,10 @@ first.
   surprise.
 - Every gesture (swipe to delete, drag to reorder, pull to refresh) has a
   visible button that does the same. Nothing is gesture-only. Row swipes
-  go through `SwipeRow`, which works by clicking that visible button (see
-  REQUIREMENTS.md, "Swipe row actions").
+  go through `SwipeRow`, which works by clicking that button (see
+  REQUIREMENTS.md, "Swipe row actions"). On a phone a swiped row's Edit
+  and Delete sit behind its ⋯ menu rather than as icons too, so no
+  action shows twice.
 - A gesture that destroys data is undoable.
 - Don't take over system gestures: the screen edges belong to the OS back
   swipe.

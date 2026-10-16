@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, holdServerActions } from "./ui";
+import { clickRowAction, dismissCookieNotice, holdServerActions } from "./ui";
 
 // UX-14: ticking is instant. A shopping row, a share-page row, a task and an
 // inventory +/- all change on tap, before the server answers, and one
@@ -273,7 +273,7 @@ test("a task delete that can't reach the server brings the row back", async ({ p
     (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
   );
 
-  await page.getByRole("button", { name: `Delete ${title}` }).click();
+  await clickRowAction(page, { button: `Delete ${title}`, menu: `More actions for ${title}`, item: "Delete" });
   await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: `Mark ${title} as done` })).toBeVisible();

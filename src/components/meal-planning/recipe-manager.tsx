@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, CookingPot, Copy, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -27,7 +27,11 @@ import { formatCookQuantity } from "@/lib/cook-mode-calc";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
-import { deleteRecipeAction, toggleRecipeFavoriteAction } from "@/app/dashboard/meal-planning/recipe-actions";
+import {
+  deleteRecipeAction,
+  duplicateRecipeAction,
+  toggleRecipeFavoriteAction,
+} from "@/app/dashboard/meal-planning/recipe-actions";
 import { cn } from "@/lib/utils";
 import { format, plural } from "@/lib/i18n/format";
 import type { RecipeData, UseItUpSuggestionData } from "@/components/meal-planning/types";
@@ -90,6 +94,9 @@ export function RecipeManager({
   // GAP-29: ALL or one RecipeTag key. Combines with the name search (both
   // must match); vegan implies vegetarian/dairy-free via recipeMatchesTag.
   const [tagFilter, setTagFilter] = useState<string>(ALL);
+  // GAP-48: the id of a just-duplicated recipe. Its row opens the edit
+  // dialog once it exists in the refreshed list, then clears this.
+  const [editNewId, setEditNewId] = useState<string | null>(null);
   // Same formatter as the shopping list's and budget page's amounts:
   // locale-aware two decimals, with the household's currency symbol once
   // one is set (GAP-13). Built once here rather than per row.
@@ -186,6 +193,9 @@ export function RecipeManager({
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
                   ingredientUnits={ingredientUnits}
+                  openEditOnMount={editNewId === recipe.id}
+                  onEditOpened={() => setEditNewId(null)}
+                  onDuplicated={setEditNewId}
                 />
               ))}
             </div>
@@ -206,6 +216,9 @@ function RecipeRow({
   allRecipes,
   ingredientNames,
   ingredientUnits,
+  openEditOnMount,
+  onEditOpened,
+  onDuplicated,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -216,6 +229,9 @@ function RecipeRow({
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
+  openEditOnMount: boolean;
+  onEditOpened: () => void;
+  onDuplicated: (recipeId: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const componentSummary = recipe.components.map((component) => component.componentRecipeName).join(", ");
@@ -290,6 +306,35 @@ function RecipeRow({
     }
   };
 
+  // GAP-48: copies the recipe, then opens the copy for editing (its row
+  // does that on arrival, see openEditOnMount). The toast's Undo deletes the
+  // copy again through the ordinary delete action, which refuses (with its
+  // own error) if the copy has meanwhile become someone's sub-recipe.
+  const handleDuplicate = () => {
+    setSheetOpen(false);
+    startTransition(async () => {
+      const result = await duplicateRecipeAction(recipe.id);
+      if (result.error || !result.recipeId) {
+        toast.error(result.error ?? dict.duplicateRecipeFailedToast);
+        return;
+      }
+      const copyId = result.recipeId;
+      onDuplicated(copyId);
+      toast.success(dict.duplicateRecipeToast, {
+        duration: 8000,
+        action: {
+          label: dict.duplicateRecipeUndo,
+          onClick: () => {
+            void deleteRecipeAction(copyId).then((undoResult) => {
+              if (undoResult.error) toast.error(undoResult.error);
+              else toast.success(dict.duplicateRecipeUndoneToast);
+            });
+          },
+        },
+      });
+    });
+  };
+
   const handleDelete = () => {
     startTransition(async () => {
       const result = await deleteRecipeAction(recipe.id);
@@ -338,6 +383,11 @@ function RecipeRow({
   }));
   // Same hand-off as the planner's meal sheet: the sheet closes as the
   // chosen action's dialog opens, so closing that lands back on the list.
+  useEffect(() => {
+    if (!openEditOnMount) return;
+    dialogs.edit.open(null);
+    onEditOpened();
+  }, [openEditOnMount, dialogs, onEditOpened]);
   function openFromSheet(handle: DialogHandle) {
     setSheetOpen(false);
     handle.open(null);
@@ -469,6 +519,17 @@ function RecipeRow({
             <Button type="button" variant="outline" className="justify-start" onClick={handleCopyText}>
               <Copy className="size-4" />
               {dict.copyRecipeText}
+            </Button>
+            {/* GAP-48: the copy opens for editing, with an Undo toast. */}
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              disabled={isPending}
+              onClick={handleDuplicate}
+            >
+              <CopyPlus className="size-4" />
+              {dict.duplicateRecipe}
             </Button>
           </div>
           {/* M2: delete sits apart from the other actions, under a rule. */}

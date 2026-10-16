@@ -68,6 +68,7 @@ import { format, plural } from "@/lib/i18n/format";
 import { showAutoAddedToast } from "@/components/shopping/auto-added-toast";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
+import { RowActionsMenu } from "@/components/shared/row-actions-menu";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
@@ -1306,7 +1307,8 @@ function ShoppingRow({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-7 text-muted-foreground hover:text-destructive"
+                      data-row-delete
+                      className="size-7 text-muted-foreground hover:text-destructive max-sm:hidden"
                       disabled={isPending}
                       aria-label={format(dict.deleteItemAriaLabel, { name: item.name })}
                     >
@@ -1321,6 +1323,15 @@ function ShoppingRow({
                   // UX-33: the row goes at once; the dialog waits on the save
                   // and toasts an error, and the row comes back.
                   onConfirm={() => onDelete(item)}
+                />
+                {/* On a phone the Edit and Delete icons above are hidden
+                    (the row's left swipe shows both) and this ⋯ is their
+                    tap path, clicking those same buttons. */}
+                <RowActionsMenu
+                  label={format(dict.rowActionsAriaLabel, { name: item.name })}
+                  editLabel={dict.swipe.edit}
+                  deleteLabel={dict.swipe.delete}
+                  disabled={isPending}
                 />
               </>
             )}

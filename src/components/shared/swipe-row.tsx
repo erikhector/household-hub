@@ -25,8 +25,10 @@ const TRAY_GAP_PX = 8;
 //   - Swipe left: a tray with Edit and Delete stays open until a tap
 //     elsewhere.
 //
-// Every gesture duplicates a button the row already shows (DESIGN.md M7), so
-// rather than take callbacks this clicks those buttons: the row's element
+// Every gesture duplicates a button the row already has (DESIGN.md M7; on a
+// phone that button may sit behind the row's ⋯, RowActionsMenu, rather than
+// show as a second icon), so rather than take callbacks this clicks those
+// buttons: the row's element
 // marked `data-swipe-primary` and `data-swipe-edit`. That reuses each one's
 // own handler, its optimistic update and rollback, and its disabled state,
 // and the Edit dialogs need no open/close plumbing (the same trick
@@ -34,8 +36,10 @@ const TRAY_GAP_PX = 8;
 // showing, so a list doesn't carry a second Edit and Delete per row.
 //
 // Mouse and pen are ignored, so desktop behaves as before. `touch-pan-y`
-// leaves vertical scrolling to the browser; a swipe that starts in the
-// 20 px screen edges is left to the OS back gesture. Under reduced motion
+// leaves vertical scrolling to the browser until the swipe has locked
+// sideways; from then on the page doesn't scroll under it (see the
+// touchmove effect). A swipe that starts in the 20 px screen edges is left
+// to the OS back gesture. Under reduced motion
 // the global rule in globals.css makes the snap-back instant.
 export function SwipeRow({
   children,
@@ -111,6 +115,24 @@ export function SwipeRow({
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
+
+  // Once a drag has locked sideways the page must not scroll under it.
+  // `touch-pan-y` alone doesn't promise that: a finger that drifts down
+  // mid-swipe can still scroll the list (iOS Safari especially), which
+  // moved the row out from under the thumb and sometimes cancelled the
+  // swipe outright. Cancelling touchmove stops it, but only from a native,
+  // non-passive listener: React's touch handlers are passive. Pointer
+  // events fire before touch events, so `axis` is already set by the time
+  // this runs; until it is, the browser keeps the scroll.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const onTouchMove = (event: TouchEvent) => {
+      if (drag.current?.axis === "x" && event.cancelable) event.preventDefault();
+    };
+    content.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => content.removeEventListener("touchmove", onTouchMove);
+  }, []);
 
   // Our own click on the row's button passes through onClickCapture below,
   // which must let it by whatever state the swipe left behind.

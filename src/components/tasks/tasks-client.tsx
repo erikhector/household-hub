@@ -16,6 +16,7 @@ import { getNextDueDate } from "@/app/dashboard/tasks/recurrence";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
 import { SwipeRow } from "@/components/shared/swipe-row";
+import { RowActionsMenu } from "@/components/shared/row-actions-menu";
 import { useUndoableDelete } from "@/components/shared/use-undoable-delete";
 import { TasksWeeklyRecap } from "@/components/tasks/tasks-weekly-recap";
 import { applyLocalRowChanges, settleDelete, useLocalRowChanges } from "@/components/shared/local-row-changes";
@@ -263,6 +264,9 @@ function TaskItemRow({
               {format(dict.lastCompletedByLabel, { name: completerName })}
             </span>
           )}
+          {/* Edit and Delete as icons from sm up; on a phone the row's left
+              swipe shows them, so they sit behind one ⋯ instead
+              (RowActionsMenu, which clicks these hidden buttons). */}
           <TaskFormDialog
             mode="edit"
             task={task}
@@ -273,7 +277,7 @@ function TaskItemRow({
                 variant="ghost"
                 size="icon"
                 data-swipe-edit
-                className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                className="size-7 shrink-0 text-muted-foreground hover:text-foreground max-sm:hidden"
                 aria-label={format(dict.editTaskAriaLabel, { title: task.title })}
               >
                 <Pencil className="size-3.5" />
@@ -285,7 +289,8 @@ function TaskItemRow({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                data-row-delete
+                className="size-7 shrink-0 text-muted-foreground hover:text-destructive max-sm:hidden"
                 aria-label={format(dict.deleteTaskAriaLabel, { title: task.title })}
               >
                 <Trash2 className="size-3.5" />
@@ -298,6 +303,11 @@ function TaskItemRow({
             pendingLabel={dict.confirmDelete.confirming}
             // UX-33: the row goes at once and comes back if the delete fails.
             onConfirm={() => onDelete(task)}
+          />
+          <RowActionsMenu
+            label={format(dict.rowActionsAriaLabel, { title: task.title })}
+            editLabel={dict.swipe.edit}
+            deleteLabel={dict.swipe.delete}
           />
         </div>
       </div>

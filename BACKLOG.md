@@ -238,6 +238,20 @@ then MAINT-7 per feature, to avoid churn.
       safe-area settle on the fixed panel) and fix the cause. Don't
       loosen the assertion. Acceptance: `npx playwright test
       e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
+- [ ] **MAINT-20. Flaky: discarded prepped batch card still there after reload**
+      (medium, S) — `e2e/meal-prep.spec.ts:136` ("record, plan, return and
+      eat a prepped batch") times out at 30 s on `expect(batchCard)
+      .toHaveCount(0)` (line 263), after a discard and `page.reload()`.
+      Seen on `desktop` and `mobile`: about 1 attempt in 3 in local
+      re-runs on release #251 (47a3aa3, `--repeat-each=3` on both
+      projects), and PR #244's gate saw it fail on clean `origin/next`
+      too. GitHub's `End-to-end (Playwright)` run on #251 was green, so
+      CI's one retry hides it, but `npm run ci:local` has none. Find out
+      whether the discard (`discardBatchAction`) hasn't committed when the
+      reload lands or the page still renders a cached batch list, and fix
+      the cause in the app or in what the test waits for. Don't loosen the
+      assertion. Acceptance: `npx playwright test e2e/meal-prep.spec.ts:136
+      --project=desktop --project=mobile --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
@@ -623,24 +637,6 @@ out to be a product-scope question rather than a scoped task should move to
       per-item assignment replaces or layers on top of the existing
       share/paid model — a schema and UX design question, not a routine
       slice.
-
-### 2026-10-06 scan
-
-- [ ] **GAP-48. Duplicate a recipe** (impact: low-med, effort: S) —
-      Paprika, Mealie and AnyList let you copy a recipe to make a variant
-      (vegetarian lasagne, half batch) without retyping ingredients and
-      steps. Squirrel can only create from scratch or import from a URL
-      (REQUIREMENTS.md, "Recipe import from URL"), and a repo search finds
-      no copy action. No schema change: a Server Action that copies the
-      recipe, its ingredients and tags into a new row in the same
-      household, titled "<name> (copy)", favorite flag reset. Acceptance:
-      a "Duplicate" action on a recipe row opens the copy for editing
-      with an undo toast; it is `requireHousehold()`-scoped, rejects a
-      recipe id from another household (unit test) and the copy doesn't
-      share ingredient rows with the original (editing one leaves the
-      other unchanged); strings in both dictionaries; an e2e test
-      duplicates a seeded recipe and asserts both appear after reload, on
-      desktop and mobile.
 
 ### 2026-10-12 scan
 
