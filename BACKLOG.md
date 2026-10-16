@@ -247,19 +247,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **MAINT-21. Flaky: budget month tab not kept after a month change**
-      (medium, S) — `[mobile] e2e/budget-month-tab.spec.ts:17`
-      ("/dashboard/budget: the open tab survives a month change") failed
-      its first attempt on `expect(page).toHaveURL` and passed on the
-      retry in GitHub's `End-to-end (Playwright)` run on release PR #271
-      (0423c09). It passed in the local `ci:local` run on the same
-      commit, so it fails only now and then. CI's one retry hides it, but
-      `npm run ci:local` has none. Find out whether the month change
-      navigation hasn't settled when the URL is asserted or the tab is
-      dropped from the URL, and fix the cause in the app or in what the
-      test waits for. Don't loosen the assertion. Acceptance: `npx
-      playwright test e2e/budget-month-tab.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
       test** (medium, S) — `[desktop]` and `[mobile]`
       `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
@@ -333,7 +320,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57, UX-78,
+build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
 UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -799,17 +786,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       `squirrel-my-data-<date>.json`.
 
 #### Shopping
-
-- [ ] **UX-78. A double tap in the "Next up" dock ticks two items**
-      (impact: high, effort: S) — bug, breaks M5. A ticked dock row is
-      removed within about 60 ms and the next item slides under the same
-      finger (`src/components/shopping/shopping-mode.tsx:158-172`). Two
-      taps 90 ms apart ticked milk *and* eggs (5 → 7 of 14), and no toast
-      said so.
-      Acceptance: two taps within 400 ms on a dock row tick only that
-      item. The row shows a filled check (UX-54) before the next item
-      moves up. An e2e test double-taps a dock row and sees progress rise
-      by exactly 1.
 
 - [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
       M) — breaks M6. Every pending row is 118 px: a name line plus
