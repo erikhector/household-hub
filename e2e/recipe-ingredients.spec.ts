@@ -383,12 +383,15 @@ test("Enter in an ingredient name moves to its quantity and never submits", asyn
 
 test("tapping the Use row accepts the typed ingredient and closes the suggestions", async ({ page }) => {
   const dialog = await openNewRecipe(page, unique("Crepes"));
-  await dialog.getByPlaceholder("Ingredient").pressSequentially("Wheat flour");
-  const use = page.getByRole("button", { name: 'Use "Wheat flour"' });
+  // A name no suggestion matches, so the popup shows only the Use row
+  // ("Wheat flour" is a seeded pantry item and would list it instead).
+  const typed = unique("Zzyzx");
+  await dialog.getByPlaceholder("Ingredient").pressSequentially(typed);
+  const use = page.getByRole("button", { name: `Use "${typed}"` });
   await use.click();
 
   await expect(use).toHaveCount(0);
   await expect(dialog.getByPlaceholder("Qty")).toBeFocused();
-  await expect(dialog.getByPlaceholder("Ingredient")).toHaveValue("Wheat flour");
+  await expect(dialog.getByPlaceholder("Ingredient")).toHaveValue(typed);
   await expect(page.getByRole("dialog", { name: "New recipe" })).toBeVisible();
 });
