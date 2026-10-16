@@ -247,18 +247,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **BUG-2. Red next: `form-control-sizes.mobile.spec.ts:42` fails on
-      the landscape and tablet projects** (high, S) — on clean `next`
-      (2c99254) `[landscape]` and `[tablet]` "shopping add and edit item
-      dialogs use 16px fields and show the whole unit" time out waiting
-      for the button "More actions for Apples", which those viewports
-      don't render. It fails every run (seen by three builder runs,
-      PRs #267, #268, #272), so `npm run ci:local` is red for everyone.
-      The spec was last changed by #254. Make the spec open the row's
-      actions the way those viewports do (or fix the row if the button
-      is missing by mistake). Don't skip it or loosen the assertion.
-      Acceptance: `npx playwright test e2e/form-control-sizes.mobile.spec.ts
-      --project=landscape --project=tablet` passes.
 - [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
       test** (medium, S) — `[desktop]` and `[mobile]`
       `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
