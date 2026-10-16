@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.71.0",
+    "date": "2026-10-16",
+    "pr": 276,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "On phones, list rows are tidier: Edit and Delete live in each row's ⋯ menu and in the swipe-left tray instead of showing twice, and the list no longer scrolls while you swipe a row. Inventory items no longer add one on a right swipe; use the + button.\n\nYou can now duplicate a recipe to make a variant without retyping it. The copy opens for editing, and you can undo.\n\nTicking an item on the shopping list no longer makes screen readers announce it twice while the row slides into \"In the cart\".\n\nHousehold owners can now rename their household from the Household page.\n\nThe shopping list's \"Next up\" panel no longer jumps when a new item is added to a long aisle.\n\nOn phones, lists and cards now use more of the screen width, so names have more room before they're cut off.\n\nThe unit field in an item's \"Try it\" converter now has a name for screen readers.",
+      "sv": "På mobilen är listraderna luftigare: Redigera och Ta bort finns i radens ⋯-meny och när du sveper åt vänster, i stället för att visas två gånger, och listan rullar inte längre medan du sveper en rad. Lagervaror ökar inte längre med ett när du sveper åt höger – använd plusknappen.\n\nDu kan nu duplicera ett recept för att göra en variant utan att skriva om allt. Kopian öppnas för redigering och du kan ångra.\n\nNär du bockar av en vara i inköpslistan läses den inte längre upp två gånger av skärmläsare medan raden glider ner i \"I vagnen\".\n\nHushållets ägare kan nu byta namn på hushållet från hushållssidan.\n\nPanelen \"Nästa på tur\" i inköpslistan hoppar inte längre när en ny vara läggs till i en lång avdelning.\n\nPå mobilen använder listor och kort nu mer av skärmens bredd, så att namn får mer plats innan de kortas av.\n\nEnhetsfältet i en varas \"Testa\"-omräknare har nu ett namn för skärmläsare."
+    }
+  },
+  {
     "version": "0.70.0",
     "date": "2026-10-15",
     "pr": 251,
