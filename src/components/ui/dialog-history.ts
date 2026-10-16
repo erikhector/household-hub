@@ -23,7 +23,10 @@
 // Our marker inside history.state. Spread onto Next's own state (which
 // carries __NA and the router tree), so its pushState patch passes the
 // entry through untouched and a restore onto it still works.
-const KEY = "__squirrelDialog";
+// Exported for the e2e suite's waitForDialogHistory, which waits for a
+// closed dialog's history.back() to land before a test reloads.
+export const DIALOG_HISTORY_KEY = "__squirrelDialog";
+const KEY = DIALOG_HISTORY_KEY;
 
 type Entry = { id: number; href: string; close: () => void };
 

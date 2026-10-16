@@ -26,6 +26,12 @@ for (const path of ["/dashboard/budget", "/dashboard/personal-budget"]) {
 
     await transactions.click();
     await expect(page).toHaveURL(/[?&]tab=transactions/);
+    // The tab is a history.replaceState, which moves the URL at once but
+    // reaches useSearchParams (and so MonthNavigator's hrefs) in a React
+    // transition. Clicking the link before that render follows the old,
+    // tab-less href, so wait for the links to carry the tab first.
+    await expect(transactions).toHaveAttribute("aria-selected", "true");
+    await expect(main.getByRole("link", { name: "Previous month" })).toHaveAttribute("href", /[?&]tab=transactions/);
 
     await main.getByRole("link", { name: "Previous month" }).click();
     await expect(page).toHaveURL(new RegExp(`[?&]month=${prevKey}`));
