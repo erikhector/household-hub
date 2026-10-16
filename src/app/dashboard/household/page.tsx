@@ -60,7 +60,7 @@ async function SharedWithNote({
 
 function MemberListSkeleton({ label }: { label: string }) {
   return (
-    <div className="flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
+    <div className="list-bleed flex animate-pulse flex-col gap-2 rounded-lg border p-4" role="status" aria-label={label}>
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="h-12 rounded-md bg-muted/40" />
       ))}
@@ -195,7 +195,7 @@ export default async function HouseholdPage() {
         dict={dict.household.calendarFeed}
       />
       {isOwner && (
-        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+        <div className="list-bleed flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.household.dangerZoneTitle}</h2>
             <p className="text-sm text-muted-foreground">{dict.household.dangerZoneDescription}</p>

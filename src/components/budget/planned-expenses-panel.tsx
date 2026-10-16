@@ -118,7 +118,7 @@ export function PlannedExpensesPanel({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+    <div className="list-bleed flex flex-col gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-heading text-base font-semibold">{t.title}</h2>

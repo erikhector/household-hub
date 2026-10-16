@@ -96,7 +96,7 @@ export function FixedBudgetSummary({
 
       {/* Phone pass (Oct 2026): two by two on a phone, at a smaller stat
           size, instead of four full-width cards one under another. */}
-      <div className="grid grid-cols-2 gap-3 *:min-w-0 sm:gap-4 lg:grid-cols-4 [&_p]:break-words">
+      <div className="list-bleed grid grid-cols-2 gap-3 *:min-w-0 sm:gap-4 lg:grid-cols-4 [&_p]:break-words">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -143,7 +143,7 @@ export function FixedBudgetSummary({
         </Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="list-bleed grid gap-4 sm:grid-cols-2">
         <CategoryBreakdown
           title={dict.incomeBreakdownTitle}
           items={incomeBreakdown}
