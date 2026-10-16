@@ -255,6 +255,22 @@ then MAINT-7 per feature, to avoid churn.
       e2e/optimistic-ticking.spec.ts:76 --project=desktop --project=mobile
       --repeat-each=20` passes 40/40, and a screen reader
       reads one row per item while a tick is leaving.
+      Sighting 2026-10-15: failed once on `desktop` in a local
+      `ci:local` run of release #251 (47a3aa3) and passed on re-run.
+- [ ] **MAINT-20. Flaky: discarded prepped batch card still there after reload**
+      (medium, S) — `e2e/meal-prep.spec.ts:136` ("record, plan, return and
+      eat a prepped batch") times out at 30 s on `expect(batchCard)
+      .toHaveCount(0)` (line 263), after a discard and `page.reload()`.
+      Seen on `desktop` and `mobile`: about 1 attempt in 3 in local
+      re-runs on release #251 (47a3aa3, `--repeat-each=3` on both
+      projects), and PR #244's gate saw it fail on clean `origin/next`
+      too. GitHub's `End-to-end (Playwright)` run on #251 was green, so
+      CI's one retry hides it, but `npm run ci:local` has none. Find out
+      whether the discard (`discardBatchAction`) hasn't committed when the
+      reload lands or the page still renders a cached batch list, and fix
+      the cause in the app or in what the test waits for. Don't loosen the
+      assertion. Acceptance: `npx playwright test e2e/meal-prep.spec.ts:136
+      --project=desktop --project=mobile --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
