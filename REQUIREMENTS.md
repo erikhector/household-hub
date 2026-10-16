@@ -7111,8 +7111,10 @@ UX-14's rapid ticks and the rollback toast.
   link, for the link's `href`) rather than `toHaveURL` alone. A dialog
   closed from the UI takes its history entry back with an async
   `history.back()` (`dialog-history.ts`), so a reload that follows one
-  calls `waitForDialogHistory(page)` from `e2e/ui.ts` first; without it
-  the reload races the back and comes back `net::ERR_ABORTED`. A CSS
+  calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
+  the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
+  on `<html>` while that back is on its way. Without it the reload races
+  the back and comes back `net::ERR_ABORTED`. A CSS
   locator (`#id`) also matches the hidden copy Next.js parks outside
   `main` while a reload streams in, so fields are found by role and name
   inside `main` (the item page's "Try it" unit field got its missing

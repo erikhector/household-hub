@@ -145,15 +145,6 @@ const preppedBadges = (names: Locator) => names.locator("xpath=ancestor::button[
 test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) => {
   const recipeName = unique("Prep curry");
   const { recipeId, itemId } = await seedRecipe(recipeName);
-  // The dialog opens on this week (the batch is cooked today), so the spec
-  // pages forward a few weeks to plan where no other spec plans meals
-  // (they stay on this week and next, or in fixed weeks years ahead).
-  // Random, so the desktop and mobile runs, which share the household,
-  // usually land in different weeks; the slots are picked from the ones
-  // still free, so it works when they don't.
-  const weeksAhead = 3 + Math.floor(Math.random() * 18);
-  const targetWeek = weekAhead(weeksAhead);
-  const takenDinnerDay = new Date(targetWeek.getTime() + 2 * DAY_MS);
   const takeaway = `Takeaway ${suffix()}`;
   cleanup = () =>
     withClient(async (client) => {
@@ -164,7 +155,17 @@ test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) 
         [E2E_HOUSEHOLD.id, recipeId, takeaway],
       );
       await client.query(`DELETE FROM "Recipe" WHERE id = $1 AND "householdId" = $2`, [recipeId, E2E_HOUSEHOLD.id]);
+      await client.query(`DELETE FROM "InventoryItem" WHERE id = $1 AND "householdId" = $2`, [itemId, E2E_HOUSEHOLD.id]);
     });
+  // The dialog opens on this week (the batch is cooked today), so the spec
+  // pages forward a few weeks to plan where no other spec plans meals
+  // (they stay on this week and next, or in fixed weeks years ahead).
+  // Random, so the desktop and mobile runs, which share the household,
+  // usually land in different weeks; the slots are picked from the ones
+  // still free, so it works when they don't.
+  const weeksAhead = 3 + Math.floor(Math.random() * 18);
+  const targetWeek = weekAhead(weeksAhead);
+  const takenDinnerDay = new Date(targetWeek.getTime() + 2 * DAY_MS);
   await planFreeformDinner(takenDinnerDay, takeaway);
 
   // The Prep tab renders cleanly.

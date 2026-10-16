@@ -202,4 +202,22 @@ describe("pushDialogEntry", () => {
     pushDialogEntry(vi.fn());
     expect(window.history.state).toMatchObject({ __NA: true });
   });
+
+  it("marks <html> while its own back() is on its way, for the e2e suite", async () => {
+    const browser = fakeBrowser();
+    const attributes = new Set<string>();
+    vi.stubGlobal("document", {
+      documentElement: {
+        toggleAttribute: (name: string, on: boolean) => (on ? attributes.add(name) : attributes.delete(name)),
+      },
+    });
+    const { pushDialogEntry, DIALOG_BACK_PENDING_ATTR } = await load();
+    const release = pushDialogEntry(vi.fn());
+    expect(attributes.has(DIALOG_BACK_PENDING_ATTR)).toBe(false);
+
+    release();
+    expect(attributes.has(DIALOG_BACK_PENDING_ATTR)).toBe(true);
+    browser.pop();
+    expect(attributes.has(DIALOG_BACK_PENDING_ATTR)).toBe(false);
+  });
 });
