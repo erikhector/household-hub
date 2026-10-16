@@ -192,7 +192,9 @@ then MAINT-7 per feature, to avoid churn.
       comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
       `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
       cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`.
+      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
+      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
+      can't be committed again.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
@@ -297,6 +299,1146 @@ don't build these in parallel:
       quantity fields to `type="text" inputMode="decimal"` with a pattern,
       and normalise "," before Zod, reusing `item-units.ts:68`'s parser.
 
+### UX (2026-10-15 full UI review)
+
+The owner asked for an extensive review of every page, logged in and
+logged out, with one goal: Squirrel should be fun to use and surprise
+people with how good it looks and feels. How it was found:
+- `npm run test:e2e:screenshots`: all 130 smoke/public checks pass.
+- Seven reviewers each signed up a fresh household. They filled it
+  through the UI with realistic data (long names, å/ä/ö) and used every
+  page, dialog, menu and swipe in their area on a Pixel 7 first, then on
+  desktop, in en and sv, light and dark.
+
+Every item below was reproduced in a screenshot or confirmed in code
+(file:line). Items already open elsewhere in this file were left out.
+
+**Start here.** These items are broken or actively mislead people, so
+build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57, UX-78,
+UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
+
+**Built elsewhere.** Six items sit in other sections of this file:
+- Phase 2, because they need a migration: UX-133 (task due dates) and
+  UX-134 (budget month starting on payday).
+- Needs a decision before building: UX-135 to UX-138.
+
+**File conflicts.** Don't build these in parallel:
+- `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
+  UX-80, UX-81, UX-84, UX-85, UX-86.
+- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-72, UX-110.
+- `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
+- `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
+  UX-105, UX-106.
+- `src/app/dashboard/profile/`: UX-51, UX-76.
+- `src/components/inventory/combo-field.tsx` and
+  `src/components/ui/autocomplete.tsx`: UX-93, UX-127, UX-129.
+- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
+
+#### Shell and cross-cutting
+
+- [ ] **UX-46. Move "Create household" out of the phone header** (impact:
+      high, effort: S) — breaks Consistency and M2. On every phone page
+      the most prominent header icon is a bare "+". On Inventory or
+      Shopping a user expects it to add an item or a list. It opens
+      "Create a new household" instead
+      (`src/components/household/household-switcher.tsx:46`), so new
+      users make stray households. The same screen also has a second
+      "+" (the page's FAB) that does something unrelated.
+      Acceptance: the phone header has no standalone "+". "Create
+      household" is a menu item at the bottom of the household switcher
+      dropdown, on desktop too.
+
+- [ ] **UX-47. Long household names break the header and sidebar**
+      (impact: high, effort: S) — breaks M1 and M9.
+      - The name field accepts 60 characters, but the switcher trigger is
+        a `Button`, whose base `shrink-0 whitespace-nowrap`
+        (`src/components/ui/button.tsx:6`) overrides the switcher's
+        `min-w-0 line-clamp-2` (`household-switcher.tsx:93`).
+      - On a phone a 58-character name pushes the chevron and "+" off
+        the 412 px screen, out of reach.
+      - On desktop even a 37-character name ("Familjen Öberg-Håkansson på
+        Södermalm") spills over the sidebar onto the page heading.
+      Acceptance: with a 60-character household name, the header and
+      sidebar truncate the name and the full name is reachable (dropdown
+      or title). The chevron stays visible at 412 and 1280 px, and
+      `expectNoHorizontalOverflow` passes.
+
+- [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
+      dock** (impact: high, effort: S) — breaks M2 and User control. On
+      phones the toast's bottom offset is 4.75rem
+      (`src/components/ui/sonner.tsx:17-54`). That is the same band as a
+      sheet's sticky footer and the "Next up" dock. Seen while shopping:
+      - after "Put away & finish", two toasts hide the confirm sheet's
+        "Complete list" for about 4 s, leaving only Cancel visible;
+      - "List copied as text" covers the share link and its Copy button;
+      - an Undo toast covers a dock row mid-shop.
+      Acceptance: while a bottom sheet or the dock is showing, toasts
+      appear above it (or at the top) and never overlap its footer
+      buttons or dock rows. Check by finishing a list with one "Didn't
+      get it" row: "Complete list" stays visible and tappable.
+
+- [ ] **UX-49. Undo, not "This can't be undone", for everyday deletes**
+      (impact: med, effort: M) — breaks Consistency and User control
+      (DESIGN.md: "prefer undo for frequent, low-stakes actions"). On
+      the same row, swipe → Delete removes the row with an Undo toast,
+      while the visible trash or menu Delete opens a confirm saying the
+      delete is permanent. Where:
+      - tasks: `tasks-client.tsx:278-298`;
+      - shopping items: `shopping-list-client.tsx:1301-1330`;
+      - inventory ⋯ → Delete: `inventory-table.tsx:605-607`;
+      - "Remove meal": `week-planner.tsx:581-585`;
+      - Edit transaction → Delete stacks a second sheet;
+      - deleting a recipe gives no toast at all.
+      Archiving a shopping list is silent, with no toast and no undo
+      (`shopping-lists-overview.tsx:139-170`), and its icon sits right
+      next to the trash icon on every row.
+      Acceptance: every delete path for a task, shopping item, inventory
+      item, planned meal and transaction removes at once and shows the
+      same Undo toast. Archiving a list shows "List archived · Undo".
+      Archive and delete are no longer adjacent lookalike icons (for
+      example, both behind a row ⋯ menu). Household, budget and account
+      deletes keep their confirms.
+
+- [ ] **UX-50. One empty-state pattern, with the next step inside it**
+      (impact: med, effort: M) — breaks Consistency, Usability ("empty:
+      explain and offer the next step") and M6. On a new household
+      every section's empty state looks different:
+      - Shopping ("No shopping lists yet. Create one to get started.")
+        and Tasks ("No tasks yet — use Add task to add one",
+        `tasks-client.tsx:106-108`) have no button inside them.
+      - The planner shows seven identical "+ Add meal" cards, with no
+        hint to add recipes first or use "Copy last week" / "Fill".
+      - Cook now has no mascot and no action.
+      - Meal prep's primary is an inline full-width bar, where the
+        sibling tabs use the floating `PrimaryAction`.
+      - The empty inventory offers five ways to add, three of them
+        purple primaries, and the FAB covers its "Paste a list" link.
+      - A new empty shopping list leads with a disabled full-width
+        "Register receipt" above the add bar.
+      Acceptance: every section and tab uses `MascotEmptyState` with one
+      line on why it's worth using and exactly one primary action, placed
+      through `PrimaryAction`. An empty week shows one empty state
+      ("Add your first dinner" / "Fill the week") instead of seven
+      slots. Nothing sits under the FAB at 412 px.
+
+- [ ] **UX-51. Theme and language controls show the current setting;
+      first visits follow the system theme** (impact: med, effort: S) —
+      breaks Accessibility ("respect … system theme") and Consistency.
+      - With no stored theme the app is always dark (`defaultTheme`
+        falls back to `"dark"`, `src/app/layout.tsx:102`), even for a
+        light-mode visitor.
+      - Logged-out pages have no theme control, though REQUIREMENTS
+        "Theming" says new visitors can pick one.
+      - Android shows a near-white `theme-color` (`layout.tsx:84`) over
+        the dark page.
+      - The More menu and sidebar label the theme button with the next
+        theme but show the current theme's icon: a moon beside "System"
+        (`bottom-nav.tsx:70-75,189-194`, `sidebar.tsx:111-116`).
+      - The language button says "Swedish", meaning "switch to Swedish".
+      - The menu closes after each tap, so cycling through three themes
+        takes six taps.
+      - Profile has no language or theme setting at all.
+      Acceptance: a first visit with no stored theme renders the system
+      theme, and the browser chrome colour matches the page in both
+      schemes. Profile has "Language" and "Appearance (Light / Dark /
+      System)" segmented controls showing the current value. The
+      menu/sidebar shortcuts show the current state.
+
+- [ ] **UX-52. Bottom bar: one icon style, and keep the colour on the
+      active tab** (impact: low, effort: S) — breaks Consistency.
+      - Inventory, Shopping and Meal planning have tinted icon tiles;
+        Overview and More have plain icons.
+      - The active tab drops its tile (`bottom-nav.tsx:125-127`), so the
+        section colour (`nav-items.ts`, "recognise the screen by colour")
+        disappears on exactly the screen you're on.
+      - "More" has no tile, so its label sits higher than the other
+        four.
+      Acceptance: all five tabs share one icon treatment and their
+      labels sit on one baseline. The active tab keeps its section hue,
+      and that hue also marks the page (for example the large title's
+      accent or the empty-state ring), so the colour coding means
+      something.
+
+- [ ] **UX-53. One period switcher for weeks and months** (impact: low,
+      effort: S) — breaks Consistency. The budgets switch months with
+      bare chevrons around a large centred heading. The meal planner
+      switches weeks with bordered square buttons on the left and a
+      small date.
+      Acceptance: the budget, personal budget and planner use one shared
+      period switcher with the same placement, size and accessible names
+      ("Previous month" / "Previous week"), plus a "This month" / "This
+      week" jump when you're elsewhere.
+
+- [ ] **UX-54. A shared "tick" moment: check, haptic, then move**
+      (impact: med, effort: S) — Delight, M5. Ticking a shopping row, a
+      dock row or a task removes it at once and nothing fills in. Only
+      swipes vibrate (`navigator.vibrate` exists only in `swipe-row.tsx:145`).
+      Things and Todoist make every tick feel earned.
+      Acceptance: a shared tick feedback is used by shopping rows, the
+      dock and tasks. The checkbox fills with a short spring (about 200
+      ms), a 10 ms vibration fires where supported, and only then does the
+      row move. No animation runs under reduced motion; the haptic still
+      fires.
+
+#### Logged out, signup and invites
+
+- [ ] **UX-55. A new member who joins by invite is told "Invalid
+      invite"** (impact: high, effort: S) — bug. On a valid
+      `/join/<token>`, "Create account & join" creates the account and
+      adds it as a contributor. The action then sets the active-household
+      cookie (`src/lib/actions/household.ts:251`), which re-renders the
+      route. By then the invite counts as used, so
+      `src/app/join/[token]/page.tsx:22` renders "Invalid invite – This
+      invite link is invalid or has expired… Back to log in". People are
+      told they failed at the moment they succeeded.
+      Acceptance: after "Create account & join" the page shows the
+      verification-sent panel naming the household. An e2e test asserts
+      "Invalid invite" is not visible after submit.
+
+- [ ] **UX-56. Save the language chosen at signup on the new account**
+      (impact: high, effort: S) — bug, breaks Context (two languages).
+      Signup (`src/lib/actions/auth.ts:181`) and join signup
+      (`household.ts:238`) create the user without `locale`, so the DB
+      default `en` applies. The account locale outranks the cookie, so
+      someone who signed up in Swedish meets an English dashboard on
+      their first login. Later emails (reset, digest) are English too.
+      Acceptance: signing up or joining while the UI shows Swedish stores
+      `locale='sv'`, and the first dashboard after login is Swedish.
+
+- [ ] **UX-57. The cookie notice covers submit buttons and the footer
+      toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
+      primary per view). On a phone the fixed notice
+      (`src/components/legal/cookie-notice.tsx:50,62`) takes 158 px and
+      has a full-width purple "Got it":
+      - on `/signup` it covers "Create your household";
+      - on public pages the footer language toggle can't be tapped until
+        it's dismissed, because the page reserves no space for it;
+      - on the first dashboard it covers the getting-started card and
+        the FAB.
+      It only reports strictly necessary cookies, so it needn't be loud.
+      Acceptance: at 412 px the signup submit, the footer language toggle
+      and the dashboard primary action are fully visible and tappable
+      while the notice shows. The notice is a quiet one-line strip with a
+      ghost/outline button, and the page reserves its height.
+
+- [ ] **UX-58. A landing page that shows the product and claims only
+      what's true** (impact: high, effort: M) — breaks User-centricity
+      and the Squirrel voice.
+      - There is no screenshot, phone frame or illustration of the app,
+        and the mascot appears only as a 40 px header badge. The page
+        reads like a generic SaaS template, while Bring! and AnyList lead
+        with the product on a phone.
+      - "Up and running in a few minutes, with example data to poke
+        around" (`en.ts:3104`) isn't true: a new household starts empty.
+      - The five feature cards (`src/app/page.tsx:28-48`) give budgets
+        two slots but omit tasks, recipes and cook mode, receipt,
+        barcode and shelf scanning, shareable list links and the calendar
+        feed.
+      - At 1280 and 1920 px the grid leaves an empty sixth cell.
+      Acceptance: above the fold on a phone there is at least one real
+      product visual (for example a shopping list in a phone frame with
+      the mascot). The example-data line is removed (or made true by
+      UX-136). Tasks, recipes and scanning are represented. No empty
+      grid cell at 1280 px.
+
+- [ ] **UX-59. Signup and login errors next to the field, keeping what
+      was typed** (impact: med, effort: M) — breaks Usability ("inline,
+      actionable errors next to the field") and Context.
+      - A password mismatch wipes both password fields, drops focus to
+        `<body>` and shows one generic line above the consent text,
+        with no `aria-invalid` or `aria-describedby`
+        (`signup-form.tsx:157`, `login-form.tsx:95`).
+      - A short password or bad email only gets the browser's native
+        bubble, in the browser's language.
+      - The 8-character minimum is never shown up front.
+      - "An account with that email already exists" offers no Log in or
+        Forgot password link.
+      Server-message translation is MAINT-7. Whether signup should stop
+      revealing that an email exists is a security call, not part of
+      this item.
+      Acceptance: a mismatch keeps the first password, focuses Confirm
+      password and shows the error under it with `aria-invalid`. The
+      password field shows "At least 8 characters" before submit. The
+      duplicate-email error links to Log in and Forgot password.
+
+- [ ] **UX-60. Explain "Household name" at signup and point invitees to
+      their link** (impact: med, effort: S) — User-centricity. Signup
+      assumes you are starting a new household. Someone whose partner
+      already uses Squirrel creates a second, empty household, with no
+      route from there to the partner's. The only hint is a placeholder
+      that disappears on focus.
+      Acceptance: `/signup` shows "Joining someone's household? Open the
+      invite link they sent you." Household name has helper text saying
+      everyone you invite sees this name.
+
+- [ ] **UX-61. Clearer steps from signup to first login** (impact: med,
+      effort: S) — breaks Usability (fewer steps).
+      - After submit, the card is still titled "Create your household".
+        If the email send fails, a red warning shows inside it.
+      - A valid verify link shows "Verify your email" (an instruction,
+        not an outcome) and a small "Go to dashboard" link that bounces
+        to an empty `/login`
+        (`src/components/auth/verify-email-client.tsx:37-43`).
+      - After a password reset, the login email field is empty too.
+      Signing in straight from the link is UX-135.
+      Acceptance: the post-signup card says "Check your inbox" and names
+      the address. A good verify link says "Email verified" with a
+      primary "Log in" that pre-fills the email. `/login?reset=success`
+      pre-fills the email.
+
+- [ ] **UX-62. A warm join page that says who invited you** (impact:
+      med, effort: S) — breaks Consistency and the Squirrel voice. An
+      invitee's first contact with Squirrel is a bare "Join {household}"
+      form (`src/components/household/join-signup-form.tsx`). It has no
+      brand badge, no inviter name, no line on what Squirrel is, and
+      different field styling from `/signup`. An invalid invite offers
+      "Back to log in" to someone who never had an account.
+      Acceptance: the join page shows the BrandBadge, "{inviter} invited
+      you to {household} on Squirrel", a one-line pitch and signup's
+      field styling. The invalid-invite card offers "Go to Squirrel" and
+      "Log in".
+
+- [ ] **UX-63. The shared-list page as good as the member view**
+      (impact: med, effort: M) — breaks Consistency and User-centricity
+      (the person you share with is often the one in the shop).
+      `/share/shopping-list/<token>` (`shared-shopping-list-client.tsx`)
+      has:
+      - a flat list in insertion order: no aisle grouping, progress ring,
+        dock or All done;
+      - no brand badge and no sharer;
+      - an amber warning that ticks change "this household's actual
+        shopping list and inventory" (`en.ts:3144`), which is jargon for
+        a non-user;
+      - `sharedShoppingList.footerNote` (`en.ts:3147`) defined but never
+        rendered;
+      - long names clamped to two lines, readable only in a `title`
+        tooltip that phones can't show.
+      Acceptance: the share page shows the brand badge and "Shared by
+      {household}", groups by aisle in the household's store order, shows
+      "n of m" progress and an All done state, and has a neutral one-line
+      banner. Long names can be read in full, and a footer links to `/`.
+
+- [ ] **UX-64. Real page titles, one `<h1>`, and link previews on public
+      pages** (impact: med, effort: S) — breaks Accessibility and Context.
+      - `document.title` is just "Squirrel" on `/`, `/login`, `/signup`,
+        `/forgot-password`, every token page and the 404.
+      - `/privacy` and `/terms` have their own titles but stay English
+        in sv.
+      - Login, signup, forgot-password and the token pages have no
+        `<h1>` (`CardTitle` is a div, for example
+        `src/app/signup/page.tsx:22`).
+      - There are no `og:`/`twitter:` tags, so an invite or share link in
+        WhatsApp or iMessage previews as a bare "Squirrel".
+      Acceptance: each public route has a localised `<title>` ("Log in ·
+      Squirrel") and exactly one `<h1>`. `/`, `/join/[token]` and
+      `/share/shopping-list/[token]` emit `og:title`, `og:description` and
+      `og:image`, with join and share naming the household or list.
+
+- [ ] **UX-65. A logged-out 404, and token pages titled by outcome**
+      (impact: low, effort: S) — breaks Consistency and User control.
+      `src/app/not-found.tsx:41` has no brand badge, and its only action,
+      "Back to dashboard", sends a stranger to the login form. Two token
+      pages are titled with labels instead of outcomes: "Verify your
+      email" for a dead link, and "Weekly digest" for a bad unsubscribe
+      link.
+      Acceptance: a logged-out 404 uses the token pages' StatusCard
+      layout with "Go to Squirrel". Invalid-token titles state the outcome
+      ("Link expired", "Link not valid").
+
+- [ ] **UX-66. Legal pages in Swedish (or marked English), with an
+      accurate "who we are"** (impact: med, effort: M) — breaks Context
+      and Accessibility. ⚠️ Touches the privacy page (human-only area).
+      - The sv cookie notice's "Läs mer" opens an English-only policy
+        inside `<html lang="sv">`, so screen readers read English with a
+        Swedish voice.
+      - The policy says Squirrel "isn't a large multi-tenant SaaS company
+        … it's a self-run app", which contradicts the public "Get started
+        free" (`src/app/privacy/page.tsx:74-75`).
+      - It is about 8,000 px long with no table of contents.
+      Acceptance: sv serves Swedish legal text, or the English body
+      carries `lang="en"` and an "Only available in English" note. "Who
+      we are" matches how Squirrel is offered. The page starts with a
+      jump list.
+
+- [ ] **UX-67. Let password managers update the right login on reset**
+      (impact: low, effort: S) — M4. `reset-password-form.tsx:25` has no
+      username field, so Chrome and iOS offer to save a password with no
+      account attached.
+      Acceptance: the form includes a hidden `autocomplete="username"`
+      input holding the account email.
+
+- [ ] **UX-68. Landing calls to action are links, not buttons**
+      (impact: low, effort: S) — breaks Accessibility (real `<a>`
+      semantics). "Log in", "Get started free", "Create your household"
+      and the 404's action render as `<a role="button">` through
+      `Button render={<Link/>}`, so screen readers announce a button that
+      navigates.
+      Acceptance: these expose `role="link"`, and e2e finds them with
+      `getByRole("link", …)`.
+
+#### First run and the overview
+
+- [ ] **UX-69. Getting started: ticked steps, progress, one prompt per
+      feature, and a finish moment** (impact: med, effort: S) — breaks
+      Hierarchy and M6, and misses a delight moment.
+      - Finished steps vanish and the card silently disappears at the end
+        (`src/components/dashboard/getting-started.tsx:50-51`).
+      - "Track your personal budget" and the "Set up your personal
+        budget" card (`src/app/dashboard/page.tsx:133,216-244`) sit
+        stacked: two of the three blocks on the first screen push the
+        same optional feature.
+      - Meals, recipes and tasks have no step.
+      - Rows have no chevron, and descriptions are 12 px (`:89`), below
+        the 14 px floor.
+      Acceptance: finished steps stay as ticked rows under an "N of M"
+      progress bar. Completing the last step shows a short mascot "You're
+      all set" moment once (no animation under reduced motion). The
+      overview shows one call to action per feature. "Plan this week's
+      meals" is a step. Descriptions are at least 14 px and rows show a
+      chevron.
+
+- [ ] **UX-70. A "Today" block that answers "what needs me now?"**
+      (impact: high, effort: M) — breaks Hierarchy ("key status first")
+      and M6. On a phone the first screen is a greeting, the getting-started
+      box and two cards.
+      - The tasks card lists titles as plain text you can't tick or open.
+      - It counts only tasks assigned to you (`page.tsx:65`), so it says
+        "2 open tasks" while 4 unassigned household chores are open.
+      - The household budget never appears, even when fully set up.
+      - Tonight's meal and items expiring soon are missing, though the
+        subtitle says "What needs your attention right now".
+      Acceptance: at 412×839 with data, the first screen shows a "Today"
+      block with:
+      - your tasks plus unassigned ones, each with a working checkbox;
+      - tonight's planned meal;
+      - the household's safe to spend, once the budget has categories;
+      - a count of expiring items.
+
+- [ ] **UX-71. Overview stat cards: honest colours, real links, no dead
+      ends** (impact: med, effort: S) — breaks Colour (status pairs with
+      meaning) and Usability.
+      - The low-stock count is amber even at 0 (`page.tsx:264`), and "1"
+        in amber sits over "1 out of stock" in red.
+      - The "Shopping lists" card shows a count of items.
+      - "0 items to buy across 0 active lists" is how a first run reads.
+      - "View inventory" opens the unfiltered list, and "View shopping
+        lists" opens the index even with one active list (`:276,300`).
+      - "Total items tracked" has no action at all.
+      Acceptance: warning colour appears only when the count is above 0,
+      and zero reads "All stocked up" with an icon. Low stock links to
+      `/dashboard/inventory?status=low` and says "N already on your list".
+      With one active list the shopping card opens that list. Every card
+      is actionable or removed. Empty counts use friendly copy ("No lists
+      yet — start one").
+
+- [ ] **UX-72. Greet in the user's own time zone, by first name**
+      (impact: low, effort: S) — Context. The greeting uses the server's
+      UTC hour (`src/app/dashboard/page.tsx:30`), so a Stockholm user sees
+      "Good morning" at 13:00. It also uses the full display name ("Good
+      evening, Åsa Lindström") at 30 px.
+      Acceptance: at 12:30 Europe/Stockholm the heading says "Good
+      afternoon, Åsa".
+
+- [ ] **UX-73. New households get a currency from their language**
+      (impact: med, effort: S) — breaks M4 (default what you can derive).
+      `Household.currencyCode` stays null after signup
+      (`prisma/schema.prisma:163`, no migration needed). Every amount in
+      the budgets, shopping prices and recipe costs is a bare number
+      ("+16,028.60", "→500.00") until someone finds the setting in the
+      sixth card on the Household page. Money without a currency looks
+      unfinished and less trustworthy.
+      Acceptance: a household created in sv defaults to SEK, and in en to
+      the browser region's currency where known. Budget onboarding shows
+      it with one tap to change. A new household's safe to spend shows the
+      symbol.
+
+- [ ] **UX-74. No "New update" dot for brand-new users** (impact: low,
+      effort: S) — User-centricity. `hasUnseenRelease(undefined)` is true,
+      so in their first minute a new user gets an unread dot pointing at a
+      changelog of things that "used to" behave differently.
+      Acceptance: signup marks the latest release as seen. Optionally,
+      What's new for a first-week user shows "What Squirrel can do"
+      instead.
+
+#### Profile and household settings
+
+- [ ] **UX-75. Rename a household** (impact: high, effort: S) — breaks
+      User control. The name typed in a hurry at signup is permanent: no
+      rename action exists (`src/lib/actions/household.ts`,
+      `src/app/dashboard/household/`). It shows on every page header, in
+      invite emails and on the join page.
+      Acceptance: an owner can rename the household from
+      `/dashboard/household`, with a unit test for the tenancy check.
+      The header, switcher and join page show the new name after
+      reload.
+
+- [ ] **UX-76. Profile grouped into a few sections** (impact: med,
+      effort: M) — breaks M6 and Hierarchy. `/dashboard/profile` is 11
+      cards, each with its own Save, four phone screens tall, and a
+      single 380 px column on desktop.
+      - "Swish number" (Sweden-only, split bills only) is second, above
+        email and password, even in English.
+      - The "Display name" card labels its field "Display name" again.
+      - There's no sign out on the page.
+      Acceptance: Profile has Account, Preferences (with UX-51's
+      Appearance and Language, and Swish), Notifications, and Data &
+      privacy. Rare items sit behind disclosures, and Sign out is at the
+      end. Desktop uses two columns or a settings nav.
+
+- [ ] **UX-77. Deleting your only household: explain instead of a button
+      that refuses** (impact: low, effort: S) — breaks User control.
+      ⚠️ Touches user-data deletion (human-only area). The red "Delete
+      household" button is active, but tapping it opens "You can't
+      delete your only household. Create another one first." The data
+      export is named `household-hub-my-data-<date>.json`
+      (`profile/export-data/route.ts:271`), after the repo, not the
+      product.
+      Acceptance: with one household the danger zone explains the rule
+      inline and points to "Delete account". The export is named
+      `squirrel-my-data-<date>.json`.
+
+#### Shopping
+
+- [ ] **UX-78. A double tap in the "Next up" dock ticks two items**
+      (impact: high, effort: S) — bug, breaks M5. A ticked dock row is
+      removed within about 60 ms and the next item slides under the same
+      finger (`src/components/shopping/shopping-mode.tsx:158-172`). Two
+      taps 90 ms apart ticked milk *and* eggs (5 → 7 of 14), and no toast
+      said so.
+      Acceptance: two taps within 400 ms on a dock row tick only that
+      item. The row shows a filled check (UX-54) before the next item
+      moves up. An e2e test double-taps a dock row and sees progress rise
+      by exactly 1.
+
+- [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
+      M) — breaks M6. Every pending row is 118 px: a name line plus
+      "Add price ✎ 🗑" (`shopping-list-client.tsx:1196-1340`). With the
+      264 px dock and the sticky add bar, only 2–3 rows fit at 412×839.
+      With a long list title, not one whole row shows on first load.
+      Bring! and AnyList show 8–10.
+      Acceptance: at 412×839 an active 15-item list shows at least 6 full
+      rows above the dock. A row without a note is 56–64 px. Price, edit
+      and delete are reachable by swipe or a row tap, and targets stay at
+      least 44 px.
+
+- [ ] **UX-80. Finish a shop in one step and carry unbought items over**
+      (impact: high, effort: M) — breaks User control and Usability.
+      - Marking an item "Didn't get it" in the put-away sheet and tapping
+        "Put away & finish" opens a second "Complete this list?" sheet.
+      - That sheet's copy is stale ("Completed by accident? Undo it with
+        Archive, then Unarchive", `en.ts:499`), though completing now
+        has a real Undo.
+      - It doesn't say the pending item is the reason it appeared.
+      - The unbought item stays stranded on the completed list
+        (`completeShoppingListAction`, `actions.ts:2044`), forgotten by
+        next week.
+      Acceptance: "Put away & finish" completes in one step. Pending items
+      are offered "Move N to {next active list / a new list}" (on by
+      default) and show as pending there afterwards. The confirm (from the
+      ⋯ menu) names the pending count and drops the Archive/Unarchive
+      advice in both languages.
+
+- [ ] **UX-81. A short, rewarding end to a shop** (impact: med, effort:
+      M) — Delight, M4 and Hierarchy.
+      - "All done" shows two buttons for the same thing: "Put away (15)"
+        and "Put things away".
+      - The put-away sheet is 15 cards, each with a three-way choice and
+        quantity, best-before and location fields (about 4,500 px,
+        `put-away-dialog.tsx:176-245`).
+      - Every cart row has a "Not put away" badge mid-shop.
+      - After completing, you're left on a struck-through read-only list.
+      Acceptance: All done shows a one-line trip summary ("15 items · ≈
+      240 kr · 18 min") and one primary "Put everything away" that
+      accepts the defaults, with per-item details collapsed. No "Not put
+      away" badges while the list is active. After completing, the page
+      offers "Back to lists" and "Start next list".
+
+- [ ] **UX-82. An opaque sticky add bar** (impact: med, effort: S) —
+      bug, breaks M9. When the list scrolls under the add bar,
+      `max-sm:bg-background/85 backdrop-blur-sm` plus the input's
+      `bg-transparent` (`smart-add-bar.tsx:212-213`) let row text show
+      inside the field, over the placeholder.
+      Acceptance: with a row scrolled under it, no row text or icons show
+      through the field or the bar.
+
+- [ ] **UX-83. Aisle headers in the viewer's language** (impact: med,
+      effort: S) — breaks Consistency and Context. Group labels are the
+      first item's stored category text
+      (`src/lib/shopping/shopping-mode-grouping.ts:100-102`). A Swedish
+      session shows "PRODUCE", "CLEANING SUPPLIES" next to "ÖVRIGT", and
+      "Näst på tur · Cleaning supplies".
+      Acceptance: known category keys take their label from the current
+      locale's `categoryLabels` in headers and the dock ("Frukt & grönt",
+      "Städartiklar").
+
+- [ ] **UX-84. Hide an aisle header whose last row was deleted**
+      (impact: low, effort: S) — bug, M6. `if (hidden) return null`
+      (`shopping-list-client.tsx:1164`) hides the row but not its group,
+      so "FROZEN" sits alone for the whole undo window.
+      Acceptance: deleting a section's last row hides its header until
+      Undo restores the row.
+
+- [ ] **UX-85. Rename a list, and start a new list from a template or a
+      past list** (impact: med, effort: M) — breaks User control and M4.
+      - Lists can't be renamed anywhere: there's no action in
+        `shopping-list/actions.ts`.
+      - The New list sheet asks only for a name.
+      - Templates sit further down, each with its own "New list" button,
+        so the page has two "New list" buttons that mean different
+        things.
+      - Repeating last week's shop means saving a template first; in
+        Bring! and AnyList it's one tap.
+      Acceptance: the list ⋯ menu (and tapping the title) offers Rename.
+      The New list sheet offers "Start from: blank / a template / a
+      recent list (unbought or all items)". Template rows say "Use".
+
+- [ ] **UX-86. Hide the default "× 1 pcs"** (impact: med, effort: S) —
+      breaks Hierarchy and M6. "Bananas × 1 pcs", "coffee × 1 pcs" appear
+      on most rows (`shopping-list-client.tsx:1235-1240`), in the dock
+      (`shopping-mode.tsx:159`), on the share page and in copied text
+      ("- 1 pcs dill").
+      Acceptance: quantity 1 with the default unit shows only the name in
+      rows, the dock, the share page and copied text. Any other quantity
+      ("milk × 2 l") still shows.
+
+- [ ] **UX-87. Don't log a partial estimate as the trip's cost**
+      (impact: high, effort: S) — breaks User control (automation
+      suggests) and Consistency. ⚠️ Touches transaction logging (money,
+      human-only area).
+      - Completing a 14-item shop with one priced item toasts "Logged
+        24.90 to Groceries in your budget"
+        (`shopping-list/actions.ts:2088-2109`). The budget silently
+        records a fraction of the trip.
+      - Mid-shop, the header's "About 24.90 left to spend" (`en.ts:534`)
+        reads like the budget's safe to spend.
+      Acceptance: the header reads "≈ 24.90 still to buy (1 of 14
+      priced)". When some bought items are unpriced, completion says so
+      and lets the user edit or skip the amount before it is logged.
+
+- [ ] **UX-88. Smart add: don't split on commas inside brackets**
+      (impact: low, effort: S) — Usability. "dishwasher tablets
+      (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
+      plus a junk "st) × 120 pcs" row, which also became a pantry item
+      (`smart-add-suggestions.ts:103-118`, `parsePastedList`).
+      Acceptance: that input adds two rows with the brackets intact, with
+      a unit test.
+
+- [ ] **UX-89. Typed list items don't turn into "out of stock" pantry
+      items** (impact: high, effort: M) — breaks User-centricity
+      ("automation suggests, the user decides"). Free-text list items
+      silently create inventory items at 0 stock (`addAdHocItemAction`,
+      `smartAddShoppingListItemsAction`). A household that only ever made
+      lists sees "14 out of stock" on the overview: napkins, charcoal,
+      crayfish, even the junk row from UX-88. Deleting the list row
+      leaves the 0-stock item behind.
+      Acceptance: a new household that only adds items to lists shows 0
+      out of stock. Items that were never stocked, or are already on a
+      list, don't count as out. Deleting a list row whose never-stocked
+      inventory item it created removes that item too.
+
+#### Meals and recipes
+
+- [ ] **UX-90. Don't preselect weak pantry matches** (impact: high,
+      effort: M) — breaks "New technology: let the user correct a
+      suggestion before it changes data". The "Match ingredients" step
+      (`ingredient-review-step.tsx`) preselects "Use existing" for loose
+      fuzzy matches, and one tap on "Create recipe" saves them. Seen:
+      - Rice → Ricotta;
+      - Cream → Breadcrumbs;
+      - Tomatoes (pcs) → Crushed tomatoes (g).
+      Afterwards "Review ingredient matches" calls them all matched. The
+      missing list then asks for "Ricotta 4 dl", and Mark as cooked offers
+      to deduct breadcrumbs from a tikka masala.
+      Acceptance: a match below the confident threshold defaults to "Create
+      new" and needs a tap to accept. Saving a recipe with Rice and Cream
+      on the defaults never links Ricotta or Breadcrumbs (unit test on the
+      default choice).
+
+- [ ] **UX-91. The planner's primary action: "Add N missing to shopping
+      list"** (impact: high, effort: S) — breaks Hierarchy and M2. The
+      Planner tab has no primary action. Its most valuable step, turning a
+      week into a shopping list, hides in an unlabelled ⋯ at the top right
+      (`week-planner.tsx:234-262`) and shows even on an empty week. The
+      toast only says `Added to "Weekly shop"`
+      (`missing-ingredients-dialog.tsx:123`), with no count and no way
+      there.
+      Acceptance: a planned week shows a bottom-anchored primary "Add N
+      missing to shopping list" button, hidden on an empty week. The toast
+      names the count and has "Open list".
+
+- [ ] **UX-92. "Add to plan" and the instructions in the recipe sheet**
+      (impact: high, effort: S) — User-centricity (shortest path from
+      "what's for dinner?").
+      - The recipe sheet (`recipe-manager.tsx:458-503`) offers Review
+        matches, Copy, Delete, Edit and Cook, but no way to plan it,
+        though `AddToPlanDialog` exists.
+      - The instructions only show in cook mode or the edit form.
+      Acceptance: the sheet has "Add to plan", which opens the date and
+      slot picker, and lists the instruction steps under the ingredients.
+
+- [ ] **UX-93. Enter in an ingredient name submits the whole recipe**
+      (impact: high, effort: S) — bug, breaks Usability. Typing "Wheat
+      flour" and pressing Enter jumps to "Match ingredients" before
+      quantity, unit or any other ingredient
+      (`src/components/inventory/combo-field.tsx:57-59`). The popup's
+      `Use "Wheat flour"` row looks like an option but is the empty-state
+      text: tapping it does nothing, and it stays open over the quantity
+      field. ComboField is shared with the inventory dialogs.
+      Acceptance: Enter in an ingredient name moves focus to that row's
+      quantity (or adds a row) and never submits. Tapping `Use "X"`
+      accepts the value and closes the popup.
+
+- [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
+      as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
+      User control and M7.
+      - With a timer running and a step ticked, one back gesture, swipe
+        down, Escape or the thumb-zone "Close" ends cook mode and the meal
+        sheet without a prompt (`cook-mode-dialog.tsx:55`).
+      - It ends with only "Close", so recording the meal means reopening
+        it and tapping "Mark as cooked".
+      Acceptance: with a timer running or a step ticked, closing asks "Stop
+      cooking? Your timer will stop". After the last step a primary "Done —
+      mark as cooked" opens the mark-as-cooked review. A big "Next step"
+      button highlights and scrolls to the next step, and ingredients can
+      be ticked during prep (the Paprika/Mealime feel).
+
+- [ ] **UX-95. One word for portions, and keep meal and recipe apart**
+      (impact: med, effort: S) — breaks Consistency. In English the same
+      recipe is "4 servings" in the list and "4 portions" in the planner.
+      The form explains "Servings" as "How many portions…", and Mark as
+      cooked asks "Servings left over" then toasts "saved 2 portions"
+      (`en.ts:1545,1548,1580-1581,1735-1741,1828-1833`). The add sheet
+      labels its field "Recipe" with the placeholder "Choose a meal", while
+      "Meal" names the slot picker. Swedish is already consistent.
+      Acceptance: English says "portions" in the recipe list, form,
+      planner, Mark as cooked and Meal prep. The add sheet reads "Recipe:
+      Choose a recipe" and "Meal: Dinner".
+
+- [ ] **UX-96. The add-meal sheet names the day and can search recipes**
+      (impact: med, effort: M) — breaks M4 and Context.
+      - "Add a meal" never says which day, and the page behind is
+        blurred.
+      - The recipe field is a plain select whose popup shows about 1.5
+        rows at the bottom of the sheet, with no search and no
+        favourites-first order.
+      Acceptance: the title reads "Add dinner · Mon 12". The recipe field
+      filters as you type, lists favourites and recently cooked first, and
+      shows at least 5 rows at 412 px.
+
+- [ ] **UX-97. Fill empty days uses all recipes once favourites run out**
+      (impact: med, effort: S) — Usability (sensible defaults). With six
+      recipes and no favourites the dialog says "No favorites to pick from
+      yet". With three favourites it fills three days and leaves four empty
+      (`fill-empty-days-dialog.tsx:54`).
+      Acceptance: every empty future day gets a proposal, favourites first
+      and then other recipes, whenever the household has enough recipes.
+
+- [ ] **UX-98. A recipe form in recipe order, in plain words, with 44 px
+      chips** (impact: med, effort: S) — breaks M3, M9 and Accessibility
+      (labelled controls).
+      - Instructions and Tags come before Ingredients.
+      - Nothing says each line becomes a cook-mode step with a timer.
+      - Tag chips are 26 px tall with 12 px text
+        (`recipe-form-dialog.tsx:702`).
+      - Quantity and unit have placeholders but no labels (`:748-768`).
+      - The sub-recipe hint reads "count toward this recipe's own
+        inventory decrement".
+      - "3 cloves" renders as "3 clove".
+      Acceptance: Ingredients follow Name and Servings. Instructions say
+      "One step per line — each becomes a step in Cook mode". Chips are at
+      least 44 px with 14 px text. Quantity and unit have accessible
+      names. The sub-recipe hint is plain language. Plurals render
+      correctly.
+
+- [ ] **UX-99. "Today" in words, and unique button names in the planner**
+      (impact: low, effort: S) — breaks Accessibility (never colour
+      alone). Today's card is marked only by a purple ring, with no
+      `aria-current` (`week-planner.tsx:302`). All seven day buttons are
+      named "Add meal" and all stars "Favorite recipe".
+      Acceptance: today's card shows a "Today" badge and
+      `aria-current="date"`. Buttons are named "Add meal, Mon 12" and
+      "Favorite Greek salad".
+
+- [ ] **UX-100. "Plan portions" starts at today** (impact: low, effort:
+      S) — M6. Leftovers cooked on Thursday open on all 28 slots from
+      Monday. Past and filled slots look almost the same as free ones
+      (`plan-portions-dialog.tsx`).
+      Acceptance: the dialog starts today, hides past days, shows filled
+      slots clearly as taken, and the first free slot is visible without
+      scrolling.
+
+#### Tasks
+
+- [ ] **UX-101. Tapping a task's title opens it instead of completing
+      it** (impact: med, effort: S) — breaks Usability (forgiving) and M5.
+      The `<label>` wraps both checkbox and title
+      (`src/components/tasks/tasks-client.tsx:211`), so a stray tap while
+      scrolling completes the task, with no toast and no undo. In Things
+      and Todoist only the circle completes a task.
+      Acceptance: tapping the title opens the edit sheet. Only the
+      checkbox or a right swipe completes the task.
+
+- [ ] **UX-102. Unticking restores the previous "Last done by"**
+      (impact: med, effort: S) — bug, breaks User control and Context
+      (never surprise a member).
+      - An accidental tick and untick leaves a permanent "Last done by
+        Erik" on never-done one-offs.
+      - Unticking a recurring task wipes the real earlier completion and
+        credits the wrong person (`tasks/actions.ts:274-289`).
+      - In a shared household the other person reads this as "already
+        handled".
+      Acceptance: tick then untick restores `completedAt` and
+      `completedBy` exactly, with an action unit test. A never-done one-off
+      shows no "Last done by".
+
+- [ ] **UX-103. "Take turns" with one person isn't silently dropped**
+      (impact: med, effort: S) — bug, breaks User control.
+      - With an assignee set and one person under "Take turns", the
+        dialog says "Add at least one more person" but keeps Add
+        enabled.
+      - The task saves with an empty rotation and no message
+        (`task-form-dialog.tsx:105,247`).
+      - The assignee isn't pre-filled into the turn order.
+      Acceptance: choosing rotation with an assignee pre-fills the
+      assignee as #1. A one-person rotation can't be submitted, and the
+      hint shows as the error.
+
+- [ ] **UX-104. Ticking a task: undo, no list jump, and a "caught up"
+      moment** (impact: high, effort: M) — breaks M5 and User control,
+      and misses a delight moment.
+      - A ticked task vanishes to "Completed" below the fold with no toast
+        or undo.
+      - The first tick of the week mounts the "This week, the household
+        handled" recap above the list (`tasks-client.tsx:99-100`), so rows
+        jump about 115 px under the thumb.
+      - Ticking the last open task shows nothing, while shopping has the
+        mascot "All done" ring.
+      Acceptance: a tick shows "Done: {title} · Undo". The recap never
+      shifts rows during a tap (reserved space, or it appears on the next
+      visit). Ticking the last open task shows a mascot "You're all caught
+      up!" moment once (static under reduced motion).
+
+- [ ] **UX-105. An "all caught up" state, and old one-offs that leave**
+      (impact: med, effort: S) — breaks Usability (every state designed)
+      and M6.
+      - With every task done, the page jumps straight to "COMPLETED".
+      - Completed one-offs stay struck through forever, in creation
+        order, and clearing them is one confirm per row.
+      Acceptance: with no open tasks an empty state ("You're all caught
+      up!") shows above Completed. Completed one-offs older than 7 days
+      collapse behind "Show N older", or "Clear completed" (with undo)
+      exists.
+
+- [ ] **UX-106. Compact task rows, and a "Mine" filter** (impact: med,
+      effort: M) — breaks M6 and Hierarchy.
+      - Rows carry edit and trash icons as well as the swipe tray that
+        already offers both.
+      - With a long assignee name or Swedish recurrence text, the trash
+        wraps to a third line, so about 4 tasks fit on a phone screen.
+      - There's no way to see just your own tasks.
+      Acceptance: at 412 px a one-line task with an assignee badge is at
+      most 56 px, with edit and delete in the swipe tray and the edit
+      sheet (M7: the edit sheet is the visible path). A "Mine / Everyone"
+      filter is remembered.
+
+- [ ] **UX-107. Say when a task title is too long, and label the field**
+      (impact: low, effort: S) — Usability (prevent errors).
+      `maxLength={120}` (`task-form-dialog.tsx:169`) silently stops input
+      mid-word, and the field has only a placeholder for a label.
+      Acceptance: the title has a visible label and a counter from 100
+      characters, so a saved title is never cut without the user seeing
+      it.
+
+#### Budgets
+
+- [ ] **UX-108. The budget Overview shows categories near or over their
+      limit** (impact: high, effort: M) — breaks Hierarchy and honest
+      status. ⚠️ Touches budget code (money, human-only area). With two
+      categories over their limit ("Restaurang & café 1,355 of 800"), the
+      only place that says so is the fourth tab, halfway down. The Overview
+      (`budget-tabs.tsx:312-354`) still says in green "You're in good shape
+      for the rest of the month."
+      Acceptance: with any category at 90% or more of its limit, the
+      Overview lists those categories (name, spent / limit, "over" with an
+      icon) right under safe to spend. The status line mentions them
+      instead of "good shape".
+
+- [ ] **UX-109. Log an expense on a phone in three taps** (impact: high,
+      effort: M) — breaks M4, Usability (remembered choices) and M5.
+      ⚠️ money.
+      - Focus lands on the Category combobox, a text input, so the letter
+        keyboard opens first.
+      - Its popup mixes income, expense and savings with no group headers,
+        income first, and covers the sheet title.
+      - Amount comes second.
+      - Neither the last-used category nor the Transactions tab's filtered
+        category is preselected.
+      - Saving shows no toast (`transaction-dialog.tsx`, only recurring
+        logs toast, `:255-263`).
+      Acceptance: Amount is first and focused with the decimal keypad.
+      Categories are chips or a grouped list with expenses first and
+      recent ones on top. The filtered or last-used category is
+      preselected. Saving shows "Added 129 kr to Restaurang & café · Undo".
+
+- [ ] **UX-110. Say what the household and personal budgets are for,
+      where people look** (impact: high, effort: S) — breaks
+      User-centricity and Context.
+      - On phones both pages hide their subtitle (`max-sm:hidden` at
+        `budget/page.tsx:1064` and `personal-budget/page.tsx:483`).
+      - Both show the same "Let's set up your budget" copy under the same
+        household switcher, so nothing says whether "my salary" goes here
+        or there.
+      - Home shows only the personal budget card.
+      - The one good explanation lives in the getting-started checklist.
+      Acceptance: each budget page shows a one-line purpose on phones. The
+      onboarding cards differ ("Shared money for {household}: rent, food,
+      bills" vs "Money that's only yours — no one else in the household
+      sees it"). Home shows the household budget once it has categories
+      (with UX-70).
+
+- [ ] **UX-111. Split an expense evenly by default** (impact: med,
+      effort: S) — bug, breaks Usability (sensible defaults). ⚠️ split
+      (human-only area).
+      - Typing 940 and ticking "Split this expense" shows both shares at
+        0.00 with an instant red "The shares add up to 0.00…", and Add is
+        disabled until "Split evenly" is found. The even split is
+        computed from the amount when the dialog opens
+        (`transaction-dialog.tsx:94`).
+      - In "Log a shared expense" both Paid fields start at 0, though
+        the person logging it nearly always paid.
+      Acceptance: ticking Split with an amount shows an even split with
+      no error. Shares follow the amount until edited. The current user
+      is preselected as payer.
+
+- [ ] **UX-112. A new member sees their shared costs before setting up a
+      personal budget** (impact: med, effort: M) — breaks Context (never
+      surprise a member) and Consistency. ⚠️ money.
+      - After a partner splits a 940 dinner, the new member's personal
+        Overview and home show only "Let's set up your budget". Their
+        Transactions tab shows "Shared −470.00" and Insights says they owe
+        470, but they'd never find either.
+      - Their only action, "Log a shared expense", is an outline button
+        at the top left.
+      - The household page calls the same action "Add transaction" plus
+        a "Split this expense" checkbox.
+      Acceptance: a member with shared splits sees their share and what
+      they owe or are owed on the personal Overview and home before
+      adding categories. The shared-expense action has one name and
+      placement on both pages.
+
+- [ ] **UX-113. "This repeats" creates a visible recurring item, or goes
+      away** (impact: high, effort: M) — breaks Consistency and User
+      control. ⚠️ money.
+      - Ticking "This repeats, Monthly" on a 250 transaction creates no
+        recurring item, and nothing shows under Recurring items or "Due
+        this period".
+      - Next month's safe to spend still drops by 250 through a hidden
+        fallback estimate.
+      Acceptance: "This repeats" creates or links a recurring item shown
+      on Manage, or the checkbox is removed. No amount changes safe to
+      spend without appearing in "How we got this number".
+
+- [ ] **UX-114. Insights: who owes whom first, empty cost cards
+      collapsed** (impact: med, effort: S) — breaks M6. On a phone,
+      Insights is 3,858 px tall. "Anna → Erik 470.00 · Clear debt" is
+      the very last card, after a 12-month trend with 11 empty months and
+      4–5 empty pantry/price cards ("No comparisons yet…", "Nothing is in
+      stock right now").
+      Acceptance: balances appear in the first screenful when a debt
+      exists. Empty cost-analyzer cards collapse into one line ("Price
+      insights appear once you scan receipts").
+
+- [ ] **UX-115. Category bars coloured by status, not by category**
+      (impact: med, effort: S) — breaks Colour ("chart colours are for
+      marks"; status uses success/warning/destructive with a word). In
+      "Expenses by category" the bars take a chart colour per category: a
+      category at 96% used is green and one at 36% is pink.
+      Acceptance: bars are one neutral colour, `warning` from 90% with
+      "Almost at limit", and `destructive` when over. Sparklines may keep
+      category hues.
+
+- [ ] **UX-116. An empty budget isn't "in good shape"** (impact: high,
+      effort: S) — breaks Usability (every state designed) and honest
+      status. ⚠️ money.
+      - Right after "Add 6 categories" the card shows a giant green
+        "+0.00" and "You're in good shape for the rest of the month."
+      - The starter categories have no limits, and onboarding stops
+        there.
+      - The "+", "–" and "→" glyphs on totals are unexplained.
+      Acceptance: with no income or recurring items, the card shows a
+      setup state ("Add your income and regular bills to see what's safe
+      to spend") with those two actions, not a green 0. Totals carry
+      words or a legend for the glyphs.
+
+- [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
+      chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
+      no mascot on money. The pace chart has only "Today" and "Month end"
+      labels and no values. The daily question, "how much can I spend
+      today?", isn't answered. Copilot Money and PocketGuard show a daily
+      allowance.
+      Acceptance: the card shows "≈ N per day for the D days left". The
+      chart labels its Today and Month-end points with amounts. After an
+      add, the headline animates through the existing `AnimatedNumber`.
+
+- [ ] **UX-118. The "Due this period" card: right empty state, one Add
+      placement** (impact: low, effort: S) — breaks Usability and
+      Consistency.
+      - With six recurring items, a past month says "Set up recurring
+        bills and income to see what's due here"
+        (`due-recurring-widget.tsx:177`).
+      - Its ghost "Manage recurring items" reads like a stray label
+        (`:172`).
+      - On Manage, "Add recurring item" and "Add planned bill" sit under
+        their descriptions while "Add category" sits top right.
+      - The expanded safe-to-spend card repeats the Due list right above
+        it.
+      Acceptance: a month before the items existed says "Nothing was due
+      this month". The three "Add …" buttons on Manage share one
+      placement. The Due card's link looks like a link. Due items aren't
+      listed twice.
+
+#### Inventory
+
+- [ ] **UX-119. "I used some" and "I bought more" for gram, kilo and
+      litre items** (impact: high, effort: M) — breaks Usability and M4.
+      - The stepper always moves by 1 unit
+        (`inventory-table.tsx:697,722`): Smör 500 g → 499 g, and Gul lök
+        1.5 kg → 0.5 kg → 0 kg.
+      - Swipe right is "+1" too.
+      - Tapping the quantity does nothing, so "used 200 g" means the Edit
+        dialog and mental arithmetic.
+      Acceptance: tapping the quantity opens a small sheet with a decimal
+      keypad and "Used / Bought" with quick chips (½, all, the last
+      amount). Step sizes suit the unit (g by 50 or 100). A gram item
+      drops by 200 g in at most two taps.
+
+- [ ] **UX-120. Make "Low stock at N" match the rule** (impact: high,
+      effort: S) — breaks Consistency. The rule is deliberately strict
+      (`quantity < threshold`, `src/lib/stock-status.ts:18`), but the field
+      says "Low stock at" (`en.ts:1007`) and defaults to 1. So every
+      whole-piece item goes from "In stock" straight to "Out of stock" and
+      never warns. REQUIREMENTS.md still says `<=`.
+      Acceptance: the field reads "Running low below" (sv too) with a
+      default that fits the unit (2 for pcs, empty for g/ml), and
+      REQUIREMENTS.md matches the rule.
+
+- [ ] **UX-121. What's low, out and expiring, at the top of the
+      inventory** (impact: high, effort: M) — breaks Hierarchy and M6.
+      With 4 out, 1 low and 4 expiring or expired, the header says nothing
+      (only a "well stocked" note exists,
+      `inventory/page.tsx:72-82`). The A–Z list hides them among 24
+      rows, and the Status filter has no expiring or expired.
+      Acceptance: the header shows tappable counts ("4 out · 1 low · 4
+      expiring") that filter the list. Status filters include Expiring and
+      Expired.
+
+- [ ] **UX-122. Add an item to the shopping list without zeroing its
+      stock** (impact: high, effort: S) — breaks User-centricity and User
+      control.
+      - The row menu's only list action is "Mark as empty & add to
+        shopping list" (`item-actions.tsx:192-195`), so buying more
+        spaghetti while one is left means wiping the stock.
+      - Rows don't show that an item is already on a list.
+      - Bulk selection can't add to a list.
+      - With auto-add on, the two mark-empty menu entries do the same
+        thing.
+      Acceptance: the row menu and bulk bar offer "Add to shopping list",
+      which leaves stock unchanged. Rows on a list show an "On list" tag.
+      Only one mark-empty entry shows when auto-add is on.
+
+- [ ] **UX-123. Keep the bulk-edit bar on screen on phones** (impact:
+      med, effort: S) — bug, breaks M2 and M5. The bar is `max-sm:sticky
+      max-sm:bottom-0` but is rendered before the list
+      (`inventory-table.tsx:314-315`). Ticking a row further down puts it
+      574 px above the screen. It also has no select-all or delete.
+      Acceptance: ticking a row at any scroll position shows the bar at
+      the bottom, above the bottom nav and FAB. It has select-all.
+
+- [ ] **UX-124. The item page has the controls people expect** (impact:
+      med, effort: M) — breaks Consistency and User control. The item
+      page (`items/[id]/page.tsx:138`) has no Edit, Delete, stepper,
+      expiry, opened or frozen state, or stock badge. It says "In stock: 0
+      pcs" for an empty item. Its "Also on" list link doesn't look like a
+      link.
+      Acceptance: the item page shows the status badge, expiry, Edit,
+      Delete and a stepper. List links look like links.
+
+- [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
+      med, effort: S) — bug. The rule looks only at price history and
+      bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
+      created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
+      "never stocked".
+      Acceptance: an item ever saved with quantity > 0 is never listed
+      under "Never stocked", with a unit test.
+
+- [ ] **UX-126. Warn about a duplicate while adding, and offer "add to
+      existing"** (impact: med, effort: M) — breaks Usability (prevent
+      errors). Adding "smör" next to "Smör", or "Banan" next to "Bananer",
+      saves a new item with no hint (`add-item-dialog.tsx`). The
+      duplicate surfaces only later, needing a merge that "can't be
+      undone", though "I bought more butter" is exactly when people reach
+      for Add.
+      Acceptance: when the typed name matches an existing item (the
+      duplicates filter's check), the dialog shows "Smör is already in your
+      pantry (499 g)" with a button to add the amount to it.
+
+- [ ] **UX-127. Units in one tap on a phone** (impact: med, effort: M) —
+      breaks M4 ("pick, don't type").
+      - The unit field is prefilled "pcs" and its chevron is hidden while
+        it has a value (`combo-field.tsx:50-55`,
+        `ui/autocomplete.tsx:63-69`), so seeing other units means erasing
+        "pcs" first.
+      - Suggestions only include units the household already uses, so a
+        new household gets none and has to type "dl" or "förp".
+      Acceptance: one tap shows common units (st/pcs, g, kg, dl, l, förp)
+      plus used ones, as chips or a list.
+
+- [ ] **UX-128. Show a refused unit change next to the field** (impact:
+      med, effort: S) — breaks Usability ("errors next to the field") and
+      M5. Changing Smör from g to kg in Edit and tapping Save appears to do
+      nothing: the refusal ("This item has stock… use Change unit…") is
+      below the fold of the scrolling form, and the field stays editable.
+      Acceptance: for an item with stock, the unit field is read-only with
+      an inline "Change unit…" link, and any refusal shows beside it in
+      view.
+
+- [ ] **UX-129. Name the clear and suggestion buttons on combo fields**
+      (impact: med, effort: S) — breaks Accessibility and M10. Every
+      ComboField (category, location, unit) has an unnamed × and chevron
+      (`src/components/ui/autocomplete.tsx:56-92`), so screen readers
+      announce just "button".
+      Acceptance: they are announced "Clear unit" and "Show suggestions"
+      (en and sv). An e2e `getByRole("button", { name: /clear/i })` finds
+      them.
+
+- [ ] **UX-130. Keep Delete visible in the desktop table at 1280 px**
+      (impact: med, effort: S) — bug, breaks M1. On rows with an expiry
+      date, Freeze adds a fourth icon (`item-actions.tsx:90`), and the
+      1054 px table in a 992 px column pushes "Delete item" to x=1295,
+      off screen.
+      Acceptance: at 1280×800 every row's actions are fully visible with no
+      horizontal scroll.
+
+- [ ] **UX-131. A scannable item catalog on phones** (impact: low,
+      effort: M) — breaks M6 and Consistency.
+      - "All" shows ~130 px cards, three per screen, with no search, no
+        stock badge and no sign that a card opens the item page.
+      - The sort order differs from the inventory's (Ägg first here,
+        last there).
+      - In duplicate groups the radio/checkbox pair has no visible
+        labels.
+      Acceptance: the catalog has search and compact rows in the
+      inventory's style and order. Duplicate rows show "Keep" / "Merge"
+      labels.
+
+- [ ] **UX-132. Enter in the empty inventory's quick add doesn't submit
+      half an item** (impact: low, effort: S) — Usability. In the
+      empty-state quick-add form, Enter in the category field submits at
+      once (seen during the review, alongside UX-50's empty-state
+      clean-up).
+      Acceptance: Enter only submits from the last field. Earlier fields
+      move focus to the next one.
+
 ### Dependencies
 
 - [ ] **DEPS-2. Clear the transitive audit findings** (impact: med, effort: S) —
@@ -371,6 +1513,33 @@ order below is a suggestion, not a dependency, unless noted.
       after `removeMemberAction`.
 
 ---
+
+- [ ] **UX-133. Optional due dates on tasks, sorted by urgency** (impact:
+      high, effort: L) — from the 2026-10-15 UI review. `HouseholdTask`
+      has no due field and `tasks/page.tsx:23` orders by `createdAt`.
+      Nothing is ever "overdue": "Water the plants" (every 3 days, done 8
+      days ago) looks the same as a task that reopened a minute ago. A
+      one-off like "Book the car service" can't get a date, and the
+      overview's "Today" block (UX-70) has nothing to say about lateness.
+      One migration: a nullable `dueDate`. Recurring tasks derive it from
+      the rule UX-137 settles.
+      Acceptance: a task can carry an optional due date. Open tasks sort
+      overdue, then today, then later. An overdue row shows a
+      `warning`-tinted "Overdue · 5 days" with an icon on the tasks page
+      and the overview. Unit tests cover the sort and the derived date.
+
+- [ ] **UX-134. A budget month that starts on payday** (impact: med,
+      effort: L) — from the 2026-10-15 UI review. ⚠️ Money (human-only
+      area). Swedish salaries land on the 25th, so most households budget
+      "lönemånad", the 25th to the 24th. With calendar months, logging
+      October's rent on 28 September put September (before the household
+      existed) at a red "−12,500.00" and left October's rent "Due". The
+      Log dialog also defaults to today, not the item's due day. One
+      migration: `Household.budgetMonthStartDay` (1–28, default 1).
+      Acceptance: with the start day set to 25, the month tabs, safe to
+      spend and recurring statuses use 25th–24th periods. Logging an
+      item from a period's Due list counts it in that period and
+      defaults its date to the due day. The calculator has unit tests.
 
 ## Phase 3 — larger items, own PR each
 
@@ -820,6 +1989,72 @@ out to be a product-scope question rather than a scoped task should move to
       both regions in the dashboards; if they differ, set
       `"regions": ["<db region>"]` and document it in DEPLOYMENT.md.
       Potentially the single largest latency win.
+
+- [ ] **UX-135. Sign in straight from the verification link?** `[!]`
+      ⚠️ auth (human-only area) — from the 2026-10-15 UI review. Login is
+      blocked until the email is verified (`src/lib/auth.ts:80`), and
+      signup deliberately doesn't sign in (`src/lib/actions/auth.ts:228-232`).
+      So a new user fills in five fields, then has to switch to their mail
+      app (often an in-app browser), tap the link, tap "Go to dashboard"
+      and type their email and password again. That contradicts the
+      landing page's "Setting up takes less than a minute".
+      Options:
+      - **Recommended:** a valid, unused verification token signs the
+        user in (single use, short-lived, the same trust as a reset
+        link) and lands on the dashboard with "Welcome to Squirrel,
+        {name}".
+      - Let unverified users in with the existing soft banner and gate
+        only email-sending features.
+      - Keep it as is and only polish the copy (UX-61).
+
+- [ ] **UX-136. Sample data for a new household?** `[!]` — from the
+      2026-10-15 UI review. A new household starts completely empty: the
+      first overview is three "0" cards, and seven sections show empty
+      states. The landing page promises "example data to poke around"
+      (UX-58 removes that line unless this is built).
+      Options:
+      - **Recommended:** an opt-in "Try with sample data" on the first
+        overview that seeds a small pantry, one list, a planned week,
+        three recipes and a few tasks, all tagged so one tap on "Clear
+        sample data" removes exactly them.
+      - No sample data, and lean on starter kits plus UX-50's empty
+        states.
+
+- [ ] **UX-137. How should recurring tasks reschedule?** `[!]` — from the
+      2026-10-15 UI review. Today the next due time is the exact moment of
+      the last tick plus the interval
+      (`src/app/dashboard/tasks/recurrence.ts:22-41`). Consequences:
+      - "Feed the cat" (daily), ticked at 23:40, stays under Completed
+        all the next day, labelled "Next due Oct 15", which is today's
+        date.
+      - Ticking late pushes the schedule back.
+      - Doing a Saturday chore on Thursday moves it to Thursdays for
+        good.
+      Options:
+      - **Recommended:** day-based intervals count from the start of the
+        local day (daily reopens at 00:00), and weekly or longer chores
+        keep a fixed anchor day unless edited.
+      - Offer a per-task choice: "on a schedule" or "N days after done"
+        (Todoist's "every" vs "every!").
+      Either way, "Next due {today}" never shows on a completed row.
+      UX-133 builds on the answer.
+
+- [ ] **UX-138. What should "Safe to spend" subtract?** `[!]` ⚠️ money
+      (human-only area) — from the 2026-10-15 UI review.
+      `src/lib/safe-to-spend-calc.ts` subtracts only due recurring items
+      and planned bills, not what's still budgeted in categories with a
+      limit.
+      - On day 1 with no spending it showed +24,410 as "safe", which a
+        family reads as free money.
+      - Right under it, "At this pace … about 6,362 left at the end of
+        the month" is a second, equally weighted "left" figure. Nothing
+        says which number to trust.
+      Options:
+      - **Recommended:** subtract the unspent remainder of limited
+        categories as its own "Still budgeted" breakdown line, and show
+        the pace projection as a qualifier under the headline.
+      - Keep the calculation and relabel the headline ("Before
+        budgets"), and also demote the projection.
 
 ### Infrastructure (moved from REQUIREMENTS.md's "Deferred" list)
 
