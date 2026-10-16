@@ -265,6 +265,15 @@ export const en = {
       defaultOption: "Groceries (created on the first trip)",
       savedToast: "Saved",
     },
+    // UX-75: rename the household (RenameHousehold, owner-only).
+    rename: {
+      title: "Household name",
+      label: "Name",
+      description: "Shown to everyone in the household, in invite emails and on the join page.",
+      save: "Save name",
+      saving: "Saving…",
+      savedToast: "Household renamed",
+    },
     // GAP-13: the display currency (CurrencySetting). Currency names come
     // from Intl.DisplayNames in the viewer's locale, so only the "none"
     // option and the surrounding copy live here.

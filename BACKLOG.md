@@ -762,16 +762,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 #### Profile and household settings
 
-- [ ] **UX-75. Rename a household** (impact: high, effort: S) — breaks
-      User control. The name typed in a hurry at signup is permanent: no
-      rename action exists (`src/lib/actions/household.ts`,
-      `src/app/dashboard/household/`). It shows on every page header, in
-      invite emails and on the join page.
-      Acceptance: an owner can rename the household from
-      `/dashboard/household`, with a unit test for the tenancy check.
-      The header, switcher and join page show the new name after
-      reload.
-
 - [ ] **UX-76. Profile grouped into a few sections** (impact: med,
       effort: M) — breaks M6 and Hierarchy. `/dashboard/profile` is 11
       cards, each with its own Save, four phone screens tall, and a

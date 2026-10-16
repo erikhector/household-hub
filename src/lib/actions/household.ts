@@ -392,6 +392,40 @@ export async function createHouseholdAction(
 
 // --- Owner-only administration -----------------------------------------
 
+// Owner-only like the currency and inventory-sync settings: the name is the
+// household's identity for every member (page header, switcher, invite emails,
+// the join page), so changing it is administration rather than day-to-day use.
+// Same length and trimming rules as creation (createHouseholdSchema), so a
+// name that could be typed at signup can be typed here. Called directly in a
+// transition (the card toasts on success), so it takes the value rather than
+// FormData; the household comes from the session, never the client.
+const RENAME_OWNER_ONLY_MESSAGE = "Only the household owner can rename the household";
+
+export async function renameHouseholdAction(name: string): Promise<ActionState> {
+  const { household, role } = await requireHousehold();
+  if (role !== "OWNER") return { error: RENAME_OWNER_ONLY_MESSAGE };
+
+  const parsed = createHouseholdSchema.safeParse({ name });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  try {
+    await prisma.household.update({
+      where: { id: household.id },
+      data: { name: parsed.data.name },
+    });
+  } catch (error) {
+    return toFriendlyError(error);
+  }
+
+  // The name is in the dashboard shell (header, switcher), so revalidate the
+  // whole layout. The join page and invite emails read it from the database
+  // on each request, so they pick it up without help.
+  revalidatePath("/dashboard", "layout");
+  return {};
+}
+
 export async function removeMemberAction(memberId: string): Promise<ActionState> {
   const { household, role, userId } = await requireHousehold();
   if (role !== "OWNER") {

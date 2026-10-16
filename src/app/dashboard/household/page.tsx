@@ -11,6 +11,7 @@ import { DeleteHouseholdDialog } from "@/components/household/delete-household-d
 import { AutoAddSetting } from "@/components/household/auto-add-setting";
 import { HouseholdNotes } from "@/components/household/household-notes";
 import { CalendarFeedSetting } from "@/components/household/calendar-feed-setting";
+import { RenameHousehold } from "@/components/household/rename-household";
 import { CurrencySetting } from "@/components/household/currency-setting";
 import { InventorySyncSetting } from "@/components/household/inventory-sync-setting";
 import { ShoppingExpenseSetting } from "@/components/household/shopping-expense-setting";
@@ -164,6 +165,8 @@ export default async function HouseholdPage() {
       </Suspense>
       {/* Not owner-gated (see setAutoAddLowStockToListAction): day-to-day
           shopping behaviour every member already fully operates. */}
+      {/* Owner-only (see renameHouseholdAction). */}
+      {isOwner && <RenameHousehold name={household.name} dict={dict.household.rename} />}
       <AutoAddSetting enabled={household.autoAddLowStockToList} dict={dict.household.shoppingSettings} />
       {/* Owner-gated inside (see setInventorySyncModeAction); contributors
           see the current value read-only. */}

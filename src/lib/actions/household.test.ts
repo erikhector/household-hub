@@ -156,6 +156,7 @@ const {
   regenerateCalendarFeedAction,
   disableCalendarFeedAction,
   setHouseholdCurrencyAction,
+  renameHouseholdAction,
   setInventorySyncModeAction,
   setShoppingExpenseCategoryAction,
 } = await import("@/lib/actions/household");
@@ -1193,6 +1194,51 @@ describe("setHouseholdCurrencyAction (GAP-13)", () => {
     householdUpdateMock.mockRejectedValue(new Error("db down"));
 
     const result = await setHouseholdCurrencyAction("SEK");
+
+    expect(result.error).toBeTruthy();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("renameHouseholdAction (UX-75)", () => {
+  it("is owner-only", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "CONTRIBUTOR" });
+
+    const result = await renameHouseholdAction("New name");
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("renames the session's household with the trimmed name and revalidates the dashboard", async () => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockResolvedValue({});
+
+    const result = await renameHouseholdAction("  The Flat  ");
+
+    expect(result).toEqual({});
+    expect(householdUpdateMock).toHaveBeenCalledWith({
+      where: { id: "household-1" },
+      data: { name: "The Flat" },
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dashboard", "layout");
+  });
+
+  it.each([[""], ["   "], ["x".repeat(61)]])("rejects %j without writing", async (value) => {
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+
+    const result = await renameHouseholdAction(value);
+
+    expect(result.error).toBeTruthy();
+    expect(householdUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("returns a friendly error when the write fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    requireHouseholdMock.mockResolvedValue({ household: { id: "household-1" }, role: "OWNER" });
+    householdUpdateMock.mockRejectedValue(new Error("db down"));
+
+    const result = await renameHouseholdAction("Home");
 
     expect(result.error).toBeTruthy();
     expect(revalidatePathMock).not.toHaveBeenCalled();
