@@ -1364,7 +1364,15 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       Delete and a stepper. List links look like links.
 
 - [ ] **UX-125. Used-up items aren't labelled "never stocked"** (impact:
-      med, effort: S) — bug. The rule looks only at price history and
+      med, effort: S) `[!]` — bug. Needs a schema change and a decision:
+      nothing records that an item was ever stocked (no stock log; only the
+      current `quantity`), so the fix is a new `InventoryItem.everStocked`
+      flag, set wherever quantity goes above 0 (item form, +/- steppers,
+      bought tick, receipt scan, bulk create, merge). Existing used-up items
+      can't be backfilled from data: decide between backfilling `true` for
+      every item with price history, bought rows or a non-default
+      `lastKnownPrice` (partial), or accepting that already-empty items stay
+      mislabelled until next restocked. Original report: The rule looks only at price history and
       bought list rows (`src/lib/inventory/duplicates.ts:60-62`), so items
       created with stock and then used up (Mellanmjölk, Laxfilé) are tagged
       "never stocked".
