@@ -227,19 +227,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-18. Flaky: "Next up" layout shift in `motion.spec.ts`**
-      (medium, S) — `[mobile] e2e/motion.spec.ts:180` ("adding, ticking
-      and removing shopping items glide, with no layout shift") fails
-      about 1 run in 10 on `master` (v0.66.0) and on v0.67.0, always the
-      same way: the shopping list's `max-sm:fixed` "Next up" section
-      (`shopping-list-client.tsx` / `shopping-mode.tsx`, from UX-33 #221
-      and UX-37/39/40 #223) shifts by CLS 0.0104 outside the 500 ms after
-      input. CI's one retry hides it, but `npm run ci:local` has none, so
-      it fails the release gate (found in the 2026-10-15 release run).
-      Find what moves the panel late (likely a late measurement or font/
-      safe-area settle on the fixed panel) and fix the cause. Don't
-      loosen the assertion. Acceptance: `npx playwright test
-      e2e/motion.spec.ts --project=mobile --repeat-each=30` passes 30/30.
 - [ ] **MAINT-20. Flaky: discarded prepped batch card still there after reload**
       (medium, S) — `e2e/meal-prep.spec.ts:136` ("record, plan, return and
       eat a prepped batch") times out at 30 s on `expect(batchCard)
