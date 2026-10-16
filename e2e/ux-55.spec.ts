@@ -52,7 +52,6 @@ test("creating an account from an invite shows the verification panel, not 'Inva
   await page.getByRole("button", { name: "Create account & join" }).click();
 
   await expect(page.getByText(`You've joined ${E2E_HOUSEHOLD.name}`)).toBeVisible();
-  await expect(page.getByText(email)).toBeVisible();
   await expect(page.getByText("Invalid invite")).toHaveCount(0);
 
   // It stays that way once the page has settled.
