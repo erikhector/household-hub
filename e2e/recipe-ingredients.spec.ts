@@ -366,3 +366,29 @@ test("a server error takes focus once it renders", async ({ page }) => {
   await expect(dialog.getByRole("alert")).toHaveText("Name is required");
   await expect(dialog.getByRole("alert")).toBeFocused();
 });
+
+// UX-93: Enter in an ingredient name used to fall through to the form and
+// jump to "Match ingredients" before quantity or unit were filled in.
+test("Enter in an ingredient name moves to its quantity and never submits", async ({ page }) => {
+  const dialog = await openNewRecipe(page, unique("Pancakes"));
+  const name = dialog.getByPlaceholder("Ingredient");
+  await name.pressSequentially("Wheat flour");
+  await name.press("Enter");
+
+  await expect(dialog.getByPlaceholder("Qty")).toBeFocused();
+  await expect(page.getByRole("dialog", { name: "New recipe" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Match ingredients" })).toHaveCount(0);
+  await expect(name).toHaveValue("Wheat flour");
+});
+
+test("tapping the Use row accepts the typed ingredient and closes the suggestions", async ({ page }) => {
+  const dialog = await openNewRecipe(page, unique("Crepes"));
+  await dialog.getByPlaceholder("Ingredient").pressSequentially("Wheat flour");
+  const use = page.getByRole("button", { name: 'Use "Wheat flour"' });
+  await use.click();
+
+  await expect(use).toHaveCount(0);
+  await expect(dialog.getByPlaceholder("Qty")).toBeFocused();
+  await expect(dialog.getByPlaceholder("Ingredient")).toHaveValue("Wheat flour");
+  await expect(page.getByRole("dialog", { name: "New recipe" })).toBeVisible();
+});

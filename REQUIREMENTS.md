@@ -3631,6 +3631,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `requireHousehold`, one inventory `findMany`) returns the matches, the
     household's items (with their saved unit conversions) and categories,
     and a guessed category for each row without a confident match.
+  - **Ingredient name Enter (UX-93)**: Enter in an ingredient name never
+    submits the recipe. `ComboField`'s optional `onEnter` swallows an
+    Enter with no suggestion highlighted and the dialog moves focus to
+    that row's quantity (Enter on a highlighted suggestion still picks
+    it). The popup's `Use "X"` row is a real button: tapping it keeps the
+    typed value, closes the popup and moves on the same way. Inventory
+    dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
