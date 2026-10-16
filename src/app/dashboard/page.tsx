@@ -199,6 +199,10 @@ export default async function DashboardOverviewPage() {
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
             projection={personalPosition.safeToSpendProjection}
+            setupHrefs={{
+              income: "/dashboard/personal-budget?tab=transactions",
+              bills: "/dashboard/personal-budget?tab=manage",
+            }}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,

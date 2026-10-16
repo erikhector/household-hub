@@ -2175,6 +2175,12 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Add your income and regular bills to see what's safe to spend.",
+      setupIncome: "Add income",
+      setupBills: "Add regular bills",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ adds to what's safe to spend, – comes off it, → is set aside as savings.",
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",
@@ -2611,6 +2617,12 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Add your income and regular bills to see what's safe to spend.",
+      setupIncome: "Add income",
+      setupBills: "Add regular bills",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ adds to what's safe to spend, – comes off it, → is set aside as savings.",
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",

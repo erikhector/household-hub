@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeSafeToSpend,
   deriveSafeToSpend,
+  needsSafeToSpendSetup,
   type SafeToSpendTransaction,
 } from "@/lib/safe-to-spend-calc";
 
@@ -550,5 +551,23 @@ describe("computeSafeToSpend with planned bills", () => {
       ],
     };
     expect(computeSafeToSpend({ ...input, plannedExpenses: [] })).toEqual(computeSafeToSpend(input));
+  });
+});
+
+describe("needsSafeToSpendSetup", () => {
+  const empty = { income: 0, dueIncome: 0, expense: 0, savings: 0, owedFromEarlier: 0, duePayments: 0, dueSavings: 0 };
+
+  it("is true with no income and nothing recurring or due", () => {
+    expect(needsSafeToSpendSetup(empty, [])).toBe(true);
+  });
+
+  it("is false once there is income, expected income or a due payment", () => {
+    expect(needsSafeToSpendSetup({ ...empty, income: 100 }, [])).toBe(false);
+    expect(needsSafeToSpendSetup({ ...empty, dueIncome: 100 }, [])).toBe(false);
+    expect(needsSafeToSpendSetup({ ...empty, duePayments: 50 }, [])).toBe(false);
+  });
+
+  it("is false when a recurring item is expected", () => {
+    expect(needsSafeToSpendSetup(empty, [{ categoryId: "c" }])).toBe(false);
   });
 });
