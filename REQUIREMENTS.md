@@ -878,7 +878,9 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       which wins even where it disagrees (another member unticked the
       row), so no row is stuck showing the overlay. "Put things away"/"Done shopping" wait while any toggle is in
       flight. It stays in
-      its aisle for 350 ms animating down and out, then joins **"In the
+      its aisle for 350 ms animating down and out (that fading copy is
+      `inert` and `aria-hidden`, so the item is exposed once, as the "In
+      the cart" row the overlay already lists), then joins **"In the
       cart"**, a collapsed section (a disclosure button with a count that
       pops on each arrival; the rows stay mounted under `hidden`). A
       completed or archived list keeps the always-open "Purchased" section.

@@ -101,6 +101,29 @@ test("ticking three shopping items shows all three before any save answers", asy
   for (const box of boxes) await expect(box).toBeChecked();
 });
 
+// MAINT-19: a ticked row fades out of its aisle for a moment while the
+// optimistic overlay already lists it in "In the cart". The fading copy is
+// inert and aria-hidden, so the item is exposed once (a screen reader hears one checkbox).
+test("a ticked shopping item is exposed once while its row fades out", async ({ page }) => {
+  const t = tag();
+  const name = `Coffee ${t}`;
+  const listId = await seedList(t, [name]);
+  const path = `/dashboard/shopping-list/${listId}`;
+  await page.goto(path);
+  const held = await holdServerActions(page, path);
+
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  await box.click();
+  const cart = page.getByRole("button", { name: /^In the cart/ });
+  await expect(cart).toContainText("1");
+  await cart.click();
+  await expect(box).toHaveCount(1);
+  await expect(box).toBeChecked();
+
+  held.release();
+  await expect.poll(held.answered).toBe(1);
+});
+
 test("a tick that can't reach the server rolls back with a toast", async ({ page }) => {
   const t = tag();
   const name = `Dates ${t}`;

@@ -213,7 +213,12 @@ test("a failed tick rolls back at once while another tick is still saving", asyn
   // so its request goes (and fails after a second) while the slow one,
   // tapped right after, waits behind it and is then held below. Both saves
   // are in flight when the first one fails.
+  // Wait for the failing save to actually leave the page before tapping the
+  // slow one: otherwise the slow request can be sent first, is held, and the
+  // failing one queues behind it and never fails within the timeout.
+  const failSent = page.waitForRequest((request) => request.method() === "POST" && (request.postData() ?? "").includes(failItemId));
   await failing.click();
+  await failSent;
   await slow.click();
 
   // The failed one is back in its aisle, unticked, with the save-failed
