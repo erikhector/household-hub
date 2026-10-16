@@ -281,7 +281,7 @@ export function WeekPlanner({
         />
       )}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
+      <div className="list-bleed grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-3">
         {days.map((day) => {
           // A day lists only what's planned, slot by slot, then one
           // "+ Add meal" that asks for the slot (UX-21's empty-day row, now

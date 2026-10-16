@@ -95,7 +95,7 @@ export function ItemUnitsAndUsage({
         {conversions.length === 0 ? (
           <p className="text-sm text-muted-foreground">{format(dict.noConversions, { unit: unitLabel(item.unit) })}</p>
         ) : (
-          <ul className="flex flex-col divide-y rounded-md border">
+          <ul className="list-bleed flex flex-col divide-y rounded-md border">
             {conversions.map((conversion) => {
               const sentence = conversionSentence(conversion.fromUnit, conversion.factor, item.unit);
               return (
@@ -151,7 +151,7 @@ export function ItemUnitsAndUsage({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{dict.notUsed}</p>
         ) : (
-          <ul className="flex flex-col divide-y rounded-md border">
+          <ul className="list-bleed flex flex-col divide-y rounded-md border">
             {rows.map((row) => (
               <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
                 <Link
