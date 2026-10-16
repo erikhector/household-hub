@@ -60,9 +60,20 @@ test("budget cards reach to 6 px from the screen edges on a phone", async ({ pag
 test("budget stat tiles in one row reach the edges without overlapping", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("/dashboard/budget");
-  await page.locator("main").getByRole("tab", { name: "Insights" }).click();
+  const insights = page.locator("main").getByRole("tab", { name: "Insights" });
+  await insights.click();
+  // The tab switch renders in a transition (BudgetTabs' replaceState), so
+  // until it lands Overview is still the visible panel.
+  await expect(insights).toHaveAttribute("aria-selected", "true");
+  // By the card's own title: Overview's Safe to spend card also holds an
+  // "Income" and an "Expenses" line (in its collapsed breakdown), so a
+  // card that merely contains the text can be that one instead.
   const tile = (label: string) =>
-    page.locator('main [data-slot="card"]').filter({ has: page.getByText(label, { exact: true }) }).filter({ visible: true }).first();
+    page
+      .locator('main [data-slot="card"]')
+      .filter({ has: page.locator('[data-slot="card-title"]').getByText(label, { exact: true }) })
+      .filter({ visible: true })
+      .first();
   await expect(tile("Income")).toBeVisible();
   const income = (await tile("Income").boundingBox())!;
   const expenses = (await tile("Expenses").boundingBox())!;

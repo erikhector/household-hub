@@ -242,6 +242,7 @@ function TryIt({
           value={unit}
           onValueChange={setUnit}
           maxLength={20}
+          ariaLabel={dict.tryItUnitLabel}
           dict={comboDict}
         />
       </div>

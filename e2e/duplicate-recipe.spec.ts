@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_HOUSEHOLD } from "./seed";
 import { E2E_WORKER } from "./seed-data";
-import { dismissCookieNotice, openRowSheet } from "./ui";
+import { dismissCookieNotice, openRowSheet, waitForDialogHistory } from "./ui";
 
 // GAP-48: "Duplicate" in a recipe's sheet copies it as "<name> (copy)", opens
 // the copy for editing and offers Undo. The spec seeds its own recipe (unique
@@ -71,6 +71,9 @@ test("Undo on the toast removes the copy and leaves the original", async ({ page
 
   await page.getByRole("button", { name: t.duplicateRecipeUndo, exact: true }).click();
   await expect(page.getByText(t.duplicateRecipeUndoneToast)).toBeVisible();
+  // Undo deleting the copy closes its edit dialog, whose history.back() is
+  // still on its way when the toast shows.
+  await waitForDialogHistory(page);
 
   await page.reload();
   await page.getByRole("searchbox", { name: /Search recipes/ }).fill(name);

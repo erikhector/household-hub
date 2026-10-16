@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { DIALOG_BACK_PENDING_ATTR } from "@/components/ui/dialog-history";
 import { COOKIE_NOTICE_COOKIE } from "@/lib/cookie-inventory";
 import type { UiRoute } from "./routes";
 
@@ -245,6 +246,17 @@ export async function openRowSheet(page: Page, name: string) {
   const sheet = page.getByRole("dialog", { name, exact: true });
   await expect(sheet).toBeVisible();
   return sheet;
+}
+
+/** Waits until every dialog is closed and the history.back() the last one
+ * took its entry off with has landed. A dialog closed from the UI (a
+ * submit, Undo removing the row it edits) does that back() asynchronously
+ * (src/components/ui/dialog-history.ts, which marks <html> until it
+ * lands): a page.reload() issued before then races it and comes back
+ * net::ERR_ABORTED. Call it before a reload that follows a dialog closing. */
+export async function waitForDialogHistory(page: Page) {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
 function escape(value: string) {

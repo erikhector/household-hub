@@ -7103,6 +7103,26 @@ UX-14's rapid ticks and the rollback toast.
   cover every screenshot or skew the layout checks;
   `cookie-notice.spec.ts` covers the notice itself (shows on a first
   visit, "Got it" hides it, stays hidden after a reload).
+- **Waiting on what the user sees, not on the URL**: the e2e flakes fixed
+  in Oct 2026 were all a test acting one step ahead of the page. A tab
+  switch that is a `history.replaceState` (BudgetTabs, MealPlanningView)
+  moves the URL at once but renders in a React transition, so a spec
+  waits for the tab's `aria-selected` (and, before following a month
+  link, for the link's `href`) rather than `toHaveURL` alone. A dialog
+  closed from the UI takes its history entry back with an async
+  `history.back()` (`dialog-history.ts`), so a reload that follows one
+  calls `waitForDialogHistory(page)` from `e2e/ui.ts` first. It waits on
+  the `data-dialog-back-pending` attribute that `dialog-history.ts` keeps
+  on `<html>` while that back is on its way. Without it the reload races
+  the back and comes back `net::ERR_ABORTED`. A CSS
+  locator (`#id`) also matches the hidden copy Next.js parks outside
+  `main` while a reload streams in, so fields are found by role and name
+  inside `main` (the item page's "Try it" unit field got its missing
+  `aria-label` for that). A row's Edit and Delete go through
+  `clickRowAction`, which takes the icon from `sm` up and the ⋯ menu below
+  (the landscape and tablet projects are touch but `sm` and up). A test
+  that plans rows in a shared week removes them in an `afterEach`, pass or
+  fail, since the desktop and mobile runs and a retry share the household.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the
