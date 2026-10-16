@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.71.1",
+    "date": "2026-10-16",
+    "pr": 288,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The overview now greets you by first name and by the time of day where you are, so it says \"Good afternoon, Åsa\" at 12:30 in Stockholm.\n\nTicking items from the \"Next up\" bar on the shopping list no longer ticks two when you double tap: the ticked item shows a check for a moment before the next one moves up.",
+      "sv": "Översikten hälsar nu på dig med förnamn och efter tiden på dygnet där du är, så det står \"God eftermiddag, Åsa\" klockan 12.30 i Stockholm.\n\nAtt bocka av varor i \"Nästa\"-fältet i inköpslistan bockar inte längre av två vid en dubbeltryckning: den avbockade varan visar en bock en kort stund innan nästa flyttar upp."
+    }
+  },
+  {
     "version": "0.71.0",
     "date": "2026-10-16",
     "pr": 276,
