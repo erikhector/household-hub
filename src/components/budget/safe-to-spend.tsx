@@ -131,7 +131,8 @@ export function SafeToSpend({
           <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
         </div>
       </dl>
-      <p className="text-xs text-muted-foreground">{dict.signLegend}</p>
+      {/* The compact card already shows the legend under its totals line. */}
+      {variant === "full" && <p className="text-xs text-muted-foreground">{dict.signLegend}</p>}
       <p className="text-xs text-muted-foreground">{dict.caveat}</p>
     </>
   );
