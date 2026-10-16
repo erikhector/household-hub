@@ -510,7 +510,7 @@ export function InventoryTable({
         {groups.map((group) => (
           <Fragment key={`m-${group.key || "__ungrouped__"}`}>
             {groupBy !== "none" && (
-              <div data-flip-key={`card-label:${group.key}`} className="list-bleed min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              <div data-flip-key={`card-label:${group.key}`} className="min-w-0 rounded-md bg-muted/50 px-2 py-1.5 text-xs font-medium text-muted-foreground">
                 <span className="block truncate" title={group.key}>
                   {group.key} <span className="text-muted-foreground/70">({group.items.length})</span>
                 </span>
@@ -520,7 +520,7 @@ export function InventoryTable({
                 rounded border clips a row's swipe underlay at its corners. */}
             <ul
               data-flip-key={`card-group:${group.key}`}
-              className="list-bleed relative min-w-0 divide-y overflow-hidden rounded-lg border"
+              className="relative min-w-0 divide-y overflow-hidden rounded-lg border"
             >
               {group.items.map((item) => (
                 <SwipeableItemCard

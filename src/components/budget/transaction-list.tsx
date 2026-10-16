@@ -483,7 +483,7 @@ export function TransactionList({
             {/* overflow-hidden here, not on each SwipeRow: the list's
                 rounded border clips a row's swipe underlay at its corners
                 (the inventory phone list does the same). */}
-            <ul className="list-bleed relative min-w-0 divide-y overflow-hidden rounded-lg border">
+            <ul className="relative min-w-0 divide-y overflow-hidden rounded-lg border">
               {group.rows.map((item) =>
                 item.kind === "shared" ? (
                   <li key={item.row.id} className="flex min-h-14 items-center gap-2 py-1.5 pl-3">

@@ -36,7 +36,7 @@ export function CookNowList({
           {dict.emptyCookNow}
         </p>
       ) : (
-        <div className="list-bleed flex flex-col divide-y rounded-md border">
+        <div className="flex flex-col divide-y rounded-md border">
           {cookableRecipes.map((recipe) => {
             // Rows only ever come from `recipes` (see cookable-recipes.ts) —
             // the lookup existing is a given, not a real fallback case.

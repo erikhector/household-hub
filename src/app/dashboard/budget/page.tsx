@@ -274,8 +274,8 @@ async function CostAnalyzerSection({
 function CostAnalyzerSkeleton({ label }: { label: string }) {
   return (
     <div className="flex animate-pulse flex-col gap-4" role="status" aria-label={label}>
-      <div className="list-bleed h-40 rounded-lg border bg-muted/40" />
-      <div className="list-bleed grid gap-3 sm:grid-cols-2">
+      <div className="h-40 rounded-lg border bg-muted/40" />
+      <div className="grid gap-3 sm:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="h-28 rounded-lg border bg-muted/40" />
         ))}

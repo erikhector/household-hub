@@ -153,9 +153,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/dashbo
             edge, which is behind BottomNav. A page with a floating
             primary action (PrimaryAction, UX-40) reserves another 4.5rem
             (the 3rem button and its gaps) so the last row can scroll out
-            from under it. data-app-main is how globals.css finds the
-            dashboard's cards to give them list-bleed on phones (UX-139). */}
-        <main data-app-main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
+            from under it. */}
+        <main className="mx-auto w-full max-w-[100dvw] flex-1 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pb-8 sm:pl-4 max-sm:mt-3 sm:max-w-5xl sm:pt-8 max-sm:min-h-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:scroll-pb-[calc(3.75rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] max-sm:has-[[data-primary-action]]:scroll-pb-[calc(8.25rem+min(2.125rem,env(safe-area-inset-bottom)))] print:m-0! print:max-w-none! print:overflow-visible! print:p-0!">
           <UnitsProvider labels={dict.units}>{children}</UnitsProvider>
         </main>
       </div>

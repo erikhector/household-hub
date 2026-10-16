@@ -28,7 +28,7 @@ export function ItemRecentPrices({
       <h2 id="recent-prices" className="font-heading text-lg font-semibold">
         {dict.recentPricesTitle}
       </h2>
-      <ul className="list-bleed flex flex-col divide-y rounded-lg border text-sm">
+      <ul className="flex flex-col divide-y rounded-lg border text-sm">
         {prices.map((price) => (
           <li key={price.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-3 py-2">
             <span className="min-w-0">

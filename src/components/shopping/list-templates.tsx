@@ -182,7 +182,7 @@ export function ListTemplatesSection({ templates, dict }: { templates: TemplateS
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-medium uppercase text-muted-foreground">{dict.sectionTitle}</p>
-      <div className="list-bleed flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {templates.map((template) => (
           <TemplateRow key={template.id} template={template} dict={dict} />
         ))}

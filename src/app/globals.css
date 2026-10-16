@@ -30,42 +30,6 @@
   }
 }
 
-/* UX-139: on a phone a list reaches out of main's 16 px gutter to 6 px
-   from the screen edge, keeping its rounded corners: the rows get ~20 px
-   more for names (Swedish ones especially) without the corners running
-   into the screen's own rounded or curved edge, which is what a flush
-   0 px list looked like on a real device. Put it on the list's outer
-   container (the <ul>, the div holding the rows, or the Card a list
-   lives in), which must be width:auto, not w-full, so the negative
-   margins widen it instead of shifting it. Each side works out to
-   max(6 px, inset) - max(16 px, inset), main's own gutter
-   (dashboard/layout.tsx): -10 px in portrait, and never past a
-   landscape notch's safe-area inset. From `sm` the gutter is back.
-   Headings and labels between lists stay on the 16 px gutter: only the
-   surfaces reach out, so a page still has one text edge. */
-@utility list-bleed {
-  @media (width < 40rem) {
-    margin-left: calc(max(0.375rem, env(safe-area-inset-left)) - max(1rem, env(safe-area-inset-left)));
-    margin-right: calc(max(0.375rem, env(safe-area-inset-right)) - max(1rem, env(safe-area-inset-right)));
-  }
-}
-
-/* UX-139: a Card on a dashboard page is a surface too (the budget pages
-   and the meal planner are mostly lists in cards), so every top-level
-   one takes list-bleed and a page's cards and lists share one edge. Not a
-   card nested in another (it already sits in its parent's padding), and
-   not one that sizes itself with w-full (the error boundary's centred
-   card), which a negative margin would shift instead of widen, and not a
-   grid cell: two budget stat tiles share a row on a phone and would
-   overlap by the bleed, so a grid of cards takes list-bleed on the grid
-   itself instead. In the components layer, so a card's own margin
-   utility (mx-auto) still wins. */
-@layer components {
-  [data-app-main] [data-slot="card"]:not(.w-full):not(.grid > *):not([data-slot="card"] [data-slot="card"]) {
-    @apply list-bleed;
-  }
-}
-
 /* The checked Checkbox's tick (src/components/ui/checkbox.tsx explains why
    it isn't an inline arbitrary class). White on `bg-primary`. */
 @utility checkbox-tick {

@@ -180,7 +180,7 @@ export function RecipeManager({
               {dict.noRecipeSearchResults}
             </p>
           ) : (
-            <div className="list-bleed flex flex-col divide-y rounded-md border">
+            <div className="flex flex-col divide-y rounded-md border">
               {filteredRecipes.map((recipe) => (
                 <RecipeRow
                   key={recipe.id}

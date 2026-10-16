@@ -5678,19 +5678,6 @@ components directly.
   only get the large title, and so does the shopping list detail page,
   whose bottom slot belongs to shopping mode's Next up dock (UX-37), so it
   has no floating button. Covered by `e2e/large-title.spec.ts`.
-- **Wide lists on phones (UX-139, DESIGN.md "Spacing, radius and
-  layout")**: below `sm`, every list, card and card-like panel on a
-  dashboard page reaches to 6px from each screen edge instead of sitting
-  in `main`'s 16px gutter, which gives each row ~20px more for names.
-  Headings, labels and running text stay on the gutter. The `list-bleed`
-  utility (`src/app/globals.css`) sets negative side margins of
-  `max(6px, inset) - max(16px, inset)`, so a landscape notch's safe area
-  still wins. A rule in the same file gives it to every top-level `Card`
-  inside the dashboard's `main` (`data-app-main`), except nested cards,
-  `w-full` cards and grid cells. Lists, hand-built panels, card grids and
-  the list-shaped loading skeletons carry the class themselves.
-  `e2e/ux-139.spec.ts` checks the edges on the shopping list, inventory
-  and budget, and that two stat tiles in one row don't overlap.
 - **One primary action per view (UX-24, DESIGN.md Hierarchy)**: only the
   page's main call to action is a solid `default` Button. Profile's four
   save buttons (display name, Swish number, email, password) are `secondary`

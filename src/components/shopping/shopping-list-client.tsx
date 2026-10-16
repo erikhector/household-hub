@@ -1033,7 +1033,7 @@ function ClearedState({
   isPending: boolean;
 }) {
   return (
-    <div className="list-bleed relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
+    <div className="relative flex flex-col items-center gap-1.5 rounded-xl bg-card p-8 text-center ring-1 ring-foreground/10 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-500">
       {progress.total > 0 ? (
         // UX-38: on the tick that cleared the list, the squirrel rises into
         // the full ring once and then holds still: no confetti, sound or
@@ -1166,7 +1166,7 @@ function ShoppingRow({
 
   return (
     <SwipeRow
-      className="list-bleed rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
+      className="rounded-md max-sm:scroll-mb-[var(--shopping-dock,0px)]"
       // UX-33: the row glides when the list moves; not while it's leaving
       // its aisle, which has its own animation (it then arrives in "In the
       // cart" as a new row and rises in there).

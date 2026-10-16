@@ -199,7 +199,7 @@ function ListSection({
   return (
     <div data-flip-key={`section:${title}`} className="flex flex-col gap-2">
       <p className="text-xs font-medium uppercase text-muted-foreground">{title}</p>
-      <div className="list-bleed relative flex flex-col gap-2">
+      <div className="relative flex flex-col gap-2">
         {lists.map((list) => (
           <ListCard key={list.id} list={list} dict={dict} />
         ))}

@@ -14,7 +14,7 @@ function Body({ variant }: { variant: PageSkeletonVariant }) {
   switch (variant) {
     case "cards":
       return (
-        <div className="list-bleed grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-32 rounded-lg border bg-muted/40" />
           ))}
@@ -22,7 +22,7 @@ function Body({ variant }: { variant: PageSkeletonVariant }) {
       );
     case "rows":
       return (
-        <div className="list-bleed flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-14 rounded-md border bg-muted/40" />
           ))}
@@ -32,7 +32,7 @@ function Body({ variant }: { variant: PageSkeletonVariant }) {
       return (
         <div className="flex flex-col gap-3">
           <div className="h-11 rounded-md border bg-muted/40" />
-          <div className="list-bleed flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="h-12 rounded-md bg-muted/40" />
             ))}
@@ -41,7 +41,7 @@ function Body({ variant }: { variant: PageSkeletonVariant }) {
       );
     case "narrow":
       return (
-        <div className="list-bleed flex max-w-md flex-col gap-6">
+        <div className="flex max-w-md flex-col gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-28 rounded-md border bg-muted/40" />
           ))}

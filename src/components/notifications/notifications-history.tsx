@@ -63,7 +63,7 @@ export function NotificationsHistory({
           <p className="text-sm text-muted-foreground">{dict.history.empty}</p>
         </MascotEmptyState>
       ) : (
-        <ul className="list-bleed flex flex-col divide-y rounded-lg border">
+        <ul className="flex flex-col divide-y rounded-lg border">
           {items.map((item) => {
             const Icon = notificationIcon(item.kind);
             const isGoodNews = GOOD_NEWS_KINDS.has(item.kind);

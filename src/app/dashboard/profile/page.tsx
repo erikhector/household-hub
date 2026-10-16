@@ -39,19 +39,19 @@ export default async function ProfilePage() {
         </div>
       </div>
       <div className="flex max-w-md flex-col gap-6">
-        <div className="list-bleed rounded-md border p-4">
+        <div className="rounded-md border p-4">
           <h2 className="mb-3 font-heading text-base font-semibold">
             {dict.profile.displayNameForm.title}
           </h2>
           <DisplayNameForm displayName={user.displayName} dict={dict.profile.displayNameForm} />
         </div>
-        <div className="list-bleed rounded-md border p-4">
+        <div className="rounded-md border p-4">
           <SwishNumberForm swishNumber={user.swishNumber} dict={dict.profile.swishForm} />
         </div>
-        <div className="list-bleed rounded-md border p-4">
+        <div className="rounded-md border p-4">
           <EmailForm email={user.email} verified={Boolean(user.emailVerifiedAt)} dict={dict.profile.emailForm} />
         </div>
-        <div className="list-bleed rounded-md border p-4">
+        <div className="rounded-md border p-4">
           <PasswordForm email={user.email} dict={dict.profile.passwordForm} />
         </div>
         <InstallAppCard dict={dict.profile.installApp} />
@@ -61,7 +61,7 @@ export default async function ProfilePage() {
           emailVerified={Boolean(user.emailVerifiedAt)}
           dict={dict.profile.weeklyDigest}
         />
-        <div className="list-bleed flex flex-col gap-2 rounded-md border p-4">
+        <div className="flex flex-col gap-2 rounded-md border p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.profile.dataExport.title}</h2>
             <p className="text-sm text-muted-foreground">{dict.profile.dataExport.description}</p>
@@ -70,7 +70,7 @@ export default async function ProfilePage() {
             <ExportButton href="/dashboard/profile/export-data" label={dict.profile.dataExport.button} />
           </div>
         </div>
-        <div className="list-bleed flex flex-col gap-1 rounded-md border p-4">
+        <div className="flex flex-col gap-1 rounded-md border p-4">
           <h2 className="font-heading text-base font-semibold">{dict.profile.about.title}</h2>
           <p className="text-sm text-muted-foreground tabular-nums">
             {format(dict.profile.about.version, { version: CURRENT_VERSION })}
@@ -79,7 +79,7 @@ export default async function ProfilePage() {
             {dict.profile.about.whatsNewLink}
           </Link>
         </div>
-        <div className="list-bleed flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
+        <div className="flex flex-col gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-4">
           <div>
             <h2 className="font-heading text-base font-semibold">{dict.profile.dangerZoneTitle}</h2>
             <p className="text-sm text-muted-foreground">{dict.profile.dangerZoneDescription}</p>

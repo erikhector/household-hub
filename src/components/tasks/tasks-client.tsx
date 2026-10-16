@@ -196,7 +196,7 @@ function TaskItemRow({
 
   return (
     <SwipeRow
-      className="list-bleed rounded-md"
+      className="rounded-md"
       flipKey={task.id}
       primaryLabel={completed ? dict.swipe.reopen : dict.swipe.complete}
       primaryIcon={<Check className="size-4" />}
