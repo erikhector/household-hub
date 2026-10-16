@@ -247,19 +247,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **MAINT-21. Flaky: budget month tab not kept after a month change**
-      (medium, S) — `[mobile] e2e/budget-month-tab.spec.ts:17`
-      ("/dashboard/budget: the open tab survives a month change") failed
-      its first attempt on `expect(page).toHaveURL` and passed on the
-      retry in GitHub's `End-to-end (Playwright)` run on release PR #271
-      (0423c09). It passed in the local `ci:local` run on the same
-      commit, so it fails only now and then. CI's one retry hides it, but
-      `npm run ci:local` has none. Find out whether the month change
-      navigation hasn't settled when the URL is asserted or the tab is
-      dropped from the URL, and fix the cause in the app or in what the
-      test waits for. Don't loosen the assertion. Acceptance: `npx
-      playwright test e2e/budget-month-tab.spec.ts --project=mobile
-      --repeat-each=30` passes 30/30.
 - [ ] **BUG-2. Red next: `form-control-sizes.mobile.spec.ts:42` fails on
       the landscape and tablet projects** (high, S) — on clean `next`
       (2c99254) `[landscape]` and `[tablet]` "shopping add and edit item
