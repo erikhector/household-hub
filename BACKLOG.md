@@ -227,26 +227,6 @@ then MAINT-7 per feature, to avoid churn.
       around midnight in a non-UTC offset, use it in the three call sites,
       and note in `toDateKey`'s comment that it is UTC. Acceptance: no
       behaviour change; the test covers 23:30 local in UTC-5 and UTC+10.
-- [ ] **MAINT-23. Flaky: the "Remove meal" confirm closes by itself after
-      the meal sheet hands over to it** (medium, S) — `[desktop]`
-      `e2e/meal-prep.spec.ts` ("record, plan, return and eat a prepped
-      batch", the `Remove ${recipeName}?` step) timed out once in 30 local
-      runs (`--repeat-each=15` on desktop and mobile, 3 workers): the
-      confirm opened, its Remove button detached, and the screenshot shows
-      the week with no dialog and both meals still planned. Not seen in
-      GitHub's e2e logs. A probe that opens a meal's sheet, taps Remove
-      meal and checks the confirm 400 ms later passed 80/80 (settled page
-      and straight after `goto`), and 50/50 with 4–10× CPU throttling.
-      Suspect: `openFromSheet` closes the sheet and opens the confirm in
-      one render, so the sheet's `history.back()` and the confirm's
-      `pushDialogEntry` (a tick late) race in `dialog-history.ts`; if the
-      back lands on the entry below the sheet's after the push, the
-      `overwritten` path's `history.forward()` lands on the sheet's stale
-      entry and pops the confirm. Prove or rule that out first (log
-      `popstate` states on a failing run), then fix the cause. Don't
-      loosen the assertion or add a retry. Acceptance: `npx playwright
-      test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
-      --project=desktop --project=mobile --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
