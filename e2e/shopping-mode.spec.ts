@@ -73,13 +73,15 @@ async function expectInBottomHalf(page: Page, locator: ReturnType<Page["locator"
 // under the same finger, so a double tap ticked two things.
 test("a double tap on a dock row ticks only that item", async ({ page }) => {
   const t = tag();
-  const names = [`Milk ${t}`, `Eggs ${t}`, `Bread ${t}`];
+  // More than the dock's three rows, so a ticked row is backfilled and the
+  // dock keeps its height: the next item then slides under the finger.
+  const names = [`Milk ${t}`, `Eggs ${t}`, `Bread ${t}`, `Jam ${t}`, `Tea ${t}`];
   const path = await seedList(t, names.map((name) => ({ name, category: `Aisle A ${t}` })));
   await page.goto(path);
 
   const dock = page.getByRole("region", { name: "Next up" });
   const progress = dock.getByRole("progressbar", { name: "Shopping progress" });
-  await expect(progress).toHaveAttribute("aria-valuetext", "0 of 3");
+  await expect(progress).toHaveAttribute("aria-valuetext", "0 of 5");
 
   // Two taps 90 ms apart on the same spot, timed inside the page (a
   // Playwright click per tap adds latency of its own and can outlast the
@@ -97,11 +99,11 @@ test("a double tap on a dock row ticks only that item", async ({ page }) => {
     { x: box.x + box.width / 2, y: box.y + box.height / 2 },
   );
 
-  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 3");
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 5");
   // Settled: the ticked row lingered as a filled check, then the next item
   // moved up; the count never went past one.
   await page.waitForTimeout(700);
-  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 3");
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 5");
   // The next item has moved up, untouched and tickable again.
   await expect(dock.getByRole("button", { name: new RegExp(`${names[1]}.*into the cart$`) })).toBeEnabled();
 });
