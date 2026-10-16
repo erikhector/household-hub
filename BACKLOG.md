@@ -192,7 +192,9 @@ then MAINT-7 per feature, to avoid churn.
       comments in `budget/actions.ts:18-35`, `lib/notifications.ts:16,63`,
       `meal-planning/cookable-recipes.ts:77`, `shopping-list/actions.ts:519`
       cite a `findOrCreateInventoryItem` that no longer exists. Delete the
-      stray committed `src/components/budget/cost-analyzer.tsx.orig`.
+      stray committed `src/components/budget/cost-analyzer.tsx.orig`, and
+      add `*.orig` and `*.rej` to `.gitignore` so a conflict leftover
+      can't be committed again.
 - [ ] **MAINT-15. Remove dead exports and tighten types** (low, S) —
       exported-but-internal `isValidQuietHour` (`lib/quiet-hours.ts:37`),
       `loadHouseholdDigestInput`, and unused constants (`PRICE_SPIKE_MIN_*`,
@@ -255,12 +257,6 @@ then MAINT-7 per feature, to avoid churn.
       e2e/optimistic-ticking.spec.ts:76 --project=desktop --project=mobile
       --repeat-each=20` passes 40/40, and a screen reader
       reads one row per item while a tick is leaving.
-
-- [ ] **MAINT-20. Delete the committed merge leftover** (low, S) —
-      `src/components/budget/cost-analyzer.tsx.orig` is tracked in git (a
-      leftover from a conflict resolution). Delete it, and add `*.orig`
-      and `*.rej` to `.gitignore` so it can't happen again. Found by the
-      2026-10-15 UI review.
 
 ### UX (2026-09-26 scout)
 
@@ -328,7 +324,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 - Phase 2, because they need a migration: UX-133 (task due dates) and
   UX-134 (budget month starting on payday).
 - Needs a decision before building: UX-135 to UX-138.
-- One stray file goes to Maintainability as MAINT-20.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
