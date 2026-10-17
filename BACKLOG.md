@@ -247,6 +247,32 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
+- [ ] **MAINT-24. Flaky: the bottom bar covers the end of the shopping
+      list page in a full-suite run** (medium, S) — `[mobile]`
+      `e2e/navigation.mobile.spec.ts:42` ("the bottom bar doesn't cover the
+      end of a long page"): the last content block of
+      `/dashboard/shopping-list/[id]` ends below the bar. Failed in a full
+      local `ci:local` run and in both attempts of GitHub's
+      `End-to-end (Playwright)` on release PR #293 (5dbf8a5), and again in
+      one full local run of #300's head; passed on every re-run on the same
+      commit (7/7 alone with `--repeat-each=6`, 3/3 on #300). It passed on
+      the last two releases (#276, #288). Suspect a dependence on the
+      shared seeded list's state (items other specs added, so the page is
+      longer or shorter than the spec assumes) or on layout timing after
+      #289's header text. Find the cause first; fix it in the app's
+      bottom padding or the spec's waiting, not by loosening the assertion
+      or adding a retry. Acceptance: `npx playwright test
+      e2e/navigation.mobile.spec.ts:42 --project=mobile --repeat-each=30`
+      passes 30/30, and the full mobile project run passes it too.
+- [ ] **MAINT-25. Flaky: the partial-estimate text matches two elements**
+      (low, S) — `[mobile]` `e2e/shopping-partial-estimate.spec.ts:58`
+      (from #289): `getByText(/^≈ .*24[.,]50.* still to buy …/)` resolves
+      to two elements, one of them hidden, so strict mode throws. It
+      failed and passed on retry in GitHub's e2e job for release PR #293
+      (5dbf8a5). Target the visible element (a role or a container scoped
+      to the visible header) instead of the bare text. Acceptance:
+      `npx playwright test e2e/shopping-partial-estimate.spec.ts
+      --project=mobile --repeat-each=30` passes 30/30.
 
 ### UX (2026-09-26 scout)
 
