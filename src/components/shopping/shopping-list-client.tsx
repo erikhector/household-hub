@@ -95,7 +95,7 @@ import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
 import { canNativeShare } from "@/components/ui/copy-link-button";
-import { formatShoppingListText } from "@/lib/shopping-list-text";
+import { formatShoppingItemLabel, formatShoppingListText } from "@/lib/shopping-list-text";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
 
@@ -1019,7 +1019,7 @@ function PrintableList({
                 <li key={item.id} className="flex items-baseline gap-3 text-2xl leading-snug">
                   <span aria-hidden className="inline-block size-5 shrink-0 translate-y-0.5 border-2 border-black" />
                   <span>
-                    {item.name} × {item.quantity} {unitLabel(item.unit)}
+                    {formatShoppingItemLabel(item, unitLabel)}
                   </span>
                 </li>
               ))}
@@ -1266,9 +1266,9 @@ function ShoppingRow({
                 large && "text-base max-sm:text-lg pointer-coarse:text-lg",
                 purchased && "text-muted-foreground line-through",
               )}
-              title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
+              title={formatShoppingItemLabel(item, unitLabel)}
             >
-              {item.name} × {item.quantity} {unitLabel(item.unit)}
+              {formatShoppingItemLabel(item, unitLabel)}
             </span>
             {item.addedAutomatically && (
               <Badge variant="secondary" className="shrink-0">

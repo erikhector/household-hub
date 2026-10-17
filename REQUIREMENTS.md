@@ -2205,6 +2205,12 @@ and confirms with a toast.
   headings when at least one item has a real category; when none has, the
   list is flat rather than one "Other" heading. Ticked items are left out.
   Amounts use `formatCookQuantity` and the household's unit labels.
+- **Default amount hidden (UX-86)**: quantity 1 of the default unit (`pcs`) is
+  what an untouched add gets, so it shows as just the name ("Bananas", not
+  "Bananas × 1 pcs") in list rows, the shopping-mode dock, the print view, the
+  public share page and the copied text (`isDefaultAmount` /
+  `formatShoppingItemLabel`, same file). Any other amount ("Milk × 2 l",
+  "Eggs × 2 pcs", "1 l") still shows.
 - **Clipboard and share**: the success toast waits for `clipboard.writeText`;
   a rejection shows an error toast. On a coarse pointer with
   `navigator.share` (`canNativeShare`, as the invite link) a **"Share as

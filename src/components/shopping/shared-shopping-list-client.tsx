@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { formatShoppingItemLabel } from "@/lib/shopping-list-text";
 import { Info } from "lucide-react";
 import { toggleItemViaShareTokenAction } from "@/app/share/shopping-list/actions";
 import { settleOptimisticAction } from "@/components/shared/settle-optimistic-action";
@@ -113,9 +114,9 @@ function SharedRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span
           className={`line-clamp-2 break-words sm:line-clamp-1 ${purchased ? "text-muted-foreground line-through" : ""}`}
-          title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
+          title={formatShoppingItemLabel(item, unitLabel)}
         >
-          {item.name} × {item.quantity} {unitLabel(item.unit)}
+          {formatShoppingItemLabel(item, unitLabel)}
         </span>
         {item.note && (
           <span className="text-xs break-words whitespace-pre-line text-muted-foreground">{item.note}</span>

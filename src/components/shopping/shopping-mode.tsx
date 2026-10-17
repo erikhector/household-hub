@@ -11,6 +11,7 @@ import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { NextUp, ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import { useUnitLabel } from "@/components/units-provider";
+import { formatShoppingItemLabel } from "@/lib/shopping-list-text";
 import { cn } from "@/lib/utils";
 
 type ShoppingModeDict = Dictionary["shoppingList"]["shoppingMode"];
@@ -202,7 +203,7 @@ export function NextUpDock<T extends DockItem>({
             so the dock never covers most of it. */}
         <ul className="flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden">
           {rows.map(({ item, ticked }, index) => {
-            const text = `${item.name} × ${item.quantity} ${unitLabel(item.unit)}`;
+            const text = formatShoppingItemLabel(item, unitLabel);
             return (
               // Keyed by row, so the item that slides up into a freed slot
               // eases in rather than the slot just changing its text.

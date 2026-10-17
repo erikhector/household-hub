@@ -119,11 +119,11 @@ test("swiping a shopping row right ticks it, and the tick saves", async ({ page 
   const t = tag();
   const name = `Apples ${t}`;
   await page.goto(await seedList(t, [name]));
-  const box = main.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = main.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   const width = (await box.locator("xpath=ancestor::label").boundingBox())!.width;
 
   const saved = nextActionResponse(page);
-  await swipe(page, main.getByTitle(new RegExp(`^${name} ×`)), width * 0.6);
+  await swipe(page, main.getByTitle(new RegExp(`^${name}\\b`)), width * 0.6);
   // UX-37: on an active list a ticked row lives in the collapsed "In the
   // cart" section (its fading copy in the aisle is hidden from assistive
   // tech, MAINT-19), so open it to see the tick, before and after saving.
@@ -141,8 +141,8 @@ test("a short swipe, a scroll, or a swipe from the screen edge changes nothing",
   const t = tag();
   const name = `Butter ${t}`;
   await page.goto(await seedList(t, [name]));
-  const box = main.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
-  const row = main.getByTitle(new RegExp(`^${name} ×`));
+  const box = main.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
+  const row = main.getByTitle(new RegExp(`^${name}\\b`));
 
   await swipe(page, row, 40);
   // Mostly downwards: the browser's scroll, not a swipe.
@@ -238,7 +238,7 @@ test("swiping left opens the row's Edit dialog", async ({ page }) => {
   const name = `Coffee ${t}`;
   await page.goto(await seedList(t, [name]));
 
-  await swipe(page, main.getByTitle(new RegExp(`^${name} ×`)), -160);
+  await swipe(page, main.getByTitle(new RegExp(`^${name}\\b`)), -160);
   const edit = main.getByRole("button", { name: "Edit", exact: true });
   await expect(edit).toBeVisible();
   await edit.click();
