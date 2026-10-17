@@ -29,8 +29,9 @@ test("the sheet lists the instruction steps, and none for a recipe without any",
 
 test("Add to plan in the sheet plans the recipe on the picked day", async ({ page }) => {
   const t = en.mealPlanning;
-  // A day years ahead, where no other spec plans anything.
-  const day = new Date(Date.now() + (800 + Math.floor(Math.random() * 3000)) * DAY_MS);
+  // A day beyond the 1-14 years plan-leftovers.spec.ts plans in, which would
+  // otherwise count this dinner when it looks for the next free one.
+  const day = new Date(Date.now() + (6000 + Math.floor(Math.random() * 3000)) * DAY_MS);
   const dateKey = day.toISOString().slice(0, 10);
   const monday = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()) - ((day.getUTCDay() + 6) % 7) * DAY_MS)
     .toISOString()
