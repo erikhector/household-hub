@@ -52,6 +52,13 @@ test("ticking the last open task shows the all-caught-up moment", async ({ page,
   await expect(page.getByRole("img", { name: "Squirrel mascot" }).first()).toBeVisible();
 
   // Undo brings the task back, so the moment goes with it.
-  await page.getByRole("button", { name: "Undo", exact: true }).last().click();
+  // The tick of our own task is the newest toast, so the front of the stack:
+  // the earlier ticks' toasts pile behind it and a `.last()` Undo can sit
+  // under another toast, which swallows the click.
+  await page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: `Done: ${title}` })
+    .getByRole("button", { name: "Undo", exact: true })
+    .click();
   await expect(page.getByText("You're all caught up!")).toHaveCount(0);
 });
