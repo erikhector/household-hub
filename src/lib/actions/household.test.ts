@@ -353,13 +353,15 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
 
     const result = await joinViaInviteSignupAction({}, formData(validInput));
 
-    expect(result).toEqual({ status: "verification-sent", email: validInput.email });
+    expect(result).toEqual({
+      status: "verification-sent",
+      email: validInput.email,
+      householdName: "The Hectors",
+    });
     expect(transactionMock).toHaveBeenCalledTimes(1);
-    expect(cookieSetMock).toHaveBeenCalledWith(
-      "active_household",
-      "household-1",
-      expect.objectContaining({ path: "/" }),
-    );
+    // UX-55: a cookie write re-renders /join/<token>, which then shows
+    // "Invalid invite" because the invite is now used.
+    expect(cookieSetMock).not.toHaveBeenCalled();
     expect(invitationUpdateManyMock).toHaveBeenCalledWith({
       where: { id: "invite-1", acceptedAt: null },
       data: { acceptedAt: expect.any(Date) },
@@ -419,9 +421,10 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     expect(result).toEqual({
       status: "verification-sent",
       email: validInput.email,
+      householdName: "The Hectors",
       emailError: true,
     });
-    expect(cookieSetMock).toHaveBeenCalled();
+    expect(cookieSetMock).not.toHaveBeenCalled();
   });
 });
 

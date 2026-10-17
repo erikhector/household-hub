@@ -217,7 +217,10 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
 - Sharing: an `Invitation` (random token, 7-day expiry) generates a
   `/join/[token]` link. Visiting it while logged in joins that household to
   your account; while logged out, it shows a signup form that creates the
-  account and joins in one step. Anyone joining via invite becomes a
+  account and joins in one step, then shows the verification-sent panel
+  naming the household (no active-household cookie is written there: it
+  would re-render the route and show "Invalid invite" for the used link).
+  Anyone joining via invite becomes a
   `CONTRIBUTOR` — invites can't grant ownership. The link is always shown
   on-screen for the inviter to copy and send manually; see "Invite email
   delivery" below for the additional option to have it emailed directly.
@@ -7239,6 +7242,11 @@ UX-14's rapid ticks and the rollback toast.
   42-43 px. A test that holds a Server Action with `page.route` counts it
   as answered on its `response`, not when `route.continue()` resolves
   (that's when the request is sent, so a reload could beat the save).
+  `optimistic-ticking.spec.ts` and `shopping-mode.spec.ts`, which hold
+  and abort saves with `page.route`, set
+  `test.use({ serviceWorkers: "block" })`: once the app's service worker
+  claims the page, its fetches skip the route, so a save meant to fail
+  went through.
   The meal-prep journey test is `test.slow()`: twenty steps took two
   thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec

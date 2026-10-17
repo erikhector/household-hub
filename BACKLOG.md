@@ -287,7 +287,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-57,
+build them first: UX-46, UX-47, UX-48, UX-57,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -439,19 +439,6 @@ UX-89, UX-90, UX-102, UX-113.
       fires.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-55. A new member who joins by invite is told "Invalid
-      invite"** (impact: high, effort: S) — bug. On a valid
-      `/join/<token>`, "Create account & join" creates the account and
-      adds it as a contributor. The action then sets the active-household
-      cookie (`src/lib/actions/household.ts:251`), which re-renders the
-      route. By then the invite counts as used, so
-      `src/app/join/[token]/page.tsx:22` renders "Invalid invite – This
-      invite link is invalid or has expired… Back to log in". People are
-      told they failed at the moment they succeeded.
-      Acceptance: after "Create account & join" the page shows the
-      verification-sent panel naming the household. An e2e test asserts
-      "Invalid invite" is not visible after submit.
 
 - [ ] **UX-57. The cookie notice covers submit buttons and the footer
       toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
@@ -1275,6 +1262,28 @@ UX-89, UX-90, UX-102, UX-113.
       22.20.5. Skip the majors (Sentry 11, ESLint 10, TypeScript 7, React
       19.3 is fine to include if `check` passes); each needs its own item.
       Acceptance: `npm outdated` shows only majors; `npm run ci:local` green.
+
+- [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
+      DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
+      16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
+      7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
+      so a regression bisects to the framework. Read the Next 16.4 notes in
+      `node_modules/next/dist/docs/` for changed APIs, and regenerate the
+      client (`postinstall`). Playwright finds its browsers through
+      `PLAYWRIGHT_BROWSERS_PATH` (the web image ships the Chromium build
+      that matches 1.56, and `playwright install` is not allowed there), so
+      check 1.64 still launches against it, or pin `executablePath` in
+      `playwright.config.ts` if it doesn't.
+      Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
+      is green on desktop and mobile.
+
+- [ ] **DEPS-5. Upgrade `@sentry/nextjs` 10 → 11** (impact: low, effort: M) —
+      Major release (10.73 installed, 11.8 latest). Sentry is wired into
+      the client, server and edge configs plus `instrumentation`; check the
+      v11 migration guide for removed options, then confirm an error still
+      reaches Sentry with no PII added (see the privacy page).
+      Acceptance: `npm run check && npm run build` green; the build emits
+      no new Sentry warnings; REQUIREMENTS.md's monitoring section matches.
 
 ### Budget component unification
 

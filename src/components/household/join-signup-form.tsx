@@ -59,8 +59,11 @@ export function JoinSignupForm({
         )}
         <p className="text-sm text-muted-foreground">
           {state.emailError
-            ? dict.verificationSendFailedDescription
-            : format(dict.verificationSentDescription, { email: state.email ?? "" })}
+            ? format(dict.verificationSendFailedDescription, { household: state.householdName ?? "" })
+            : format(dict.verificationSentDescription, {
+                household: state.householdName ?? "",
+                email: state.email ?? "",
+              })}
         </p>
         {resendState.message ? (
           <p className="text-sm text-muted-foreground">{resendState.message}</p>

@@ -141,6 +141,9 @@ export type SignupState = {
   error?: string;
   status?: "verification-sent";
   email?: string;
+  // Join-via-invite only: the household the new account was added to, so
+  // the confirmation can name it (UX-55).
+  householdName?: string;
   // Set when the account was created but the verification email itself
   // didn't go out (send failure or an exception creating its token) — see
   // the comment on the try/catch below. Lets the confirmation screen tell
