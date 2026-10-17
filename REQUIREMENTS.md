@@ -5770,7 +5770,11 @@ components directly.
   replaces, and steps forward again if the app navigated (e.g. the merge
   dialog's `router.replace`) before its own `back()` landed. A dialog
   whose owner refuses to close (one that stays open while saving) gets a
-  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  fresh entry. A dialog that opens while another's own `back()` is still on
+  its way (a sheet handing over to its confirm) waits for that back to land
+  before pushing its entry; pushing sooner made the back land below both
+  entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
