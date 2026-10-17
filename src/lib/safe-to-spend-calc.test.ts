@@ -567,6 +567,21 @@ describe("needsSafeToSpendSetup", () => {
     expect(needsSafeToSpendSetup({ ...empty, duePayments: 50 }, [])).toBe(false);
   });
 
+  it("is false when any single field is set on its own", () => {
+    for (const k of ["income", "dueIncome", "expense", "savings", "owedFromEarlier", "duePayments", "dueSavings"] as const) {
+      expect(needsSafeToSpendSetup({ ...empty, [k]: 1 }, [])).toBe(false);
+    }
+  });
+
+  it("keeps logged spending visible when there is no income", () => {
+    expect(needsSafeToSpendSetup({ ...empty, expense: 200 }, [])).toBe(false);
+  });
+
+  it("treats amounts under the 0.005 threshold as empty", () => {
+    expect(needsSafeToSpendSetup({ ...empty, income: 0.004 }, [])).toBe(true);
+    expect(needsSafeToSpendSetup({ ...empty, income: 0.005 }, [])).toBe(false);
+  });
+
   it("is false when a recurring item is expected", () => {
     expect(needsSafeToSpendSetup(empty, [{ categoryId: "c" }])).toBe(false);
   });

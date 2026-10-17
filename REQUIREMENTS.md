@@ -2224,9 +2224,10 @@ which delegates the actual math to a pure, dependency-free
 import, so no mocking needed) rather than inlining it, since a Server
 Component page function can't itself be unit-tested.
 
-- **Empty budget (UX-116)**: with no income (logged or expected), no
-  recurring or due items and nothing owed from earlier
-  (`needsSafeToSpendSetup`), the card shows no number and no "good shape"
+- **Empty budget (UX-116)**: with nothing recorded at all: no income
+  (logged or expected), no recurring or due items, nothing owed from
+  earlier and no logged expenses or savings (`needsSafeToSpendSetup`;
+  spending without income still shows its negative number), the card shows no number and no "good shape"
   line. It says "Add your income and regular bills to see what's safe to
   spend" with two actions, "Add income" (the Transactions tab) and "Add
   regular bills" (the Manage tab), keeping the month and household in the

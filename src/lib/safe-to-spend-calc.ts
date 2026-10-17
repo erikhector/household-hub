@@ -90,8 +90,10 @@ export type SafeToSpendBreakdown = {
 };
 
 /** UX-116: true while there is nothing to compute a safe-to-spend number
- * from: no income (logged or expected) and no recurring or due items. The
- * card then shows a setup prompt instead of a green "+0.00", since "you're
+ * from: nothing recorded at all, so no income (logged or expected), no
+ * recurring or due items, and no logged expenses or savings (a month with
+ * spending but no income is a real negative number and must stay visible).
+ * The card then shows a setup prompt instead of a green "+0.00", since "you're
  * in good shape" would be a claim about data that isn't there. */
 export function needsSafeToSpendSetup(
   breakdown: SafeToSpendBreakdown,
@@ -104,6 +106,8 @@ export function needsSafeToSpendSetup(
     breakdown.duePayments < EPS &&
     breakdown.dueSavings < EPS &&
     breakdown.owedFromEarlier < EPS &&
+    breakdown.expense < EPS &&
+    breakdown.savings < EPS &&
     expectedRecurring.length === 0
   );
 }
