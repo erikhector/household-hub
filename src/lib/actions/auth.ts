@@ -175,11 +175,15 @@ export async function signupAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  // The language the form was shown in (UX-56): the account locale outranks
+  // the cookie once someone signs in, so leaving the DB default (`en`) here
+  // would flip a Swedish signup to an English dashboard on first login.
+  const locale = await getLocale();
   let userId: string;
   try {
     userId = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email, passwordHash, displayName },
+        data: { email, passwordHash, displayName, locale },
       });
       const household = await tx.household.create({
         data: { name: householdName },
@@ -212,12 +216,8 @@ export async function signupAction(
       },
     });
     const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
-    // No account row's own locale to read yet at this point in signup (see
-    // requestPasswordResetAction/resendVerificationEmailAction, which use
-    // the target account's stored `locale` instead) — getLocale() falls
-    // back to the pre-auth `locale` cookie, which is the best signal
-    // available here (see its own doc comment).
-    const locale = await getLocale();
+    // `locale` was resolved above (pre-auth cookie) and stored on the new
+    // account, so this email matches what later ones will use.
     const { error } = await sendVerificationEmail({ to: email, verifyUrl, locale });
     if (error) emailError = true;
   } catch (error) {

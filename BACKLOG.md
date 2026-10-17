@@ -307,7 +307,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
+build them first: UX-46, UX-47, UX-48, UX-55, UX-57,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -472,16 +472,6 @@ UX-89, UX-90, UX-102, UX-113.
       Acceptance: after "Create account & join" the page shows the
       verification-sent panel naming the household. An e2e test asserts
       "Invalid invite" is not visible after submit.
-
-- [ ] **UX-56. Save the language chosen at signup on the new account**
-      (impact: high, effort: S) — bug, breaks Context (two languages).
-      Signup (`src/lib/actions/auth.ts:181`) and join signup
-      (`household.ts:238`) create the user without `locale`, so the DB
-      default `en` applies. The account locale outranks the cookie, so
-      someone who signed up in Swedish meets an English dashboard on
-      their first login. Later emails (reset, digest) are English too.
-      Acceptance: signing up or joining while the UI shows Swedish stores
-      `locale='sv'`, and the first dashboard after login is Swedish.
 
 - [ ] **UX-57. The cookie notice covers submit buttons and the footer
       toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
