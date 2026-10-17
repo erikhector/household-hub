@@ -1922,6 +1922,8 @@ export const sv = {
     rowActionsAriaLabel: "Fler åtgärder för {title}",
     toggleCompleteAriaLabel: "Markera {title} som klar",
     toggleIncompleteAriaLabel: "Markera {title} som ej klar",
+    doneToast: "Klart: {title}",
+    caughtUpTitle: "Nu är allt klart!",
     weeklyRecapTitle: "Den här veckan har hushållet fixat:",
     weeklyRecapDismissAriaLabel: "Stäng",
     recurrenceLabel: "Upprepa",
