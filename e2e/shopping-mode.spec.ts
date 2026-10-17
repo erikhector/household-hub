@@ -12,6 +12,13 @@ import { collectErrors, dismissCookieNotice, expectNoHorizontalOverflow } from "
 // removed again afterwards (only this worker's household's rows).
 const tag = () => `${Date.now().toString(36)}-w${E2E_WORKER}`;
 
+// No service worker, for the held and aborted saves below (as in
+// optimistic-ticking.spec.ts, which says why at length): once the root
+// layout's worker claims the page, its fetches skip page.route(), so the
+// save meant to fail goes through and stays in the cart. Under eight
+// workers that hit about one run in thirty. Nothing here tests the worker.
+test.use({ serviceWorkers: "block" });
+
 async function sql(text: string, values: unknown[] = []) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
@@ -239,11 +246,19 @@ test("a failed tick rolls back at once while another tick is still saving", asyn
     }
     if (body.includes(slowItemId)) {
       await slowHeld;
-      await route.continue();
-      slowAnswered = true;
-      return;
+      return route.continue();
     }
     return route.continue();
+  });
+  // Counted on the response, not after route.continue() (as the tasks twin
+  // in optimistic-ticking.spec.ts does): that resolves once the request is
+  // sent, before the server has written the tick, so a reload behind it
+  // can render the list from before the save.
+  page.on("response", (response) => {
+    const request = response.request();
+    if (request.method() === "POST" && "next-action" in request.headers() && (request.postData() ?? "").includes(slowItemId)) {
+      slowAnswered = true;
+    }
   });
 
   const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName}\\b`) });
@@ -270,7 +285,14 @@ test("a failed tick rolls back at once while another tick is still saving", asyn
   await expect(slow).toBeHidden();
 
   releaseSlow();
-  await expect(page.getByRole("button", { name: /^In the cart/ })).toContainText("1");
+  const cart = page.getByRole("button", { name: /^In the cart/ });
+  await expect(cart).toContainText("1");
+  // The slow save reached the database and the failed one didn't.
+  await expect.poll(() => slowAnswered).toBe(true);
+  await page.reload();
+  await expect(cart).toContainText("1");
+  await expect(failing).toBeVisible();
+  await expect(failing).not.toBeChecked();
 });
 
 // A row added from the smart-add box scrolls into view above the phone dock,
