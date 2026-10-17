@@ -1834,7 +1834,13 @@ export const en = {
     newListNameLabel: "List name",
     newListNamePlaceholder: "e.g. Weekly shop",
     addMissingIngredientsSubmit: "Add to list",
-    missingIngredientsAddedToast: 'Added to "{list}"',
+    missingIngredientsAddedToast: {
+      one: 'Added {count} item to "{list}"',
+      other: 'Added {count} items to "{list}"',
+    },
+    missingIngredientsAlreadyOnListToast: 'Everything was already on "{list}"',
+    openShoppingList: "Open list",
+    addMissingToShoppingList: "Add {count} missing to shopping list",
     markCookedAriaLabel: "Mark as cooked",
     markCookedUnavailableForCustomMeal:
       "Custom meals aren't linked to a recipe, so there's nothing to mark as cooked",

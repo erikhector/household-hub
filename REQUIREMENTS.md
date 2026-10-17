@@ -3850,7 +3850,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   rows on a phone (DESIGN.md M6). The controls are one row: ‹ ›, the week
   range, "This week" (only when another week is shown) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
-  empty days" and "Add missing ingredients to shopping list". On phones
+  empty days" and "Add missing ingredients to shopping list" (the week's
+  main shopping-list action is the bottom "Add N missing" button, UX-91,
+  see "Meal-plan → shopping-list bridge"). On phones
   that row is sticky at the top of the scrolling page (the shopping list's
   frosted add-bar style), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
@@ -4333,10 +4335,20 @@ imported recipe" requirement.
 
 ### Meal-plan → shopping-list bridge
 
-An "Add missing ingredients to shopping list" button
-(`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
-sits next to the "This week" control in the weekly planner
-(`WeekPlanner`). By default it's scoped to the whole visible week — the
+A planned week's primary action (UX-91) is "Add N missing to shopping list",
+where N is the number of ingredients the visible week still needs (counted
+on the server by `loadMissingIngredients`, `missing-for-range.ts`, the same
+diff the dialog previews). It is a `PrimaryAction` button at the bottom of
+the planner, floating above the bottom bar on phones (M2), and it is hidden
+on an empty week or when nothing is missing. It opens the review dialog
+below; the ⋯ menu keeps "Add missing ingredients to shopping list" for
+other date ranges. After adding, the toast says how many items landed ("Added
+2 items to "Weekly shop"", or "Everything was already on …" when all were
+duplicates) and has an "Open list" action that goes to that list
+(`addMissingIngredientsToShoppingListAction` returns `{ listId, addedCount }`).
+The review dialog (`MissingIngredientsDialog`,
+`src/components/meal-planning/missing-ingredients-dialog.tsx`) opens from
+that button or the ⋯ menu in the weekly planner (`WeekPlanner`). By default it's scoped to the whole visible week — the
 pattern every competitor researched (Mealime, Paprika, Plan to Eat, Whisk)
 uses — but it can cover any date range up to 31 days (GAP-32):
 

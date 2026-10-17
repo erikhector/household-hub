@@ -328,7 +328,7 @@ UX-89, UX-90, UX-102, UX-113.
 - `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
   `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
-- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
+- `src/components/meal-planning/week-planner.tsx`: UX-49, UX-99.
 
 #### Shell and cross-cutting
 
@@ -859,18 +859,6 @@ UX-89, UX-90, UX-102, UX-113.
       new" and needs a tap to accept. Saving a recipe with Rice and Cream
       on the defaults never links Ricotta or Breadcrumbs (unit test on the
       default choice).
-
-- [ ] **UX-91. The planner's primary action: "Add N missing to shopping
-      list"** (impact: high, effort: S) — breaks Hierarchy and M2. The
-      Planner tab has no primary action. Its most valuable step, turning a
-      week into a shopping list, hides in an unlabelled ⋯ at the top right
-      (`week-planner.tsx:234-262`) and shows even on an empty week. The
-      toast only says `Added to "Weekly shop"`
-      (`missing-ingredients-dialog.tsx:123`), with no count and no way
-      there.
-      Acceptance: a planned week shows a bottom-anchored primary "Add N
-      missing to shopping list" button, hidden on an empty week. The toast
-      names the count and has "Open list".
 
 - [ ] **UX-92. "Add to plan" and the instructions in the recipe sheet**
       (impact: high, effort: S) — User-centricity (shortest path from
