@@ -33,6 +33,9 @@ let installed = false;
 // Set while a history.back() of ours is on its way (it's async): the URL it
 // lands on, and whether anything pushed or replaced an entry before it did.
 let ownBack: { href: string; overwritten: boolean } | null = null;
+// Dialogs that opened while ownBack was pending, waiting for that back() to
+// land before they push their entry (see pushDialogEntry).
+const deferred: Entry[] = [];
 
 // <html> carries this while ownBack is set, so the e2e suite's
 // waitForDialogHistory can wait for that back() to land: a page.reload()
@@ -74,6 +77,19 @@ function onPopState(event: PopStateEvent) {
     entry.close();
   }
   if (swallow) event.stopImmediatePropagation();
+  // The back() has landed, so a dialog that opened meanwhile can push now.
+  if (ownBack === null) flushDeferred();
+}
+
+function pushEntry(entry: Entry) {
+  entry.href = window.location.href;
+  const state = window.history.state;
+  window.history.pushState({ ...(state && typeof state === "object" ? state : {}), [KEY]: entry.id }, "");
+  stack.push(entry);
+}
+
+function flushDeferred() {
+  for (const entry of deferred.splice(0)) pushEntry(entry);
 }
 
 function install() {
@@ -115,11 +131,23 @@ install();
 export function pushDialogEntry(close: () => void): () => void {
   install();
   const entry: Entry = { id: nextId++, href: window.location.href, close };
-  const state = window.history.state;
-  window.history.pushState({ ...(state && typeof state === "object" ? state : {}), [KEY]: entry.id }, "");
-  stack.push(entry);
+  // A dialog that opens as another one closes (a sheet handing over to its
+  // confirm) is asked to push while the closing one's back() is still on
+  // its way. Pushing now would put the new entry above the old one, and the
+  // back, computed from the old position, would land one entry below both:
+  // the forward() that repairs that then lands on the closed dialog's stale
+  // entry, not the new one, and the popstate closes the dialog that just
+  // opened. So wait for the back to land, then push onto a settled history.
+  if (ownBack !== null) deferred.push(entry);
+  else pushEntry(entry);
 
   return () => {
+    const waiting = deferred.indexOf(entry);
+    if (waiting !== -1) {
+      // Closed before its entry was ever pushed: nothing to undo.
+      deferred.splice(waiting, 1);
+      return;
+    }
     const index = stack.indexOf(entry);
     // Already gone: the back gesture is what closed it.
     if (index === -1) return;

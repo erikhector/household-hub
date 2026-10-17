@@ -5794,7 +5794,11 @@ components directly.
   replaces, and steps forward again if the app navigated (e.g. the merge
   dialog's `router.replace`) before its own `back()` landed. A dialog
   whose owner refuses to close (one that stays open while saving) gets a
-  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  fresh entry. A dialog that opens while another's own `back()` is still on
+  its way (a sheet handing over to its confirm) waits for that back to land
+  before pushing its entry; pushing sooner made the back land below both
+  entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
@@ -7217,6 +7221,17 @@ UX-14's rapid ticks and the rollback toast.
   (the landscape and tablet projects are touch but `sm` and up). A test
   that plans rows in a shared week removes them in an `afterEach`, pass or
   fail, since the desktop and mobile runs and a retry share the household.
+  A page measured or asserted straight after `goto` uses `gotoRevealed`,
+  which waits for React 19.2's batched Suspense reveals (a cold WebKit
+  could still show the tasks page's Add task skeleton after 5 s).
+  `expectTouchTargets` and `expectTargetsApart` first wait for
+  `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
+  page is still scaling back from 0.94, and every 44 px target measured
+  42-43 px. A test that holds a Server Action with `page.route` counts it
+  as answered on its `response`, not when `route.continue()` resolves
+  (that's when the request is sent, so a reload could beat the save).
+  The meal-prep journey test is `test.slow()`: twenty steps took two
+  thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the
