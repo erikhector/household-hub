@@ -314,7 +314,7 @@ as instructions, never checked out or run (its code could do anything
 in its report and leaves them for the owner. Adding an account here is
 the owner's call.
 
-`reviewer`: each `autopilot-review` run (twice a day, plus chained runs) squash-merges into
+`reviewer`: each `autopilot-review` run (every three hours, plus chained runs) squash-merges into
 `next` any open PR from a `trusted_authors` account it has reviewed as
 approved, with no open
 threads and its fast CI green (it brings a branch up to date only when

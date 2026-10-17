@@ -1,6 +1,6 @@
 ---
 name: autopilot-review
-description: Twice-daily PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (conflicts, migration clashes) and squash-merges it into `next`, then ships `next` to `master` as one release PR (the release train). It stays subscribed to PRs it sent back for changes and re-reviews when the author pushes a fix. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
+description: Three-hourly PR reviewer and merger for household-hub. The top-level session delegates each open PR's review to its own sub-agent (inline review comments, checking earlier comments were addressed and resolving them), then hands each passing PR, one at a time, to a merge sub-agent that keeps it mergeable (conflicts, migration clashes) and squash-merges it into `next`, then ships `next` to `master` as one release PR (the release train). It stays subscribed to PRs it sent back for changes and re-reviews when the author pushes a fix. The top level validates every sub-agent's result and reports. Use when a routine says "run autopilot-review".
 ---
 
 # Autopilot reviewer

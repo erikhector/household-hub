@@ -7284,7 +7284,7 @@ under human control. Five roles, each a skill in `.claude/skills/`:
   failed round. Before building anything new it gives each of its own red
   or reviewed PRs a fix sub-agent, and it builds nothing when
   `max_open_autopilot_prs` are open.
-- **Reviewer** (`autopilot-review`, twice a day and after each builder run)
+- **Reviewer** (`autopilot-review`, every three hours, 1.5 h after each builder slot, and after each builder run)
   reviews every open PR, whoever opened it, as inline comments marked
   `🤖 autopilot-review`. The top-level session delegates each PR's review
   round to its own sub-agent (in parallel, up to
@@ -7421,8 +7421,8 @@ runs don't queue behind everyone else's.
 | Autopilot scout: UX | `CRON_TZ=Europe/Stockholm 48 7 * * 3` | Run the autopilot-scout skill with lens `ux`. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot scout: dependencies | `CRON_TZ=Europe/Stockholm 48 7 * * 5` | Run the autopilot-scout skill with lens `deps`. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot scout: production | `CRON_TZ=Europe/Stockholm 44 8 * * *` | Run the autopilot-scout skill with lens `production`. Follow AUTOPILOT.md; stop if it disables you. (Only once a Sentry connector is attached.) |
-| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 9,15 * * *` (plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
-| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 41 11,17 * * *` (plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot builder | `CRON_TZ=Europe/Stockholm 47 0,3,6,9,12,15,18,21 * * *` (every three hours, plus chained runs) | Run the autopilot-build skill: delegate a fix for any open autopilot PR that needs one, and delegate every eligible, parallel-safe backlog item the limits allow to its own sub-agent, then validate each PR. Follow AUTOPILOT.md; stop if it disables you. |
+| Autopilot reviewer | `CRON_TZ=Europe/Stockholm 17 2,5,8,11,14,17,20,23 * * *` (every three hours, 1.5 h after the builder, plus chained runs) | Run the autopilot-review skill: delegate each open PR's review to its own sub-agent, validate the reviews, merge the PRs that pass, one merge sub-agent at a time, ship the release train and update the Owner inbox. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot: product owner | `CRON_TZ=Europe/Stockholm 43 8 * * 1` | Run the autopilot-product skill: decide the backlog items AUTOPILOT.md lets you decide, recommend the rest, and update PRODUCT.md's direction and focus. Follow AUTOPILOT.md; stop if it disables you. |
 | Autopilot retro | `CRON_TZ=Europe/Stockholm 53 17 * * 0` | Run the autopilot-retro skill for the past 7 days. Follow AUTOPILOT.md; stop if it disables you. |
 
