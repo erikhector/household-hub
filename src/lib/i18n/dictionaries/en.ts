@@ -3209,7 +3209,7 @@ export const en = {
   cookieNotice: {
     title: "Cookie notice",
     message:
-      "Squirrel only uses cookies that keep you signed in and remember your settings (like language and theme). No advertising or tracking.",
+      "Only essential cookies. No ads or tracking.",
     learnMore: "Learn more",
     dismiss: "Got it",
   },
