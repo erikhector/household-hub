@@ -483,6 +483,18 @@ export const sv = {
       confirm: "Markera som klar",
       confirming: "Markerar…",
     },
+    // UX-87: steget före klarmarkering när bara en del av de köpta varorna
+    // har pris.
+    partialPrice: {
+      title: "Vissa köpta varor saknar pris",
+      description: {
+        one: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+        other: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+      },
+      amountLabel: "Belopp att logga i budgeten",
+      log: "Logga belopp",
+      skip: "Logga inget",
+    },
     unarchive: "Återställ",
     archive: "Arkivera",
     delete: "Ta bort",
@@ -515,7 +527,7 @@ export const sv = {
     rowActionsAriaLabel: "Fler åtgärder för {name}",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
-    estimatedTotal: "Cirka {amount} kvar att spendera",
+    estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
     addPriceLabel: "Lägg till pris",
     editPriceAriaLabel: "Redigera uppskattat pris för {name}",
     addPriceAriaLabel: "Lägg till ett uppskattat pris för {name}",
@@ -2077,6 +2089,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
@@ -2506,6 +2524,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
@@ -2735,6 +2759,13 @@ export const sv = {
     title: "Profil",
     subtitle: "Dina kontouppgifter.",
     reauthRateLimited: "För många försök. Vänta 15 minuter och försök igen.",
+    // UX-76: the four section headings that group the page's cards.
+    sections: {
+      account: "Konto",
+      preferences: "Inställningar",
+      notifications: "Aviseringar",
+      data: "Data och integritet",
+    },
     about: {
       title: "Om Squirrel",
       version: "Version {version}",
@@ -2744,7 +2775,6 @@ export const sv = {
       description: "Din avatar genereras automatiskt utifrån dina initialer — ingen uppladdning behövs.",
     },
     displayNameForm: {
-      title: "Visningsnamn",
       label: "Visningsnamn",
       saved: "Sparat",
       saving: "Sparar…",

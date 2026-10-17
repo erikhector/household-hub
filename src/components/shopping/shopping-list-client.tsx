@@ -74,7 +74,8 @@ import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
 import type { StoreOrder } from "@/lib/shopping/store-order";
-import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
+import { PartialPriceDialog } from "@/components/shopping/partial-price-dialog";
+import { countPriced, sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import {
   hasTicksInFlight,
@@ -94,7 +95,7 @@ import { useFlipList } from "@/components/shared/use-flip-list";
 import type { ItemAliasLike } from "@/lib/item-alias";
 import { useUnitLabel } from "@/components/units-provider";
 import { canNativeShare } from "@/components/ui/copy-link-button";
-import { formatShoppingListText } from "@/lib/shopping-list-text";
+import { formatShoppingItemLabel, formatShoppingListText } from "@/lib/shopping-list-text";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { MascotEmptyState, MascotMark } from "@/components/brand/mascot-empty-state";
 
@@ -387,6 +388,15 @@ export function ShoppingListClient({
   // sumEstimatedPendingTotal's own doc comment for why this is pending-only
   // and per-unit/unmultiplied.
   const estimatedTotal = sumEstimatedPendingTotal(pendingItems);
+  // UX-87: "1 of 14 priced" next to the amount, so a sum over a few priced
+  // rows doesn't pass for the cost of the whole trip.
+  const pendingPriced = countPriced(pendingItems);
+  // Same question for what's already in the cart, asked when completing: the
+  // Groceries expense is the sum of the priced bought rows, so when some
+  // bought rows have no price that sum undercounts the trip.
+  const boughtPriced = countPriced(purchasedItems);
+  const boughtPricedTotal = sumEstimatedPendingTotal(purchasedItems);
+  const hasPartialPrices = boughtPriced.priced > 0 && boughtPriced.priced < boughtPriced.total;
 
   const showResolveMappings = isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD;
   const resolveMappingsLabel = format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
@@ -402,6 +412,7 @@ export function ShoppingListClient({
     share: createDialogHandle(),
     resolveMappings: createDialogHandle(),
     completeList: createDialogHandle(),
+    partialPrice: createDialogHandle(),
     deleteList: createDialogHandle(),
     reorderSections: createDialogHandle(),
     saveTemplate: createDialogHandle(),
@@ -453,9 +464,9 @@ export function ShoppingListClient({
   // the toast carries an "Undo" (BACKLOG.md's "undo over confirm") that
   // reopens the list and removes exactly the Groceries expense this
   // completion logged, if any.
-  const completeList = () =>
+  const runComplete = (amount?: number | null) =>
     startTransition(async () => {
-      const result = await completeShoppingListAction(list.id);
+      const result = await completeShoppingListAction(list.id, amount);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -474,6 +485,10 @@ export function ShoppingListClient({
       });
       if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
     });
+
+  // UX-87: with some bought rows unpriced, ask what to log before the list
+  // closes; otherwise complete as before.
+  const completeList = () => (hasPartialPrices ? dialogs.partialPrice.open(null) : runComplete());
 
   const finishTrip = (confirmFirst: boolean) => {
     if (awaitingPutAway.length > 0) setPutAwayMode("finish");
@@ -571,7 +586,11 @@ export function ShoppingListClient({
               nothing to estimate yet otherwise. */}
           {estimatedTotal > 0 && (
             <p className="text-sm text-muted-foreground">
-              {format(dict.estimatedTotal, { amount: numberFormat.format(estimatedTotal) })}
+              {format(dict.estimatedTotal, {
+                amount: numberFormat.format(estimatedTotal),
+                priced: pendingPriced.priced,
+                total: pendingPriced.total,
+              })}
             </p>
           )}
         </div>
@@ -800,6 +819,14 @@ export function ShoppingListClient({
             variant="default"
             onConfirm={completeList}
           />
+          <PartialPriceDialog
+            handle={dialogs.partialPrice}
+            suggested={boughtPricedTotal}
+            unpriced={boughtPriced.total - boughtPriced.priced}
+            total={boughtPriced.total}
+            dict={dict.partialPrice}
+            onConfirm={runComplete}
+          />
         </>
       )}
       <ConfirmDialog
@@ -992,7 +1019,7 @@ function PrintableList({
                 <li key={item.id} className="flex items-baseline gap-3 text-2xl leading-snug">
                   <span aria-hidden className="inline-block size-5 shrink-0 translate-y-0.5 border-2 border-black" />
                   <span>
-                    {item.name} × {item.quantity} {unitLabel(item.unit)}
+                    {formatShoppingItemLabel(item, unitLabel)}
                   </span>
                 </li>
               ))}
@@ -1239,9 +1266,9 @@ function ShoppingRow({
                 large && "text-base max-sm:text-lg pointer-coarse:text-lg",
                 purchased && "text-muted-foreground line-through",
               )}
-              title={`${item.name} × ${item.quantity} ${unitLabel(item.unit)}`}
+              title={formatShoppingItemLabel(item, unitLabel)}
             >
-              {item.name} × {item.quantity} {unitLabel(item.unit)}
+              {formatShoppingItemLabel(item, unitLabel)}
             </span>
             {item.addedAutomatically && (
               <Badge variant="secondary" className="shrink-0">

@@ -81,7 +81,7 @@ test("ticking three shopping items shows all three before any save answers", asy
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) }));
+  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) }));
   for (const box of boxes) await box.click();
   // UX-37: ticked rows move at once into the collapsed "In the cart"
   // section, still before any save answers; open it to see them.
@@ -112,7 +112,7 @@ test("a ticked shopping item is exposed once while its row fades out", async ({ 
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   await box.click();
   const cart = page.getByRole("button", { name: /^In the cart/ });
   await expect(cart).toContainText("1");
@@ -135,7 +135,7 @@ test("a tick that can't reach the server rolls back with a toast", async ({ page
     (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
   );
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   await box.click();
   await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(box).not.toBeChecked();
@@ -155,7 +155,7 @@ test("ticking three items on a share link shows all three before any save answer
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) }));
+  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) }));
   for (const box of boxes) await box.click();
   for (const box of boxes) await expect(box).toBeChecked();
   expect(held.answered()).toBe(0);

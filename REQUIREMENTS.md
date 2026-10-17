@@ -115,6 +115,12 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Signup stores the language it was shown in (UX-56)**: `signupAction`
+  and `joinViaInviteSignupAction` create the user with `locale` set to
+  `getLocale()` (the pre-auth cookie or browser language). Without it the DB
+  default `en` applied, and since the account locale outranks the cookie, a
+  Swedish signup met an English dashboard on first login (and English
+  reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -1953,6 +1959,15 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   usually arrives with `estimatedPrice` already filled in, so in practice
   this total is rarely 0 once a household has bought something at least
   once.
+- **Partly priced trips (UX-87)**: when some, but not all, purchased items
+  have a price, "Done shopping" / "Complete list" first opens
+  `PartialPriceDialog`, which says how many bought items have no price and
+  pre-fills the sum of the priced ones. The user logs that amount, edits it
+  to the real total, or chooses "Don't log" (the list completes with no
+  expense). `completeShoppingListAction(listId, amountOverride?)` takes the
+  chosen amount (`undefined` = the sum as before, `null` = log nothing, a
+  number validated like a price, 0 to 1 000 000). All-priced and none-priced
+  trips complete without the extra step.
 
 #### Prices fill themselves in (AUTO-4)
 
@@ -1990,9 +2005,11 @@ toggle the checkbox the label is wired to. Tapping it swaps in a small inline
 number input (save/cancel icon buttons, `Escape` to cancel) that calls the
 new `updateShoppingListItemPriceAction`; this is the only path a user ever
 corrects an estimate through, and the correction sticks — no create path
-touches a saved row's price again. The list header shows a running "About
-{amount} left to spend", summing `estimatedPrice` the same per-unit way but
-only over *pending* (not yet purchased) items — a purchased item's price is
+touches a saved row's price again. The list header shows a running "≈
+{amount} still to buy ({priced} of {total} priced)" (UX-87: the count says
+how much of what's left the amount covers, so a sum over one priced row of
+fourteen doesn't read as the trip's cost), summing `estimatedPrice` the same
+per-unit way but only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
@@ -2188,6 +2205,12 @@ and confirms with a toast.
   headings when at least one item has a real category; when none has, the
   list is flat rather than one "Other" heading. Ticked items are left out.
   Amounts use `formatCookQuantity` and the household's unit labels.
+- **Default amount hidden (UX-86)**: quantity 1 of the default unit (`pcs`) is
+  what an untouched add gets, so it shows as just the name ("Bananas", not
+  "Bananas × 1 pcs") in list rows, the shopping-mode dock, the print view, the
+  public share page and the copied text (`isDefaultAmount` /
+  `formatShoppingItemLabel`, same file). Any other amount ("Milk × 2 l",
+  "Eggs × 2 pcs", "1 l") still shows.
 - **Clipboard and share**: the success toast waits for `clipboard.writeText`;
   a rejection shows an error toast. On a coarse pointer with
   `navigator.share` (`canNativeShare`, as the invite link) a **"Share as
@@ -2213,6 +2236,15 @@ which delegates the actual math to a pure, dependency-free
 import, so no mocking needed) rather than inlining it, since a Server
 Component page function can't itself be unit-tested.
 
+- **Empty budget (UX-116)**: with nothing recorded at all: no income
+  (logged or expected), no recurring or due items, nothing owed from
+  earlier and no logged expenses or savings (`needsSafeToSpendSetup`;
+  spending without income still shows its negative number), the card shows no number and no "good shape"
+  line. It says "Add your income and regular bills to see what's safe to
+  spend" with two actions, "Add income" (the Transactions tab) and "Add
+  regular bills" (the Manage tab), keeping the month and household in the
+  URL. Once there is data the totals carry a one-line legend for the "+",
+  "–" and "→" in front of them.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's
@@ -3643,6 +3675,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `requireHousehold`, one inventory `findMany`) returns the matches, the
     household's items (with their saved unit conversions) and categories,
     and a guessed category for each row without a confident match.
+  - **Ingredient name Enter (UX-93)**: Enter in an ingredient name never
+    submits the recipe. `ComboField`'s optional `onEnter` swallows an
+    Enter with no suggestion highlighted and the dialog moves focus to
+    that row's quantity (Enter on a highlighted suggestion still picks
+    it). The popup's `Use "X"` row is a real button: tapping it keeps the
+    typed value, closes the popup and moves on the same way. Inventory
+    dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -5585,6 +5624,11 @@ components directly.
   isn't part of the bottom bar. The switcher row spans its container, so
   its "Create household" `+` sits at the right edge of the header (and of
   the expanded sidebar) rather than just after the household name (UX-26).
+  A long household name (the field allows 60 characters) is clamped (two
+  lines on a phone, one on desktop) with the full name in its `title` and in
+  the dropdown: the trigger `Button` overrides its base `shrink-0
+  whitespace-nowrap`, so the chevron and "+" stay on screen at 412 and 1280
+  px (UX-47, `e2e/ux-47.spec.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open
@@ -5878,8 +5922,22 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
-- Profile has an "About Squirrel" card with the version and a link to the
-  page.
+- Profile has an "About Squirrel" disclosure with the version and a link to
+  the page (see "Profile sections" below).
+
+**Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
+`h2` region, instead of eleven loose cards: **Account** (display name,
+email and password as one card with a divider between the three forms, each
+keeping its own Save), **Preferences** (the Swish number; the Appearance and
+Language controls of UX-51 join it here), **Notifications** (push, weekly
+digest, install app) and **Data & privacy** (Export my data; the "About
+Squirrel" version and "Danger zone" account deletion behind native
+`<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
+`LogoutButton` as `no-household`, so the push subscription is dropped
+first, SEC-5) is the last element. One column on phones; from `lg` up
+the sections sit in two columns, row by row, so the DOM order is the phone
+order. The display-name card no longer repeats "Display name" as its own
+heading. `e2e/ux-76.spec.ts` covers it.
 
 ## Notification center
 

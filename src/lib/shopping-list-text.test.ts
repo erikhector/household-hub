@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatShoppingListText, type ShoppingListTextGroup } from "@/lib/shopping-list-text";
+import { formatShoppingItemLabel, formatShoppingListText, isDefaultAmount, type ShoppingListTextGroup } from "@/lib/shopping-list-text";
 
 const dairy: ShoppingListTextGroup = {
   key: "auto:dairy",
@@ -56,5 +56,32 @@ describe("formatShoppingListText", () => {
 
   it("prints just the name when nothing is open", () => {
     expect(formatShoppingListText("Empty", [], "en")).toBe("Empty");
+  });
+});
+
+describe("default amount (UX-86)", () => {
+  it("treats only 1 pcs as the default", () => {
+    expect(isDefaultAmount(1, "pcs")).toBe(true);
+    expect(isDefaultAmount(2, "pcs")).toBe(false);
+    expect(isDefaultAmount(1, "l")).toBe(false);
+  });
+
+  it("labels 1 pcs as just the name and anything else with its amount", () => {
+    const label = (name: string, quantity: number, unit: string) => formatShoppingItemLabel({ name, quantity, unit }, (u) => u);
+    expect(label("Bananas", 1, "pcs")).toBe("Bananas");
+    expect(label("Milk", 2, "l")).toBe("Milk × 2 l");
+    expect(label("Eggs", 2, "pcs")).toBe("Eggs × 2 pcs");
+  });
+
+  it("copies 1 pcs as just the name", () => {
+    const group: ShoppingListTextGroup = {
+      key: null,
+      label: "Other",
+      items: [
+        { name: "Dill", quantity: 1, unit: "pcs" },
+        { name: "Milk", quantity: 2, unit: "l" },
+      ],
+    };
+    expect(formatShoppingListText("L", [group], "en")).toBe("L\n- Dill\n- 2 l Milk");
   });
 });

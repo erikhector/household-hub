@@ -49,7 +49,7 @@ export function EmailForm({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+        <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       <div className="flex flex-col gap-2">

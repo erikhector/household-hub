@@ -234,7 +234,10 @@ then MAINT-7 per feature, to avoid churn.
       runs (`--repeat-each=15` on desktop and mobile, 3 workers): the
       confirm opened, its Remove button detached, and the screenshot shows
       the week with no dialog and both meals still planned. Not seen in
-      GitHub's e2e logs. A probe that opens a meal's sheet, taps Remove
+      GitHub's e2e logs. Seen again 2026-10-17 at the "Mark as eaten"
+      step of the same test (`[mobile]`, full local suite): the confirm's
+      submit detached until the 30 s test timeout, the same sheet-to-dialog
+      handover. A probe that opens a meal's sheet, taps Remove
       meal and checks the confirm 400 ms later passed 80/80 (settled page
       and straight after `goto`), and 50/50 with 4–10× CPU throttling.
       Suspect: `openFromSheet` closes the sheet and opens the confirm in
@@ -247,19 +250,6 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
-- [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
-      test** (medium, S) — `[desktop]` and `[mobile]`
-      `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
-      copy and leaves the original") fails with `page.reload:
-      net::ERR_ABORTED`. On clean `next` (2c99254) it failed 5 of 16 runs
-      with `--repeat-each=8`; it also failed and passed on re-run in
-      builder gates for PRs #268 and #272. The reload is probably issued
-      while the Undo server action's revalidation navigation is still in
-      flight. Fix the cause in the app or in what the test waits for
-      (wait for the undo to settle before reloading). Don't loosen the
-      assertion, skip it or add a retry. Acceptance: `npx playwright test
-      e2e/duplicate-recipe.spec.ts:67 --project=desktop --project=mobile
-      --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
@@ -320,8 +310,8 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
-UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
+build them first: UX-46, UX-47, UX-48, UX-55, UX-57,
+UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -330,14 +320,14 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
-  UX-80, UX-81, UX-84, UX-85, UX-86.
+  UX-80, UX-81, UX-84, UX-85.
 - `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
   UX-105, UX-106.
-- `src/app/dashboard/profile/`: UX-51, UX-76.
+- `src/app/dashboard/profile/`: UX-51.
 - `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-93, UX-127, UX-129.
+  `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
 
 #### Shell and cross-cutting
@@ -353,21 +343,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       Acceptance: the phone header has no standalone "+". "Create
       household" is a menu item at the bottom of the household switcher
       dropdown, on desktop too.
-
-- [ ] **UX-47. Long household names break the header and sidebar**
-      (impact: high, effort: S) — breaks M1 and M9.
-      - The name field accepts 60 characters, but the switcher trigger is
-        a `Button`, whose base `shrink-0 whitespace-nowrap`
-        (`src/components/ui/button.tsx:6`) overrides the switcher's
-        `min-w-0 line-clamp-2` (`household-switcher.tsx:93`).
-      - On a phone a 58-character name pushes the chevron and "+" off
-        the 412 px screen, out of reach.
-      - On desktop even a 37-character name ("Familjen Öberg-Håkansson på
-        Södermalm") spills over the sidebar onto the page heading.
-      Acceptance: with a 60-character household name, the header and
-      sidebar truncate the name and the full name is reachable (dropdown
-      or title). The chevron stays visible at 412 and 1280 px, and
-      `expectNoHorizontalOverflow` passes.
 
 - [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
       dock** (impact: high, effort: S) — breaks M2 and User control. On
@@ -446,7 +421,7 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       - Profile has no language or theme setting at all.
       Acceptance: a first visit with no stored theme renders the system
       theme, and the browser chrome colour matches the page in both
-      schemes. Profile has "Language" and "Appearance (Light / Dark /
+      schemes. Profile has, in its Preferences section (UX-76), "Language" and "Appearance (Light / Dark /
       System)" segmented controls showing the current value. The
       menu/sidebar shortcuts show the current state.
 
@@ -500,16 +475,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       Acceptance: after "Create account & join" the page shows the
       verification-sent panel naming the household. An e2e test asserts
       "Invalid invite" is not visible after submit.
-
-- [ ] **UX-56. Save the language chosen at signup on the new account**
-      (impact: high, effort: S) — bug, breaks Context (two languages).
-      Signup (`src/lib/actions/auth.ts:181`) and join signup
-      (`household.ts:238`) create the user without `locale`, so the DB
-      default `en` applies. The account locale outranks the cookie, so
-      someone who signed up in Swedish meets an English dashboard on
-      their first login. Later emails (reset, digest) are English too.
-      Acceptance: signing up or joining while the UI shows Swedish stores
-      `locale='sv'`, and the first dashboard after login is Swedish.
 
 - [ ] **UX-57. The cookie notice covers submit buttons and the footer
       toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
@@ -760,19 +725,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
 
 #### Profile and household settings
 
-- [ ] **UX-76. Profile grouped into a few sections** (impact: med,
-      effort: M) — breaks M6 and Hierarchy. `/dashboard/profile` is 11
-      cards, each with its own Save, four phone screens tall, and a
-      single 380 px column on desktop.
-      - "Swish number" (Sweden-only, split bills only) is second, above
-        email and password, even in English.
-      - The "Display name" card labels its field "Display name" again.
-      - There's no sign out on the page.
-      Acceptance: Profile has Account, Preferences (with UX-51's
-      Appearance and Language, and Swish), Notifications, and Data &
-      privacy. Rare items sit behind disclosures, and Sign out is at the
-      end. Desktop uses two columns or a settings nav.
-
 - [ ] **UX-77. Deleting your only household: explain instead of a button
       that refuses** (impact: low, effort: S) — breaks User control.
       ⚠️ Touches user-data deletion (human-only area). The red "Delete
@@ -869,29 +821,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       The New list sheet offers "Start from: blank / a template / a
       recent list (unbought or all items)". Template rows say "Use".
 
-- [ ] **UX-86. Hide the default "× 1 pcs"** (impact: med, effort: S) —
-      breaks Hierarchy and M6. "Bananas × 1 pcs", "coffee × 1 pcs" appear
-      on most rows (`shopping-list-client.tsx:1235-1240`), in the dock
-      (`shopping-mode.tsx:159`), on the share page and in copied text
-      ("- 1 pcs dill").
-      Acceptance: quantity 1 with the default unit shows only the name in
-      rows, the dock, the share page and copied text. Any other quantity
-      ("milk × 2 l") still shows.
-
-- [ ] **UX-87. Don't log a partial estimate as the trip's cost**
-      (impact: high, effort: S) — breaks User control (automation
-      suggests) and Consistency. ⚠️ Touches transaction logging (money,
-      human-only area).
-      - Completing a 14-item shop with one priced item toasts "Logged
-        24.90 to Groceries in your budget"
-        (`shopping-list/actions.ts:2088-2109`). The budget silently
-        records a fraction of the trip.
-      - Mid-shop, the header's "About 24.90 left to spend" (`en.ts:534`)
-        reads like the budget's safe to spend.
-      Acceptance: the header reads "≈ 24.90 still to buy (1 of 14
-      priced)". When some bought items are unpriced, completion says so
-      and lets the user edit or skip the amount before it is logged.
-
 - [ ] **UX-88. Smart add: don't split on commas inside brackets**
       (impact: low, effort: S) — Usability. "dishwasher tablets
       (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
@@ -952,18 +881,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       - The instructions only show in cook mode or the edit form.
       Acceptance: the sheet has "Add to plan", which opens the date and
       slot picker, and lists the instruction steps under the ingredients.
-
-- [ ] **UX-93. Enter in an ingredient name submits the whole recipe**
-      (impact: high, effort: S) — bug, breaks Usability. Typing "Wheat
-      flour" and pressing Enter jumps to "Match ingredients" before
-      quantity, unit or any other ingredient
-      (`src/components/inventory/combo-field.tsx:57-59`). The popup's
-      `Use "Wheat flour"` row looks like an option but is the empty-state
-      text: tapping it does nothing, and it stays open over the quantity
-      field. ComboField is shared with the inventory dialogs.
-      Acceptance: Enter in an ingredient name moves focus to that row's
-      quantity (or adds a row) and never submits. Tapping `Use "X"`
-      accepts the value and closes the popup.
 
 - [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
       as cooked"** (impact: high, effort: M) — breaks Context (kitchen),
@@ -1233,19 +1150,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       Acceptance: bars are one neutral colour, `warning` from 90% with
       "Almost at limit", and `destructive` when over. Sparklines may keep
       category hues.
-
-- [ ] **UX-116. An empty budget isn't "in good shape"** (impact: high,
-      effort: S) — breaks Usability (every state designed) and honest
-      status. ⚠️ money.
-      - Right after "Add 6 categories" the card shows a giant green
-        "+0.00" and "You're in good shape for the rest of the month."
-      - The starter categories have no limits, and onboarding stops
-        there.
-      - The "+", "–" and "→" glyphs on totals are unexplained.
-      Acceptance: with no income or recurring items, the card shows a
-      setup state ("Add your income and regular bills to see what's safe
-      to spend") with those two actions, not a green 0. Totals carry
-      words or a legend for the glyphs.
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
@@ -1916,6 +1820,45 @@ out to be a product-scope question rather than a scoped task should move to
       test covers the opt-out default, no entry on an empty day and
       household scoping; an e2e step enables the toggle and asserts the
       bell entry, on desktop and mobile.
+
+### 2026-10-17 scan
+
+- [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
+      AnyList's December 2025 meal-planning update lets a plain note on the
+      calendar carry ingredients that go straight to the shopping list.
+      Squirrel's "Custom meal…" (`MealPlanEntry.freeformName`) has none, and
+      the meal-plan → shopping-list bridge skips it (`recipeId: { not: null }`,
+      REQUIREMENTS.md "Meal-plan → shopping-list bridge"), so "taco night"
+      or "pasta with whatever" adds nothing to the shop and is invisible to
+      the missing-ingredients check. Add an optional multi-line
+      "Ingredients" field to the custom-meal form (nullable
+      `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
+      read with the same line parser as smart add (UX-88 fixes its comma
+      handling first). The bridge preview lists those lines as
+      "From custom meals", matched to inventory by the existing
+      case-insensitive name rule and scaled by nothing (a custom meal has
+      no portions). Marking it cooked still decrements nothing.
+      Acceptance: a bridge test covers a custom meal's lines being listed,
+      household scoping, blank lines dropped and a recipe-less, ingredient-less
+      meal still skipped; an e2e step adds a custom meal with "2 tortillas"
+      and asserts it in the bridge preview and on the list after "Add",
+      on desktop and mobile.
+
+- [ ] **GAP-59. Search the meal plan** (impact: low-med, effort: S) —
+      AnyList's same update added search across the whole meal-plan
+      calendar. Squirrel's planner shows one week at a time
+      (`?week=yyyy-mm-dd`), so "when did we last have lasagna?" or "which
+      night is taco night?" means paging week by week; GAP-46 covers only
+      saved recipes' last-cooked date, not custom meals or future dates.
+      Add a search field in the planner header that, after two characters,
+      lists up to 20 matching entries (recipe title or `freeformName`,
+      case-insensitive, within a year either side of today) as "Tue 21 Oct
+      · Dinner · Lasagna", newest first, each linking to its `?week=`.
+      Read-only, one household-scoped query, no schema change.
+      Acceptance: a loader test covers household scoping, the date window,
+      the 20 cap and freeform names; an e2e step plans a uniquely named
+      custom meal two weeks ahead, searches it and follows the link to the
+      right week, on desktop and mobile (field has a visible label, 44 px).
 
 ## Needs a decision before building
 

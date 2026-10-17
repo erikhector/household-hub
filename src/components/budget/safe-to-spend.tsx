@@ -19,6 +19,7 @@
 import Link from "next/link";
 import { Banknote, ChevronDown, PiggyBank, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "@/lib/i18n/format";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
@@ -28,6 +29,7 @@ import type {
   SafeToSpendBreakdown,
   SafeToSpendStatus,
 } from "@/lib/safe-to-spend-calc";
+import { needsSafeToSpendSetup } from "@/lib/safe-to-spend-calc";
 import { createMoneyFormat } from "@/lib/currency";
 import type { MonthProjection } from "@/lib/chart-calc";
 import { AnimatedNumber } from "@/components/charts/animated-number";
@@ -53,6 +55,7 @@ export function SafeToSpend({
   showHouseholdName = false,
   projection = null,
   variant = "full",
+  setupHrefs,
   dict,
   locale,
   currencyCode,
@@ -78,12 +81,16 @@ export function SafeToSpend({
    * arithmetic, caveat and still-due list into a "How we got this number"
    * disclosure (DESIGN.md M6), so Overview stops repeating itself. */
   variant?: "full" | "compact";
+  /** UX-116: where the setup state's two actions go (add income, add
+   * regular bills). */
+  setupHrefs: { income: string; bills: string };
   dict: Dictionary["budget"]["safeToSpend"];
   locale: Locale;
   // GAP-13: the household's display currency; null keeps plain numbers.
   currencyCode?: string | null;
 }) {
   const numberFormat = createMoneyFormat(locale, currencyCode);
+  const setup = needsSafeToSpendSetup(breakdown, expectedRecurring);
   const summary = {
     healthy: dict.summaryHealthy,
     tight: dict.summaryTight,
@@ -124,6 +131,8 @@ export function SafeToSpend({
           <dd className={`shrink-0 tabular-nums ${STATUS_COLOR[status]}`}>{numberFormat.format(amount)}</dd>
         </div>
       </dl>
+      {/* The compact card already shows the legend under its totals line. */}
+      {variant === "full" && <p className="text-xs text-muted-foreground">{dict.signLegend}</p>}
       <p className="text-xs text-muted-foreground">{dict.caveat}</p>
     </>
   );
@@ -176,6 +185,68 @@ export function SafeToSpend({
     </>
   );
 
+  // UX-116: no income and nothing recurring yet, so there's no number to
+  // stand behind. Say what's missing and offer the two ways to supply it,
+  // instead of a green "+0.00" and "good shape".
+  const setupContent = (
+    <>
+      <p className="text-sm text-foreground">{dict.setupSummary}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button render={<Link href={setupHrefs.income} />} className="max-sm:min-h-11 pointer-coarse:min-h-11">
+          {dict.setupIncome}
+        </Button>
+        <Button
+          variant="outline"
+          render={<Link href={setupHrefs.bills} />}
+          className="max-sm:min-h-11 pointer-coarse:min-h-11"
+        >
+          {dict.setupBills}
+        </Button>
+      </div>
+    </>
+  );
+  const numberContent = (
+    <>
+      <p className="text-sm text-foreground">{summary}</p>
+      <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
+        <AnimatedNumber value={amount} locale={locale} currencyCode={currencyCode} showPlus />
+      </p>
+      {projection && <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />}
+      {variant === "full" ? (
+        <>
+          {arithmetic}
+          {expectedList}
+        </>
+      ) : (
+        <>
+          {/* One totals line; the rest is a tap away. */}
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {lines.filter((line) => line.alwaysShow).map((line) => (
+              <div key={line.label} className="flex items-baseline gap-1.5">
+                <dt className="text-muted-foreground">{line.label}</dt>
+                <dd className="tabular-nums">
+                  {line.sign}
+                  {numberFormat.format(line.value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-xs text-muted-foreground">{dict.signLegend}</p>
+          <details className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
+              <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
+              {dict.breakdownToggle}
+            </summary>
+            <div className="flex flex-col gap-3 pt-1">
+              {arithmetic}
+              {expectedList}
+            </div>
+          </details>
+        </>
+      )}
+    </>
+  );
+
   return (
     <Card className="border-2 border-primary/40 bg-primary/5">
       <CardHeader>
@@ -184,44 +255,7 @@ export function SafeToSpend({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-sm text-foreground">{summary}</p>
-        <p className={`font-display text-4xl font-bold ${STATUS_COLOR[status]}`}>
-          <AnimatedNumber value={amount} locale={locale} currencyCode={currencyCode} showPlus />
-        </p>
-        {projection && (
-          <ProjectionChart projection={projection} numberFormat={numberFormat} dict={dict} />
-        )}
-        {variant === "full" ? (
-          <>
-            {arithmetic}
-            {expectedList}
-          </>
-        ) : (
-          <>
-            {/* One totals line; the rest is a tap away. */}
-            <dl className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              {lines.filter((line) => line.alwaysShow).map((line) => (
-                <div key={line.label} className="flex items-baseline gap-1.5">
-                  <dt className="text-muted-foreground">{line.label}</dt>
-                  <dd className="tabular-nums">
-                    {line.sign}
-                    {numberFormat.format(line.value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <details className="group">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1 self-start text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
-                <ChevronDown className="size-4 transition-transform group-open:rotate-180" />
-                {dict.breakdownToggle}
-              </summary>
-              <div className="flex flex-col gap-3 pt-1">
-                {arithmetic}
-                {expectedList}
-              </div>
-            </details>
-          </>
-        )}
+        {setup ? setupContent : numberContent}
         {householdDebts.length > 0 && (
           <div className="flex flex-col gap-1.5 border-t border-border pt-3">
             <p className="text-xs font-medium text-muted-foreground">{dict.debtsTitle}</p>
