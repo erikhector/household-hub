@@ -16,7 +16,7 @@ test("the add-item quantity field asks for the decimal pad", async ({ page, cont
   await page.getByRole("button", { name: "Add item" }).first().click();
 
   await expect(page.getByLabel("Quantity")).toHaveAttribute("inputmode", "decimal");
-  await expect(page.getByLabel("Low stock at")).toHaveAttribute("inputmode", "decimal");
+  await expect(page.getByLabel("Running low below")).toHaveAttribute("inputmode", "decimal");
 });
 
 test("the budget transaction amount field asks for the decimal pad and the last field for Done", async ({ page, context, baseURL }) => {
@@ -40,4 +40,19 @@ test("the budget transaction amount field asks for the decimal pad and the last 
 
   await expect(page.getByLabel("Amount")).toHaveAttribute("inputmode", "decimal");
   await expect(page.getByLabel("Description")).toHaveAttribute("enterkeyhint", "done");
+});
+
+// UX-120: "Running low below" is strict (quantity < the number), so a piece
+// count starts at 2 (1 would skip "low" and go straight to "out") and a
+// weight starts empty, because there's no natural level for grams.
+test("the add-item running-low field defaults to the unit", async ({ page, context, baseURL }) => {
+  await dismissCookieNotice(context, baseURL!);
+  await page.goto("/dashboard/inventory");
+  await page.getByRole("button", { name: "Add item" }).first().click();
+
+  const field = page.getByLabel("Running low below");
+  await expect(field).toHaveValue("2");
+
+  await page.getByRole("combobox", { name: "Unit" }).fill("g");
+  await expect(field).toHaveValue("");
 });

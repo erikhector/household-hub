@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalUnit, classifyUnits, convertForItem, convertQuantity, unitLabel, unitsAreComparable } from "./units";
+import { canonicalUnit, classifyUnits, convertForItem, defaultLowStockThreshold, convertQuantity, unitLabel, unitsAreComparable } from "./units";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { sv } from "@/lib/i18n/dictionaries/sv";
 
@@ -171,5 +171,18 @@ describe("unitLabel (UX-44)", () => {
       expect(sv.units).toHaveProperty(unit);
       expect(en.units).toHaveProperty(unit);
     }
+  });
+});
+
+describe("defaultLowStockThreshold", () => {
+  it("is 2 for whole pieces, so a low warning can show before out", () => {
+    expect(defaultLowStockThreshold("pcs")).toBe("2");
+    expect(defaultLowStockThreshold("st")).toBe("2");
+  });
+
+  it("is empty for weights, volumes and unknown units", () => {
+    expect(defaultLowStockThreshold("g")).toBe("");
+    expect(defaultLowStockThreshold("ml")).toBe("");
+    expect(defaultLowStockThreshold("bunch of keys")).toBe("");
   });
 });
