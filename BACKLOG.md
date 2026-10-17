@@ -287,7 +287,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-57,
+build them first: UX-46, UX-47, UX-48, UX-57,
 UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
@@ -439,19 +439,6 @@ UX-89, UX-90, UX-102, UX-113.
       fires.
 
 #### Logged out, signup and invites
-
-- [ ] **UX-55. A new member who joins by invite is told "Invalid
-      invite"** (impact: high, effort: S) — bug. On a valid
-      `/join/<token>`, "Create account & join" creates the account and
-      adds it as a contributor. The action then sets the active-household
-      cookie (`src/lib/actions/household.ts:251`), which re-renders the
-      route. By then the invite counts as used, so
-      `src/app/join/[token]/page.tsx:22` renders "Invalid invite – This
-      invite link is invalid or has expired… Back to log in". People are
-      told they failed at the moment they succeeded.
-      Acceptance: after "Create account & join" the page shows the
-      verification-sent panel naming the household. An e2e test asserts
-      "Invalid invite" is not visible after submit.
 
 - [ ] **UX-57. The cookie notice covers submit buttons and the footer
       toggle** (impact: high, effort: S) — breaks M2 and Hierarchy (one
