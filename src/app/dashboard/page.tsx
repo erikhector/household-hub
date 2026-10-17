@@ -13,6 +13,8 @@ import { format, plural } from "@/lib/i18n/format";
 import { loadPersonalBudgetPosition } from "@/lib/personal-budget-position";
 import { isTaskOpen } from "@/app/dashboard/tasks/recurrence";
 import { getStockStatus } from "@/lib/stock-status";
+import { Greeting } from "@/components/dashboard/greeting";
+import { firstName } from "@/lib/greeting";
 import { PageTitle } from "@/components/dashboard/page-title";
 import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches";
 
@@ -25,13 +27,6 @@ import { getActiveBatches } from "@/app/dashboard/meal-planning/prepared-batches
 // "View shopping lists" on one line: unwrapped, it pushed the chevron out
 // onto the card's border.
 const CARD_LINK_BUTTON = "mt-auto h-auto min-h-7 w-full justify-between py-1 text-left whitespace-normal max-sm:h-auto pointer-coarse:h-auto max-sm:min-h-11 pointer-coarse:min-h-11";
-
-function greetingKey(now: Date): "morning" | "afternoon" | "evening" {
-  const hour = now.getHours();
-  if (hour < 12) return "morning";
-  if (hour < 18) return "afternoon";
-  return "evening";
-}
 
 export default async function DashboardOverviewPage() {
   const [{ household, userId }, dict, locale] = await Promise.all([
@@ -140,7 +135,7 @@ export default async function DashboardOverviewPage() {
     <div className="flex flex-col gap-6">
       <div>
         <PageTitle>
-          {format(dict.dashboard.greeting[greetingKey(now)], { name: user.displayName })}
+          <Greeting name={firstName(user.displayName)} dict={dict.dashboard.greeting} />
         </PageTitle>
         <p className="text-sm text-muted-foreground">{dict.dashboard.subtitle}</p>
       </div>
@@ -199,6 +194,10 @@ export default async function DashboardOverviewPage() {
             householdDebts={personalPosition.householdDebts}
             showHouseholdName={personalPosition.showHouseholdName}
             projection={personalPosition.safeToSpendProjection}
+            setupHrefs={{
+              income: "/dashboard/personal-budget?tab=transactions",
+              bills: "/dashboard/personal-budget?tab=manage",
+            }}
             dict={{
               ...dict.personalBudget.safeToSpend,
               title: dict.dashboard.yourBudgetTitle,

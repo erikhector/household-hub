@@ -242,6 +242,12 @@ export function BudgetTabs({
     else url.searchParams.set("tab", next);
     window.history.replaceState(null, "", url);
   };
+  // UX-116: the setup card's links keep the month and household in the URL.
+  const tabHref = (next: Tab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", next);
+    return `${basePath}?${params.toString()}`;
+  };
   const hasCategories = categories.length > 0;
 
   // UX-15: the split warnings in the two dialogs below.
@@ -322,6 +328,7 @@ export function BudgetTabs({
                 showHouseholdName={showHouseholdName}
                 projection={safeToSpendProjection}
                 variant="compact"
+                setupHrefs={{ income: tabHref("transactions"), bills: tabHref("manage") }}
                 dict={dict.safeToSpend}
                 locale={locale}
                 currencyCode={currencyCode}

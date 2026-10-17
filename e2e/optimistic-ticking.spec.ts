@@ -81,7 +81,7 @@ test("ticking three shopping items shows all three before any save answers", asy
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) }));
+  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) }));
   for (const box of boxes) await box.click();
   // UX-37: ticked rows move at once into the collapsed "In the cart"
   // section, still before any save answers; open it to see them.
@@ -112,7 +112,7 @@ test("a ticked shopping item is exposed once while its row fades out", async ({ 
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   await box.click();
   const cart = page.getByRole("button", { name: /^In the cart/ });
   await expect(cart).toContainText("1");
@@ -135,7 +135,7 @@ test("a tick that can't reach the server rolls back with a toast", async ({ page
     (route) => (route.request().method() === "POST" ? route.abort() : route.continue()),
   );
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   await box.click();
   await expect(page.getByText("Couldn't save that. Check your connection and try again.")).toBeVisible();
   await expect(box).not.toBeChecked();
@@ -155,7 +155,7 @@ test("ticking three items on a share link shows all three before any save answer
   await page.goto(path);
   const held = await holdServerActions(page, path);
 
-  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) }));
+  const boxes = names.map((name) => page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) }));
   for (const box of boxes) await box.click();
   for (const box of boxes) await expect(box).toBeChecked();
   expect(held.answered()).toBe(0);
@@ -228,19 +228,31 @@ test("a failed task tick rolls back at once while another tick is still saving",
       }
       if (body.includes(slowId)) {
         await slowHeld;
-        await route.continue();
-        slowAnswered = true;
-        return;
+        return route.continue();
       }
       return route.continue();
     },
   );
+  // Counted on the response, not after route.continue(): that resolves once
+  // the request is sent, so the reload below could beat the save to the
+  // database (or abort it) and find the task still open.
+  page.on("response", (response) => {
+    const request = response.request();
+    if (request.method() === "POST" && "next-action" in request.headers() && (request.postData() ?? "").includes(slowId)) {
+      slowAnswered = true;
+    }
+  });
 
   // Failing one first: Next sends a page's Server Actions one at a time, so
   // its request goes (and fails after a second) while the slow one, tapped
   // right after, waits behind it and is then held. Both are in flight when
-  // the first one fails.
+  // the first one fails. Wait for the failing save to leave the page before
+  // tapping the slow one (as shopping-mode.spec.ts does): otherwise the slow
+  // request can go first and be held, and the failing one queues behind it
+  // and never fails.
+  const failSent = page.waitForRequest((request) => request.method() === "POST" && (request.postData() ?? "").includes(failId));
   await page.getByRole("checkbox", { name: `Mark ${failTitle} as done` }).click();
+  await failSent;
   await page.getByRole("checkbox", { name: `Mark ${slowTitle} as done` }).click();
 
   await expect(page.getByRole("checkbox", { name: `Mark ${failTitle} as done` })).not.toBeChecked();

@@ -396,6 +396,8 @@ export const en = {
     title: "Overview",
     subtitle: "What needs your attention right now.",
     greeting: {
+      // Server render, before the browser knows the local hour (UX-72).
+      hello: "Hello, {name}",
       morning: "Good morning, {name}",
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
@@ -510,6 +512,18 @@ export const en = {
       confirm: "Complete list",
       confirming: "Completing…",
     },
+    // UX-87: the step before completing when only some of the bought items
+    // have a price.
+    partialPrice: {
+      title: "Some bought items have no price",
+      description: {
+        one: "Of {total} bought items, {unpriced} has no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+        other: "Of {total} bought items, {unpriced} have no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+      },
+      amountLabel: "Amount to log in your budget",
+      log: "Log amount",
+      skip: "Don't log",
+    },
     unarchive: "Unarchive",
     archive: "Archive",
     delete: "Delete",
@@ -542,7 +556,7 @@ export const en = {
     rowActionsAriaLabel: "More actions for {name}",
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
-    estimatedTotal: "About {amount} left to spend",
+    estimatedTotal: "≈ {amount} still to buy ({priced} of {total} priced)",
     addPriceLabel: "Add price",
     editPriceAriaLabel: "Edit estimated price for {name}",
     addPriceAriaLabel: "Add an estimated price for {name}",
@@ -1015,7 +1029,7 @@ export const en = {
     quantityLabel: "Quantity",
     unitLabel: "Unit",
     unitPlaceholder: "e.g. pcs",
-    lowStockAtLabel: "Low stock at",
+    runningLowBelowLabel: "Running low below",
     expiresAtLabel: "Expires on",
     neverExpiresLabel: "This item doesn't expire",
     useWithinDaysOpenedLabel: "Use within (days) once opened",
@@ -1303,7 +1317,7 @@ export const en = {
       backToCatalog: "Manage items",
       backToRecipes: "Recipes",
       inStock: "In stock: {amount}",
-      lowStockAt: "low stock at {amount}",
+      lowStockAt: "running low below {amount}",
       changeUnit: "Change unit…",
       unitsTitle: "Units",
       countedIn: "Counted in {unit}",
@@ -1358,7 +1372,7 @@ export const en = {
         newUnitLabel: "New unit",
         factorLabel: "How many {to} is 1 {from}?",
         stock: "Stock: {before} → {after}",
-        threshold: "Low stock at: {before} → {after}",
+        threshold: "Running low below: {before} → {after}",
         conversion: "{before} → {after}",
         save: "Change unit",
         saving: "Changing…",
@@ -1454,7 +1468,7 @@ export const en = {
         barcodeTaken: "Takes barcode {barcode}",
         barcodeDropped: "Barcode {barcode} is removed, because {name} has one",
         expiry: "Best before: {date}",
-        threshold: "Low stock at: {amount}",
+        threshold: "Running low below: {amount}",
         price: "Last price: {price}",
         category: "Category: {category}",
         conversion: "Saves {sentence}",
@@ -1820,7 +1834,13 @@ export const en = {
     newListNameLabel: "List name",
     newListNamePlaceholder: "e.g. Weekly shop",
     addMissingIngredientsSubmit: "Add to list",
-    missingIngredientsAddedToast: 'Added to "{list}"',
+    missingIngredientsAddedToast: {
+      one: 'Added {count} item to "{list}"',
+      other: 'Added {count} items to "{list}"',
+    },
+    missingIngredientsAlreadyOnListToast: 'Everything was already on "{list}"',
+    openShoppingList: "Open list",
+    addMissingToShoppingList: "Add {count} missing to shopping list",
     markCookedAriaLabel: "Mark as cooked",
     markCookedUnavailableForCustomMeal:
       "Custom meals aren't linked to a recipe, so there's nothing to mark as cooked",
@@ -2005,6 +2025,8 @@ export const en = {
     rowActionsAriaLabel: "More actions for {title}",
     toggleCompleteAriaLabel: "Mark {title} as done",
     toggleIncompleteAriaLabel: "Mark {title} as not done",
+    doneToast: "Done: {title}",
+    caughtUpTitle: "You're all caught up!",
     weeklyRecapTitle: "This week, the household handled:",
     weeklyRecapDismissAriaLabel: "Dismiss",
     recurrenceLabel: "Repeat",
@@ -2175,6 +2197,12 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Add your income and regular bills to see what's safe to spend.",
+      setupIncome: "Add income",
+      setupBills: "Add regular bills",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ adds to what's safe to spend, – comes off it, → is set aside as savings.",
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",
@@ -2611,6 +2639,12 @@ export const en = {
     },
     safeToSpend: {
       title: "Safe to spend",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Add your income and regular bills to see what's safe to spend.",
+      setupIncome: "Add income",
+      setupBills: "Add regular bills",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ adds to what's safe to spend, – comes off it, → is set aside as savings.",
       summaryHealthy: "You're in good shape for the rest of the month.",
       summaryTight: "It's getting tight for the rest of the month.",
       summaryOver: "You've gone over what's safe to spend this month.",
@@ -2849,6 +2883,13 @@ export const en = {
     // current-password re-auth check is throttled. One string shared by
     // all three since they share one rate-limit bucket.
     reauthRateLimited: "Too many attempts. Please wait 15 minutes and try again.",
+    // UX-76: the four section headings that group the page's cards.
+    sections: {
+      account: "Account",
+      preferences: "Preferences",
+      notifications: "Notifications",
+      data: "Data & privacy",
+    },
     about: {
       title: "About Squirrel",
       version: "Version {version}",
@@ -2858,7 +2899,6 @@ export const en = {
       description: "Your avatar is generated automatically from your initials — no upload needed.",
     },
     displayNameForm: {
-      title: "Display name",
       label: "Display name",
       saved: "Saved",
       saving: "Saving…",

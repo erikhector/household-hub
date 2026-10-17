@@ -188,7 +188,7 @@ test("changing the unit converts the stock and keeps the old unit as a conversio
   // Pre-filled from the saved "1 pcs = 2000 g".
   await expect(dialog.getByRole("textbox", { name: "How many g is 1 pcs?" })).toHaveValue("2000");
   await expect(dialog.getByText("Stock: 1 pcs → 2000 g")).toBeVisible();
-  await expect(dialog.getByText("Low stock at: 0.5 pcs → 1000 g")).toBeVisible();
+  await expect(dialog.getByText("Running low below: 0.5 pcs → 1000 g")).toBeVisible();
   await dialog.getByRole("button", { name: "Change unit", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 

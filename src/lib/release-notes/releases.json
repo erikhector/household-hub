@@ -1,5 +1,38 @@
 [
   {
+    "version": "0.73.0",
+    "date": "2026-10-17",
+    "pr": 312,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "The \"Low stock at\" field is now \"Running low below\" and starts at 2 for items counted in pieces, so you get a low-stock warning before an item runs out. Items in grams or millilitres start empty.\n\nTicking a task now shows \"Done\" with an Undo button, the list no longer jumps when you tick your first task of the week, and finishing your last open task gets a friendly \"You're all caught up!\" from the squirrel.\n\nThe planner now has an \"Add N missing to shopping list\" button under your week. After adding, the confirmation tells you how many items went on the list and lets you open it.\n\nFixed a rare glitch where a confirmation (for example \"Remove meal?\") could close by itself right after you opened it from a sheet.\n\nShopping lists are more compact on phones: each item takes one line, so you see more of your list while you shop. Add a price from the ⋯ menu on a row.",
+      "sv": "Fältet \"Lågt lager vid\" heter nu \"Lågt lager under\" och börjar på 2 för varor som räknas i styck, så du får en varning om lågt lager innan varan tar slut. Varor i gram eller milliliter börjar tomma.\n\nNär du bockar av en syssla visas nu \"Klart\" med en Ångra-knapp, listan hoppar inte längre när du bockar av veckans första syssla, och när sista sysslan är klar får du ett glatt \"Nu är allt klart!\" av ekorren.\n\nPlaneraren har nu en knapp, \"Lägg till N saknade i inköpslista\", under veckan. Efteråt visas hur många varor som lades till, och du kan öppna listan direkt.\n\nÅtgärdade ett sällsynt fel där en bekräftelse (till exempel \"Ta bort måltid?\") kunde stängas av sig själv direkt efter att du öppnat den från ett blad.\n\nInköpslistor är kompaktare på mobilen: varje vara tar en rad, så du ser mer av listan medan du handlar. Lägg till ett pris via ⋯-menyn på raden."
+    }
+  },
+  {
+    "version": "0.72.0",
+    "date": "2026-10-17",
+    "pr": 304,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pressing Enter after typing an ingredient name in a recipe now moves on to the quantity instead of saving the recipe too early. Tapping the \"Use ...\" suggestion now accepts what you typed.\n\nThe shopping list now shows how many of the items left to buy have a price, and when you finish a trip where only some bought items are priced, it asks what amount to log to your budget (or lets you skip it).\n\nAn empty budget no longer says you're \"in good shape\". It now asks you to add your income and regular bills, and the totals explain what +, – and → mean.\n\nLong household names no longer push the switcher's buttons off the screen; they are shortened, and the full name shows in the menu.\n\nIf you sign up or join a household while Squirrel is in Swedish, your account now stays in Swedish, including your first login and the emails we send you.\n\nItems you add without an amount now show just their name, instead of \"× 1 pcs\".\n\nYour profile is now organised into Account, Preferences, Notifications and Data & privacy, with Log out at the bottom. On larger screens the sections sit side by side.",
+      "sv": "Att trycka på Enter efter ett ingrediensnamn i ett recept flyttar nu till mängden i stället för att spara receptet för tidigt. Att trycka på förslaget \"Använd ...\" tar nu med det du skrev.\n\nInköpslistan visar nu hur många av de varor som återstår som har ett pris. När du avslutar ett inköp där bara några av de köpta varorna har pris frågar den vilket belopp som ska loggas i budgeten (eller låter dig hoppa över det).\n\nEn tom budget säger inte längre att det ser bra ut. Den ber dig i stället lägga till din inkomst och dina återkommande räkningar, och summorna förklarar vad +, – och → betyder.\n\nLånga hushållsnamn trycker inte längre ut hushållsväxlarens knappar ur bild. Namnet kortas av och hela namnet syns i menyn.\n\nOm du skapar konto eller går med i ett hushåll när Squirrel visas på svenska förblir ditt konto på svenska, även vid första inloggningen och i mejlen vi skickar.\n\nVaror du lägger till utan mängd visas nu bara med namnet, utan \"× 1 pcs\".\n\nDin profil är nu ordnad i Konto, Inställningar, Aviseringar och Data och integritet, med Logga ut längst ner. På större skärmar ligger avsnitten bredvid varandra."
+    }
+  },
+  {
+    "version": "0.71.1",
+    "date": "2026-10-16",
+    "pr": 288,
+    "kind": "fix",
+    "breaking": false,
+    "notes": {
+      "en": "The overview now greets you by first name and by the time of day where you are, so it says \"Good afternoon, Åsa\" at 12:30 in Stockholm.\n\nTicking items from the \"Next up\" bar on the shopping list no longer ticks two when you double tap: the ticked item shows a check for a moment before the next one moves up.",
+      "sv": "Översikten hälsar nu på dig med förnamn och efter tiden på dygnet där du är, så det står \"God eftermiddag, Åsa\" klockan 12.30 i Stockholm.\n\nAtt bocka av varor i \"Nästa\"-fältet i inköpslistan bockar inte längre av två vid en dubbeltryckning: den avbockade varan visar en bock en kort stund innan nästa flyttar upp."
+    }
+  },
+  {
     "version": "0.71.0",
     "date": "2026-10-16",
     "pr": 276,

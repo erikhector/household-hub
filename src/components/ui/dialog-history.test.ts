@@ -158,6 +158,52 @@ describe("pushDialogEntry", () => {
     expect(window.location.href).toBe("https://app.test/dashboard/inventory/items/kept");
   });
 
+  // MAINT-23: a sheet hands over to a confirm in one render, so the confirm
+  // asks to push while the sheet's back() is still on its way. Pushing then
+  // made the back land below both entries, and the repairing forward() popped
+  // the confirm.
+  it("waits for a pending back() to land before a new dialog pushes its entry", async () => {
+    const browser = fakeBrowser();
+    const { pushDialogEntry } = await load();
+    const releaseSheet = pushDialogEntry(vi.fn());
+    const realBack = window.history.back.bind(window.history);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    releaseSheet();
+    const forward = vi.spyOn(window.history, "forward");
+    const closeConfirm = vi.fn();
+
+    pushDialogEntry(closeConfirm);
+    expect(browser.entries()).toBe(2);
+
+    realBack();
+    browser.pop();
+    expect(back).toHaveBeenCalledOnce();
+    expect(forward).not.toHaveBeenCalled();
+    expect(browser.index()).toBe(1);
+    expect(closeConfirm).not.toHaveBeenCalled();
+
+    // The confirm owns the entry now: back closes it.
+    back.mockRestore();
+    browser.back();
+    expect(closeConfirm).toHaveBeenCalledOnce();
+  });
+
+  it("never pushes an entry for a dialog closed while it was waiting", async () => {
+    const browser = fakeBrowser();
+    const { pushDialogEntry } = await load();
+    const releaseSheet = pushDialogEntry(vi.fn());
+    const realBack = window.history.back.bind(window.history);
+    vi.spyOn(window.history, "back").mockImplementation(() => {});
+    releaseSheet();
+    const releaseConfirm = pushDialogEntry(vi.fn());
+    releaseConfirm();
+
+    realBack();
+    browser.pop();
+    expect(browser.entries()).toBe(2);
+    expect(browser.index()).toBe(0);
+  });
+
   it("keeps its marker through the router's same-URL state replaces", async () => {
     const browser = fakeBrowser();
     const { pushDialogEntry } = await load();

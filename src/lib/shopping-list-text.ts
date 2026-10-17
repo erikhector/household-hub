@@ -5,6 +5,23 @@
 
 import { formatCookQuantity } from "@/lib/cook-mode-calc";
 
+// UX-86 — "1 pcs" is what every item gets when nobody typed an amount, so
+// showing it on most rows is noise that buries the name. Quantity 1 of the
+// default unit ("pcs") reads as just the name everywhere; any other amount
+// ("2 pcs", "1 l") still shows.
+export function isDefaultAmount(quantity: number, unit: string): boolean {
+  return quantity === 1 && unit === "pcs";
+}
+
+/** "Milk × 2 l", or just "Bananas" for the default 1 pcs. */
+export function formatShoppingItemLabel(
+  item: { name: string; quantity: number; unit: string },
+  unitLabel: (unit: string) => string,
+): string {
+  if (isDefaultAmount(item.quantity, item.unit)) return item.name;
+  return `${item.name} × ${item.quantity} ${unitLabel(item.unit)}`;
+}
+
 export type ShoppingListTextGroup = {
   // null is the "Other" group (no category), same as ShoppingModeGroup.key.
   key: string | null;
@@ -21,7 +38,7 @@ export type ShoppingListTextGroup = {
  * sit under their category headings (the same ones the screen shows, "Other"
  * included); when nothing has a category the headings would all say "Other",
  * so the list is flat. An item with no amount (quantity 0) is just its
- * name. Amounts use the Cook view's locale-aware rounding; `unitLabel` maps
+ * name, as is the default 1 pcs (UX-86). Amounts use the Cook view's locale-aware rounding; `unitLabel` maps
  * a stored unit to its display label.
  */
 export function formatShoppingListText(
@@ -32,7 +49,7 @@ export function formatShoppingListText(
 ): string {
   const line = (item: ShoppingListTextGroup["items"][number]) => {
     const amount =
-      item.quantity > 0
+      item.quantity > 0 && !isDefaultAmount(item.quantity, item.unit)
         ? `${formatCookQuantity(item.quantity, 1, locale)}${item.unit ? ` ${unitLabel(item.unit)}` : ""} `
         : "";
     return `- ${amount}${item.name}`;

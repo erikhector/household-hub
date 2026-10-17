@@ -2043,6 +2043,12 @@ export async function resetCategoryOrderAction(): Promise<ActionState & { previo
  */
 export async function completeShoppingListAction(
   listId: string,
+  /** UX-87: the amount the user confirmed in the "some items have no price"
+   * step. Omitted = the sum of the priced purchased rows (the old
+   * behaviour); `null` = the user chose to log nothing; a number replaces
+   * the sum (the user corrected it to the real total). Validated like a
+   * price, since it ends up in the budget. */
+  amountOverride?: number | null,
 ): Promise<{
   expenseLoggedMessage?: string;
   unresolvedNotice?: string;
@@ -2053,6 +2059,11 @@ export async function completeShoppingListAction(
   error?: string;
 }> {
   const { household, userId } = await requireHousehold();
+
+  if (amountOverride != null) {
+    const parsedAmount = updateItemPriceSchema.safeParse({ price: amountOverride });
+    if (!parsedAmount.success) return await zodFail(parsedAmount.error);
+  }
 
   const list = await prisma.shoppingList.findFirst({
     where: { id: listId, householdId: household.id, status: "ACTIVE" },
@@ -2091,6 +2102,10 @@ export async function completeShoppingListAction(
       groceriesTotal += item.estimatedPrice;
     }
   }
+  // UX-87: the client asked about a partial total (some bought rows have no
+  // price) and the user either corrected the amount or chose not to log one.
+  // logGroceriesExpense logs nothing for 0.
+  if (amountOverride !== undefined) groceriesTotal = amountOverride ?? 0;
 
   // Status change and expense commit together (MAINT-5), so a list is never
   // COMPLETED without the expense its prices add up to, or the other way round.

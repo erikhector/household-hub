@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import {
 import {
   addMissingIngredientsToShoppingListAction,
   previewMissingIngredientsAction,
+  type AddMissingState,
 } from "@/app/dashboard/meal-planning/cooking-actions";
 import { NEW_SHOPPING_LIST_SENTINEL } from "@/app/dashboard/meal-planning/meal-types";
 import { addDays, isDateKey, parseDateKey, toDateKey } from "@/app/dashboard/meal-planning/date-utils";
@@ -35,7 +37,6 @@ import {
 import { format, plural } from "@/lib/i18n/format";
 import { findSubstitutionKey, type SubstitutionKey } from "@/lib/inventory/substitutions";
 import type { ActiveShoppingListOption, MissingIngredientData } from "@/components/meal-planning/types";
-import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { useUnitLabel } from "@/components/units-provider";
 import { PendingLabel } from "@/components/ui/pending-label";
@@ -47,7 +48,7 @@ type ReviewItem = MissingIngredientData & {
   substitutionKey: SubstitutionKey | null;
 };
 
-const initialState: ActionState = {};
+const initialState: AddMissingState = {};
 
 // GAP-32's range presets. "twoWeeks" is the visible week plus the one after
 // it (anchored on the planner's week like "This week", not on today), and
@@ -95,6 +96,7 @@ export function MissingIngredientsDialog({
   onClose: () => void;
 }) {
   const unitLabel = useUnitLabel();
+  const router = useRouter();
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export function MissingIngredientsDialog({
   );
 
   const [state, formAction, pending] = useActionState(async (
-    prevState: ActionState,
+    prevState: AddMissingState,
     formData: FormData,
   ) => {
     const result = await addMissingIngredientsToShoppingListAction(prevState, formData);
@@ -120,7 +122,23 @@ export function MissingIngredientsDialog({
         targetListId === NEW_SHOPPING_LIST_SENTINEL
           ? String(formData.get("newListName") || "").trim() || dict.newShoppingListOption
           : (activeShoppingLists.find((l) => l.id === targetListId)?.name ?? "");
-      toast.success(format(dict.missingIngredientsAddedToast, { list: listName }));
+      // UX-91: the toast counts what landed and links to the list, so the
+      // planner's most valuable step doesn't end in a dead-end message.
+      const addedCount = result.addedCount ?? 0;
+      const listId = result.listId;
+      toast.success(
+        addedCount === 0
+          ? format(dict.missingIngredientsAlreadyOnListToast, { list: listName })
+          : format(plural(addedCount, dict.missingIngredientsAddedToast), { count: addedCount, list: listName }),
+        listId
+          ? {
+              action: {
+                label: dict.openShoppingList,
+                onClick: () => router.push(`/dashboard/shopping-list/${listId}`),
+              },
+            }
+          : undefined,
+      );
       onClose();
     }
     return result;

@@ -69,6 +69,45 @@ async function expectInBottomHalf(page: Page, locator: ReturnType<Page["locator"
   expect(box.y + box.height, "on screen").toBeLessThanOrEqual(height);
 }
 
+// UX-78: the ticked row left the dock within ~60 ms and the next item slid
+// under the same finger, so a double tap ticked two things.
+test("a double tap on a dock row ticks only that item", async ({ page }) => {
+  const t = tag();
+  // More than the dock's three rows, so a ticked row is backfilled and the
+  // dock keeps its height: the next item then slides under the finger.
+  const names = [`Milk ${t}`, `Eggs ${t}`, `Bread ${t}`, `Jam ${t}`, `Tea ${t}`];
+  const path = await seedList(t, names.map((name) => ({ name, category: `Aisle A ${t}` })));
+  await page.goto(path);
+
+  const dock = page.getByRole("region", { name: "Next up" });
+  const progress = dock.getByRole("progressbar", { name: "Shopping progress" });
+  await expect(progress).toHaveAttribute("aria-valuetext", "0 of 5");
+
+  // Two taps 90 ms apart on the same spot, timed inside the page (a
+  // Playwright click per tap adds latency of its own and can outlast the
+  // gap): each lands on whatever dock row is under the point then, as a
+  // thumb would.
+  const first = dock.getByRole("button", { name: /, into the cart$/ }).first();
+  const box = (await first.boundingBox())!;
+  await page.evaluate(
+    async ({ x, y }) => {
+      const tap = () => document.elementFromPoint(x, y)?.closest("button")?.click();
+      tap();
+      await new Promise((resolve) => setTimeout(resolve, 90));
+      tap();
+    },
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+  );
+
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 5");
+  // Settled: the ticked row lingered as a filled check, then the next item
+  // moved up; the count never went past one.
+  await page.waitForTimeout(700);
+  await expect(progress).toHaveAttribute("aria-valuetext", "1 of 5");
+  // The next item has moved up, untouched and tickable again.
+  await expect(dock.getByRole("button", { name: new RegExp(`${names[1]}.*into the cart$`) })).toBeEnabled();
+});
+
 test("a whole shop is ticked off from the dock in the thumb zone, without scrolling up", async ({ page }) => {
   const errors = collectErrors(page);
   const t = tag();
@@ -121,7 +160,7 @@ test("ticked rows collapse into In the cart, and the whole row is the target", a
   const path = await seedList(t, [{ name, note }, { name: `Lemons ${t}` }]);
   await page.goto(path);
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name} ×`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   const cart = page.getByRole("button", { name: /^In the cart/ });
   await expect(cart).toHaveCount(0);
 
@@ -207,8 +246,8 @@ test("a failed tick rolls back at once while another tick is still saving", asyn
     return route.continue();
   });
 
-  const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName} ×`) });
-  const failing = page.getByRole("checkbox", { name: new RegExp(`^${failName} ×`) });
+  const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName}\\b`) });
+  const failing = page.getByRole("checkbox", { name: new RegExp(`^${failName}\\b`) });
   // Failing one first: Next.js sends a page's Server Actions one at a time,
   // so its request goes (and fails after a second) while the slow one,
   // tapped right after, waits behind it and is then held below. Both saves
@@ -252,7 +291,7 @@ test("a row just added scrolls into view above the dock", async ({ page, isMobil
   const addBox = page.getByRole("combobox", { name: "Add to the list" });
   await addBox.fill(added);
   await addBox.press("Enter");
-  const row = page.getByRole("checkbox", { name: new RegExp(`^${added} ×`) });
+  const row = page.getByRole("checkbox", { name: new RegExp(`^${added}\\b`) });
   await expect(row).toBeVisible();
   await expect
     .poll(

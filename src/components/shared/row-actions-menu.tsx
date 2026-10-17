@@ -21,6 +21,7 @@ export function RowActionsMenu({
   label,
   editLabel,
   deleteLabel,
+  priceLabel,
   disabled = false,
   className,
 }: {
@@ -28,6 +29,9 @@ export function RowActionsMenu({
   label: string;
   editLabel: string;
   deleteLabel: string;
+  /** A shopping row (UX-79) with no room for "Add price" on its line: an
+   *  item that clicks the row's `data-price-edit` button. Omit for none. */
+  priceLabel?: string;
   disabled?: boolean;
   className?: string;
 }) {
@@ -53,6 +57,13 @@ export function RowActionsMenu({
       />
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => clickMarked("[data-swipe-edit]")}>{editLabel}</DropdownMenuItem>
+        {priceLabel && (
+          // Deferred a frame: the menu hands focus back to its ⋯ as it
+          // closes, which would take it from the price input's autoFocus.
+          <DropdownMenuItem onClick={() => requestAnimationFrame(() => clickMarked("[data-price-edit]"))}>
+            {priceLabel}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onClick={() => clickMarked("[data-row-delete]")}>
           {deleteLabel}
         </DropdownMenuItem>

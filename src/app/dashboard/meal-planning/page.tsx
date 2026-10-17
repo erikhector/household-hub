@@ -22,6 +22,8 @@ import { getStockStatus } from "@/lib/stock-status";
 import { parseRecipeTags } from "@/lib/recipe-tags";
 import { computeUseItUpSuggestions, type FlaggedInventoryItem } from "@/lib/inventory/use-it-up-calc";
 import type { ItemUnitConversionLike } from "@/lib/units";
+import { loadMissingIngredients } from "@/app/dashboard/meal-planning/missing-for-range";
+import { parseMissingIngredientsRange, weekRange } from "@/app/dashboard/meal-planning/missing-ingredients";
 import { PageTitle } from "@/components/dashboard/page-title";
 
 type MealPlanningDict = Dictionary["mealPlanning"];
@@ -213,6 +215,14 @@ async function PlannerTabSection({
     getActiveBatches(householdId),
     getLocale(),
   ]);
+  // UX-91: the count behind the planner's "Add N missing" button. Skipped
+  // (no query) for a week with no recipe planned, where nothing can be
+  // missing.
+  const weekDates = parseMissingIngredientsRange(weekRange(weekStartKey));
+  const missingCount =
+    weekDates && entries.some((entry) => entry.recipeId)
+      ? (await loadMissingIngredients(householdId, weekDates)).items.length
+      : 0;
   // The two recaps sit below the week (on a phone the week bar and today
   // come first, DESIGN.md M6), inside the planner's Suspense boundary
   // rather than each in their own. With their own boundaries they streamed
@@ -234,6 +244,7 @@ async function PlannerTabSection({
         entries={entries}
         activeShoppingLists={activeShoppingLists}
         batches={batches}
+        missingCount={missingCount}
       />
       <MealVarietyRecapSection householdId={householdId} dict={dict} />
       <MealNutritionRecapSection householdId={householdId} dict={dict} weekStartKey={weekStartKey} />

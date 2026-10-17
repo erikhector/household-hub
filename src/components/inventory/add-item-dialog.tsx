@@ -25,6 +25,7 @@ import type { ActionState } from "@/lib/actions/auth";
 import type { Dictionary, Locale } from "@/lib/i18n/get-dictionary";
 import { format, plural } from "@/lib/i18n/format";
 import { PendingLabel } from "@/components/ui/pending-label";
+import { defaultLowStockThreshold } from "@/lib/units";
 
 const initialState: ActionState = {};
 
@@ -80,6 +81,10 @@ export function ItemFormDialog({
   // makes "save & add another" keep quantity and threshold as its comment
   // below promises — the form reset after a success used to put them back.
   const kept = useKeptFormValues(["quantity", "lowStockThreshold", "expiresAt", "useWithinDaysOpened"]);
+
+  const lowStockDefault =
+    kept.values.lowStockThreshold ??
+    (item ? String(item.lowStockThreshold) : defaultLowStockThreshold(unit));
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
@@ -227,7 +232,7 @@ export function ItemFormDialog({
             </div>
           </div>
           {/* Phones: a short quantity column beside a unit that takes the
-              rest of the row; "low stock at" wraps under quantity. Three
+              rest of the row; "running low below" wraps under quantity. Three
               equal columns left the unit combobox 5 px of text. */}
           <div className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-2">
@@ -257,16 +262,22 @@ export function ItemFormDialog({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="lowStockThreshold">{dict.lowStockAtLabel}</Label>
+              <Label htmlFor="lowStockThreshold">{dict.runningLowBelowLabel}</Label>
+              {/* UX-120: the default follows the unit (2 for pieces, empty for
+                  g/ml). The key remounts the field when that default changes,
+                  so choosing a unit after opening the form updates it; a
+                  kept or saved value pins the key and is never replaced.
+                  Empty is allowed: the action reads it as 0, "only warn
+                  when out". */}
               <Input
+                key={lowStockDefault}
                 id="lowStockThreshold"
                 name="lowStockThreshold"
                 type="number"
                 inputMode="decimal"
                 min={0}
                 step="any"
-                defaultValue={kept.values.lowStockThreshold ?? item?.lowStockThreshold ?? 1}
-                required
+                defaultValue={lowStockDefault}
               />
             </div>
           </div>

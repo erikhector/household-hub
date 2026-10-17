@@ -26,7 +26,7 @@ export function PasswordForm({
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+        <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       <form action={formAction} {...formProps} className="flex flex-col gap-4">

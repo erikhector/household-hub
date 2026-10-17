@@ -175,7 +175,7 @@ export function PushNotificationsCard({
   return (
     <div className="list-bleed flex flex-col gap-2 rounded-md border p-4">
       <div>
-        <h2 className="font-heading text-base font-semibold">{dict.title}</h2>
+        <h3 className="font-heading text-base font-semibold">{dict.title}</h3>
         <p className="text-sm text-muted-foreground">{dict.description}</p>
       </div>
       {status === "notConfigured" && <p className="text-sm text-muted-foreground">{dict.notConfigured}</p>}

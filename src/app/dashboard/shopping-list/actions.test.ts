@@ -2363,6 +2363,52 @@ describe("completeShoppingListAction", () => {
     expect(result.expenseLoggedMessage).toContain("35");
   });
 
+  describe("amount override (UX-87)", () => {
+    const partialList = () =>
+      shoppingListFindFirstMock.mockResolvedValue({
+        id: "list-1",
+        name: "This week",
+        items: [
+          { inventoryItemId: "inv-1", purchased: true, estimatedPrice: 24.9 },
+          { inventoryItemId: "inv-2", purchased: true, estimatedPrice: null },
+        ],
+      });
+
+    it("logs the amount the user corrected it to instead of the partial sum", async () => {
+      partialList();
+      shoppingListUpdateMock.mockResolvedValue({});
+      resolveShoppingExpenseCategoryMock.mockResolvedValue({ id: "cat-groceries" });
+      transactionCreateMock.mockResolvedValue({});
+
+      await completeShoppingListAction("list-1", 180);
+
+      expect(transactionCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ amount: 180 }) }),
+      );
+    });
+
+    it("completes without logging anything when the user skips (null)", async () => {
+      partialList();
+      shoppingListUpdateMock.mockResolvedValue({});
+
+      const result = await completeShoppingListAction("list-1", null);
+
+      expect(shoppingListUpdateMock).toHaveBeenCalled();
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+      expect(result.expenseLoggedMessage).toBeUndefined();
+    });
+
+    it("rejects a negative amount before touching the list", async () => {
+      partialList();
+
+      const result = await completeShoppingListAction("list-1", -5);
+
+      expect(result.error).toBeTruthy();
+      expect(shoppingListUpdateMock).not.toHaveBeenCalled();
+      expect(transactionCreateMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("does not log an expense when nothing purchased had a price", async () => {
     shoppingListFindFirstMock.mockResolvedValue({
       id: "list-1",

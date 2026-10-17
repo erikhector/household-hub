@@ -115,6 +115,12 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Signup stores the language it was shown in (UX-56)**: `signupAction`
+  and `joinViaInviteSignupAction` create the user with `locale` set to
+  `getLocale()` (the pre-auth cookie or browser language). Without it the DB
+  default `en` applied, and since the account locale outranks the cookie, a
+  Swedish signup met an English dashboard on first login (and English
+  reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and
@@ -363,6 +369,14 @@ outbound email to arbitrary addresses via this app's sending domain.
   page filters its already-fetched member list by `userId`; the overview runs
   a dedicated `householdMember.count` query since it doesn't otherwise fetch
   members). Hidden entirely when the household has only the current user.
+- **Overview greeting (UX-72)**: the overview heading greets by first name
+  ("Good afternoon, Åsa", never the full display name) and by the hour in the
+  user's own time zone. The server runs in UTC and doesn't know the zone, so
+  `components/dashboard/greeting.tsx` reads the hour in the browser
+  (`useSyncExternalStore`); the server render shows the neutral
+  `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
+  first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
+  cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
 
 ## Data model
 
@@ -370,7 +384,12 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
 
 **Inventory & shopping** (built)
 - `InventoryItem` — name, category, quantity, unit, `lowStockThreshold`,
-  location, `lastKnownPrice`. Low stock = `quantity <= lowStockThreshold`.
+  location, `lastKnownPrice`. Low stock = `0 < quantity < lowStockThreshold`
+  (strict, so restocking to exactly the threshold reads "in stock"); out =
+  `quantity <= 0`. The forms call the field "Running low below" (UX-120).
+  The add form pre-fills 2 for a piece count (1 would jump from "In stock"
+  straight to "Out of stock") and nothing for a weight or volume, which
+  follows the unit as it's picked; empty saves as 0, "warn only when out".
   The inventory page (`InventoryClient`) filters client-side (in-memory —
   fine at household scale) by name substring, category, location, and
   status (in/low/out of stock); filter dropdown options come from the
@@ -401,8 +420,8 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       chips and the meal-planning tabs also write `?filter=` / `?tab=`
       with `history.replaceState`, so the browser's back button lands on
       the same filter or tab.
-    - **Header**: name, category · location, "In stock: 1 pcs · low stock
-      at 0.5 pcs" and "Change unit…".
+    - **Header**: name, category · location, "In stock: 1 pcs · running
+      low below 0.5 pcs" and "Change unit…".
     - **Units**: "Counted in {unit}" and each conversion, written the way
       people know the number (`conversionSentence`, the review's
       `conversionLeadUnit` rule: "1 pcs = 2000 g", "1 dl = 60 g"), with
@@ -875,6 +894,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       its padding, note or hint ticks it, still through the native
       label/input pairing; the controls column (price, edit, delete) sits
       above it at `z-10`.
+    - *One line per row on a phone (UX-79)*: an unticked row whose
+      controls are only price and ⋯ (no category chip, not unlinked) keeps
+      them on the name's line, 56 px tall instead of 118, so 6+ whole rows
+      of a 15-item list fit between the sticky add bar and the dock at
+      412×839. With no price set, "Add price" isn't on the row; the ⋯
+      menu carries it (Edit, Add price, Delete) and opens the same inline
+      editor. Once there is a price, the ≈ price button stays on the row.
+      Rows with a chip or the "Match item" badge keep the stacked second
+      line.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
@@ -916,7 +944,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       pinned by its bottom edge, so a footer appearing when the server
       confirms a just-added fourth row would shift the dock up a line, late
       (MAINT-18; `e2e/motion.spec.ts` guards it). Every item it offers is also in the
-      list with its own checkbox (M7).
+      list with its own checkbox (M7). A tick is still instant, but the
+      ticked row stays in the dock for 450 ms as a filled check while every
+      dock row is disabled, so the second tap of a double tap can't land on
+      the item that slides up under the finger (UX-78; the slot count is
+      held so the dock doesn't change height).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
       how many and its primary action is "Put things away", which opens the
@@ -925,7 +957,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       an active list, the squirrel mark rises into the full ring in place
       of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
-      the bottom half of a phone screen with no scrolling, the collapsed
+      the bottom half of a phone screen with no scrolling, a double tap ticking only one item, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
       the dock, a failed tick rolling back while a slower one is still
       saving).
@@ -1944,6 +1976,15 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   usually arrives with `estimatedPrice` already filled in, so in practice
   this total is rarely 0 once a household has bought something at least
   once.
+- **Partly priced trips (UX-87)**: when some, but not all, purchased items
+  have a price, "Done shopping" / "Complete list" first opens
+  `PartialPriceDialog`, which says how many bought items have no price and
+  pre-fills the sum of the priced ones. The user logs that amount, edits it
+  to the real total, or chooses "Don't log" (the list completes with no
+  expense). `completeShoppingListAction(listId, amountOverride?)` takes the
+  chosen amount (`undefined` = the sum as before, `null` = log nothing, a
+  number validated like a price, 0 to 1 000 000). All-priced and none-priced
+  trips complete without the extra step.
 
 #### Prices fill themselves in (AUTO-4)
 
@@ -1981,9 +2022,11 @@ toggle the checkbox the label is wired to. Tapping it swaps in a small inline
 number input (save/cancel icon buttons, `Escape` to cancel) that calls the
 new `updateShoppingListItemPriceAction`; this is the only path a user ever
 corrects an estimate through, and the correction sticks — no create path
-touches a saved row's price again. The list header shows a running "About
-{amount} left to spend", summing `estimatedPrice` the same per-unit way but
-only over *pending* (not yet purchased) items — a purchased item's price is
+touches a saved row's price again. The list header shows a running "≈
+{amount} still to buy ({priced} of {total} priced)" (UX-87: the count says
+how much of what's left the amount covers, so a sum over one priced row of
+fourteen doesn't read as the trip's cost), summing `estimatedPrice` the same
+per-unit way but only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
@@ -2179,6 +2222,12 @@ and confirms with a toast.
   headings when at least one item has a real category; when none has, the
   list is flat rather than one "Other" heading. Ticked items are left out.
   Amounts use `formatCookQuantity` and the household's unit labels.
+- **Default amount hidden (UX-86)**: quantity 1 of the default unit (`pcs`) is
+  what an untouched add gets, so it shows as just the name ("Bananas", not
+  "Bananas × 1 pcs") in list rows, the shopping-mode dock, the print view, the
+  public share page and the copied text (`isDefaultAmount` /
+  `formatShoppingItemLabel`, same file). Any other amount ("Milk × 2 l",
+  "Eggs × 2 pcs", "1 l") still shows.
 - **Clipboard and share**: the success toast waits for `clipboard.writeText`;
   a rejection shows an error toast. On a coarse pointer with
   `navigator.share` (`canNativeShare`, as the invite link) a **"Share as
@@ -2204,6 +2253,15 @@ which delegates the actual math to a pure, dependency-free
 import, so no mocking needed) rather than inlining it, since a Server
 Component page function can't itself be unit-tested.
 
+- **Empty budget (UX-116)**: with nothing recorded at all: no income
+  (logged or expected), no recurring or due items, nothing owed from
+  earlier and no logged expenses or savings (`needsSafeToSpendSetup`;
+  spending without income still shows its negative number), the card shows no number and no "good shape"
+  line. It says "Add your income and regular bills to see what's safe to
+  spend" with two actions, "Add income" (the Transactions tab) and "Add
+  regular bills" (the Manage tab), keeping the month and household in the
+  URL. Once there is data the totals carry a one-line legend for the "+",
+  "–" and "→" in front of them.
 - **The headline number** ("Remaining after expenses and savings"): the
   selected month's income so far, minus that month's expenses and savings
   so far (the same totals `PeriodSummary` computes from the page's
@@ -3634,6 +3692,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `requireHousehold`, one inventory `findMany`) returns the matches, the
     household's items (with their saved unit conversions) and categories,
     and a guessed category for each row without a confident match.
+  - **Ingredient name Enter (UX-93)**: Enter in an ingredient name never
+    submits the recipe. `ComboField`'s optional `onEnter` swallows an
+    Enter with no suggestion highlighted and the dialog moves focus to
+    that row's quantity (Enter on a highlighted suggestion still picks
+    it). The popup's `Use "X"` row is a real button: tapping it keeps the
+    typed value, closes the popup and moves on the same way. Inventory
+    dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
@@ -3797,7 +3862,9 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
   rows on a phone (DESIGN.md M6). The controls are one row: ‹ ›, the week
   range, "This week" (only when another week is shown) and a ⋯ menu ("More
   planner actions") holding "Copy last week" (empty week only), "Fill
-  empty days" and "Add missing ingredients to shopping list". On phones
+  empty days" and "Add missing ingredients to shopping list" (the week's
+  main shopping-list action is the bottom "Add N missing" button, UX-91,
+  see "Meal-plan → shopping-list bridge"). On phones
   that row is sticky at the top of the scrolling page (the shopping list's
   frosted add-bar style), so the week and its arrows stay in view. On
   load, the current week scrolls today's card into view, below the sticky
@@ -4280,10 +4347,20 @@ imported recipe" requirement.
 
 ### Meal-plan → shopping-list bridge
 
-An "Add missing ingredients to shopping list" button
-(`MissingIngredientsDialog`, `src/components/meal-planning/missing-ingredients-dialog.tsx`)
-sits next to the "This week" control in the weekly planner
-(`WeekPlanner`). By default it's scoped to the whole visible week — the
+A planned week's primary action (UX-91) is "Add N missing to shopping list",
+where N is the number of ingredients the visible week still needs (counted
+on the server by `loadMissingIngredients`, `missing-for-range.ts`, the same
+diff the dialog previews). It is a `PrimaryAction` button at the bottom of
+the planner, floating above the bottom bar on phones (M2), and it is hidden
+on an empty week or when nothing is missing. It opens the review dialog
+below; the ⋯ menu keeps "Add missing ingredients to shopping list" for
+other date ranges. After adding, the toast says how many items landed ("Added
+2 items to "Weekly shop"", or "Everything was already on …" when all were
+duplicates) and has an "Open list" action that goes to that list
+(`addMissingIngredientsToShoppingListAction` returns `{ listId, addedCount }`).
+The review dialog (`MissingIngredientsDialog`,
+`src/components/meal-planning/missing-ingredients-dialog.tsx`) opens from
+that button or the ⋯ menu in the weekly planner (`WeekPlanner`). By default it's scoped to the whole visible week — the
 pattern every competitor researched (Mealime, Paprika, Plan to Eat, Whisk)
 uses — but it can cover any date range up to 31 days (GAP-32):
 
@@ -5143,6 +5220,13 @@ co-managers, not kids earning rewards.
   week renders nothing (`TasksWeeklyRecap`, dismissible, mirrors
   `MealVarietyRecap`'s shape exactly), same non-goal as the meal-planning
   variety recap.
+- **Ticking a task (UX-104)**: a tick toasts "Done: {title}" with Undo (the
+  same toggle back, 5 s), since the row leaves for "Completed" below the
+  fold. The weekly recap is frozen at the list as the page opened, so the
+  first tick of the week doesn't shift rows. Ticking the last open task
+  shows a mascot "You're all caught up!" card in place of the open section
+  (squirrel rises in once; static under reduced motion; no count or
+  streak). It clears when a task is open again (Undo, a new task).
 - **Nav**: lives behind the mobile "More" menu alongside Meal Planning/
   Personal Budget/Household/Profile (`src/components/dashboard/nav-items.ts`)
   rather than the primary mobile bar — revisit only if usage shows it
@@ -5576,6 +5660,11 @@ components directly.
   isn't part of the bottom bar. The switcher row spans its container, so
   its "Create household" `+` sits at the right edge of the header (and of
   the expanded sidebar) rather than just after the household name (UX-26).
+  A long household name (the field allows 60 characters) is clamped (two
+  lines on a phone, one on desktop) with the full name in its `title` and in
+  the dropdown: the trigger `Button` overrides its base `shrink-0
+  whitespace-nowrap`, so the chevron and "+" stay on screen at 412 and 1280
+  px (UX-47, `e2e/ux-47.spec.ts`).
 - **Where you are (UX-27)**: the current page is marked in both layouts
   (`aria-current="page"` plus the active fill). On a phone, What's new and
   the notification centre belong to the "More" menu, so while one is open
@@ -5717,7 +5806,11 @@ components directly.
   replaces, and steps forward again if the app navigated (e.g. the merge
   dialog's `router.replace`) before its own `back()` landed. A dialog
   whose owner refuses to close (one that stays open while saving) gets a
-  fresh entry. `DialogHeader` has `pr-10` so a long title stays clear of
+  fresh entry. A dialog that opens while another's own `back()` is still on
+  its way (a sheet handing over to its confirm) waits for that back to land
+  before pushing its entry; pushing sooner made the back land below both
+  entries and the repairing `forward()` pop the new dialog (MAINT-23).
+  `DialogHeader` has `pr-10` so a long title stays clear of
   the close button. Covered by `e2e/back-closes-dialogs.spec.ts` and
   `dialog-history.test.ts`.
 - **Bottom sheets stay reachable (UX-12, DESIGN.md M2)**: on phones
@@ -5869,8 +5962,22 @@ the locale fallback.
   mobile "More" menu has the same item. Both show a dot while the newest
   release is unseen. Opening the page writes the `last_seen_release`
   cookie (preference, 1 year) and refreshes the layout to clear the dot.
-- Profile has an "About Squirrel" card with the version and a link to the
-  page.
+- Profile has an "About Squirrel" disclosure with the version and a link to
+  the page (see "Profile sections" below).
+
+**Profile sections (UX-76)**: `/dashboard/profile` is four sections, each an
+`h2` region, instead of eleven loose cards: **Account** (display name,
+email and password as one card with a divider between the three forms, each
+keeping its own Save), **Preferences** (the Swish number; the Appearance and
+Language controls of UX-51 join it here), **Notifications** (push, weekly
+digest, install app) and **Data & privacy** (Export my data; the "About
+Squirrel" version and "Danger zone" account deletion behind native
+`<details>` disclosures, `ProfileDisclosure`). "Log out" (the same
+`LogoutButton` as `no-household`, so the push subscription is dropped
+first, SEC-5) is the last element. One column on phones; from `lg` up
+the sections sit in two columns, row by row, so the DOM order is the phone
+order. The display-name card no longer repeats "Display name" as its own
+heading. `e2e/ux-76.spec.ts` covers it.
 
 ## Notification center
 
@@ -6775,9 +6882,9 @@ as layout shift. Now:
   so the "Put away" button and badges appear at the tap. `withLocalCompletion` (`task-rotation.ts`) sets the task's
   completer (the page passes the viewer's member id), `completedAt` and a
   rotating task's next assignee. The tasks page's weekly recap is worked out
-  in `TasksClient` from those same rows (against the server's `now`), so a
-  completion shows in it at once instead of the recap growing when the
-  server answers and pushing the list down.
+  in `TasksClient` once, from the list as the page opened (UX-104), so a
+  tick never mounts or grows it above the rows under the thumb; it shows
+  in the recap on the next visit.
 - Used by the task list (tick, delete), the shopping list (delete) and
   inventory (delete). Shopping ticks have their own overlay with the same
   rules (`tick-overlay.ts`, UX-37), so each tap has one owner.
@@ -7126,6 +7233,17 @@ UX-14's rapid ticks and the rollback toast.
   (the landscape and tablet projects are touch but `sm` and up). A test
   that plans rows in a shared week removes them in an `afterEach`, pass or
   fail, since the desktop and mobile runs and a retry share the household.
+  A page measured or asserted straight after `goto` uses `gotoRevealed`,
+  which waits for React 19.2's batched Suspense reveals (a cold WebKit
+  could still show the tasks page's Add task skeleton after 5 s).
+  `expectTouchTargets` and `expectTargetsApart` first wait for
+  `SheetIndent`'s transition to end: for 400 ms after a sheet closes the
+  page is still scaling back from 0.94, and every 44 px target measured
+  42-43 px. A test that holds a Server Action with `page.route` counts it
+  as answered on its `response`, not when `route.continue()` resolves
+  (that's when the request is sent, so a reload could beat the save).
+  The meal-prep journey test is `test.slow()`: twenty steps took two
+  thirds of the 30 s budget on an idle machine.
 - **Rule**: anything that changes the UI adds or extends an `e2e/` spec
   that asserts it and passes on both projects, and a new page goes in
   `e2e/routes.ts` (AGENTS.md, "UI tests"). The self-review checklist, the

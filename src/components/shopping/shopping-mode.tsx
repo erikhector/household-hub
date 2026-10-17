@@ -6,11 +6,12 @@
 // src/lib/shopping/shopping-progress.ts.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Circle } from "lucide-react";
+import { Circle, CircleCheck } from "lucide-react";
 import { format, plural } from "@/lib/i18n/format";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { NextUp, ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import { useUnitLabel } from "@/components/units-provider";
+import { formatShoppingItemLabel } from "@/lib/shopping-list-text";
 import { cn } from "@/lib/utils";
 
 type ShoppingModeDict = Dictionary["shoppingList"]["shoppingMode"];
@@ -70,6 +71,10 @@ export function ProgressRing({
   );
 }
 
+// How long a ticked dock row stays as a filled check before the next item
+// moves up (UX-78); longer than a double tap's gap (400 ms).
+const SETTLE_MS = 450;
+
 type DockItem = { id: string; name: string; quantity: number; unit: string };
 
 /**
@@ -95,6 +100,35 @@ export function NextUpDock<T extends DockItem>({
   onTick: (item: T) => void;
 }) {
   const unitLabel = useUnitLabel();
+
+  // UX-78: a ticked row leaves the dock within about 60 ms and the next item
+  // slides under the same finger, so a double tap ticked two things. The
+  // ticked row now stays for SETTLE_MS as a filled check, in its own slot,
+  // and every dock row is disabled meanwhile, so the second tap of a double
+  // tap lands on nothing. The tick itself is still instant (the ring moves,
+  // the list row is ticked); only the dock's copy lingers. The slot count is
+  // held, so the item that moves up waits at the end instead of shifting the
+  // dock's height.
+  const [settling, setSettling] = useState<{ item: T; index: number; count: number } | null>(null);
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setTimeout(() => setSettling(null), SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settling]);
+  const tick = (item: T, index: number) => {
+    if (settling) return;
+    setSettling({ item, index, count: next.items.length });
+    onTick(item);
+  };
+  // Minus the ticked row itself: a failed save rolls it back into next.items
+  // while it still lingers, and a row must not appear twice.
+  const rows: { item: T; ticked: boolean }[] = next.items
+    .filter((item) => item.id !== settling?.item.id)
+    .map((item) => ({ item, ticked: false }));
+  if (settling) {
+    rows.splice(settling.index, 0, { item: settling.item, ticked: true });
+    rows.length = Math.min(rows.length, settling.count);
+  }
 
   // Phones pin the dock to the bottom of the screen (below), out of the
   // page flow, so a spacer the dock's own height holds its room at the end
@@ -168,19 +202,24 @@ export function NextUpDock<T extends DockItem>({
         {/* A short (landscape phone) screen gets the one next item, not three,
             so the dock never covers most of it. */}
         <ul className="flex flex-col gap-2 short:[&>li:nth-child(n+2)]:hidden">
-          {next.items.map((item) => {
-            const text = `${item.name} × ${item.quantity} ${unitLabel(item.unit)}`;
+          {rows.map(({ item, ticked }, index) => {
+            const text = formatShoppingItemLabel(item, unitLabel);
             return (
               // Keyed by row, so the item that slides up into a freed slot
               // eases in rather than the slot just changing its text.
               <li key={item.id} className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
                 <button
                   type="button"
-                  onClick={() => onTick(item)}
-                  aria-label={format(dict.tickAriaLabel, { item: text })}
-                  className="flex min-h-12 w-full items-center gap-3 rounded-lg bg-muted px-3 py-2 text-left text-lg font-medium transition-[transform,background-color] hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none active:scale-[0.98]"
+                  onClick={() => tick(item, index)}
+                  disabled={settling !== null}
+                  aria-label={ticked ? text : format(dict.tickAriaLabel, { item: text })}
+                  className="flex min-h-12 w-full items-center gap-3 rounded-lg bg-muted px-3 py-2 text-left text-lg font-medium transition-[transform,background-color] hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none active:scale-[0.98] disabled:opacity-100"
                 >
-                  <Circle aria-hidden className="size-6 shrink-0 text-muted-foreground" />
+                  {ticked ? (
+                    <CircleCheck aria-hidden className="size-6 shrink-0 fill-primary text-primary-foreground" />
+                  ) : (
+                    <Circle aria-hidden className="size-6 shrink-0 text-muted-foreground" />
+                  )}
                   <span className="min-w-0 flex-1 break-words">{text}</span>
                 </button>
               </li>

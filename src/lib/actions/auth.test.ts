@@ -33,6 +33,7 @@ class RateLimitedSignin extends AuthError {}
 const {
   findUniqueMock,
   transactionMock,
+  txUserCreateMock,
   signInMock,
   signOutMock,
   passwordResetTokenFindUniqueMock,
@@ -50,9 +51,10 @@ const {
   pushSubscriptionDeleteManyMock,
 } = vi.hoisted(() => ({
   findUniqueMock: vi.fn(),
+  txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   transactionMock: vi.fn(async (cb: (tx: unknown) => unknown) => cb({
     user: {
-      create: vi.fn(async () => ({ id: "new-user" })),
+      create: txUserCreateMock,
       update: vi.fn(async () => ({})),
     },
     household: { create: vi.fn(async () => ({ id: "new-household" })) },
@@ -235,6 +237,19 @@ describe("signupAction behavior", () => {
     expect(transactionMock).toHaveBeenCalledTimes(1);
     expect(signInMock).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "verification-sent", email: validSignup.email });
+  });
+
+  // UX-56: the account locale outranks the cookie after sign-in, so signing
+  // up in Swedish must store `sv` rather than the DB default.
+  it("stores the UI language on the new account", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    getLocaleMock.mockImplementation(async () => "sv");
+
+    await signupAction({}, formData(validSignup));
+
+    expect(txUserCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ email: validSignup.email, locale: "sv" }),
+    });
   });
 
   // Regression coverage for task L: a fresh signup must also create an
