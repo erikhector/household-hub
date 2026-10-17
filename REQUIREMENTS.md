@@ -1959,6 +1959,15 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   usually arrives with `estimatedPrice` already filled in, so in practice
   this total is rarely 0 once a household has bought something at least
   once.
+- **Partly priced trips (UX-87)**: when some, but not all, purchased items
+  have a price, "Done shopping" / "Complete list" first opens
+  `PartialPriceDialog`, which says how many bought items have no price and
+  pre-fills the sum of the priced ones. The user logs that amount, edits it
+  to the real total, or chooses "Don't log" (the list completes with no
+  expense). `completeShoppingListAction(listId, amountOverride?)` takes the
+  chosen amount (`undefined` = the sum as before, `null` = log nothing, a
+  number validated like a price, 0 to 1 000 000). All-priced and none-priced
+  trips complete without the extra step.
 
 #### Prices fill themselves in (AUTO-4)
 
@@ -1996,9 +2005,11 @@ toggle the checkbox the label is wired to. Tapping it swaps in a small inline
 number input (save/cancel icon buttons, `Escape` to cancel) that calls the
 new `updateShoppingListItemPriceAction`; this is the only path a user ever
 corrects an estimate through, and the correction sticks — no create path
-touches a saved row's price again. The list header shows a running "About
-{amount} left to spend", summing `estimatedPrice` the same per-unit way but
-only over *pending* (not yet purchased) items — a purchased item's price is
+touches a saved row's price again. The list header shows a running "≈
+{amount} still to buy ({priced} of {total} priced)" (UX-87: the count says
+how much of what's left the amount covers, so a sum over one priced row of
+fourteen doesn't read as the trip's cost), summing `estimatedPrice` the same
+per-unit way but only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
@@ -3649,6 +3660,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `requireHousehold`, one inventory `findMany`) returns the matches, the
     household's items (with their saved unit conversions) and categories,
     and a guessed category for each row without a confident match.
+  - **Ingredient name Enter (UX-93)**: Enter in an ingredient name never
+    submits the recipe. `ComboField`'s optional `onEnter` swallows an
+    Enter with no suggestion highlighted and the dialog moves focus to
+    that row's quantity (Enter on a highlighted suggestion still picks
+    it). The popup's `Use "X"` row is a real button: tapping it keeps the
+    typed value, closes the popup and moves on the same way. Inventory
+    dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves
