@@ -110,7 +110,9 @@ test("a row's price is added from the ⋯ on a phone, and the ⋯ stays a 44 px 
   await input.fill("24");
   await page.getByRole("button", { name: "Save price" }).click();
 
-  // Saved: the ≈ price stays on the row after a reload.
+  // Saved (the editor closes only once the server has answered): the ≈
+  // price stays on the row after a reload.
+  await expect(input).toBeHidden();
   await page.reload();
   await expect(page.getByRole("button", { name: `Edit estimated price for ${name}` })).toContainText("24");
 });
