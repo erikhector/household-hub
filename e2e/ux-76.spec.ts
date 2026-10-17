@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { en } from "../src/lib/i18n/dictionaries/en";
-import { dismissCookieNotice, expectNoHorizontalOverflow } from "./ui";
+import { dismissCookieNotice, expectNoHorizontalOverflow, gotoRevealed } from "./ui";
 
 // UX-76: the Profile is four sections (Account, Preferences, Notifications,
 // Data & privacy) with the rare items behind disclosures and Log out at the
@@ -53,7 +53,8 @@ test("rare items sit behind disclosures", async ({ page }) => {
 });
 
 test("desktop lays sections in two columns, phones in one", async ({ page }) => {
-  await page.goto("/dashboard/profile");
+  // Measured straight away, so wait for the streamed page (see gotoRevealed).
+  await gotoRevealed(page, "/dashboard/profile");
   const account = await page.locator("#profile-account").boundingBox();
   const preferences = await page.locator("#profile-preferences").boundingBox();
   expect(account && preferences).toBeTruthy();
@@ -67,7 +68,7 @@ test("desktop lays sections in two columns, phones in one", async ({ page }) => 
 });
 
 test("Log out is the last thing on the profile and signs out", async ({ page }) => {
-  await page.goto("/dashboard/profile");
+  await gotoRevealed(page, "/dashboard/profile");
   const logOut = page.locator("main").getByRole("button", { name: en.nav.logOut });
   const lastHeading = await page.locator("#profile-data").boundingBox();
   const button = await logOut.boundingBox();

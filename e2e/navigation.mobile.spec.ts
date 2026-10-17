@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { overflowMobileNavItems, primaryMobileNavItems } from "@/components/dashboard/nav-items";
 import { en } from "@/lib/i18n/dictionaries/en";
 import { E2E_SHOPPING_LIST } from "./seed-data";
+import { gotoRevealed } from "./ui";
 
 // Mobile only (the `mobile` project in playwright.config.ts): the bottom
 // bar's tabs and its "More" menu between them reach every section, and the
@@ -43,11 +44,27 @@ test("the bottom bar doesn't cover the end of a long page", async ({ page }) => 
   // The list detail page is seeded with rows (e2e/seed.ts). Scrolled to the
   // bottom, its last element must sit above the fixed bar, not under it:
   // that's what main's bottom padding in dashboard/layout.tsx is for.
-  await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
-  await page.locator("main").evaluate((main) => main.scrollTo(0, main.scrollHeight));
+  // gotoRevealed (e2e/ui.ts): plain goto can return while main still shows
+  // the skeleton. Scroll and measure in one go, polled, in case the page
+  // still settles after that, and only a page that actually scrolls counts,
+  // so without the padding it never passes.
+  await gotoRevealed(page, `/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
+  const main = page.getByRole("main");
+  // The bar is fixed, so it's measured once; getByRole skips the hidden
+  // sidebar <nav>.
   const bar = await page.getByRole("navigation").boundingBox();
-  const last = await page.locator("main > *").last().boundingBox();
-  expect(bar && last && last.y + last.height <= bar.y + 1, "last content block ends above the bottom bar").toBe(true);
+  expect(bar, "bottom bar is visible").not.toBeNull();
+  await expect
+    .poll(
+      () =>
+        main.evaluate((el, barTop) => {
+          el.scrollTo(0, el.scrollHeight);
+          const last = el.lastElementChild?.getBoundingClientRect();
+          return el.scrollHeight > el.clientHeight && !!last && last.bottom <= barTop + 1;
+        }, bar!.y),
+      { message: "the page scrolls and its last content block ends above the bottom bar" },
+    )
+    .toBe(true);
 });
 
 // UX-27: What's new and Notifications live in the More menu, so on their

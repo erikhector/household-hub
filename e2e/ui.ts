@@ -259,6 +259,18 @@ export async function waitForDialogHistory(page: Page) {
   await expect(page.locator("html")).not.toHaveAttribute(DIALOG_BACK_PENDING_ATTR);
 }
 
+/** page.goto, then waits until React has revealed every streamed Suspense
+ * boundary. goto resolves on `load`, but React 19.2 batches the reveals,
+ * so on a loaded runner the page can still be showing a loading.tsx
+ * skeleton (a pending boundary's `B:` template) while its content waits in
+ * a hidden `S:` div outside main. Measuring then gets the skeleton or a
+ * null box, and a bare getByText can match the hidden copy as well. Use it
+ * before measuring a page's layout. */
+export async function gotoRevealed(page: Page, url: string) {
+  await page.goto(url);
+  await page.waitForFunction(() => !document.querySelector("template[id^='B:'], div[hidden][id^='S:']"));
+}
+
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

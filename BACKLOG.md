@@ -234,7 +234,10 @@ then MAINT-7 per feature, to avoid churn.
       runs (`--repeat-each=15` on desktop and mobile, 3 workers): the
       confirm opened, its Remove button detached, and the screenshot shows
       the week with no dialog and both meals still planned. Not seen in
-      GitHub's e2e logs. A probe that opens a meal's sheet, taps Remove
+      GitHub's e2e logs. Seen again 2026-10-17 at the "Mark as eaten"
+      step of the same test (`[mobile]`, full local suite): the confirm's
+      submit detached until the 30 s test timeout, the same sheet-to-dialog
+      handover. A probe that opens a meal's sheet, taps Remove
       meal and checks the confirm 400 ms later passed 80/80 (settled page
       and straight after `goto`), and 50/50 with 4–10× CPU throttling.
       Suspect: `openFromSheet` closes the sheet and opens the confirm in
