@@ -43,11 +43,27 @@ test("the bottom bar doesn't cover the end of a long page", async ({ page }) => 
   // The list detail page is seeded with rows (e2e/seed.ts). Scrolled to the
   // bottom, its last element must sit above the fixed bar, not under it:
   // that's what main's bottom padding in dashboard/layout.tsx is for.
+  //
+  // goto resolves on `load`, but React batches streamed Suspense reveals, so
+  // main can still be showing loading.tsx's skeleton (the page waiting in a
+  // hidden div) and the page keeps growing as the repurchase chips stream
+  // in. Measured once, that scrolled the skeleton or a page that then got
+  // taller. So wait for the list itself, then scroll and measure until it
+  // holds: without the padding it never does.
   await page.goto(`/dashboard/shopping-list/${E2E_SHOPPING_LIST.id}`);
-  await page.locator("main").evaluate((main) => main.scrollTo(0, main.scrollHeight));
-  const bar = await page.getByRole("navigation").boundingBox();
-  const last = await page.locator("main > *").last().boundingBox();
-  expect(bar && last && last.y + last.height <= bar.y + 1, "last content block ends above the bottom bar").toBe(true);
+  const main = page.getByRole("main");
+  await expect(main.getByRole("heading", { name: E2E_SHOPPING_LIST.name })).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        await main.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+        const bar = await page.getByRole("navigation").boundingBox();
+        const last = await page.locator("main > *").last().boundingBox();
+        return !!bar && !!last && last.y + last.height <= bar.y + 1;
+      },
+      { message: "last content block ends above the bottom bar" },
+    )
+    .toBe(true);
 });
 
 // UX-27: What's new and Notifications live in the More menu, so on their

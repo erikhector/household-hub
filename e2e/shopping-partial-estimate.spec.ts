@@ -62,8 +62,11 @@ test("the header says how many of the rows still to buy the estimate covers", as
     { name: "Mystery two", purchased: false, price: null },
   ]);
   await page.goto(`/dashboard/shopping-list/${listId}`);
-  await expect(page.getByText(/^≈ .*24[.,]50.* still to buy \(1 of 3 priced\)$/)).toBeVisible();
-  await expect(page.getByText(/left to spend/)).toHaveCount(0);
+  // Scoped to main: until React reveals the streamed page, a copy of it sits
+  // in a hidden div outside main, and an unscoped getByText can match both.
+  const main = page.getByRole("main");
+  await expect(main.getByText(/^≈ .*24[.,]50.* still to buy \(1 of 3 priced\)$/)).toBeVisible();
+  await expect(main.getByText(/left to spend/)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
