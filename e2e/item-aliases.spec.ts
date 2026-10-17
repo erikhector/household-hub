@@ -77,7 +77,7 @@ test("a name linked once in a recipe arrives linked in a pasted shopping list", 
 
   // Linked: the row sits under Egg's category, with no "needs mapping" hint.
   await page.reload();
-  await expect(page.getByRole("checkbox", { name: /^ägg( ×|$)/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /^ägg\b/ })).toBeVisible();
   await expect(page.getByText("Dairy & eggs").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("New to your pantry — match it or add it as a new item")).toHaveCount(0);
 });

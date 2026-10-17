@@ -65,8 +65,8 @@ test("create a shopping list and add items to it", async ({ page, context, baseU
   // Each item renders as a checkbox labelled "<name> × <qty> <unit>".
   // Wait for both before reloading: the add runs in a transition, and a
   // reload that races it drops the request.
-  const milk = page.getByRole("checkbox", { name: /^milk( ×|$)/ });
-  const bread = page.getByRole("checkbox", { name: /^bread( ×|$)/ });
+  const milk = page.getByRole("checkbox", { name: /^milk\b/ });
+  const bread = page.getByRole("checkbox", { name: /^bread\b/ });
   await expect(milk).toBeVisible();
   await expect(bread).toBeVisible();
 

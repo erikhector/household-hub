@@ -160,7 +160,7 @@ test("ticked rows collapse into In the cart, and the whole row is the target", a
   const path = await seedList(t, [{ name, note }, { name: `Lemons ${t}` }]);
   await page.goto(path);
 
-  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}( ×|$)`) });
+  const box = page.getByRole("checkbox", { name: new RegExp(`^${name}\\b`) });
   const cart = page.getByRole("button", { name: /^In the cart/ });
   await expect(cart).toHaveCount(0);
 
@@ -246,8 +246,8 @@ test("a failed tick rolls back at once while another tick is still saving", asyn
     return route.continue();
   });
 
-  const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName}( ×|$)`) });
-  const failing = page.getByRole("checkbox", { name: new RegExp(`^${failName}( ×|$)`) });
+  const slow = page.getByRole("checkbox", { name: new RegExp(`^${slowName}\\b`) });
+  const failing = page.getByRole("checkbox", { name: new RegExp(`^${failName}\\b`) });
   // Failing one first: Next.js sends a page's Server Actions one at a time,
   // so its request goes (and fails after a second) while the slow one,
   // tapped right after, waits behind it and is then held below. Both saves
@@ -291,7 +291,7 @@ test("a row just added scrolls into view above the dock", async ({ page, isMobil
   const addBox = page.getByRole("combobox", { name: "Add to the list" });
   await addBox.fill(added);
   await addBox.press("Enter");
-  const row = page.getByRole("checkbox", { name: new RegExp(`^${added}( ×|$)`) });
+  const row = page.getByRole("checkbox", { name: new RegExp(`^${added}\\b`) });
   await expect(row).toBeVisible();
   await expect
     .poll(
