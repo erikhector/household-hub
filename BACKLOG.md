@@ -1891,6 +1891,45 @@ out to be a product-scope question rather than a scoped task should move to
       household scoping; an e2e step enables the toggle and asserts the
       bell entry, on desktop and mobile.
 
+### 2026-10-17 scan
+
+- [ ] **GAP-58. Ingredients on a custom meal, so it reaches the shopping list** (impact: med, effort: M) `[schema]` —
+      AnyList's December 2025 meal-planning update lets a plain note on the
+      calendar carry ingredients that go straight to the shopping list.
+      Squirrel's "Custom meal…" (`MealPlanEntry.freeformName`) has none, and
+      the meal-plan → shopping-list bridge skips it (`recipeId: { not: null }`,
+      REQUIREMENTS.md "Meal-plan → shopping-list bridge"), so "taco night"
+      or "pasta with whatever" adds nothing to the shop and is invisible to
+      the missing-ingredients check. Add an optional multi-line
+      "Ingredients" field to the custom-meal form (nullable
+      `MealPlanEntry.freeformIngredients String?`, Phase 2), one per line,
+      read with the same line parser as smart add (UX-88 fixes its comma
+      handling first). The bridge preview lists those lines as
+      "From custom meals", matched to inventory by the existing
+      case-insensitive name rule and scaled by nothing (a custom meal has
+      no portions). Marking it cooked still decrements nothing.
+      Acceptance: a bridge test covers a custom meal's lines being listed,
+      household scoping, blank lines dropped and a recipe-less, ingredient-less
+      meal still skipped; an e2e step adds a custom meal with "2 tortillas"
+      and asserts it in the bridge preview and on the list after "Add",
+      on desktop and mobile.
+
+- [ ] **GAP-59. Search the meal plan** (impact: low-med, effort: S) —
+      AnyList's same update added search across the whole meal-plan
+      calendar. Squirrel's planner shows one week at a time
+      (`?week=yyyy-mm-dd`), so "when did we last have lasagna?" or "which
+      night is taco night?" means paging week by week; GAP-46 covers only
+      saved recipes' last-cooked date, not custom meals or future dates.
+      Add a search field in the planner header that, after two characters,
+      lists up to 20 matching entries (recipe title or `freeformName`,
+      case-insensitive, within a year either side of today) as "Tue 21 Oct
+      · Dinner · Lasagna", newest first, each linking to its `?week=`.
+      Read-only, one household-scoped query, no schema change.
+      Acceptance: a loader test covers household scoping, the date window,
+      the 20 cap and freeform names; an e2e step plans a uniquely named
+      custom meal two weeks ahead, searches it and follows the link to the
+      right week, on desktop and mobile (field has a visible label, 44 px).
+
 ## Needs a decision before building
 
 - [ ] **BUDGET-5. Product decision, then merge, `BudgetOnboarding`/`PersonalBudgetOnboarding`** `[!]` —
