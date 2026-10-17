@@ -2089,6 +2089,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",
@@ -2518,6 +2524,12 @@ export const sv = {
     },
     safeToSpend: {
       title: "Säkert att spendera",
+      // UX-116: an empty budget has no number to show yet.
+      setupSummary: "Lägg till din inkomst och dina återkommande räkningar för att se vad som är säkert att spendera.",
+      setupIncome: "Lägg till inkomst",
+      setupBills: "Lägg till återkommande räkningar",
+      // UX-116: what the +, – and → in front of each total mean.
+      signLegend: "+ lägger till det som är säkert att spendera, – dras av, → sätts undan som sparande.",
       summaryHealthy: "Det ser bra ut för resten av månaden.",
       summaryTight: "Det börjar bli knapert för resten av månaden.",
       summaryOver: "Du har gått över vad som är säkert att spendera den här månaden.",

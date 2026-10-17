@@ -321,7 +321,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
-UX-89, UX-90, UX-102, UX-113, UX-116.
+UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -1207,19 +1207,6 @@ UX-89, UX-90, UX-102, UX-113, UX-116.
       Acceptance: bars are one neutral colour, `warning` from 90% with
       "Almost at limit", and `destructive` when over. Sparklines may keep
       category hues.
-
-- [ ] **UX-116. An empty budget isn't "in good shape"** (impact: high,
-      effort: S) — breaks Usability (every state designed) and honest
-      status. ⚠️ money.
-      - Right after "Add 6 categories" the card shows a giant green
-        "+0.00" and "You're in good shape for the rest of the month."
-      - The starter categories have no limits, and onboarding stops
-        there.
-      - The "+", "–" and "→" glyphs on totals are unexplained.
-      Acceptance: with no income or recurring items, the card shows a
-      setup state ("Add your income and regular bills to see what's safe
-      to spend") with those two actions, not a green 0. Totals carry
-      words or a legend for the glyphs.
 
 - [ ] **UX-117. Safe to spend as a daily number, with a labelled pace
       chart** (impact: med, effort: S) — Delight, Hierarchy. Calm, with
