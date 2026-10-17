@@ -354,21 +354,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       household" is a menu item at the bottom of the household switcher
       dropdown, on desktop too.
 
-- [ ] **UX-47. Long household names break the header and sidebar**
-      (impact: high, effort: S) — breaks M1 and M9.
-      - The name field accepts 60 characters, but the switcher trigger is
-        a `Button`, whose base `shrink-0 whitespace-nowrap`
-        (`src/components/ui/button.tsx:6`) overrides the switcher's
-        `min-w-0 line-clamp-2` (`household-switcher.tsx:93`).
-      - On a phone a 58-character name pushes the chevron and "+" off
-        the 412 px screen, out of reach.
-      - On desktop even a 37-character name ("Familjen Öberg-Håkansson på
-        Södermalm") spills over the sidebar onto the page heading.
-      Acceptance: with a 60-character household name, the header and
-      sidebar truncate the name and the full name is reachable (dropdown
-      or title). The chevron stays visible at 412 and 1280 px, and
-      `expectNoHorizontalOverflow` passes.
-
 - [ ] **UX-48. Keep toasts off bottom-sheet buttons and the shopping
       dock** (impact: high, effort: S) — breaks M2 and User control. On
       phones the toast's bottom offset is 4.75rem
