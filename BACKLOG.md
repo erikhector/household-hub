@@ -321,7 +321,7 @@ Every item below was reproduced in a screenshot or confirmed in code
 
 **Start here.** These items are broken or actively mislead people, so
 build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
-UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
+UX-89, UX-90, UX-102, UX-113, UX-116.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -337,7 +337,7 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51, UX-76.
 - `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-93, UX-127, UX-129.
+  `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
 
 #### Shell and cross-cutting
@@ -869,20 +869,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       The New list sheet offers "Start from: blank / a template / a
       recent list (unbought or all items)". Template rows say "Use".
 
-- [ ] **UX-87. Don't log a partial estimate as the trip's cost**
-      (impact: high, effort: S) — breaks User control (automation
-      suggests) and Consistency. ⚠️ Touches transaction logging (money,
-      human-only area).
-      - Completing a 14-item shop with one priced item toasts "Logged
-        24.90 to Groceries in your budget"
-        (`shopping-list/actions.ts:2088-2109`). The budget silently
-        records a fraction of the trip.
-      - Mid-shop, the header's "About 24.90 left to spend" (`en.ts:534`)
-        reads like the budget's safe to spend.
-      Acceptance: the header reads "≈ 24.90 still to buy (1 of 14
-      priced)". When some bought items are unpriced, completion says so
-      and lets the user edit or skip the amount before it is logged.
-
 - [ ] **UX-88. Smart add: don't split on commas inside brackets**
       (impact: low, effort: S) — Usability. "dishwasher tablets
       (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
@@ -943,18 +929,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113, UX-116.
       - The instructions only show in cook mode or the edit form.
       Acceptance: the sheet has "Add to plan", which opens the date and
       slot picker, and lists the instruction steps under the ingredients.
-
-- [ ] **UX-93. Enter in an ingredient name submits the whole recipe**
-      (impact: high, effort: S) — bug, breaks Usability. Typing "Wheat
-      flour" and pressing Enter jumps to "Match ingredients" before
-      quantity, unit or any other ingredient
-      (`src/components/inventory/combo-field.tsx:57-59`). The popup's
-      `Use "Wheat flour"` row looks like an option but is the empty-state
-      text: tapping it does nothing, and it stays open over the quantity
-      field. ComboField is shared with the inventory dialogs.
-      Acceptance: Enter in an ingredient name moves focus to that row's
-      quantity (or adds a row) and never submits. Tapping `Use "X"`
-      accepts the value and closes the popup.
 
 - [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
       as cooked"** (impact: high, effort: M) — breaks Context (kitchen),

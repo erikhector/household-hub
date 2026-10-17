@@ -74,7 +74,8 @@ import { cn } from "@/lib/utils";
 import type { SmartAddCandidate } from "@/lib/shopping/smart-add-suggestions";
 import { groupPendingItemsByCategory, type ShoppingModeGroup } from "@/lib/shopping/shopping-mode-grouping";
 import type { StoreOrder } from "@/lib/shopping/store-order";
-import { sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
+import { PartialPriceDialog } from "@/components/shopping/partial-price-dialog";
+import { countPriced, sumEstimatedPendingTotal } from "@/lib/shopping/estimated-total";
 import { nextUp, shoppingProgress, type ShoppingProgress } from "@/lib/shopping/shopping-progress";
 import {
   hasTicksInFlight,
@@ -387,6 +388,15 @@ export function ShoppingListClient({
   // sumEstimatedPendingTotal's own doc comment for why this is pending-only
   // and per-unit/unmultiplied.
   const estimatedTotal = sumEstimatedPendingTotal(pendingItems);
+  // UX-87: "1 of 14 priced" next to the amount, so a sum over a few priced
+  // rows doesn't pass for the cost of the whole trip.
+  const pendingPriced = countPriced(pendingItems);
+  // Same question for what's already in the cart, asked when completing: the
+  // Groceries expense is the sum of the priced bought rows, so when some
+  // bought rows have no price that sum undercounts the trip.
+  const boughtPriced = countPriced(purchasedItems);
+  const boughtPricedTotal = sumEstimatedPendingTotal(purchasedItems);
+  const hasPartialPrices = boughtPriced.priced > 0 && boughtPriced.priced < boughtPriced.total;
 
   const showResolveMappings = isActive && unresolvedItems.length >= BATCH_RESOLVE_THRESHOLD;
   const resolveMappingsLabel = format(plural(unresolvedItems.length, dict.resolveMappings.triggerButton), {
@@ -402,6 +412,7 @@ export function ShoppingListClient({
     share: createDialogHandle(),
     resolveMappings: createDialogHandle(),
     completeList: createDialogHandle(),
+    partialPrice: createDialogHandle(),
     deleteList: createDialogHandle(),
     reorderSections: createDialogHandle(),
     saveTemplate: createDialogHandle(),
@@ -453,9 +464,9 @@ export function ShoppingListClient({
   // the toast carries an "Undo" (BACKLOG.md's "undo over confirm") that
   // reopens the list and removes exactly the Groceries expense this
   // completion logged, if any.
-  const completeList = () =>
+  const runComplete = (amount?: number | null) =>
     startTransition(async () => {
-      const result = await completeShoppingListAction(list.id);
+      const result = await completeShoppingListAction(list.id, amount);
       if (result.error) {
         toast.error(result.error);
         return;
@@ -474,6 +485,10 @@ export function ShoppingListClient({
       });
       if (result.unresolvedNotice) toast.info(result.unresolvedNotice);
     });
+
+  // UX-87: with some bought rows unpriced, ask what to log before the list
+  // closes; otherwise complete as before.
+  const completeList = () => (hasPartialPrices ? dialogs.partialPrice.open(null) : runComplete());
 
   const finishTrip = (confirmFirst: boolean) => {
     if (awaitingPutAway.length > 0) setPutAwayMode("finish");
@@ -571,7 +586,11 @@ export function ShoppingListClient({
               nothing to estimate yet otherwise. */}
           {estimatedTotal > 0 && (
             <p className="text-sm text-muted-foreground">
-              {format(dict.estimatedTotal, { amount: numberFormat.format(estimatedTotal) })}
+              {format(dict.estimatedTotal, {
+                amount: numberFormat.format(estimatedTotal),
+                priced: pendingPriced.priced,
+                total: pendingPriced.total,
+              })}
             </p>
           )}
         </div>
@@ -799,6 +818,14 @@ export function ShoppingListClient({
             pendingLabel={dict.confirmCompleteList.confirming}
             variant="default"
             onConfirm={completeList}
+          />
+          <PartialPriceDialog
+            handle={dialogs.partialPrice}
+            suggested={boughtPricedTotal}
+            unpriced={boughtPriced.total - boughtPriced.priced}
+            total={boughtPriced.total}
+            dict={dict.partialPrice}
+            onConfirm={runComplete}
           />
         </>
       )}
