@@ -743,9 +743,13 @@ export function RecipeFormDialog({
                         placeholder={dict.ingredientNamePlaceholder}
                         maxLength={120}
                         dict={dict}
+                        // Enter moves on to this row's quantity instead of
+                        // submitting the recipe half-filled (UX-93).
+                        onEnter={() => document.getElementById(`ingredient-quantity-${row.uid}`)?.focus()}
                       />
                     </div>
                     <Input
+                      id={`ingredient-quantity-${row.uid}`}
                       name="ingredientQuantity"
                       type="number"
                       inputMode="decimal"

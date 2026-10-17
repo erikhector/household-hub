@@ -360,6 +360,14 @@ outbound email to arbitrary addresses via this app's sending domain.
   page filters its already-fetched member list by `userId`; the overview runs
   a dedicated `householdMember.count` query since it doesn't otherwise fetch
   members). Hidden entirely when the household has only the current user.
+- **Overview greeting (UX-72)**: the overview heading greets by first name
+  ("Good afternoon, Åsa", never the full display name) and by the hour in the
+  user's own time zone. The server runs in UTC and doesn't know the zone, so
+  `components/dashboard/greeting.tsx` reads the hour in the browser
+  (`useSyncExternalStore`); the server render shows the neutral
+  `dashboard.greeting.hello` ("Hello, Åsa") until hydration. Bucketing and
+  first-name extraction are `src/lib/greeting.ts`. Nothing is stored, so no
+  cookie-inventory entry. Covered by `e2e/overview-greeting.spec.ts`.
 
 ## Data model
 
@@ -913,7 +921,11 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       pinned by its bottom edge, so a footer appearing when the server
       confirms a just-added fourth row would shift the dock up a line, late
       (MAINT-18; `e2e/motion.spec.ts` guards it). Every item it offers is also in the
-      list with its own checkbox (M7).
+      list with its own checkbox (M7). A tick is still instant, but the
+      ticked row stays in the dock for 450 ms as a filled check while every
+      dock row is disabled, so the second tap of a double tap can't land on
+      the item that slides up under the finger (UX-78; the slot count is
+      held so the dock doesn't change height).
     - *All done*: the cleared state shows the full ring with a tick and pops
       in (motion-safe). When ticked rows still wait to be put away it says
       how many and its primary action is "Put things away", which opens the
@@ -922,7 +934,7 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       an active list, the squirrel mark rises into the full ring in place
       of the tick (UX-38, see "Mascot empty states").
     - Covered by `e2e/shopping-mode.spec.ts` (a whole shop from the dock in
-      the bottom half of a phone screen with no scrolling, the collapsed
+      the bottom half of a phone screen with no scrolling, a double tap ticking only one item, the collapsed
       cart and full-row tap, the put-away offer, a new row landing above
       the dock, a failed tick rolling back while a slower one is still
       saving).
@@ -1941,6 +1953,15 @@ job of link-fixing unlinked items and flipping the list to `COMPLETED`:
   usually arrives with `estimatedPrice` already filled in, so in practice
   this total is rarely 0 once a household has bought something at least
   once.
+- **Partly priced trips (UX-87)**: when some, but not all, purchased items
+  have a price, "Done shopping" / "Complete list" first opens
+  `PartialPriceDialog`, which says how many bought items have no price and
+  pre-fills the sum of the priced ones. The user logs that amount, edits it
+  to the real total, or chooses "Don't log" (the list completes with no
+  expense). `completeShoppingListAction(listId, amountOverride?)` takes the
+  chosen amount (`undefined` = the sum as before, `null` = log nothing, a
+  number validated like a price, 0 to 1 000 000). All-priced and none-priced
+  trips complete without the extra step.
 
 #### Prices fill themselves in (AUTO-4)
 
@@ -1978,9 +1999,11 @@ toggle the checkbox the label is wired to. Tapping it swaps in a small inline
 number input (save/cancel icon buttons, `Escape` to cancel) that calls the
 new `updateShoppingListItemPriceAction`; this is the only path a user ever
 corrects an estimate through, and the correction sticks — no create path
-touches a saved row's price again. The list header shows a running "About
-{amount} left to spend", summing `estimatedPrice` the same per-unit way but
-only over *pending* (not yet purchased) items — a purchased item's price is
+touches a saved row's price again. The list header shows a running "≈
+{amount} still to buy ({priced} of {total} priced)" (UX-87: the count says
+how much of what's left the amount covers, so a sum over one priced row of
+fourteen doesn't read as the trip's cost), summing `estimatedPrice` the same
+per-unit way but only over *pending* (not yet purchased) items — a purchased item's price is
 already folded into `lastKnownPrice` and the eventual Groceries expense, so
 counting it again here would double it into "what's left". Both the row
 amount and the header total use the same `Intl.NumberFormat` convention as
@@ -3639,6 +3662,13 @@ the `Recipe` / `RecipeIngredient` / `MealPlan` / `MealPlanEntry` models:
     `requireHousehold`, one inventory `findMany`) returns the matches, the
     household's items (with their saved unit conversions) and categories,
     and a guessed category for each row without a confident match.
+  - **Ingredient name Enter (UX-93)**: Enter in an ingredient name never
+    submits the recipe. `ComboField`'s optional `onEnter` swallows an
+    Enter with no suggestion highlighted and the dialog moves focus to
+    that row's quantity (Enter on a highlighted suggestion still picks
+    it). The popup's `Use "X"` row is a real button: tapping it keeps the
+    typed value, closes the popup and moves on the same way. Inventory
+    dialogs don't pass `onEnter`, so their Enter behaviour is unchanged.
   - **Dialog**: pressing Save in `RecipeFormDialog` previews first. When
     every row is confident and its unit is `same`/`convertible`/`known`
     (or the row was already linked when the recipe was opened), the recipe saves

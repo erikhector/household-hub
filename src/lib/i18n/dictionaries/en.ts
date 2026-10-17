@@ -396,6 +396,8 @@ export const en = {
     title: "Overview",
     subtitle: "What needs your attention right now.",
     greeting: {
+      // Server render, before the browser knows the local hour (UX-72).
+      hello: "Hello, {name}",
       morning: "Good morning, {name}",
       afternoon: "Good afternoon, {name}",
       evening: "Good evening, {name}",
@@ -510,6 +512,18 @@ export const en = {
       confirm: "Complete list",
       confirming: "Completing…",
     },
+    // UX-87: the step before completing when only some of the bought items
+    // have a price.
+    partialPrice: {
+      title: "Some bought items have no price",
+      description: {
+        one: "Of {total} bought items, {unpriced} has no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+        other: "Of {total} bought items, {unpriced} have no price, so the amount below may be less than the trip cost. Adjust it, or skip logging anything to your budget.",
+      },
+      amountLabel: "Amount to log in your budget",
+      log: "Log amount",
+      skip: "Don't log",
+    },
     unarchive: "Unarchive",
     archive: "Archive",
     delete: "Delete",
@@ -542,7 +556,7 @@ export const en = {
     rowActionsAriaLabel: "More actions for {name}",
     // AUTO-4: the header's running estimate and each row's tappable "≈
     // price" / inline correction input.
-    estimatedTotal: "About {amount} left to spend",
+    estimatedTotal: "≈ {amount} still to buy ({priced} of {total} priced)",
     addPriceLabel: "Add price",
     editPriceAriaLabel: "Edit estimated price for {name}",
     addPriceAriaLabel: "Add an estimated price for {name}",

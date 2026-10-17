@@ -247,6 +247,19 @@ then MAINT-7 per feature, to avoid churn.
       loosen the assertion or add a retry. Acceptance: `npx playwright
       test e2e/meal-prep.spec.ts -g "record, plan, return and eat"
       --project=desktop --project=mobile --repeat-each=30` passes 60/60.
+- [ ] **MAINT-22. Flaky: `page.reload` aborted in the duplicate-recipe Undo
+      test** (medium, S) — `[desktop]` and `[mobile]`
+      `e2e/duplicate-recipe.spec.ts:67` ("Undo on the toast removes the
+      copy and leaves the original") fails with `page.reload:
+      net::ERR_ABORTED`. On clean `next` (2c99254) it failed 5 of 16 runs
+      with `--repeat-each=8`; it also failed and passed on re-run in
+      builder gates for PRs #268 and #272. The reload is probably issued
+      while the Undo server action's revalidation navigation is still in
+      flight. Fix the cause in the app or in what the test waits for
+      (wait for the undo to settle before reloading). Don't loosen the
+      assertion, skip it or add a retry. Acceptance: `npx playwright test
+      e2e/duplicate-recipe.spec.ts:67 --project=desktop --project=mobile
+      --repeat-each=30` passes 60/60.
 
 ### UX (2026-09-26 scout)
 
@@ -307,8 +320,8 @@ Every item below was reproduced in a screenshot or confirmed in code
 (file:line). Items already open elsewhere in this file were left out.
 
 **Start here.** These items are broken or actively mislead people, so
-build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57, UX-78,
-UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
+build them first: UX-46, UX-47, UX-48, UX-55, UX-56, UX-57,
+UX-89, UX-90, UX-102, UX-113.
 
 **Built elsewhere.** Six items sit in other sections of this file:
 - Phase 2, because they need a migration: UX-133 (task due dates) and
@@ -318,13 +331,13 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
 **File conflicts.** Don't build these in parallel:
 - `src/components/shopping/shopping-list-client.tsx`: UX-49, UX-79,
   UX-80, UX-81, UX-84, UX-85, UX-86.
-- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-72, UX-110.
+- `src/app/dashboard/page.tsx`: UX-69, UX-70, UX-71, UX-110.
 - `src/components/budget/transaction-dialog.tsx`: UX-109, UX-111, UX-113.
 - `src/components/tasks/tasks-client.tsx`: UX-49, UX-101, UX-104,
   UX-105, UX-106.
 - `src/app/dashboard/profile/`: UX-51, UX-76.
 - `src/components/inventory/combo-field.tsx` and
-  `src/components/ui/autocomplete.tsx`: UX-93, UX-127, UX-129.
+  `src/components/ui/autocomplete.tsx`: UX-127, UX-129.
 - `src/components/meal-planning/week-planner.tsx`: UX-49, UX-91, UX-99.
 
 #### Shell and cross-cutting
@@ -724,14 +737,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
       is actionable or removed. Empty counts use friendly copy ("No lists
       yet — start one").
 
-- [ ] **UX-72. Greet in the user's own time zone, by first name**
-      (impact: low, effort: S) — Context. The greeting uses the server's
-      UTC hour (`src/app/dashboard/page.tsx:30`), so a Stockholm user sees
-      "Good morning" at 13:00. It also uses the full display name ("Good
-      evening, Åsa Lindström") at 30 px.
-      Acceptance: at 12:30 Europe/Stockholm the heading says "Good
-      afternoon, Åsa".
-
 - [ ] **UX-73. New households get a currency from their language**
       (impact: med, effort: S) — breaks M4 (default what you can derive).
       `Household.currencyCode` stays null after signup
@@ -781,17 +786,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
       `squirrel-my-data-<date>.json`.
 
 #### Shopping
-
-- [ ] **UX-78. A double tap in the "Next up" dock ticks two items**
-      (impact: high, effort: S) — bug, breaks M5. A ticked dock row is
-      removed within about 60 ms and the next item slides under the same
-      finger (`src/components/shopping/shopping-mode.tsx:158-172`). Two
-      taps 90 ms apart ticked milk *and* eggs (5 → 7 of 14), and no toast
-      said so.
-      Acceptance: two taps within 400 ms on a dock row tick only that
-      item. The row shows a filled check (UX-54) before the next item
-      moves up. An e2e test double-taps a dock row and sees progress rise
-      by exactly 1.
 
 - [ ] **UX-79. Compact rows on an active list** (impact: high, effort:
       M) — breaks M6. Every pending row is 118 px: a name line plus
@@ -884,20 +878,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
       rows, the dock, the share page and copied text. Any other quantity
       ("milk × 2 l") still shows.
 
-- [ ] **UX-87. Don't log a partial estimate as the trip's cost**
-      (impact: high, effort: S) — breaks User control (automation
-      suggests) and Consistency. ⚠️ Touches transaction logging (money,
-      human-only area).
-      - Completing a 14-item shop with one priced item toasts "Logged
-        24.90 to Groceries in your budget"
-        (`shopping-list/actions.ts:2088-2109`). The budget silently
-        records a fraction of the trip.
-      - Mid-shop, the header's "About 24.90 left to spend" (`en.ts:534`)
-        reads like the budget's safe to spend.
-      Acceptance: the header reads "≈ 24.90 still to buy (1 of 14
-      priced)". When some bought items are unpriced, completion says so
-      and lets the user edit or skip the amount before it is logged.
-
 - [ ] **UX-88. Smart add: don't split on commas inside brackets**
       (impact: low, effort: S) — Usability. "dishwasher tablets
       (lemon-free, 120 st), paper towels" became "…(lemon-free × 1 pcs"
@@ -958,18 +938,6 @@ UX-87, UX-89, UX-90, UX-93, UX-102, UX-113.
       - The instructions only show in cook mode or the edit form.
       Acceptance: the sheet has "Add to plan", which opens the date and
       slot picker, and lists the instruction steps under the ingredients.
-
-- [ ] **UX-93. Enter in an ingredient name submits the whole recipe**
-      (impact: high, effort: S) — bug, breaks Usability. Typing "Wheat
-      flour" and pressing Enter jumps to "Match ingredients" before
-      quantity, unit or any other ingredient
-      (`src/components/inventory/combo-field.tsx:57-59`). The popup's
-      `Use "Wheat flour"` row looks like an option but is the empty-state
-      text: tapping it does nothing, and it stays open over the quantity
-      field. ComboField is shared with the inventory dialogs.
-      Acceptance: Enter in an ingredient name moves focus to that row's
-      quantity (or adds a row) and never submits. Tapping `Use "X"`
-      accepts the value and closes the popup.
 
 - [ ] **UX-94. Cook mode keeps progress safe and ends with "Done — mark
       as cooked"** (impact: high, effort: M) — breaks Context (kitchen),

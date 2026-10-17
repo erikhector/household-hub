@@ -368,6 +368,7 @@ export const sv = {
     title: "Översikt",
     subtitle: "Det som behöver din uppmärksamhet just nu.",
     greeting: {
+      hello: "Hej, {name}",
       morning: "God morgon, {name}",
       afternoon: "God eftermiddag, {name}",
       evening: "God kväll, {name}",
@@ -482,6 +483,18 @@ export const sv = {
       confirm: "Markera som klar",
       confirming: "Markerar…",
     },
+    // UX-87: steget före klarmarkering när bara en del av de köpta varorna
+    // har pris.
+    partialPrice: {
+      title: "Vissa köpta varor saknar pris",
+      description: {
+        one: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+        other: "{unpriced} av {total} köpta varor saknar pris, så summan nedan kan vara lägre än vad inköpet kostade. Justera beloppet eller hoppa över att logga något i budgeten.",
+      },
+      amountLabel: "Belopp att logga i budgeten",
+      log: "Logga belopp",
+      skip: "Logga inget",
+    },
     unarchive: "Återställ",
     archive: "Arkivera",
     delete: "Ta bort",
@@ -514,7 +527,7 @@ export const sv = {
     rowActionsAriaLabel: "Fler åtgärder för {name}",
     // AUTO-4: sidhuvudets löpande uppskattning och varje rads tryckbara "≈
     // pris" / inline-korrigeringsfält.
-    estimatedTotal: "Cirka {amount} kvar att spendera",
+    estimatedTotal: "≈ {amount} kvar att köpa ({priced} av {total} med pris)",
     addPriceLabel: "Lägg till pris",
     editPriceAriaLabel: "Redigera uppskattat pris för {name}",
     addPriceAriaLabel: "Lägg till ett uppskattat pris för {name}",
