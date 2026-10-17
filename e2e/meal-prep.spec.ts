@@ -144,7 +144,7 @@ const preppedBadges = (names: Locator) => names.locator("xpath=ancestor::button[
 
 test("record, plan, return and eat a prepped batch", async ({ page }, testInfo) => {
   // The whole GAP-49 journey in one test: about twenty steps, five server
-  // actions and four page loads, 17-20 s on an idle machine. That leaves
+  // actions and seven page loads, 17-20 s on an idle machine. That leaves
   // too little of the default 30 s under three loaded workers, where it
   // timed out at the last step (Discard) with that save still in flight. Each
   // assertion keeps its own 5 s wait; only the test's total budget grows.
