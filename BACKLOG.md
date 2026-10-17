@@ -1278,12 +1278,15 @@ UX-89, UX-90, UX-102, UX-113.
 
 - [ ] **DEPS-4. Bump Next.js, Prisma and Playwright to their latest minors** (impact: med, effort: S) —
       DEPS-3 doesn't list the core stack: `next` and `eslint-config-next`
-      16.3.4→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
+      16.4.0→16.4.2, `prisma`, `@prisma/client` and `@prisma/adapter-pg`
       7.10.0→7.10.1, `@playwright/test` 1.56→1.64. Keep them out of DEPS-3
       so a regression bisects to the framework. Read the Next 16.4 notes in
       `node_modules/next/dist/docs/` for changed APIs, and regenerate the
-      client (`postinstall`). Playwright needs the Chromium build the
-      environment provides (`executablePath` in `playwright.config.ts`).
+      client (`postinstall`). Playwright finds its browsers through
+      `PLAYWRIGHT_BROWSERS_PATH` (the web image ships the Chromium build
+      that matches 1.56, and `playwright install` is not allowed there), so
+      check 1.64 still launches against it, or pin `executablePath` in
+      `playwright.config.ts` if it doesn't.
       Acceptance: `npm outdated` no longer lists these; `npm run ci:local`
       is green on desktop and mobile.
 
