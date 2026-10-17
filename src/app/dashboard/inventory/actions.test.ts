@@ -129,6 +129,7 @@ const {
   bulkCreateInventoryItemsAction,
   adjustQuantityAction,
   markItemEmptyAction,
+  addInventoryItemsToShoppingListAction,
   markItemOpenedAction,
   undoMarkItemOpenedAction,
   freezeItemAction,
@@ -1155,6 +1156,43 @@ describe("bulkSetInventoryQuantitiesAction (PERF-15)", () => {
   it("rejects an empty batch without touching the database", async () => {
     const result = await bulkSetInventoryQuantitiesAction([]);
     expect(result.error).toBeDefined();
+    expect(findManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("addInventoryItemsToShoppingListAction (UX-122)", () => {
+  it("adds the household's items to the default list as the person's own rows and leaves stock alone", async () => {
+    const a = { id: "item-1", name: "Spaghetti", quantity: 1, lowStockThreshold: 2 };
+    const b = { id: "item-2", name: "Rice", quantity: 5, lowStockThreshold: 1 };
+    findManyMock.mockResolvedValue([a, b]);
+    addItemToDefaultListMock
+      .mockResolvedValueOnce({ list: { id: "default-list", name: "Next shop" }, created: { shoppingListItemId: "r1" } })
+      .mockResolvedValueOnce({ list: { id: "default-list", name: "Next shop" }, created: null });
+
+    const result = await addInventoryItemsToShoppingListAction(["item-1", "item-2", "item-1"]);
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["item-1", "item-2"] }, householdId: "household-1" },
+    });
+    expect(addItemToDefaultListMock).toHaveBeenCalledTimes(2);
+    expect(addItemToDefaultListMock).toHaveBeenCalledWith(expect.anything(), "household-1", a, false);
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ listName: "Next shop", added: 1, alreadyOnList: 1 });
+  });
+
+  it("returns 'Item not found' when none of the ids are in this household (IDOR guard)", async () => {
+    findManyMock.mockResolvedValue([]);
+
+    const result = await addInventoryItemsToShoppingListAction(["other-households-item"]);
+
+    expect(result.error).toBe("Item not found");
+    expect(addItemToDefaultListMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty selection", async () => {
+    const result = await addInventoryItemsToShoppingListAction([]);
+
+    expect(result.error).toBe("Item not found");
     expect(findManyMock).not.toHaveBeenCalled();
   });
 });

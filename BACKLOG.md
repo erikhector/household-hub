@@ -1129,20 +1129,6 @@ UX-89, UX-90, UX-102, UX-113.
       expiring") that filter the list. Status filters include Expiring and
       Expired.
 
-- [ ] **UX-122. Add an item to the shopping list without zeroing its
-      stock** (impact: high, effort: S) — breaks User-centricity and User
-      control.
-      - The row menu's only list action is "Mark as empty & add to
-        shopping list" (`item-actions.tsx:192-195`), so buying more
-        spaghetti while one is left means wiping the stock.
-      - Rows don't show that an item is already on a list.
-      - Bulk selection can't add to a list.
-      - With auto-add on, the two mark-empty menu entries do the same
-        thing.
-      Acceptance: the row menu and bulk bar offer "Add to shopping list",
-      which leaves stock unchanged. Rows on a list show an "On list" tag.
-      Only one mark-empty entry shows when auto-add is on.
-
 - [ ] **UX-123. Keep the bulk-edit bar on screen on phones** (impact:
       med, effort: S) — bug, breaks M2 and M5. The bar is `max-sm:sticky
       max-sm:bottom-0` but is rendered before the list

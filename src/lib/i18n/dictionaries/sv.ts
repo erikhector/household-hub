@@ -1235,6 +1235,20 @@ export const sv = {
         other: "Uppdaterade {field} för {count} varor",
       },
     },
+    addToList: {
+      menu: "Lägg till i inköpslista",
+      ariaLabel: "Lägg till {name} i inköpslistan",
+      bulk: "Lägg till i inköpslista",
+      onList: "På listan",
+      addedToast: {
+        one: 'Lade till {count} vara i "{list}"',
+        other: 'Lade till {count} varor i "{list}"',
+      },
+      alreadyToast: {
+        one: 'Finns redan i "{list}"',
+        other: 'Alla {count} varor finns redan i "{list}"',
+      },
+    },
     unitsAndDetailsLink: "Enheter, recept och detaljer",
     unitChangeNeedsItemPage:
       "Varan har lager eller sparade enhetsomvandlingar, så att bara byta enhet skulle göra mängderna fel. Använd ”Byt enhet…” på varans detaljsida i stället.",
