@@ -891,6 +891,15 @@ See `prisma/schema.prisma` for the authoritative version. Summary:
       its padding, note or hint ticks it, still through the native
       label/input pairing; the controls column (price, edit, delete) sits
       above it at `z-10`.
+    - *One line per row on a phone (UX-79)*: an unticked row whose
+      controls are only price and ⋯ (no category chip, not unlinked) keeps
+      them on the name's line, 56 px tall instead of 118, so 6+ whole rows
+      of a 15-item list fit between the sticky add bar and the dock at
+      412×839. With no price set, "Add price" isn't on the row; the ⋯
+      menu carries it (Edit, Add price, Delete) and opens the same inline
+      editor. Once there is a price, the ≈ price button stays on the row.
+      Rows with a chip or the "Match item" badge keep the stacked second
+      line.
     - *Ticks move*: the optimistic tick state (UX-14) is lifted from each
       row into `ShoppingListClient`, because a ticked row now changes
       section. It's plain state, not `useOptimistic`: React 19 entangles
