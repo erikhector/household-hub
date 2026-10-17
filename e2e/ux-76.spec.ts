@@ -54,6 +54,7 @@ test("rare items sit behind disclosures", async ({ page }) => {
 
 test("desktop lays sections in two columns, phones in one", async ({ page }) => {
   await page.goto("/dashboard/profile");
+  await expect(page.locator("#profile-preferences")).toBeVisible();
   const account = await page.locator("#profile-account").boundingBox();
   const preferences = await page.locator("#profile-preferences").boundingBox();
   expect(account && preferences).toBeTruthy();
@@ -69,6 +70,9 @@ test("desktop lays sections in two columns, phones in one", async ({ page }) => 
 test("Log out is the last thing on the profile and signs out", async ({ page }) => {
   await page.goto("/dashboard/profile");
   const logOut = page.locator("main").getByRole("button", { name: en.nav.logOut });
+  // boundingBox() doesn't wait, so wait for both to be on screen first.
+  await expect(page.locator("#profile-data")).toBeVisible();
+  await expect(logOut).toBeVisible();
   const lastHeading = await page.locator("#profile-data").boundingBox();
   const button = await logOut.boundingBox();
   expect(button!.y).toBeGreaterThan(lastHeading!.y);
