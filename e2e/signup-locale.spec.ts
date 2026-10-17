@@ -28,13 +28,16 @@ test("signing up in Swedish gives a Swedish dashboard on first login", async ({
   await page.getByLabel(t.password, { exact: true }).fill(E2E_PASSWORD);
   await page.getByLabel(t.confirmPassword).fill(E2E_PASSWORD);
   await page.getByRole("button", { name: t.submit }).click();
-  await expect(page.getByText(email)).toBeVisible();
-
+  // The confirmation panel differs with whether the e2e environment can send
+  // mail, so wait for the account row itself rather than for the panel.
   // Sign-in is gated on a verified email, so verify the row directly and
   // check what was stored.
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
+    await expect
+      .poll(async () => (await client.query(`SELECT 1 FROM "User" WHERE email = $1`, [email])).rowCount)
+      .toBe(1);
     const res = await client.query(
       `UPDATE "User" SET "emailVerifiedAt" = now() WHERE email = $1 RETURNING locale`,
       [email],
