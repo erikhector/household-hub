@@ -4951,6 +4951,21 @@ any member's star is everyone's star.
   Recipes list itself stays alphabetical. The star is visible there, and
   search already narrows the list.
 
+### Recipe sheet: Add to plan and instructions (UX-92)
+
+A recipe's sheet on the Recipes tab (`RecipeRow` in `recipe-manager.tsx`)
+answers "what's for dinner?" without opening Cook or Edit.
+
+- **Instructions**: when the recipe has any, the steps appear as a numbered
+  list under the ingredients (`splitSteps`, the same one-step-per-line split
+  Cook mode uses). A recipe without instructions shows no section.
+- **Add to plan**: the first button in the sheet's action list. It closes the
+  sheet and opens the same `AddToPlanDialog` the Cook now tab uses (date,
+  meal type, portions defaulting to the recipe's servings), controlled by the
+  row. The Planner tab's week is passed in as `plannerWeekStartKey`, so a
+  date in another week gets the "View that week" toast. Covered by
+  `e2e/recipe-sheet-plan.spec.ts`.
+
 ### Cook mode (GAP-42)
 
 Paprika, Mealie and Tandoor all have a "cook" view. Squirrel showed a

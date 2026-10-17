@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { CalendarPlus, ChevronRight, CookingPot, Copy, CopyPlus, Layers, ListChecks, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -23,7 +23,8 @@ import {
   type DialogHandle,
 } from "@/components/ui/dialog";
 import { PrimaryAction } from "@/components/dashboard/primary-action";
-import { formatCookQuantity } from "@/lib/cook-mode-calc";
+import { formatCookQuantity, splitSteps } from "@/lib/cook-mode-calc";
+import { AddToPlanDialog } from "@/components/meal-planning/add-to-plan-dialog";
 import { CookModeDialog } from "@/components/meal-planning/cook-mode-dialog";
 import { RecipeFormDialog } from "@/components/meal-planning/recipe-form-dialog";
 import { UseItUpSuggestions } from "@/components/meal-planning/use-it-up-suggestions";
@@ -71,6 +72,7 @@ export function RecipeManager({
   useItUpSuggestions,
   ingredientNames,
   ingredientUnits,
+  plannerWeekStartKey,
 }: {
   dict: MealPlanningDict;
   locale: Locale;
@@ -86,6 +88,9 @@ export function RecipeManager({
   useItUpSuggestions: UseItUpSuggestionData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
+  // The week shown in the Planner tab, so AddToPlanDialog can say when it
+  // saves into another week (UX-92).
+  plannerWeekStartKey: string;
 }) {
   // MATCH-6: the item page links a recipe as `?tab=recipes&recipe=<id>`,
   // which opens the list searched down to that recipe.
@@ -193,6 +198,7 @@ export function RecipeManager({
                   allRecipes={recipes}
                   ingredientNames={ingredientNames}
                   ingredientUnits={ingredientUnits}
+                  plannerWeekStartKey={plannerWeekStartKey}
                   openEditOnMount={editNewId === recipe.id}
                   onEditOpened={() => setEditNewId(null)}
                   onDuplicated={setEditNewId}
@@ -216,6 +222,7 @@ function RecipeRow({
   allRecipes,
   ingredientNames,
   ingredientUnits,
+  plannerWeekStartKey,
   openEditOnMount,
   onEditOpened,
   onDuplicated,
@@ -229,6 +236,7 @@ function RecipeRow({
   allRecipes: RecipeData[];
   ingredientNames: string[];
   ingredientUnits: Record<string, string>;
+  plannerWeekStartKey: string;
   openEditOnMount: boolean;
   onEditOpened: () => void;
   onDuplicated: (recipeId: string) => void;
@@ -358,6 +366,7 @@ function RecipeRow({
     });
   };
 
+  const instructionSteps = splitSteps(recipe.instructions);
   const servingsSummary = format(plural(recipe.servings, dict.servingsCount), { count: recipe.servings });
   // The row's one meta line: tags, servings, last cooked. Everything else
   // (ingredients, nutrition, cost) is in the recipe's sheet, so a row is
@@ -371,6 +380,10 @@ function RecipeRow({
     .join(" · ");
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  // UX-92: AddToPlanDialog is controlled, like the planner's toast-opened
+  // one: the sheet closes as the picker opens, so closing it lands back on
+  // the list.
+  const [planOpen, setPlanOpen] = useState(false);
   // Opened with a mouse or keyboard, the sheet focuses its title rather
   // than its first button, which would scroll a long recipe's body past
   // the ingredients (a finger's tap focuses the sheet itself, sheet-focus.ts).
@@ -503,7 +516,34 @@ function RecipeRow({
               {cookedSummary && <p>{cookedSummary}</p>}
             </div>
           )}
+          {/* UX-92: the steps are plain text, one per line (splitSteps), the
+              same split Cook mode reads; shown here so "what's for dinner?"
+              doesn't need Cook or Edit just to see the method. */}
+          {instructionSteps.length > 0 && (
+            <section className="flex flex-col gap-1">
+              <h3 className="font-medium">{dict.instructionsLabel}</h3>
+              <ol className="flex list-decimal flex-col gap-1 pl-5 marker:text-muted-foreground">
+                {instructionSteps.map((step, index) => (
+                  <li key={index} className="break-words">
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
           <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start"
+              onClick={() => {
+                setSheetOpen(false);
+                setPlanOpen(true);
+              }}
+            >
+              <CalendarPlus className="size-4" />
+              {dict.addToPlanButton}
+            </Button>
             {recipe.ingredients.length > 0 && (
               <Button
                 type="button"
@@ -566,6 +606,14 @@ function RecipeRow({
         </DialogContent>
       </Dialog>
 
+      <AddToPlanDialog
+        dict={dict}
+        recipeId={recipe.id}
+        recipeName={recipe.name}
+        defaultPortions={recipe.servings}
+        plannerWeekStartKey={plannerWeekStartKey}
+        controlled={{ open: planOpen, onOpenChange: setPlanOpen }}
+      />
       {recipe.instructions?.trim() && (
         <CookModeDialog dict={dict} locale={locale} recipe={recipe} handle={dialogs.cook} />
       )}
