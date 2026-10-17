@@ -43,7 +43,7 @@ test("the first-run cards say whose money each budget holds", async ({ page }, t
     const main = page.getByRole("main");
     await page.goto("/dashboard/budget");
     await expect(main.getByText("Let's set up your budget")).toBeVisible();
-    await expect(main.getByText(/Shared money for Villa Vinga: rent, food, bills\./).first()).toBeVisible();
+    await expect(main.getByText(/Shared money for Villa Vinga: rent, food, bills\. Add a category/)).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     await page.goto("/dashboard/personal-budget");
