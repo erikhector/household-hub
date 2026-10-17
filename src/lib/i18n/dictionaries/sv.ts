@@ -1737,7 +1737,13 @@ export const sv = {
     newListNameLabel: "Listans namn",
     newListNamePlaceholder: "t.ex. Veckohandling",
     addMissingIngredientsSubmit: "Lägg till i listan",
-    missingIngredientsAddedToast: 'Tillagd i "{list}"',
+    missingIngredientsAddedToast: {
+      one: '{count} vara tillagd i "{list}"',
+      other: '{count} varor tillagda i "{list}"',
+    },
+    missingIngredientsAlreadyOnListToast: 'Allt fanns redan i "{list}"',
+    openShoppingList: "Öppna listan",
+    addMissingToShoppingList: "Lägg till {count} saknade i inköpslista",
     markCookedAriaLabel: "Markera som lagad",
     markCookedUnavailableForCustomMeal:
       "Egna måltider är inte kopplade till ett recept, så det finns inget att markera som lagat",
