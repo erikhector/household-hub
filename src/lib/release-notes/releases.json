@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.72.0",
+    "date": "2026-10-17",
+    "pr": 304,
+    "kind": "feat",
+    "breaking": false,
+    "notes": {
+      "en": "Pressing Enter after typing an ingredient name in a recipe now moves on to the quantity instead of saving the recipe too early. Tapping the \"Use ...\" suggestion now accepts what you typed.\n\nThe shopping list now shows how many of the items left to buy have a price, and when you finish a trip where only some bought items are priced, it asks what amount to log to your budget (or lets you skip it).\n\nAn empty budget no longer says you're \"in good shape\". It now asks you to add your income and regular bills, and the totals explain what +, – and → mean.\n\nLong household names no longer push the switcher's buttons off the screen; they are shortened, and the full name shows in the menu.\n\nIf you sign up or join a household while Squirrel is in Swedish, your account now stays in Swedish, including your first login and the emails we send you.\n\nItems you add without an amount now show just their name, instead of \"× 1 pcs\".\n\nYour profile is now organised into Account, Preferences, Notifications and Data & privacy, with Log out at the bottom. On larger screens the sections sit side by side.",
+      "sv": "Att trycka på Enter efter ett ingrediensnamn i ett recept flyttar nu till mängden i stället för att spara receptet för tidigt. Att trycka på förslaget \"Använd ...\" tar nu med det du skrev.\n\nInköpslistan visar nu hur många av de varor som återstår som har ett pris. När du avslutar ett inköp där bara några av de köpta varorna har pris frågar den vilket belopp som ska loggas i budgeten (eller låter dig hoppa över det).\n\nEn tom budget säger inte längre att det ser bra ut. Den ber dig i stället lägga till din inkomst och dina återkommande räkningar, och summorna förklarar vad +, – och → betyder.\n\nLånga hushållsnamn trycker inte längre ut hushållsväxlarens knappar ur bild. Namnet kortas av och hela namnet syns i menyn.\n\nOm du skapar konto eller går med i ett hushåll när Squirrel visas på svenska förblir ditt konto på svenska, även vid första inloggningen och i mejlen vi skickar.\n\nVaror du lägger till utan mängd visas nu bara med namnet, utan \"× 1 pcs\".\n\nDin profil är nu ordnad i Konto, Inställningar, Aviseringar och Data och integritet, med Logga ut längst ner. På större skärmar ligger avsnitten bredvid varandra."
+    }
+  },
+  {
     "version": "0.71.1",
     "date": "2026-10-16",
     "pr": 288,
