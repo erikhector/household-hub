@@ -226,6 +226,8 @@ export async function joinViaInviteSignupAction(
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  // Store the language the join form was shown in (UX-56); see signupAction.
+  const locale = await getLocale();
   let userId: string;
   try {
     const created = await prisma.$transaction(async (tx) => {
@@ -235,7 +237,7 @@ export async function joinViaInviteSignupAction(
         data: { acceptedAt: new Date() },
       });
       if (claimed.count === 0) return null;
-      const user = await tx.user.create({ data: { email, passwordHash, displayName } });
+      const user = await tx.user.create({ data: { email, passwordHash, displayName, locale } });
       await tx.householdMember.create({
         data: { householdId: invitation.householdId, userId: user.id, role: "CONTRIBUTOR" },
       });
@@ -273,7 +275,6 @@ export async function joinViaInviteSignupAction(
       },
     });
     const verifyUrl = await absoluteAppUrl(`/verify-email/${rawToken}`);
-    const locale = await getLocale();
     const { error } = await sendVerificationEmail({ to: email, verifyUrl, locale });
     if (error) emailError = true;
   } catch (error) {

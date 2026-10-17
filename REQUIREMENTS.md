@@ -115,6 +115,12 @@ locale-specific URLs) — it's a considered tradeoff, not an oversight.
   account locale, then the `locale` cookie, then the browser's
   `Accept-Language` (`negotiateLocale()` in `locales.ts`, primary-subtag
   match, q-values honoured), then `en`.
+- **Signup stores the language it was shown in (UX-56)**: `signupAction`
+  and `joinViaInviteSignupAction` create the user with `locale` set to
+  `getLocale()` (the pre-auth cookie or browser language). Without it the DB
+  default `en` applied, and since the account locale outranks the cookie, a
+  Swedish signup met an English dashboard on first login (and English
+  reset/digest emails). `e2e/signup-locale.spec.ts` covers it.
 - **Server-action errors and shared labels (UX-16)**: what an action
   returns as `{ error }` is in the request's language. `dict.errors` holds
   the shared messages; `fail("itemNotFound")`, `zodFail(parsed.error)` and

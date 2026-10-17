@@ -18,6 +18,7 @@ const {
   householdUpdateManyMock,
   userFindUniqueMock,
   invitationFindUniqueMock,
+  txUserCreateMock,
   invitationFindFirstMock,
   invitationUpdateManyMock,
   householdMemberFindFirstMock,
@@ -45,6 +46,7 @@ const {
   householdUpdateManyMock: vi.fn(),
   userFindUniqueMock: vi.fn(),
   invitationFindUniqueMock: vi.fn(),
+  txUserCreateMock: vi.fn(async (_args: unknown) => ({ id: "new-user" })),
   invitationFindFirstMock: vi.fn(),
   invitationUpdateManyMock: vi.fn(async (): Promise<{ count: number }> => ({ count: 1 })),
   householdMemberFindFirstMock: vi.fn(),
@@ -73,7 +75,7 @@ const {
   transactionMock: vi.fn(async (arg: unknown) => {
     if (Array.isArray(arg)) return Promise.all(arg);
     return (arg as (tx: unknown) => unknown)({
-      user: { create: vi.fn(async () => ({ id: "new-user" })) },
+      user: { create: txUserCreateMock },
       householdMember: { create: vi.fn(async () => ({})), delete: householdMemberDeleteMock },
       invitation: { updateMany: invitationUpdateManyMock },
       transactionSplit: { findMany: transactionSplitFindManyMock, update: transactionSplitUpdateMock },
@@ -312,6 +314,26 @@ describe("joinViaInviteSignupAction validation (joinSignupSchema)", () => {
     const result = await joinViaInviteSignupAction({}, formData(validInput));
 
     expect(result.error).toBe("This invite link is invalid or has expired");
+  });
+
+  // UX-56: the account locale outranks the cookie after sign-in, so it must
+  // be stored from the language the form was shown in.
+  it("stores the UI language on the new account", async () => {
+    getLocaleMock.mockResolvedValueOnce("sv");
+    invitationFindUniqueMock.mockResolvedValue({
+      id: "invite-1",
+      householdId: "household-1",
+      acceptedAt: null,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      household: { name: "The Hectors" },
+    });
+    userFindUniqueMock.mockResolvedValue(null);
+
+    await joinViaInviteSignupAction({}, formData(validInput));
+
+    expect(txUserCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({ email: validInput.email, locale: "sv" }),
+    });
   });
 
   // joinViaInviteSignupAction no longer signs the new account in — a plain
